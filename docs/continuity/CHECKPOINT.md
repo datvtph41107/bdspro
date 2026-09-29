@@ -91,3 +91,44 @@ Do not pre-create:
 - framework/config/database infrastructure.
 
 Those boundaries must emerge from actual code/problem pressure.
+
+
+## Root-baseline evidence review — 2026-09-29
+
+Evidence reviewed:
+
+- official Go module layout guidance;
+- Moby;
+- Terraform;
+- Prometheus;
+- Kubernetes;
+- CockroachDB.
+
+Research:
+
+`docs/research/go/ROOT-BASELINE.md`
+
+Closed conclusions:
+
+- root `main.go` is the correct current executable shape;
+- do not create `cmd/`, `internal/`, `pkg/` or architecture-layer directories
+  before an actual code/visibility/command pressure exists;
+- Makefile, Dockerfile and CI are deferred until they own real repeatable
+  workflows/contracts;
+- `.editorconfig` is removed from the initial baseline;
+- minimal `.gitattributes` LF normalization is provisionally justified by the
+  real Windows/WSL development environment.
+
+Current clean-root target:
+
+```text
+README.md
+main.go
+go.mod          # still blocked by BDS-004 canonical identity
+.gitignore      # minimal/evidence-driven
+.gitattributes  # next repository-hygiene experiment
+docs/
+```
+
+The only blocker before normal module-based development remains BDS-004:
+canonical Go module identity.
