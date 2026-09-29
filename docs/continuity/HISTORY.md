@@ -61,3 +61,25 @@ Only durable, independently useful knowledge is carried forward:
 - package/module naming research.
 
 Old architectural conclusions must be re-proven before adoption.
+
+
+## H4 — Matching Start durable recovery
+
+On 2026-09-29 the working method itself became a durable repository artifact.
+
+The user identified the successful collaboration pattern as **Matching Start —
+BDSPro Refactor Mindset**: begin from the smallest understood current state,
+surface the next real requirement/pressure, and introduce only the smallest
+boundary that has earned its cost.
+
+This was separated from the moving checkpoint so future architecture evolution
+cannot silently erase the reasoning method.
+
+Added:
+
+- `docs/continuity/MINDSET.md` — stable engineering/training method;
+- `docs/continuity/CONTINUATION-PROMPT.md` — single fresh-context bootstrap.
+
+The recovery contract requires live Git/source/proof reconciliation, complete
+source-tree inventory, mindset recovery and checkpoint recovery before new
+architecture/source decisions.

@@ -12,123 +12,130 @@ Branch:
 
 `main`
 
-Initial bootstrap commit:
-
-`0927d48b444813a8a02dbb5d8ddbb02162c442ed`
-
 Always resolve the current live HEAD rather than assuming this file contains the
 latest commit.
 
-## Local state supplied by user
+## Current tracked root observed on live main before this checkpoint update
 
 ```text
-working directory: ~/projects/bdspro
-directory contents: empty before clone/bootstrap
+.gitattributes
+README.md
+docs/
+main.go
 ```
 
-The remote repository also had size 0 before the bootstrap commit.
+Local-only/uncommitted files are not authoritative until re-inspected in the
+actual workspace. Preserve them if present.
 
 ## Current phase
 
 ```text
-B0 — Clean Repository Bootstrap
+B1 — Matching Start / Source Growth From First Principles
 STATUS: ACTIVE
 ```
 
-## Closed facts
+## Governing mindset
 
-- a new clean repository is the working authority;
-- the previous repository remains historical evidence only;
-- root README is the first committed file;
-- durable continuity belongs in the new repository;
-- external Go/OSS research may be retained as evidence;
-- old architecture assumptions are not inherited automatically.
+Read:
 
-## Current open question
+`docs/continuity/MINDSET.md`
 
-`B0.1 — Canonical Go module identity`
+The working rule is:
 
-The repository is physically hosted at:
+```text
+Do not design the final tree.
+Start from the smallest understood working state.
+Expose the next real pressure.
+Introduce the smallest boundary that solves it.
+```
 
-`github.com/datvtph41107/bdspro`
+## Closed foundation
 
-but that personal namespace has not been accepted as the long-term software
-identity.
+- the new `datvtph41107/bdspro` repository is active authority;
+- old BDSPro source is historical/case-study evidence only;
+- mature OSS and official Go material are evidence, never templates;
+- root `main.go` is a valid minimal starting shape;
+- repository-root items and source boundaries must earn their existence;
+- do not pre-create architecture directories before a real pressure exists;
+- source organization should be derived from problem/intent/responsibility, not
+  from a desired architecture pattern;
+- work should proceed in meaningful reasoning blocks rather than microscopic
+  file/command/commit loops.
 
-No `go.mod` should be created before this question is resolved.
+## Current question
 
-## Why this gate matters
+```text
+A Go program starts with root main.go.
 
-The module path becomes the prefix of package import paths and can spread through:
+How does it grow without turning main.go or the repository root
+into an implementation dump?
+```
 
-- source imports;
-- generated code;
-- documentation/examples;
-- other repositories;
-- releases and downstream consumers.
+This question is being used as the first concrete training case for observing how
+architecture emerges from growth pressure.
 
-Renaming is cheap now and progressively more expensive after code and consumers
-exist.
+## Current pressure to study
 
-## Next authorized actions
+`main.go` begins accumulating responsibilities.
 
-1. align the empty local directory with the new remote repository;
-2. inspect the resulting Git state;
-3. decide canonical ownership/namespace from actual controlled identities;
-4. create `go.mod` only after that decision;
-5. then create the smallest executable Go program.
+The next reasoning block must determine:
 
-## Not authorized yet
+```text
+What is the essential responsibility of an entrypoint?
+What still belongs in main.go?
+What is application implementation rather than entrypoint work?
+What is the first demonstrated pain?
+Can a file split solve it?
+When does a package/directory boundary become earned?
+```
 
-Do not pre-create:
+Do not answer this by jumping directly to `cmd/`, `internal/`, a module map,
+microservices or a final source tree.
+
+## Matching Start sequence for this checkpoint
+
+```text
+minimal main.go
+    -> add a real requirement
+    -> observe what responsibility accumulates
+    -> identify the concrete pressure
+    -> try the smallest response
+    -> evaluate what it buys/costs
+    -> compare official Go / mature OSS only after the pressure is known
+    -> record an earned decision if evidence is sufficient
+```
+
+## Operational open decision
+
+BDS-004 — exact canonical Go module path remains OPEN until the intended
+`bdspro` owner namespace is actually controlled.
+
+The semantic target `bdspro/bdspro` and one-root-module model are already
+closed decisions. Do not invent ownership. Reconcile any local untracked
+`go.mod` before committing it.
+
+This operational namespace question does not block conceptual/source-organization
+learning, but it remains a gate before committing a canonical module identity.
+
+## Next authorized work
+
+Continue the current pressure:
+
+**entrypoint vs application implementation**.
+
+Use a minimal concrete program/requirement to expose the problem, then reason
+forward from observed pressure.
+
+## Not authorized by default
+
+Do not pre-design or pre-create:
 
 - `cmd/`;
 - `internal/`;
 - `pkg/`;
-- `domain/`;
-- `service/`;
-- `repository/`;
-- framework/config/database infrastructure.
+- architecture layers;
+- business module/service topology;
+- separate processes/services/repos;
+- framework/database/messaging infrastructure without a current requirement.
 
-Those boundaries must emerge from actual code/problem pressure.
-
-
-## Root-baseline evidence review — 2026-09-29
-
-Evidence reviewed:
-
-- official Go module layout guidance;
-- Moby;
-- Terraform;
-- Prometheus;
-- Kubernetes;
-- CockroachDB.
-
-Research:
-
-`docs/research/go/ROOT-BASELINE.md`
-
-Closed conclusions:
-
-- root `main.go` is the correct current executable shape;
-- do not create `cmd/`, `internal/`, `pkg/` or architecture-layer directories
-  before an actual code/visibility/command pressure exists;
-- Makefile, Dockerfile and CI are deferred until they own real repeatable
-  workflows/contracts;
-- `.editorconfig` is removed from the initial baseline;
-- minimal `.gitattributes` LF normalization is provisionally justified by the
-  real Windows/WSL development environment.
-
-Current clean-root target:
-
-```text
-README.md
-main.go
-go.mod          # still blocked by BDS-004 canonical identity
-.gitignore      # minimal/evidence-driven
-.gitattributes  # next repository-hygiene experiment
-docs/
-```
-
-The only blocker before normal module-based development remains BDS-004:
-canonical Go module identity.
+Any of these may become valid later, but only after its pressure is demonstrated.

@@ -161,3 +161,18 @@ Production/style evidence:
 - Google Go Style Guide
 
 Use these problem-first, not as architecture authority.
+
+
+## Matching Start mindset
+
+The durable engineering/training method is now owned by:
+
+`docs/continuity/MINDSET.md`
+
+The single fresh-context bootstrap is:
+
+`docs/continuity/CONTINUATION-PROMPT.md`
+
+Conversation memory may help orientation, but future work must reconstruct the
+mindset and checkpoint from the repository before making architecture/source
+decisions.

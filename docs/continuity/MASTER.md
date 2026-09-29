@@ -37,19 +37,25 @@ package layout and architecture decisions are not inherited as authority.
 
 ## Recovery order
 
+The canonical bootstrap is `docs/continuity/CONTINUATION-PROMPT.md`.
+
 At the beginning of a fresh context:
 
 1. resolve the live `main` HEAD;
-2. inspect local `git status --short --branch`;
-3. read:
-   - `docs/continuity/MEMORY.md`
+2. inspect local `git status --short --branch` when a local workspace is available;
+3. read, in order:
+   - `docs/continuity/CONTINUATION-PROMPT.md`
+   - `docs/continuity/MINDSET.md`
    - `docs/continuity/CHECKPOINT.md`
    - `docs/continuity/DECISIONS.md`
+   - `docs/continuity/MEMORY.md`
    - `docs/continuity/HISTORY.md`
-4. inspect source relevant to the current question;
-5. inspect completed proof/tests for the exact source being discussed;
+4. inventory the complete tracked source tree; while the repository is small,
+   read all tracked source before inferring architecture;
+5. inspect source and completed proof/tests relevant to the current pressure;
 6. preserve unexplained or interrupted work;
-7. continue only from the live checkpoint.
+7. state the recovered current reality, question and next pressure;
+8. continue only from the live checkpoint using the Matching Start mindset.
 
 ## Authority order
 
@@ -62,6 +68,15 @@ At the beginning of a fresh context:
 6. external research
 7. conversational memory
 ```
+
+## Method authority
+
+`docs/continuity/MINDSET.md` governs the engineering/training method.
+`CHECKPOINT.md` governs the current target. Live source and reproducible proof
+govern factual reality.
+
+A future architecture or checkpoint may change without changing the mindset.
+A mindset change must be explicit, evidence-backed and recorded.
 
 ## Hands-on working protocol
 
@@ -148,7 +163,10 @@ Before destructive or broad changes:
 
 ## Durable synchronization
 
-After a material decision, source boundary change, proof result or handoff,
-update the relevant continuity documents and commit them.
+After a material mindset change, decision, source boundary change, proof result
+or handoff, update the relevant continuity documents and commit them.
+
+Keep `MINDSET.md` stable unless the reasoning method itself changes.
+Keep `CHECKPOINT.md` current as pressure moves.
 
 Do not dump conversations into Git. Store compressed engineering truth.
