@@ -1,0 +1,63 @@
+# Durable History
+
+## H0 — Previous BDSPro repository
+
+BDSPro previously lived in:
+
+`datvtph41107/bdspro-backend`
+
+It accumulated a large Go multi-module/service topology and extensive architecture
+work.
+
+The last Rebuild V2 state before the clean reset was:
+
+`architecture/rebuild-v2@c1245796e320d533ca29d7b92bb23fa28e8380a1`
+
+That repository remains preserved for historical evidence.
+
+## H1 — Learning reset
+
+During first-principles Go study, the existing repository introduced unnecessary
+context:
+
+- root `go.work` coordinated many historical modules;
+- the greenfield directory was still nested inside that workspace;
+- old service/source organization influenced naming and architecture discussions;
+- residual untracked service directories existed locally;
+- previous mentor-derived architecture assumptions had not all been independently
+  re-derived from current problems.
+
+The user chose to remove this bias rather than keep designing around it.
+
+## H2 — Clean repository
+
+On 2026-09-29 the existing empty GitHub repository:
+
+`datvtph41107/bdspro`
+
+was selected as the new active development repository.
+
+The user's preferred local directory is:
+
+`~/projects/bdspro`
+
+The root README was created as the first repository commit:
+
+`0927d48b444813a8a02dbb5d8ddbb02162c442ed`
+
+The new repository begins with no Go architecture and no Go module identity.
+
+That absence is intentional.
+
+## H3 — Retained knowledge
+
+Only durable, independently useful knowledge is carried forward:
+
+- hands-on terminal/code learning protocol;
+- Git/source/proof continuity discipline;
+- Go language/module/package concepts already verified;
+- official Go references;
+- production OSS observations;
+- package/module naming research.
+
+Old architectural conclusions must be re-proven before adoption.
