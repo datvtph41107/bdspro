@@ -127,3 +127,28 @@ For the present phase the operational module path is therefore:
 The BDSPro product identity remains independent of that hosting namespace.
 Organization or vanity-domain migration is deferred until a concrete
 ownership/publishing/collaboration pressure appears.
+
+
+## H7 — PostgreSQL identity/bootstrap reset
+
+The initial Docker/PostgreSQL experiment used generic `postgres/postgres`
+credentials to expose connectivity and lifecycle pressure. The user explicitly
+rejected carrying that shortcut forward because it hides important identity and
+privilege semantics.
+
+The local datastore bootstrap was therefore reset conceptually before any real
+application data existed.
+
+The durable model now separates:
+
+```text
+container runtime identity
+persistent-volume identity
+logical database identity
+cluster/bootstrap administrator identity
+application login identity
+```
+
+The application must not run as the PostgreSQL bootstrap superuser. A future
+migration identity is intentionally not created until schema-change pressure
+earns it.

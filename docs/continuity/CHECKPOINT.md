@@ -103,3 +103,45 @@ Do not create merely because PostgreSQL is arriving:
 - readiness/liveness policy beyond the current startup requirement.
 
 Those need their own demonstrated pressure.
+
+
+## PostgreSQL bootstrap reset — 2026-09-30
+
+The previous exploratory `postgres/postgres` bootstrap is discarded as a
+learning shortcut. The next database bootstrap must model identities explicitly.
+
+Canonical local-development identities for the current pressure:
+
+```text
+Docker container       bdspro-postgres
+Docker named volume    bdspro_postgres_data
+PostgreSQL database    bdspro
+bootstrap/admin role   postgres
+application login role bdspro_app
+```
+
+Rules:
+
+- `postgres` exists for cluster/bootstrap administration and is not the
+  credential BDSPro uses at runtime;
+- BDSPro connects as `bdspro_app`;
+- admin and application passwords are different, generated local-dev secrets;
+- secrets are not committed;
+- the application role receives only privileges required by demonstrated
+  application behavior;
+- do not create a migrator role yet: schema migration pressure has not appeared;
+- for PostgreSQL 18+, mount persistent data at `/var/lib/postgresql`;
+- container, volume, database, role and application identities must not be
+  treated as interchangeable labels.
+
+Next proof chain:
+
+```text
+fresh volume
+  -> PostgreSQL cluster initialization
+  -> database bdspro exists
+  -> application role bdspro_app exists without superuser privileges
+  -> bdspro_app can authenticate to database bdspro
+  -> BDSPro pgx Ping succeeds with bdspro_app
+  -> only then HTTP listener opens
+```
