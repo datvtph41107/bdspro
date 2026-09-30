@@ -83,3 +83,28 @@ Added:
 The recovery contract requires live Git/source/proof reconciliation, complete
 source-tree inventory, mindset recovery and checkpoint recovery before new
 architecture/source decisions.
+
+
+## H5 — GitHub owner namespace collision
+
+On 2026-09-30 PostgreSQL became the first requirement that needs a third-party Go
+dependency, making canonical module identity an operational rather than purely
+semantic concern.
+
+The user attempted to create the preferred GitHub organization `bdspro`, but
+GitHub reported that the name was already taken.
+
+This invalidated the assumption that durable product identity and source-host
+owner namespace must be identical.
+
+The durable refinement is:
+
+```text
+product/system identity = BDSPro
+repository name         = bdspro
+source-host owner       = independently chosen controlled namespace
+Go module path          = derived after that namespace is proven
+```
+
+BDS-013 was superseded rather than erased. BDS-017 preserves the product/repo
+identity, while BDS-018 tracks the still-open hosting namespace.

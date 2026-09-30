@@ -1,10 +1,10 @@
 # Current Checkpoint
 
-Updated: 2026-09-29
+Updated: 2026-09-30
 
 ## Source identity
 
-Repository:
+Repository currently hosted at:
 
 `datvtph41107/bdspro`
 
@@ -12,20 +12,7 @@ Branch:
 
 `main`
 
-Always resolve the current live HEAD rather than assuming this file contains the
-latest commit.
-
-## Current tracked root observed on live main before this checkpoint update
-
-```text
-.gitattributes
-README.md
-docs/
-main.go
-```
-
-Local-only/uncommitted files are not authoritative until re-inspected in the
-actual workspace. Preserve them if present.
+Always resolve the live HEAD and preserve uncommitted local work before mutation.
 
 ## Current phase
 
@@ -34,108 +21,136 @@ B1 — Matching Start / Source Growth From First Principles
 STATUS: ACTIVE
 ```
 
-## Governing mindset
-
-Read:
+Governing method:
 
 `docs/continuity/MINDSET.md`
 
-The working rule is:
+## Proven runtime learning
+
+The current hands-on sequence has established:
+
+- a minimal root `main.go` can own a small HTTP process without premature
+  source hierarchy;
+- configurable `PORT` adds configuration responsibility without by itself
+  justifying a package;
+- graceful shutdown exposed real process/runtime lifecycle responsibility;
+- an in-flight slow request completed after SIGINT before process exit, proving
+  graceful shutdown behavior;
+- separating application HTTP construction behind a small function is a weaker
+  boundary than immediately creating directories/packages;
+- explicit listener acquisition makes startup truth depend on successful OS
+  resource acquisition rather than intent/log ordering;
+- resource construction, acquisition, use and release are distinct lifecycle
+  concepts.
+
+Local source may be ahead of tracked `main`; recover it from the actual
+workspace before changing source.
+
+## New requirement
 
 ```text
-Do not design the final tree.
-Start from the smallest understood working state.
-Expose the next real pressure.
-Introduce the smallest boundary that solves it.
+BDSPro needs PostgreSQL as a durable datastore.
+
+The process must not become operationally ready until the required datastore is
+usable, and the database resource must have an explicit process lifetime.
 ```
 
-## Closed foundation
+## Pressure exposed before implementation
 
-- the new `datvtph41107/bdspro` repository is active authority;
-- old BDSPro source is historical/case-study evidence only;
-- mature OSS and official Go material are evidence, never templates;
-- root `main.go` is a valid minimal starting shape;
-- repository-root items and source boundaries must earn their existence;
-- do not pre-create architecture directories before a real pressure exists;
-- source organization should be derived from problem/intent/responsibility, not
-  from a desired architecture pattern;
-- work should proceed in meaningful reasoning blocks rather than microscopic
-  file/command/commit loops.
+PostgreSQL introduces the first third-party Go dependency.
+
+```text
+PostgreSQL requirement
+    -> pgx/pgxpool
+    -> external module dependency
+    -> go.mod becomes operationally necessary
+    -> canonical module identity must be real
+```
+
+Therefore the previously deferred module-identity decision is now an active gate.
+
+## New evidence — GitHub namespace collision
+
+The user attempted to create GitHub organization:
+
+`bdspro`
+
+GitHub reported:
+
+```text
+The name 'bdspro' is already taken.
+```
+
+This disproves the earlier operational assumption that the durable product name
+must also be the exact GitHub owner namespace.
+
+## Refined identity model
+
+```text
+PRODUCT / SYSTEM IDENTITY
+BDSPro
+
+REPOSITORY NAME
+bdspro
+
+SOURCE-HOST OWNER
+OPEN — must be controlled and durable
+
+GO MODULE PATH
+OPEN — derived only after a real controlled namespace is chosen
+```
+
+Product identity and hosting identity are now explicitly separate concerns.
+
+Do not rename the product or repository merely to work around a GitHub namespace
+collision.
+
+## Current open decisions
+
+### BDS-018 — durable source-host owner namespace
+
+The replacement owner should:
+
+- be controlled by the project/user;
+- be durable enough for long-lived source hosting;
+- remain neutral to language, framework, runtime topology and deployment shape;
+- not encode temporary labels such as backend, service, microservice, v2, Go,
+  dev or staging merely to obtain availability.
+
+### BDS-004 — canonical Go module path
+
+Remains OPEN until BDS-018 is closed or a controlled vanity-domain import path is
+deliberately chosen.
 
 ## Current question
 
 ```text
-A Go program starts with root main.go.
-
-How does it grow without turning main.go or the repository root
-into an implementation dump?
+What durable namespace should own the source identity now that the exact GitHub
+owner "bdspro" is unavailable?
 ```
 
-This question is being used as the first concrete training case for observing how
-architecture emerges from growth pressure.
-
-## Current pressure to study
-
-`main.go` begins accumulating responsibilities.
-
-The next reasoning block must determine:
-
-```text
-What is the essential responsibility of an entrypoint?
-What still belongs in main.go?
-What is application implementation rather than entrypoint work?
-What is the first demonstrated pain?
-Can a file split solve it?
-When does a package/directory boundary become earned?
-```
-
-Do not answer this by jumping directly to `cmd/`, `internal/`, a module map,
-microservices or a final source tree.
-
-## Matching Start sequence for this checkpoint
-
-```text
-minimal main.go
-    -> add a real requirement
-    -> observe what responsibility accumulates
-    -> identify the concrete pressure
-    -> try the smallest response
-    -> evaluate what it buys/costs
-    -> compare official Go / mature OSS only after the pressure is known
-    -> record an earned decision if evidence is sufficient
-```
-
-## Operational open decision
-
-BDS-004 — exact canonical Go module path remains OPEN until the intended
-`bdspro` owner namespace is actually controlled.
-
-The semantic target `bdspro/bdspro` and one-root-module model are already
-closed decisions. Do not invent ownership. Reconcile any local untracked
-`go.mod` before committing it.
-
-This operational namespace question does not block conceptual/source-organization
-learning, but it remains a gate before committing a canonical module identity.
+This is not a branding exercise. It is a source-identity and dependency-management
+gate created by the first real third-party dependency.
 
 ## Next authorized work
 
-Continue the current pressure:
+1. choose/prove a durable controlled owner namespace or controlled vanity domain;
+2. update repository hosting only if that choice requires it;
+3. inspect any existing local untracked `go.mod` rather than overwriting it;
+4. initialize/commit canonical `go.mod`;
+5. only then add pgx and continue PostgreSQL resource-lifecycle pressure.
 
-**entrypoint vs application implementation**.
+## Still not earned
 
-Use a minimal concrete program/requirement to expose the problem, then reason
-forward from observed pressure.
+Do not create merely because PostgreSQL is arriving:
 
-## Not authorized by default
-
-Do not pre-design or pre-create:
-
-- `cmd/`;
+- `database/`;
+- `repository/`;
+- `storage/`;
+- ORM abstractions;
+- service layers;
 - `internal/`;
-- `pkg/`;
-- architecture layers;
-- business module/service topology;
-- separate processes/services/repos;
-- framework/database/messaging infrastructure without a current requirement.
+- `cmd/`;
+- readiness/liveness policy beyond the current startup requirement.
 
-Any of these may become valid later, but only after its pressure is demonstrated.
+Those require their own demonstrated pressure.
