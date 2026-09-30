@@ -108,3 +108,22 @@ Go module path          = derived after that namespace is proven
 
 BDS-013 was superseded rather than erased. BDS-017 preserves the product/repo
 identity, while BDS-018 tracks the still-open hosting namespace.
+
+
+## H6 — Organization gate intentionally deferred
+
+After GitHub reported that the exact organization name `bdspro` was already
+taken, the user chose not to make organization creation a prerequisite for the
+current learning/build phase.
+
+Matching Start was applied directly: organization ownership currently solves no
+required runtime or dependency problem, while the existing repository
+`datvtph41107/bdspro` is real and controlled.
+
+For the present phase the operational module path is therefore:
+
+`github.com/datvtph41107/bdspro`
+
+The BDSPro product identity remains independent of that hosting namespace.
+Organization or vanity-domain migration is deferred until a concrete
+ownership/publishing/collaboration pressure appears.
