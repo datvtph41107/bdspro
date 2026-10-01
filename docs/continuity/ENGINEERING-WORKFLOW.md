@@ -84,6 +84,44 @@ git diff --stat -- main.go
 
 The exact grammar belongs to the tool documentation. Do not infer a flag from memory when its semantics matter.
 
+## Option and flag discipline
+
+Every material flag or argument must earn its presence.
+
+When a command is first introduced, distinguish the base command from the added
+modifiers:
+
+```text
+base command
+  -> default behavior
+
++ flag / option
+  -> what behavior changes?
+  -> what problem does that change solve here?
+  -> what would happen without it?
+```
+
+Examples:
+
+```text
+git status
+vs
+git status --short --branch
+
+The second form is not "more correct". It trades richer human-readable default
+output for compact machine/scan-friendly status plus branch information. Use it
+when compact recovery/audit output creates value; use ordinary `git status` when
+its explanatory output is more useful.
+```
+
+Likewise, a Docker `run` command should not accumulate `-d`, `-p`, `-e`,
+`--name`, `--network` or volume flags merely because a previous example used
+them. For each flag, identify the runtime behavior it changes and whether the
+current scenario needs that behavior.
+
+For unfamiliar flags, read the exact option definition in the primary manual
+before relying on it.
+
 ## State-first rule
 
 Before using a command, identify the system state it interacts with.
