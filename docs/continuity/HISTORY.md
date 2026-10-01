@@ -217,3 +217,17 @@ integration-workflow response is no longer precommitted to one Bash script.
 Recurring project capabilities may earn Make targets; Bash is introduced only
 where imperative/safety logic earns it. The user will implement those boundaries
 incrementally rather than paste a completed workflow.
+
+## H10 — BDSPro becomes a developer-immersion practice system
+
+On 2026-10-01 the user broadened the active-coding reset into a long-horizon
+professional training objective. BDSPro will deliberately repeat foundational
+shell, Git, Docker, PostgreSQL, Go, testing and source-tracing work under
+increasingly realistic failure and operational pressure.
+
+The aim is transferable engineering fluency: recognize problems, locate primary
+sources, type and operate primitives naturally, diagnose failures, reason from
+multiple role perspectives and later describe only work actually performed in CV
+and interview contexts.
+
+Added `docs/continuity/DEVELOPER-IMMERSION.md` and made it part of recovery.
