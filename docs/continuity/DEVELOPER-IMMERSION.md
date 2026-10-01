@@ -170,6 +170,30 @@ When encountering an unfamiliar function, do not immediately ask for a complete
 usage example. Trace its signature, contract, errors, lifecycle and implementation
 when needed, then write a minimal experiment.
 
+## Foundation depth
+
+Do not reduce learning to just-in-time snippets.
+
+A real task should trigger a broader durable model of the mechanism being used.
+For example, using a Git flag should eventually connect to refs/index/working
+tree/pathspec semantics; using a Docker flag should connect to container
+configuration/runtime/network/storage; using a PostgreSQL transaction should
+connect to atomicity, visibility, locking and failure behavior.
+
+The target is transferable understanding:
+
+```text
+case
+ -> mechanism
+ -> core properties
+ -> system relationships
+ -> repeated operation
+ -> harder cases
+ -> transfer to another project
+```
+
+The case keeps learning grounded. The core model keeps learning from becoming
+fragmented.
 ## Research reflex
 
 AI is a research and reasoning amplifier, not a replacement for source literacy.
