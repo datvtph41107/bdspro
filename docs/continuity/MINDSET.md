@@ -171,6 +171,24 @@ The detailed operational contract is
 `docs/continuity/PRACTICE-PROTOCOL.md` and is mandatory unless the user
 explicitly switches modes for a particular task.
 
+## Professional immersion
+
+The repository is also a deliberate-practice environment. Fundamental tool and
+runtime skills must recur until they become working reflexes rather than isolated
+lessons.
+
+Architecture training therefore includes repeated real interaction with Git,
+Bash/processes, Docker, PostgreSQL/SQL/CLI, Go tooling, tests and failure recovery.
+Difficulty should increase only when it exposes a real pressure or risk.
+
+Use multiple reasoning lenses where useful: business/BA, fresher implementation,
+middle-level responsibility/invariant design, and senior system/operational
+ownership. Complexity is accepted only in exchange for demonstrated value or
+risk reduction.
+
+Long-horizon training details are owned by
+`docs/continuity/DEVELOPER-IMMERSION.md`.
+
 ## Evidence roles
 
 ### New BDSPro source
