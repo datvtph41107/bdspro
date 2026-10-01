@@ -430,3 +430,21 @@ smallest possible understanding
 ```
 
 Pressure-driven architecture and foundation-driven learning must stay connected.
+
+## Preferred collaboration shape — 2026-10-01
+
+The user explicitly confirmed that the best interaction pattern is:
+
+```text
+real current pressure
+ -> core mental model
+ -> why the next action is justified
+ -> one real user-typed action
+ -> explain the state transition
+ -> request only minimum evidence
+ -> continue from observed reality
+```
+
+Do not drift back toward terminal worksheets, forced summaries, full-solution
+generation, or shallow case-only explanations. Keep theory transferable but
+grounded in real source/runtime work.
