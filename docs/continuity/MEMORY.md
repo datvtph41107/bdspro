@@ -348,3 +348,11 @@ Compose, Listing, migrations and integration-workflow files.
 The immediate task is therefore not new feature/tooling code. It is to inspect,
 understand and preserve that local work, then establish truthful branch and commit
 boundaries before synchronizing with remote main.
+
+## Daily command reflex — 2026-10-01
+
+Canonical standard: `docs/continuity/ENGINEERING-WORKFLOW.md`.
+
+First encounter/new option: trace problem -> state -> syntax -> primary docs -> prediction
+-> user types -> real output -> explanation. Repeated familiar use should become concise
+and fast. Expand again when flags, environment, failure mode or risk changes.
