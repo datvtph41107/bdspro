@@ -371,3 +371,26 @@ here.
 Use the ladder analogy as a durable mental model: a carefully finished reusable
 ladder and a minimally sufficient emergency ladder can both be correct in
 different contexts. Context chooses the rigor.
+
+## Motivation slogan — 2026-10-01
+
+> Bạn không cần một kế hoạch hoàn hảo.
+> Bạn không cần cảm thấy hoàn toàn sẵn sàng.
+> Bạn chỉ cần bắt đầu.
+> Tiến bộ đến từ hành động, không phải sự hoàn hảo.
+> Bạn vẫn đang chờ đợi gì để làm cho hoàn hảo trước khi bắt đầu?
+
+Durable meaning:
+
+```text
+DO NOT WAIT FOR PERFECT READINESS
+START FROM THE CURRENT REALITY
+ACT
+OBSERVE
+LEARN
+IMPROVE
+```
+
+This slogan reinforces Matching Start and contextual rigor: planning and quality
+matter, but they must not become a reason to avoid the first real action from
+which evidence and experience can emerge.
