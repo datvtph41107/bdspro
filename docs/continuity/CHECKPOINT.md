@@ -235,6 +235,40 @@ by the user, beginning with a non-destructive capability such as `postgres-up`.
 Bash should be earned only where imperative/safety logic exceeds a simple Make
 recipe.
 
+## Local Git reconciliation — observed 2026-10-01
+
+The user ran the recovery inspection locally and produced real Git evidence:
+
+```text
+before fetch:
+  HEAD        = 1ce48eda81e0a22ca16d3cb2c89eee6fb53ba254
+  origin/main = bf5e7d266633b8cdc806e1b8dffc7814f74355e0
+  status      = main...origin/main [behind 8]
+
+working tree:
+  modified:   main.go
+  untracked:  .gitignore, .vscode/, compose.yaml, go.mod, go.sum,
+              listing/, migrations/, test-integration.sh
+
+after git fetch origin:
+  origin/main = b47e4195581929e26f55a2942d3c2b7dfa5e2c6c
+  rev-list --left-right --count HEAD...origin/main = 0 25
+```
+
+Interpretation:
+
+- the pre-fetch `origin/main` was a stale local remote-tracking ref;
+- fetch updated remote knowledge without changing the working tree;
+- local committed history has no local-only commits relative to current
+  `origin/main`;
+- local `HEAD` is 25 commits behind the current remote main;
+- substantial implementation work exists only in the working tree/untracked
+  files and must be preserved and understood before synchronization.
+
+This is now the immediate pressure. Do not pull, reset, clean, rebase or overwrite
+those files. First inventory the local diff/source, identify coherent work units,
+then choose a branch and commit boundaries that tell the true work history.
+
 ## Recovery note
 
 Before continuing source changes, recover the live worktree and verify which of
