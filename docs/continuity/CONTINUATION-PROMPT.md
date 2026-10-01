@@ -34,6 +34,7 @@ In a fresh context:
 2. Read this file, then read in this order:
    - `docs/continuity/MASTER.md`
    - `docs/continuity/MINDSET.md`
+   - `docs/continuity/PRACTICE-PROTOCOL.md`
    - `docs/continuity/CHECKPOINT.md`
    - `docs/continuity/DECISIONS.md`
    - `docs/continuity/MEMORY.md`
@@ -47,9 +48,11 @@ In a fresh context:
 5. Reconcile contradictions using the authority rules in `MASTER.md`.
 6. Preserve interrupted/unexplained work. Never reset, clean, rebase, amend or
    overwrite merely to make recovery easier.
-7. State the recovered current reality, current question and next pressure before
+7. Recover the active-coding contract from `PRACTICE-PROTOCOL.md`. Do not provide
+   paste-ready implementation as the default learning path.
+8. State the recovered current reality, current question and next pressure before
    proposing a source/architecture change.
-8. Continue from the current pressure. Do not skip ahead to a desired final
+9. Continue from the current pressure. Do not skip ahead to a desired final
    architecture.
 
 ## Recovery invariant
