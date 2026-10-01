@@ -408,3 +408,11 @@ what evidence the assistant needs returned
 ```
 
 For source comprehension, prefer IDE navigation and reading. Use terminal grep/find/cat only when they materially improve search, system-state inspection or concise evidence collection. Ask for the smallest useful evidence rather than large pasted outputs.
+
+## Comprehension-check preference — 2026-10-01
+
+Do not require the user to explain back every source file/function after reading it.
+Assume active IDE reading is happening. Ask for an explanation only when it affects a
+real decision, risk, debugging step, or when the user explicitly wants explanation practice.
+
+The user will ask when something is unclear.
