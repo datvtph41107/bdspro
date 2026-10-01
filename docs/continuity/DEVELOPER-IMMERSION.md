@@ -33,6 +33,26 @@ SEE THE PROBLEM
 Experience is accumulated repetitions under increasingly realistic pressure, not
 the number of frameworks or patterns encountered.
 
+## Motivation anchor — action before perfection
+
+> Bạn không cần một kế hoạch hoàn hảo.
+> Bạn không cần cảm thấy hoàn toàn sẵn sàng.
+> Bạn chỉ cần bắt đầu.
+> Tiến bộ đến từ hành động, không phải sự hoàn hảo.
+> Bạn vẫn đang chờ đợi gì để làm cho hoàn hảo trước khi bắt đầu?
+
+Use this as a guard against analysis becoming avoidance.
+
+```text
+enough understanding to act safely
+ -> real action
+ -> real feedback
+ -> better understanding
+ -> better next action
+```
+
+The slogan does not mean acting recklessly. It means refusing to demand
+certainty that can only be obtained by doing the work.
 ## Fundamental fluency
 
 The following are not side topics. They are part of daily backend work and must
