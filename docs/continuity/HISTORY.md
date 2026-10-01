@@ -231,3 +231,14 @@ multiple role perspectives and later describe only work actually performed in CV
 and interview contexts.
 
 Added `docs/continuity/DEVELOPER-IMMERSION.md` and made it part of recovery.
+
+## H11 — Daily engineering and command reflex standardized
+
+On 2026-10-01 the user required a concrete daily operating standard so deliberate practice
+would become a working reflex rather than a collection of lessons. Added
+`docs/continuity/ENGINEERING-WORKFLOW.md` covering first-encounter command tracing,
+state/risk classification, primary-source reading, stack-specific Git/Bash/Docker/PostgreSQL/Go
+reflexes, branch/commit reasoning and the AI response contract.
+
+The model intentionally becomes faster with repetition: familiar primitives are abbreviated,
+while new flags, environments, failures or destructive operations reopen the full trace.
