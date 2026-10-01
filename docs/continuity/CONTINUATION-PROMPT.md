@@ -35,6 +35,7 @@ In a fresh context:
    - `docs/continuity/MASTER.md`
    - `docs/continuity/MINDSET.md`
    - `docs/continuity/DEVELOPER-IMMERSION.md`
+   - `docs/continuity/ENGINEERING-WORKFLOW.md`
    - `docs/continuity/PRACTICE-PROTOCOL.md`
    - `docs/continuity/CHECKPOINT.md`
    - `docs/continuity/DECISIONS.md`
