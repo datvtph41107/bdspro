@@ -46,6 +46,7 @@ At the beginning of a fresh context:
 3. read, in order:
    - `docs/continuity/CONTINUATION-PROMPT.md`
    - `docs/continuity/MINDSET.md`
+   - `docs/continuity/DEVELOPER-IMMERSION.md`
    - `docs/continuity/PRACTICE-PROTOCOL.md`
    - `docs/continuity/CHECKPOINT.md`
    - `docs/continuity/DECISIONS.md`
@@ -73,6 +74,9 @@ At the beginning of a fresh context:
 ## Method authority
 
 `docs/continuity/MINDSET.md` governs architecture/engineering reasoning.
+`docs/continuity/DEVELOPER-IMMERSION.md` governs long-horizon professional
+practice: fundamental fluency, repetition, operational drills, increasing
+failure pressure and multi-role reasoning.
 `docs/continuity/PRACTICE-PROTOCOL.md` governs the active coding, research,
 source-tracing and debugging method.
 `CHECKPOINT.md` governs the current target. Live source and reproducible proof
