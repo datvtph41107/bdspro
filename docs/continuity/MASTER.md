@@ -46,6 +46,7 @@ At the beginning of a fresh context:
 3. read, in order:
    - `docs/continuity/CONTINUATION-PROMPT.md`
    - `docs/continuity/MINDSET.md`
+   - `docs/continuity/PRACTICE-PROTOCOL.md`
    - `docs/continuity/CHECKPOINT.md`
    - `docs/continuity/DECISIONS.md`
    - `docs/continuity/MEMORY.md`
@@ -71,7 +72,9 @@ At the beginning of a fresh context:
 
 ## Method authority
 
-`docs/continuity/MINDSET.md` governs the engineering/training method.
+`docs/continuity/MINDSET.md` governs architecture/engineering reasoning.
+`docs/continuity/PRACTICE-PROTOCOL.md` governs the active coding, research,
+source-tracing and debugging method.
 `CHECKPOINT.md` governs the current target. Live source and reproducible proof
 govern factual reality.
 
@@ -106,6 +109,15 @@ Every command/code fragment should be explained at three levels:
 
 Do not hide important operations behind generators or scripts before the
 underlying commands are understood.
+
+Do not provide complete paste-ready implementations as the normal learning path.
+Use the solution-escalation ladder in `PRACTICE-PROTOCOL.md`: requirement ->
+keywords/syntax -> pseudocode -> focused fragment -> complete implementation only
+when a real attempt, debugging/recovery need or explicit request justifies it.
+
+For unfamiliar APIs and mechanisms, tracing primary documentation and, when
+needed, implementation source is part of the coding work. The user should explain
+the discovered contract in their own words before relying on it.
 
 ## Decision protocol
 
