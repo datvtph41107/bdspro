@@ -46,4 +46,6 @@ Status vocabulary:
 
 | BDS-026 | Make engineering rigor context-sensitive: every added abstraction, guard, workflow step, option or CLI flag must justify its cost against the current goal, time pressure, failure cost, lifetime, reuse, blast radius and recovery options | CLOSED | User's ladder analogy showed that polished/reusable and minimally sufficient solutions can both be correct depending on context; blindly retaining extra rigor or flags obscures intent and increases complexity | Apply contextual-rigor questions before implementation and option selection; reopen deeper rigor when risk/value changes |
 
+| BDS-027 | Separate user learning/work surfaces from assistant evidence collection; prefer IDE-first source comprehension and request only minimal targeted evidence | CLOSED | Terminal-heavy source extraction made the user operate like a log courier instead of a developer reading/editing code in the IDE; evidence collection and learning have different needs | Follow `RESPONSE-PROTOCOL.md`; use CLI extraction only when it improves real operation, navigation, or concise evidence transfer |
+
 Do not erase old decisions. Mark superseded decisions and add the replacement.
