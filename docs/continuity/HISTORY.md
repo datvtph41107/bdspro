@@ -193,3 +193,27 @@ The next authorized pressure is safe, repeatable orchestration of the
 integration-test environment. The smallest candidate response is one
 project-local Bash workflow; Makefile, CI, Testcontainers and Repository/Store
 abstractions remain unearned until stronger pressure appears.
+
+## H9 — Active coding and source-trace reset
+
+On 2026-10-01 the user identified a major training failure mode: receiving full
+functions/tests/files before reasoning about them encourages copy/paste fluency
+rather than engineering fluency.
+
+The working contract was therefore strengthened. BDSPro learning now explicitly
+requires the user to derive responsibilities, read relevant primary docs/source,
+write implementation personally, run it, debug real output and explain the
+mechanism in their own words.
+
+Added:
+
+- `docs/continuity/PRACTICE-PROTOCOL.md`.
+
+The continuation and method documents were updated so future contexts recover
+this rule before implementation.
+
+This milestone also corrected an over-specific checkpoint assumption: the next
+integration-workflow response is no longer precommitted to one Bash script.
+Recurring project capabilities may earn Make targets; Bash is introduced only
+where imperative/safety logic earns it. The user will implement those boundaries
+incrementally rather than paste a completed workflow.
