@@ -1,8 +1,8 @@
 # Durable Memory
 
-## Project state
+## Active identity
 
-BDSPro now continues in a new clean repository:
+Active repository:
 
 `datvtph41107/bdspro`
 
@@ -10,169 +10,283 @@ Preferred WSL workspace:
 
 `~/projects/bdspro`
 
-The new repository was empty before bootstrap on 2026-09-29.
-
-Initial repository commit:
-
-`0927d48b444813a8a02dbb5d8ddbb02162c442ed`
-
-## Why a new repository exists
-
-The previous workspace carried:
-
-- a large historical multi-module Go workspace;
-- old service/package topology;
-- residual untracked directories;
-- architecture assumptions created before the current first-principles learning
-  process;
-- cognitive noise when trying to learn Go from a minimal starting point.
-
-The clean repository removes those accidental constraints.
-
-The old repository remains useful for later comparison, migration evidence and
-real production failure examples, but it is not the design authority for the new
-repository.
-
-Historical source at transition:
-
-`datvtph41107/bdspro-backend`
-`architecture/rebuild-v2@c1245796e320d533ca29d7b92bb23fa28e8380a1`
-
-## Learning objective
-
-The user wants to become able to work naturally as a Go/backend engineer rather
-than memorize commands or patterns.
-
-Default method:
-
-- type commands/code personally;
-- understand every command before moving on;
-- predict important output before running;
-- return real output for inspection;
-- learn mechanism before abstraction;
-- connect language behavior to real engineering consequences;
-- use failures as evidence;
-- progress from the smallest program toward production concerns.
-
-## Explanation rule
-
-Every meaningful command or code fragment should explain:
-
-```text
-WHY NOW?
-WHAT DOES THIS EXACTLY DO?
-HOW DOES THE MECHANISM WORK?
-WHAT STATE CHANGES?
-WHAT SHOULD BE OBSERVED?
-WHAT CAN FAIL?
-WHY DOES THIS MATTER LATER?
-```
-
-## Current Go environment observed before repository reset
-
-From the previous WSL environment:
-
-```text
-Go toolchain: go1.27.1 linux/amd64
-GOROOT: /usr/local/go
-GOPATH: /home/bop/go
-GOMODCACHE: /home/bop/go/pkg/mod
-GOPROXY: https://proxy.golang.org,direct
-```
-
-These are machine facts, not automatically project version policy.
-
-## Go concepts already established
-
-The user has already understood the basic distinction between:
-
-- Git repository;
-- Go workspace (`go.work`);
-- Go module (`go.mod`);
-- Go package;
-- package/import path;
-- package name;
-- module cache and proxy.
-
-Important theorem:
-
-```text
-Git repository != Go module != Go package
-
-module path = canonical module identity
-package import path = module path + package directory within the module
-package name = identifier declared by "package <name>" and used by callers
-source hosting location may match module identity, but does not have to
-```
-
-Examples already examined:
-
-- Moby: `github.com/moby/moby/v2` plus separate
-  `github.com/moby/moby/client`;
-- Terraform: `github.com/hashicorp/terraform`;
-- Prometheus: `github.com/prometheus/prometheus`;
-- Kubernetes: source on GitHub but module identity `k8s.io/kubernetes`;
-- CockroachDB: `github.com/cockroachdb/cockroach`.
-
-## Canonical module identity is still open
-
-Current repository host:
+Operational module path for the current phase:
 
 `github.com/datvtph41107/bdspro`
 
-The GitHub account currently has no organization membership available through the
-connected account.
+Product identity remains BDSPro; source-host ownership may evolve later if a real
+publishing/ownership/collaboration pressure appears.
 
-The user does not want a long-lived commercial software identity to be tied to a
-personal username merely because the current Git repository is hosted there.
+## Learning objective
 
-Therefore no `go.mod` should be created until a real canonical namespace is
-chosen.
+The user is building BDSPro as a clean-slate Go backend in order to learn backend
+engineering mechanisms deeply rather than memorize patterns, commands or a final
+architecture.
 
-Valid future directions include:
+The user types/runs implementation steps personally.
 
-- a GitHub organization actually owned/controlled by the project;
-- a domain actually owned/controlled by the project;
-- the personal GitHub path if the personal account is intentionally accepted as
-  the canonical owner.
+Default learning loop:
 
-Never invent an organization or vanity domain that is not controlled.
+```text
+UNDERSTAND
+ -> PREDICT
+ -> TYPE / IMPLEMENT
+ -> OBSERVE REAL OUTPUT
+ -> EXPLAIN MECHANISM
+ -> CONNECT TO ENGINEERING CONSEQUENCE
+ -> GENERALIZE
+```
 
-## Foundational references
+## Governing architecture method
 
-Primary:
-
-- Go specification
-- Go modules reference
-- Organizing a Go module
-- Effective Go
-- Go Code Review Comments
-- Go Blog: Package names
-
-Production/style evidence:
-
-- Go standard library
-- Moby
-- Terraform
-- Prometheus
-- Kubernetes
-- CockroachDB
-- Uber Go Style Guide
-- Google Go Style Guide
-
-Use these problem-first, not as architecture authority.
-
-
-## Matching Start mindset
-
-The durable engineering/training method is now owned by:
+Durable method authority:
 
 `docs/continuity/MINDSET.md`
 
-The single fresh-context bootstrap is:
+Single fresh-context bootstrap:
 
 `docs/continuity/CONTINUATION-PROMPT.md`
 
-Conversation memory may help orientation, but future work must reconstruct the
-mindset and checkpoint from the repository before making architecture/source
-decisions.
+Core chain:
+
+```text
+CURRENT REALITY
+ -> INTENT
+ -> NEW REQUIREMENT
+ -> PRESSURE
+ -> INSUFFICIENCY
+ -> SMALLEST RESPONSIBLE RESPONSE
+ -> EARNED BOUNDARY
+ -> MECHANISM
+ -> EVIDENCE
+ -> TRADE-OFF
+ -> DECISION
+```
+
+Prefer the weakest boundary that solves demonstrated pressure.
+
+Do not create conventional Go/Clean/DDD directories or interfaces merely because
+mature repositories contain them.
+
+## Current acceptance artifact
+
+The comprehensive accepted learning checkpoint through 2026-10-01 is:
+
+`docs/continuity/LEARNING-CHECKPOINT-2026-10-01.md`
+
+Read it when deeper recovery than `CHECKPOINT.md` is required.
+
+## Core mental models already established
+
+### Runtime / resource lifecycle
+
+```text
+construct
+ -> acquire
+ -> prove usable
+ -> run
+ -> wait
+ -> shutdown
+ -> release
+```
+
+### Liveness / readiness
+
+```text
+alive != ready
+```
+
+### Durable truth
+
+```text
+HTTP success != durability proof
+statement success != transaction commit
+```
+
+### Business state
+
+```text
+valid to exist != valid to transition
+```
+
+### Concurrency
+
+```text
+avoid check-then-act when correctness depends on current durable state
+
+conditional mutation:
+WHERE current_state_is_still_eligible
+```
+
+Allowed interleavings may vary; forbidden committed states must not.
+
+### Atomicity
+
+```text
+transaction boundary tends to follow business atomicity boundary
+```
+
+### Read vs write authority
+
+```text
+readiness / pre-check
+=
+advisory snapshot
+
+authoritative mutation
+=
+re-check current durable truth at mutation/commit time
+```
+
+```text
+TIME OF CHECK != TIME OF USE
+```
+
+### Source boundaries
+
+```text
+file boundary
+-> cohesion/navigation
+
+package boundary
+-> namespace + imports + API + compiler visibility
+```
+
+### Testing
+
+```text
+Requirement
+ -> Invariant
+ -> Scenario
+ -> Precondition
+ -> Action
+ -> Observation
+ -> Expected outcome
+```
+
+```text
+testable != mockable
+```
+
+Do not fake the mechanism that provides the invariant being tested.
+
+### Shell/process model
+
+```text
+Bash parses command
+ -> performs expansion
+ -> builds argv
+ -> resolves builtin/executable
+ -> starts process
+ -> observes exit status
+```
+
+Universal concepts transfer across Linux/macOS/Windows even when shell syntax
+changes: process, cwd, paths, environment, argv, streams, exit status,
+permissions.
+
+### Docker model
+
+```text
+docker CLI
+ -> Docker Engine
+ -> image
+ -> container
+ -> process
+```
+
+```text
+host environment != container environment
+host filesystem  != container filesystem
+host localhost   != another container's localhost
+```
+
+Persistent database bytes need storage whose lifetime is independent of a
+container object.
+
+## Current earned source/system boundaries
+
+Earned through demonstrated pressure:
+
+- root single executable;
+- function boundaries;
+- Listing file/package boundary;
+- PostgreSQL required dependency lifecycle;
+- migration lifecycle/history;
+- transaction boundary for Publish;
+- Docker container/network/volume lifecycle for local PostgreSQL;
+- unit vs integration evidence boundary.
+
+Still unearned from current evidence:
+
+- Repository/Store interface;
+- domain/service/repository layer tree;
+- `internal/`;
+- `cmd/`;
+- Makefile;
+- CI;
+- Testcontainers;
+- application Dockerfile/containerization;
+- microservice topology.
+
+## Current target
+
+Current requirement:
+
+```text
+Make core Publish invariants repeatably testable
+against real PostgreSQL using disposable bdspro_test,
+without risking development database bdspro.
+```
+
+Current next pressure:
+
+```text
+integration-test logic can be automated,
+but environment setup is still a repeated,
+ordered, destructive manual workflow.
+```
+
+Next smallest response:
+
+```text
+one project-local Bash integration-test workflow
+with database-identity safety first
+```
+
+No Makefile, CI or Testcontainers before that primitive workflow is understood
+and proven.
+
+## Deep-study keyword anchors
+
+For deeper self-study, use the keyword map in
+`docs/continuity/LEARNING-CHECKPOINT-2026-10-01.md`.
+
+Highest-value clusters:
+
+- Bash process model, argv, environment, file descriptors, redirection, PATH,
+  parameter expansion, BASH_SOURCE, errexit/nounset/pipefail;
+- Docker client-server architecture, image layers, container lifecycle, network
+  namespace, bridge networking, port publishing, embedded DNS, bind mounts,
+  named volumes, Compose lifecycle;
+- Go `net/http`, `context`, signals, resource ownership, testing package,
+  build tags, table-driven/subtests, cleanup;
+- pgxpool, PostgreSQL MVCC, READ COMMITTED, concurrent UPDATE, row locks,
+  conditional mutation, transactions, constraints;
+- schema migration versioning, dirty state, backfill, migration immutability;
+- state machines, invariants, TOCTOU, advisory read vs authoritative write,
+  business atomicity;
+- unit vs integration vs failure vs concurrency testing, fault injection,
+  deterministic evidence, flaky tests;
+- cohesion, coupling, information hiding, evolutionary architecture, weakest
+  sufficient boundary, YAGNI/DRY trade-offs.
+
+## Recovery safety
+
+Live source and completed reproducible proof outrank this memory.
+
+Local source may be ahead of remote `main`. Never reset, clean, rebase, amend or
+overwrite unexplained local work during recovery.
+
+Conversation memory is orientation only; durable docs plus live source/proof are
+the continuity bridge.
