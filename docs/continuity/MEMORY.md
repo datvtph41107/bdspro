@@ -290,3 +290,31 @@ overwrite unexplained local work during recovery.
 
 Conversation memory is orientation only; durable docs plus live source/proof are
 the continuity bridge.
+
+## Active coding and source-trace invariant — 2026-10-01
+
+The user explicitly changed the training contract to optimize for long-term
+engineering fluency rather than fast artifact production.
+
+Canonical protocol:
+
+`docs/continuity/PRACTICE-PROTOCOL.md`
+
+Remember:
+
+```text
+Do not normally give a complete function/test/file before a real user attempt.
+Require the user to derive names/responsibilities, write the code, run it, read
+real output and explain the mechanism.
+```
+
+When an unfamiliar library function/tool behavior matters, help locate primary
+documentation and source, then require an own-words interpretation before the
+mechanism is treated as learned.
+
+Use SimpleBank and other OSS as cases to trace and reproduce independently, not
+as code to copy.
+
+Slower progress is intentionally accepted because repetition, debugging and
+source tracing are expected to build practical reflexes and career-level
+transferable skill.
