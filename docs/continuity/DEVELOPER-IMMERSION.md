@@ -221,6 +221,30 @@ How will we prove that the trade is worth it?
 Complexity is a cost to exchange for demonstrated operational or business value,
 not a marker of seniority.
 
+## Context-sensitive execution
+
+Professional fluency includes knowing when to be meticulous and when to be
+minimal.
+
+Before adding process or implementation rigor, identify the operating context:
+
+```text
+Is this disposable exploration or durable production work?
+Is there immediate time pressure?
+What is the blast radius of failure?
+Will this artifact be reused?
+How many people depend on it?
+How easy is recovery?
+What evidence is enough for this stage?
+```
+
+The goal is not to maximize process. The goal is to spend engineering effort
+where it changes risk or value.
+
+This also applies to command usage. A familiar read-only command may be typed
+quickly. A new destructive flag, unusual pathspec, production target or
+history-rewriting Git command must reopen deeper analysis and documentation.
+
 ## Multiple role lenses
 
 The same requirement should periodically be viewed through different roles.
