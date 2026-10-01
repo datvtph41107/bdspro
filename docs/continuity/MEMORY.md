@@ -394,3 +394,17 @@ IMPROVE
 This slogan reinforces Matching Start and contextual rigor: planning and quality
 matter, but they must not become a reason to avoid the first real action from
 which evidence and experience can emerge.
+
+## Response-shape invariant — 2026-10-01
+
+Canonical protocol: `docs/continuity/RESPONSE-PROTOCOL.md`.
+
+Keep separate:
+
+```text
+what the user needs to inspect/understand/do
+!=
+what evidence the assistant needs returned
+```
+
+For source comprehension, prefer IDE navigation and reading. Use terminal grep/find/cat only when they materially improve search, system-state inspection or concise evidence collection. Ask for the smallest useful evidence rather than large pasted outputs.
