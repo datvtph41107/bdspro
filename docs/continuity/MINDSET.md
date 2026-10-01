@@ -140,6 +140,37 @@ Work in meaningful knowledge/architecture blocks. Zoom into individual
 commands/files only when they carry a mechanism worth understanding or when the
 user asks.
 
+## Active skill formation
+
+Matching Start applies to the learner as well as the architecture.
+
+Do not begin from the finished code we want. Begin from the smallest code the
+user can reason about and write personally, expose the next gap in understanding,
+and add only the smallest hint needed to move forward.
+
+The default coding progression is:
+
+```text
+UNDERSTAND REQUIREMENT
+  -> RESEARCH UNKNOWN MECHANISM
+  -> PREDICT
+  -> WRITE BY HAND
+  -> RUN
+  -> READ FAILURE/SUCCESS
+  -> DEBUG
+  -> EXPLAIN IN OWN WORDS
+  -> REPEAT
+  -> ONLY THEN ABSTRACT
+```
+
+A green program produced by copying a complete supplied implementation is not
+sufficient learning evidence. The user must build recall, naming, decomposition,
+documentation-reading and debugging reflexes.
+
+The detailed operational contract is
+`docs/continuity/PRACTICE-PROTOCOL.md` and is mandatory unless the user
+explicitly switches modes for a particular task.
+
 ## Evidence roles
 
 ### New BDSPro source
@@ -193,6 +224,10 @@ Stop and return to the current checkpoint if any of these happen:
 - many empty architecture directories appear before code pressure;
 - discussion jumps multiple abstraction levels without explaining why;
 - implementation details replace the actual intent/problem;
+- a complete solution is supplied before the user has had a real opportunity to
+  derive and type it;
+- official/library documentation is skipped for an unfamiliar mechanism that is
+  material to the current pressure;
 - work degrades into tiny file/command/commit cycles that lose the larger
   learning target.
 
