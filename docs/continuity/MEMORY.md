@@ -416,3 +416,17 @@ Assume active IDE reading is happening. Ask for an explanation only when it affe
 real decision, risk, debugging step, or when the user explicitly wants explanation practice.
 
 The user will ask when something is unclear.
+
+## Core-understanding invariant — 2026-10-01
+
+Real problems anchor practice but do not limit the scope of understanding. For foundational or recurring mechanisms, learn the definition, essential properties, state/lifecycle, guarantees, limits, failure modes, neighboring mechanisms and trade-offs so the knowledge transfers beyond one case.
+
+Key distinction:
+
+```text
+smallest responsible source change
+!=
+smallest possible understanding
+```
+
+Pressure-driven architecture and foundation-driven learning must stay connected.
