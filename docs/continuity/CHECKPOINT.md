@@ -149,7 +149,10 @@ The workflow is:
 - sensitive to the selected database;
 - sensitive to migration/schema freshness.
 
-The smallest responsible response is one project-local Bash workflow.
+The response is not preselected as one Bash script. The current pressure is to
+create clear, independently executable project capabilities and then let observed
+control-flow/safety pressure decide whether each capability belongs directly in a
+Make recipe, a focused Bash script, or later composition.
 
 The first invariant of that workflow is:
 
@@ -158,7 +161,10 @@ never perform destructive integration-test setup
 unless the target database is exactly bdspro_test
 ```
 
-Build the script from understood primitives rather than hiding them.
+Build every capability from understood primitives rather than hiding them.
+Makefile is now a legitimate candidate because recurring project operations have
+appeared, but it must be earned target-by-target rather than introduced as a
+finished task framework.
 
 ## Next proof chain
 
@@ -199,3 +205,31 @@ Before continuing source changes, recover the live worktree and verify which of
 the described local experiments/tests are actually materialized in source.
 Conversation proof is useful orientation, but live source and reproducible test
 output remain the authority.
+
+## Active coding gate — 2026-10-01
+
+The working method has been strengthened. Before the next source/tooling
+implementation, recover and follow:
+
+`docs/continuity/PRACTICE-PROTOCOL.md`
+
+The user must write the code personally. The assistant should expose the
+requirement, pressure, vocabulary, relevant API/docs and the smallest syntax
+shape needed, then review the user's actual implementation and real output.
+
+For unfamiliar library/tool mechanisms, primary documentation/source tracing and
+an explanation in the user's own words are part of the acceptance evidence.
+
+Current immediate source position:
+
+```text
+NO new Makefile/task source should be assumed to exist from conversation alone.
+First reconcile the local worktree.
+Then, if no conflicting local work exists, the next tiny implementation exercise
+is to derive and hand-write the first non-destructive project capability:
+postgres-up.
+```
+
+The purpose is not to finish tooling quickly. It is to build the developer
+reflex: requirement -> mechanism -> docs/source -> code -> run -> diagnose ->
+explain.
