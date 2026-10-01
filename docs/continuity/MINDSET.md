@@ -80,6 +80,59 @@ WHY now?
 "People usually do this", "best practice", "Clean Architecture says so", "DDD
 says so", or "this OSS repo has it" is evidence at most, never the root cause.
 
+## Contextual rigor — fit the solution to the situation
+
+Engineering quality is contextual. The most polished, reusable or defensive
+solution is not automatically the correct one.
+
+For every meaningful decision, evaluate the actual situation:
+
+```text
+GOAL
+  -> TIME PRESSURE
+  -> FAILURE COST
+  -> SAFETY REQUIREMENT
+  -> EXPECTED LIFETIME
+  -> REUSE EXPECTATION
+  -> NUMBER OF USERS / ACTORS
+  -> CHANGE FREQUENCY
+  -> OBSERVABILITY / RECOVERY OPTIONS
+  -> COMPLEXITY COST
+```
+
+Then choose the smallest level of rigor that satisfies the real need.
+
+A useful analogy is building a ladder to escape a room. One approach may build a
+carefully finished ladder optimized for repeated safe use; another may build the
+minimum sufficiently strong ladder to escape quickly. Neither is inherently
+better. The correct choice depends on whether the ladder will be reused, how much
+time exists, how costly failure is, whether there is an immediate threat, and
+what happens after escape.
+
+The same applies to software:
+
+```text
+more abstraction != more correct
+more flags       != more professional
+more validation  != always more valuable
+faster hack      != always irresponsible
+```
+
+The decision must be tied to context, risk and value.
+
+For a command, option, abstraction or safety mechanism, ask:
+
+```text
+What concrete problem does this extra thing solve here?
+What changes if I omit it?
+What new failure does it prevent?
+What complexity or cognitive cost does it add?
+Is that trade worth paying in this situation?
+```
+
+Do not keep syntax, flags or layers merely because they appeared in an earlier
+example. Re-evaluate them against the current intent.
+
 ## Do not skip levels
 
 Prefer the weakest boundary that solves the demonstrated problem.
@@ -239,6 +292,8 @@ Stop and return to the current checkpoint if any of these happen:
 - a mature OSS tree is copied because it looks professional;
 - legacy BDSPro topology is treated as inherited truth;
 - a "best practice" is used as the cause rather than evidence;
+- rigor, abstraction, validation or CLI flags are retained without explaining the
+  concrete risk/value they buy in the current context;
 - many empty architecture directories appear before code pressure;
 - discussion jumps multiple abstraction levels without explaining why;
 - implementation details replace the actual intent/problem;
