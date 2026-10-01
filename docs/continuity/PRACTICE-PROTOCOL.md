@@ -272,3 +272,9 @@ debug and transfer them with limited prompting.
 The broader repetition, failure-escalation and multi-role model is defined in
 `docs/continuity/DEVELOPER-IMMERSION.md`. This protocol governs each individual
 practice step inside that larger model.
+
+## Daily command and stack workflow
+
+The concrete daily CLI/code operating standard lives in
+`docs/continuity/ENGINEERING-WORKFLOW.md`. Use its first-encounter versus repeated-use
+cadence so fundamentals are deeply traced once, then practiced at normal working speed.
