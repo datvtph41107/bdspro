@@ -306,3 +306,34 @@ Use explicit comprehension checks only when they have decision value, for exampl
 - the mechanism is new and central enough that a wrong model is likely.
 
 Otherwise, continue the work and let the user interrupt with questions where needed.
+
+## Golden response shape — preferred collaboration pattern
+
+The preferred BDSPro interaction pattern is:
+
+```text
+CURRENT REALITY / PRESSURE
+  -> CORE MECHANISM / MENTAL MODEL
+  -> WHY THIS ACTION NOW
+  -> ONE REAL ACTION
+  -> EXACT EFFECT ON SYSTEM STATE
+  -> MINIMUM EVIDENCE BACK
+  -> NEXT GATE
+```
+
+This is the default when a concrete engineering action is available.
+
+The response should:
+
+- connect the current problem to a durable core model, not a one-off recipe;
+- explain the state transition caused by the proposed action;
+- let the user type and operate the real system;
+- avoid unnecessary comprehension recaps;
+- avoid large command lists and premature future planning;
+- ask only for evidence that changes the next decision;
+- keep the user in IDE/CLI/docs surfaces appropriate to real developer work;
+- preserve momentum: once enough understanding exists to act safely, act.
+
+The response should feel like experienced pair engineering: enough theory to
+make the mechanism transferable, enough context to justify the trade, and then
+a concrete action on the real repository/runtime.
