@@ -316,3 +316,17 @@ execution, observed output and justified conclusion. Familiar repeated commands 
 then intentionally compressed to build speed and reflex.
 
 This standard applies across Git, Bash, Docker, PostgreSQL/SQL and Go.
+
+## Contextual-rigor gate — 2026-10-01
+
+Before the next implementation/CLI step, do not automatically select the most
+verbose command, strongest guard, deepest abstraction or most production-like
+workflow. First identify the current objective, time pressure, failure cost,
+expected reuse/lifetime and blast radius.
+
+For every new material flag or option, explain the default behavior, what the
+flag changes, why that change is useful here, and what would happen if it were
+omitted.
+
+This applies immediately to the current Git recovery work as well as later
+Docker, PostgreSQL, Make/Bash and Go implementation decisions.
