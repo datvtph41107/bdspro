@@ -330,3 +330,35 @@ omitted.
 
 This applies immediately to the current Git recovery work as well as later
 Docker, PostgreSQL, Make/Bash and Go implementation decisions.
+
+## Local recovery branch established — 2026-10-01
+
+The user's local accumulated implementation has been moved off local `main`
+without losing working-tree changes.
+
+Observed local state:
+
+```text
+branch: recovery/local-implementation
+
+modified:
+  main.go
+
+untracked:
+  .gitignore
+  .vscode/
+  compose.yaml
+  go.mod
+  go.sum
+  listing/
+  migrations/
+  test-integration.sh
+```
+
+This proves the branch switch preserved the working tree.
+
+Immediate pressure: preserve the accumulated implementation honestly in Git
+without fabricating a false fine-grained historical sequence. The next decision
+is how to create a truthful recovery checkpoint, exclude local-only artifacts,
+and then synchronize onto current remote main before normal incremental work
+resumes.
