@@ -278,3 +278,12 @@ practice step inside that larger model.
 The concrete daily CLI/code operating standard lives in
 `docs/continuity/ENGINEERING-WORKFLOW.md`. Use its first-encounter versus repeated-use
 cadence so fundamentals are deeply traced once, then practiced at normal working speed.
+
+## Context before rigor
+
+Before increasing code/process rigor, state what the current context requires.
+Do not automatically choose the most elaborate implementation, test matrix,
+workflow, abstraction or command form.
+
+Ask what value the extra rigor buys, what failure it prevents, and whether the
+current time pressure, lifetime, reuse and blast radius justify its cost.
