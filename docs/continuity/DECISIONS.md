@@ -40,4 +40,6 @@ Status vocabulary:
 
 | BDS-023 | Treat BDSPro as a deliberate professional immersion environment: repeatedly practice fundamentals, primary-source research, real operation/debugging and progressively harder failure cases; use AI primarily for research/review/reasoning rather than code generation | CLOSED | User explicitly wants practical reflexes across Bash, Git, Docker, PostgreSQL, Go and testing that transfer to future projects, real work and truthful interview/CV evidence | Follow `DEVELOPER-IMMERSION.md` plus `PRACTICE-PROTOCOL.md`; accept slower progress and require real hands-on evidence before claiming fluency |
 
+| BDS-024 | Re-open Makefile only as an incremental project-capability interface, not as bootstrap scaffolding; first target must be hand-written after local Git recovery | PROVISIONAL | Repeated PostgreSQL/test/migration operations now create a real need for stable independently executable project commands, while complex safety/control flow may still belong in Bash | Reconcile and preserve local work first; then let the user derive the first non-destructive target and prove whether the boundary adds value |
+
 Do not erase old decisions. Mark superseded decisions and add the replacement.
