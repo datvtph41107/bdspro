@@ -262,3 +262,13 @@ This protocol is part of BDSPro's working method.
 A future assistant must read it before proposing implementation. If convenience
 or speed conflicts with active skill formation, prefer active skill formation
 unless the user explicitly asks to temporarily switch modes.
+
+## Long-horizon repetition
+
+A single correct attempt is not the training endpoint. Important primitives must
+recur across realistic work until the user can recognize, research, execute,
+debug and transfer them with limited prompting.
+
+The broader repetition, failure-escalation and multi-role model is defined in
+`docs/continuity/DEVELOPER-IMMERSION.md`. This protocol governs each individual
+practice step inside that larger model.
