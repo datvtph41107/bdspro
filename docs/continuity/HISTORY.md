@@ -152,3 +152,44 @@ application login identity
 The application must not run as the PostgreSQL bootstrap superuser. A future
 migration identity is intentionally not created until schema-change pressure
 earns it.
+
+
+## H8 — Runtime, data, concurrency and evidence checkpoint
+
+By 2026-10-01 the clean BDSPro learning path had advanced well beyond the initial
+PostgreSQL bootstrap checkpoint.
+
+The work was intentionally derived pressure-by-pressure rather than from a target
+architecture:
+
+```text
+minimal HTTP process
+ -> explicit lifecycle
+ -> required PostgreSQL startup dependency
+ -> Dockerized local datastore
+ -> liveness/readiness split
+ -> first durable Listing state
+ -> schema migrations + dirty-state reasoning
+ -> DRAFT/PUBLISHED transition
+ -> concurrency-safe conditional mutation
+ -> business transaction across multiple durable facts
+ -> rollback proof
+ -> Listing package boundary
+ -> publish completeness and non-editability
+ -> concurrent Edit/Publish proof
+ -> Publication Readiness and TOCTOU
+ -> Bash/Docker/testing foundations
+ -> real-PostgreSQL integration-evidence pressure
+```
+
+A dedicated acceptance artifact was added:
+
+`docs/continuity/LEARNING-CHECKPOINT-2026-10-01.md`
+
+The moving `CHECKPOINT.md` and `MEMORY.md` were refreshed so future recovery
+does not return to the obsolete "PostgreSQL is just arriving" state.
+
+The next authorized pressure is safe, repeatable orchestration of the
+integration-test environment. The smallest candidate response is one
+project-local Bash workflow; Makefile, CI, Testcontainers and Repository/Store
+abstractions remain unearned until stronger pressure appears.
