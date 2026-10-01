@@ -38,4 +38,6 @@ Status vocabulary:
 
 | BDS-022 | Make active coding, primary-source tracing, own-words explanation and debugging from real output mandatory parts of the BDSPro learning workflow; complete paste-ready implementations are not the default | CLOSED | User explicitly identified copy/paste of complete functions/tests as preventing naming, decomposition, recall, documentation-reading and debugging reflexes | Enforce `PRACTICE-PROTOCOL.md`; use the solution-escalation ladder and accept slower progress in exchange for transferable skill |
 
+| BDS-023 | Treat BDSPro as a deliberate professional immersion environment: repeatedly practice fundamentals, primary-source research, real operation/debugging and progressively harder failure cases; use AI primarily for research/review/reasoning rather than code generation | CLOSED | User explicitly wants practical reflexes across Bash, Git, Docker, PostgreSQL, Go and testing that transfer to future projects, real work and truthful interview/CV evidence | Follow `DEVELOPER-IMMERSION.md` plus `PRACTICE-PROTOCOL.md`; accept slower progress and require real hands-on evidence before claiming fluency |
+
 Do not erase old decisions. Mark superseded decisions and add the replacement.
