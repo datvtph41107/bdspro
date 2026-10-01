@@ -250,12 +250,16 @@ ordered, destructive manual workflow.
 Next smallest response:
 
 ```text
-one project-local Bash integration-test workflow
-with database-identity safety first
+reconcile local Git state
+-> expose recurring project operations as small named capabilities
+-> let pressure decide whether each belongs in Make or focused Bash
+-> compose only after the primitives are understood
 ```
 
-No Makefile, CI or Testcontainers before that primitive workflow is understood
-and proven.
+Makefile is now a legitimate candidate because recurring project operations and
+independent execution/debugging needs have appeared. It must be earned target by
+target, not introduced as a finished framework. CI and Testcontainers remain
+later decisions.
 
 ## Deep-study keyword anchors
 
@@ -318,3 +322,19 @@ as code to copy.
 Slower progress is intentionally accepted because repetition, debugging and
 source tracing are expected to build practical reflexes and career-level
 transferable skill.
+
+## Developer immersion invariant — 2026-10-01
+
+BDSPro is the user's deliberate-practice environment for becoming operationally
+fluent as a backend developer. The goal is repeated real use of Bash/processes,
+Git, Docker, PostgreSQL/SQL/CLI, Go, testing, documentation/source tracing and
+debugging until the user can operate them naturally and transfer the reasoning to
+future projects.
+
+Canonical long-horizon model:
+
+`docs/continuity/DEVELOPER-IMMERSION.md`
+
+AI should increasingly act as a research/review/reasoning partner rather than an
+implementation generator. Experience evidence should come from work the user
+actually typed, operated, failed, debugged and can explain.
