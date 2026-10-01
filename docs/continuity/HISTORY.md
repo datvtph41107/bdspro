@@ -242,3 +242,18 @@ reflexes, branch/commit reasoning and the AI response contract.
 
 The model intentionally becomes faster with repetition: familiar primitives are abbreviated,
 while new flags, environments, failures or destructive operations reopen the full trace.
+
+## H12 — Contextual rigor and flag discipline
+
+On 2026-10-01 the user refined the mindset with a ladder analogy: one engineer may
+build a polished reusable ladder, another may build the minimum sufficiently safe
+ladder to escape quickly. The right answer depends on time pressure, failure cost,
+reuse, lifetime and surrounding threats.
+
+This was generalized into a durable rule: engineering rigor must be proportional
+to actual context, risk and value. Extra abstractions, safety checks, workflow
+steps and CLI flags must earn their cost rather than being retained from examples
+or convention.
+
+The rule was added to MINDSET.md, DEVELOPER-IMMERSION.md,
+ENGINEERING-WORKFLOW.md and PRACTICE-PROTOCOL.md.
