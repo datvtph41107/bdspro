@@ -287,3 +287,8 @@ workflow, abstraction or command form.
 
 Ask what value the extra rigor buys, what failure it prevents, and whether the
 current time pressure, lifetime, reuse and blast radius justify its cost.
+
+## Response and evidence boundary
+
+The assistant/user interaction format is governed by `docs/continuity/RESPONSE-PROTOCOL.md`.
+Source comprehension should default to the IDE; terminal extraction is used only when it materially helps operation, navigation or concise evidence exchange.
