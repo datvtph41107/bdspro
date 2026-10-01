@@ -34,6 +34,7 @@ In a fresh context:
 2. Read this file, then read in this order:
    - `docs/continuity/MASTER.md`
    - `docs/continuity/MINDSET.md`
+   - `docs/continuity/DEVELOPER-IMMERSION.md`
    - `docs/continuity/PRACTICE-PROTOCOL.md`
    - `docs/continuity/CHECKPOINT.md`
    - `docs/continuity/DECISIONS.md`
