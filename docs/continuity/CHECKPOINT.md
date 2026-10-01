@@ -190,7 +190,6 @@ Do not introduce merely because integration tests exist:
 - `internal/`;
 - `cmd/`;
 - service/domain/repository layer tree;
-- Makefile;
 - CI;
 - Testcontainers;
 - Dockerfile for the Go application;
@@ -198,6 +197,43 @@ Do not introduce merely because integration tests exist:
 - microservice split.
 
 Each requires its own demonstrated pressure.
+
+## Developer-immersion objective — 2026-10-01
+
+BDSPro is now explicitly a long-running professional practice system, not only a
+feature implementation project.
+
+Mandatory recovery document:
+
+`docs/continuity/DEVELOPER-IMMERSION.md`
+
+Recurring work should deliberately exercise real developer surfaces: Git state
+inspection, Bash/process reasoning, Docker and PostgreSQL operation, primary
+documentation/source tracing, hand-written Go/test code, failure diagnosis, diff
+review and coherent commits.
+
+Difficulty should grow from happy paths toward configuration mistakes, stale
+state, partial failure, concurrency and recovery only when each new pressure has
+clear engineering or learning value.
+
+Current local/remote reconciliation evidence supplied by the user:
+
+```text
+local HEAD:        1ce48eda81e0a22ca16d3cb2c89eee6fb53ba254
+local origin/main: bf5e7d266633b8cdc806e1b8dffc7814f74355e0
+remote GitHub:     advanced beyond local origin/main
+```
+
+Therefore no pull/rebase/reset or new source mutation is authorized until
+`git fetch origin` refreshes the remote-tracking ref and the relationship is
+classified from Git evidence.
+
+After reconciliation, Makefile is now a legitimate *candidate boundary* because
+recurring project operations and a need for independently executable project
+capabilities have appeared. It must still be introduced incrementally and typed
+by the user, beginning with a non-destructive capability such as `postgres-up`.
+Bash should be earned only where imperative/safety logic exceeds a simple Make
+recipe.
 
 ## Recovery note
 
