@@ -362,3 +362,29 @@ without fabricating a false fine-grained historical sequence. The next decision
 is how to create a truthful recovery checkpoint, exclude local-only artifacts,
 and then synchronize onto current remote main before normal incremental work
 resumes.
+
+## Recovery implementation staged — 2026-10-01
+
+Local branch:
+
+`recovery/local-implementation`
+
+The accumulated implementation checkpoint has been staged into the Git index.
+
+Staged:
+
+- `.gitignore`
+- `compose.yaml`
+- `go.mod` / `go.sum`
+- modified `main.go`
+- `listing/listing.go`
+- unit and integration tests under `listing/`
+- migrations `000001` through `000004`, up/down
+- `test-integration.sh`
+
+`.vscode/` remains outside the staged snapshot.
+
+Immediate next proof: review the exact index snapshot relative to `HEAD` before
+creating the recovery commit. Do not fabricate a historical sequence of past
+milestones; preserve the accumulated implementation truthfully as one recovery
+checkpoint, then resume normal incremental Git discipline.
