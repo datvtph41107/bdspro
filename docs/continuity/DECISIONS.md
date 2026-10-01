@@ -48,4 +48,6 @@ Status vocabulary:
 
 | BDS-027 | Separate user learning/work surfaces from assistant evidence collection; prefer IDE-first source comprehension and request only minimal targeted evidence | CLOSED | Terminal-heavy source extraction made the user operate like a log courier instead of a developer reading/editing code in the IDE; evidence collection and learning have different needs | Follow `RESPONSE-PROTOCOL.md`; use CLI extraction only when it improves real operation, navigation, or concise evidence transfer |
 
+| BDS-029 | Use the preferred pair-engineering response shape: current pressure -> core model -> justified real action -> state transition -> minimum evidence -> next gate | CLOSED | User explicitly confirmed this format best supports real developer practice while preserving transferable understanding and momentum | Enforce through `RESPONSE-PROTOCOL.md`; only deviate when the task genuinely requires broader research, design comparison, or incident-style debugging |
+
 Do not erase old decisions. Mark superseded decisions and add the replacement.
