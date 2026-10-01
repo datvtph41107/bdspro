@@ -42,4 +42,6 @@ Status vocabulary:
 
 | BDS-024 | Re-open Makefile only as an incremental project-capability interface, not as bootstrap scaffolding; first target must be hand-written after local Git recovery | PROVISIONAL | Repeated PostgreSQL/test/migration operations now create a real need for stable independently executable project commands, while complex safety/control flow may still belong in Bash | Reconcile and preserve local work first; then let the user derive the first non-destructive target and prove whether the boundary adds value |
 
+| BDS-025 | Standardize daily engineering work around state-first command tracing, primary documentation, user-typed execution, real-output interpretation and repetition-to-fluency across Git/Bash/Docker/PostgreSQL/Go | CLOSED | User needs consistent working reflexes rather than isolated lessons; commands must be understood at first encounter but become fast through repeated use | Follow `ENGINEERING-WORKFLOW.md`; reopen the full trace for new flags/environments/failure or destructive cases |
+
 Do not erase old decisions. Mark superseded decisions and add the replacement.
