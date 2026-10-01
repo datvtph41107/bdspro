@@ -47,6 +47,7 @@ At the beginning of a fresh context:
    - `docs/continuity/CONTINUATION-PROMPT.md`
    - `docs/continuity/MINDSET.md`
    - `docs/continuity/DEVELOPER-IMMERSION.md`
+   - `docs/continuity/ENGINEERING-WORKFLOW.md`
    - `docs/continuity/PRACTICE-PROTOCOL.md`
    - `docs/continuity/CHECKPOINT.md`
    - `docs/continuity/DECISIONS.md`
@@ -77,6 +78,9 @@ At the beginning of a fresh context:
 `docs/continuity/DEVELOPER-IMMERSION.md` governs long-horizon professional
 practice: fundamental fluency, repetition, operational drills, increasing
 failure pressure and multi-role reasoning.
+`docs/continuity/ENGINEERING-WORKFLOW.md` governs the everyday command/coding
+rhythm, stack-specific reflexes, state/risk classification and primary-source
+trace for Git, Bash, Docker, PostgreSQL and Go.
 `docs/continuity/PRACTICE-PROTOCOL.md` governs the active coding, research,
 source-tracing and debugging method.
 `CHECKPOINT.md` governs the current target. Live source and reproducible proof
