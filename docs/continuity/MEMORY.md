@@ -223,7 +223,6 @@ Still unearned from current evidence:
 - domain/service/repository layer tree;
 - `internal/`;
 - `cmd/`;
-- Makefile;
 - CI;
 - Testcontainers;
 - application Dockerfile/containerization;
@@ -338,3 +337,14 @@ Canonical long-horizon model:
 AI should increasingly act as a research/review/reasoning partner rather than an
 implementation generator. Experience evidence should come from work the user
 actually typed, operated, failed, debugged and can explain.
+
+## Current local Git recovery fact — 2026-10-01
+
+After `git fetch origin`, the user's local committed history is 0 commits ahead
+and 25 commits behind `origin/main`. The working tree contains substantial
+uncommitted implementation work: modified `main.go` plus untracked Go module,
+Compose, Listing, migrations and integration-workflow files.
+
+The immediate task is therefore not new feature/tooling code. It is to inspect,
+understand and preserve that local work, then establish truthful branch and commit
+boundaries before synchronizing with remote main.
