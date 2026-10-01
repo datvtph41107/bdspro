@@ -44,4 +44,6 @@ Status vocabulary:
 
 | BDS-025 | Standardize daily engineering work around state-first command tracing, primary documentation, user-typed execution, real-output interpretation and repetition-to-fluency across Git/Bash/Docker/PostgreSQL/Go | CLOSED | User needs consistent working reflexes rather than isolated lessons; commands must be understood at first encounter but become fast through repeated use | Follow `ENGINEERING-WORKFLOW.md`; reopen the full trace for new flags/environments/failure or destructive cases |
 
+| BDS-026 | Make engineering rigor context-sensitive: every added abstraction, guard, workflow step, option or CLI flag must justify its cost against the current goal, time pressure, failure cost, lifetime, reuse, blast radius and recovery options | CLOSED | User's ladder analogy showed that polished/reusable and minimally sufficient solutions can both be correct depending on context; blindly retaining extra rigor or flags obscures intent and increases complexity | Apply contextual-rigor questions before implementation and option selection; reopen deeper rigor when risk/value changes |
+
 Do not erase old decisions. Mark superseded decisions and add the replacement.
