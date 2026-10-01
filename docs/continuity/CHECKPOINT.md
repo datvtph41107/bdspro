@@ -303,3 +303,16 @@ postgres-up.
 The purpose is not to finish tooling quickly. It is to build the developer
 reflex: requirement -> mechanism -> docs/source -> code -> run -> diagnose ->
 explain.
+
+## Daily workflow standard — 2026-10-01
+
+A concrete operating standard now exists at:
+
+`docs/continuity/ENGINEERING-WORKFLOW.md`
+
+For new or materially changed commands/APIs, work must expose: why now, command/API
+shape, material arguments, state read/mutated, primary source, prediction, user-typed
+execution, observed output and justified conclusion. Familiar repeated commands are
+then intentionally compressed to build speed and reflex.
+
+This standard applies across Git, Bash, Docker, PostgreSQL/SQL and Go.
