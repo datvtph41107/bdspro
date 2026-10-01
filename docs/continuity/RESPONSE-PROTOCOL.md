@@ -291,3 +291,18 @@ are unsure about.
 
 This keeps the human in the real development environment and keeps evidence
 exchange efficient.
+
+## Default comprehension assumption
+
+Do not require the user to restate or summarize every file/function after reading it.
+Assume the user is reading and reasoning in the IDE unless they signal confusion,
+ask for review, or the next decision genuinely depends on verifying their mental model.
+
+Use explicit comprehension checks only when they have decision value, for example:
+
+- the user is about to make a risky change;
+- a misunderstanding would invalidate the next step;
+- the user explicitly asks to practice explanation/interview articulation;
+- the mechanism is new and central enough that a wrong model is likely.
+
+Otherwise, continue the work and let the user interrupt with questions where needed.
