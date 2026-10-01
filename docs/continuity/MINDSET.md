@@ -169,6 +169,38 @@ Do not pre-create `cmd/`, `internal/`, `pkg/`, `services/`, `domain/`,
 `repositories/`, `utils/`, or any other conventional shape merely because a
 template or mature repository contains it.
 
+## Core model before local exploitation
+
+A real problem is an anchor for learning, not the maximum scope of learning.
+
+When a mechanism is important, do not learn only the fragment needed to pass
+the current case. Recover its core model:
+
+```text
+DEFINITION
+  -> ESSENTIAL PROPERTIES
+  -> STATE / LIFECYCLE
+  -> GUARANTEES
+  -> NON-GUARANTEES / LIMITS
+  -> FAILURE MODES
+  -> RELATION TO NEIGHBORING MECHANISMS
+  -> COST / TRADE-OFF
+  -> HOW TO OBSERVE IT
+  -> HOW THE CURRENT CASE USES IT
+```
+
+The current requirement determines where to enter and how deep to go first,
+but it must not reduce an important mechanism to a one-off recipe.
+
+Pressure-driven architecture and foundation-driven learning are complementary:
+
+```text
+PRESSURE decides WHAT must change in the system.
+CORE MODEL decides WHAT must be understood to work with that mechanism well.
+```
+
+Do not confuse 'smallest responsible source change' with 'smallest possible
+understanding'.
 ## Training principle
 
 Learning and implementation are one process.
