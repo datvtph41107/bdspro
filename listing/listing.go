@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -36,30 +38,16 @@ type PublicationReadiness struct {
 
 func Create(
 	ctx context.Context,
-	db *pgxpool.Pool,
+	pool *pgxpool.Pool,
 	title string,
 ) (Listing, error) {
 	if strings.TrimSpace(title) == "" {
 		return Listing{}, ErrTitleRequired
 	}
 
-	var result Listing
+	queries := dbsqlc.New(pool)
 
-	err := db.QueryRow(
-		ctx,
-		`
-			INSERT INTO listings (title)
-			VALUES ($1)
-			RETURNING id, title, description, status	
-		`,
-		title,
-	).Scan(
-		&result.ID,
-		&result.Title,
-		&result.Description,
-		&result.Status,
-	)
-
+	row, err := queries.CreateListing(ctx, title)
 	if err != nil {
 		return Listing{}, fmt.Errorf(
 			"create listing: %w",
@@ -67,12 +55,16 @@ func Create(
 		)
 	}
 
-	return result, nil
+	return Listing{
+		ID:     row.ID,
+		Title:  row.Title,
+		Status: row.Status,
+	}, nil
 }
 
 func UpdateDescription(
 	ctx context.Context,
-	db *pgxpool.Pool,
+	pool *pgxpool.Pool,
 	id int64,
 	description string,
 ) (Listing, error) {
@@ -80,28 +72,23 @@ func UpdateDescription(
 		return Listing{}, ErrDescriptionRequired
 	}
 
-	var result Listing
+	queries := dbsqlc.New(pool)
 
-	err := db.QueryRow(
+	row, err := queries.UpdateListingDescription(
 		ctx,
-		`
-			UPDATE listings
-			SET description = $2
-			WHERE id = $1
-			  AND status = 'DRAFT'
-			RETURNING id, title, description, status
-		`,
-		id,
-		description,
-	).Scan(
-		&result.ID,
-		&result.Title,
-		&result.Description,
-		&result.Status,
+		dbsqlc.UpdateListingDescriptionParams{
+			Description: description,
+			ID:          id,
+		},
 	)
 
 	if err == nil {
-		return result, nil
+		return Listing{
+			ID:          row.ID,
+			Title:       row.Title,
+			Description: textPtr(row.Description),
+			Status:      row.Status,
+		}, nil
 	}
 
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -111,17 +98,7 @@ func UpdateDescription(
 		)
 	}
 
-	var status string
-
-	err = db.QueryRow(
-		ctx,
-		`
-			SELECT status
-			FROM listings
-			WHERE id = $1
-		`,
-		id,
-	).Scan(&status)
+	status, err := queries.GetListingStatus(ctx, id)
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -147,60 +124,38 @@ func UpdateDescription(
 
 func Publish(
 	ctx context.Context,
-	db *pgxpool.Pool,
+	pool *pgxpool.Pool,
 	id int64,
 ) (Listing, error) {
-	tx, err := db.Begin(ctx)
+	queries := dbsqlc.New(pool)
+
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return Listing{}, fmt.Errorf(
 			"begin publish listing transaction: %w",
 			err,
 		)
 	}
+
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
 
-	var result Listing
+	txQueries := queries.WithTx(tx)
 
-	err = tx.QueryRow(
-		ctx,
-		`
-			UPDATE listings
-			SET status = 'PUBLISHED'
-			WHERE id = $1
-			 	AND status = 'DRAFT'
-				AND description IS NOT NULL
-			RETURNING id, title, status
-		`,
-		id,
-	).Scan(
-		&result.ID,
-		&result.Title,
-		&result.Status,
-	)
+	row, err := txQueries.MarkListingPublished(ctx, id)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		var status string
-
-		err = tx.QueryRow(
-			ctx,
-			`
-				SELECT status
-				FROM listings
-				WHERE id = $1
-			`,
-			id,
-		).Scan(&status)
+		status, statusErr := txQueries.GetListingStatus(ctx, id)
 
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		case errors.Is(statusErr, pgx.ErrNoRows):
 			return Listing{}, ErrNotFound
 
-		case err != nil:
+		case statusErr != nil:
 			return Listing{}, fmt.Errorf(
 				"read listing status: %w",
-				err,
+				statusErr,
 			)
 
 		case status == "PUBLISHED":
@@ -225,15 +180,7 @@ func Publish(
 		)
 	}
 
-	_, err = tx.Exec(
-		ctx,
-		`
-			INSERT INTO listing_publications (listing_id)
-			VALUES ($1)
-		`,
-		id,
-	)
-	if err != nil {
+	if err := txQueries.CreateListingPublication(ctx, id); err != nil {
 		return Listing{}, fmt.Errorf(
 			"record listing publication: %w",
 			err,
@@ -247,30 +194,21 @@ func Publish(
 		)
 	}
 
-	return result, nil
+	return Listing{
+		ID:     row.ID,
+		Title:  row.Title,
+		Status: row.Status,
+	}, nil
 }
 
 func CheckPublicationReadiness(
 	ctx context.Context,
-	db *pgxpool.Pool,
+	pool *pgxpool.Pool,
 	id int64,
 ) (PublicationReadiness, error) {
-	var item Listing
+	queries := dbsqlc.New(pool)
 
-	err := db.QueryRow(
-		ctx,
-		`
-			SELECT id, title, description, status
-			FROM listings
-			WHERE id = $1
-		`,
-		id,
-	).Scan(
-		&item.ID,
-		&item.Title,
-		&item.Description,
-		&item.Status,
-	)
+	row, err := queries.GetListingForPublicationReadiness(ctx, id)
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -283,13 +221,31 @@ func CheckPublicationReadiness(
 		)
 	}
 
+	item := Listing{
+		ID:          row.ID,
+		Title:       row.Title,
+		Description: textPtr(row.Description),
+		Status:      row.Status,
+	}
+
 	return publicationReadiness(item), nil
+}
+
+func textPtr(value pgtype.Text) *string {
+	if !value.Valid {
+		return nil
+	}
+
+	text := value.String
+
+	return &text
 }
 
 func publicationReadiness(item Listing) PublicationReadiness {
 	missing := make([]string, 0)
 
-	if item.Description == nil || strings.TrimSpace(*item.Description) == "" {
+	if item.Description == nil ||
+		strings.TrimSpace(*item.Description) == "" {
 		missing = append(missing, "description")
 	}
 

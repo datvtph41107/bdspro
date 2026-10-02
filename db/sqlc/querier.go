@@ -9,7 +9,12 @@ import (
 )
 
 type Querier interface {
-	CreateListing(ctx context.Context, arg CreateListingParams) (Listing, error)
+	CreateListing(ctx context.Context, title string) (CreateListingRow, error)
+	CreateListingPublication(ctx context.Context, listingID int64) error
+	GetListingForPublicationReadiness(ctx context.Context, id int64) (GetListingForPublicationReadinessRow, error)
+	GetListingStatus(ctx context.Context, id int64) (string, error)
+	MarkListingPublished(ctx context.Context, id int64) (MarkListingPublishedRow, error)
+	UpdateListingDescription(ctx context.Context, arg UpdateListingDescriptionParams) (UpdateListingDescriptionRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

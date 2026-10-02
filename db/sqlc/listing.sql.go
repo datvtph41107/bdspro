@@ -13,31 +13,141 @@ import (
 
 const createListing = `-- name: CreateListing :one
 INSERT INTO listings (
-    title,
-    description,
-    price
+    title
 ) VALUES (
-    $1,
-    $2,
-    $3
-) RETURNING id, title, status, description, price
+    $1
+)
+RETURNING
+    id,
+    title,
+    status
 `
 
-type CreateListingParams struct {
-	Title       string
-	Description pgtype.Text
-	Price       pgtype.Int8
+type CreateListingRow struct {
+	ID     int64
+	Title  string
+	Status string
 }
 
-func (q *Queries) CreateListing(ctx context.Context, arg CreateListingParams) (Listing, error) {
-	row := q.db.QueryRow(ctx, createListing, arg.Title, arg.Description, arg.Price)
-	var i Listing
+func (q *Queries) CreateListing(ctx context.Context, title string) (CreateListingRow, error) {
+	row := q.db.QueryRow(ctx, createListing, title)
+	var i CreateListingRow
+	err := row.Scan(&i.ID, &i.Title, &i.Status)
+	return i, err
+}
+
+const createListingPublication = `-- name: CreateListingPublication :exec
+INSERT INTO listing_publications (
+    listing_id
+) VALUES (
+    $1
+)
+`
+
+func (q *Queries) CreateListingPublication(ctx context.Context, listingID int64) error {
+	_, err := q.db.Exec(ctx, createListingPublication, listingID)
+	return err
+}
+
+const getListingForPublicationReadiness = `-- name: GetListingForPublicationReadiness :one
+SELECT
+    id,
+    title,
+    description,
+    status
+FROM listings
+WHERE id = $1
+`
+
+type GetListingForPublicationReadinessRow struct {
+	ID          int64
+	Title       string
+	Description pgtype.Text
+	Status      string
+}
+
+func (q *Queries) GetListingForPublicationReadiness(ctx context.Context, id int64) (GetListingForPublicationReadinessRow, error) {
+	row := q.db.QueryRow(ctx, getListingForPublicationReadiness, id)
+	var i GetListingForPublicationReadinessRow
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
-		&i.Status,
 		&i.Description,
-		&i.Price,
+		&i.Status,
+	)
+	return i, err
+}
+
+const getListingStatus = `-- name: GetListingStatus :one
+SELECT status
+FROM listings
+WHERE id = $1
+`
+
+func (q *Queries) GetListingStatus(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRow(ctx, getListingStatus, id)
+	var status string
+	err := row.Scan(&status)
+	return status, err
+}
+
+const markListingPublished = `-- name: MarkListingPublished :one
+UPDATE listings
+SET status = 'PUBLISHED'
+WHERE id = $1
+  AND status = 'DRAFT'
+  AND description IS NOT NULL
+RETURNING
+    id,
+    title,
+    status
+`
+
+type MarkListingPublishedRow struct {
+	ID     int64
+	Title  string
+	Status string
+}
+
+func (q *Queries) MarkListingPublished(ctx context.Context, id int64) (MarkListingPublishedRow, error) {
+	row := q.db.QueryRow(ctx, markListingPublished, id)
+	var i MarkListingPublishedRow
+	err := row.Scan(&i.ID, &i.Title, &i.Status)
+	return i, err
+}
+
+const updateListingDescription = `-- name: UpdateListingDescription :one
+UPDATE listings
+SET description = $1::text
+WHERE id = $2
+  AND status = 'DRAFT'
+RETURNING
+    id,
+    title,
+    description,
+    status
+`
+
+type UpdateListingDescriptionParams struct {
+	Description string
+	ID          int64
+}
+
+type UpdateListingDescriptionRow struct {
+	ID          int64
+	Title       string
+	Description pgtype.Text
+	Status      string
+}
+
+func (q *Queries) UpdateListingDescription(ctx context.Context, arg UpdateListingDescriptionParams) (UpdateListingDescriptionRow, error) {
+	row := q.db.QueryRow(ctx, updateListingDescription, arg.Description, arg.ID)
+	var i UpdateListingDescriptionRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Description,
+		&i.Status,
 	)
 	return i, err
 }
