@@ -11,10 +11,12 @@ Use this exact prompt in a fresh context:
 Continue BDSPro from durable state, not conversational memory.
 
 Repository: datvtph41107/bdspro
-Branch: main
+Active development branch: dev
+Stable/default branch: main
 
-First read docs/continuity/CONTINUATION-PROMPT.md from the live main branch and
-follow it exactly.
+First read docs/continuity/CONTINUATION-PROMPT.md from the live dev branch and
+follow it exactly. Treat main as the stable/default baseline unless live Git proves
+otherwise.
 
 Reconcile live Git/source and reproducible proof before trusting durable prose.
 Reconstruct the Matching Start mindset and the current checkpoint before
@@ -29,8 +31,9 @@ the project advances.
 
 In a fresh context:
 
-1. Resolve the live `main` HEAD. If a local workspace is available, inspect its
-   branch, status and uncommitted work before changing anything.
+1. Resolve the live `dev` HEAD and the stable/default `main` HEAD. If a local
+   workspace is available, inspect its branch, status, index, uncommitted work and
+   remote-tracking state before changing anything.
 2. Read this file, then read in this order:
    - `docs/continuity/MASTER.md`
    - `docs/continuity/MINDSET.md`
@@ -85,6 +88,8 @@ last proven pressure.
 ## Source roles
 
 - `datvtph41107/bdspro`: active source and durable learning system.
+- `dev`: active development and moving continuity branch.
+- `main`: stable/default baseline; do not assume it contains the latest active checkpoint.
 - old BDSPro repositories: historical evidence and real-case material only.
 - mature OSS: evidence of mechanisms and pressure-tested boundaries, never a
   template.

@@ -16,9 +16,13 @@ Repository:
 
 `datvtph41107/bdspro`
 
-Default branch:
+Default/stable branch:
 
 `main`
+
+Active development branch:
+
+`dev`
 
 Preferred local workspace:
 
@@ -41,7 +45,7 @@ The canonical bootstrap is `docs/continuity/CONTINUATION-PROMPT.md`.
 
 At the beginning of a fresh context:
 
-1. resolve the live `main` HEAD;
+1. resolve the live `dev` HEAD and compare it with the stable/default `main` HEAD;
 2. inspect local `git status --short --branch` when a local workspace is available;
 3. read, in order:
    - `docs/continuity/CONTINUATION-PROMPT.md`

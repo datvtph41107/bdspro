@@ -448,3 +448,34 @@ real current pressure
 Do not drift back toward terminal worksheets, forced summaries, full-solution
 generation, or shallow case-only explanations. Keep theory transferable but
 grounded in real source/runtime work.
+
+## Current persistence/source reality — 2026-10-02
+
+The temporary recovery branch has been promoted to active development branch
+`dev`. Before the continuity update, `dev` pointed at
+`5fe5cbda5d4be5e54e9b21323efc01d04f9e0e7f` and was 2 commits ahead / 0 behind
+`main`.
+
+Live source now proves that the project crossed the previous conceptual boundary:
+
+```text
+pgx/v5 v5.11.0 is in go.mod
+sqlc.yaml exists and targets pgx/v5
+db/query/listing.sql exists
+generated db/sqlc code exists
+migration 000005 exists
+```
+
+Older statements that pgx/sqlc implementation has not happened are stale. What
+remains unproven is current runtime wiring/reproducibility: re-run
+`sqlc generate`, inspect the diff, establish or locate pgxpool ownership and
+execute the first real generated query.
+
+The persistence learning gate completed the core models for database/sql vs
+driver, lib/pq vs native pgx, pgx package boundaries, query protocol, prepared
+statement caching, transaction connection pinning, pool lifecycle and pool
+observability.
+
+The next technical pressure is to reconcile generated persistence artifacts with
+live source and produce runtime evidence for the first sqlc + pgxpool query while
+containing pgx/sqlc representations inside the Postgres persistence boundary.

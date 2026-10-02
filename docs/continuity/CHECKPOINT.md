@@ -1,6 +1,6 @@
 # Current Checkpoint
 
-Updated: 2026-10-01
+Updated: 2026-10-02
 
 ## Source identity
 
@@ -8,383 +8,232 @@ Active repository:
 
 `datvtph41107/bdspro`
 
-Branch:
+Active development branch:
+
+`dev`
+
+Stable/default branch:
 
 `main`
-
-Operational Go module identity for the current phase:
-
-`github.com/datvtph41107/bdspro`
 
 Preferred local workspace:
 
 `~/projects/bdspro`
 
-Important authority caveat: the user's local source/proof may be ahead of remote
-`main`. Before any source mutation, inspect the actual worktree and reconcile it
-with live Git. Do not overwrite unexplained local work merely to match this
-document.
+Operational Go module identity:
+
+`github.com/datvtph41107/bdspro`
+
+## Verified Git reality
+
+At the branch transition on 2026-10-02:
+
+```text
+main:
+  1a49d5bc469110c3b4b8d42a0d5f419bc45857bc
+  docs: checkpoint staged recovery implementation
+
+dev:
+  created from
+  5fe5cbda5d4be5e54e9b21323efc01d04f9e0e7f
+  ft: sqlc sql base
+
+relationship before this continuity update:
+  dev is 2 commits ahead of main
+  dev is 0 commits behind main
+```
+
+The former branch `recovery/local-implementation` was a temporary recovery
+vehicle. `dev` is now the active development branch. Delete the old branch only
+after local `dev`, `origin/dev` and the expected HEAD are verified.
+
+Live Git/source outranks older prose. Do not reset, clean, rebase, overwrite or
+blindly pull merely to make the workspace match this document.
 
 ## Current phase
 
 ```text
-B1 — Matching Start / Source Growth From First Principles
+PostgreSQL / explicit SQL / sqlc / pgx persistence foundation
 STATUS: ACTIVE
 ```
 
-The detailed acceptance report for the current learning milestone is:
-
-`docs/continuity/LEARNING-CHECKPOINT-2026-10-01.md`
-
-## Proven/established progression
-
-The current learning/proof chain has advanced through:
+The canonical persistence direction is:
 
 ```text
-minimal Go HTTP process
- -> configurable port
- -> graceful shutdown
- -> explicit listener/resource lifecycle
- -> PostgreSQL required startup dependency
- -> pgxpool + Ping
- -> Dockerized local PostgreSQL
- -> liveness vs readiness
- -> first durable Listing state
- -> schema migrations
- -> migration version/dirty-state recovery reasoning
- -> Listing DRAFT/PUBLISHED state transition
- -> concurrency-safe conditional mutation
- -> application operation boundary
- -> transaction across multiple durable facts
- -> rollback failure proof
- -> file boundary
- -> listing package boundary
- -> Draft completeness / Publish eligibility
- -> non-editable Published state
- -> concurrent Edit vs Publish proof
- -> Publication Readiness
- -> advisory read vs authoritative mutation / TOCTOU
- -> Bash/Shell foundation
- -> Docker image/container/process/network/storage/Compose foundation
- -> testing foundation
- -> current real-PostgreSQL integration-evidence pressure
+business fact
+ -> relational design
+ -> durable database invariant
+ -> versioned SQL migration
+ -> explicit SQL query
+ -> sqlc generated persistence code
+ -> pgx/v5 / pgxpool
+ -> PostgreSQL / future PostGIS
 ```
 
-## Current important theorems
+GORM and the old BDSPro persistence model are historical evidence only, not the
+canonical implementation path.
+
+## Verified live source on dev
+
+The current live branch contains:
 
 ```text
-process alive != application ready
-
-pool construction != successful connectivity
-
-HTTP success != durability proof
-
-valid to exist != valid to transition
-
-statement success != business operation committed
-
-file cohesion != package dependency boundary
-
-readiness observation != future mutation right
-
-TIME OF CHECK != TIME OF USE
-
-testable != mockable
-
-transaction/concurrency semantics must be tested
-with the mechanism that actually provides them
+Makefile
+migrations/000001 ... 000005
+sqlc.yaml
+db/query/listing.sql
+db/sqlc/db.go
+db/sqlc/listing.sql.go
+db/sqlc/models.go
+db/sqlc/querier.go
+go.mod
+go.sum
 ```
 
-## Current requirement
+Verified details:
+
+- `go.mod` requires `github.com/jackc/pgx/v5 v5.11.0`;
+- `sqlc.yaml` targets PostgreSQL + `pgx/v5`, reads schema from
+  `migrations`, queries from `db/query`, generates to `db/sqlc`, and emits
+  an interface;
+- `db/query/listing.sql` defines `CreateListing :one`;
+- generated sqlc code exists and exposes a `DBTX` contract using
+  `pgconn.CommandTag`, `pgx.Rows`, `pgx.Row` and `pgx.Tx`;
+- generated Listing persistence types map nullable `description` and `price`
+  through `pgtype.Text` and `pgtype.Int8`;
+- migration `000005` adds nullable `price BIGINT` with a non-negative CHECK;
+- commit `5fe5cbd` removed `compose.yaml`, `listing/integration_test.go`
+  and `test-integration.sh`.
+
+Do not recreate deleted files automatically. Their absence is current source
+reality; any replacement must be earned again from current pressure.
+
+## Reconciled contradiction
+
+Older continuity prose said sqlc implementation and pgx installation had not
+been verified. That is now stale.
+
+Live `dev` source proves:
 
 ```text
-Core Publish invariants must become repeatable executable evidence
-against real PostgreSQL.
-
-Integration testing must use a disposable database named bdspro_test
-and must refuse destructive work against the development database bdspro.
+pgx dependency exists
+sqlc.yaml exists
+query source exists
+generated sqlc code exists
 ```
 
-High-value integration evidence:
-
-1. successful Publish creates both durable facts and a second Publish is rejected;
-2. failure of the publication write rolls back the Listing status change;
-3. two concurrent Publish calls produce exactly one winner and one durable
-   publication record.
-
-## Current testing boundary
-
-Pure policy such as `publicationReadiness(Listing)` belongs naturally in fast
-unit tests.
-
-Publish transaction/concurrency correctness depends on real PostgreSQL semantics,
-so the current evidence must use real PostgreSQL rather than a fake repository.
-
-A Repository/Store/interface is therefore still not earned by testing pressure.
-
-## Current environment workflow
-
-The integration proof currently requires an ordered workflow:
+Those files alone do NOT prove:
 
 ```text
-start PostgreSQL
- -> create/reset bdspro_test
- -> apply canonical migrations
- -> export TEST_DATABASE_URL
- -> run go test -tags=integration -count=1
+current PostgreSQL runtime state
+current migration version in the live local database
+that sqlc generate is reproducible with zero diff now
+that pgxpool is wired into the current application runtime path
+that CreateListing has executed successfully through sqlc + pgxpool
 ```
 
-This workflow is still manual.
+Historical local work reports migration 000005 was applied successfully, but a
+fresh recovery must inspect the actual database before treating that runtime
+state as current truth.
 
-## Pressure now authorized
+## Persistence learning gate completed
 
-The next demonstrated pressure is repeatable and safe orchestration of the
-integration-test environment.
-
-The workflow is:
-
-- repeated;
-- ordered;
-- partly destructive;
-- sensitive to the selected database;
-- sensitive to migration/schema freshness.
-
-The response is not preselected as one Bash script. The current pressure is to
-create clear, independently executable project capabilities and then let observed
-control-flow/safety pressure decide whether each capability belongs directly in a
-Make recipe, a focused Bash script, or later composition.
-
-The first invariant of that workflow is:
+The current learning work established the core model for:
 
 ```text
-never perform destructive integration-test setup
-unless the target database is exactly bdspro_test
+query generator vs runtime driver
+database/sql vs PostgreSQL driver
+lib/pq historical role
+native pgx vs pgx/stdlib
+pgx / pgxpool / pgconn / pgtype / stdlib
+connection vs pool
+Query / QueryRow / Exec
+ErrNoRows vs PostgreSQL PgError
+PostgreSQL type/nullability mapping
+transaction connection pinning
+extended vs simple query protocol
+Parse / Bind / Execute / Sync
+connection-scoped prepared statements
+pgx statement cache
+lazy pool construction vs connectivity proof
+Acquire / Release / pool pressure
+connection lifetime / idle retirement
+pool metrics and shutdown lifecycle
 ```
 
-Build every capability from understood primitives rather than hiding them.
-Makefile is now a legitimate candidate because recurring project operations have
-appeared, but it must be earned target-by-target rather than introduced as a
-finished task framework.
-
-## Next proof chain
+Architectural consequence:
 
 ```text
-known project root
- -> required local config resolved
- -> PostgreSQL started/usable
- -> target DB identity proven safe
- -> bdspro_test recreated
- -> canonical migrations applied from zero
- -> integration suite executed with -count=1
- -> run the workflow twice successfully
- -> deliberately dirty bdspro_test and prove the workflow restores known state
- -> prove development database bdspro is unchanged
+PostgreSQL-specific knowledge is intentional inside Postgres infrastructure.
+
+sqlc/pgx/pgtype/pgconn representations must not accidentally become
+transport or domain representations.
+
+Application use cases own business transaction boundaries.
 ```
 
-## Not earned yet
+## Current unresolved pressure
 
-Do not introduce merely because integration tests exist:
+The source has crossed from conceptual selection into generated persistence code,
+but the runtime proof chain has not caught up.
 
-- Repository/Store abstraction;
-- persistence interface;
-- `internal/`;
-- `cmd/`;
-- service/domain/repository layer tree;
-- CI;
-- Testcontainers;
-- Dockerfile for the Go application;
-- application containerization;
-- microservice split.
-
-Each requires its own demonstrated pressure.
-
-## Developer-immersion objective — 2026-10-01
-
-BDSPro is now explicitly a long-running professional practice system, not only a
-feature implementation project.
-
-Mandatory recovery document:
-
-`docs/continuity/DEVELOPER-IMMERSION.md`
-
-Recurring work should deliberately exercise real developer surfaces: Git state
-inspection, Bash/process reasoning, Docker and PostgreSQL operation, primary
-documentation/source tracing, hand-written Go/test code, failure diagnosis, diff
-review and coherent commits.
-
-Difficulty should grow from happy paths toward configuration mistakes, stale
-state, partial failure, concurrency and recovery only when each new pressure has
-clear engineering or learning value.
-
-Current local/remote reconciliation evidence supplied by the user:
+Current questions:
 
 ```text
-local HEAD:        1ce48eda81e0a22ca16d3cb2c89eee6fb53ba254
-local origin/main: bf5e7d266633b8cdc806e1b8dffc7814f74355e0
-remote GitHub:     advanced beyond local origin/main
+Can the current sqlc configuration regenerate deterministically?
+Does generated code match the current migration/query contract?
+Where should the shared pgxpool be constructed and owned?
+How does the first CreateListing call flow through the application without
+leaking pgx/sqlc types across the intended persistence boundary?
+What runtime evidence proves the connection/query path works?
 ```
 
-Therefore no pull/rebase/reset or new source mutation is authorized until
-`git fetch origin` refreshes the remote-tracking ref and the relationship is
-classified from Git evidence.
+## Next smallest justified actions
 
-After reconciliation, Makefile is now a legitimate *candidate boundary* because
-recurring project operations and a need for independently executable project
-capabilities have appeared. It must still be introduced incrementally and typed
-by the user, beginning with a non-destructive capability such as `postgres-up`.
-Bash should be earned only where imperative/safety logic exceeds a simple Make
-recipe.
-
-## Local Git reconciliation — observed 2026-10-01
-
-The user ran the recovery inspection locally and produced real Git evidence:
+First finish the branch transition locally:
 
 ```text
-before fetch:
-  HEAD        = 1ce48eda81e0a22ca16d3cb2c89eee6fb53ba254
-  origin/main = bf5e7d266633b8cdc806e1b8dffc7814f74355e0
-  status      = main...origin/main [behind 8]
-
-working tree:
-  modified:   main.go
-  untracked:  .gitignore, .vscode/, compose.yaml, go.mod, go.sum,
-              listing/, migrations/, test-integration.sh
-
-after git fetch origin:
-  origin/main = b47e4195581929e26f55a2942d3c2b7dfa5e2c6c
-  rev-list --left-right --count HEAD...origin/main = 0 25
+move local work from recovery/local-implementation to dev
+ -> set upstream to origin/dev
+ -> verify working tree and HEAD
+ -> remove the obsolete local recovery branch name if it still exists
+ -> delete remote recovery/local-implementation only after dev is verified
 ```
 
-Interpretation:
-
-- the pre-fetch `origin/main` was a stale local remote-tracking ref;
-- fetch updated remote knowledge without changing the working tree;
-- local committed history has no local-only commits relative to current
-  `origin/main`;
-- local `HEAD` is 25 commits behind the current remote main;
-- substantial implementation work exists only in the working tree/untracked
-  files and must be preserved and understood before synchronization.
-
-This is now the immediate pressure. Do not pull, reset, clean, rebase or overwrite
-those files. First inventory the local diff/source, identify coherent work units,
-then choose a branch and commit boundaries that tell the true work history.
-
-## Recovery note
-
-Before continuing source changes, recover the live worktree and verify which of
-the described local experiments/tests are actually materialized in source.
-Conversation proof is useful orientation, but live source and reproducible test
-output remain the authority.
-
-## Active coding gate — 2026-10-01
-
-The working method has been strengthened. Before the next source/tooling
-implementation, recover and follow:
-
-`docs/continuity/PRACTICE-PROTOCOL.md`
-
-The user must write the code personally. The assistant should expose the
-requirement, pressure, vocabulary, relevant API/docs and the smallest syntax
-shape needed, then review the user's actual implementation and real output.
-
-For unfamiliar library/tool mechanisms, primary documentation/source tracing and
-an explanation in the user's own words are part of the acceptance evidence.
-
-Current immediate source position:
+Then continue persistence work from live source:
 
 ```text
-NO new Makefile/task source should be assumed to exist from conversation alone.
-First reconcile the local worktree.
-Then, if no conflicting local work exists, the next tiny implementation exercise
-is to derive and hand-write the first non-destructive project capability:
-postgres-up.
+inspect current query/generated files
+ -> run sqlc generate and inspect whether it creates a diff
+ -> inspect current application construction point
+ -> establish the smallest shared pgxpool ownership point
+ -> execute the first sqlc query
+ -> observe real result/error
+ -> only then add the next boundary
 ```
 
-The purpose is not to finish tooling quickly. It is to build the developer
-reflex: requirement -> mechanism -> docs/source -> code -> run -> diagnose ->
-explain.
+Do not jump ahead to repository/service/domain scaffolding, Docker Compose, CI,
+Testcontainers or microservice extraction without new demonstrated pressure.
 
-## Daily workflow standard — 2026-10-01
+## Working mindset
 
-A concrete operating standard now exists at:
-
-`docs/continuity/ENGINEERING-WORKFLOW.md`
-
-For new or materially changed commands/APIs, work must expose: why now, command/API
-shape, material arguments, state read/mutated, primary source, prediction, user-typed
-execution, observed output and justified conclusion. Familiar repeated commands are
-then intentionally compressed to build speed and reflex.
-
-This standard applies across Git, Bash, Docker, PostgreSQL/SQL and Go.
-
-## Contextual-rigor gate — 2026-10-01
-
-Before the next implementation/CLI step, do not automatically select the most
-verbose command, strongest guard, deepest abstraction or most production-like
-workflow. First identify the current objective, time pressure, failure cost,
-expected reuse/lifetime and blast radius.
-
-For every new material flag or option, explain the default behavior, what the
-flag changes, why that change is useful here, and what would happen if it were
-omitted.
-
-This applies immediately to the current Git recovery work as well as later
-Docker, PostgreSQL, Make/Bash and Go implementation decisions.
-
-## Local recovery branch established — 2026-10-01
-
-The user's local accumulated implementation has been moved off local `main`
-without losing working-tree changes.
-
-Observed local state:
+Use:
 
 ```text
-branch: recovery/local-implementation
-
-modified:
-  main.go
-
-untracked:
-  .gitignore
-  .vscode/
-  compose.yaml
-  go.mod
-  go.sum
-  listing/
-  migrations/
-  test-integration.sh
+CURRENT REALITY
+ -> INTENT
+ -> REQUIREMENT
+ -> PRESSURE
+ -> INSUFFICIENCY
+ -> SMALLEST RESPONSIBLE RESPONSE
+ -> EARNED BOUNDARY
+ -> MECHANISM
+ -> EVIDENCE
+ -> TRADE-OFF
+ -> DECISION
 ```
 
-This proves the branch switch preserved the working tree.
-
-Immediate pressure: preserve the accumulated implementation honestly in Git
-without fabricating a false fine-grained historical sequence. The next decision
-is how to create a truthful recovery checkpoint, exclude local-only artifacts,
-and then synchronize onto current remote main before normal incremental work
-resumes.
-
-## Recovery implementation staged — 2026-10-01
-
-Local branch:
-
-`recovery/local-implementation`
-
-The accumulated implementation checkpoint has been staged into the Git index.
-
-Staged:
-
-- `.gitignore`
-- `compose.yaml`
-- `go.mod` / `go.sum`
-- modified `main.go`
-- `listing/listing.go`
-- unit and integration tests under `listing/`
-- migrations `000001` through `000004`, up/down
-- `test-integration.sh`
-
-`.vscode/` remains outside the staged snapshot.
-
-Immediate next proof: review the exact index snapshot relative to `HEAD` before
-creating the recovery commit. Do not fabricate a historical sequence of past
-milestones; preserve the accumulated implementation truthfully as one recovery
-checkpoint, then resume normal incremental Git discipline.
+The user types and implements the code/commands. For unfamiliar mechanisms,
+trace primary documentation/source, predict behavior, run the real operation and
+learn from observed state rather than receiving a completed implementation by
+default.

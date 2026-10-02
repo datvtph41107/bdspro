@@ -257,3 +257,33 @@ or convention.
 
 The rule was added to MINDSET.md, DEVELOPER-IMMERSION.md,
 ENGINEERING-WORKFLOW.md and PRACTICE-PROTOCOL.md.
+
+## H13 — Recovery implementation promoted to dev and SQL persistence foundation materialized
+
+On 2026-10-02 the preserved recovery implementation was committed and pushed as:
+
+`5fe5cbda5d4be5e54e9b21323efc01d04f9e0e7f — ft: sqlc sql base`
+
+A new `dev` branch was created at that exact commit. `main` remained the
+stable/default baseline at
+`1a49d5bc469110c3b4b8d42a0d5f419bc45857bc`, so the transition preserved history
+without reset, rebase or force-push.
+
+This materialized source changed the persistence checkpoint substantially:
+
+- Makefile project operations now exist;
+- migrations exist through 000005, including nullable non-negative Listing price;
+- sqlc configuration and query source now exist;
+- generated sqlc persistence code now exists;
+- go.mod now contains pgx/v5;
+- generated code targets native pgx/v5 and exposes pgx/pgconn/pgtype persistence
+  representations;
+- the committed snapshot removed the former Compose/integration-script files.
+
+The previous durable statement that pgx/sqlc implementation had not yet been
+verified is superseded by live Git/source.
+
+The next proof is runtime/reproducibility rather than another conceptual library
+selection: verify `sqlc generate` is deterministic, locate or establish the
+shared pgxpool ownership point and execute the first generated query while keeping
+driver/generated representations inside the intended persistence boundary.
