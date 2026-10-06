@@ -1,0 +1,1552 @@
+// BDSPro Canonical Database — Final target model
+// Generated from v0 -> v1 -> v2 acceptance work.
+// This is a design artifact for dbdiagram.io. It is NOT an executable migration.
+// PostgreSQL-specific partial unique indexes, CHECKs and cross-row invariants are
+// documented in CANONICAL-DATABASE-ACCEPTANCE.md.
+
+// ============================================================
+// IDENTITY / PARTY
+// ============================================================
+
+Table parties {
+  id bigint [pk]
+}
+
+Table persons {
+  party_id bigint [pk, ref: > parties.id]
+}
+
+Table person_profiles {
+  person_id bigint [pk, ref: > persons.party_id]
+  display_name varchar [not null]
+  avatar_url varchar
+  bio text
+}
+
+Table organizations {
+  party_id bigint [pk, ref: > parties.id]
+  name varchar [not null]
+  tax_code varchar
+  phone varchar
+  email varchar
+  website varchar
+  description text
+  archived_at timestamptz
+}
+
+// ============================================================
+// DIGITAL IDENTITY / AUTHENTICATION
+// ============================================================
+
+Table accounts {
+  id bigint [pk]
+  person_id bigint [not null, ref: > persons.party_id]
+  closed_at timestamptz
+}
+
+Table account_emails {
+  id bigint [pk]
+  account_id bigint [not null, ref: > accounts.id]
+  email varchar [not null]
+  verified_at timestamptz
+  is_primary boolean [not null, default: false]
+
+  indexes {
+    (account_id, email) [unique]
+  }
+}
+
+Table account_phones {
+  id bigint [pk]
+  account_id bigint [not null, ref: > accounts.id]
+  phone varchar [not null]
+  verified_at timestamptz
+  is_primary boolean [not null, default: false]
+
+  indexes {
+    (account_id, phone) [unique]
+  }
+}
+
+Table password_credentials {
+  account_id bigint [pk, ref: > accounts.id]
+  password_hash varchar [not null]
+  changed_at timestamptz [not null]
+}
+
+Table external_identities {
+  id bigint [pk]
+  account_id bigint [not null, ref: > accounts.id]
+  issuer varchar [not null]
+  subject varchar [not null]
+  linked_at timestamptz [not null]
+
+  indexes {
+    (issuer, subject) [unique]
+  }
+}
+
+Table passkeys {
+  id bigint [pk]
+  account_id bigint [not null, ref: > accounts.id]
+  credential_id varchar [not null, unique]
+  public_key bytea [not null]
+  sign_count bigint [not null, default: 0]
+  created_at timestamptz [not null]
+  last_used_at timestamptz
+}
+
+Table sessions {
+  id bigint [pk]
+  account_id bigint [not null, ref: > accounts.id]
+  token_hash varchar [not null, unique]
+  created_at timestamptz [not null]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
+}
+
+Table service_accounts {
+  id bigint [pk]
+  organization_id bigint [ref: > organizations.party_id]
+  name varchar [not null]
+  disabled_at timestamptz
+}
+
+Table service_account_keys {
+  id bigint [pk]
+  service_account_id bigint [not null, ref: > service_accounts.id]
+  key_hash varchar [not null, unique]
+  created_at timestamptz [not null]
+  expires_at timestamptz
+  revoked_at timestamptz
+}
+
+// ============================================================
+// AUTHORIZATION / ORGANIZATION
+// ============================================================
+
+Table permissions {
+  code varchar [pk]
+}
+
+Table organization_roles {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  name varchar [not null]
+}
+
+Table organization_role_permissions {
+  role_id bigint [not null, ref: > organization_roles.id]
+  permission_code varchar [not null, ref: > permissions.code]
+
+  indexes {
+    (role_id, permission_code) [pk]
+  }
+}
+
+Table organization_invitations {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  invitee_person_id bigint [ref: > persons.party_id]
+  invitee_email varchar
+  invitee_phone varchar
+  intended_role_id bigint [not null, ref: > organization_roles.id]
+  invited_at timestamptz [not null]
+  expires_at timestamptz [not null]
+  outcome varchar
+  resolved_at timestamptz
+}
+
+Table organization_memberships {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  person_id bigint [not null, ref: > persons.party_id]
+  originating_invitation_id bigint [ref: > organization_invitations.id, unique]
+  joined_at timestamptz [not null]
+  ended_at timestamptz
+}
+
+Table organization_membership_blocks {
+  id bigint [pk]
+  membership_id bigint [not null, ref: > organization_memberships.id]
+  blocked_at timestamptz [not null]
+  ended_at timestamptz
+}
+
+Table organization_role_assignments {
+  id bigint [pk]
+  membership_id bigint [not null, ref: > organization_memberships.id]
+  role_id bigint [not null, ref: > organization_roles.id]
+  assigned_at timestamptz [not null]
+  ended_at timestamptz
+}
+
+Table organization_ownerships {
+  organization_id bigint [pk, ref: > organizations.party_id]
+  membership_id bigint [not null, unique, ref: > organization_memberships.id]
+}
+
+Table organization_branches {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  name varchar [not null]
+  manager_membership_id bigint [ref: > organization_memberships.id]
+  closed_at timestamptz
+}
+
+Table organization_branch_assignments {
+  branch_id bigint [not null, ref: > organization_branches.id]
+  membership_id bigint [not null, ref: > organization_memberships.id]
+
+  indexes {
+    (branch_id, membership_id) [pk]
+  }
+}
+
+Table organization_branch_locations {
+  branch_id bigint [pk, ref: > organization_branches.id]
+  administrative_area_id bigint [ref: > administrative_areas.id]
+  address_line text
+  latitude numeric(10,7)
+  longitude numeric(10,7)
+}
+
+// ============================================================
+// COLLABORATION GROUPS
+// ============================================================
+
+Table groups {
+  id bigint [pk]
+  name varchar [not null]
+  description text
+  avatar_url varchar
+  ended_at timestamptz
+}
+
+Table group_invitations {
+  id bigint [pk]
+  group_id bigint [not null, ref: > groups.id]
+  invitee_person_id bigint [not null, ref: > persons.party_id]
+  invited_at timestamptz [not null]
+  outcome varchar
+  resolved_at timestamptz
+}
+
+Table group_participations {
+  id bigint [pk]
+  group_id bigint [not null, ref: > groups.id]
+  person_id bigint [not null, ref: > persons.party_id]
+  originating_invitation_id bigint [ref: > group_invitations.id, unique]
+  joined_at timestamptz [not null]
+  ended_at timestamptz
+}
+
+Table group_leaderships {
+  group_id bigint [pk, ref: > groups.id]
+  participation_id bigint [not null, unique, ref: > group_participations.id]
+}
+
+Table group_admin_assignments {
+  group_id bigint [not null, ref: > groups.id]
+  participation_id bigint [not null, ref: > group_participations.id]
+
+  indexes {
+    (group_id, participation_id) [pk]
+  }
+}
+
+// ============================================================
+// LOCATION / REFERENCE DATA
+// ============================================================
+
+Table administrative_areas {
+  id bigint [pk]
+  code varchar [not null, unique]
+  name varchar [not null]
+  level_code varchar [not null]
+  parent_id bigint [ref: > administrative_areas.id]
+  valid_from date
+  valid_to date
+}
+
+Table amenities {
+  id bigint [pk]
+  code varchar [not null, unique]
+  name varchar [not null]
+}
+
+Table document_types {
+  code varchar [pk]
+  name varchar [not null]
+}
+
+Table media_objects {
+  id bigint [pk]
+  storage_key varchar [not null, unique]
+  mime_type varchar [not null]
+  byte_size bigint [not null]
+  checksum_sha256 varchar
+  created_at timestamptz [not null]
+}
+
+Table documents {
+  id bigint [pk]
+  document_type_code varchar [not null, ref: > document_types.code]
+  media_id bigint [not null, ref: > media_objects.id]
+  title varchar
+  issued_at timestamptz
+  metadata jsonb
+}
+
+// ============================================================
+// PROPERTY / REAL ESTATE FACTS
+// ============================================================
+
+Table property_types {
+  code varchar [pk]
+  name varchar [not null]
+  parent_code varchar [ref: > property_types.code]
+}
+
+Table properties {
+  id bigint [pk]
+  property_type_code varchar [not null, ref: > property_types.code]
+  name varchar
+  description text
+  retired_at timestamptz
+}
+
+Table property_locations {
+  property_id bigint [pk, ref: > properties.id]
+  administrative_area_id bigint [ref: > administrative_areas.id]
+  address_line text
+  latitude numeric(10,7)
+  longitude numeric(10,7)
+}
+
+Table property_land_parcels {
+  id bigint [pk]
+  property_id bigint [not null, ref: > properties.id]
+  map_sheet_number varchar
+  parcel_number varchar
+  area_m2 numeric(18,4)
+  land_use_code varchar
+  frontage_m numeric(18,4)
+  depth_m numeric(18,4)
+}
+
+Table property_house_details {
+  property_id bigint [pk, ref: > properties.id]
+  built_area_m2 numeric(18,4)
+  floor_area_m2 numeric(18,4)
+  floor_count integer
+  bedroom_count integer
+  bathroom_count integer
+  built_year integer
+}
+
+Table property_apartment_details {
+  property_id bigint [pk, ref: > properties.id]
+  building_name varchar
+  floor_number integer
+  unit_number varchar
+  usable_area_m2 numeric(18,4)
+  bedroom_count integer
+  bathroom_count integer
+}
+
+Table property_amenities {
+  property_id bigint [not null, ref: > properties.id]
+  amenity_id bigint [not null, ref: > amenities.id]
+
+  indexes {
+    (property_id, amenity_id) [pk]
+  }
+}
+
+Table property_media {
+  property_id bigint [not null, ref: > properties.id]
+  media_id bigint [not null, ref: > media_objects.id]
+  position integer [not null, default: 0]
+  is_cover boolean [not null, default: false]
+
+  indexes {
+    (property_id, media_id) [pk]
+  }
+}
+
+Table property_documents {
+  property_id bigint [not null, ref: > properties.id]
+  document_id bigint [not null, ref: > documents.id]
+
+  indexes {
+    (property_id, document_id) [pk]
+  }
+}
+
+Table property_valuations {
+  id bigint [pk]
+  property_id bigint [not null, ref: > properties.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  valued_at timestamptz [not null]
+  valued_by_party_id bigint [ref: > parties.id]
+  note text
+}
+
+// ============================================================
+// PROJECTS
+// ============================================================
+
+Table real_estate_projects {
+  id bigint [pk]
+  name varchar [not null]
+  developer_organization_id bigint [ref: > organizations.party_id]
+  description text
+  started_at date
+  completed_at date
+}
+
+Table project_buildings {
+  id bigint [pk]
+  project_id bigint [not null, ref: > real_estate_projects.id]
+  name varchar [not null]
+  floor_count integer
+}
+
+Table project_properties {
+  project_id bigint [not null, ref: > real_estate_projects.id]
+  property_id bigint [not null, ref: > properties.id]
+  building_id bigint [ref: > project_buildings.id]
+
+  indexes {
+    (project_id, property_id) [pk]
+  }
+}
+
+Table project_documents {
+  project_id bigint [not null, ref: > real_estate_projects.id]
+  document_id bigint [not null, ref: > documents.id]
+
+  indexes {
+    (project_id, document_id) [pk]
+  }
+}
+
+// ============================================================
+// LISTINGS / MARKET EXPOSURE
+// ============================================================
+
+Table listings {
+  id bigint [pk]
+  publisher_party_id bigint [not null, ref: > parties.id]
+  title varchar [not null]
+  description text
+  created_at timestamptz [not null]
+  closed_at timestamptz
+}
+
+Table listing_properties {
+  listing_id bigint [not null, ref: > listings.id]
+  property_id bigint [not null, ref: > properties.id]
+
+  indexes {
+    (listing_id, property_id) [pk]
+  }
+}
+
+Table listing_price_terms {
+  id bigint [pk]
+  listing_id bigint [not null, ref: > listings.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  effective_from timestamptz [not null]
+  effective_to timestamptz
+}
+
+Table listing_publications {
+  id bigint [pk]
+  listing_id bigint [not null, ref: > listings.id]
+  published_at timestamptz [not null]
+  expires_at timestamptz
+  ended_at timestamptz
+}
+
+Table listing_media {
+  listing_id bigint [not null, ref: > listings.id]
+  media_id bigint [not null, ref: > media_objects.id]
+  position integer [not null, default: 0]
+  is_cover boolean [not null, default: false]
+
+  indexes {
+    (listing_id, media_id) [pk]
+  }
+}
+
+Table listing_offers {
+  id bigint [pk]
+  listing_id bigint [not null, ref: > listings.id]
+  offered_by_party_id bigint [not null, ref: > parties.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  offered_at timestamptz [not null]
+  expires_at timestamptz
+  withdrawn_at timestamptz
+}
+
+Table listing_offer_acceptances {
+  listing_id bigint [pk, ref: > listings.id]
+  offer_id bigint [not null, unique, ref: > listing_offers.id]
+  accepted_at timestamptz [not null]
+}
+
+// ============================================================
+// ASSET / PORTFOLIO FACTS
+// ============================================================
+
+Table assets {
+  id bigint [pk]
+  property_id bigint [not null, unique, ref: > properties.id]
+  retired_at timestamptz
+}
+
+Table asset_ownerships {
+  id bigint [pk]
+  asset_id bigint [not null, ref: > assets.id]
+  owner_party_id bigint [not null, ref: > parties.id]
+  share_percent numeric(7,4)
+  acquired_at timestamptz [not null]
+  released_at timestamptz
+}
+
+Table asset_valuations {
+  id bigint [pk]
+  asset_id bigint [not null, ref: > assets.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  valued_at timestamptz [not null]
+  note text
+}
+
+Table asset_costs {
+  id bigint [pk]
+  asset_id bigint [not null, ref: > assets.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  incurred_at timestamptz [not null]
+  category_code varchar
+  description text
+}
+
+Table asset_income_entries {
+  id bigint [pk]
+  asset_id bigint [not null, ref: > assets.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  received_at timestamptz [not null]
+  category_code varchar
+  description text
+}
+
+Table asset_leases {
+  id bigint [pk]
+  asset_id bigint [not null, ref: > assets.id]
+  tenant_party_id bigint [not null, ref: > parties.id]
+  starts_at date [not null]
+  ends_at date
+  rent_amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+}
+
+Table asset_documents {
+  asset_id bigint [not null, ref: > assets.id]
+  document_id bigint [not null, ref: > documents.id]
+
+  indexes {
+    (asset_id, document_id) [pk]
+  }
+}
+
+// ============================================================
+// DEALS
+// ============================================================
+
+Table deals {
+  id bigint [pk]
+  name varchar [not null]
+  description text
+  organization_id bigint [ref: > organizations.party_id]
+  group_id bigint [ref: > groups.id]
+  branch_id bigint [ref: > organization_branches.id]
+  opened_at timestamptz [not null]
+  closed_at timestamptz
+}
+
+Table deal_properties {
+  deal_id bigint [not null, ref: > deals.id]
+  property_id bigint [not null, ref: > properties.id]
+
+  indexes {
+    (deal_id, property_id) [pk]
+  }
+}
+
+Table deal_invitations {
+  id bigint [pk]
+  deal_id bigint [not null, ref: > deals.id]
+  invitee_person_id bigint [not null, ref: > persons.party_id]
+  invited_at timestamptz [not null]
+  message text
+  outcome varchar
+  resolved_at timestamptz
+}
+
+Table deal_participations {
+  id bigint [pk]
+  deal_id bigint [not null, ref: > deals.id]
+  person_id bigint [not null, ref: > persons.party_id]
+  originating_invitation_id bigint [ref: > deal_invitations.id, unique]
+  joined_at timestamptz [not null]
+  ended_at timestamptz
+}
+
+Table deal_customers {
+  participation_id bigint [pk, ref: > deal_participations.id]
+}
+
+Table deal_partners {
+  participation_id bigint [pk, ref: > deal_participations.id]
+}
+
+Table deal_admin_assignments {
+  participation_id bigint [pk, ref: > deal_participations.id]
+}
+
+Table deal_leaderships {
+  deal_id bigint [pk, ref: > deals.id]
+  participation_id bigint [not null, unique, ref: > deal_participations.id]
+}
+
+Table deal_commission_terms {
+  participation_id bigint [pk, ref: > deal_participations.id]
+  percent_value numeric(9,6)
+  fixed_amount numeric(19,4)
+  currency_code varchar(3)
+  note text
+}
+
+Table deal_commission_earnings {
+  id bigint [pk]
+  deal_id bigint [not null, ref: > deals.id]
+  participation_id bigint [not null, ref: > deal_participations.id]
+  basis_amount numeric(19,4)
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  earned_at timestamptz [not null]
+  settled_at timestamptz
+}
+
+Table deal_investment_commitments {
+  id bigint [pk]
+  participation_id bigint [not null, ref: > deal_participations.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  effective_from timestamptz [not null]
+  effective_to timestamptz
+}
+
+Table deal_investments {
+  id bigint [pk]
+  deal_id bigint [not null, ref: > deals.id]
+  participation_id bigint [not null, ref: > deal_participations.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  received_at timestamptz [not null]
+  approved_at timestamptz
+  rejected_at timestamptz
+  proof_document_id bigint [ref: > documents.id]
+}
+
+Table deal_contracts {
+  id bigint [pk]
+  deal_id bigint [not null, ref: > deals.id]
+  agreed_amount numeric(19,4)
+  currency_code varchar(3)
+  signed_at timestamptz
+  canceled_at timestamptz
+  completed_at timestamptz
+}
+
+Table deal_contract_customers {
+  contract_id bigint [not null, ref: > deal_contracts.id]
+  participation_id bigint [not null, ref: > deal_participations.id]
+
+  indexes {
+    (contract_id, participation_id) [pk]
+  }
+}
+
+Table deal_contract_properties {
+  contract_id bigint [not null, ref: > deal_contracts.id]
+  property_id bigint [not null, ref: > properties.id]
+
+  indexes {
+    (contract_id, property_id) [pk]
+  }
+}
+
+Table deal_contract_payments {
+  id bigint [pk]
+  contract_id bigint [not null, ref: > deal_contracts.id]
+  payer_party_id bigint [not null, ref: > parties.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  paid_at timestamptz [not null]
+  payment_id bigint [ref: > payments.id]
+}
+
+Table deal_documents {
+  deal_id bigint [not null, ref: > deals.id]
+  document_id bigint [not null, ref: > documents.id]
+
+  indexes {
+    (deal_id, document_id) [pk]
+  }
+}
+
+// ============================================================
+// AUCTIONS
+// ============================================================
+
+Table auctions {
+  id bigint [pk]
+  seller_party_id bigint [not null, ref: > parties.id]
+  title varchar [not null]
+  opens_at timestamptz [not null]
+  closes_at timestamptz [not null]
+  canceled_at timestamptz
+}
+
+Table auction_properties {
+  auction_id bigint [not null, ref: > auctions.id]
+  property_id bigint [not null, ref: > properties.id]
+
+  indexes {
+    (auction_id, property_id) [pk]
+  }
+}
+
+Table auction_registrations {
+  id bigint [pk]
+  auction_id bigint [not null, ref: > auctions.id]
+  bidder_party_id bigint [not null, ref: > parties.id]
+  registered_at timestamptz [not null]
+  withdrawn_at timestamptz
+
+  indexes {
+    (auction_id, bidder_party_id) [unique]
+  }
+}
+
+Table auction_bids {
+  id bigint [pk]
+  auction_id bigint [not null, ref: > auctions.id]
+  registration_id bigint [not null, ref: > auction_registrations.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  placed_at timestamptz [not null]
+}
+
+Table auction_results {
+  auction_id bigint [pk, ref: > auctions.id]
+  winning_bid_id bigint [not null, unique, ref: > auction_bids.id]
+  closed_at timestamptz [not null]
+}
+
+// ============================================================
+// CRM
+// ============================================================
+
+Table crm_contacts {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  linked_party_id bigint [ref: > parties.id]
+  display_name varchar [not null]
+  phone varchar
+  email varchar
+  archived_at timestamptz
+}
+
+Table crm_labels {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  name varchar [not null]
+}
+
+Table crm_contact_labels {
+  contact_id bigint [not null, ref: > crm_contacts.id]
+  label_id bigint [not null, ref: > crm_labels.id]
+
+  indexes {
+    (contact_id, label_id) [pk]
+  }
+}
+
+Table crm_pipelines {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  name varchar [not null]
+  archived_at timestamptz
+}
+
+Table crm_stages {
+  id bigint [pk]
+  pipeline_id bigint [not null, ref: > crm_pipelines.id]
+  name varchar [not null]
+  position integer [not null]
+}
+
+Table crm_opportunities {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  pipeline_id bigint [not null, ref: > crm_pipelines.id]
+  stage_id bigint [not null, ref: > crm_stages.id]
+  name varchar [not null]
+  expected_amount numeric(19,4)
+  currency_code varchar(3)
+  opened_at timestamptz [not null]
+  closed_at timestamptz
+}
+
+Table crm_opportunity_contacts {
+  opportunity_id bigint [not null, ref: > crm_opportunities.id]
+  contact_id bigint [not null, ref: > crm_contacts.id]
+
+  indexes {
+    (opportunity_id, contact_id) [pk]
+  }
+}
+
+Table crm_opportunity_properties {
+  opportunity_id bigint [not null, ref: > crm_opportunities.id]
+  property_id bigint [not null, ref: > properties.id]
+
+  indexes {
+    (opportunity_id, property_id) [pk]
+  }
+}
+
+Table crm_activities {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  contact_id bigint [ref: > crm_contacts.id]
+  opportunity_id bigint [ref: > crm_opportunities.id]
+  activity_code varchar [not null]
+  occurred_at timestamptz [not null]
+  note text
+}
+
+Table crm_opportunity_deals {
+  opportunity_id bigint [pk, ref: > crm_opportunities.id]
+  deal_id bigint [not null, unique, ref: > deals.id]
+}
+
+// ============================================================
+// SUBSCRIPTION / BILLING / PAYMENTS
+// ============================================================
+
+Table plans {
+  id bigint [pk]
+  code varchar [not null, unique]
+  name varchar [not null]
+  retired_at timestamptz
+}
+
+Table plan_prices {
+  id bigint [pk]
+  plan_id bigint [not null, ref: > plans.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  billing_period_code varchar [not null]
+  effective_from timestamptz [not null]
+  effective_to timestamptz
+}
+
+Table plan_entitlements {
+  plan_id bigint [not null, ref: > plans.id]
+  entitlement_code varchar [not null]
+  value_text varchar [not null]
+
+  indexes {
+    (plan_id, entitlement_code) [pk]
+  }
+}
+
+Table subscriptions {
+  id bigint [pk]
+  subscriber_party_id bigint [not null, ref: > parties.id]
+  plan_id bigint [not null, ref: > plans.id]
+  started_at timestamptz [not null]
+  ends_at timestamptz
+  canceled_at timestamptz
+}
+
+Table invoices {
+  id bigint [pk]
+  subscriber_party_id bigint [not null, ref: > parties.id]
+  subscription_id bigint [ref: > subscriptions.id]
+  currency_code varchar(3) [not null]
+  issued_at timestamptz [not null]
+  due_at timestamptz
+  voided_at timestamptz
+}
+
+Table invoice_lines {
+  id bigint [pk]
+  invoice_id bigint [not null, ref: > invoices.id]
+  description varchar [not null]
+  quantity numeric(19,4) [not null]
+  unit_amount numeric(19,4) [not null]
+}
+
+Table payments {
+  id bigint [pk]
+  payer_party_id bigint [not null, ref: > parties.id]
+  payee_party_id bigint [not null, ref: > parties.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  created_at timestamptz [not null]
+  completed_at timestamptz
+  failed_at timestamptz
+  refunded_at timestamptz
+}
+
+Table invoice_payments {
+  invoice_id bigint [not null, ref: > invoices.id]
+  payment_id bigint [not null, unique, ref: > payments.id]
+
+  indexes {
+    (invoice_id, payment_id) [pk]
+  }
+}
+
+Table payment_attempts {
+  id bigint [pk]
+  payment_id bigint [not null, ref: > payments.id]
+  provider_code varchar [not null]
+  command_key varchar [not null, unique]
+  attempted_at timestamptz [not null]
+  succeeded_at timestamptz
+  failed_at timestamptz
+  provider_reference varchar
+}
+
+Table payment_settlements {
+  id bigint [pk]
+  payment_id bigint [not null, ref: > payments.id]
+  provider_reference varchar [not null]
+  settled_at timestamptz [not null]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+}
+
+Table bank_accounts {
+  id bigint [pk]
+  owner_party_id bigint [not null, ref: > parties.id]
+  bank_code varchar [not null]
+  account_number_ciphertext text [not null]
+  account_name varchar
+  closed_at timestamptz
+}
+
+Table wallets {
+  id bigint [pk]
+  owner_party_id bigint [not null, ref: > parties.id]
+  currency_code varchar(3) [not null]
+  closed_at timestamptz
+
+  indexes {
+    (owner_party_id, currency_code) [unique]
+  }
+}
+
+Table wallet_entries {
+  id bigint [pk]
+  wallet_id bigint [not null, ref: > wallets.id]
+  payment_id bigint [ref: > payments.id]
+  direction varchar [not null]
+  amount numeric(19,4) [not null]
+  occurred_at timestamptz [not null]
+  note text
+}
+
+Table usage_meters {
+  code varchar [pk]
+  name varchar [not null]
+}
+
+Table usage_events {
+  id bigint [pk]
+  subject_party_id bigint [not null, ref: > parties.id]
+  meter_code varchar [not null, ref: > usage_meters.code]
+  quantity bigint [not null]
+  occurred_at timestamptz [not null]
+  operation_key varchar [not null, unique]
+}
+
+Table quota_allocations {
+  id bigint [pk]
+  subject_party_id bigint [not null, ref: > parties.id]
+  meter_code varchar [not null, ref: > usage_meters.code]
+  period_start timestamptz [not null]
+  period_end timestamptz [not null]
+  limit_value bigint [not null]
+
+  indexes {
+    (subject_party_id, meter_code, period_start, period_end) [unique]
+  }
+}
+
+// ============================================================
+// COMMUNITY / SOCIAL
+// ============================================================
+
+Table communities {
+  id bigint [pk]
+  name varchar [not null]
+  description text
+  closed_at timestamptz
+}
+
+Table community_memberships {
+  id bigint [pk]
+  community_id bigint [not null, ref: > communities.id]
+  person_id bigint [not null, ref: > persons.party_id]
+  joined_at timestamptz [not null]
+  ended_at timestamptz
+}
+
+Table community_posts {
+  id bigint [pk]
+  author_party_id bigint [not null, ref: > parties.id]
+  community_id bigint [ref: > communities.id]
+  body text [not null]
+  published_at timestamptz [not null]
+  removed_at timestamptz
+}
+
+Table community_post_media {
+  post_id bigint [not null, ref: > community_posts.id]
+  media_id bigint [not null, ref: > media_objects.id]
+  position integer [not null, default: 0]
+
+  indexes {
+    (post_id, media_id) [pk]
+  }
+}
+
+Table community_comments {
+  id bigint [pk]
+  post_id bigint [not null, ref: > community_posts.id]
+  author_person_id bigint [not null, ref: > persons.party_id]
+  parent_comment_id bigint [ref: > community_comments.id]
+  body text [not null]
+  published_at timestamptz [not null]
+  removed_at timestamptz
+}
+
+Table community_post_reactions {
+  post_id bigint [not null, ref: > community_posts.id]
+  person_id bigint [not null, ref: > persons.party_id]
+  reaction_code varchar [not null]
+  reacted_at timestamptz [not null]
+
+  indexes {
+    (post_id, person_id) [pk]
+  }
+}
+
+Table community_comment_reactions {
+  comment_id bigint [not null, ref: > community_comments.id]
+  person_id bigint [not null, ref: > persons.party_id]
+  reaction_code varchar [not null]
+  reacted_at timestamptz [not null]
+
+  indexes {
+    (comment_id, person_id) [pk]
+  }
+}
+
+Table friendships {
+  id bigint [pk]
+  person_a_id bigint [not null, ref: > persons.party_id]
+  person_b_id bigint [not null, ref: > persons.party_id]
+  requested_by_person_id bigint [not null, ref: > persons.party_id]
+  requested_at timestamptz [not null]
+  accepted_at timestamptz
+  ended_at timestamptz
+}
+
+Table follows {
+  follower_person_id bigint [not null, ref: > persons.party_id]
+  followed_person_id bigint [not null, ref: > persons.party_id]
+  followed_at timestamptz [not null]
+
+  indexes {
+    (follower_person_id, followed_person_id) [pk]
+  }
+}
+
+// ============================================================
+// CHAT
+// ============================================================
+
+Table conversations {
+  id bigint [pk]
+  title varchar
+  created_at timestamptz [not null]
+  closed_at timestamptz
+}
+
+Table conversation_participations {
+  id bigint [pk]
+  conversation_id bigint [not null, ref: > conversations.id]
+  person_id bigint [not null, ref: > persons.party_id]
+  joined_at timestamptz [not null]
+  left_at timestamptz
+  muted_until timestamptz
+}
+
+Table messages {
+  id bigint [pk]
+  conversation_id bigint [not null, ref: > conversations.id]
+  sender_participation_id bigint [not null, ref: > conversation_participations.id]
+  reply_to_message_id bigint [ref: > messages.id]
+  body text
+  sent_at timestamptz [not null]
+  recalled_at timestamptz
+}
+
+Table message_attachments {
+  message_id bigint [not null, ref: > messages.id]
+  media_id bigint [not null, ref: > media_objects.id]
+
+  indexes {
+    (message_id, media_id) [pk]
+  }
+}
+
+Table message_reads {
+  message_id bigint [not null, ref: > messages.id]
+  participation_id bigint [not null, ref: > conversation_participations.id]
+  read_at timestamptz [not null]
+
+  indexes {
+    (message_id, participation_id) [pk]
+  }
+}
+
+// ============================================================
+// APPOINTMENTS
+// ============================================================
+
+Table appointments {
+  id bigint [pk]
+  organizer_person_id bigint [not null, ref: > persons.party_id]
+  title varchar [not null]
+  starts_at timestamptz [not null]
+  ends_at timestamptz [not null]
+  location_text text
+  canceled_at timestamptz
+}
+
+Table appointment_participants {
+  appointment_id bigint [not null, ref: > appointments.id]
+  person_id bigint [not null, ref: > persons.party_id]
+  response_code varchar
+  responded_at timestamptz
+
+  indexes {
+    (appointment_id, person_id) [pk]
+  }
+}
+
+Table appointment_deals {
+  appointment_id bigint [not null, ref: > appointments.id]
+  deal_id bigint [not null, ref: > deals.id]
+
+  indexes {
+    (appointment_id, deal_id) [pk]
+  }
+}
+
+Table appointment_properties {
+  appointment_id bigint [not null, ref: > appointments.id]
+  property_id bigint [not null, ref: > properties.id]
+
+  indexes {
+    (appointment_id, property_id) [pk]
+  }
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+Table notifications {
+  id bigint [pk]
+  recipient_person_id bigint [not null, ref: > persons.party_id]
+  topic_code varchar [not null]
+  title varchar
+  body text [not null]
+  created_at timestamptz [not null]
+  read_at timestamptz
+}
+
+Table notification_deliveries {
+  id bigint [pk]
+  notification_id bigint [not null, ref: > notifications.id]
+  channel_code varchar [not null]
+  destination varchar
+  attempted_at timestamptz [not null]
+  delivered_at timestamptz
+  failed_at timestamptz
+}
+
+Table notification_preferences {
+  person_id bigint [not null, ref: > persons.party_id]
+  topic_code varchar [not null]
+  channel_code varchar [not null]
+  enabled boolean [not null]
+
+  indexes {
+    (person_id, topic_code, channel_code) [pk]
+  }
+}
+
+// ============================================================
+// PLANNING / GIS
+// ============================================================
+
+Table planning_sources {
+  id bigint [pk]
+  name varchar [not null]
+  source_url varchar
+}
+
+Table planning_datasets {
+  id bigint [pk]
+  source_id bigint [ref: > planning_sources.id]
+  title varchar [not null]
+  effective_from date
+  effective_to date
+}
+
+Table planning_layers {
+  id bigint [pk]
+  dataset_id bigint [not null, ref: > planning_datasets.id]
+  name varchar [not null]
+  geometry_type varchar
+}
+
+Table planning_features {
+  id bigint [pk]
+  layer_id bigint [not null, ref: > planning_layers.id]
+  external_key varchar
+  geom geometry
+  properties jsonb
+}
+
+Table planning_labels {
+  id bigint [pk]
+  layer_id bigint [not null, ref: > planning_layers.id]
+  name varchar [not null]
+}
+
+Table planning_feature_labels {
+  feature_id bigint [not null, ref: > planning_features.id]
+  label_id bigint [not null, ref: > planning_labels.id]
+
+  indexes {
+    (feature_id, label_id) [pk]
+  }
+}
+
+Table planning_documents {
+  dataset_id bigint [not null, ref: > planning_datasets.id]
+  document_id bigint [not null, ref: > documents.id]
+
+  indexes {
+    (dataset_id, document_id) [pk]
+  }
+}
+
+Table planning_reports {
+  id bigint [pk]
+  requested_by_person_id bigint [not null, ref: > persons.party_id]
+  requested_at timestamptz [not null]
+  completed_at timestamptz
+  failed_at timestamptz
+  result_document_id bigint [ref: > documents.id]
+}
+
+Table planning_report_properties {
+  report_id bigint [not null, ref: > planning_reports.id]
+  property_id bigint [not null, ref: > properties.id]
+
+  indexes {
+    (report_id, property_id) [pk]
+  }
+}
+
+Table planning_news {
+  id bigint [pk]
+  source_id bigint [ref: > planning_sources.id]
+  title varchar [not null]
+  source_url varchar
+  published_at timestamptz
+}
+
+Table planning_news_saves {
+  news_id bigint [not null, ref: > planning_news.id]
+  person_id bigint [not null, ref: > persons.party_id]
+  saved_at timestamptz [not null]
+
+  indexes {
+    (news_id, person_id) [pk]
+  }
+}
+
+// ============================================================
+// OPERATIONAL EVIDENCE / INTEGRATION
+// These tables are NOT canonical business-relationship authority.
+// Generic subject/aggregate references are allowed here intentionally.
+// ============================================================
+
+Table audit_events {
+  id bigint [pk]
+  actor_account_id bigint [ref: > accounts.id]
+  actor_service_account_id bigint [ref: > service_accounts.id]
+  organization_id bigint [ref: > organizations.party_id]
+  action_code varchar [not null]
+  subject_kind varchar [not null]
+  subject_id varchar [not null]
+  occurred_at timestamptz [not null]
+  data jsonb
+}
+
+Table outbox_events {
+  id bigint [pk]
+  event_type varchar [not null]
+  aggregate_kind varchar [not null]
+  aggregate_id varchar [not null]
+  payload jsonb [not null]
+  occurred_at timestamptz [not null]
+  published_at timestamptz
+}
+
+Table inbox_events {
+  consumer_code varchar [not null]
+  event_id varchar [not null]
+  received_at timestamptz [not null]
+  processed_at timestamptz
+
+  indexes {
+    (consumer_code, event_id) [pk]
+  }
+}
+
+Table idempotency_records {
+  scope_code varchar [not null]
+  idempotency_key varchar [not null]
+  request_hash varchar [not null]
+  created_at timestamptz [not null]
+  expires_at timestamptz
+
+  indexes {
+    (scope_code, idempotency_key) [pk]
+  }
+}
+
+// ============================================================
+// TABLE GROUPS FOR DBDIAGRAM
+// ============================================================
+
+TableGroup "Identity & Security" {
+  parties
+  persons
+  person_profiles
+  organizations
+  accounts
+  account_emails
+  account_phones
+  password_credentials
+  external_identities
+  passkeys
+  sessions
+  service_accounts
+  service_account_keys
+}
+
+TableGroup "Organization & Authorization" {
+  permissions
+  organization_roles
+  organization_role_permissions
+  organization_invitations
+  organization_memberships
+  organization_membership_blocks
+  organization_role_assignments
+  organization_ownerships
+  organization_branches
+  organization_branch_assignments
+  organization_branch_locations
+}
+
+TableGroup "Groups" {
+  groups
+  group_invitations
+  group_participations
+  group_leaderships
+  group_admin_assignments
+}
+
+TableGroup "Property & Projects" {
+  administrative_areas
+  amenities
+  property_types
+  properties
+  property_locations
+  property_land_parcels
+  property_house_details
+  property_apartment_details
+  property_amenities
+  property_media
+  property_documents
+  property_valuations
+  real_estate_projects
+  project_buildings
+  project_properties
+  project_documents
+}
+
+TableGroup "Listings & Assets" {
+  listings
+  listing_properties
+  listing_price_terms
+  listing_publications
+  listing_media
+  listing_offers
+  listing_offer_acceptances
+  assets
+  asset_ownerships
+  asset_valuations
+  asset_costs
+  asset_income_entries
+  asset_leases
+  asset_documents
+}
+
+TableGroup "Deals & Auctions" {
+  deals
+  deal_properties
+  deal_invitations
+  deal_participations
+  deal_customers
+  deal_partners
+  deal_admin_assignments
+  deal_leaderships
+  deal_commission_terms
+  deal_commission_earnings
+  deal_investment_commitments
+  deal_investments
+  deal_contracts
+  deal_contract_customers
+  deal_contract_properties
+  deal_contract_payments
+  deal_documents
+  auctions
+  auction_properties
+  auction_registrations
+  auction_bids
+  auction_results
+}
+
+TableGroup "CRM" {
+  crm_contacts
+  crm_labels
+  crm_contact_labels
+  crm_pipelines
+  crm_stages
+  crm_opportunities
+  crm_opportunity_contacts
+  crm_opportunity_properties
+  crm_activities
+  crm_opportunity_deals
+}
+
+TableGroup "Billing & Usage" {
+  plans
+  plan_prices
+  plan_entitlements
+  subscriptions
+  invoices
+  invoice_lines
+  payments
+  invoice_payments
+  payment_attempts
+  payment_settlements
+  bank_accounts
+  wallets
+  wallet_entries
+  usage_meters
+  usage_events
+  quota_allocations
+}
+
+TableGroup "Community, Chat & Notifications" {
+  communities
+  community_memberships
+  community_posts
+  community_post_media
+  community_comments
+  community_post_reactions
+  community_comment_reactions
+  friendships
+  follows
+  conversations
+  conversation_participations
+  messages
+  message_attachments
+  message_reads
+  appointments
+  appointment_participants
+  appointment_deals
+  appointment_properties
+  notifications
+  notification_deliveries
+  notification_preferences
+}
+
+TableGroup "Planning & GIS" {
+  planning_sources
+  planning_datasets
+  planning_layers
+  planning_features
+  planning_labels
+  planning_feature_labels
+  planning_documents
+  planning_reports
+  planning_report_properties
+  planning_news
+  planning_news_saves
+}
+
+TableGroup "Media, Documents & Integration" {
+  document_types
+  media_objects
+  documents
+  audit_events
+  outbox_events
+  inbox_events
+  idempotency_records
+}
