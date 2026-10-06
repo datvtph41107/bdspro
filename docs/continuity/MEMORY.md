@@ -479,3 +479,68 @@ observability.
 The next technical pressure is to reconcile generated persistence artifacts with
 live source and produce runtime evidence for the first sqlc + pgxpool query while
 containing pgx/sqlc representations inside the Postgres persistence boundary.
+
+## Canonical database finalization milestone — 2026-10-06
+
+The database redesign has moved from the long v0 semantic discovery sequence to a
+durable full target package on branch
+`architecture/canonical-database-final`, created from
+`dev@2a84561cb29dca7f8b198e61d4ad5a6980c2de5e`.
+
+Canonical package:
+
+```text
+docs/database/final/README.md
+docs/database/final/BDSPro-CANONICAL-DATABASE.dbml
+docs/database/final/CANONICAL-DATABASE-ACCEPTANCE.md
+docs/database/final/CANONICAL-DATA-DICTIONARY.md
+docs/database/final/LEGACY-MIGRATION-MAP.md
+docs/database/final/CONTINUATION-PROMPT.md
+```
+
+Target scale/proof:
+
+```text
+146 canonical target tables
+223 parsed FK refs
+0 refs to undefined tables
+```
+
+Durable semantic anchors:
+
+- Party/Person/Organization are business identity; Account is digital identity.
+- Invitation is never the same fact as Membership/Participation.
+- authority/capacity is separated from business relationship.
+- Organization owner points to Membership; Branch manager/assignment also points
+  to Membership.
+- Property, Listing and Asset are distinct facts.
+- Listing can represent multiple Properties.
+- Deal context is Organization or Group; optional Branch is secondary scope.
+- Deal Participation points to Person; Customer/Partner may overlap; Admin and
+  Lead are separate authority dimensions.
+- commission terms != earned commission.
+- investment commitment != actual investment.
+- money always includes currency.
+- generic subject/type IDs are allowed only in non-authoritative operational
+  evidence, not canonical business relations.
+- planning/GIS preserves PostGIS geometry.
+
+Rejected patterns:
+
+```text
+owner_type + owner_id
+generic type + id
+universal status
+universal soft delete / BaseEntity
+is_owner shadow flags
+single role/status blobs
+EAV for stable core facts
+generic attachments as business truth
+```
+
+The target package does not replace current live migrations/source. Implementation
+must be incremental through expand/backfill/compare/prove/switch/contract.
+
+The next database pressure is a full human review of the target. Only after that
+review should the first implementation gate be selected from live `dev`.
+
