@@ -1,6 +1,6 @@
 # Current Checkpoint
 
-Updated: 2026-10-02
+Updated: 2026-10-06
 
 ## Source identity
 
@@ -8,13 +8,17 @@ Active repository:
 
 `datvtph41107/bdspro`
 
-Active development branch:
+Active implementation branch:
 
 `dev`
 
 Stable/default branch:
 
 `main`
+
+Canonical database design branch:
+
+`architecture/canonical-database-final`
 
 Preferred local workspace:
 
@@ -24,216 +28,263 @@ Operational Go module identity:
 
 `github.com/datvtph41107/bdspro`
 
+Historical evidence repository:
+
+`datvtph41107/bdspro-backend`
+
 ## Verified Git reality
 
-At the branch transition on 2026-10-02:
+The database-design branch was created without rewriting history from:
 
 ```text
+dev:
+  2a84561cb29dca7f8b198e61d4ad5a6980c2de5e
+  migrate listing to sqlc
+
 main:
   1a49d5bc469110c3b4b8d42a0d5f419bc45857bc
-  docs: checkpoint staged recovery implementation
 
-dev:
-  created from
-  5fe5cbda5d4be5e54e9b21323efc01d04f9e0e7f
-  ft: sqlc sql base
-
-relationship before this continuity update:
-  dev is 2 commits ahead of main
-  dev is 0 commits behind main
+relationship at design start:
+  dev ahead of main: 4 commits
+  dev behind main:   0 commits
 ```
 
-The former branch `recovery/local-implementation` was a temporary recovery
-vehicle. `dev` is now the active development branch. Delete the old branch only
-after local `dev`, `origin/dev` and the expected HEAD are verified.
+The dedicated design branch exists to avoid overwriting or assuming anything
+about unpushed local `dev` work.
 
-Live Git/source outranks older prose. Do not reset, clean, rebase, overwrite or
-blindly pull merely to make the workspace match this document.
+Live Git/source and completed proof always outrank this document. Never reset,
+clean, rebase, amend or overwrite unexplained local work merely to match durable
+prose.
 
 ## Current phase
 
 ```text
-PostgreSQL / explicit SQL / sqlc / pgx persistence foundation
-STATUS: ACTIVE
+Canonical database design
+v0 semantic model       CLOSED
+v1 logical model        CLOSED
+v2 PostgreSQL strategy  CLOSED
+final review baseline   ACCEPTED
+bulk implementation     NOT STARTED / NOT AUTHORIZED
 ```
 
-The canonical persistence direction is:
+The durable package is:
 
 ```text
-business fact
- -> relational design
- -> durable database invariant
- -> versioned SQL migration
- -> explicit SQL query
- -> sqlc generated persistence code
+docs/database/final/README.md
+docs/database/final/CANONICAL-DATABASE-ACCEPTANCE.md
+docs/database/final/BDSPro-CANONICAL-DATABASE.dbml
+docs/database/final/CANONICAL-DATA-DICTIONARY.md
+docs/database/final/LEGACY-MIGRATION-MAP.md
+docs/database/final/CONTINUATION-PROMPT.md
+```
+
+The DBML currently contains:
+
+```text
+146 tables
+223 parsed foreign references
+0 references to undefined tables
+```
+
+That structural check proves internal table-reference completeness only. It does
+not prove that dbdiagram/PostgreSQL accepts every future physical constraint or
+that all cross-row business invariants are expressible in DBML.
+
+## Relationship to live implementation
+
+The design package is a **target architecture artifact**, not an executable
+migration.
+
+Current live implementation on `dev` remains deliberately small:
+
+```text
+PostgreSQL
+ -> versioned migrations 000001..000005
+ -> explicit SQL
+ -> sqlc
  -> pgx/v5 / pgxpool
- -> PostgreSQL / future PostGIS
+ -> Listing create/edit/publish/readiness
 ```
 
-GORM and the old BDSPro persistence model are historical evidence only, not the
-canonical implementation path.
+Do not replace those migrations or current Listing code wholesale with the
+146-table target.
 
-## Verified live source on dev
-
-The current live branch contains:
+Implementation must proceed through:
 
 ```text
-Makefile
-migrations/000001 ... 000005
-sqlc.yaml
-db/query/listing.sql
-db/sqlc/db.go
-db/sqlc/listing.sql.go
-db/sqlc/models.go
-db/sqlc/querier.go
-go.mod
-go.sum
+OLD
+ -> EXPAND
+ -> BACKFILL
+ -> COMPARE / PROVE
+ -> SWITCH WRITE AUTHORITY
+ -> SWITCH READ AUTHORITY
+ -> CONTRACT
 ```
 
-Verified details:
+## Canonical design closures
 
-- `go.mod` requires `github.com/jackc/pgx/v5 v5.11.0`;
-- `sqlc.yaml` targets PostgreSQL + `pgx/v5`, reads schema from
-  `migrations`, queries from `db/query`, generates to `db/sqlc`, and emits
-  an interface;
-- `db/query/listing.sql` defines `CreateListing :one`;
-- generated sqlc code exists and exposes a `DBTX` contract using
-  `pgconn.CommandTag`, `pgx.Rows`, `pgx.Row` and `pgx.Tx`;
-- generated Listing persistence types map nullable `description` and `price`
-  through `pgtype.Text` and `pgtype.Int8`;
-- migration `000005` adds nullable `price BIGINT` with a non-negative CHECK;
-- commit `5fe5cbd` removed `compose.yaml`, `listing/integration_test.go`
-  and `test-integration.sh`.
-
-Do not recreate deleted files automatically. Their absence is current source
-reality; any replacement must be earned again from current pressure.
-
-## Reconciled contradiction
-
-Older continuity prose said sqlc implementation and pgx installation had not
-been verified. That is now stale.
-
-Live `dev` source proves:
+### Identity
 
 ```text
-pgx dependency exists
-sqlc.yaml exists
-query source exists
-generated sqlc code exists
+Party
+├── Person
+└── Organization
+
+Account -> Person
 ```
 
-Those files alone do NOT prove:
+Person/Organization are business identity. Account/authenticators/sessions are
+digital-security facts.
+
+### Organization
+
+Accepted separation:
 
 ```text
-current PostgreSQL runtime state
-current migration version in the live local database
-that sqlc generate is reproducible with zero diff now
-that pgxpool is wired into the current application runtime path
-that CreateListing has executed successfully through sqlc + pgxpool
+Invitation
+Membership
+MembershipBlock
+RoleAssignment
+Ownership
+BranchAssignment
+BranchManager capacity
 ```
 
-Historical local work reports migration 000005 was applied successfully, but a
-fresh recovery must inspect the actual database before treating that runtime
-state as current truth.
+These are not one status/role/member blob.
 
-## Persistence learning gate completed
+Organization Ownership is a singular current relation to OrganizationMembership.
+Branch assignments/managers target OrganizationMembership, not User/Profile.
 
-The current learning work established the core model for:
+### Property / Listing / Asset
 
 ```text
-query generator vs runtime driver
-database/sql vs PostgreSQL driver
-lib/pq historical role
-native pgx vs pgx/stdlib
-pgx / pgxpool / pgconn / pgtype / stdlib
-connection vs pool
-Query / QueryRow / Exec
-ErrNoRows vs PostgreSQL PgError
-PostgreSQL type/nullability mapping
-transaction connection pinning
-extended vs simple query protocol
-Parse / Bind / Execute / Sync
-connection-scoped prepared statements
-pgx statement cache
-lazy pool construction vs connectivity proof
-Acquire / Release / pool pressure
-connection lifetime / idle retirement
-pool metrics and shutdown lifecycle
+Property = real-estate subject/factual identity
+Listing  = market exposure/offer about Property
+Asset    = portfolio/economic treatment of Property
 ```
 
-Architectural consequence:
+Listing may reference multiple Properties.
+
+Price facts are qualified by domain and lifecycle; one generic mutable `price`
+is not the final model.
+
+### Deal
+
+Accepted semantic skeleton:
 
 ```text
-PostgreSQL-specific knowledge is intentional inside Postgres infrastructure.
-
-sqlc/pgx/pgtype/pgconn representations must not accidentally become
-transport or domain representations.
-
-Application use cases own business transaction boundaries.
+Deal
+├── exactly one business context
+│   ├── Organization
+│   └── Group
+├── optional Organization Branch scope
+├── Properties
+├── Invitations
+├── Participations -> Person
+├── Customer / Partner relationships
+├── Admin authority
+├── Lead governance
+├── Commission terms
+├── Commission earnings
+├── Investment commitments
+├── actual Investments
+├── Contracts
+└── Documents
 ```
+
+Rejected:
+
+```text
+owner_type + owner_id
+is_owner shadow truth
+single role_key mixing OWNER/ADMIN/MEMBER/CUSTOMER/PARTNER
+Invitation row mutated into accepted/withdrawn participation
+done_investment as canonical participant truth
+```
+
+### Cross-domain
+
+Money is amount + currency.
+
+Media/document storage may be shared, but business links remain explicit.
+
+Generic `subject_kind + subject_id` is allowed only in operational evidence
+(audit/outbox/inbox), never as canonical ownership/participation truth.
+
+Planning/GIS retains PostGIS geometry.
+
+## Current authority for database work
+
+Read in this order:
+
+1. live Git/source;
+2. `docs/continuity/CONTINUATION-PROMPT.md`;
+3. `docs/database/final/README.md`;
+4. `docs/database/final/CANONICAL-DATABASE-ACCEPTANCE.md`;
+5. `docs/database/final/BDSPro-CANONICAL-DATABASE.dbml`;
+6. `docs/database/final/CANONICAL-DATA-DICTIONARY.md`;
+7. `docs/database/final/LEGACY-MIGRATION-MAP.md`;
+8. this checkpoint and the decision register.
+
+Historical `bdspro-backend` remains evidence only.
 
 ## Current unresolved pressure
 
-The source has crossed from conceptual selection into generated persistence code,
-but the runtime proof chain has not caught up.
+The target database is now broad enough that the next responsible action is **not
+to add more tables by default**.
 
-Current questions:
-
-```text
-Can the current sqlc configuration regenerate deterministically?
-Does generated code match the current migration/query contract?
-Where should the shared pgxpool be constructed and owned?
-How does the first CreateListing call flow through the application without
-leaking pgx/sqlc types across the intended persistence boundary?
-What runtime evidence proves the connection/query path works?
-```
-
-## Next smallest justified actions
-
-First finish the branch transition locally:
+The next pressure is:
 
 ```text
-move local work from recovery/local-implementation to dev
- -> set upstream to origin/dev
- -> verify working tree and HEAD
- -> remove the obsolete local recovery branch name if it still exists
- -> delete remote recovery/local-implementation only after dev is verified
+full human review of the canonical target
+ -> identify any fact/invariant/name that still fails under real business cases
+ -> amend the target only with explicit counterexample/evidence
+ -> accept review
+ -> select the first implementation gate from live dev
 ```
 
-Then continue persistence work from live source:
+The first implementation gate after review is Identity backbone unless review
+finds a reason to change the order:
 
 ```text
-inspect current query/generated files
- -> run sqlc generate and inspect whether it creates a diff
- -> inspect current application construction point
- -> establish the smallest shared pgxpool ownership point
- -> execute the first sqlc query
- -> observe real result/error
- -> only then add the next boundary
+parties
+ -> persons
+ -> organizations
+ -> accounts/auth
 ```
 
-Do not jump ahead to repository/service/domain scaffolding, Docker Compose, CI,
-Testcontainers or microservice extraction without new demonstrated pressure.
+Current Listing code/migrations are preserved and must be reconciled with the
+Property/Listing target through incremental migrations rather than a reset.
 
-## Working mindset
+## Working reasoning contract
 
-Use:
+For every future database change use:
 
 ```text
-CURRENT REALITY
- -> INTENT
- -> REQUIREMENT
- -> PRESSURE
- -> INSUFFICIENCY
- -> SMALLEST RESPONSIBLE RESPONSE
- -> EARNED BOUNDARY
- -> MECHANISM
- -> EVIDENCE
- -> TRADE-OFF
- -> DECISION
+BUSINESS INTENT
+ -> ACTOR / CAPACITY / CONTEXT
+ -> PRECONDITION / AUTHORITY
+ -> BUSINESS TRANSITION
+ -> DURABLE FACTS
+ -> INVARIANTS
+ -> TRANSACTION BOUNDARY
+ -> EFFECTS / EVENTS / PROJECTIONS
+ -> RELATIONAL MODEL
+ -> PHYSICAL ENFORCEMENT
 ```
 
-The user types and implements the code/commands. For unfamiliar mechanisms,
-trace primary documentation/source, predict behavior, run the real operation and
-learn from observed state rather than receiving a completed implementation by
-default.
+For every table first state:
+
+> One row means ...
+
+If the answer requires an unrelated `type`, generic owner pair, overloaded
+status, or multiple incompatible identities, return to semantic modeling.
+
+## Next authorized gate
+
+1. Review the final database package domain by domain.
+2. Record corrections, if any, against concrete counterexamples.
+3. When review is accepted, reconcile live local `dev` Git state.
+4. Select one implementation gate.
+5. Implement through migrations + SQL/sqlc + transaction + proof.
+6. Never create all target tables at once merely because the final DBML exists.
