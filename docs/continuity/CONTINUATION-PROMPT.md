@@ -61,6 +61,24 @@ In a fresh context:
 9. Continue from the current pressure. Do not skip ahead to a desired final
    architecture.
 
+## Current database-design milestone
+
+When the canonical database finalization package exists on the recovered branch,
+read it immediately after the normal continuity documents and before proposing a
+database mutation:
+
+1. `docs/database/final/README.md`
+2. `docs/database/final/CANONICAL-DATABASE-ACCEPTANCE.md`
+3. `docs/database/final/BDSPro-CANONICAL-DATABASE.dbml`
+4. `docs/database/final/CANONICAL-DATA-DICTIONARY.md`
+5. `docs/database/final/LEGACY-MIGRATION-MAP.md`
+
+That package is the accepted target review baseline. It does not replace live
+migrations/source and does not authorize an all-at-once schema rewrite.
+
+The database-specific one-prompt handoff is:
+`docs/database/final/CONTINUATION-PROMPT.md`.
+
 ## Recovery invariant
 
 The goal is not merely to recover files. It is to recover the same engineering
