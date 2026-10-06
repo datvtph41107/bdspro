@@ -4,25 +4,35 @@ Clean-slate Go backend project.
 
 ## Status
 
-This repository is the new working authority for BDSPro development and Go
-learning from first principles.
+This repository is the active implementation authority for the BDSPro rebuild.
 
 The previous repository `datvtph41107/bdspro-backend` is preserved as historical
 evidence only. Its architecture assumptions, package layout, service topology and
 mentor-derived decisions are not automatically authoritative here.
 
+Current implementation direction:
+
+```text
+Go
+PostgreSQL / future PostGIS
+versioned SQL migrations
+explicit SQL
+sqlc
+pgx/v5 / pgxpool
+```
+
 ## Current principle
 
-Build from observed problems and Go/runtime behavior:
+Build from observed problems and runtime/database behavior:
 
 ```text
 problem
   -> mechanism
-  -> smallest experiment
-  -> real output
+  -> smallest responsible change
+  -> real output/proof
   -> explanation
   -> decision
-  -> proof
+  -> next pressure
 ```
 
 Do not create architecture folders, packages, frameworks or infrastructure before
@@ -34,10 +44,30 @@ Current source host:
 
 `github.com/datvtph41107/bdspro`
 
-This is currently a personal GitHub namespace. The canonical Go module path is
-intentionally **not initialized yet**. Module identity will be chosen only after
-stable long-term ownership is decided (for example a real GitHub organization or
-a domain that is actually controlled).
+Current Go module path:
+
+`github.com/datvtph41107/bdspro`
+
+Product identity remains **BDSPro** and is independent from the current personal
+GitHub owner namespace.
+
+## Canonical database design
+
+The completed v0 → v1 → v2 → final database target package lives at:
+
+`docs/database/final/README.md`
+
+It includes:
+
+- full DBML source for dbdiagram.io;
+- final acceptance/reasoning report;
+- complete table data dictionary;
+- legacy-to-canonical migration map;
+- fresh-chat continuation prompt.
+
+The target DBML is a design/review baseline, **not an all-at-once executable
+migration**. Current source/migrations remain implementation truth until each
+canonical slice is implemented and proved incrementally.
 
 ## Local workspace
 
@@ -47,12 +77,9 @@ Preferred local path:
 
 ## Durable continuity
 
-Start from:
+Fresh contexts start from:
 
-1. `docs/continuity/MASTER.md`
-2. `docs/continuity/MEMORY.md`
-3. `docs/continuity/CHECKPOINT.md`
-4. `docs/continuity/DECISIONS.md`
-5. `docs/continuity/HISTORY.md`
+`docs/continuity/CONTINUATION-PROMPT.md`
 
-Research references live under `docs/research/`.
+That document owns the recovery order. Live Git/source and reproducible proof
+outweigh durable prose whenever they disagree.
