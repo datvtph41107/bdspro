@@ -9,7 +9,6 @@ import (
 	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -38,16 +37,14 @@ type PublicationReadiness struct {
 
 func Create(
 	ctx context.Context,
-	pool *pgxpool.Pool,
+	store dbsqlc.Store,
 	title string,
 ) (Listing, error) {
 	if strings.TrimSpace(title) == "" {
 		return Listing{}, ErrTitleRequired
 	}
 
-	queries := dbsqlc.New(pool)
-
-	row, err := queries.CreateListing(ctx, title)
+	row, err := store.CreateListing(ctx, title)
 	if err != nil {
 		return Listing{}, fmt.Errorf(
 			"create listing: %w",
@@ -64,7 +61,7 @@ func Create(
 
 func UpdateDescription(
 	ctx context.Context,
-	pool *pgxpool.Pool,
+	store dbsqlc.Store,
 	id int64,
 	description string,
 ) (Listing, error) {
@@ -72,9 +69,7 @@ func UpdateDescription(
 		return Listing{}, ErrDescriptionRequired
 	}
 
-	queries := dbsqlc.New(pool)
-
-	row, err := queries.UpdateListingDescription(
+	row, err := store.UpdateListingDescription(
 		ctx,
 		dbsqlc.UpdateListingDescriptionParams{
 			Description: description,
@@ -98,7 +93,7 @@ func UpdateDescription(
 		)
 	}
 
-	status, err := queries.GetListingStatus(ctx, id)
+	status, err := store.GetListingStatus(ctx, id)
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -124,91 +119,95 @@ func UpdateDescription(
 
 func Publish(
 	ctx context.Context,
-	pool *pgxpool.Pool,
+	store dbsqlc.Store,
 	id int64,
 ) (Listing, error) {
-	queries := dbsqlc.New(pool)
+	var published dbsqlc.MarkListingPublishedRow
 
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return Listing{}, fmt.Errorf(
-			"begin publish listing transaction: %w",
-			err,
-		)
-	}
-
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	txQueries := queries.WithTx(tx)
-
-	row, err := txQueries.MarkListingPublished(ctx, id)
-
-	if errors.Is(err, pgx.ErrNoRows) {
-		status, statusErr := txQueries.GetListingStatus(ctx, id)
-
-		switch {
-		case errors.Is(statusErr, pgx.ErrNoRows):
-			return Listing{}, ErrNotFound
-
-		case statusErr != nil:
-			return Listing{}, fmt.Errorf(
-				"read listing status: %w",
-				statusErr,
-			)
-
-		case status == "PUBLISHED":
-			return Listing{}, ErrAlreadyPublished
-
-		case status == "DRAFT":
-			return Listing{}, ErrNotPublishable
-
-		default:
-			return Listing{}, fmt.Errorf(
-				"listing %d cannot be published from status %q",
+	err := store.ExecTx(
+		ctx,
+		func(queries dbsqlc.Querier) error {
+			row, err := queries.MarkListingPublished(
+				ctx,
 				id,
-				status,
 			)
-		}
-	}
 
+			if errors.Is(err, pgx.ErrNoRows) {
+				status, statusErr := queries.GetListingStatus(
+					ctx,
+					id,
+				)
+
+				switch {
+				case errors.Is(statusErr, pgx.ErrNoRows):
+					return ErrNotFound
+
+				case statusErr != nil:
+					return fmt.Errorf(
+						"read listing status: %w",
+						statusErr,
+					)
+
+				case status == "PUBLISHED":
+					return ErrAlreadyPublished
+
+				case status == "DRAFT":
+					return ErrNotPublishable
+
+				default:
+					return fmt.Errorf(
+						"listing %d cannot be published from status %q",
+						id,
+						status,
+					)
+				}
+			}
+
+			if err != nil {
+				return fmt.Errorf(
+					"mark listing published: %w",
+					err,
+				)
+			}
+
+			if err := queries.CreateListingPublication(
+				ctx,
+				id,
+			); err != nil {
+				return fmt.Errorf(
+					"record listing publication: %w",
+					err,
+				)
+			}
+
+			published = row
+
+			return nil
+		},
+	)
 	if err != nil {
 		return Listing{}, fmt.Errorf(
-			"publish listing: %w",
-			err,
-		)
-	}
-
-	if err := txQueries.CreateListingPublication(ctx, id); err != nil {
-		return Listing{}, fmt.Errorf(
-			"record listing publication: %w",
-			err,
-		)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return Listing{}, fmt.Errorf(
-			"commit publish listing: %w",
+			"publish listing transaction: %w",
 			err,
 		)
 	}
 
 	return Listing{
-		ID:     row.ID,
-		Title:  row.Title,
-		Status: row.Status,
+		ID:     published.ID,
+		Title:  published.Title,
+		Status: published.Status,
 	}, nil
 }
 
 func CheckPublicationReadiness(
 	ctx context.Context,
-	pool *pgxpool.Pool,
+	store dbsqlc.Store,
 	id int64,
 ) (PublicationReadiness, error) {
-	queries := dbsqlc.New(pool)
-
-	row, err := queries.GetListingForPublicationReadiness(ctx, id)
+	row, err := store.GetListingForPublicationReadiness(
+		ctx,
+		id,
+	)
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -246,7 +245,10 @@ func publicationReadiness(item Listing) PublicationReadiness {
 
 	if item.Description == nil ||
 		strings.TrimSpace(*item.Description) == "" {
-		missing = append(missing, "description")
+		missing = append(
+			missing,
+			"description",
+		)
 	}
 
 	return PublicationReadiness{
