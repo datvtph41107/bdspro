@@ -1,5 +1,8 @@
 # Current Checkpoint
 
+> **Latest investment-gate correction (2026-10-09):** Before authorizing production implementation of ORG-01/ORG-NET-01 or broad 160-table V0.3 concepts, read `docs/database/final/BUSINESS-REALITY-GATE-2026-10-09.md`. Initial BDSPro has NO inherent organic audience; Facebook/Zalo/property portals remain agent acquisition channels. Verify user workflow pain, employee adoption, payers and measurable ROI in short pilot; keep ORM/GIS/Ranking/Group/Enterprise IAM as design candidates only until justified. Core DB lab continues for learning; NO schema/runtime change.
+
+
 > **Latest remote design-branch milestone — 2026-10-09 V0.3:** `docs/database/final/README.md` now points to `CORE-REVIEW-V0.3.md`, `CORE-VECTOR-REVIEW-V0.3.md` and original 146-row impact mapping. GitHub canonical DBML has **160 candidate tables**, 6 composite relation contracts, and a matched 160-row dictionary. This is a docs/logical DBML change only; `dev` production schema/migrations unchanged. ORG-01/ORG-NET-01 and C01 SQL proofs still pending. Older "146-table" status below is historical. Always reconcile live Git and local work.
 
 
