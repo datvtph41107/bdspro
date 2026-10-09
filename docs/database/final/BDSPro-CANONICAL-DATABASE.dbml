@@ -1,8 +1,8 @@
-// BDSPro Canonical Database — Final target model
-// Generated from v0 -> v1 -> v2 acceptance work.
-// This is a design artifact for dbdiagram.io. It is NOT an executable migration.
-// PostgreSQL-specific partial unique indexes, CHECKs and cross-row invariants are
-// documented in CANONICAL-DATABASE-ACCEPTANCE.md.
+// BDSPro Canonical Database — Business Core Review V0.2 (2026-10-09)
+// Original 146-table target reviewed against the Trust/Market/Enterprise narrative.
+// DESIGN CANDIDATE ONLY: NOT a production migration or compliance attestation.
+// See CORE-REVIEW-V0.2.md and CORE-IMPACT-MATRIX-V0.2.md for all original tables.
+// DBML cannot enforce every cross-tenant, time-overlap and business transition rule.
 
 // ============================================================
 // IDENTITY / PARTY
@@ -38,6 +38,7 @@ Table organizations {
 // DIGITAL IDENTITY / AUTHENTICATION
 // ============================================================
 
+// Enterprise-first onboarding may create an Account after an invitation; NOT an extra consumer account.
 Table accounts {
   id bigint [pk]
   person_id bigint [not null, ref: > persons.party_id]
@@ -150,7 +151,8 @@ Table organization_invitations {
   invitee_person_id bigint [ref: > persons.party_id]
   invitee_email varchar
   invitee_phone varchar
-  intended_role_id bigint [not null, ref: > organization_roles.id]
+  intended_role_id bigint [ref: > organization_roles.id]
+  invited_by_account_id bigint [ref: > accounts.id]
   invited_at timestamptz [not null]
   expires_at timestamptz [not null]
   outcome varchar
@@ -181,7 +183,8 @@ Table organization_role_assignments {
   ended_at timestamptz
 }
 
-Table organization_ownerships {
+// Workspace primary administrator; not legal owner/shareholder/representative.
+Table organization_primary_administrators {
   organization_id bigint [pk, ref: > organizations.party_id]
   membership_id bigint [not null, unique, ref: > organization_memberships.id]
 }
@@ -214,6 +217,62 @@ Table organization_branch_locations {
 // ============================================================
 // COLLABORATION GROUPS
 // ============================================================
+
+// ========== V0.2 CANDIDATE: ENTERPRISE REGISTRATION, TRUST, TEAM ==========
+Table organization_registration_requests {
+  id bigint [pk]
+  requested_by_account_id bigint [not null, ref: > accounts.id]
+  declared_name varchar [not null]
+  declared_jurisdiction_code varchar [not null]
+  declared_registration_code varchar
+  submitted_at timestamptz [not null]
+  matched_organization_id bigint [ref: > organizations.party_id]
+  resolved_at timestamptz
+  decision_code varchar
+}
+Table organization_claim_requests {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  requested_by_account_id bigint [not null, ref: > accounts.id]
+  evidence_document_id bigint [ref: > documents.id]
+  submitted_at timestamptz [not null]
+  resolved_at timestamptz
+  decision_code varchar
+}
+Table party_verifications {
+  id bigint [pk]
+  subject_party_id bigint [not null, ref: > parties.id]
+  verification_code varchar [not null]
+  source_reference varchar
+  evidence_document_id bigint [ref: > documents.id]
+  verified_at timestamptz [not null]
+  expires_at timestamptz
+  revoked_at timestamptz
+}
+Table organization_representation_authorizations {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  representative_person_id bigint [not null, ref: > persons.party_id]
+  basis_code varchar [not null]
+  evidence_document_id bigint [ref: > documents.id]
+  valid_from timestamptz [not null]
+  valid_to timestamptz
+  revoked_at timestamptz
+}
+Table organization_teams {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  name varchar [not null]
+  ended_at timestamptz
+}
+Table organization_team_assignments {
+  id bigint [pk]
+  team_id bigint [not null, ref: > organization_teams.id]
+  membership_id bigint [not null, ref: > organization_memberships.id]
+  assigned_at timestamptz [not null]
+  ended_at timestamptz
+}
+// Groups may coordinate multiple independent organizations; group != legal Party.
 
 Table groups {
   id bigint [pk]
@@ -259,6 +318,14 @@ Table group_admin_assignments {
 // LOCATION / REFERENCE DATA
 // ============================================================
 
+Table group_organization_participations {
+  id bigint [pk]
+  group_id bigint [not null, ref: > groups.id]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  joined_at timestamptz [not null]
+  ended_at timestamptz
+}
+
 Table administrative_areas {
   id bigint [pk]
   code varchar [not null, unique]
@@ -302,15 +369,16 @@ Table documents {
 // PROPERTY / REAL ESTATE FACTS
 // ============================================================
 
-Table property_types {
+// Market classification taxonomy; not legal land use classification.
+Table property_categories {
   code varchar [pk]
   name varchar [not null]
-  parent_code varchar [ref: > property_types.code]
+  parent_code varchar [ref: > property_categories.code]
 }
 
 Table properties {
   id bigint [pk]
-  property_type_code varchar [not null, ref: > property_types.code]
+  property_category_code varchar [not null, ref: > property_categories.code]
   name varchar
   description text
   retired_at timestamptz
@@ -322,8 +390,11 @@ Table property_locations {
   address_line text
   latitude numeric(10,7)
   longitude numeric(10,7)
+  location_source_code varchar
+  horizontal_accuracy_m numeric(18,4)
 }
 
+// Property-supplied parcel info is not authoritative cadastral proof.
 Table property_land_parcels {
   id bigint [pk]
   property_id bigint [not null, ref: > properties.id]
@@ -335,7 +406,7 @@ Table property_land_parcels {
   depth_m numeric(18,4)
 }
 
-Table property_house_details {
+Table property_houses {
   property_id bigint [pk, ref: > properties.id]
   built_area_m2 numeric(18,4)
   floor_area_m2 numeric(18,4)
@@ -345,7 +416,7 @@ Table property_house_details {
   built_year integer
 }
 
-Table property_apartment_details {
+Table property_apartments {
   property_id bigint [pk, ref: > properties.id]
   building_name varchar
   floor_number integer
@@ -437,6 +508,32 @@ Table project_documents {
 // LISTINGS / MARKET EXPOSURE
 // ============================================================
 
+// publisher_party_id is display identity; actor, title/agency and property authority must be checked separately.
+// ========== V0.2 CANDIDATE: CADASTRAL SOURCE VERSIONS ==========
+Table cadastral_parcels {
+  id bigint [pk]
+  administrative_area_id bigint [ref: > administrative_areas.id]
+  map_sheet_number varchar
+  parcel_number varchar
+  source_reference varchar
+  source_url varchar
+  source_version varchar
+  source_crs_code varchar
+  effective_from date
+  effective_to date
+  geom geometry
+}
+Table property_cadastral_links {
+  property_id bigint [not null, ref: > properties.id]
+  parcel_id bigint [not null, ref: > cadastral_parcels.id]
+  link_basis_code varchar [not null]
+  evidence_document_id bigint [ref: > documents.id]
+  linked_at timestamptz [not null]
+  indexes {
+    (property_id, parcel_id) [pk]
+  }
+}
+
 Table listings {
   id bigint [pk]
   publisher_party_id bigint [not null, ref: > parties.id]
@@ -503,6 +600,29 @@ Table listing_offer_acceptances {
 // ============================================================
 // ASSET / PORTFOLIO FACTS
 // ============================================================
+
+// ========== V0.2 CANDIDATE: PROVIDER / LISTING AUTHORITY ==========
+Table listing_publishing_authorizations {
+  id bigint [pk]
+  listing_id bigint [not null, ref: > listings.id]
+  property_id bigint [not null, ref: > properties.id]
+  granted_by_party_id bigint [not null, ref: > parties.id]
+  authorized_publisher_party_id bigint [not null, ref: > parties.id]
+  basis_code varchar [not null]
+  evidence_document_id bigint [ref: > documents.id]
+  valid_from timestamptz [not null]
+  valid_to timestamptz
+  revoked_at timestamptz
+}
+Table provider_enrollments {
+  id bigint [pk]
+  provider_party_id bigint [not null, ref: > parties.id]
+  requested_by_account_id bigint [not null, ref: > accounts.id]
+  capacity_code varchar [not null]
+  requested_at timestamptz [not null]
+  activated_at timestamptz
+  suspended_at timestamptz
+}
 
 Table assets {
   id bigint [pk]
@@ -1232,14 +1352,24 @@ Table planning_sources {
   id bigint [pk]
   name varchar [not null]
   source_url varchar
+  issuing_authority varchar
+  access_rights_code varchar
+  retrieved_at timestamptz
 }
 
+// Dataset version/snapshot != an eternal legal conclusion.
 Table planning_datasets {
   id bigint [pk]
   source_id bigint [ref: > planning_sources.id]
   title varchar [not null]
+  source_version varchar
+  approval_reference varchar
+  published_at timestamptz
+  imported_at timestamptz
+  source_crs_code varchar
   effective_from date
   effective_to date
+  superseded_by_dataset_id bigint [ref: > planning_datasets.id]
 }
 
 Table planning_layers {
@@ -1288,6 +1418,7 @@ Table planning_reports {
   completed_at timestamptz
   failed_at timestamptz
   result_document_id bigint [ref: > documents.id]
+  source_manifest jsonb
 }
 
 Table planning_report_properties {
@@ -1322,6 +1453,41 @@ Table planning_news_saves {
 // These tables are NOT canonical business-relationship authority.
 // Generic subject/aggregate references are allowed here intentionally.
 // ============================================================
+
+// ========== V0.2 CANDIDATE: REPUTATION POLICY / BENEFIT ==========
+Table reputation_policy_versions {
+  id bigint [pk]
+  policy_code varchar [not null]
+  version_number integer [not null]
+  config jsonb [not null]
+  effective_from timestamptz [not null]
+  retired_at timestamptz
+  indexes {
+    (policy_code, version_number) [unique]
+  }
+}
+Table reputation_assessments {
+  id bigint [pk]
+  subject_party_id bigint [not null, ref: > parties.id]
+  policy_version_id bigint [not null, ref: > reputation_policy_versions.id]
+  window_from timestamptz [not null]
+  window_to timestamptz [not null]
+  evidence_count integer [not null]
+  quality_score numeric(7,4)
+  outcome_code varchar [not null]
+  awarded_level_code varchar
+  source_manifest jsonb
+  evaluated_at timestamptz [not null]
+}
+Table reputation_benefit_grants {
+  id bigint [pk]
+  beneficiary_party_id bigint [not null, ref: > parties.id]
+  assessment_id bigint [ref: > reputation_assessments.id]
+  benefit_code varchar [not null]
+  granted_at timestamptz [not null]
+  expires_at timestamptz
+  revoked_at timestamptz
+}
 
 Table audit_events {
   id bigint [pk]
@@ -1396,7 +1562,13 @@ TableGroup "Organization & Authorization" {
   organization_memberships
   organization_membership_blocks
   organization_role_assignments
-  organization_ownerships
+  organization_primary_administrators
+  organization_registration_requests
+  organization_claim_requests
+  party_verifications
+  organization_representation_authorizations
+  organization_teams
+  organization_team_assignments
   organization_branches
   organization_branch_assignments
   organization_branch_locations
@@ -1408,17 +1580,20 @@ TableGroup "Groups" {
   group_participations
   group_leaderships
   group_admin_assignments
+  group_organization_participations
 }
 
 TableGroup "Property & Projects" {
   administrative_areas
   amenities
-  property_types
+  property_categories
   properties
   property_locations
   property_land_parcels
-  property_house_details
-  property_apartment_details
+  cadastral_parcels
+  property_cadastral_links
+  property_houses
+  property_apartments
   property_amenities
   property_media
   property_documents
@@ -1437,6 +1612,8 @@ TableGroup "Listings & Assets" {
   listing_media
   listing_offers
   listing_offer_acceptances
+  listing_publishing_authorizations
+  provider_enrollments
   assets
   asset_ownerships
   asset_valuations
@@ -1539,6 +1716,12 @@ TableGroup "Planning & GIS" {
   planning_report_properties
   planning_news
   planning_news_saves
+}
+
+TableGroup "Trust, Reputation & Benefits" {
+  reputation_policy_versions
+  reputation_assessments
+  reputation_benefit_grants
 }
 
 TableGroup "Media, Documents & Integration" {
