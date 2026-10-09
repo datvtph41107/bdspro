@@ -128,3 +128,13 @@ The checkpoint documents intentionally create **no DBML or Go/migration changes*
 ## One sentence for future assistant
 
 The goal is **not** to optimize for the number of tables; it is to turn trustworthy business reality into the minimal durable data contracts that can serve a scalable Vietnamese property/community/data ecosystem while protecting privacy, money, authority and verifiable information.
+
+## ADDENDUM — organization networks, teams, channels, provider capacities
+
+Full semantic scenario and business comparison: [ORGANIZATION-NETWORK-AND-PROVIDER-ONTOLOGY.md](ORGANIZATION-NETWORK-AND-PROVIDER-ONTOLOGY.md).
+
+Reopened candidate gaps from the existing schema: `organization_branches` and `organization_branch_assignments` cannot automatically stand in for functional Team/Department; `groups` has no explicit enterprise affiliation and `group_participations` targets Person only; `community_memberships` similarly targets Person; `listings.publisher_party_id` does not establish actual account actor or asset-specific authority; `crm_contacts.organization_id` is tenant scope and not shared Group data. No corresponding official `teams` / `channels` tables exist in candidate DBML. These observations justify **review**, not automatic table addition.
+
+Add to ORG-01 case set: employer ABC starts An's BDSPro onboarding where An had **no earlier Account**; employment end revokes enterprise resource access. Add ORG-NET-01: An belongs to ABC's internal sales Team, ABC and XYZ share a project Group, An publishes a Listing for ABC with valid asset authorization; after transfer to XYZ personal reputation is preserved while private ABC CRM is not exposed.
+
+Current lab remains DB-20 observed, DB-21 proposed/unexecuted; no SQL changed by this checkpoint.
