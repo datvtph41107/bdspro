@@ -15,6 +15,8 @@ The original v0/v1/v2 "CLOSED" means the **older modeling pass** was completed. 
 
 Read in this order (newest authority first):
 
+**BUSINESS GATE:** [BUSINESS-REALITY-GATE-2026-10-09.md](./BUSINESS-REALITY-GATE-2026-10-09.md) — tests whether agents/companies need the product at all while Facebook/Zalo/portals hold users; postpones implementation expansion until measured value. This supersedes blanket implementation priority, NOT DBML semantics.
+
 0. [CORE-REVIEW-V0.3.md](./CORE-REVIEW-V0.3.md) and [CORE-VECTOR-REVIEW-V0.3.md](./CORE-VECTOR-REVIEW-V0.3.md) — current decisions, 32 concrete vectors and 1,600 possible review intersections (not 1,600 proven invariants).
 
 0a. [CORE-IMPACT-MATRIX-V0.2.md](./CORE-IMPACT-MATRIX-V0.2.md) — original 146-table row-by-row mapping to 160 V0.3 entities.
