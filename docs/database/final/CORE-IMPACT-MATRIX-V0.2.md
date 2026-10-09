@@ -1,5 +1,8 @@
 # BDSPro — Canonical Core V0.2: 146-table impact & directional-vector matrix
 
+> **V0.3 supplement:** [Core review](CORE-REVIEW-V0.3.md), [32 directional scenarios and 1600 intersection framework](CORE-VECTOR-REVIEW-V0.3.md). The original **146**-row source-to-target mapping below is preserved; six composite FK candidates have since been added to the unchanged 160-table V0.3 count. This mapping labels review pressures, not physical acceptance.
+
+
 **Date:** 2026-10-09. **Branch:** `architecture/canonical-database-final`. **Status:** HUMAN REVIEW INVENTORY, NOT COMPLETE PHYSICAL ACCEPTANCE.  
 Canonical V0.2: **160 named Tables**, containing **146 original roles** (4 renamed, 142 named unchanged) and **14 additional candidate responsibilities**. All 160 are in TableGroups; explicit FK references resolve to defined tables. That is structural validation only, not complete enforcement, workload tuning, law or security validation.
 

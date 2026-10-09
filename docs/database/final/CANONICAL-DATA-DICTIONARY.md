@@ -1,8 +1,8 @@
 # BDSPro Canonical Database — Data Dictionary
 
-Status: **FINAL REVIEW BASELINE**
+Status: **V0.3 REVIEW CANDIDATE — NOT PHYSICAL SCHEMA ACCEPTANCE**
 
-This dictionary gives every table in
+This dictionary traces all **160 candidate tables** (146 original roles, four renames, fourteen new responsibilities). It gives every table in
 `BDSPro-CANONICAL-DATABASE.dbml` one primary business sentence. If a future
 column or relationship cannot be explained from that sentence or a documented
 invariant, it must not be added casually.
@@ -56,7 +56,7 @@ Key invariants:
 | `organization_memberships` | Person P effectively participates in Organization O during this Membership episode. |
 | `organization_membership_blocks` | Membership M is temporarily prevented from exercising Organization authority during this block episode. Membership itself remains current until ended separately. |
 | `organization_role_assignments` | Membership M holds Organization Role R during this role-assignment episode. |
-| `organization_ownerships` | Organization O is currently governed/owned by Membership M. This is the singular current ownership truth. |
+| `organization_primary_administrators` | One Organization has this **current primary workspace administrator Membership**; this is NOT legal equity ownership, beneficial ownership or statutory representation; SAME-Organization equality is required. |
 | `organization_branches` | Branch B is one operational subdivision of Organization O, optionally with one current manager Membership and a terminal close time. |
 | `organization_branch_assignments` | Organization Membership M is currently assigned to Branch B. This relation alone does not grant arbitrary resource permission. |
 | `organization_branch_locations` | Branch B currently has this physical/geographic location description. Structural Branch identity and physical location remain separate facts. |
@@ -106,12 +106,12 @@ document.
 
 | Table | One-row assertion / role |
 | --- | --- |
-| `property_types` | Code C names one real-estate type in a hierarchy. |
+| `property_categories` | This code identifies a product-facing Property **category/taxonomy**; it is not a legal cadastral land-use designation. |
 | `properties` | Property P is one durable real-estate subject/factual identity. It is not a Listing and not an Asset. |
 | `property_locations` | Property P currently has this geographic/address placement. |
 | `property_land_parcels` | Row L is one legal/physical land parcel component of Property P. Multiple rows allow one Property representation to cover paired/adjacent parcels when business truth requires it. |
-| `property_house_details` | Property P has these current house/building-specific physical facts. |
-| `property_apartment_details` | Property P has these current apartment/unit-specific facts. |
+| `property_houses` | One Property has this house-specific physical description; subtype applicability and building permits are separate matters. |
+| `property_apartments` | One Property has this apartment-specific description; unit identity is distinct from project/building and cadastral title. |
 | `property_amenities` | Property P is associated with Amenity A. |
 | `property_media` | Media M describes Property P with an ordering/cover role. |
 | `property_documents` | Document D is evidence/documentation about Property P. |
@@ -454,3 +454,41 @@ For every future schema proposal, complete this sentence first:
 If that sentence requires "or", "sometimes", an opaque `type`, or an unrelated
 status branch, the table is probably mixing facts and must be re-reasoned before
 implementation.
+
+
+---
+
+# V0.3 — Additional candidate facts (14 rows)
+
+The following are **logical review candidates**, not blanket approval to create every table in production. Four existing tables were renamed above, preserving their underlying original roles. Each statement describes what a row is intended to mean, NOT what current DBML fully enforces.
+
+| Table | One-row assertion / role |
+| --- | --- |
+| `organization_registration_requests` | An Account requests a **new legal-entity registration** with declared identity and jurisdiction; request != verified Organization != approved administrator. |
+| `organization_claim_requests` | An Account requests control of an **existing Organization** with supporting evidence; submitting it creates no authority. |
+| `party_verifications` | A specific attestation concerning a Party, verification type, source/evidence, and period; not global KYC or blanket trust. |
+| `organization_representation_authorizations` | A Person has a documented, time-bound basis to represent Organization in a stated capacity; this is not a general org Role. |
+| `organization_teams` | A functional internal Team belongs to an Organization; not every Branch or external Group is a Team. |
+| `organization_team_assignments` | An Organization Membership belongs to a Team for this assignment episode; must be scoped to SAME Organization when enforced. |
+| `group_organization_participations` | An Organization participates in a collaboration Group; joining does NOT grant access to another participant's CRM. |
+| `cadastral_parcels` | A source-qualified cadastral parcel geometry/identifier at a version and time; not inferred title or unqualified GPS point. |
+| `property_cadastral_links` | A Property is linked by stated basis/evidence to an identified cadastral parcel; relationship does not prove title. |
+| `listing_publishing_authorizations` | A specified Publisher Party may publish a stated Property within Listing under a documented grant and validity period; grantor authority still needs verification. |
+| `provider_enrollments` | A Party seeks/obtains a scoped marketplace capacity (owner seller, authorized publisher, licensed professional as appropriate), not a permanent Person type. |
+| `reputation_policy_versions` | One immutable version of a quality/recognition policy; configuration is auditable, deployment thresholds remain experimental until validated. |
+| `reputation_assessments` | A Party is assessed for a time window against a versioned policy using identified evidence, with explicit insufficient-evidence outcomes. |
+| `reputation_benefit_grants` | A Party has one bounded non-security, non-legal benefit with expiry/revocation; not equivalent to Role or paid invoice. |
+
+## Cross-table contracts represented as composite DBML refs in V0.3
+
+1. Workspace primary admin and branch manager Membership must belong to the same Organization.
+2. Invitation's intended Role must belong to the inviting Organization.
+3. Listing publication authority must concern Property actually listed in that Listing.
+4. Deal commission earnings must reference a Participation from the same Deal.
+5. Group lead must be a Participation in that Group.
+
+These references express relational consistency, **not** proof of legal rights, verified grantor, current/valid Membership, temporal scope or API permission. Composite FK targets need appropriate candidate unique keys, which impose additional index/write/migration cost. Other same-Organization constraints (Team assignment, Branch assignment, Role assignment) remain open for explicit row-level review and physical strategy selection.
+
+## Current business review precedence
+
+Read [Core Review V0.3](CORE-REVIEW-V0.3.md), [Vector Review V0.3](CORE-VECTOR-REVIEW-V0.3.md) and [original 146-table matrix](CORE-IMPACT-MATRIX-V0.2.md). This dictionary records semantics and hypotheses; the earlier 2026-10-06 acceptance report is a historical baseline where later human cases reopen decisions.

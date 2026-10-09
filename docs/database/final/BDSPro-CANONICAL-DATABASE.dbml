@@ -1,8 +1,8 @@
-// BDSPro Canonical Database — Business Core Review V0.2 (2026-10-09)
-// Original 146-table target reviewed against the Trust/Market/Enterprise narrative.
+// BDSPro Canonical Database — Business Core Review V0.3 (2026-10-09)
+// Original 146-table target now has 160 candidate tables: 4 renamed and 14 new.
 // DESIGN CANDIDATE ONLY: NOT a production migration or compliance attestation.
-// See CORE-REVIEW-V0.2.md and CORE-IMPACT-MATRIX-V0.2.md for all original tables.
-// DBML cannot enforce every cross-tenant, time-overlap and business transition rule.
+// See CORE-REVIEW-V0.3.md, CORE-VECTOR-REVIEW-V0.3.md and CORE-IMPACT-MATRIX-V0.2.md.
+// Composite refs below express selected aggregate/tenant relationships only; authorization, temporal legality and business transitions require separate PostgreSQL and API proof.
 
 // ============================================================
 // IDENTITY / PARTY
@@ -134,6 +134,11 @@ Table organization_roles {
   id bigint [pk]
   organization_id bigint [not null, ref: > organizations.party_id]
   name varchar [not null]
+
+  // Candidate composite FK target; redundant unique key buys relational integrity.
+  indexes {
+    (organization_id, id) [unique]
+  }
 }
 
 Table organization_role_permissions {
@@ -166,6 +171,11 @@ Table organization_memberships {
   originating_invitation_id bigint [ref: > organization_invitations.id, unique]
   joined_at timestamptz [not null]
   ended_at timestamptz
+
+  // Candidate composite FK target; redundant unique key buys relational integrity.
+  indexes {
+    (organization_id, id) [unique]
+  }
 }
 
 Table organization_membership_blocks {
@@ -298,6 +308,11 @@ Table group_participations {
   originating_invitation_id bigint [ref: > group_invitations.id, unique]
   joined_at timestamptz [not null]
   ended_at timestamptz
+
+  // Candidate composite FK target; redundant unique key buys relational integrity.
+  indexes {
+    (group_id, id) [unique]
+  }
 }
 
 Table group_leaderships {
@@ -728,6 +743,11 @@ Table deal_participations {
   originating_invitation_id bigint [ref: > deal_invitations.id, unique]
   joined_at timestamptz [not null]
   ended_at timestamptz
+
+  // Candidate composite FK target; redundant unique key buys relational integrity.
+  indexes {
+    (deal_id, id) [unique]
+  }
 }
 
 Table deal_customers {
@@ -1533,6 +1553,16 @@ Table idempotency_records {
     (scope_code, idempotency_key) [pk]
   }
 }
+
+// V0.3 — selected business-consistency constraints with concrete counterexamples.
+// PostgreSQL migration must validate existing data and concurrent writes separately.
+// They do not grant access, validate legal evidence or guarantee time-dependent rights.
+Ref: organization_primary_administrators.(organization_id, membership_id) > organization_memberships.(organization_id, id)
+Ref: organization_branches.(organization_id, manager_membership_id) > organization_memberships.(organization_id, id)
+Ref: organization_invitations.(organization_id, intended_role_id) > organization_roles.(organization_id, id)
+Ref: listing_publishing_authorizations.(listing_id, property_id) > listing_properties.(listing_id, property_id)
+Ref: deal_commission_earnings.(deal_id, participation_id) > deal_participations.(deal_id, id)
+Ref: group_leaderships.(group_id, participation_id) > group_participations.(group_id, id)
 
 // ============================================================
 // TABLE GROUPS FOR DBDIAGRAM

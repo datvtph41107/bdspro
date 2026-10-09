@@ -1,5 +1,8 @@
 # Continuation Prompt — Canonical Database Finalization
 
+> **2026-10-09 V0.3 active handoff:** Read [CORE-REVIEW-V0.3.md](CORE-REVIEW-V0.3.md), [CORE-VECTOR-REVIEW-V0.3.md](CORE-VECTOR-REVIEW-V0.3.md) and [CORE-IMPACT-MATRIX-V0.2.md](CORE-IMPACT-MATRIX-V0.2.md) BEFORE the older prompt below. Actual design DBML is now **160 candidate tables** (146 original mapped, four renames and 14 additions). Do not mistake acceptance for implemented source. Continue ORG-01/ORG-NET-01, not bulk migration.
+
+
 > **2026-10-09 active review notice:** This older finalization handoff is preserved as historical design context. Before accepting its `v0 → v1 → v2` closed assertions, first read `docs/continuity/checkpoints/2026-10-09-trust-marketplace-core/README.md` (and its three linked documents). Business review REOPENED cardinality, Organization authority, Membership semantics, provider trust and data-provenance choices. Continue ORG-01 rather than implementing the 146-table schema. The prompt below records the earlier milestone, not the latest work gate.
 
 Paste the following prompt into a fresh ChatGPT conversation:

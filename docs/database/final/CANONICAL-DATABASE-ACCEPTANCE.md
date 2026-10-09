@@ -1,6 +1,8 @@
-# BDSPro Canonical Database — Final Acceptance Report
+# BDSPro Canonical Database — Historical Final Acceptance Report (2026-10-06)
 
-Status: **DESIGN ACCEPTED FOR REVIEW / NOT AN EXECUTABLE MIGRATION**
+> **V0.3 supersession notice (2026-10-09):** This is the **2026-10-06 accepted review baseline**, not unconditional final authority. Current [CORE-REVIEW-V0.3.md](CORE-REVIEW-V0.3.md) and [CORE-IMPACT-MATRIX-V0.2.md](CORE-IMPACT-MATRIX-V0.2.md) trace all 146 original tables to **160 candidate tables** (4 renamed, 14 new). Enterprise-first onboarding, verification/claim, internal Team vs cross-firm Group, publisher authority, property/parcel, reputation and legal data provenance reopened previous decisions. Six composite consistency references were added to DBML V0.3 as candidates. No live migration or 160-table rollout is authorized.
+
+Status: **HISTORICAL DESIGN ACCEPTED FOR REVIEW / NOT AN EXECUTABLE MIGRATION**
 
 Repository authority: `datvtph41107/bdspro`  
 Design branch: `architecture/canonical-database-final`  

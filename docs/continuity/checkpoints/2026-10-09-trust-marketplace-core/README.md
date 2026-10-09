@@ -5,7 +5,7 @@
 **Design branch:** `architecture/canonical-database-final`  
 **Implementation branch:** `dev` (live Git state must be rechecked)  
 **Status:** BUSINESS CONTEXT CAPTURED / CORE UNDER HUMAN REVIEW / NOT PRODUCTION IMPLEMENTED  
-**Canonical target:** `docs/database/final/BDSPro-CANONICAL-DATABASE.dbml` (146 tables, candidate under renewed review).  
+**Canonical target:** `docs/database/final/BDSPro-CANONICAL-DATABASE.dbml` (now V0.3, 160 candidate tables including the 146 original role trace; still under human review).  
 **Old service source:** `datvtph41107/bdspro-backend` (historical evidence only).
 
 This checkpoint records durable conclusions of the 2026-10-06 through 2026-10-09 deep database and business review. It **updates the review posture**, not the physical schema; former "accepted" target artifacts remain historical design baselines, NOT uncontested current decisions.
@@ -79,7 +79,7 @@ docs/continuity/MINDSET.md
 docs/continuity/PRACTICE-PROTOCOL.md
 docs/database/final/BDSPro-CANONICAL-DATABASE.dbml
 
-Distinguish proven PostgreSQL lab evidence from business assumptions and from production authorization. Canonical DBML has 146 candidate tables; no bulk schema implementation is approved. Focus on Party/Person/Organization, Account and organization identity; revisit and challenge legacy choices including multi-account Person, membership episodes and organization ownership. Reconcile local Git/proof before mutations. Continue ORG-01: enterprise registration vs claim of an existing legal entity, enterprise-first onboarding of a person with NO prior BDSPro account, verify existence/authority/qualification separately. Then test ORG-NET-01: internal team access vs cross-company Group and provider authority before choosing database entities, one step at a time. Keep core trust, verified seller/provider, privacy, CRM, deal commission, planning provenance, recognition and ranking in view as long-term business pressures. User writes/tests SQL; preserve previous lab.
+Distinguish proven PostgreSQL lab evidence from business assumptions and from production authorization. Canonical DBML has 160 candidate tables with all 146 originals mapped; no bulk schema implementation is approved. Focus on Party/Person/Organization, Account and organization identity; revisit and challenge legacy choices including multi-account Person, membership episodes and organization ownership. Reconcile local Git/proof before mutations. Continue ORG-01: enterprise registration vs claim of an existing legal entity, enterprise-first onboarding of a person with NO prior BDSPro account, verify existence/authority/qualification separately. Then test ORG-NET-01: internal team access vs cross-company Group and provider authority before choosing database entities, one step at a time. Keep core trust, verified seller/provider, privacy, CRM, deal commission, planning provenance, recognition and ranking in view as long-term business pressures. User writes/tests SQL; preserve previous lab.
 ```
 
 ## Non-negotiable recovery distinctions
@@ -98,3 +98,7 @@ PostgreSQL 18.6; DB `bdspro_test`, schema `c01_lab`. Party 1 = Person, Party 6 =
 ## 2026-10-09 evening refinement
 
 Enterprise-first onboarding is a real first-class B2B entry path even when an employee never started as a consumer. Internal Team/Department, operational Branch, collaborative Group, interest Community and communication Channel are **different business meanings**; Group is not intrinsically a child of an Organization, and Class is not an entity without an independent learning/cohort lifecycle. Provider/seller/broker/publisher represent distinct capacities and scoped proofs, not Person subtypes. See [Organization/Network/Provider ontology](ORGANIZATION-NETWORK-AND-PROVIDER-ONTOLOGY.md). This addition does not authorize extra DBML tables.
+
+## Current V0.3 DBML/docs update — 2026-10-09
+
+After this checkpoint, the design branch's canonical model moved from the earlier 146 to 160 candidate tables (4 renamed, 14 additions). Read [core V0.3 review](../../../database/final/CORE-REVIEW-V0.3.md), [vector matrix](../../../database/final/CORE-VECTOR-REVIEW-V0.3.md) and [146-table mapping](../../../database/final/CORE-IMPACT-MATRIX-V0.2.md) before acting. Six candidate cross-context composite FK references are shown in DBML. This does NOT close legal/business confirmation or authorize production deployment.

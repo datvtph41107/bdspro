@@ -1,5 +1,8 @@
 # BDSPro Canonical Database — Legacy Migration Map
 
+> **Current V0.3 design notice:** This map was established for the original 146-table baseline. The live design branch now has 160 candidate tables (4 renamed, 14 additional): see [CORE-IMPACT-MATRIX-V0.2.md](CORE-IMPACT-MATRIX-V0.2.md), [CORE-REVIEW-V0.3.md](CORE-REVIEW-V0.3.md). No data rewrite is authorized; map old ownership/admin semantics carefully, do not mechanically rename persisted columns.
+
+
 Status: **FINAL DESIGN MIGRATION CONTRACT**
 
 This document maps the historical `datvtph41107/bdspro-backend` data model into
