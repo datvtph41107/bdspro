@@ -86,3 +86,18 @@ ORG-01: registration vs claim vs transfer of legal organization. C02: request/de
 - OGC spatial specs: https://www.ogc.org/standards/ogcapi-features/
 - Official current laws/regulations **must be revalidated for each application**, especially personal data, electronic identification, real estate brokerage and regulated payments.
 
+
+## 2026-10-09 evening — Enterprise-first, internal network and provider role refinement
+
+See [Organization/Network/Provider ontology](ORGANIZATION-NETWORK-AND-PROVIDER-ONTOLOGY.md) for full scenarios, real comparisons and model implications.
+
+| ID | State | Decision / pressure |
+| --- | --- | --- |
+| D-21 | PRINCIPLE | Enterprise-first onboarding is a first-class B2B journey: Organization can invite or provision newcomer who had no consumer BDSPro Account. Provider-managed work identity remains conditional and is NOT automatically required. |
+| D-22 | PRINCIPLE | Organization, operational Branch, internal Department/Team, independent/cross-org Group, Community, Channel and Deal are distinct **semantic responsibilities**. A Group is not necessarily smaller than an Organization or a legal child. |
+| D-23 | OPEN | Whether Department, Team, Class/cohort and Channel deserve standalone canonical tables; compare branch/role scopes, lead-routing needs, cross-org participation and privacy costs before changing DBML. |
+| D-24 | PRINCIPLE | Provider qualification, seller role, human action actor, represented Party/publisher, asset-specific authority and reputation are independent. Person cannot be permanently classified buyer vs seller or broker purely by role field. |
+| D-25 | OPEN | Multi-organization affiliation for Group, sponsor attribution, who can publish/share which Listing, network moderation, owner of shared work and cost payer/beneficiary. |
+| D-26 | OPEN | Rules to attribute reputation to Person vs Organization vs Team and cross-company deal, including departure/offboarding without transferring private CRM or falsifying achievements. |
+
+**Next gate:** ORG-01 legal organization registration/claim plus enterprise-first onboarding; then ORG-NET-01 intra-org Team, cross-org Group and authorized Listing publication. No production migration or DBML rewrite approved.
