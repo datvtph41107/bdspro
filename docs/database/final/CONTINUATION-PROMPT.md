@@ -1,5 +1,7 @@
 # Continuation Prompt — Canonical Database Finalization
 
+> **2026-10-09 active review notice:** This older finalization handoff is preserved as historical design context. Before accepting its `v0 → v1 → v2` closed assertions, first read `docs/continuity/checkpoints/2026-10-09-trust-marketplace-core/README.md` (and its three linked documents). Business review REOPENED cardinality, Organization authority, Membership semantics, provider trust and data-provenance choices. Continue ORG-01 rather than implementing the 146-table schema. The prompt below records the earlier milestone, not the latest work gate.
+
 Paste the following prompt into a fresh ChatGPT conversation:
 
 ```text
