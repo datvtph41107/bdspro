@@ -1,6 +1,6 @@
 # BDSPro Continuation Prompt
 
-> **2026-10-09 design-branch continuation override:** For canonical DB core review on `architecture/canonical-database-final`, first read [2026-10-09 Trust/Marketplace Core checkpoint](checkpoints/2026-10-09-trust-marketplace-core/README.md) and its three linked detailed documents. They supersede contradicted 2026-10-06 semantic closures as review decisions; earlier acceptance stays historical evidence. The short prompt in that checkpoint is the preferred design-branch handoff. The generic `dev` bootstrap below remains for source implementation/Go workflow and must not be silently replaced.
+> **2026-10-09 design-branch continuation override:** For canonical DB core review on `architecture/canonical-database-final`, first read [2026-10-09 Trust/Marketplace Core checkpoint](checkpoints/2026-10-09-trust-marketplace-core/README.md) and its four linked detailed documents (including `ORGANIZATION-NETWORK-AND-PROVIDER-ONTOLOGY.md`). They supersede contradicted 2026-10-06 semantic closures as review decisions; earlier acceptance stays historical evidence. The short prompt in that checkpoint is the preferred design-branch handoff. The generic `dev` bootstrap below remains for source implementation/Go workflow and must not be silently replaced.
 
 This file is the single durable entry point for recovering BDSPro work after a
 new chat, lost context, machine change, interruption, or long pause.
