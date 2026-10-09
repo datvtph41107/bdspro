@@ -1,5 +1,9 @@
 # Current Checkpoint
 
+**Latest human-review override (2026-10-09):** Read [Trust, Marketplace & Canonical Core recovery checkpoint](checkpoints/2026-10-09-trust-marketplace-core/README.md) **before** treating 2026-10-06 database design closures as current, fully proved business decisions. Deep review reopened Account cardinality, Membership episode semantics, Organization ownership/verification, provider activation, GIS provenance and related assumptions. The 146-table DBML is a review **candidate**, not authorization for production schema deployment. Core review resumes at **ORG-01 Organization Identity / Registration / Claim / Representative Authority**; C01 exactly-one Party subtype is a target invariant lacking complete PostgreSQL enforcement. DB-20 lab complete; DB-21 proposed, not verified. Keep any locally altered `dev` source unchanged. The older snapshot below is retained for historical traceability.
+
+---
+
 Updated: 2026-10-06
 
 ## Source identity
