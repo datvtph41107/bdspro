@@ -57,3 +57,12 @@ jobs:
 
       - name: Prove C01 against real PostgreSQL and conflicting transactions
         run: go test -tags=integration ./party -count=1 -v
+
+      - name: Prove reverse migration and clean reapplication
+        run: |
+          set -euo pipefail
+          psql "$CORE_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/000006_create_party_identity.down.sql
+          missing="$(psql "$CORE_TEST_DATABASE_URL" -At -c "SELECT to_regclass('public.parties') IS NULL AND to_regclass('public.persons') IS NULL AND to_regclass('public.organizations') IS NULL")"
+          test "$missing" = "t"
+          psql "$CORE_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/000006_create_party_identity.up.sql
+          go test -tags=integration ./party -count=1
