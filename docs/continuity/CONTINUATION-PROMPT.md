@@ -1,5 +1,10 @@
 # BDSPro Continuation Prompt
 
+> **2026-10-10 CURRENT METHOD + BRANCH RESTORATION:** [REPOSITORY-WORKING-CONTRACT.md](REPOSITORY-WORKING-CONTRACT.md) is the **single** Git/local/GitHub/DB standard. `main` has been restored from its exact historical last commit `3f90f7789`, **not certified for production**; `dev` remains active code branch and was GitHub default at restoration. When user says **"Tiếp tục"**, inspect live GitHub branches and exact SHA plus user's reported **local** `git status`/database results before changing any source. User writes SQL/Go/CI; assistant gives context, asks prediction, reviews actual output and failure boundaries. Ignore superseded earlier passages claiming `main` missing, active `architecture/canonical-database-final`, merge PR#2/#3 or already implemented local Core. Next gate: preserve user's uncommitted Listing migration deletions, synchronize local `dev` safely, then user-authored CORE-01 SQL lab. Do not restore removed branches by ritual.
+
+---
+
+
 > **CURRENT LOCAL ↔ GITHUB AUTHORITY — 2026-10-10:** Live GitHub contains **only `dev`**, also the default branch; `main` and earlier checkpoint/implementation branches were removed. When user says **"Tiếp tục"**, inspect live `dev` and the user's actual **local** `git status`, then read the **Repository Core Contract** in [ENGINEERING-WORKFLOW.md](ENGINEERING-WORKFLOW.md), the current [CHECKPOINT.md](CHECKPOINT.md) and [PRACTICE-PROTOCOL.md](PRACTICE-PROTOCOL.md). The user **writes SQL, Go and CI**; assistant supports reasoning, focused tests and code review, not automatic implementation or Git mutations. The user's last-reported local state included ten deleted Listing migration files and being behind remote; this is **not proof of its current state**. Old paragraphs about `main`, `architecture/canonical-database-final`, ENG-00 and PR #2/#3 are historical records only, not current instructions.
 
 ---
