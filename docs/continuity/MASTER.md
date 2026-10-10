@@ -79,6 +79,8 @@ At the beginning of a fresh context:
 
 ## Method authority
 
+**Proportionality / cost-of-rigor rule:** [PROPORTIONAL-ENGINEERING-STANDARD.md](PROPORTIONAL-ENGINEERING-STANDARD.md) governs when to add engineering process, tests, migrations, abstractions, CI and operational machinery. It adds concrete BDSPro evidence and stage-aware triggers; it does not supersede personal coding ownership in PRACTICE-PROTOCOL.md. Read this standard after MINDSET.md at a new cross-cutting design pressure.
+
 `docs/continuity/MINDSET.md` governs architecture/engineering reasoning.
 `docs/continuity/DEVELOPER-IMMERSION.md` governs long-horizon professional
 practice: fundamental fluency, repetition, operational drills, increasing
