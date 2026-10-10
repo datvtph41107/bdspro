@@ -1,5 +1,10 @@
 # Durable Memory
 
+> **2026-10-10 ACTIVE BUSINESS→CORE MEMORY (durable, supersedes stale 2026-10-06 rollout status):** Business Atlas across ALL BDSPro domains is at scenario/one-row/hazard/GATE coverage level, not field-verified. Canonical DBML V0.4 has **164 candidate tables** (old 160 + source_intakes, source_price_reports, crm_inquiries, crm_followup_tasks), six added same-tenant refs; NO runtime migrations / SQL proof. First read [2026-10-10 Business-to-Core checkpoint](checkpoints/2026-10-10-business-to-core/README.md), [Business Atlas V1](../business/BUSINESS-ATLAS-V1-2026-10-10.md), and [code gates](checkpoints/2026-10-10-business-to-core/BUSINESS-TO-CORE-IMPLEMENTATION.md). "Tiếp tục" → resume from most recent proved gate, currently **ENG-00 inspect dev/local state → CORE-01 C01 exact-one Party subtype lab**; do not restart BUSINESS-03. Product BUSINESS-00 adoption/WTP gate remains open. Actor≠Account≠Membership≠Role≠right, source intake≠Property≠Listing; Inquiry≠Contact≠Opportunity; Task≠Activity; subscription≠legal permission; group≠tenant CRM access. The user wants to move to **hands-on code** one pressure/test at a time, usually typing SQL/Go personally. Git files are reproducible recovery authority, conversational Memory is not a guaranteed complete transcript.
+
+---
+
+
 ## Active identity
 
 Active repository:
