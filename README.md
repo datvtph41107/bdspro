@@ -23,6 +23,9 @@ pgx/v5 / pgxpool
 
 ## Current principle
 
+**Repository operating contract:** [Local ↔ GitHub, versioned changes, validation and checkpoint cadence](docs/continuity/ENGINEERING-WORKFLOW.md#repository-core-contract--local--github-active-2026-10-10). Remote currently has only default branch `dev`; the user writes SQL/Go/CI locally. Remote history, local uncommitted files and PostgreSQL schema are **different states**. No one should auto-overwrite local work.
+
+
 **Practical engineering standard:** [Proportional Engineering — earn complexity only when it buys real value](docs/continuity/PROPORTIONAL-ENGINEERING-STANDARD.md). Use it to choose the smallest sufficient SQL, migration, Git, Go, test and operations practice for the current risk and product stage. Hands-on SQL/Go/CI remain user-authored per [Practice Protocol](docs/continuity/PRACTICE-PROTOCOL.md).
 
 Build from observed problems and runtime/database behavior:
