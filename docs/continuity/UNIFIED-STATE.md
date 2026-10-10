@@ -1,5 +1,8 @@
 # BDSPro — UNIFIED STATE / WORKING MINDSET
 
+> **RESTORED-MAIN OVERRIDE 2026-10-10:** Remote GitHub has `main` **restored exactly at former `3f90f7789`** and active `dev` branch. Older assertions that only `dev` exists, or that nine branches still exist, are historical snapshots. Main is a preserved old commit, **not proven production-ready**. Current working standard: [REPOSITORY-WORKING-CONTRACT.md](REPOSITORY-WORKING-CONTRACT.md). User authors SQL/Go/CI on local dev; no auto mergers, edits or changes to local Postgres by assistants. Last-reported local migration deletions not yet confirmed synchronized. PR #2/#3 remain closed.
+
+
 > **CURRENT STATE OVERRIDE — 2026-10-10:** GitHub remote now has **only `dev` (default)**. Earlier nine-branch and `main`/`dev` descriptions below are preserved as historical audit snapshots, **not present instructions**. PR #2 and #3 closed without merge. Current Git/local/PostgreSQL behavior must follow the [Repository Core Contract](ENGINEERING-WORKFLOW.md); live Git and observed DB output outrank older documentation. User is sole implementer of SQL/Go/CI; the assistant does not create new implementation or CI by default. Last reported local dev contained ten deleted migrations while behind remote; local synchronization has **not been independently verified**.
 
 **Recorded:** 2026-10-10 · **Canonical file path on both remote `main` and `dev`** · **Working code branch: `dev` (including user's local `dev`)**.
