@@ -1,5 +1,10 @@
 # BDSPro Continuation Prompt
 
+> **2026-10-10 canonical handoff override:** When user says **"Tiếp tục"**, recover [2026-10-10 Business-to-Core checkpoint](checkpoints/2026-10-10-business-to-core/README.md) on branch `architecture/canonical-database-final`, then inspect real `dev` source and start ENG-00→CORE-01 instead of restarting BUSINESS-01/02/03 analysis or implementing 164 tables. Business Atlas V1 covers all BDSPro business families at analysis level; four V0.4 source/CRM tables are logical candidates only. Later legacy prompts below remain for historical/engineering details; no unverified claim of actual implementation or automatic memory sync.
+
+---
+
+
 > **2026-10-09 design-branch continuation override:** For canonical DB core review on `architecture/canonical-database-final`, first read [2026-10-09 Trust/Marketplace Core checkpoint](checkpoints/2026-10-09-trust-marketplace-core/README.md) and its four linked detailed documents (including `ORGANIZATION-NETWORK-AND-PROVIDER-ONTOLOGY.md`). They supersede contradicted 2026-10-06 semantic closures as review decisions; earlier acceptance stays historical evidence. The short prompt in that checkpoint is the preferred design-branch handoff. The generic `dev` bootstrap below remains for source implementation/Go workflow and must not be silently replaced.
 
 This file is the single durable entry point for recovering BDSPro work after a
