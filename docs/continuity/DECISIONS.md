@@ -1,5 +1,8 @@
 # Decision Register
 
+> **2026-10-10 DECISION — first-principles repo core contract and main restoration:** `main` restored as a Git branch pointer to historical SHA `3f90f7789`, `dev` continues user-authored work. `main` has not passed new release/build proofs and must not be treated as production. Repository state and developer method owned by `docs/continuity/REPOSITORY-WORKING-CONTRACT.md`: branch is pointer, local working tree/index/commit/remote/DB are distinct, verify outputs and non-guarantees, small earned changes, no automatic CI/code or bulk 164-table migration, promotion only after real integrated proof. Evidence: Git Book, GitHub Flow/branch protection, DORA small batches, PostgreSQL constraints, golang-migrate versioning; earlier DB-15..20 proves need to distinguish constraint guarantee from domain policy. This supersedes stale dev-only/main-deleted assumptions without erasing prior history.
+
+
 Status vocabulary:
 
 - OPEN
