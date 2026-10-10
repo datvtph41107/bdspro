@@ -16,9 +16,7 @@ Repository:
 
 `datvtph41107/bdspro`
 
-**Current sole/default remote branch:** `dev` (GitHub verified 2026-10-10).
-
-A separate stable/release branch does **not** presently exist. Introduce one later only for a demonstrated release/isolation need.
+**Active coding branch:** `dev`. **Restored historical baseline branch:** `main` at original `3f90f7789` (not a verified release). Default branch remained `dev` when `main` was restored; recheck GitHub live before relying on it.
 
 Preferred local workspace:
 
@@ -41,13 +39,14 @@ The canonical bootstrap is `docs/continuity/CONTINUATION-PROMPT.md`.
 
 At the beginning of a fresh context:
 
-1. resolve the live remote `dev` HEAD and actual GitHub branch/default state; **do not assume a `main` branch exists**;
+1. resolve both live `dev` and restored `main` HEADs, repository default, and the user's local Git status; do not confuse a branch name with tested software;
 2. inspect local `git status --short --branch` when a local workspace is available;
 3. read, in order:
    - `docs/continuity/CONTINUATION-PROMPT.md`
    - `docs/continuity/MINDSET.md`
    - `docs/continuity/DEVELOPER-IMMERSION.md`
-   - `docs/continuity/ENGINEERING-WORKFLOW.md` (**Repository Core Contract** section)
+   - `docs/continuity/REPOSITORY-WORKING-CONTRACT.md` (single Git/local/remote/DB authority)
+   - `docs/continuity/ENGINEERING-WORKFLOW.md` (daily command mechanics)
    - `docs/continuity/RESPONSE-PROTOCOL.md`
    - `docs/continuity/PRACTICE-PROTOCOL.md`
    - `docs/continuity/CHECKPOINT.md`
@@ -75,7 +74,7 @@ At the beginning of a fresh context:
 
 ## Method authority
 
-**Repository/local-to-GitHub operating authority:** [ENGINEERING-WORKFLOW.md](ENGINEERING-WORKFLOW.md), section **Repository Core Contract — local ↔ GitHub**. It is the single current reference for working-tree/index/commit/remote/DB differences, safe synchronization and evidence-based commits. GitHub branch and local state must be rechecked live; old snapshots are historical.
+**Repository/local-to-GitHub operating authority:** [REPOSITORY-WORKING-CONTRACT.md](REPOSITORY-WORKING-CONTRACT.md). It is the single current authority for branch responsibilities, working-tree/index/commit/remote/DB differences, safe synchronization and evidence-backed promotion to `main`. `ENGINEERING-WORKFLOW.md` teaches commands and underlying mechanisms. GitHub and local facts must be rechecked live.
 
 **Proportionality / cost-of-rigor rule:** [PROPORTIONAL-ENGINEERING-STANDARD.md](PROPORTIONAL-ENGINEERING-STANDARD.md) governs when to add engineering process, tests, migrations, abstractions, CI and operational machinery. It adds concrete BDSPro evidence and stage-aware triggers; it does not supersede personal coding ownership in PRACTICE-PROTOCOL.md. Read this standard after MINDSET.md at a new cross-cutting design pressure.
 
