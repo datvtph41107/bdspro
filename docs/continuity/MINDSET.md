@@ -1,5 +1,8 @@
 # Matching Start — BDSPro Refactor Mindset
 
+> **2026-10-10 DURABLE CLARIFICATION — SHOW THE CAUSE, NOT JUST THE CLAIM.**
+> Before significant design decisions, read [EVIDENCE-DRIVEN-REASONING.md](EVIDENCE-DRIVEN-REASONING.md). Each comparative conclusion must be visualizable through a real/hypothetical actor, a specific operation, tiny rows/data and a state transition; backed by actual source, primary documentation or reproducible output; compared fairly with alternatives and counterexamples; qualified with what remains unproven. "Simpler/safer/more scalable" without observable mechanics is an empty judgment. Do not confuse invented use cases with market proof or canonical candidate schema with validated business need. This **extends** Matching Start: the user learns by executing and falsifying actual BDSPro changes, not accepting ready-made conclusions.
+
 ## Purpose
 
 This document preserves the long-lived engineering and training mindset for
