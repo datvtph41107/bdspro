@@ -287,3 +287,86 @@ The next proof is runtime/reproducibility rather than another conceptual library
 selection: verify `sqlc generate` is deterministic, locate or establish the
 shared pgxpool ownership point and execute the first generated query while keeping
 driver/generated representations inside the intended persistence boundary.
+
+## H14 — Canonical database v0 → v1 → v2 → final acceptance package
+
+On 2026-10-06 the user explicitly switched the database work from incremental
+question-by-question discovery into artifact-completion mode and requested the
+whole known BDSPro database target, final review documentation, diagram source,
+migration map and a fresh-chat continuation bridge.
+
+To preserve unknown local implementation work, a dedicated branch was created
+from live `dev@2a84561cb29dca7f8b198e61d4ad5a6980c2de5e`:
+
+`architecture/canonical-database-final`
+
+No reset, rebase, amend or replacement of current migrations was performed.
+
+The completed package lives under:
+
+`docs/database/final/`
+
+and contains:
+
+- `README.md` — package entrypoint and review protocol;
+- `BDSPro-CANONICAL-DATABASE.dbml` — full dbdiagram source;
+- `CANONICAL-DATABASE-ACCEPTANCE.md` — v0/v1/v2/final reasoning and invariants;
+- `CANONICAL-DATA-DICTIONARY.md` — one-row semantic assertion for every table;
+- `LEGACY-MIGRATION-MAP.md` — old-to-canonical reconciliation/cutover contract;
+- `CONTINUATION-PROMPT.md` — exact fresh-chat recovery prompt for the milestone.
+
+The DBML contains 146 tables. A structural reference pass parsed 223 foreign
+references and found zero references to undefined tables.
+
+The database initiative now has the following durable status:
+
+```text
+v0 semantic model       CLOSED
+v1 logical model        CLOSED
+v2 PostgreSQL strategy  CLOSED
+final review baseline   ACCEPTED
+bulk migration          NOT AUTHORIZED
+```
+
+Major closures include:
+
+```text
+Party / Person / Organization identity backbone
+Account separated from Person
+Invitation separated from effective participation
+Organization Ownership separated from Role/creator
+Branch Assignment/Manager targeting OrganizationMembership
+Property separated from Listing and Asset
+Listing supporting multiple Properties
+Deal context separated from Deal participation/governance
+Customer/Partner separated from Admin/Lead
+commission term separated from earned commission
+investment commitment separated from actual investment
+Payment separated from provider attempt and settlement
+explicit domain media/document links
+PostGIS planning model
+generic refs restricted to non-authoritative operational evidence
+```
+
+Rejected legacy abstractions include generic owner type/id, generic resource
+type/id, universal status/soft delete/BaseEntity, EAV for stable facts, and
+role/status blobs that mix proposal, relationship, authority and history.
+
+The accepted target is deliberately **not** an executable all-at-once migration.
+Current live `dev` migrations/source remain implementation authority. Future
+implementation follows:
+
+```text
+OLD
+ -> EXPAND
+ -> BACKFILL
+ -> COMPARE / PROVE
+ -> SWITCH WRITE AUTHORITY
+ -> SWITCH READ AUTHORITY
+ -> CONTRACT
+```
+
+The next database action is one complete human review pass of the canonical
+package. After review, implementation resumes one gate at a time from actual live
+Git/source.
+

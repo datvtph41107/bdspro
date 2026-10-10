@@ -1,5 +1,10 @@
 # Durable Memory
 
+> **2026-10-10 ACTIVE BUSINESS→CORE MEMORY (durable, supersedes stale 2026-10-06 rollout status):** Business Atlas across ALL BDSPro domains is at scenario/one-row/hazard/GATE coverage level, not field-verified. Canonical DBML V0.4 has **164 candidate tables** (old 160 + source_intakes, source_price_reports, crm_inquiries, crm_followup_tasks), six added same-tenant refs; NO runtime migrations / SQL proof. First read [2026-10-10 Business-to-Core checkpoint](checkpoints/2026-10-10-business-to-core/README.md), [Business Atlas V1](../business/BUSINESS-ATLAS-V1-2026-10-10.md), and [code gates](checkpoints/2026-10-10-business-to-core/BUSINESS-TO-CORE-IMPLEMENTATION.md). "Tiếp tục" → resume from most recent proved gate, currently **ENG-00 inspect dev/local state → CORE-01 C01 exact-one Party subtype lab**; do not restart BUSINESS-03. Product BUSINESS-00 adoption/WTP gate remains open. Actor≠Account≠Membership≠Role≠right, source intake≠Property≠Listing; Inquiry≠Contact≠Opportunity; Task≠Activity; subscription≠legal permission; group≠tenant CRM access. The user wants to move to **hands-on code** one pressure/test at a time, usually typing SQL/Go personally. Git files are reproducible recovery authority, conversational Memory is not a guaranteed complete transcript.
+
+---
+
+
 ## Active identity
 
 Active repository:
@@ -479,3 +484,68 @@ observability.
 The next technical pressure is to reconcile generated persistence artifacts with
 live source and produce runtime evidence for the first sqlc + pgxpool query while
 containing pgx/sqlc representations inside the Postgres persistence boundary.
+
+## Canonical database finalization milestone — 2026-10-06
+
+The database redesign has moved from the long v0 semantic discovery sequence to a
+durable full target package on branch
+`architecture/canonical-database-final`, created from
+`dev@2a84561cb29dca7f8b198e61d4ad5a6980c2de5e`.
+
+Canonical package:
+
+```text
+docs/database/final/README.md
+docs/database/final/BDSPro-CANONICAL-DATABASE.dbml
+docs/database/final/CANONICAL-DATABASE-ACCEPTANCE.md
+docs/database/final/CANONICAL-DATA-DICTIONARY.md
+docs/database/final/LEGACY-MIGRATION-MAP.md
+docs/database/final/CONTINUATION-PROMPT.md
+```
+
+Target scale/proof:
+
+```text
+146 canonical target tables
+223 parsed FK refs
+0 refs to undefined tables
+```
+
+Durable semantic anchors:
+
+- Party/Person/Organization are business identity; Account is digital identity.
+- Invitation is never the same fact as Membership/Participation.
+- authority/capacity is separated from business relationship.
+- Organization owner points to Membership; Branch manager/assignment also points
+  to Membership.
+- Property, Listing and Asset are distinct facts.
+- Listing can represent multiple Properties.
+- Deal context is Organization or Group; optional Branch is secondary scope.
+- Deal Participation points to Person; Customer/Partner may overlap; Admin and
+  Lead are separate authority dimensions.
+- commission terms != earned commission.
+- investment commitment != actual investment.
+- money always includes currency.
+- generic subject/type IDs are allowed only in non-authoritative operational
+  evidence, not canonical business relations.
+- planning/GIS preserves PostGIS geometry.
+
+Rejected patterns:
+
+```text
+owner_type + owner_id
+generic type + id
+universal status
+universal soft delete / BaseEntity
+is_owner shadow flags
+single role/status blobs
+EAV for stable core facts
+generic attachments as business truth
+```
+
+The target package does not replace current live migrations/source. Implementation
+must be incremental through expand/backfill/compare/prove/switch/contract.
+
+The next database pressure is a full human review of the target. Only after that
+review should the first implementation gate be selected from live `dev`.
+

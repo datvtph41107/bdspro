@@ -1,5 +1,12 @@
 # BDSPro Continuation Prompt
 
+> **2026-10-10 canonical handoff override:** When user says **"Tiếp tục"**, recover [2026-10-10 Business-to-Core checkpoint](checkpoints/2026-10-10-business-to-core/README.md) on branch `architecture/canonical-database-final`, then inspect real `dev` source and start ENG-00→CORE-01 instead of restarting BUSINESS-01/02/03 analysis or implementing 164 tables. Business Atlas V1 covers all BDSPro business families at analysis level; four V0.4 source/CRM tables are logical candidates only. Later legacy prompts below remain for historical/engineering details; no unverified claim of actual implementation or automatic memory sync.
+
+---
+
+
+> **2026-10-09 design-branch continuation override:** For canonical DB core review on `architecture/canonical-database-final`, first read [2026-10-09 Trust/Marketplace Core checkpoint](checkpoints/2026-10-09-trust-marketplace-core/README.md) and its four linked detailed documents (including `ORGANIZATION-NETWORK-AND-PROVIDER-ONTOLOGY.md`). They supersede contradicted 2026-10-06 semantic closures as review decisions; earlier acceptance stays historical evidence. The short prompt in that checkpoint is the preferred design-branch handoff. The generic `dev` bootstrap below remains for source implementation/Go workflow and must not be silently replaced.
+
 This file is the single durable entry point for recovering BDSPro work after a
 new chat, lost context, machine change, interruption, or long pause.
 
@@ -60,6 +67,24 @@ In a fresh context:
    proposing a source/architecture change.
 9. Continue from the current pressure. Do not skip ahead to a desired final
    architecture.
+
+## Current database-design milestone
+
+When the canonical database finalization package exists on the recovered branch,
+read it immediately after the normal continuity documents and before proposing a
+database mutation:
+
+1. `docs/database/final/README.md`
+2. `docs/database/final/CANONICAL-DATABASE-ACCEPTANCE.md`
+3. `docs/database/final/BDSPro-CANONICAL-DATABASE.dbml`
+4. `docs/database/final/CANONICAL-DATA-DICTIONARY.md`
+5. `docs/database/final/LEGACY-MIGRATION-MAP.md`
+
+That package is the accepted target review baseline. It does not replace live
+migrations/source and does not authorize an all-at-once schema rewrite.
+
+The database-specific one-prompt handoff is:
+`docs/database/final/CONTINUATION-PROMPT.md`.
 
 ## Recovery invariant
 
