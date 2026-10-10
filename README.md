@@ -23,6 +23,8 @@ pgx/v5 / pgxpool
 
 ## Current principle
 
+**Practical engineering standard:** [Proportional Engineering — earn complexity only when it buys real value](docs/continuity/PROPORTIONAL-ENGINEERING-STANDARD.md). Use it to choose the smallest sufficient SQL, migration, Git, Go, test and operations practice for the current risk and product stage. Hands-on SQL/Go/CI remain user-authored per [Practice Protocol](docs/continuity/PRACTICE-PROTOCOL.md).
+
 Build from observed problems and runtime/database behavior:
 
 ```text
