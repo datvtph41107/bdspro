@@ -1,8 +1,8 @@
 # BDSPro Canonical Database — Data Dictionary
 
-Status: **V0.3 REVIEW CANDIDATE — NOT PHYSICAL SCHEMA ACCEPTANCE**
+Status: **V0.4 REVIEW CANDIDATE — NOT PHYSICAL SCHEMA ACCEPTANCE**
 
-This dictionary traces all **160 candidate tables** (146 original roles, four renames, fourteen new responsibilities). It gives every table in
+This dictionary traces all **164 candidate tables**: V0.3 had 160 (146 original roles, four renames, fourteen new responsibilities); V0.4 adds four source/CRM one-row candidates. The original 146-row impact mapping stays historical. It gives every table in
 `BDSPro-CANONICAL-DATABASE.dbml` one primary business sentence. If a future
 column or relationship cannot be explained from that sentence or a documented
 invariant, it must not be added casually.
@@ -492,3 +492,28 @@ These references express relational consistency, **not** proof of legal rights, 
 ## Current business review precedence
 
 Read [Core Review V0.3](CORE-REVIEW-V0.3.md), [Vector Review V0.3](CORE-VECTOR-REVIEW-V0.3.md) and [original 146-table matrix](CORE-IMPACT-MATRIX-V0.2.md). This dictionary records semantics and hypotheses; the earlier 2026-10-06 acceptance report is a historical baseline where later human cases reopen decisions.
+
+---
+
+# V0.4 — Four new BUSINESS-03 source/CRM fact candidates (4 rows)
+
+These are **not implemented migrations, SQL-proven constraints or product-market-fit evidence**. The broader Business Atlas, VS-01 action contracts, gap/enforcement map and rollout gates live in \`docs/business/BUSINESS-ATLAS-V1-2026-10-10.md\` and \`docs/continuity/checkpoints/2026-10-10-business-to-core/\`.
+
+| Table | One-row assertion / role |
+| --- | --- |
+| \`source_intakes\` | Organization O is managing one source-intake case received from channel C, recorded by Account A with reported attributes and optional candidate Property link. The reported values are **not verified Property truth, seller ownership or a published Listing**; personal-workspace intake is not yet modeled. |
+| \`source_price_reports\` | Source Intake I has one specific historical reported asking/other price Amount+Currency, captured by Account A at T, optionally qualified by statement time and source basis; it does **not** rewrite other source reports or \`listing_price_terms\`. |
+| \`crm_inquiries\` | Organization O received or recorded one meaningful customer request through channel C with separately qualified *declared* acquisition source, optionally referring to Contact and Source Intake; external customer need not have Account/Person. |
+| \`crm_followup_tasks\` | Organization O has one explicitly assigned responsibility to perform an action, optionally concerning Inquiry/Source Intake, with due time and mutually exclusive completion/cancellation; it is **not an Activity asserting an action already happened**. |
+
+## V0.4 selected relational hypotheses
+
+- Composite FK proposals: \`source_price_reports.organization_id/intake_id -> source_intakes.organization_id/id\`; \`crm_inquiries\` to Source Intake and CRM Contact within the same Organization; \`crm_followup_tasks\` to Inquiry/Source Intake and Organization Membership under the same Organization.
+- Added redundant unique target \`crm_contacts(organization_id,id)\` to express the composite FK. These do not prove current Membership status, resource authorization, consent or lawful external distribution.
+- Physical PostgreSQL requires CHECK for amount > 0 and terminal exclusivity, concurrency/idempotency tests, valid time/area basis validation, safe PII handling and a documented user workflow. C01 remains unproven.
+- \`source_price_reports\` records history; **selection of current admissible price** is a business/read-policy decision, not 'last inserted wins'.
+- Original V0.3 composite refs remain provisional and not PostgreSQL-tested. Total: 164 candidates, not 164 mandatory production tables.
+
+## V0.4 known non-table decisions
+
+Do NOT automatically create CMS, marketing ads, consent, external posting receipts, appointment guest or structured demand tables just to meet a table count. They remain explicit business/design gaps with review gates; see \`DATABASE-CHANGE-DECISIONS.md\`. Don't claim personal CRM and cross-organization Group share support from Organization-scoped candidates.
