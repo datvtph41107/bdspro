@@ -49,4 +49,10 @@ Use `migrate` CLI migration semantics for environments with migration history. T
 - PostgreSQL 18 service healthy; migrations 000001..000006 applied successfully.
 - `go test ./... -count=1` green for existing packages and new `party`.
 - `go test -tags=integration ./party -count=1 -v`: `TestCreatePersonAndOrganization`, `TestCommitWithoutSubtypeIsRejected`, `TestCommitWithBothSubtypesIsRejected`, `TestDeletingTheOnlySubtypeIsRejected`, `TestSwitchSubtypeWithinOneTransaction`, `TestConcurrentCompetingSubtypeWritesDoNotCommitBoth` and blank-name validation all PASS.
-- Execution proof does NOT cover every serializable interleaving, SQL migration rollback, deployed production state, and current local user environment. Explicitly verify separately.
+- Execution proof does NOT cover every serializable interleaving, deployed production state, or current local user environment. PostgreSQL up/down/re-up has now been proven on a disposable CI database.
+
+## Second CI run: reverse migration proved (2026-10-10)
+- [GitHub Actions run 38015055276](https://github.com/datvtph41107/bdspro/actions/runs/38015055276), job 114103360211, completed **SUCCESS**.
+- Applied original Listing migrations and CORE-01 migration in PostgreSQL 18; Go tests, C01 integration tests all passed.
+- Applied `000006_create_party_identity.down.sql`, asserted the three Party tables no longer existed, re-applied `000006_create_party_identity.up.sql`, reran real PostgreSQL C01 integration tests successfully.
+- This is evidence of DDL reversibility on a clean disposable schema, NOT proof it is safe to roll back a populated production database.
