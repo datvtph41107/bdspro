@@ -430,85 +430,13 @@ git log
 
 A session should end with a known state, even when work intentionally remains uncommitted.
 
-## Repository Core Contract — local ↔ GitHub (active 2026-10-10)
+## Repository Working Contract — one authoritative spec
 
-This is the **single operational authority** for BDSPro source-control behavior. It is not an extra governance workflow. Follow `MINDSET.md` for why, `PRACTICE-PROTOCOL.md` for who writes code, `PROPORTIONAL-ENGINEERING-STANDARD.md` for how much rigor, and this section for exact local/remote state.
+**Authoritative, current:** [REPOSITORY-WORKING-CONTRACT.md](REPOSITORY-WORKING-CONTRACT.md). This document teaches command behavior, tools, and practical reflexes; the contract defines branch responsibilities, local/remote/DB state, user-authored code, proof standards and synchronization.
 
-**Verified remote snapshot 2026-10-10:** GitHub `datvtph41107/bdspro` has **one active remote branch `dev`**, which is also the default. `main` and prior architecture/checkpoint/implementation branches have been removed. PR #1 had been merged as documentation; PR #2 and #3 were closed without code merge. All branch inventories in older checkpoints are **historical**, not a request to recreate them. Later source/branch states must be read live, not guessed from this paragraph.
+**2026-10-10 state:** `main` was restored from its original historical commit `3f90f7789`; `dev` remains the user's working branch. GitHub default was `dev` at restoration time. The `main` snapshot is **not** asserted to be a tested release. Before local sync, inspect the user's real working tree: ten deleted Listing migration files were previously reported but may have changed. Never infer local state from remote.
 
-### Five different states — never collapse them
-
-| Layer | What it means / who changes it | How to inspect |
-| --- | --- | --- |
-| Local working tree | User's saved file edits, new files and deletions. Can exist without a commit; GitHub cannot see these. | `git status --short --branch`, `git diff` |
-| Local index (staging) | Exact intended contents for next local commit. | `git diff --cached` |
-| Local `dev` HEAD | Last committed snapshot **on the user's machine**. Not necessarily remote. | `git log -1 --oneline`, `git branch --show-current` |
-| Remote-tracking `origin/dev` | The most recently **fetched** snapshot of the remote, not automatically current until fetch. | `git fetch origin --prune`, `git rev-list --left-right --count dev...origin/dev` |
-| GitHub remote `dev` | Shared published code/docs at an exact commit. Push updates it; remote tools cannot mutate the user's local workspace. | GitHub commit SHA / fetched branch HEAD |
-
-**PostgreSQL is a sixth independent state**: database schema, rows and `schema_migrations` can differ from **all** Git versions. `migrate up` changes the target database, not Git. Editing/deleting migration files changes local source, not an already-migrated database. Generated `db/sqlc` code is another representation; verify generation and queries when schema changes.
-
-### Before a coding session — short, actual commands
-
-```bash
-git branch --show-current
-git status --short --branch
-git log -1 --oneline
-# fetch only when remote comparison/sync matters:
-git fetch origin --prune
-git rev-list --left-right --count dev...origin/dev
-```
-
-For `rev-list --left-right --count dev...origin/dev`, first number = commits local-only, second number = commits remote-only. Zero/zero says committed histories match, **not** that working tree is clean or local PostgreSQL matches. `git fetch` updates remote-tracking refs, **not** checked-out source files. Avoid running `git pull` as a state-discovery command.
-
-Before **staging**, inspect work: `git diff`, `git status --short`. After staging, review **exact bytes planned for commit**: `git diff --cached` (and `git diff --cached --stat`). A coherent commit captures one understandable source decision with a useful validation result. A partial experiment can stay uncommitted in a disposable lab; don't force a commit for every SQL statement or a checkpoint for every terminal command.
-
-### Synchronization: explicit decisions, not blind commands
-
-| Observed local/remote state | Default responsible action |
-| --- | --- |
-| Working tree clean, `0 0` | No sync necessary. Work locally. |
-| Working tree clean, `0 N` | Review upstream diff; `git merge --ff-only origin/dev` is a simple fast-forward. |
-| Uncommitted edits/deletions, upstream ahead | Preserve first (scoped stash, reviewed local commit or copy); inspect overlapping paths; then fast-forward/reconcile and restore saved edits. |
-| Local ahead, remote `0` behind | Review/tests/status; push with `git push origin dev` when the result should become shared. |
-| Both sides have commits | **Divergence**: review commits and paths, choose deliberate integration. No automatic reset/force-push/rebase of shared history. |
-| Database was reset but files still tracked | Verify `current_database()` and migration ledger; inspect deletions. Never infer successful app integration from an empty database. |
-
-**Specific current user-reported state (not remotely verifiable):** local `dev` had ten tracked Listing migrations marked `D`; local was 54 remote commits behind at the time of the user's output. The remote `dev` later advanced with documentation. **Do not run a blind pull over the local deletions.** One low-risk approach *if the deleted paths do not conflict with upstream* is:
-
-```bash
-git stash push -m "preserve-intentional-migration-deletions" -- migrations
-git fetch origin --prune
-git merge --ff-only origin/dev
-git stash apply
-git status --short --branch
-git diff -- migrations
-```
-
-Check the real output after **each mutation** and stop if Git reports conflict or a refusal; do not proceed mechanically. Keep the stash until deletions are safely represented in a reviewed local commit; `git stash apply` does not discard it. This workflow preserves the migration-file intent but **does not** rebuild/run the application; existing Listing Go/sqlc source still depends on old tables. If untracked migrations were created locally, review/backup those separately first.
-
-### When work has actually finished
-
-A meaningful unit has:
-1. Known problem and minimal changed files.
-2. User-authored code/SQL, not pasted solution by default.
-3. Evidence **appropriate to risk**: e.g., schema experiment output, targeted PostgreSQL test, Go test, runtime query. No automatic giant test matrix.
-4. Reviewed staged diff; commit message reflects what changed, not what was merely planned.
-5. Pushed to `origin/dev` **when sharing/syncing is needed**, with a known final local status. Local commit without push is legitimate unfinished/personal work; no claims of remote update.
-6. Updated `CHECKPOINT.md` / `DECISIONS.md` **only on a material boundary** (new invariant accepted, migration changed, test proof or deployment gate, important failure, work handoff), ideally in the same coherent documentation change or a clearly attributed follow-up. Do not duplicate the entire conversation or rewrite all continuity files every time.
-
-**Authority order:** current observed local working tree + actual PostgreSQL output for local state; current GitHub SHA for shared published history; reproducible tests; focused checkpoint; historical docs; recollection. A stale checkpoint never authorizes overriding live code.
-
-### One branch now; isolate only for real pressure
-
-`dev` is currently the only remote branch, including default. Do not recreate `main`, PRs or CI merely for formality. The user may choose to introduce a stable/release branch later when there is a version worth stabilizing, or a short-lived branch/worktree for a risky parallel experiment. Such a branch needs explicit purpose, end condition and benefit over working directly on `dev`. Work in `bdspro_test` or disposable PostgreSQL schemas for dangerous SQL experiments **without requiring a Git branch**.
-
-### Destructive commands and boundaries
-
-Before `git reset --hard`, `git clean -fd`, `git push --force`, `migrate down`, `dropdb`, `DROP TABLE`, branch deletion or schema-history rewriting: name the actual target, affected data, recovery method and why a non-destructive alternative is insufficient. A user reset of a disposable local database **does not** authorize resetting an unknown remote/shared database. Do not use migration `force` as schema repair; it edits migration version metadata without making DDL match.
-
-**Assistant contract:** users write their SQL/Go/CI and execute operations; assistant explains, gives small exercises, reviews code/output and may edit operating documentation when asked. No automatic implementation, CI, branch creation, Git merging or destructive changes in their name unless they explicitly request that action and its scope.
-
+Practical cycle: **observe Git/DB → predict → user writes smallest code → run/read exact output → understand non-guarantees → review `git diff --cached` → commit coherent change → push intentionally → update checkpoint only for material decisions**.
 
 ## Docker working reflex
 
