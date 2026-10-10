@@ -1,0 +1,47 @@
+# BDSPro — 2026-10-10 BUSINESS → CORE · authoritative recovery checkpoint
+**Status:** Business-scenario ATLAS COVERAGE COMPLETE AT V1 ANALYSIS LEVEL; **customer validation, legal review, SQL parser, PostgreSQL concurrency and implementation remain OPEN**. First-principles mindset preserved. New logical DBML V0.4: **164 candidate tables** = previous 160 + 4 evidence-based source/CRM gap candidates. No production migrations, no `dev` code edited by this checkpoint.
+
+## New-chat command
+A user message **"Tiếp tục"** means:
+1. Find repo `datvtph41107/bdspro`, design branch `architecture/canonical-database-final`.
+2. Read **this file first**, then `BUSINESS-TO-CORE-IMPLEMENTATION.md`, `VS01-CONTRACTS-AND-DB-GAPS.md`, `DATABASE-CHANGE-DECISIONS.md`, `docs/business/BUSINESS-ATLAS-V1-2026-10-10.md` and latest `docs/continuity/CHECKPOINT.md`.
+3. Inspect actual live implementation branch `dev`, local uncommitted source if available, PostgreSQL/test evidence and the active gate. If no code access, do not pretend it was tested; propose smallest local command/test and exact checkpoint.
+4. **Now proceed from ENG-00 → CORE-01 C01 PostgreSQL proof**, respecting hands-on learning protocol (user writes/runs code by default) and product gate BUSINESS-00. Don't restart general BUSINESS-03 speculation, don't jump to 164 migrations.
+5. After every gate, update this checkpoint, decision evidence and exact branch/commit/test outcome. Never silently overwrite `dev` or unread local changes.
+
+If GitHub connector is not available in a fresh context, ask for a link/checkpoint access rather than hallucinating repo contents. Personal memory is supplementary, not a byte-for-byte archive of conversations.
+
+## Durable document hierarchy
+- **High-level business atlas (new):** `docs/business/BUSINESS-ATLAS-V1-2026-10-10.md` — 22 chapters across *all* 160 original table families + source/CRM gaps and CMS/Marketing.
+- **Action contracts (new):** `VS01-CONTRACTS-AND-DB-GAPS.md` — CaptureSource, ChangePrice, Prepare/ExportShare, CaptureInquiry, Follow-up, Appointment, Match/Report, 20 negative tests and one-row facts.
+- **Build/engineering gates (new):** `BUSINESS-TO-CORE-IMPLEMENTATION.md` — ENG-00, CORE-01..03, BUS-01..07, ORG/PUB/BILL gates; specific Go/sqlc/pgx/PG proof, migration and economic exit criteria.
+- **Logical schema choices (new):** `DATABASE-CHANGE-DECISIONS.md` and V0.4 `docs/database/final/BDSPro-CANONICAL-DATABASE.dbml`, `CANONICAL-DATA-DICTIONARY.md`, `README.md`.
+- **Research/gap gate (prior):** `docs/database/final/BUSINESS-REALITY-GATE-2026-10-09.md`.
+- **Older canonical:** `docs/database/final/CORE-REVIEW-V0.3.md`, `CORE-VECTOR-REVIEW-V0.3.md`, `CORE-IMPACT-MATRIX-V0.2.md`. V0.3 had 160 candidates and 32 concrete causal review vectors, 1600 *possible* intersections not proven.
+- **Prior deep human decisions:** `docs/continuity/checkpoints/2026-10-09-trust-marketplace-core/`, especially Org/Team/Group/Provider ontology.
+- **Engineering methodology:** `docs/continuity/MINDSET.md`, `PRACTICE-PROTOCOL.md`, `MASTER.md`, `CONTINUATION-PROMPT.md`.
+
+## Precisely recovered business progress
+- Earlier: Party→Person or Organization exactly one (C01 target unproven), Account distinct, presentation profile separately, read projections Party directory/search; enterprise-first An invite; legal Organization claim vs workspace admin; Branch internal geography vs Team functional vs Group independent collaboration vs Community interest vs Channel delivery.
+- BUSINESS-00: Brokers actually work Facebook/Zalo/phone/Excel/field, no BDSPro network at cold start; serious willingness-to-pay and opportunity-cost risk. Candidate paid product must work without native leads. Pilot targets and stop/simplify signals recorded; no empirical validation yet.
+- BUSINESS-01: One possible property arrives from S1/Zalo. Source Intake not Property or Listing, same real estate may generate different valid source records; personal vs ABC custody; explicit source contribution/share; dedupe candidate not silent merge; 4.2bn asking claim not certified title/authority.
+- BUSINESS-02: Minh outside Account asks about house; Contact vs Inquiry vs Property Demand vs Opportunity vs Work Item vs Activity vs Appointment. Team reassignment keeps attribution but changes authority. Match via authorization→filter→next action, not guessed AI probability. Incentives for employees and buyers, economics and WTP gate.
+- BUSINESS-03.1: VS-01 Stock→Share Kit→Inquiry→Follow-up→outcome; alternative A stock-only, B follow-up-only, C team desk remain hypotheses.
+- BUSINESS-03.2: CaptureSource atomic with idempotency & org context. BUSINESS-03.3: S1 rechecks 4.2→4.1bn, S2 may say 4.3bn, append provenance, don't globally overwrite Listing; effective time ≠ captured time. BUSINESS-03.4: Share Kit template/rights/version, prepare≠export≠external posted; no unauthorized social automation. BUSINESS-03.5: Minh says Facebook then contacts Zalo; source claim≠contact channel≠capture method; minimized inquiry and no automatic marketing consent or external message import.
+- **BUSINESS-03.6 and remaining domains:** Reviewed at atlas contract/scenario level in this checkpoint (appointments/viewing, supplier rights, Organization, Deal/commission, billing, project/asset, auctions, community, CMS, reputation, GIS, moderation/legal). Detailed actor-specific implementation proofs remain uncompleted; avoid claim these were fully tested or accepted.
+
+## Where the code really stands
+Historical `dev` slice contains listing migrations `000001..000005`, explicit SQL, sqlc, pgx/v5/pgxpool; current remote/local HEAD was not reconciled during this documentation session. Prior disposable local PostgreSQL lab reportedly `bdspro_test`/`c01_lab` on PG 18.6, DB-20 complete and DB-21 proposed **not run**. Remote design edits do not change these facts. To inspect local files, use local terminal or attached source if available, do not infer uncommitted work from remote.
+**Immediate implementation gate:** ENG-00 verify live state, then CORE-01 implement/prove exact-one Party subtype in disposable lab. First artifact: exact test matrix and SQL written/executed by user unless user requests direct implementation. Record success/failure and choice of transaction/constraint strategy before moving to CORE-02.
+
+## Active open pressures (explicit; not solved)
+C01 database enforcement, account cardinality/credential naming, enterprise-first managed Account and claim, membership episode, source custody (personal vs ABC), permission on record/field, reporting price current across sources, media rights, privacy and consent by purpose, CRM same-org composite link enforcement and task/inquiry cardinality, external customer appointment, actual publication rights, code migrations, verified tenant isolation, CMS/SEO/ad workflows, distribution of group leads, commission money obligations, legal/personal data/GIS licensing and marketplace adoption.
+
+## User's learning and implementation intention
+Move into **real code now as bounded verified Core work after saving this checkpoint**, not endless theoretical cataloguing. User values writing SQL/Go personally to learn source mechanisms; assistant offers requirement → prediction → smallest code/test → real output → conceptual generalization (escalate to full code if explicitly requested). No bulk migrations or automatic replacement of current `dev` source. No unsolicited external plugin workflow.
+
+## Decision precedence
+Actual Git/source and executed proof override stale text. Recent Business Reality Gate overrides automatic rollout of V0.3. V0.4 DBML and dictionary are logical candidate, not legal proof, Postgres migrations or approval to deploy all tables. Never use `is_verified` or status to flatten evidence and meaning, generic `owner_type/id` for canonical FK relationships, a paid subscription to override legal rights, or "triple count" market conversion on unobserved channel data.
+
+## Pasteable robust resume prompt (if bare 'Tiếp tục' has no repo access)
+Continue BDSPro from GitHub repository datvtph41107/bdspro, design branch architecture/canonical-database-final, checkpoint docs/continuity/checkpoints/2026-10-10-business-to-core/README.md. Read Business Atlas V1, database V0.4 gap register, implementation gates, dev live source. Proceed ENG-00 -> CORE-01: verify C01 exact-one Party subtype with concurrent PostgreSQL transactions in isolated lab; after proof move to Account/Organization context. Maintain source/price/CRM/media/privacy invariants and BUSINESS-00 product gate. Do not fabricate tests or rewrite dev local work; user prefers hands-on coding.
