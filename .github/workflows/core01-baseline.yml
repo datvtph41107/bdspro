@@ -1,0 +1,60 @@
+name: CORE-01 clean-baseline proof
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - "migrations/**"
+      - "party/**"
+      - ".github/workflows/core01-baseline.yml"
+  workflow_dispatch:
+
+jobs:
+  core01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: bdspro
+          POSTGRES_PASSWORD: local-test-only
+          POSTGRES_DB: bdspro_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bdspro -d bdspro_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      CORE_TEST_DATABASE_URL: postgresql://bdspro:local-test-only@localhost:5432/bdspro_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Enforce clean baseline with exactly one migration
+        run: |
+          set -euo pipefail
+          test "$(find migrations -maxdepth 1 -type f -name '*.up.sql' | wc -l)" -eq 1
+          test "$(find migrations -maxdepth 1 -type f -name '*.down.sql' | wc -l)" -eq 1
+          psql "$CORE_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/000001_create_party_identity.up.sql
+          test "$(psql "$CORE_TEST_DATABASE_URL" -At -c "SELECT to_regclass('public.parties') IS NOT NULL")" = "t"
+          test "$(psql "$CORE_TEST_DATABASE_URL" -At -c "SELECT to_regclass('public.listings') IS NULL")" = "t"
+      - name: Run Go unit tests
+        run: go test ./... -count=1
+      - name: Prove Party invariant and immutability in PostgreSQL
+        run: go test -tags=integration ./party -count=1 -v
+      - name: Prove reverse migration and clean replay
+        run: |
+          set -euo pipefail
+          psql "$CORE_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/000001_create_party_identity.down.sql
+          test "$(psql "$CORE_TEST_DATABASE_URL" -At -c "SELECT to_regclass('public.parties') IS NULL")" = "t"
+          psql "$CORE_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/000001_create_party_identity.up.sql
+          go test -tags=integration ./party -count=1
