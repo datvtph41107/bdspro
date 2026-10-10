@@ -1,5 +1,8 @@
 # Assistant Response & Evidence Protocol
 
+> **2026-10-10 RESPONSE QUALITY OVERRIDE — MAKE REASONING VISIBLE.**
+> Also read [EVIDENCE-DRIVEN-REASONING.md](EVIDENCE-DRIVEN-REASONING.md). For each nontrivial claim about design quality ("simpler", "less expensive", "more secure", "maintainable"), show **which exact operation changes**, a concrete actor/data/example query, a fair competing solution under the same assumptions, a negative/counterexample and what evidence is still missing. Cite primary docs for mechanism and actual BDSPro source/runtime for claims about the repository. Label simulated rows as examples and outputs as predicted until actually observed. This is not a license to expand every response: one meaningful pressure, one illustrative comparison, one justified hands-on step, minimum decisive output. The user requested autonomous forward motion: do not repeatedly ask permission to continue when intent is already clear.
+
 ## Purpose
 
 This document defines how BDSPro responses should be organized so the user can
