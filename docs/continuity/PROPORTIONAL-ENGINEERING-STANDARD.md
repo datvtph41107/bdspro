@@ -1,5 +1,5 @@
 # BDSPro — Proportional Engineering Standard
-**Established:** 2026-10-10 · **Working code branch:** `dev` · **Stable integration/release branch:** `main`.
+**Established:** 2026-10-10 · **Current sole/default remote branch:** `dev`. A release/stable branch may be earned later, not assumed now.
 **Status:** Durable operating principle, **not** SQL implementation, DB schema approval, policy/legal certification, or automated CI gate.
 **Read with:** `MINDSET.md`, `PRACTICE-PROTOCOL.md`, `ENGINEERING-WORKFLOW.md`, `UNIFIED-STATE.md`, and the current `CHECKPOINT.md`.
 
@@ -74,8 +74,8 @@ Stages overlap: a severe risk moves protection forward. Basic PK/FK, tenant isol
 - Extract package/function/interface only when multiple responsibilities, change frequency, isolation or testability create demonstrated pressure. Avoid abstraction as a prerequisite for comprehension.
 - Treat Go compile, sqlc generation, DB query execution and full application behavior as different test surfaces.
 
-### Git/main/dev
-- **`dev`** is user's active coding branch; **`main`** stable review/release baseline. They're not required to be byte-identical. A branch is a temporary risk/isolation tool, not a KPI.
+### Git and branch pressure
+- **`dev`** is currently the sole/default remote branch and user's active coding branch. A separate stable/release branch is **not currently present**; create one only if a real release/support need earns it. A branch is a temporary risk/isolation tool, not a KPI. The concrete operating contract is in `ENGINEERING-WORKFLOW.md`.
 - Create a short-lived branch for real parallel ownership, larger risky refactor or urgent fix on deployed stable main. End with review/integration and branch deletion when resolved.
 - Before sync/cleanup inspect Git status, branch heads, remote comparison and local uncommitted files; never use `reset --hard` or blanket merge for convenience. Historic evidence may remain via commits/bundles without keeping many active branches.
 
