@@ -1,4 +1,7 @@
 # BDSPro — 2026-10-10 BUSINESS → CORE · authoritative recovery checkpoint
+
+> **2026-10-10 LIVE CORE-01 UPDATE — CI VERIFIED:** [Draft PR #2](https://github.com/datvtph41107/bdspro/pull/2), implementation branch `implementation/core01-party-c01-20261010` based on `dev@80f5223`. GitHub Actions [run 38014866038](https://github.com/datvtph41107/bdspro/actions/runs/38014866038) completed SUCCESS with PostgreSQL 18; migrations `000001..000006` applied, `go test ./...` passed, all six C01 PostgreSQL integration tests and validation passed. **Not merged to dev; local/production DB not changed, rollback SQL and sqlc regeneration not yet executed.** Next “Tiếp tục”: inspect PR #2 latest run and review/merge decision, then plan CORE-02 account/auth; do not create duplicate C01 migration. BUSINESS-00 product gate remains open.
+
 **Status:** Business-scenario ATLAS COVERAGE COMPLETE AT V1 ANALYSIS LEVEL; **customer validation, legal review, SQL parser, PostgreSQL concurrency and implementation remain OPEN**. First-principles mindset preserved. New logical DBML V0.4: **164 candidate tables** = previous 160 + 4 evidence-based source/CRM gap candidates. No production migrations, no `dev` code edited by this checkpoint.
 
 ## New-chat command
