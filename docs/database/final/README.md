@@ -1,12 +1,14 @@
-# BDSPro Canonical Database — V0.3 Core Review Package
+# BDSPro Canonical Database — V0.4 Business-to-Core Review Package
 
-**Active as of 2026-10-09:** DESIGN CANDIDATE / HUMAN REVIEW, **not** a completed production schema or certified compliance result.
+**Active as of 2026-10-10:** DESIGN CANDIDATE / HUMAN REVIEW, **not** a completed production schema or certified compliance result.
 
 ```text
 2026-10-06 historical design target: 146 tables
 2026-10-09 V0.2: 160 candidate tables (4 renamed, 14 new)
 2026-10-09 V0.3: 160 candidate tables plus 6 selected composite relationship constraints
-                 (logical DBML only; runtime migration and independent tests NOT run)
+2026-10-10 V0.4: 164 candidate tables (V0.3 + 4 SOURCE/CRM new responsibilities)
+                 + 6 new same-Organization composite FK proposals
+                 (logical DBML only; parser, runtime migrations and PostgreSQL proof NOT run)
 ```
 
 The original v0/v1/v2 "CLOSED" means the **older modeling pass** was completed. Subsequent real business scenarios have reopened a number of decisions. Read V0.3 review and 146-table mapping first. A change of DBML is **not** a live database change.
@@ -17,9 +19,11 @@ Read in this order (newest authority first):
 
 **BUSINESS GATE:** [BUSINESS-REALITY-GATE-2026-10-09.md](./BUSINESS-REALITY-GATE-2026-10-09.md) — tests whether agents/companies need the product at all while Facebook/Zalo/portals hold users; postpones implementation expansion until measured value. This supersedes blanket implementation priority, NOT DBML semantics.
 
+**LATEST RESTORE/BUILD GATE:** [2026-10-10 Business-to-Core checkpoint](../../continuity/checkpoints/2026-10-10-business-to-core/README.md) and [Business Atlas](../../business/BUSINESS-ATLAS-V1-2026-10-10.md). All business domain review coverage and immediate code plan are there. Four new DBML facts are **candidates**, not migration authorization; BUSINESS-00 product gate still open.
+
 0. [CORE-REVIEW-V0.3.md](./CORE-REVIEW-V0.3.md) and [CORE-VECTOR-REVIEW-V0.3.md](./CORE-VECTOR-REVIEW-V0.3.md) — current decisions, 32 concrete vectors and 1,600 possible review intersections (not 1,600 proven invariants).
 
-0a. [CORE-IMPACT-MATRIX-V0.2.md](./CORE-IMPACT-MATRIX-V0.2.md) — original 146-table row-by-row mapping to 160 V0.3 entities.
+0a. [CORE-IMPACT-MATRIX-V0.2.md](./CORE-IMPACT-MATRIX-V0.2.md) — original 146-table row-by-row mapping to 160 V0.3 entities; V0.4 additions have separate gap register.
 
 1. [CANONICAL-DATABASE-ACCEPTANCE.md](./CANONICAL-DATABASE-ACCEPTANCE.md)  
    Why the model exists, v0→v1→v2 reasoning, invariants, rejected legacy
@@ -49,12 +53,13 @@ docs/database/final/BDSPro-CANONICAL-DATABASE.dbml
 The DBML is the diagram source of truth. Do not manually edit a rendered diagram
 and let it drift from the repository source.
 
-The file uses TableGroups so the visual diagram can be navigated by domain (now including `Trust, Reputation & Benefits`).
+The file uses TableGroups so the visual diagram can be navigated by domain (now including `Source Intake & Inventory` and `Trust, Reputation & Benefits`).
 
 - Identity & Security
 - Organization & Authorization
 - Groups
 - Property & Projects
+- Source Intake & Inventory
 - Listings & Assets
 - Deals & Auctions
 - CRM
@@ -189,4 +194,4 @@ The package is accepted as a design baseline when review does not find:
 - permission implied solely by a relationship;
 - migration steps that destroy unreconciled legacy evidence.
 
-Current next gate: **ORG-01** company registration/claim and enterprise-first onboarding, then **ORG-NET-01** teams/cross-company Group/resource permission. The user types and tests SQL. After review, implementation resumes one gate at a time from live `dev`.
+Current **next engineering checkpoint** is ENG-00 to reconcile actual live `dev` Git, Go/sqlc/pgx migrations and PostgreSQL lab, followed by CORE-01 C01 Party subtype proof; BUSINESS-00 user/adoption/payment remains a separate gate before product-facing production expansion. ORG-01/ORG-NET-01 are subsequent bounded legal/organization gates, not permission to bulk-implement V0.4. Read `docs/continuity/checkpoints/2026-10-10-business-to-core/BUSINESS-TO-CORE-IMPLEMENTATION.md`.
