@@ -1,5 +1,5 @@
 # CORE-01 — Real implementation slice (2026-10-10)
-Status: implementation **committed to isolated branch**, PostgreSQL/Go tests require GitHub Actions or user's own disposable test database. Do not claim C01 experimentally proved until observed green tests.
+Status: **CI-VERIFIED on GitHub Actions PostgreSQL 18 (2026-10-10)**; source remains isolated in draft PR #2, not merged to dev. Local user's PostgreSQL remains unverified.
 Base: remote `dev@80f522352bccbc2e215bf3e75cbfa2fa815ba8ea`, feature branch `implementation/core01-party-c01-20261010`.
 Business source: [Business-to-Core checkpoint](https://github.com/datvtph41107/bdspro/blob/architecture/canonical-database-final/docs/continuity/checkpoints/2026-10-10-business-to-core/README.md) and V0.4 canonical DBML (164 **logical** candidates).
 
@@ -31,7 +31,7 @@ for f in migrations/*.up.sql; do psql "$CORE_TEST_DATABASE_URL" -v ON_ERROR_STOP
 go test ./... -count=1
 go test -tags=integration ./party -count=1 -v
 ```
-Use `migrate` CLI migration semantics for environments with migration history. The manual `psql` loop above is only for a brand-new disposable database, not a partially migrated/production database. No real database runtime was accessible to this authoring session; test results must be inspected, not inferred.
+Use `migrate` CLI migration semantics for environments with migration history. The manual `psql` loop above is only for a brand-new disposable database, not a partially migrated/production database. No local PostgreSQL runtime was accessible to this authoring session; however a real PostgreSQL 18 GitHub Actions service executed the migration and tests successfully in run 38014866038. Repeat in the user's isolated lab before any deployment.
 
 ## Verification checklist
 - [x] GitHub feature branch created based on identified remote `dev` SHA
@@ -39,8 +39,14 @@ Use `migrate` CLI migration semantics for environments with migration history. T
 - [x] Go transaction functions authored
 - [x] Standard and PostgreSQL integration tests authored
 - [x] CI workflow authored
-- [ ] CI confirmed green
+- [x] CI confirmed green: run [38014866038](https://github.com/datvtph41107/bdspro/actions/runs/38014866038), job 114102785623. Six real PostgreSQL integration tests passed for C01; Go standard tests and migrations 000001..000006 passed.
 - [ ] local/current PostgreSQL integration manually rerun
 - [ ] sqlc generator regenerates cleanly from full schema
 - [ ] PR reviewed/merged onto `dev`
 - [ ] CORE-02 Account design & auth implementation
+
+## Evidence — CI logs, observed (2026-10-10)
+- PostgreSQL 18 service healthy; migrations 000001..000006 applied successfully.
+- `go test ./... -count=1` green for existing packages and new `party`.
+- `go test -tags=integration ./party -count=1 -v`: `TestCreatePersonAndOrganization`, `TestCommitWithoutSubtypeIsRejected`, `TestCommitWithBothSubtypesIsRejected`, `TestDeletingTheOnlySubtypeIsRejected`, `TestSwitchSubtypeWithinOneTransaction`, `TestConcurrentCompetingSubtypeWritesDoNotCommitBoth` and blank-name validation all PASS.
+- Execution proof does NOT cover every serializable interleaving, SQL migration rollback, deployed production state, and current local user environment. Explicitly verify separately.
