@@ -1,7 +1,8 @@
-// BDSPro Canonical Database — Business Core Review V0.3 (2026-10-09)
-// Original 146-table target now has 160 candidate tables: 4 renamed and 14 new.
+// BDSPro Canonical Database — Business Core Review V0.4 (2026-10-10)
+// V0.3 retained 160 candidate tables (146 original + four renames and 14 additions); V0.4 adds four BUSINESS-03 logical CANDIDATES (164 total), NOT migrations.
 // DESIGN CANDIDATE ONLY: NOT a production migration or compliance attestation.
-// See CORE-REVIEW-V0.3.md, CORE-VECTOR-REVIEW-V0.3.md and CORE-IMPACT-MATRIX-V0.2.md.
+// See CORE-REVIEW-V0.3.md, CORE-VECTOR-REVIEW-V0.3.md, CORE-IMPACT-MATRIX-V0.2.md,
+// docs/business/BUSINESS-ATLAS-V1-2026-10-10.md and docs/continuity/checkpoints/2026-10-10-business-to-core/DATABASE-CHANGE-DECISIONS.md.
 // Composite refs below express selected aggregate/tenant relationships only; authorization, temporal legality and business transitions require separate PostgreSQL and API proof.
 
 // ============================================================
@@ -904,6 +905,53 @@ Table auction_results {
 }
 
 // ============================================================
+// V0.4 CANDIDATE — PRIVATE SOURCE INTAKE / STOCK OBSERVATIONS
+// Organization-scoped pilot only; personal custody/share grants NOT modeled here.
+// No source row is Property identity, legal seller authority or public Listing.
+// ============================================================
+
+Table source_intakes {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  recorded_by_account_id bigint [not null, ref: > accounts.id]
+  source_channel_code varchar [not null]
+  source_label varchar
+  reported_category_code varchar [ref: > property_categories.code]
+  reported_area_m2 numeric(18,4)
+  area_basis_code varchar
+  received_at timestamptz
+  recorded_at timestamptz [not null]
+  linked_property_id bigint [ref: > properties.id]
+  summary text
+  version integer [not null, default: 1]
+  archived_at timestamptz
+
+  indexes {
+    (organization_id, id) [unique]
+  }
+}
+
+// One row = one source-qualified price statement, not the Listing price.
+// Price basis and statement time can be unknown; latest inserted != latest effective.
+Table source_price_reports {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  intake_id bigint [not null]
+  recorded_by_account_id bigint [not null, ref: > accounts.id]
+  amount numeric(19,4) [not null]
+  currency_code varchar(3) [not null]
+  price_basis_code varchar
+  source_basis_code varchar
+  statement_at timestamptz
+  recorded_at timestamptz [not null]
+  note text
+
+  indexes {
+    (intake_id, recorded_at)
+  }
+}
+
+// ============================================================
 // CRM
 // ============================================================
 
@@ -915,6 +963,11 @@ Table crm_contacts {
   phone varchar
   email varchar
   archived_at timestamptz
+
+  // V0.4 composite FK support; does not itself authorize any cross-row access.
+  indexes {
+    (organization_id, id) [unique]
+  }
 }
 
 Table crm_labels {
@@ -984,6 +1037,50 @@ Table crm_activities {
   activity_code varchar [not null]
   occurred_at timestamptz [not null]
   note text
+}
+
+// V0.4 candidate: one external inquiry/request as recorded inside ABC.
+// customer_label is a scoped contact hint; external customer need not have Person/Account.
+// acquisition_source is a declared attribution, not a verified Facebook click.
+Table crm_inquiries {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  recorded_by_account_id bigint [not null, ref: > accounts.id]
+  contact_id bigint
+  source_intake_id bigint
+  customer_label varchar
+  contact_channel_code varchar [not null]
+  acquisition_source_code varchar
+  attribution_basis_code varchar
+  summary text [not null]
+  received_at timestamptz
+  recorded_at timestamptz [not null]
+
+  indexes {
+    (organization_id, id) [unique]
+  }
+}
+
+// V0.4 candidate: responsibility still to do; not a crm_activities history record.
+// Terminal state exclusivity, assignee time-validity, resource permission and
+// optimistic version transitions require actual PostgreSQL/backend proof.
+Table crm_followup_tasks {
+  id bigint [pk]
+  organization_id bigint [not null, ref: > organizations.party_id]
+  inquiry_id bigint
+  source_intake_id bigint
+  assigned_membership_id bigint [not null]
+  created_by_account_id bigint [not null, ref: > accounts.id]
+  action_code varchar [not null]
+  due_at timestamptz
+  created_at timestamptz [not null]
+  completed_at timestamptz
+  canceled_at timestamptz
+  version integer [not null, default: 1]
+
+  indexes {
+    (organization_id, id) [unique]
+  }
 }
 
 Table crm_opportunity_deals {
@@ -1564,6 +1661,16 @@ Ref: listing_publishing_authorizations.(listing_id, property_id) > listing_prope
 Ref: deal_commission_earnings.(deal_id, participation_id) > deal_participations.(deal_id, id)
 Ref: group_leaderships.(group_id, participation_id) > group_participations.(group_id, id)
 
+
+// V0.4 candidate same-tenant relational integrity for stock, inquiries and tasks.
+// Current membership validity and scoped resource authorization remain API/transaction proof.
+Ref: source_price_reports.(organization_id, intake_id) > source_intakes.(organization_id, id)
+Ref: crm_inquiries.(organization_id, source_intake_id) > source_intakes.(organization_id, id)
+Ref: crm_inquiries.(organization_id, contact_id) > crm_contacts.(organization_id, id)
+Ref: crm_followup_tasks.(organization_id, inquiry_id) > crm_inquiries.(organization_id, id)
+Ref: crm_followup_tasks.(organization_id, source_intake_id) > source_intakes.(organization_id, id)
+Ref: crm_followup_tasks.(organization_id, assigned_membership_id) > organization_memberships.(organization_id, id)
+
 // ============================================================
 // TABLE GROUPS FOR DBDIAGRAM
 // ============================================================
@@ -1611,6 +1718,11 @@ TableGroup "Groups" {
   group_leaderships
   group_admin_assignments
   group_organization_participations
+}
+
+TableGroup "Source Intake & Inventory" {
+  source_intakes
+  source_price_reports
 }
 
 TableGroup "Property & Projects" {
@@ -1679,6 +1791,8 @@ TableGroup "Deals & Auctions" {
 }
 
 TableGroup "CRM" {
+  crm_inquiries
+  crm_followup_tasks
   crm_contacts
   crm_labels
   crm_contact_labels
