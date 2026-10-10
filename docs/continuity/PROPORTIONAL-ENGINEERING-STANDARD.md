@@ -1,5 +1,5 @@
 # BDSPro — Proportional Engineering Standard
-**Established:** 2026-10-10 · **Current sole/default remote branch:** `dev`. A release/stable branch may be earned later, not assumed now.
+**Established:** 2026-10-10 · **Active `dev`, restored `main` historical baseline (not yet a verified release).** Current branch responsibilities: `REPOSITORY-WORKING-CONTRACT.md`.
 **Status:** Durable operating principle, **not** SQL implementation, DB schema approval, policy/legal certification, or automated CI gate.
 **Read with:** `MINDSET.md`, `PRACTICE-PROTOCOL.md`, `ENGINEERING-WORKFLOW.md`, `UNIFIED-STATE.md`, and the current `CHECKPOINT.md`.
 
@@ -75,7 +75,7 @@ Stages overlap: a severe risk moves protection forward. Basic PK/FK, tenant isol
 - Treat Go compile, sqlc generation, DB query execution and full application behavior as different test surfaces.
 
 ### Git and branch pressure
-- **`dev`** is currently the sole/default remote branch and user's active coding branch. A separate stable/release branch is **not currently present**; create one only if a real release/support need earns it. A branch is a temporary risk/isolation tool, not a KPI. The concrete operating contract is in `ENGINEERING-WORKFLOW.md`.
+- **`dev`** is the user's active coding branch; **`main`** was restored from an old commit to retain historical baseline, **not** certified production-ready. Promoting proven code into `main` requires a real gate, not identical-head theater. A short-lived branch is a temporary risk/isolation tool, not a KPI. Canonical operational authority is `REPOSITORY-WORKING-CONTRACT.md`.
 - Create a short-lived branch for real parallel ownership, larger risky refactor or urgent fix on deployed stable main. End with review/integration and branch deletion when resolved.
 - Before sync/cleanup inspect Git status, branch heads, remote comparison and local uncommitted files; never use `reset --hard` or blanket merge for convenience. Historic evidence may remain via commits/bundles without keeping many active branches.
 
