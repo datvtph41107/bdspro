@@ -1,4 +1,7 @@
 # BDSPro — UNIFIED STATE / WORKING MINDSET
+
+> **CURRENT STATE OVERRIDE — 2026-10-10:** GitHub remote now has **only `dev` (default)**. Earlier nine-branch and `main`/`dev` descriptions below are preserved as historical audit snapshots, **not present instructions**. PR #2 and #3 closed without merge. Current Git/local/PostgreSQL behavior must follow the [Repository Core Contract](ENGINEERING-WORKFLOW.md); live Git and observed DB output outrank older documentation. User is sole implementer of SQL/Go/CI; the assistant does not create new implementation or CI by default. Last reported local dev contained ten deleted migrations while behind remote; local synchronization has **not been independently verified**.
+
 **Recorded:** 2026-10-10 · **Canonical file path on both remote `main` and `dev`** · **Working code branch: `dev` (including user's local `dev`)**.
 This file is a **single navigational snapshot and decision log** spanning the known remote branches, **not a literal Git merge of incompatible histories**, not a byte-for-byte transcript, and not proof of the local working tree. A copy of the identical content is kept in `main` and `dev`; local must be synchronized by the user.
 
@@ -21,7 +24,7 @@ Historical test environment: PostgreSQL **18.6**, `bdspro_test`, schema `c01_lab
 - DB-21 / C02 (organization claim/request ≠ existing authority): **proposal only, NOT executed**.
 Never represent this as current local database state after the user reset.
 
-## 3. Remote branch audit (snapshot just before the latest same-file synchronization)
+## 3. HISTORICAL remote branch audit (before branches were removed; not current state)
 Total **9** GitHub branches:
 1. `main` — stable; before this file `1a49d5bc469110c3b4b8d42a0d5f419bc45857bc`.
 2. `dev` — authoritative next source branch; after docs-only PR #1 merge `55469205c2d09cb3a0b6405a246001a556de3be5`.
@@ -45,7 +48,7 @@ Do not delete branches/rewrite Git history merely because their content was inve
 - The old remote `dev` still contains five Listing-lab migrations `000001..000005` and Listing/sqlc runtime. Local user intentionally cleared migrations/database; remote changes are **not** present locally until user reconciles them. Do not run `main.go` under a Party-only schema and call it a complete migration success; Listing query/runtime compatibility is an explicit gate.
 
 ## 5. Single code path going forward
-**Only `dev` is active for hands-on implementation.** `main` remains stable; move code from dev to main after real, user-executed proof and review, not automatically to make heads equal.
+**Only `dev` exists as current remote default for hands-on implementation.** A stable branch is not currently present; add one only when a real release/operational pressure justifies it. Do not revive old branches merely to match historical notes.
 Candidate next user-authored change: `000001_create_party_identity.up/down.sql` in cleaned local dev. The user writes minimal PK/FK; tests bare Party and double subtype; then derives C01 enforcement and decision on Party-kind immutability. No assistant-created CI yet. After CORE-01 and sqlc/Listing compatibility, move to Account → Organization Membership → permissions, then business slices.
 **If local workspace contains deleted tracked migrations not committed**, stage/review the deletion intentionally; avoid `git reset --hard`, force-push, `git clean -fd` or blind `git pull`. Commit only user-approved changes.
 
