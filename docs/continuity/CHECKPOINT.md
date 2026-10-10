@@ -1,5 +1,10 @@
 # Current Checkpoint
 
+> **CURRENT 2026-10-10 CHECKPOINT — BUSINESS→CORE IMPLEMENTATION HANDOFF:** The new [checkpoint README](checkpoints/2026-10-10-business-to-core/README.md) supersedes older proposed next steps; read [Business Atlas V1](../business/BUSINESS-ATLAS-V1-2026-10-10.md), [VS01 contracts](checkpoints/2026-10-10-business-to-core/VS01-CONTRACTS-AND-DB-GAPS.md), [DB V0.4 decisions](checkpoints/2026-10-10-business-to-core/DATABASE-CHANGE-DECISIONS.md) and [implementation gates](checkpoints/2026-10-10-business-to-core/BUSINESS-TO-CORE-IMPLEMENTATION.md). DBML now contains **164 LOGICAL CANDIDATE tables**, not 164 runnable migrations; previous 160/146 counts below are historical. No `dev` source modified, no PostgreSQL proof claimed. **Immediate next work: ENG-00 verify live dev/local Git/Go/Postgres, then CORE-01 C01 Party subtype concurrency lab; proceed to CORE-02 Account and CORE-03 Org context.** BUSINESS-00 PMF gate remains open for product deployment. A fresh "Tiếp tục" means recover this exact checkpoint then proceed, not re-review the whole company abstractly.
+
+---
+
+
 > **Latest investment-gate correction (2026-10-09):** Before authorizing production implementation of ORG-01/ORG-NET-01 or broad 160-table V0.3 concepts, read `docs/database/final/BUSINESS-REALITY-GATE-2026-10-09.md`. Initial BDSPro has NO inherent organic audience; Facebook/Zalo/property portals remain agent acquisition channels. Verify user workflow pain, employee adoption, payers and measurable ROI in short pilot; keep ORM/GIS/Ranking/Group/Enterprise IAM as design candidates only until justified. Core DB lab continues for learning; NO schema/runtime change.
 
 
