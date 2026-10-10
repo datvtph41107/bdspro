@@ -1,5 +1,8 @@
 # Current Checkpoint
 
+> **LATEST 2026-10-10 VERIFIED PROOF:** Draft [PR #2](https://github.com/datvtph41107/bdspro/pull/2) source `implementation/core01-party-c01-20261010` has two green PostgreSQL 18 CI runs. Most recent verified [run 38015055276](https://github.com/datvtph41107/bdspro/actions/runs/38015055276): old Listing migrations 000001..000005 + new CORE-01 000006 applied; Go tests and 6 C01 transaction/integration tests green; **000006 down → assert tables removed → 000006 up → tests rerun** green. Real migration/Go tests PROVEN in GitHub CI, not user's local database; code NOT YET MERGED to `dev`. For next "Tiếp tục": review PR and live Git/local status before merge, then CORE-02 Account authentication contract; retain BUSINESS-00 product gate. sqlc regenerate drift is an OPEN check.
+
+
 > **2026-10-10 LIVE CORE-01 UPDATE — CI VERIFIED:** [Draft PR #2](https://github.com/datvtph41107/bdspro/pull/2), implementation branch `implementation/core01-party-c01-20261010` based on `dev@80f5223`. GitHub Actions [run 38014866038](https://github.com/datvtph41107/bdspro/actions/runs/38014866038) completed SUCCESS with PostgreSQL 18; migrations `000001..000006` applied, `go test ./...` passed, all six C01 PostgreSQL integration tests and validation passed. **Not merged to dev; local/production DB not changed, rollback SQL and sqlc regeneration not yet executed.** Next “Tiếp tục”: inspect PR #2 latest run and review/merge decision, then plan CORE-02 account/auth; do not create duplicate C01 migration. BUSINESS-00 product gate remains open.
 
 
