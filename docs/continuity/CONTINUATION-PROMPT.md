@@ -1,5 +1,10 @@
 # BDSPro Continuation Prompt
 
+> **CURRENT LOCAL ↔ GITHUB AUTHORITY — 2026-10-10:** Live GitHub contains **only `dev`**, also the default branch; `main` and earlier checkpoint/implementation branches were removed. When user says **"Tiếp tục"**, inspect live `dev` and the user's actual **local** `git status`, then read the **Repository Core Contract** in [ENGINEERING-WORKFLOW.md](ENGINEERING-WORKFLOW.md), the current [CHECKPOINT.md](CHECKPOINT.md) and [PRACTICE-PROTOCOL.md](PRACTICE-PROTOCOL.md). The user **writes SQL, Go and CI**; assistant supports reasoning, focused tests and code review, not automatic implementation or Git mutations. The user's last-reported local state included ten deleted Listing migration files and being behind remote; this is **not proof of its current state**. Old paragraphs about `main`, `architecture/canonical-database-final`, ENG-00 and PR #2/#3 are historical records only, not current instructions.
+
+---
+
+
 > **2026-10-10 canonical handoff override:** When user says **"Tiếp tục"**, recover [2026-10-10 Business-to-Core checkpoint](checkpoints/2026-10-10-business-to-core/README.md) on branch `architecture/canonical-database-final`, then inspect real `dev` source and start ENG-00→CORE-01 instead of restarting BUSINESS-01/02/03 analysis or implementing 164 tables. Business Atlas V1 covers all BDSPro business families at analysis level; four V0.4 source/CRM tables are logical candidates only. Later legacy prompts below remain for historical/engineering details; no unverified claim of actual implementation or automatic memory sync.
 
 ---
@@ -19,11 +24,10 @@ Continue BDSPro from durable state, not conversational memory.
 
 Repository: datvtph41107/bdspro
 Active development branch: dev
-Stable/default branch: main
+Current default remote branch: dev (verify live, do not assume a separate main branch)
 
 First read docs/continuity/CONTINUATION-PROMPT.md from the live dev branch and
-follow it exactly. Treat main as the stable/default baseline unless live Git proves
-otherwise.
+follow it exactly. Use the live GitHub branch/default state and local Git output as truth; never infer a main branch.
 
 Reconcile live Git/source and reproducible proof before trusting durable prose.
 Reconstruct the Matching Start mindset and the current checkpoint before
@@ -38,7 +42,7 @@ the project advances.
 
 In a fresh context:
 
-1. Resolve the live `dev` HEAD and the stable/default `main` HEAD. If a local
+1. Resolve the live default `dev` HEAD and actual GitHub branches. Do not assume `main` exists. If a local
    workspace is available, inspect its branch, status, index, uncommitted work and
    remote-tracking state before changing anything.
 2. Read this file, then read in this order:
@@ -114,7 +118,7 @@ last proven pressure.
 
 - `datvtph41107/bdspro`: active source and durable learning system.
 - `dev`: active development and moving continuity branch.
-- `main`: stable/default baseline; do not assume it contains the latest active checkpoint.
+- `main`: historical former branch removed in the current repository; only treat as present after checking live Git.
 - old BDSPro repositories: historical evidence and real-case material only.
 - mature OSS: evidence of mechanisms and pressure-tested boundaries, never a
   template.
