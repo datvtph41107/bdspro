@@ -1,5 +1,10 @@
 # Continuation Prompt — Canonical Database Finalization
 
+> **2026-10-10 V0.4 OVERRIDE:** Latest logical DBML has **164 candidates**, not earlier 160/146. First read [2026-10-10 Business-to-Core recovery](../../continuity/checkpoints/2026-10-10-business-to-core/README.md), [Business Atlas V1](../../business/BUSINESS-ATLAS-V1-2026-10-10.md) and [V0.4 DB decisions](../../continuity/checkpoints/2026-10-10-business-to-core/DATABASE-CHANGE-DECISIONS.md). The new four tables are `source_intakes`, `source_price_reports`, `crm_inquiries`, `crm_followup_tasks`, all **review candidates**. ENG-00→CORE-01 is the next engineering gate; BUSINESS-00 field adoption and WTP still open. Older ORG-01 and 146-table handoff notes below are historical and must not override active state.
+
+---
+
+
 > **2026-10-09 V0.3 active handoff:** Read [CORE-REVIEW-V0.3.md](CORE-REVIEW-V0.3.md), [CORE-VECTOR-REVIEW-V0.3.md](CORE-VECTOR-REVIEW-V0.3.md) and [CORE-IMPACT-MATRIX-V0.2.md](CORE-IMPACT-MATRIX-V0.2.md) BEFORE the older prompt below. Actual design DBML is now **160 candidate tables** (146 original mapped, four renames and 14 additions). Do not mistake acceptance for implemented source. Continue ORG-01/ORG-NET-01, not bulk migration.
 
 
