@@ -1,5 +1,8 @@
 # Active Coding & Source-Trace Practice Protocol
 
+> **2026-10-10 PRACTICE REFINEMENT — CONCRETE EVIDENCE + ACTIVE HANDS.**
+> The required companion is [EVIDENCE-DRIVEN-REASONING.md](EVIDENCE-DRIVEN-REASONING.md). Do not ask the user to accept an adjective or abstract principle without a small scene, example data, state changes, executable discriminating test and fair contrary scenario. Conversely, "user writes code" does **not** mean withholding the exact minimal SQL, migration-file purpose, command anatomy or focused code snippet when requested or useful. The user operates the local environment; the assistant supplies enough specific guidance to expose the mechanism, then inspects actual results and limitations. Keep a productive flow without repeated requests to authorize continuation or lengthy comprehension quizzes.
+
 ## Purpose
 
 This document is the durable working contract for how BDSPro is learned and
