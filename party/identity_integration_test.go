@@ -134,7 +134,8 @@ func TestSubtypeCannotBeDeletedOrChanged(t *testing.T) {
 	_, err = pool.Exec(ctx, "UPDATE persons SET party_id=$2 WHERE party_id=$1", id, otherID)
 	expectSQLState(t, err, "23514")
 	_, err = pool.Exec(ctx, "DELETE FROM parties WHERE id=$1", id)
-	expectSQLState(t, err, "23503")
+	// ON DELETE RESTRICT uses SQLSTATE 23001 (restrict_violation), not 23503.
+	expectSQLState(t, err, "23001")
 	assertKind(t, pool, id, 1, 0)
 }
 
