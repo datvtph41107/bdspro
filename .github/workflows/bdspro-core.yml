@@ -1,0 +1,67 @@
+name: BDSPro Core End-to-End CI
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  canonical-core:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U root -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: secret
+      SOURCE_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_source_ci?sslmode=disable
+      CORE_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_source_ci?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Dependencies and sqlc
+        run: |
+          go mod tidy
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+      - name: Apply canonical migrations
+        run: |
+          createdb -h localhost -U root bdspro_source_ci
+          for migration in migrations/*.up.sql; do
+            psql -v ON_ERROR_STOP=1 -h localhost -U root -d bdspro_source_ci -f "$migration"
+          done
+      - name: Generate source query package
+        run: sqlc generate -f sqlc.source.yaml
+      - name: Format and build
+        run: |
+          gofmt -w auth organization source main.go
+          go vet ./...
+      - name: PostgreSQL integration and full build
+        run: go test ./... -count=1 -v
+      - name: Verify migration rollback in disposable DB
+        run: |
+          for migration in migrations/000005*.down.sql migrations/000004*.down.sql migrations/000003*.down.sql migrations/000002*.down.sql migrations/000001*.down.sql; do
+            psql -v ON_ERROR_STOP=1 -h localhost -U root -d bdspro_source_ci -f "$migration"
+          done
+          for migration in migrations/*.up.sql; do
+            psql -v ON_ERROR_STOP=1 -h localhost -U root -d bdspro_source_ci -f "$migration"
+          done
+      - name: Smoke server startup
+        run: |
+          set +e
+          APP_ENV=development DATABASE_URL="$CORE_TEST_DATABASE_URL" PORT=0 timeout 6s go run . >server.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 124 ]; then cat server.log; exit 1; fi
+          grep 'BDSPro listening' server.log
