@@ -84,7 +84,8 @@ WHERE si.organization_id = sqlc.arg(organization_id)::bigint
 -- name: InsertPriceReport :one
 INSERT INTO source_price_reports (
   organization_id, intake_id, recorded_by_account_id,
-  amount, currency_code, price_basis_code, source_basis_code, note
+  amount, currency_code, price_basis_code, source_basis_code, note,
+  request_key, request_hash
 )
 SELECT
   si.organization_id, si.id, a.id,
@@ -92,7 +93,9 @@ SELECT
   sqlc.arg(currency)::text,
   NULLIF(btrim(sqlc.arg(price_basis)::text), ''),
   NULLIF(btrim(sqlc.arg(source_basis)::text), ''),
-  NULLIF(btrim(sqlc.arg(note)::text), '')
+  NULLIF(btrim(sqlc.arg(note)::text), ''),
+  sqlc.arg(price_request_key)::text,
+  sqlc.arg(price_request_hash)::text
 FROM source_intakes si
 JOIN organizations o ON o.party_id = si.organization_id
 JOIN accounts a ON a.id = sqlc.arg(actor_account_id)::bigint
@@ -114,6 +117,7 @@ WHERE si.id = sqlc.arg(intake_id)::bigint
           AND b.ended_at IS NULL
       )
   )
+ON CONFLICT ON CONSTRAINT source_price_reports_request_uq DO NOTHING
 RETURNING id;
 
 -- name: GetAuthorizedSource :one
@@ -179,3 +183,32 @@ WHERE spr.organization_id = sqlc.arg(organization_id)::bigint
       )
   )
 ORDER BY spr.recorded_at, spr.id;
+
+
+-- name: FindAuthorizedPriceReplay :one
+SELECT spr.id, spr.request_hash
+FROM source_price_reports spr
+JOIN source_intakes si
+  ON si.id = spr.intake_id AND si.organization_id = spr.organization_id
+JOIN organizations o ON o.party_id = si.organization_id
+JOIN accounts a ON a.id = sqlc.arg(actor_account_id)::bigint
+WHERE spr.organization_id = sqlc.arg(organization_id)::bigint
+  AND spr.intake_id = sqlc.arg(intake_id)::bigint
+  AND spr.recorded_by_account_id = a.id
+  AND spr.request_key = sqlc.arg(price_request_key)::text
+  AND si.archived_at IS NULL AND o.archived_at IS NULL AND a.closed_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM organization_memberships m
+    JOIN organization_role_assignments ra
+      ON ra.organization_id = m.organization_id AND ra.membership_id = m.id
+    JOIN organization_role_permissions rp ON rp.role_id = ra.role_id
+    WHERE m.organization_id = si.organization_id AND m.person_id = a.person_id
+      AND m.joined_at <= NOW() AND m.ended_at IS NULL
+      AND ra.assigned_at <= NOW() AND ra.ended_at IS NULL
+      AND rp.permission_code = 'sources.price_report'
+      AND NOT EXISTS (
+        SELECT 1 FROM organization_membership_blocks b
+        WHERE b.membership_id = m.id AND b.blocked_at <= NOW()
+          AND b.ended_at IS NULL
+      )
+  );
