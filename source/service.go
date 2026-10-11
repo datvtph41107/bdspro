@@ -36,6 +36,7 @@ func NewService(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
 type PriceInput struct {
  Amount string
  Currency string
+ StatementAt string
  PriceBasis string
  SourceBasis string
  Note string
@@ -45,6 +46,7 @@ type CaptureInput struct {
  Label string
  AreaM2 string
  AreaBasis string
+ ReceivedAt string
  Summary string
  InitialPrice *PriceInput
 }
@@ -61,6 +63,7 @@ type Source struct {
  Summary string
  Version int32
  RecordedAt time.Time
+ ReceivedAt *time.Time
 }
 type PriceReport struct {
  ID int64
@@ -72,6 +75,7 @@ type PriceReport struct {
  SourceBasis string
  Note string
  RecordedAt time.Time
+ StatementAt *time.Time
 }
 
 func normalizeDecimal(v string, pattern *regexp.Regexp) (string, error) {
@@ -87,12 +91,21 @@ func normalizeDecimal(v string, pattern *regexp.Regexp) (string, error) {
  if frac == "" { return whole, nil }
  return whole+"."+frac, nil
 }
+func normalizeTimestamp(value string) (string, error) {
+ value = strings.TrimSpace(value)
+ if value == "" { return "",nil }
+ t,err := time.Parse(time.RFC3339Nano,value)
+ if err!=nil {return "",ErrInvalid}
+ return t.UTC().Format(time.RFC3339Nano),nil
+}
 func normalizePrice(p PriceInput) (PriceInput, error) {
  var err error
  p.Amount,err = normalizeDecimal(p.Amount,priceRe)
  if err!=nil {return PriceInput{}, fmt.Errorf("%w: price amount",ErrInvalid)}
  p.Currency = strings.ToUpper(strings.TrimSpace(p.Currency))
  if !currencyRe.MatchString(p.Currency) {return PriceInput{},fmt.Errorf("%w: currency",ErrInvalid)}
+ p.StatementAt,err=normalizeTimestamp(p.StatementAt)
+ if err!=nil{return PriceInput{},fmt.Errorf("%w: statement_at",ErrInvalid)}
  p.PriceBasis=strings.TrimSpace(p.PriceBasis)
  p.SourceBasis=strings.TrimSpace(p.SourceBasis)
  p.Note=strings.TrimSpace(p.Note)
@@ -105,6 +118,9 @@ func normalizeCapture(in CaptureInput) (CaptureInput,error) {
  in.AreaM2=strings.TrimSpace(in.AreaM2)
  in.AreaBasis=strings.TrimSpace(in.AreaBasis)
  in.Summary=strings.TrimSpace(in.Summary)
+ var stampErr error
+ in.ReceivedAt,stampErr=normalizeTimestamp(in.ReceivedAt)
+ if stampErr!=nil{return CaptureInput{},fmt.Errorf("%w: received_at",ErrInvalid)}
  if in.Channel=="" || len(in.Channel)>50 || len(in.Label)>400 ||
  len(in.Summary)>4000 || len(in.AreaBasis)>80 {
    return CaptureInput{},fmt.Errorf("%w: source metadata",ErrInvalid)
@@ -147,7 +163,7 @@ func (s *Service) Capture(ctx context.Context,accountID,organizationID int64,key
   id,err:=q.InsertSourceIntake(ctx,sourcesqlc.InsertSourceIntakeParams{
    OrganizationID:organizationID,ActorAccountID:accountID,
    Channel:input.Channel,Label:input.Label,AreaM2:input.AreaM2,
-   AreaBasis:input.AreaBasis,Summary:input.Summary,
+   AreaBasis:input.AreaBasis,ReceivedAt:input.ReceivedAt,Summary:input.Summary,
    RequestKey:key,RequestHash:digest,HasInitialPrice:input.InitialPrice!=nil,
   })
   if errors.Is(err,pgx.ErrNoRows) {
@@ -166,7 +182,7 @@ func (s *Service) Capture(ctx context.Context,accountID,organizationID int64,key
    _,err=q.InsertPriceReport(ctx,sourcesqlc.InsertPriceReportParams{
     OrganizationID:organizationID,IntakeID:id,ActorAccountID:accountID,
     Amount:p.Amount,Currency:p.Currency,PriceBasis:p.PriceBasis,
-    SourceBasis:p.SourceBasis,Note:p.Note,
+    SourceBasis:p.SourceBasis,StatementAt:p.StatementAt,Note:p.Note,
     PriceRequestKey:"c:"+key,PriceRequestHash:digest,
    })
    if errors.Is(err,pgx.ErrNoRows){return ErrForbidden}
@@ -193,7 +209,7 @@ func (s *Service) ReportPrice(ctx context.Context,accountID,organizationID,intak
   id,err:=q.InsertPriceReport(ctx,sourcesqlc.InsertPriceReportParams{
    OrganizationID:organizationID,IntakeID:intakeID,ActorAccountID:accountID,
    Amount:input.Amount,Currency:input.Currency,PriceBasis:input.PriceBasis,
-   SourceBasis:input.SourceBasis,Note:input.Note,
+   SourceBasis:input.SourceBasis,StatementAt:input.StatementAt,Note:input.Note,
    PriceRequestKey:key,PriceRequestHash:digest,
   })
   if errors.Is(err,pgx.ErrNoRows) {
@@ -223,10 +239,12 @@ func (s *Service) Read(ctx context.Context,accountID,organizationID,intakeID int
  })
  if errors.Is(err,pgx.ErrNoRows){return Source{},ErrNotFound}
  if err!=nil{return Source{},err}
+ var receivedAt *time.Time
+ if r.ReceivedAt.Valid {t:=r.ReceivedAt.Time;receivedAt=&t}
  return Source{
   ID:r.ID,OrganizationID:r.OrganizationID,RecordedByAccountID:r.RecordedByAccountID,
   Channel:r.SourceChannelCode,Label:r.SourceLabel,AreaM2:r.ReportedAreaM2,
-  AreaBasis:r.AreaBasisCode,Summary:r.Summary,Version:r.Version,RecordedAt:r.RecordedAt.Time,
+  AreaBasis:r.AreaBasisCode,Summary:r.Summary,Version:r.Version,RecordedAt:r.RecordedAt.Time,ReceivedAt:receivedAt,
  },nil
 }
 func (s *Service) PriceHistory(ctx context.Context,accountID,organizationID,intakeID int64)([]PriceReport,error) {
@@ -238,10 +256,12 @@ func (s *Service) PriceHistory(ctx context.Context,accountID,organizationID,inta
  if err!=nil{return nil,err}
  history:=make([]PriceReport,0,len(rows))
  for _,r:=range rows {
+  var statementAt *time.Time
+  if r.StatementAt.Valid {t:=r.StatementAt.Time;statementAt=&t}
   history=append(history,PriceReport{
    ID:r.ID,IntakeID:r.IntakeID,RecordedByAccountID:r.RecordedByAccountID,
    Amount:r.Amount,Currency:r.CurrencyCode,PriceBasis:r.PriceBasisCode,
-   SourceBasis:r.SourceBasisCode,Note:r.Note,RecordedAt:r.RecordedAt.Time,
+   SourceBasis:r.SourceBasisCode,Note:r.Note,RecordedAt:r.RecordedAt.Time,StatementAt:statementAt,
   })
  }
  return history,nil
