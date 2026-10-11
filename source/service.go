@@ -226,7 +226,7 @@ func (s *Service) Read(ctx context.Context,accountID,organizationID,intakeID int
  return Source{
   ID:r.ID,OrganizationID:r.OrganizationID,RecordedByAccountID:r.RecordedByAccountID,
   Channel:r.SourceChannelCode,Label:r.SourceLabel,AreaM2:r.ReportedAreaM2,
-  AreaBasis:r.AreaBasisCode,Summary:r.Summary,Version:r.Version,RecordedAt:r.RecordedAt,
+  AreaBasis:r.AreaBasisCode,Summary:r.Summary,Version:r.Version,RecordedAt:r.RecordedAt.Time,
  },nil
 }
 func (s *Service) PriceHistory(ctx context.Context,accountID,organizationID,intakeID int64)([]PriceReport,error) {
@@ -241,7 +241,7 @@ func (s *Service) PriceHistory(ctx context.Context,accountID,organizationID,inta
   history=append(history,PriceReport{
    ID:r.ID,IntakeID:r.IntakeID,RecordedByAccountID:r.RecordedByAccountID,
    Amount:r.Amount,Currency:r.CurrencyCode,PriceBasis:r.PriceBasisCode,
-   SourceBasis:r.SourceBasisCode,Note:r.Note,RecordedAt:r.RecordedAt,
+   SourceBasis:r.SourceBasisCode,Note:r.Note,RecordedAt:r.RecordedAt.Time,
   })
  }
  return history,nil
