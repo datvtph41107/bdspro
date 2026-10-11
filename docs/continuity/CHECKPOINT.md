@@ -1,3 +1,5 @@
+> **2026-10-11 — ACTIVE CORE IMPLEMENTATION ON dev.** User explicitly authorized assistant-authored full code/CI and commits directly on dev (superseding older user-only practice). Source truth: dev migration sequence 000001 Party/C01, 000002 Account/Auth, 000003 Org/RBAC/Invitation, 000004 Registration/Claim/Review, 000005 Source/Price History; Go auth, organization, source, HTTP integration and end-to-end CI. See [implementation decision/acceptance report](../implementation/CORE-01-TO-05.md) and [root README](../../README.md). Older below entries are historical. Local may contain uncommitted divergence: do not reset/force-overwrite. Complete local sync only after checking git status and migration history.
+
 # Current Checkpoint
 
 > **CURRENT ACTIVE CHECKPOINT — 2026-10-10, EVIDENCE-DRIVEN AUTH IMPLEMENTATION.**

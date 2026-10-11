@@ -1,38 +1,22 @@
-DB_URL=postgresql://root:secret@localhost:5432/bdspro?sslmode=disable
-DIR_SQL=migrations
-
-postgres:
-	docker run --name postgres -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -p 5432:5432 -d postgres:18-alpine
-
-createdb:
-	docker exec -it postgres createdb --username=root --owner=root bdspro
-
-dropdb:
-	docker exec -it postgres dropdb bdspro
+# BDSPro canonical core (Go + PostgreSQL 18 + golang-migrate + sqlc)
+# Explicitly set DB_URL. No silent migration against old bdspro Listing databases.
+DB_URL ?=
+.PHONY: sqlc test migrateup migratedown newmigration
 
 sqlc:
-	sqlc generate
+	sqlc generate -f sqlc.source.yaml
 
-# make newsql name=add_something
-newsql:
-	@test -n "$(name)" || (echo "Usage: make newsql name=add_something"; exit 1)
-	migrate create -ext sql -dir $(DIR_SQL) -seq $(name)
+test:
+	go test ./... -count=1
 
-# migrate force schema_migrations dirty
-migratef:
-	@test -n "$(version)" || (echo "Usage: make migrationforce version=N"; exit 1)
-	migrate -path $(DIR_SQL) -database "$(DB_URL)" force $(version)
+newmigration:
+	@test -n "$(name)" || (echo 'Usage: make newmigration name=change_name'; exit 1)
+	migrate create -ext sql -dir migrations -seq $(name)
 
 migrateup:
-	migrate -path $(DIR_SQL) -database "$(DB_URL)" -verbose up
-
-migrateup1:
-	migrate -path $(DIR_SQL) -database "$(DB_URL)" -verbose up 1
+	@test -n "$(DB_URL)" || (echo 'Usage: make migrateup DB_URL=postgresql://.../bdspro_core_dev?sslmode=disable'; exit 1)
+	migrate -path migrations -database "$(DB_URL)" -verbose up
 
 migratedown:
-	migrate -path $(DIR_SQL) -database "$(DB_URL)" -verbose down
-
-migratedown1:
-	migrate -path $(DIR_SQL) -database "$(DB_URL)" -verbose down 1
-
-.PHONY: postgres createdb dropdb sqlc newsql migrateup migratedown migrateup1 migratedown1
+	@test -n "$(DB_URL)" || (echo 'Usage: make migratedown DB_URL=... (destructive on managed data)'; exit 1)
+	migrate -path migrations -database "$(DB_URL)" -verbose down 1
