@@ -47,6 +47,25 @@ CREATE TABLE source_price_reports (
   statement_at TIMESTAMPTZ,
   recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   note TEXT,
+  request_key TEXT,
+  request_hash TEXT,
+  CONSTRAINT source_price_reports_key_pair_ck CHECK (
+    (request_key IS NULL AND request_hash IS NULL) OR
+    (request_key IS NOT NULL AND length(request_key) BETWEEN 1 AND 128
+      AND request_hash ~ '^[0-9a-f]{64} FOREIGN KEY (
+    organization_id, intake_id
+  ) REFERENCES source_intakes (organization_id, id)
+);
+
+CREATE INDEX source_price_reports_history_idx
+  ON source_price_reports (organization_id, intake_id, recorded_at, id);
+
+COMMIT;
+)
+  ),
+  CONSTRAINT source_price_reports_request_uq UNIQUE (
+    organization_id, intake_id, recorded_by_account_id, request_key
+  ),
   CONSTRAINT source_price_reports_intake_scope_fk FOREIGN KEY (
     organization_id, intake_id
   ) REFERENCES source_intakes (organization_id, id)
