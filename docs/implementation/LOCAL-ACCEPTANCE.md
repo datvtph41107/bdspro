@@ -1,154 +1,250 @@
-# BDSPro CORE-01 → CORE-05: local end-to-end acceptance
+# Hướng dẫn đồng bộ và nghiệm thu CORE-01 → CORE-05 tại local
 
-**Safe synchronization: do not overwrite a local tree with unpublished work.** On your computer:
+> Hướng dẫn dành cho **PostgreSQL 18 và code branch \`dev\`**, trong môi trường thử nghiệm. Chỉ thực hiện thao tác có thể làm thay đổi dữ liệu sau khi đã đọc đúng database/branch. **Không ghi đè thư mục \`~/projects/bdspro\` cũ.**
 
-    cd ~/projects
-    git clone --branch dev --single-branch https://github.com/datvtph41107/bdspro.git bdspro-core-complete
-    cd bdspro-core-complete
-    git status --short --branch
-    git log -1 --oneline
+## A. Lấy đầy đủ code từ remote về thư mục mới
 
-The fresh checkout is separate from the existing ~/projects/bdspro working tree. Keep the older tree until you have compared and decided what to port; do not use reset --hard or force push as a shortcut.
+Trên terminal WSL/Linux:
 
-## A. Isolated PostgreSQL database and reproducible build
+\`\`\`bash
+cd ~/projects
+git clone --branch dev --single-branch \
+  https://github.com/datvtph41107/bdspro.git bdspro-core-complete
 
-The commands below are for local PostgreSQL 18; inspect before creating a database:
+cd bdspro-core-complete
+git status --short --branch
+git log -1 --oneline
+\`\`\`
 
-    docker exec postgres psql -U root -d postgres \
-      -c "SELECT datname FROM pg_database WHERE datname='bdspro_core_dev';"
+Mục tiêu: nhận được một worktree sạch từ remote. Không yêu cầu xóa hoặc ghi đè bất kỳ thay đổi chưa commit nào trong \`~/projects/bdspro\`. Nếu tên \`bdspro-core-complete\` đã tồn tại, **không chạy lệnh clone đè**. Ghi nhận SHA HEAD thực tế trước khi thử nghiệm.
 
-If no row, create one (once):
+## B. Dùng database mới, không sử dụng nhầm database cũ
 
-    docker exec postgres createdb -U root bdspro_core_dev
+Trước tiên kiểm tra PostgreSQL và tên database:
 
-With golang-migrate and sqlc installed:
+\`\`\`bash
+docker ps --filter name=postgres
+docker exec postgres psql -U root -d postgres \
+  -c "SELECT datname FROM pg_database WHERE datname='bdspro_core_dev';"
+\`\`\`
 
-    export DB_URL='postgresql://root:secret@localhost:5432/bdspro_core_dev?sslmode=disable'
-    migrate -path migrations -database "$DB_URL" -verbose up
-    migrate -path migrations -database "$DB_URL" version
-    sqlc generate -f sqlc.source.yaml
-    go test ./...
+**Chỉ khi chưa có** \`bdspro_core_dev\`, tạo một database thử nghiệm mới:
 
-Do not run migrations against old bdspro with Listing migration history. Docker credentials here are LAB defaults, not production secrets.
+\`\`\`bash
+docker exec postgres createdb -U root bdspro_core_dev
+\`\`\`
 
-## B. Start the application in safe development mode
+Thiết lập connection URL và xác nhận database đích:
 
-    export DATABASE_URL="$DB_URL"
-    export APP_ENV=development
-    export BIND_HOST=127.0.0.1
-    export PORT=8080
-    go run .
+\`\`\`bash
+export DB_URL='postgresql://root:secret@localhost:5432/bdspro_core_dev?sslmode=disable'
+psql "$DB_URL" -c "SELECT current_database(), current_user;"
+\`\`\`
 
-Another terminal, replace sample emails with dedicated .test lab addresses (not someone else's real inbox). Register three Accounts: An, Lan and reviewer:
+Nếu đã có \`bdspro_core_dev\`, phải kiểm tra \`schema_migrations\`/các bảng trong đó trước; đừng giả định DB trống. Không tự động reset, drop hoặc chạy \`force\` migration.
 
-    curl -sS -X POST http://127.0.0.1:8080/auth/register \
-      -H 'Content-Type: application/json' \
-      -d '{"email":"an@example.test","password":"LabLongPassword1234!"}'
+### Chạy migration và kiểm tra code
 
-In development on loopback only, response contains verification_token. Verify each registered Account with its own token:
+Yêu cầu CLI \`migrate\` (golang-migrate) và \`sqlc\` đã cài. Tại clone mới:
 
-    curl -i -X POST http://127.0.0.1:8080/auth/verify-email \
-      -H 'Content-Type: application/json' \
-      -d '{"token":"TOKEN_FROM_PREVIOUS_RESPONSE"}'
+\`\`\`bash
+migrate -path migrations -database "$DB_URL" -verbose up
+migrate -path migrations -database "$DB_URL" version
 
-Repeat registration/verification for reviewer@example.test and lan@example.test.
+sqlc generate -f sqlc.source.yaml
+go test ./...
+git status --short --branch
+\`\`\`
 
-Log in and retain cookies (the temporary cookie files contain session secrets; limit access and delete when finished):
+Trong một checkout hoàn toàn khớp CI, sinh lại sqlc không nên làm thay đổi các file generated đã commit. Chạy \`git diff -- db/sourcesqlc go.mod go.sum\` nếu phát hiện thay đổi. \`root/secret\` chỉ là credential trong Docker LAB, tuyệt đối không dùng cho production.
 
-    umask 077
-    curl -i -c /tmp/bdspro-an.cookies -X POST http://127.0.0.1:8080/auth/login \
-      -H 'Content-Type: application/json' \
-      -d '{"email":"an@example.test","password":"LabLongPassword1234!"}'
+## C. Khởi chạy API
 
-Log in reviewer/Lan separately with -c /tmp/bdspro-reviewer.cookies and /tmp/bdspro-lan.cookies. Verify one cookie:
+\`\`\`bash
+export DATABASE_URL="$DB_URL"
+export APP_ENV=development
+export BIND_HOST=127.0.0.1
+export PORT=8080
+go run .
+\`\`\`
 
-    curl -b /tmp/bdspro-an.cookies http://127.0.0.1:8080/auth/me
+Trong cấu hình development, app chỉ cho chạy trên loopback để tránh lộ token xác minh trong response. Không chạy hướng dẫn này trên máy chủ công khai.
 
-## C. Bootstrap reviewer in a disposable LAB only
+Các endpoint chính:
 
-A tenant cannot appoint a platform reviewer. The following command deliberately uses database-operator privilege and must NEVER be exposed as an API or adapted to arbitrary user input:
+| Nhóm | Đường dẫn |
+| --- | --- |
+| Account | \`POST /auth/register\`, \`POST /auth/verify-email\`, \`POST /auth/login\`, \`GET /auth/me\`, \`POST /auth/logout\` |
+| Organization | \`POST /organizations/registrations\`, \`POST /organizations/{id}/claims\` |
+| Reviewer | \`POST /platform/organizations/registrations/{id}/approve\`, \`POST /platform/organizations/claims/{id}/approve\` |
+| Membership | \`POST /organizations/{id}/invitations\`, \`POST /organizations/invitations/{id}/accept\`, \`GET /organizations/{id}/members\` |
+| Source | \`POST /organizations/{id}/sources\`, \`GET /organizations/{id}/sources/{sourceID}\` |
+| Price | \`POST /organizations/{id}/sources/{sourceID}/price-reports\`, \`GET /organizations/{id}/sources/{sourceID}/price-reports\` |
 
-    docker exec postgres psql -U root -d bdspro_core_dev -v ON_ERROR_STOP=1 \
-      -c "INSERT INTO platform_organization_reviewers(account_id,authorization_reference)
-          SELECT a.id,'LAB-ONLY-operator-approval'
-          FROM accounts a
-          JOIN account_emails ae ON ae.account_id=a.id
-          WHERE ae.email='reviewer@example.test' AND ae.verified_at IS NOT NULL;"
+## D. Hành trình thủ công: An, Lan và reviewer
 
-This verifies **only** that the lab Account has an email already marked verified; it does not prove that person is a real platform operator. Real reviewer onboarding must use authenticated operator administration and documented evidence.
+Các email bên dưới thuộc miền \`.test\` và chỉ dùng làm ví dụ. Dùng 3 Account riêng, không gộp chủ thể.
 
-## D. Register ABC, approve, invite Lan
+### D1. Đăng ký An, xác minh rồi đăng nhập
 
-An submits:
+\`\`\`bash
+curl -sS -X POST http://127.0.0.1:8080/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"an@example.test","password":"LabLongPassword1234!"}'
+\`\`\`
 
-    curl -b /tmp/bdspro-an.cookies -H 'Content-Type: application/json' \
-      -X POST http://127.0.0.1:8080/organizations/registrations \
-      -d '{"name":"ABC Realty Lab","jurisdiction":"VN","registration_code":"LAB-ABC-2026"}'
+Response môi trường development bao gồm \`account_id\` và \`verification_token\`. Token **không tự động được gửi về đây trong production**.
 
-Record returned request_id. Before reviewer approval, querying organizations in DB should not show an ABC organization.
+Dùng token vừa nhận để xác minh:
 
-Reviewer approves after inspecting lab evidence:
+\`\`\`bash
+curl -i -X POST http://127.0.0.1:8080/auth/verify-email \
+  -H 'Content-Type: application/json' \
+  -d '{"token":"TOKEN_VUA_NHAN"}'
+\`\`\`
 
-    curl -b /tmp/bdspro-reviewer.cookies -H 'Content-Type: application/json' \
-      -X POST http://127.0.0.1:8080/platform/organizations/registrations/REQUEST_ID/approve \
-      -d '{"review_reference":"LAB-ONLY-reviewed-company-identity"}'
+Làm tương tự cho \`lan@example.test\` và \`reviewer@example.test\`, lấy **token riêng** từng Account. Trước khi lưu cookie file, giới hạn quyền của terminal hiện tại:
 
-Record returned organization_id. The operation atomically creates Party/Organization, RegistryIdentifier, Membership, scoped administrator Role and primary workspace administrator.
+\`\`\`bash
+umask 077
+curl -i -c /tmp/bdspro-an.cookies \
+  -X POST http://127.0.0.1:8080/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"an@example.test","password":"LabLongPassword1234!"}'
 
-Find the role ID via lab SQL:
+curl -b /tmp/bdspro-an.cookies http://127.0.0.1:8080/auth/me
+\`\`\`
 
-    docker exec postgres psql -U root -d bdspro_core_dev \
-      -c "SELECT organization_id,id,name FROM organization_roles ORDER BY id;"
+Đăng nhập riêng reviewer/Lan, dùng \`/tmp/bdspro-reviewer.cookies\` và \`/tmp/bdspro-lan.cookies\`. Cookie file chứa bí mật phiên đăng nhập, không commit hoặc gửi lên mạng.
 
-An invites Lan; use the organization and Role ID returned in the preceding steps:
+### D2. Cấp quyền reviewer CHỈ cho LAB
 
-    curl -b /tmp/bdspro-an.cookies -H 'Content-Type: application/json' \
-      -X POST http://127.0.0.1:8080/organizations/ORG_ID/invitations \
-      -d '{"email":"lan@example.test","role_id":ROLE_ID}'
+Một người dùng bình thường hoặc admin Organization **không** tự tạo reviewer nền tảng. Trong LAB riêng, quản trị viên PostgreSQL có thể tạo dữ liệu test bằng lệnh:
 
-Record invitation_id. Lan accepts:
+\`\`\`bash
+docker exec postgres psql -U root -d bdspro_core_dev -v ON_ERROR_STOP=1 \
+  -c "INSERT INTO platform_organization_reviewers(account_id,authorization_reference)
+      SELECT a.id, 'LAB-ONLY-operator-approval'
+      FROM accounts a
+      JOIN account_emails ae ON ae.account_id=a.id
+      WHERE ae.email='reviewer@example.test' AND ae.verified_at IS NOT NULL;"
+\`\`\`
 
-    curl -b /tmp/bdspro-lan.cookies -X POST \
-      http://127.0.0.1:8080/organizations/invitations/INVITATION_ID/accept
+Lệnh này **chỉ** cho phép Account reviewer thực hiện hành vi phê duyệt ở LAB, không chứng minh tư cách pháp lý hoặc thẩm quyền ngoài đời. Không tạo API công khai để chạy câu lệnh ấy.
 
-An or Lan can now call GET /organizations/ORG_ID/members. Being invited alone never granted membership before Accept.
+### D3. An khai báo Công ty ABC; reviewer duyệt
 
-## E. Capture unverified source and price history
+An gửi yêu cầu:
 
-Lan creates source and initial unverified asking price:
+\`\`\`bash
+curl -b /tmp/bdspro-an.cookies \
+  -H 'Content-Type: application/json' \
+  -X POST http://127.0.0.1:8080/organizations/registrations \
+  -d '{"name":"ABC Realty Lab","jurisdiction":"VN","registration_code":"LAB-ABC-2026"}'
+\`\`\`
 
-    curl -b /tmp/bdspro-lan.cookies -H 'Content-Type: application/json' \
-      -H 'Idempotency-Key: lab-capture-001' \
-      -X POST http://127.0.0.1:8080/organizations/ORG_ID/sources \
-      -d '{"channel":"zalo","label":"reported house","area_m2":"75","initial_price":{"amount":"4200000000","currency":"VND","price_basis":"asking"}}'
+Lưu \`request_id\`. **Trước khi reviewer duyệt**, yêu cầu tồn tại nhưng Organization chưa được tạo. Trong LAB kiểm tra:
 
-Record source id. Repeat exact request with same Idempotency-Key -> 200 replay, not a duplicate row. Reusing that key with changed payload -> 409.
+\`\`\`sql
+SELECT id, decision_code, matched_organization_id
+FROM organization_registration_requests ORDER BY id;
 
-Append later price report:
+SELECT party_id, name FROM organizations ORDER BY party_id;
+\`\`\`
 
-    curl -b /tmp/bdspro-lan.cookies -H 'Content-Type: application/json' \
-      -H 'Idempotency-Key: lab-price-002' \
-      -X POST http://127.0.0.1:8080/organizations/ORG_ID/sources/SOURCE_ID/price-reports \
-      -d '{"amount":"4100000000","currency":"VND","source_basis":"reconfirmed_call"}'
+Reviewer duyệt sau khi đã kiểm tra hồ sơ LAB:
 
-Read history:
+\`\`\`bash
+curl -b /tmp/bdspro-reviewer.cookies \
+  -H 'Content-Type: application/json' \
+  -X POST http://127.0.0.1:8080/platform/organizations/registrations/REQUEST_ID/approve \
+  -d '{"review_reference":"LAB-ONLY-reviewed-company-identity"}'
+\`\`\`
 
-    curl -b /tmp/bdspro-lan.cookies \
-      http://127.0.0.1:8080/organizations/ORG_ID/sources/SOURCE_ID/price-reports
+Thay \`REQUEST_ID\` bằng số từ response thực; ghi lại \`organization_id\` trong kết quả. Transaction tạo Party/Organization, registry identifier, Membership và Role quản trị workspace. Không được diễn giải reviewer LAB là xác minh pháp lý thực tế.
 
-Expect both 4.2bn and 4.1bn statements; no new Property or Listing appears. The latest database insertion is not necessarily a source-authoritative current price.
+### D4. An mời Lan
 
-## F. Negative evidence and cleanup
+Đọc Role ID từ LAB database:
 
-- Use Lan's cookie with a different Organization URL: no cross-org read/write.
-- End a Membership or add an active MembershipBlock in the lab; the account loses its scoped data access.
-- Invalid registration/duplicate email never leaves an orphan Party.
-- Source capture with optional price is atomic; a missing price-report permission must roll back the source.
-- Logout, then reuse the old Cookie: /auth/me returns 401.
-- Preserve migration version, git HEAD, actual errors and query output in the acceptance notebook; do not declare production-ready from smoke tests.
+\`\`\`bash
+docker exec postgres psql -U root -d bdspro_core_dev \
+  -c "SELECT organization_id, id, name FROM organization_roles ORDER BY id;"
+\`\`\`
 
-Temporary local cookies contain bearer Session tokens; securely delete your lab cookie files when finished.
+An mời Lan (thay \`ORG_ID\`, \`ROLE_ID\` bằng số thực):
 
-## G. What CI proves and what it cannot
+\`\`\`bash
+curl -b /tmp/bdspro-an.cookies \
+  -H 'Content-Type: application/json' \
+  -X POST http://127.0.0.1:8080/organizations/ORG_ID/invitations \
+  -d '{"email":"lan@example.test","role_id":ROLE_ID}'
+\`\`\`
 
-.github/workflows/bdspro-core.yml executes migrations against disposable PostgreSQL, exercises end-to-end Go tests and checks generated sqlc/mod files for drift. It is engineering proof only; real legal identity evidence, email delivery retry, account recovery, admin dispute, external integration, production CSRF/rate limiting and local historical DB migration reconciliation remain separate gates.
+Lưu \`invitation_id\`. Lan chấp nhận:
+
+\`\`\`bash
+curl -b /tmp/bdspro-lan.cookies \
+  -X POST http://127.0.0.1:8080/organizations/invitations/INVITATION_ID/accept
+\`\`\`
+
+Kiểm tra danh sách:
+
+\`\`\`bash
+curl -b /tmp/bdspro-an.cookies \
+  http://127.0.0.1:8080/organizations/ORG_ID/members
+\`\`\`
+
+Điểm quan sát: lời mời **chưa** đồng nghĩa Membership; Membership/Role chỉ xuất hiện sau lần chấp nhận thành công.
+
+### D5. Lan tiếp nhận nguồn và bổ sung lịch sử giá
+
+\`\`\`bash
+curl -b /tmp/bdspro-lan.cookies \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: lab-capture-001' \
+  -X POST http://127.0.0.1:8080/organizations/ORG_ID/sources \
+  -d '{"channel":"zalo","label":"Tin báo về một căn nhà","area_m2":"75","initial_price":{"amount":"4200000000","currency":"VND","price_basis":"asking"}}'
+\`\`\`
+
+Lưu \`id\` Source từ response, thay vào \`SOURCE_ID\` bên dưới. Gửi lại **đúng request và key**: kỳ vọng HTTP 200/replay, **không thêm bản ghi**. Đổi payload nhưng giữ key: kỳ vọng HTTP 409.
+
+Ghi nhận người cung cấp báo giá khác:
+
+\`\`\`bash
+curl -b /tmp/bdspro-lan.cookies \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: lab-price-002' \
+  -X POST http://127.0.0.1:8080/organizations/ORG_ID/sources/SOURCE_ID/price-reports \
+  -d '{"amount":"4100000000","currency":"VND","source_basis":"reconfirmed_call"}'
+\`\`\`
+
+Xem lịch sử:
+
+\`\`\`bash
+curl -b /tmp/bdspro-lan.cookies \
+  http://127.0.0.1:8080/organizations/ORG_ID/sources/SOURCE_ID/price-reports
+\`\`\`
+
+Đầu ra cần giữ cả **4,2 tỷ** và **4,1 tỷ** dưới dạng hai thông tin đã được báo. Không có Property/Listing được tự động sinh. Thời điểm ghi vào DB không luôn là thời điểm người cung cấp đưa ra báo giá.
+
+## E. Thử nghiệm phản chứng và điểm bảo vệ
+
+- Dùng cookie của một thành viên **không thuộc ABC** gọi vào Source ABC: không được đọc/ghi.
+- Kết thúc Membership của Lan hoặc ghi Block còn hiệu lực: Lan không đọc được Source ABC.
+- Đăng ký lặp email khác hoa/thường: không phát sinh thêm Account/Party vô chủ.
+- Thử thiếu \`sources.price_report\` khi capture có giá: Source và Price phải cùng rollback.
+- Thử Session sau logout: \`/auth/me\` trả 401.
+- Ghi một Price liên kết sai \`organization_id\` với \`intake_id\`: composite FK từ chối.
+
+Chỉ chạy các thay đổi Membership/Role bằng SQL trong **LAB**. Dùng \`SELECT\` đối chiếu trước/sau. Không tùy tiện \`DELETE\` dữ liệu muốn giữ.
+
+## F. Ghi biên bản nghiệm thu
+
+Mỗi ca lưu: ngày giờ, \`git rev-parse HEAD\`, tên database, migration version, actor, input (không chứa token/password), output/status, số hàng trước/sau, nhận định cơ chế và phạm vi điều **chưa** được chứng minh. Xoá cookie file thử nghiệm khi hoàn thành:
+
+\`\`\`bash
+rm -f /tmp/bdspro-an.cookies /tmp/bdspro-lan.cookies /tmp/bdspro-reviewer.cookies
+\`\`\`
+
+**Nghiệm thu GitHub CI khác nghiệm thu local/production.** Quy trình này là mốc xác minh local sau khi clone; review pháp lý, bảo mật, tải thực tế, email outbox, CSRF/rate limiting và đồng bộ dữ liệu cũ vẫn cần công việc riêng.
