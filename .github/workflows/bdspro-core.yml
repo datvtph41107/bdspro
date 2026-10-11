@@ -42,6 +42,14 @@ jobs:
               psql -v ON_ERROR_STOP=1 -h localhost -U root -d "$database" -f "$migration"
             done
           done
+      - name: Verify golang-migrate versioned UP-DOWN-UP
+        run: |
+          createdb -h localhost -U root bdspro_migrate_ci
+          url='postgresql://root:secret@localhost:5432/bdspro_migrate_ci?sslmode=disable'
+          migrate -path migrations -database "$url" -verbose up
+          migrate -path migrations -database "$url" version
+          migrate -path migrations -database "$url" -verbose down 1
+          migrate -path migrations -database "$url" -verbose up 1
       - name: Generate source query package
         run: sqlc generate -f sqlc.source.yaml
       - name: Resolve generated Go dependencies
