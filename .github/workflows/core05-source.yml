@@ -1,0 +1,64 @@
+name: CORE-05 Source Intake
+
+on:
+  push:
+    branches:
+      - feature/core05-source-intake
+  pull_request:
+    paths:
+      - "source/**"
+      - "db/source/**"
+      - "sqlc.source.yaml"
+      - ".github/workflows/core05-source.yml"
+
+jobs:
+  source-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U root -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGPASSWORD: secret
+      SOURCE_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_source_ci?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install sqlc
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+      - name: Initialize isolated PostgreSQL lab
+        run: |
+          createdb -h localhost -p 5432 -U root bdspro_source_ci
+          psql -v ON_ERROR_STOP=1 -h localhost -U root -d bdspro_source_ci \
+            -f db/source/testdata/core_prerequisites.sql
+          psql -v ON_ERROR_STOP=1 -h localhost -U root -d bdspro_source_ci \
+            -f db/source/migrations/000001_create_source_intakes_and_price_reports.up.sql
+      - name: Generate sqlc models
+        run: sqlc generate -f sqlc.source.yaml
+      - name: Parse and format Go sources on runner
+        run: gofmt -w source
+      - name: Run integration tests
+        run: go test ./source -count=1 -v
+      - name: Verify complete repository build
+        run: go test ./... -count=1
+      - name: Verify reversible schema in disposable test DB
+        run: |
+          psql -v ON_ERROR_STOP=1 -h localhost -U root -d bdspro_source_ci \
+            -f db/source/migrations/000001_create_source_intakes_and_price_reports.down.sql
+          psql -v ON_ERROR_STOP=1 -h localhost -U root -d bdspro_source_ci \
+            -f db/source/migrations/000001_create_source_intakes_and_price_reports.up.sql
