@@ -168,7 +168,7 @@ func TestAuthCookieLifecycle(t *testing.T){
   if cookie!=nil{req.AddCookie(cookie)}
   w:=httptest.NewRecorder();mux.ServeHTTP(w,req);return w
  }
- payload:=[]byte("{"email":"minh@example.test","password":"VeryLongPassword1234!"}")
+ payload:=[]byte(`{"email":"minh@example.test","password":"VeryLongPassword1234!"}`)
  registered:=act("POST","/auth/register",payload,nil)
  if registered.Code!=201{t.Fatalf("register HTTP: %d %s",registered.Code,registered.Body.String())}
  var reg struct{VerificationToken string `json:"verification_token"`}
