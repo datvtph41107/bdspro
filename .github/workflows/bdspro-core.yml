@@ -46,20 +46,13 @@ jobs:
         run: sqlc generate -f sqlc.source.yaml
       - name: Resolve generated Go dependencies
         run: go mod tidy
-      - name: Format and build
+      - name: Enforce generated and formatted files checked in
         run: |
           gofmt -w auth organization source main.go integration_test.go
+          git diff --exit-code -- go.mod go.sum db/sourcesqlc auth organization source main.go integration_test.go
           go vet ./...
       - name: PostgreSQL integration and full build
         run: go test ./... -count=1 -v
-      - name: Export normalized source and generated artifacts for exact commit
-        run: |
-          for file in go.mod go.sum main.go integration_test.go auth/*.go organization/*.go source/*.go db/sourcesqlc/*.go; do
-            echo "BDSFILEBEGIN $file"
-            base64 -w0 "$file"
-            echo
-            echo "BDSFILEEND $file"
-          done
       - name: Verify migration rollback in disposable DB
         run: |
           for migration in migrations/000005*.down.sql migrations/000004*.down.sql migrations/000003*.down.sql migrations/000002*.down.sql migrations/000001*.down.sql; do
