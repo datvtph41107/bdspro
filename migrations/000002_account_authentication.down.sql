@@ -1,0 +1,12 @@
+BEGIN;
+DROP TABLE service_account_keys;
+DROP TABLE service_accounts;
+DROP TABLE external_identities;
+DROP TABLE passkeys;
+DROP TABLE email_verification_tokens;
+DROP TABLE sessions;
+DROP TABLE password_credentials;
+DROP TABLE account_phones;
+DROP TABLE account_emails;
+DROP TABLE accounts;
+COMMIT;
