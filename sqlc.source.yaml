@@ -1,0 +1,12 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema:
+      - "db/source/testdata/core_prerequisites.sql"
+      - "db/source/migrations/000001_create_source_intakes_and_price_reports.up.sql"
+    queries: "db/source/query"
+    gen:
+      go:
+        package: "sourcesqlc"
+        out: "db/sourcesqlc"
+        sql_package: "pgx/v5"
