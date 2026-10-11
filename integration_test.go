@@ -5,7 +5,6 @@ import (
  "context"
  "encoding/json"
  "errors"
- "fmt"
  "net/http"
  "net/http/httptest"
  "os"
@@ -212,7 +211,3 @@ func TestInvitationDoesNotCrossTenant(t *testing.T){
  if !errors.As(err,&pgErr)||pgErr.Code!="23503"{t.Fatalf("expected role-scope FK 23503: %v",err)}
 }
 
-func ExampleWorkflow() {
- fmt.Println("Account -> Session -> Organization review -> Invitation -> Membership -> Source history")
- // Output: Account -> Session -> Organization review -> Invitation -> Membership -> Source history
-}
