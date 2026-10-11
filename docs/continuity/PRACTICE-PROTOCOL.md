@@ -1,3 +1,5 @@
+> **Cập nhật cách phối hợp 11/10/2026:** quy trình hiện tại được mô tả bằng tiếng Việt ở [QUY-TRINH-LAM-VIEC.md](../implementation/QUY-TRINH-LAM-VIEC.md). Người dùng đã ủy quyền trợ lý triển khai module hoàn chỉnh lên GitHub `dev` với commit/CI; người dùng nghiệm thu và đồng bộ local sau module. Những đoạn yêu cầu người dùng tự gõ mọi dòng code phía dưới là nguyên tắc **của chế độ học thực hành trước đây**, vẫn có thể kích hoạt khi người dùng yêu cầu, không phải trạng thái mặc định hiện tại. Giữ chuẩn hiểu cơ chế, phản chứng và an toàn dữ liệu.
+
 # Active Coding & Source-Trace Practice Protocol
 
 > **2026-10-10 PRACTICE REFINEMENT — CONCRETE EVIDENCE + ACTIVE HANDS.**

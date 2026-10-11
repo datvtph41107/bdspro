@@ -1,3 +1,5 @@
+> **Bản tiếng Việt đang áp dụng (11/10/2026):** [TIEP-TUC-CORE-01-05.md](TIEP-TUC-CORE-01-05.md). Nội dung phía dưới là prompt lưu trữ của giai đoạn trước, không thay thế checkpoint hiện tại.
+
 # BDSPro Continuation Prompt
 
 > **2026-10-10 LATEST CONTINUATION OVERRIDE — EVIDENCE-DRIVEN PAIR ENGINEERING.**

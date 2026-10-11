@@ -1,7 +1,7 @@
 # BDSPro — Nền tảng Core từ CORE-01 đến CORE-05
 
 > **Ngôn ngữ tài liệu đang hoạt động: tiếng Việt.** Tên bảng, cột, API, câu lệnh và mã nguồn giữ nguyên tiếng Anh để đối chiếu trực tiếp với PostgreSQL/Go.  
-> **Nhánh triển khai duy nhất:** \`dev\`. **Phạm vi đã hoàn thành:** baseline kỹ thuật Core, **không phải** toàn bộ sản phẩm BDSPro hay bản phát hành production.
+> **Nhánh triển khai duy nhất:** `dev`. **Phạm vi đã hoàn thành:** baseline kỹ thuật Core, **không phải** toàn bộ sản phẩm BDSPro hay bản phát hành production.
 
 ## 1. Chúng ta đang xây dựng gì?
 
@@ -9,7 +9,7 @@ BDSPro xây dựng nền tảng lưu giữ sự thật nghiệp vụ lâu dài (
 
 Luồng đã triển khai và kiểm thử:
 
-\`\`\`text
+```text
 Một người đăng ký tài khoản
   → xác minh email, đăng nhập, nhận Session
   → yêu cầu đăng ký hoặc tiếp quản tổ chức
@@ -18,21 +18,21 @@ Một người đăng ký tài khoản
   → thành viên chấp nhận lời mời và được gán Role
   → thành viên tiếp nhận nguồn bất động sản chưa xác minh
   → ghi nhận giá ban đầu, bổ sung báo giá và đọc lịch sử
-\`\`\`
+```
 
-**Ranh giới quan trọng:** một tin báo từ Zalo không biến thành \`Property\` đã xác minh hoặc \`Listing\` được phép đăng. Quyền quản trị workspace không tự động là quyền đại diện pháp lý.
+**Ranh giới quan trọng:** một tin báo từ Zalo không biến thành `Property` đã xác minh hoặc `Listing` được phép đăng. Quyền quản trị workspace không tự động là quyền đại diện pháp lý.
 
 ## 2. Đã triển khai những module nào?
 
 | Giai đoạn | Sự thật được lưu và bảo vệ | Migration |
 | --- | --- | --- |
-| CORE-01 — Identity | \`parties\`, \`persons\`, \`organizations\`, \`person_profiles\`; C01: đúng một subtype khi COMMIT | \`000001_party_identity\` |
-| CORE-02 — Authentication | \`accounts\`, email, phone, \`password_credentials\`, email verification, \`sessions\`; schema nền cho passkey/đăng nhập ngoài/service account | \`000002_account_authentication\` |
-| CORE-03 — Authorization | Membership, Role, Permission, gán quyền, khóa thành viên, lời mời và quản trị viên workspace | \`000003_organization_authorization\` |
-| CORE-04 — Onboarding | Yêu cầu đăng ký tổ chức, claim tổ chức đã tồn tại, quyền reviewer và định danh đăng ký được xác minh | \`000004_organization_onboarding\` |
-| CORE-05 — Source | Nguồn tin chưa xác minh, lịch sử báo giá dạng thêm mới, khóa phạm vi Organization, retry an toàn | \`000005_source_intake\` |
+| CORE-01 — Identity | `parties`, `persons`, `organizations`, `person_profiles`; C01: đúng một subtype khi COMMIT | `000001_party_identity` |
+| CORE-02 — Authentication | `accounts`, email, phone, `password_credentials`, email verification, `sessions`; schema nền cho passkey/đăng nhập ngoài/service account | `000002_account_authentication` |
+| CORE-03 — Authorization | Membership, Role, Permission, gán quyền, khóa thành viên, lời mời và quản trị viên workspace | `000003_organization_authorization` |
+| CORE-04 — Onboarding | Yêu cầu đăng ký tổ chức, claim tổ chức đã tồn tại, quyền reviewer và định danh đăng ký được xác minh | `000004_organization_onboarding` |
+| CORE-05 — Source | Nguồn tin chưa xác minh, lịch sử báo giá dạng thêm mới, khóa phạm vi Organization, retry an toàn | `000005_source_intake` |
 
-**Stack thực tế:** Go 1.27.1, PostgreSQL 18, \`pgx/v5\`, \`sqlc\`, \`golang-migrate\`. Auth và Organization sử dụng SQL/pgx tường minh; đường dữ liệu Source sử dụng Go sinh từ sqlc.
+**Stack thực tế:** Go 1.27.1, PostgreSQL 18, `pgx/v5`, `sqlc`, `golang-migrate`. Auth và Organization sử dụng SQL/pgx tường minh; đường dữ liệu Source sử dụng Go sinh từ sqlc.
 
 **Chưa triển khai đầy đủ:** luồng xác thực passkey/OIDC, service-account runtime, Property/Listing mới, CRM, thanh toán/gói dịch vụ, CMS, và các bảng logical còn lại trong canonical V0.4 (164 bảng ứng viên).
 
@@ -41,8 +41,8 @@ Một người đăng ký tài khoản
 [GitHub Actions — Core End-to-End CI đã thành công](https://github.com/datvtph41107/bdspro/actions/runs/38139052788).
 
 - PostgreSQL 18 thực thi chuỗi migration 000001–000005.
-- CLI \`golang-migrate\` kiểm tra phiên bản, \`UP → DOWN 1 → UP 1\` trên database dùng riêng.
-- \`sqlc generate\`, \`go mod tidy\`, \`gofmt\`, \`go vet\` và kiểm tra generated files không bị lệch.
+- CLI `golang-migrate` kiểm tra phiên bản, `UP → DOWN 1 → UP 1` trên database dùng riêng.
+- `sqlc generate`, `go mod tidy`, `gofmt`, `go vet` và kiểm tra generated files không bị lệch.
 - **15 test đạt:** 4 kiểm thử tích hợp Account → Organization → Source, 11 kiểm thử chuyên sâu Source/Price.
 - Server khởi động thành công trên database CI.
 
@@ -50,7 +50,7 @@ Một người đăng ký tài khoản
 
 ## 4. Cấu trúc nguồn chính
 
-\`\`\`text
+```text
 migrations/                  # DDL theo thứ tự 000001 → 000005
 auth/                        # Đăng ký, xác minh email, password, Session, HTTP
 organization/                # Review, claim, invitations, membership, HTTP
@@ -63,32 +63,32 @@ integration_test.go          # Luồng kiểm thử xuyên module
 .github/workflows/bdspro-core.yml
 docs/implementation/        # Báo cáo, quy trình và nghiệm thu bằng tiếng Việt
 docs/continuity/CHECKPOINT.md
-\`\`\`
+```
 
 ## 5. Bắt đầu tại local mà không ghi đè source cũ
 
-**Khuyến nghị:** trước hết lấy một bản clone **riêng**, để nguyên \`~/projects/bdspro\` đến khi so sánh được local với remote.
+**Khuyến nghị:** trước hết lấy một bản clone **riêng**, để nguyên `~/projects/bdspro` đến khi so sánh được local với remote.
 
-\`\`\`bash
+```bash
 cd ~/projects
 git clone --branch dev --single-branch \
   https://github.com/datvtph41107/bdspro.git bdspro-core-complete
 cd bdspro-core-complete
 git status --short --branch
 git log -1 --oneline
-\`\`\`
+```
 
-Chỉ dùng database PostgreSQL **mới, dành cho thử nghiệm** (ví dụ \`bdspro_core_dev\`); không áp dụng migration lên \`bdspro\` đang mang lịch sử Listing cũ khi chưa đối chiếu \`schema_migrations\`.
+Chỉ dùng database PostgreSQL **mới, dành cho thử nghiệm** (ví dụ `bdspro_core_dev`); không áp dụng migration lên `bdspro` đang mang lịch sử Listing cũ khi chưa đối chiếu `schema_migrations`.
 
-\`\`\`bash
+```bash
 export DB_URL='postgresql://root:secret@localhost:5432/bdspro_core_dev?sslmode=disable'
 migrate -path migrations -database "$DB_URL" -verbose up
 migrate -path migrations -database "$DB_URL" version
 sqlc generate -f sqlc.source.yaml
 go test ./...
-\`\`\`
+```
 
-Database phải được tạo **trước** câu lệnh trên; \`root/secret\` chỉ là cấu hình Docker LAB, không sử dụng trong production. Xem hướng dẫn chi tiết: [LOCAL-ACCEPTANCE.md](docs/implementation/LOCAL-ACCEPTANCE.md).
+Database phải được tạo **trước** câu lệnh trên; `root/secret` chỉ là cấu hình Docker LAB, không sử dụng trong production. Xem hướng dẫn chi tiết: [LOCAL-ACCEPTANCE.md](docs/implementation/LOCAL-ACCEPTANCE.md).
 
 ## 6. Danh mục tài liệu tiếng Việt
 
@@ -101,6 +101,6 @@ Database phải được tạo **trước** câu lệnh trên; \`root/secret\` c
 
 ## 7. Nguyên tắc an toàn và công việc tiếp theo
 
-Không \`reset --hard\`, \`clean -fd\`, \`force push\` hoặc di chuyển schema chỉ để đồng bộ nhanh khi chưa biết local có gì. Không coi email đã xác minh là xác minh con người/đại diện pháp lý. Chưa mở hệ thống cho khách hàng thật nếu chưa đánh giá CSRF, rate limiting, khôi phục tài khoản, retry email, an toàn quyền reviewer, race thu hồi quyền, DB least privilege và dữ liệu cá nhân.
+Không `reset --hard`, `clean -fd`, `force push` hoặc di chuyển schema chỉ để đồng bộ nhanh khi chưa biết local có gì. Không coi email đã xác minh là xác minh con người/đại diện pháp lý. Chưa mở hệ thống cho khách hàng thật nếu chưa đánh giá CSRF, rate limiting, khôi phục tài khoản, retry email, an toàn quyền reviewer, race thu hồi quyền, DB least privilege và dữ liệu cá nhân.
 
-**Bước kế tiếp:** đối chiếu remote \`dev\` ↔ local không mất dữ liệu, nghiệm thu manual workflow cùng PostgreSQL local, ghi bằng chứng. Sau đó ưu tiên CORE-06 — CRM Inquiry & Follow-up theo đúng cảnh khách ngoài hệ thống hỏi về nguồn hàng, **không ép khách phải có Account BDSPro**.
+**Bước kế tiếp:** đối chiếu remote `dev` ↔ local không mất dữ liệu, nghiệm thu manual workflow cùng PostgreSQL local, ghi bằng chứng. Sau đó ưu tiên CORE-06 — CRM Inquiry & Follow-up theo đúng cảnh khách ngoài hệ thống hỏi về nguồn hàng, **không ép khách phải có Account BDSPro**.
