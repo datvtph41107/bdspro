@@ -1,93 +1,127 @@
-# CORE-01 → CORE-05: Architectural decision record, implementation and acceptance
+# CORE-01 → CORE-05 — Tài liệu kiến trúc, quyết định và nghiệm thu
 
-**Repository:** datvtph41107/bdspro, single implementation branch dev
-**Decision baseline:** canonical DBML V0.4, 164 logical candidate tables, NOT a blanket physical schema or production approval.
-**Implementation stack:** Go 1.27.1, pgx/v5, PostgreSQL 18, sqlc, versioned golang-migrate SQL.
+**Ngôn ngữ chính:** tiếng Việt. **Repository:** \`datvtph41107/bdspro\`, nhánh triển khai \`dev\`.  
+**Nguồn thiết kế:** canonical V0.4 gồm 164 **bảng logical ứng viên**, không mặc nhiên là schema đã cài đặt.  
+**Triển khai:** Go 1.27.1, PostgreSQL 18, pgx/v5, sqlc, golang-migrate.
 
-## A. Why these modules exist together
+## A. Mục tiêu thực tế
 
-One user registers (Account), proves email ownership, logs in (Session), is reviewed as a representative of an Organization, becomes initial workspace administrator, invites another Person, and the authorized Person captures a source observation and its reported price history. A complete path is necessary for database invariants and HTTP access checks to have a real actor; building Source first using client-supplied account_id would hide the authorization boundary.
+Ta không xây bảng rời rạc chỉ để giống một sơ đồ 164 bảng. Chúng ta chứng minh một hành trình có đối tượng, tác nhân và dòng tiền/quyền phù hợp:
 
-## B. One-row truths and actor scenarios
+1. An đăng ký Account, xác minh email, đăng nhập và giữ Session.
+2. An gửi yêu cầu đăng ký Công ty ABC. Tại thời điểm gửi, **chưa có quyền quản trị ABC**.
+3. Một reviewer có thẩm quyền nền tảng xét hồ sơ và quyết định. Phê duyệt tạo Organization cùng Membership/Role quản trị workspace theo transaction.
+4. An mời Lan. Lan chỉ được cấp Membership khi **chấp nhận** lời mời bằng Account có email đã xác minh tương ứng.
+5. Lan nhận tin Zalo về căn nhà khoảng 75 m², người cung cấp chào 4,2 tỷ. Lan lưu Source Intake kèm báo giá, không tạo Property/Listing giả.
+6. Ngày sau Lan ghi nhận lời báo giá 4,1 tỷ; hệ thống **giữ cả hai phát biểu**. Người ngoài ABC không được đọc hoặc ghi nhầm nguồn của ABC.
 
-1. Party = durable business identity, Person and Organization mutually exclusive subtypes. Account = digital login identity of Person; Profile = presentation, NOT login identity.
-2. account_emails = contact methods and verification evidence; a username is not a verified Person. password_credentials = one current password hash; sessions = revocable session token hash; no plaintext password/token in DB.
-3. Membership = an episode of participation, not legal employment or ownership; Role = org-scoped permission bundle; RoleAssignment and temporary MembershipBlock are independent facts.
-4. RegistrationRequest = a declaration asking to register NEW legal entity; ClaimRequest = a request for administrative control of EXISTING Organization. Neither creates immediate admin rights. Reviewer authority is platform-scoped, not inherited from any tenant role or commercial tier.
-5. Invitation = proposal; Acceptance creates Membership and RoleAssignment atomically after matching verified AccountEmail.
-6. SourceIntake = one company-scoped incoming observation of potential real-estate stock, possibly inaccurate. SourcePriceReport = one report at a point in source/history time. Neither automatically creates Property, Listing, publication or legal ownership.
+Đó là lý do Identity, Authentication, Organization và Source được triển khai thành một lát cắt xuyên suốt.
 
-## C. Key invariants, mechanism and proof pressure
+## B. Trách nhiệm của từng bảng
 
-| Invariant | Enforcing mechanism | Residual |
+| Sự thật cần lưu | Thành phần | Điều nó **không** tự chứng minh |
 | --- | --- | --- |
-| C01 one Party exactly one Person or Organization | parties.kind + subtype composite FKs + DEFERRABLE INITIALLY DEFERRED constraint triggers | Verify concurrent moves/deletes; other migrations referencing Party must preserve it |
-| Account belongs to Person, max one open per Person | FK accounts.person_id; partial UNIQUE WHERE closed_at IS NULL | Account merge/recovery policy out of scope |
-| Email case-insensitive key uniquely maps login | UNIQUE lower(btrim(email)), primary-email partial UNIQUE | Real mail local-part case semantics and unverified-address squat require policy |
-| Password never stored raw | Salted Argon2id PHC hash; separate credential table | Password recovery/rate limiting/abuse controls not implemented |
-| Session bounded and revocable | Secure random token, SHA-256 stored hash, expiry and revocation, Account closure checked on reads | Reverse-proxy TLS, browser CSRF and session rotation require end-to-end review |
-| Tenant-scoped Role and Membership | Composite organization_id/member/role FK, active Membership, Blocks; permission checks | Concurrent permission revocation and data writes require serial consistency policy |
-| Reviewer authority separate from tenant admin | platform_organization_reviewers granted by privileged operator SQL; review row locks | A DB superuser bypasses ordinary application boundary; admin audit and verified evidence are operational obligations |
-| Initial workspace admin differs from legal ownership | Organization primary administrator FK to same-org Membership | Representation and licensing need separate scoped legal proof |
-| Claim cannot steal current admin | Row-level lock on Organization plus primary-admin uniqueness | Legal disputes/transfer remain separate workflow |
-| Invitation acceptance cannot replay | Conditional UPDATE pending → accepted, transaction creates Membership and Role | Multiple pending invites/re-invitations and pre-existing member require product policy |
-| Report prices preserved | Append-only application writes, no mutation API; recorded/statement time separated | DB superuser can still UPDATE, immutable policies/audit need privilege gates |
-| Price never linked to wrong tenant | Composite FK (organization_id,intake_id) | FK doesn't authorize actor: every read/write must check membership, Role and Blocks |
-| Retry doesn't double-create | Unique scoped request key + normalized payload SHA-256, replay read | Hash canonicalization changes need versioning; rollback/retention policy not implemented |
+| Chủ thể nghiệp vụ ổn định | \`parties\`, \`persons\`, \`organizations\` | Khả năng đăng nhập hay quyền đại diện pháp lý |
+| Thông tin hiển thị | \`person_profiles\` | Danh tính xác thực |
+| Danh tính truy cập số | \`accounts\` | Quyền hành động trong bất kỳ Organization nào |
+| Liên hệ và chứng cứ kiểm tra email | \`account_emails\`, \`email_verification_tokens\` | Người dùng là người đại diện tổ chức |
+| Mật khẩu và phiên đăng nhập | \`password_credentials\`, \`sessions\` | Membership hoặc Role của tổ chức |
+| Một đợt tham gia của Person vào Org | \`organization_memberships\` | Quyền pháp lý với doanh nghiệp |
+| Quyền và phân quyền có thời gian | \`permissions\`, \`organization_roles\`, \`organization_role_assignments\`, \`organization_membership_blocks\` | Quyền bất biến sau khi bị thu hồi |
+| Ý định được mời | \`organization_invitations\` | Người được mời đã chấp thuận |
+| Tuyên bố đăng ký/tiếp quản | \`organization_registration_requests\`, \`organization_claim_requests\` | Tuyên bố đã được cơ quan pháp lý xác nhận |
+| Quyền reviewer cấp nền tảng | \`platform_organization_reviewers\` | Người quản trị workspace nào đó tự thành reviewer |
+| Một tin nguồn còn chưa xác minh | \`source_intakes\` | Property có thật/chính chủ hoặc Listing được phép đăng |
+| Một lời báo giá được ghi nhận | \`source_price_reports\` | Giá hiện hành chính thức |
 
-## D. Comparison with alternatives and impacts
+## C. Bất biến kỹ thuật, cơ chế và giới hạn
 
-### Identity subtype enforcement
-- Mere FK Party→Person/Organization ensures child points to parent but **not** exactly one subtype. Deferred PostgreSQL constraint trigger lets a transaction create Party before child while enforcing final commit state.
-- Costs: trigger logic, migration/test maintenance, consideration of subtype-key updates. In exchange, arbitrary Go endpoints cannot leave a bare Party committed.
+| Bất biến | Cơ chế bảo vệ hiện có | Trách nhiệm chưa giải quyết |
+| --- | --- | --- |
+| **C01:** một Party có đúng một subtype Person/Organization | \`kind\`, FK tổng hợp, constraint trigger \`DEFERRABLE INITIALLY DEFERRED\` kiểm tra lúc COMMIT | Phải tiếp tục kiểm tra thay đổi đồng thời/migration mới |
+| Account tham chiếu Person; tối đa một Account mở trên mỗi Person | FK, partial UNIQUE \`closed_at IS NULL\` | Chính sách hợp nhất/khôi phục Account |
+| Email login không tạo hai Account chỉ do khác hoa/thường | UNIQUE expression \`lower(btrim(email))\` | Chuẩn hoá địa chỉ quốc tế, ngăn giữ chỗ email chưa xác minh |
+| Không lưu mật khẩu dạng rõ | Argon2id có salt; bảng credentials riêng | Recovery, rate limiting và chính sách đổi mật khẩu |
+| Session có hạn và có thể thu hồi | Token ngẫu nhiên, chỉ lưu SHA-256, \`expires_at\`, \`revoked_at\` | Cookie/TLS/CSRF/rotation khi triển khai thực |
+| Role, Membership và Permission cùng Organization | Composite FK theo Organization + kiểm tra Role/Block trong SQL | Race thu hồi quyền và thao tác đồng thời |
+| Claim không tự chiếm quyền Org đã có admin | Organization row lock, primary admin uniqueness | Quy trình tranh chấp, chuyển giao quyền |
+| Lời mời không tự cấp quyền, không chấp nhận lặp | UPDATE có điều kiện + transaction tạo Membership/RoleAssignment | Mời lại, lời mời chồng nhau, thành viên đã tồn tại |
+| Giá báo từ nguồn không bị ghi đè bởi API | Chỉ có thao tác thêm \`source_price_reports\`, thời gian \`statement_at\` và \`recorded_at\` tách biệt | Chưa có bảo vệ immutable bằng role/DB audit cho superuser |
+| Giá của nguồn Org A không bị nối sang Org B | Composite FK \`(organization_id, intake_id)\` | FK không thay authorization |
+| Retry không tạo hai Source/Price giống một ý định | UNIQUE scoped key + normalized payload hash + replay lookup + transaction | TTL/lifecycle key và tương thích chuẩn hóa payload về sau |
 
-### Account and presentation
-- Password, profile/avatar, email-verified state are kept outside durable Party/Person roots. This reduces mixing presentation and auth lifecycles but adds joins and separate migrations.
-- One login plus per-Organization memberships avoids duplicating human credentials for every enterprise; workspace switching must still prove current membership/role each request.
+**Điểm cần nhớ:** FK giải quyết tính hợp lệ quan hệ; Session chứng minh Account đang đăng nhập; Membership và Permission xác định quyền trong Organization. Không một cơ chế riêng nào thay thế tất cả các cơ chế còn lại.
 
-### Organization onboarding
-- First claimant does not automatically become admin; Registration vs Claim are distinct. For new legal entity, reviewer inserts registry identifier under jurisdiction/code uniqueness. For existing Organization with primary admin, Claim approval intentionally refuses takeover. Reviewer must be a platform-privileged account independently provisioned.
-- Costs: review operations, evidence handling, waiting/pending flows, potential dispute process; alternatives such as automatic first-claim lower friction but expose brands to hijack.
+## D. Những quyết định đã chọn và chi phí thực tế
 
-### Source vs Property/Listing
-- Alternative A: INSERT directly into listings; wrong because Zalo report does not prove property, title or right to publish.
-- Alternative B: one mutable latest price; shorter SQL, but destroys prior and contradictory source assertions.
-- Chosen: SourceIntake and append-only PriceReport with atomic initial-price insertion, extra FK/index/storage. The recorded_at timestamp is not proof that source statement_at is newest.
-- Metadata/price stored as strings+NUMERIC, avoids float64 money rounding. Idempotency stored per scoped request (extra bytes/indexes), but network retry does not clone source or reported price.
+### D01 — Write Core khác Read Convenience
 
-### Repository and engineering
-- Removed obsolete Listing prototype runtime and generated code after previous migrations were removed from dev; Git history retains them. Full DB migration baseline is now 000001..000005, not 164 physical tables.
-- Core SQL uses explicit pgx transactions; Source data path uses sqlc generated Go. This trades SQLC consistency for focused integration speed. Revisiting sqlc for Auth/Organization is reasonable after the behavior is validated; do not assume equivalent contracts automatically.
-- New dev commit sequence is organized by business units; each commit and CI run is evidence only for its exact tree.
+Sự thật gốc phải đủ bền và có nguồn gốc. Directory, Summary, Search, CRM Lookup chỉ là projection dễ đọc. Không đặt \`display_name/avatar\` vào mọi bảng gốc vì muốn API đọc nhanh; cũng không bắt mọi HTTP handler tự UNION Person + Organization. **Chi phí:** thêm bảng/profile và projection khi nhu cầu đọc đủ rõ; **lợi ích:** phân biệt sự thật gốc với cách hiển thị.
 
-## E. Security and operations TODO; not hidden acceptance claims
+### D02 — Party và Account tách nhau
 
-- Client account_id never trusted. Sessions are random and hashed in DB; no cookies readable by JavaScript; Secure cookie in non-development.
-- SMTP token issuance after registration commit is not yet durable outbox/retry; if delivery fails, Account can remain unverified and require operator assistance. Do not claim delivery reliability.
-- HTTP Origin / Sec-Fetch-Site policy and SameSite=Lax are *not a complete CSRF architecture*. Before public launch add CSRF tokens and formal same-origin browser scenario tests.
-- Need rate limiting and anti-enumeration timing review at ingress for login, register, token verify, review/invite endpoints.
-- Must provision least-privilege DB roles; current Docker root local setup is NOT production operational separation.
-- Business legal evidence, platform reviewer approval trail, tax registry matching and personal data handling depend on jurisdiction/process. A supplied text reference by reviewer is not legal verification by itself.
-- Audit events, test data retention, data deletion, media rights, source privacy, production secrets management and observability need separate gates.
-- PostgreSQL default isolation permits revoke-vs-write races: for strict immediate revocation choose row locks/authorization revision and test serial ordering.
+Nếu Person trùng với Account, dễ xử lý một đăng nhập đơn giản nhưng sẽ khó diễn đạt Person đã tồn tại trước Account hoặc Account bị đóng mà sự thật nghiệp vụ vẫn tồn tại. Với mô hình tách, đăng ký cần nhiều INSERT và transaction. **Không ép mọi liên hệ CRM trở thành Person**: Contact/Inquiry có thể chỉ nằm trong phạm vi một doanh nghiệp.
 
-## F. Acceptance matrix
+### D03 — C01 phải được chứng minh bằng database
 
-- Source-feature baseline on separate branch: GitHub CI previously passed 11 isolated PostgreSQL 18 tests. These were *fixture tests*, not main application acceptance.
-- dev 000001..000005: must be tested as one SQL migration chain, including DOWN/UP on disposable CI DB.
-- Register → Verify → Login → Workspace approval → Invitation → Source/Price: integrated main tests must PASS under fresh PostgreSQL DB.
-- Negative tests: bare Party commit, duplicate email rollback, unauthorized reviewer, wrong-org role/price FK, duplicate invitation acceptance, org takeover, block/revoke/read denial, idempotency concurrency.
-- External/local filesystem and database synchronization can only be confirmed with user local git/psql outputs; remote CI cannot claim it.
-- Production release/real market validation not part of this engineering acceptance.
+PK/FK giúp bảo vệ quan hệ con → cha nhưng không tự ép cha có đúng một con. Trigger kiểm tra trì hoãn đến COMMIT cho phép tạo Party rồi mới tạo Person/Organization trong một transaction, song không cho lưu Party không có subtype. **Chi phí:** bảo trì trigger, test sự kiện INSERT/UPDATE/DELETE, kiểm tra những lệnh đổi định danh.
 
-## G. Next product gate
+### D04 — Một Account, nhiều ngữ cảnh Organization
 
-When dev CI is green: reconcile user's local uncommitted work non-destructively, then run fresh DB migrations and the complete server locally, record git commit hash + migration version + request evidence. Proceed to CORE-06 CRM Inquiry/Follow-up only after CORE-05 module passes this end-to-end pilot gate.
+Đăng nhập một lần, chọn workspace để làm việc; mỗi thao tác vẫn phải chứng minh Membership/Role hiện hành. Không đồng nhất Organization Owner, primary workspace admin, reviewer nền tảng và người đại diện pháp lý. **Chi phí:** thêm join/authorization và vận hành vòng đời quyền. **Rủi ro còn mở:** hai transaction ghi và thu hồi quyền chạy đua dưới READ COMMITTED.
 
+### D05 — Đăng ký và tiếp quản doanh nghiệp là hai hành động khác nhau
 
-## H. Verified CI and walkthrough
+Registration khai báo một doanh nghiệp mới; Claim xin quản trị doanh nghiệp đã tồn tại. Phê duyệt đòi reviewer riêng, không tự động lấy người gửi làm quản trị viên. Claim đối với doanh nghiệp đã có admin bị ngăn thay thế ngầm. **Chi phí:** tác nghiệp rà soát, xác minh chứng cứ, xử lý tranh chấp; phương án “ai claim trước được quyền” nhanh hơn nhưng có nguy cơ chiếm dụng thương hiệu.
 
-- Integrated Go/PostgreSQL, sqlc, formatted generated code and no module drift passed [GitHub Actions #38138653261](https://github.com/datvtph41107/bdspro/actions/runs/38138653261): 4 Core journey tests + 11 Source tests, migration UP/DOWN/UP, server smoke.
-- Versioned golang-migrate CLI applied all five migrations, checked version, performed DOWN 1 → UP 1 successfully on a disposable PostgreSQL database in [GitHub Actions #38138891535](https://github.com/datvtph41107/bdspro/actions/runs/38138891535). That same run passed sqlc generation drift checks, gofmt/vet and PostgreSQL integration tests.
-- A reproducible human acceptance script for the actual HTTP path is in [LOCAL-ACCEPTANCE.md](LOCAL-ACCEPTANCE.md).
-- This is not a certification of the user's pre-existing local working tree, PostgreSQL instance or a production security deployment.
+### D06 — Source không phải Property hay Listing
+
+Một nhân viên nhận mô tả qua Zalo không có đủ bằng chứng để khẳng định căn nhà đã xác minh, có quyền bán, được phép đăng hoặc giá chính thức. Nếu lưu thẳng \`listings\`, hệ thống sẽ trộn tin nguồn và hàng công bố. Source riêng có thêm một bảng và quá trình xác minh, nhưng giữ ngữ nghĩa sạch.
+
+### D07 — Báo giá chỉ thêm mới, không ghi đè
+
+Nguồn nói 4,2 tỷ rồi báo 4,1 tỷ. \`UPDATE\` vào một cột \`current_price\` làm mất sự kiện trước. Tách \`source_price_reports\` giữ lịch sử, chứng cứ và thời gian. **Chi phí:** hai lần ghi trong lần capture có giá; cần transaction/index/truy vấn lịch sử; chưa tự kết luận “giá mới nhất đáng tin”.
+
+### D08 — Idempotency theo ý định thao tác
+
+Browser gửi lại request khi đã COMMIT nhưng mất response. UNIQUE scoped key ngăn nhân bản; hash payload chuẩn hoá quyết định replay hợp lệ hay xung đột. **Chi phí:** lưu hash, thêm unique index, yêu cầu client tái sử dụng key khi retry và tạo key mới cho hành động mới.
+
+### D09 — Có cân nhắc tốc độ và tính đơn giản
+
+Auth/Organization hiện dùng pgx SQL tường minh, Source dùng sqlc; đây là sự khác biệt đã biết. Không xây sẵn toàn bộ RBAC engine, Event Sourcing, 164 migration hoặc projection chưa có tình huống trả chi phí. Khi nợ kỹ thuật tạo ra lỗi/bảo trì thực tế, xử lý bằng evidence và commit riêng, không “refactor cho đẹp” vô điều kiện.
+
+## E. Bằng chứng nghiệm thu hiện có
+
+| Hạng mục | Bằng chứng | Trạng thái |
+| --- | --- | --- |
+| 5 migration áp dụng trên PostgreSQL 18 | GitHub Actions \`38139052788\` | **Đạt trên CI** |
+| \`golang-migrate\`: UP → version → DOWN 1 → UP 1 | Cùng workflow | **Đạt trên CI** |
+| Go/sqlc được sinh lại không khác repository | Git diff check trong CI | **Đạt** |
+| Go format/vet/build | CI | **Đạt** |
+| Register → Verify → Login → Org approval → Invitation → Source | 4 integration tests | **Đạt** |
+| Source/Price, FK/CHECK, retry song song, revoke, HTTP stub | 11 tests | **Đạt** |
+| Khởi động server | CI smoke test | **Đạt trên CI** |
+| Hợp nhất chính xác với local cũ | Chưa có output local mới | **Chưa xác minh** |
+| Người dùng thao tác toàn bộ qua HTTP thật tại local | Có hướng dẫn, chưa có log local | **Chưa nghiệm thu** |
+| An toàn production, pháp lý và thị trường | Chưa có bài kiểm chứng tương ứng | **Chưa nghiệm thu** |
+
+Các test chứng minh behavior trong fixture/database CI, không tự tạo bằng chứng rằng tổ chức ngoài đời đã tồn tại, reviewer đã xác minh pháp lý hay ứng dụng chịu tải thực.
+
+## F. Những rủi ro phải xử lý trước production
+
+- Cơ chế gửi lại email xác minh/outbox khi SMTP lỗi sau commit Account.
+- Khôi phục Account, chống đoán mật khẩu, rate limiting, chống lạm dụng endpoint đăng ký/invite/review.
+- CSRF đầy đủ: Origin, \`Sec-Fetch-Site\` và \`SameSite=Lax\` chưa đủ.
+- Kiểm tra quyền theo thời điểm thực: thu hồi Membership/Role cùng lúc với ghi nghiệp vụ.
+- DB role tối thiểu, không chạy ứng dụng bằng DB superuser; audit, backup và migration theo lộ trình dữ liệu.
+- Chứng cứ đại diện pháp lý, chuyển giao admin, xử lý tranh chấp và dữ liệu cá nhân của người cung cấp nguồn.
+- Triển khai passkey, external identity và service-account thực sự: **mới có schema**, không tự động là phương thức đăng nhập hoàn thiện.
+
+## G. Quy tắc nghiệm thu và tiếp tục
+
+1. Không coi commit/green CI là đồng bộ local.
+2. Không triển khai \`migrations/000001–000005\` lên DB cũ chứa migration Listing khi chưa đọc \`schema_migrations\` và kế hoạch chuyển đổi.
+3. Đọc [báo cáo tổng kết](BAO-CAO-GIAI-DOAN-CORE-01-05.md), [phương pháp làm việc](QUY-TRINH-LAM-VIEC.md) và [hướng dẫn nghiệm thu local](LOCAL-ACCEPTANCE.md).
+4. Sau khi xác nhận local, bước kinh doanh tiếp theo là **CORE-06: CRM Inquiry & Follow-up** — người khách hỏi về nguồn, nhân viên ghi nhận và theo dõi, không cần ép khách đăng ký Account.
+
+**Lưu ý thời gian:** những tài liệu continuity trước 11/10/2026 có thể mô tả cách làm “người dùng tự viết toàn bộ code” hoặc migration Listing cũ. Đó là lịch sử giai đoạn học thực hành, không còn là mô tả đầy đủ của đợt triển khai do người dùng đã ủy quyền code trực tiếp trên \`dev\`.
