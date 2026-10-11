@@ -1,5 +1,8 @@
 # CORE-05 — End-to-end design, decision impacts & acceptance register
 
+> **VERIFIED ISOLATED CI — 2026-10-11.** GitHub Actions [run 38136170645](https://github.com/datvtph41107/bdspro/actions/runs/38136170645), PostgreSQL 18.6: migration UP, sqlc generation, source Go build, 11 module tests including concurrent retries/cross-organization FK/authorization/revocation and source statement timestamps, \`go test ./...\`, and disposable migration DOWN → UP all succeeded. This proves the remote feature branch against its isolated fixture, **NOT** the user's unpublished Auth/Organization source or local schema. PR #4 remains draft by design.
+
+
 **Status:** IMPLEMENTED ON ISOLATED FEATURE BRANCH / INTEGRATION NOT YET CERTIFIED.
 **PR:** https://github.com/datvtph41107/bdspro/pull/4
 **Base branch:** GitHub dev; user's Auth/Organization source is reported local-only.
