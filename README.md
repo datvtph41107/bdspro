@@ -61,6 +61,7 @@ Never expose DB root credentials or an admin-reviewer provisioning endpoint. The
 ## Evidence, decisions, safety
 
 - Design, invariant, tradeoffs, status and acceptance: docs/implementation/CORE-01-TO-05.md.
+- Complete local HTTP walkthrough and safe clone workflow: docs/implementation/LOCAL-ACCEPTANCE.md.
 - Canonical candidate: docs/database/final/BDSPro-CANONICAL-DATABASE.dbml.
 - Prior causal business context: docs/business/BUSINESS-ATLAS-V1-2026-10-10.md.
 - Source module: source/, db/source/query/source.sql, sqlc.source.yaml.

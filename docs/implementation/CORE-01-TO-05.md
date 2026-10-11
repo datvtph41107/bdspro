@@ -83,3 +83,11 @@ One user registers (Account), proves email ownership, logs in (Session), is revi
 ## G. Next product gate
 
 When dev CI is green: reconcile user's local uncommitted work non-destructively, then run fresh DB migrations and the complete server locally, record git commit hash + migration version + request evidence. Proceed to CORE-06 CRM Inquiry/Follow-up only after CORE-05 module passes this end-to-end pilot gate.
+
+
+## H. Verified CI and walkthrough
+
+- Integrated Go/PostgreSQL, sqlc, formatted generated code and no module drift passed [GitHub Actions #38138653261](https://github.com/datvtph41107/bdspro/actions/runs/38138653261): 4 Core journey tests + 11 Source tests, migration UP/DOWN/UP, server smoke.
+- golang-migrate CLI acceptance is configured separately in CI; review the latest dev CI run before marking that tool invocation proven.
+- A reproducible human acceptance script for the actual HTTP path is in [LOCAL-ACCEPTANCE.md](LOCAL-ACCEPTANCE.md).
+- This is not a certification of the user's pre-existing local working tree, PostgreSQL instance or a production security deployment.
