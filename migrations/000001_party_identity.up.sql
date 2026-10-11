@@ -30,6 +30,10 @@ BEGIN
  ELSIF TG_OP='DELETE' THEN
   pid := OLD.party_id;
  ELSE
+  -- Durable Party identity cannot be reassigned by moving a subtype PK.
+  IF TG_OP='UPDATE' AND OLD.party_id IS DISTINCT FROM NEW.party_id THEN
+   RAISE EXCEPTION 'C01: subtype Party identifier is immutable' USING ERRCODE='23514';
+  END IF;
   pid := NEW.party_id;
  END IF;
  -- ON DELETE of Party is intentionally protected by child foreign keys.
