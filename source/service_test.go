@@ -176,3 +176,53 @@ func TestNormalizeDecimal(t *testing.T){
   if _,err:=normalizeDecimal(v,priceRe);err==nil{t.Fatalf("accepted %q",v)}
  }
 }
+
+
+func TestMembershipBlockAndClosedAccount(t *testing.T) {
+ f:=setup(t,"sources.create","sources.read","sources.price_report")
+ ctx:=context.Background()
+ c,err:=f.service.Capture(ctx,f.alice,f.orgA,"block",sample())
+ if err!=nil{t.Fatal(err)}
+ var membership int64
+ if err:=f.db.QueryRow(ctx,"SELECT id FROM organization_memberships WHERE organization_id=$1",f.orgA).Scan(&membership);err!=nil{t.Fatal(err)}
+ block:=mustID(t,f.db,"INSERT INTO organization_membership_blocks(membership_id) VALUES($1) RETURNING id",membership)
+ if _,err:=f.service.Read(ctx,f.alice,f.orgA,c.ID);!errors.Is(err,ErrNotFound){t.Fatalf("blocked read: %v",err)}
+ mustExec(t,f.db,"UPDATE organization_membership_blocks SET ended_at=now() WHERE id=$1",block)
+ if _,err:=f.service.Read(ctx,f.alice,f.orgA,c.ID);err!=nil{t.Fatalf("after unblock: %v",err)}
+ mustExec(t,f.db,"UPDATE accounts SET closed_at=now() WHERE id=$1",f.alice)
+ if _,err:=f.service.Read(ctx,f.alice,f.orgA,c.ID);!errors.Is(err,ErrNotFound){t.Fatalf("closed account read: %v",err)}
+}
+func TestPriceStatementAndSourceReceptionTimes(t *testing.T) {
+ f:=setup(t,"sources.create","sources.read","sources.price_report")
+ ctx:=context.Background()
+ in:=sample()
+ in.ReceivedAt="2026-10-09T12:00:00+07:00"
+ in.InitialPrice.StatementAt="2026-10-09T11:30:00+07:00"
+ c,err:=f.service.Capture(ctx,f.alice,f.orgA,"times",in)
+ if err!=nil{t.Fatal(err)}
+ src,err:=f.service.Read(ctx,f.alice,f.orgA,c.ID)
+ if err!=nil || src.ReceivedAt==nil {t.Fatalf("received at: %+v err=%v",src,err)}
+ history,err:=f.service.PriceHistory(ctx,f.alice,f.orgA,c.ID)
+ if err!=nil || len(history)!=1 || history[0].StatementAt==nil {t.Fatalf("statement time: %+v err=%v",history,err)}
+ if history[0].StatementAt.After(history[0].RecordedAt) {t.Fatal("source statement unexpectedly after DB recording")}
+}
+func TestConcurrentPriceReportRetry(t *testing.T) {
+ f:=setup(t,"sources.create","sources.read","sources.price_report")
+ ctx:=context.Background()
+ in:=sample();in.InitialPrice=nil
+ c,err:=f.service.Capture(ctx,f.alice,f.orgA,"capture-for-price",in)
+ if err!=nil{t.Fatal(err)}
+ var wg sync.WaitGroup
+ ids:=make(chan int64,4);errs:=make(chan error,4)
+ for i:=0;i<4;i++{wg.Add(1);go func(){
+  defer wg.Done()
+  p,e:=f.service.ReportPrice(ctx,f.alice,f.orgA,c.ID,"same-price",
+   PriceInput{Amount:"4100000000",Currency:"VND"})
+  ids<-p.ID;errs<-e
+ }()}
+ wg.Wait();close(ids);close(errs)
+ for e:=range errs{if e!=nil{t.Fatalf("price race: %v",e)}}
+ var expected int64
+ for got:=range ids{if expected==0{expected=got};if got<=0||got!=expected{t.Fatalf("price ids %d/%d",got,expected)}}
+ if count(t,f.db,"source_price_reports")!=1{t.Fatal("duplicate price on retry race")}
+}
