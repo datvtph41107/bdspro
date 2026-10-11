@@ -25,9 +25,13 @@ CREATE TABLE person_profiles (
 CREATE FUNCTION assert_party_subtype() RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE pid BIGINT; k TEXT; children INTEGER;
 BEGIN
- pid := CASE WHEN TG_OP='DELETE' THEN OLD.party_id
-             WHEN TG_TABLE_NAME='parties' THEN NEW.id
-             ELSE NEW.party_id END;
+ IF TG_TABLE_NAME='parties' THEN
+  pid := NEW.id;
+ ELSIF TG_OP='DELETE' THEN
+  pid := OLD.party_id;
+ ELSE
+  pid := NEW.party_id;
+ END IF;
  -- ON DELETE of Party is intentionally protected by child foreign keys.
  SELECT kind INTO k FROM parties WHERE id=pid;
  IF NOT FOUND THEN RETURN NULL; END IF;
