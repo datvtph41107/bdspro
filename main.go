@@ -1,505 +1,91 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"log"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
-	"time"
+ "context"
+ "errors"
+ "fmt"
+ "log"
+ "net"
+ "net/http"
+ "os"
+ "os/signal"
+ "strings"
+ "syscall"
+ "time"
 
-	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
-	"github.com/datvtph41107/bdspro/listing"
-	"github.com/jackc/pgx/v5/pgxpool"
+ "github.com/datvtph41107/bdspro/auth"
+ "github.com/datvtph41107/bdspro/organization"
+ "github.com/datvtph41107/bdspro/source"
+ "github.com/jackc/pgx/v5/pgxpool"
 )
 
-func main() {
-	if err := run(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func run() error {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		return fmt.Errorf("DATABASE_URL is required")
-	}
-
-	db, err := pgxpool.New(
-		context.Background(),
-		databaseURL,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"create database pool: %w",
-			err,
-		)
-	}
-	defer db.Close()
-
-	pingCtx, cancelPing := context.WithTimeout(
-		context.Background(),
-		5*time.Second,
-	)
-
-	err = db.Ping(pingCtx)
-	cancelPing()
-
-	if err != nil {
-		return fmt.Errorf(
-			"ping database: %w",
-			err,
-		)
-	}
-
-	log.Println("database ready")
-
-	store := dbsqlc.NewStore(db)
-
-	handler := newHTTPHandler(
-		db,
-		store,
-	)
-
-	server := &http.Server{
-		Handler: handler,
-	}
-
-	addr := ":" + port
-
-	listener, err := net.Listen(
-		"tcp",
-		addr,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"listen on %s: %w",
-			addr,
-			err,
-		)
-	}
-
-	signalCtx, stop := signal.NotifyContext(
-		context.Background(),
-		os.Interrupt,
-		syscall.SIGTERM,
-	)
-	defer stop()
-
-	serverErr := make(chan error, 1)
-
-	log.Printf(
-		"bdspro listening on %s",
-		listener.Addr(),
-	)
-
-	go func() {
-		serverErr <- server.Serve(listener)
-	}()
-
-	select {
-	case err := <-serverErr:
-		if err != nil &&
-			err != http.ErrServerClosed {
-			return fmt.Errorf(
-				"http server failed: %w",
-				err,
-			)
-		}
-
-	case <-signalCtx.Done():
-		log.Println("shutdown signal received")
-
-		shutdownCtx, cancelShutdown := context.WithTimeout(
-			context.Background(),
-			5*time.Second,
-		)
-		defer cancelShutdown()
-
-		if err := server.Shutdown(shutdownCtx); err != nil {
-			return fmt.Errorf(
-				"shutdown http server: %w",
-				err,
-			)
-		}
-
-		log.Println("bdspro stopped")
-	}
-
-	return nil
-}
-
-func newHTTPHandler(
-	db *pgxpool.Pool,
-	store dbsqlc.Store,
-) http.Handler {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc(
-		"/health",
-		func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("ok"))
-		},
-	)
-
-	mux.HandleFunc(
-		"/ready",
-		func(w http.ResponseWriter, r *http.Request) {
-			ctx, cancel := context.WithTimeout(
-				r.Context(),
-				time.Second,
-			)
-			defer cancel()
-
-			if err := db.Ping(ctx); err != nil {
-				http.Error(
-					w,
-					"not ready",
-					http.StatusServiceUnavailable,
-				)
-				return
-			}
-
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("ready"))
-		},
-	)
-
-	mux.HandleFunc(
-		"GET /listings/{id}/publication-readiness",
-		func(w http.ResponseWriter, r *http.Request) {
-			id, err := strconv.ParseInt(
-				r.PathValue("id"),
-				10,
-				64,
-			)
-			if err != nil || id <= 0 {
-				http.Error(
-					w,
-					"invalid listing id",
-					http.StatusBadRequest,
-				)
-				return
-			}
-
-			readiness, err := listing.CheckPublicationReadiness(
-				r.Context(),
-				store,
-				id,
-			)
-
-			switch {
-			case errors.Is(
-				err,
-				listing.ErrNotFound,
-			):
-				http.Error(
-					w,
-					"listing not found",
-					http.StatusNotFound,
-				)
-				return
-
-			case err != nil:
-				log.Printf(
-					"check listing publication readiness: %v",
-					err,
-				)
-
-				http.Error(
-					w,
-					"check publication readiness failed",
-					http.StatusInternalServerError,
-				)
-				return
-			}
-
-			w.Header().Set(
-				"Content-Type",
-				"application/json",
-			)
-
-			if err := json.NewEncoder(w).Encode(
-				readiness,
-			); err != nil {
-				log.Printf(
-					"encode publication readiness: %v",
-					err,
-				)
-			}
-		},
-	)
-
-	mux.HandleFunc(
-		"POST /listings",
-		func(w http.ResponseWriter, r *http.Request) {
-			var input struct {
-				Title string `json:"title"`
-			}
-
-			if err := json.NewDecoder(
-				r.Body,
-			).Decode(&input); err != nil {
-				http.Error(
-					w,
-					"invalid request body",
-					http.StatusBadRequest,
-				)
-				return
-			}
-
-			result, err := listing.Create(
-				r.Context(),
-				store,
-				input.Title,
-			)
-
-			switch {
-			case errors.Is(
-				err,
-				listing.ErrTitleRequired,
-			):
-				http.Error(
-					w,
-					"title is required",
-					http.StatusBadRequest,
-				)
-				return
-
-			case err != nil:
-				log.Printf(
-					"listing create failed: %v",
-					err,
-				)
-
-				http.Error(
-					w,
-					"listing create failed",
-					http.StatusInternalServerError,
-				)
-				return
-			}
-
-			w.Header().Set(
-				"Content-Type",
-				"application/json",
-			)
-			w.WriteHeader(
-				http.StatusCreated,
-			)
-
-			if err := json.NewEncoder(w).Encode(
-				result,
-			); err != nil {
-				log.Printf(
-					"encode create listing response: %v",
-					err,
-				)
-			}
-		},
-	)
-
-	mux.HandleFunc(
-		"PATCH /listings/{id}",
-		func(w http.ResponseWriter, r *http.Request) {
-			id, err := strconv.ParseInt(
-				r.PathValue("id"),
-				10,
-				64,
-			)
-			if err != nil || id <= 0 {
-				http.Error(
-					w,
-					"invalid listing id",
-					http.StatusBadRequest,
-				)
-				return
-			}
-
-			var input struct {
-				Description string `json:"description"`
-			}
-
-			if err := json.NewDecoder(
-				r.Body,
-			).Decode(&input); err != nil {
-				http.Error(
-					w,
-					"invalid request body",
-					http.StatusBadRequest,
-				)
-				return
-			}
-
-			result, err := listing.UpdateDescription(
-				r.Context(),
-				store,
-				id,
-				input.Description,
-			)
-
-			switch {
-			case errors.Is(
-				err,
-				listing.ErrDescriptionRequired,
-			):
-				http.Error(
-					w,
-					"description is required",
-					http.StatusBadRequest,
-				)
-				return
-
-			case errors.Is(
-				err,
-				listing.ErrNotFound,
-			):
-				http.Error(
-					w,
-					"listing not found",
-					http.StatusNotFound,
-				)
-				return
-
-			case errors.Is(
-				err,
-				listing.ErrNotEditable,
-			):
-				http.Error(
-					w,
-					"listing is not editable",
-					http.StatusConflict,
-				)
-				return
-
-			case err != nil:
-				log.Printf(
-					"update listing description: %v",
-					err,
-				)
-
-				http.Error(
-					w,
-					"update listing failed",
-					http.StatusInternalServerError,
-				)
-				return
-			}
-
-			w.Header().Set(
-				"Content-Type",
-				"application/json",
-			)
-
-			if err := json.NewEncoder(w).Encode(
-				result,
-			); err != nil {
-				log.Printf(
-					"encode listing response: %v",
-					err,
-				)
-			}
-		},
-	)
-
-	mux.HandleFunc(
-		"POST /listings/{id}/publish",
-		func(w http.ResponseWriter, r *http.Request) {
-			id, err := strconv.ParseInt(
-				r.PathValue("id"),
-				10,
-				64,
-			)
-			if err != nil || id <= 0 {
-				http.Error(
-					w,
-					"invalid listing id",
-					http.StatusBadRequest,
-				)
-				return
-			}
-
-			result, err := listing.Publish(
-				r.Context(),
-				store,
-				id,
-			)
-
-			switch {
-			case errors.Is(
-				err,
-				listing.ErrNotFound,
-			):
-				http.Error(
-					w,
-					"listing not found",
-					http.StatusNotFound,
-				)
-				return
-
-			case errors.Is(
-				err,
-				listing.ErrAlreadyPublished,
-			):
-				http.Error(
-					w,
-					"listing already published",
-					http.StatusConflict,
-				)
-				return
-
-			case errors.Is(
-				err,
-				listing.ErrNotPublishable,
-			):
-				http.Error(
-					w,
-					"listing is not publishable",
-					http.StatusConflict,
-				)
-				return
-
-			case err != nil:
-				log.Printf(
-					"publish listing: %v",
-					err,
-				)
-
-				http.Error(
-					w,
-					"publish listing failed",
-					http.StatusInternalServerError,
-				)
-				return
-			}
-
-			w.Header().Set(
-				"Content-Type",
-				"application/json",
-			)
-
-			if err := json.NewEncoder(w).Encode(
-				result,
-			); err != nil {
-				log.Printf(
-					"encode publish listing response: %v",
-					err,
-				)
-			}
-		},
-	)
-
-	return mux
+func main(){if err:=run();err!=nil{log.Fatal(err)}}
+func run()error{
+ databaseURL:=os.Getenv("DATABASE_URL")
+ if databaseURL==""{return fmt.Errorf("DATABASE_URL required")}
+ dev:=os.Getenv("APP_ENV")=="development"
+ host:=os.Getenv("BIND_HOST")
+ if host==""{host="127.0.0.1"}
+ if dev && host!="localhost"&&host!="127.0.0.1"&&host!="::1"{
+  return fmt.Errorf("development verification tokens require a loopback listener")
+ }
+ port:=os.Getenv("PORT");if port==""{port="8080"}
+ ctx:=context.Background()
+ pool,err:=pgxpool.New(ctx,databaseURL)
+ if err!=nil{return err};defer pool.Close()
+ ping,cancel:=context.WithTimeout(ctx,5*time.Second)
+ err=pool.Ping(ping);cancel();if err!=nil{return fmt.Errorf("ping database: %w",err)}
+ var mailer auth.Mailer
+ if os.Getenv("SMTP_ADDR")!=""{
+  mailer=auth.SMTPMailer{
+   Addr:os.Getenv("SMTP_ADDR"),User:os.Getenv("SMTP_USER"),
+   Password:os.Getenv("SMTP_PASSWORD"),From:os.Getenv("SMTP_FROM"),
+   VerificationURL:os.Getenv("VERIFICATION_URL"),
+  }
+ }
+ if !dev && mailer==nil{return fmt.Errorf("SMTP_ADDR required outside development")}
+ if !dev && os.Getenv("ALLOWED_ORIGIN")==""{return fmt.Errorf("ALLOWED_ORIGIN required outside development")}
+ authentication:=&auth.Handler{
+  S:auth.New(pool,mailer),Development:dev,SecureCookies:!dev,
+  AllowedOrigin:os.Getenv("ALLOWED_ORIGIN"),
+ }
+ organizations:=&organization.Handler{Service:organization.New(pool),Auth:authentication}
+ mux:=http.NewServeMux()
+ authentication.RegisterRoutes(mux)
+ organizations.RegisterRoutes(mux)
+ src:=source.NewHandler(source.NewService(pool),authentication.Account)
+ mux.Handle("/organizations/",src)
+ mux.HandleFunc("GET /health",func(w http.ResponseWriter,r *http.Request){_,_=w.Write([]byte("ok"))})
+ mux.HandleFunc("GET /ready",func(w http.ResponseWriter,r *http.Request){
+  c,cancel:=context.WithTimeout(r.Context(),time.Second);defer cancel()
+  if err:=pool.Ping(c);err!=nil{http.Error(w,"not ready",503);return}
+  _,_=w.Write([]byte("ready"))
+ })
+ handler:=http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+  method:=r.Method
+  if method!="GET"&&method!="HEAD"&&method!="OPTIONS" {
+   site:=strings.ToLower(r.Header.Get("Sec-Fetch-Site"))
+   if site=="cross-site"{http.Error(w,"cross-site request denied",403);return}
+   origin:=r.Header.Get("Origin")
+   if origin!=""&&origin!=authentication.AllowedOrigin {
+    http.Error(w,"origin not allowed",403);return
+   }
+  }
+  mux.ServeHTTP(w,r)
+ })
+ server:=&http.Server{Handler:handler,ReadHeaderTimeout:5*time.Second,IdleTimeout:60*time.Second}
+ address:=net.JoinHostPort(host,port)
+ ln,err:=net.Listen("tcp",address);if err!=nil{return err}
+ log.Printf("BDSPro listening on %s",ln.Addr())
+ signals,stop:=signal.NotifyContext(ctx,os.Interrupt,syscall.SIGTERM);defer stop()
+ done:=make(chan error,1)
+ go func(){done<-server.Serve(ln)}()
+ select {
+ case err:=<-done:
+  if err!=nil&&!errors.Is(err,http.ErrServerClosed){return err}
+ case <-signals.Done():
+  shutdown,cancel:=context.WithTimeout(context.Background(),5*time.Second);defer cancel()
+  if err:=server.Shutdown(shutdown);err!=nil{return err}
+ }
+ return nil
 }
