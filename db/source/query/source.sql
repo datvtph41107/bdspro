@@ -4,7 +4,7 @@
 -- name: InsertSourceIntake :one
 INSERT INTO source_intakes (
   organization_id, recorded_by_account_id, source_channel_code,
-  source_label, reported_area_m2, area_basis_code, summary,
+  source_label, reported_area_m2, area_basis_code, received_at, summary,
   capture_request_key, capture_request_hash
 )
 SELECT
@@ -12,6 +12,7 @@ SELECT
   NULLIF(btrim(sqlc.arg(label)::text), ''),
   NULLIF(sqlc.arg(area_m2)::text, '')::numeric,
   NULLIF(btrim(sqlc.arg(area_basis)::text), ''),
+  NULLIF(sqlc.arg(received_at)::text, '')::timestamptz,
   NULLIF(btrim(sqlc.arg(summary)::text), ''),
   sqlc.arg(request_key)::text, sqlc.arg(request_hash)::text
 FROM organizations o
@@ -23,6 +24,7 @@ WHERE o.party_id = sqlc.arg(organization_id)::bigint
     SELECT 1 FROM organization_memberships m
     JOIN organization_role_assignments ra
       ON ra.organization_id = m.organization_id AND ra.membership_id = m.id
+    JOIN organization_roles role ON role.id = ra.role_id AND role.organization_id = m.organization_id
     JOIN organization_role_permissions rp ON rp.role_id = ra.role_id
     WHERE m.organization_id = o.party_id AND m.person_id = a.person_id
       AND m.joined_at <= NOW() AND m.ended_at IS NULL
@@ -40,7 +42,8 @@ WHERE o.party_id = sqlc.arg(organization_id)::bigint
       SELECT 1 FROM organization_memberships m
       JOIN organization_role_assignments ra
         ON ra.organization_id = m.organization_id AND ra.membership_id = m.id
-      JOIN organization_role_permissions rp ON rp.role_id = ra.role_id
+      JOIN organization_roles role ON role.id = ra.role_id AND role.organization_id = m.organization_id
+    JOIN organization_role_permissions rp ON rp.role_id = ra.role_id
       WHERE m.organization_id = o.party_id AND m.person_id = a.person_id
         AND m.joined_at <= NOW() AND m.ended_at IS NULL
         AND ra.assigned_at <= NOW() AND ra.ended_at IS NULL
@@ -68,6 +71,7 @@ WHERE si.organization_id = sqlc.arg(organization_id)::bigint
     SELECT 1 FROM organization_memberships m
     JOIN organization_role_assignments ra
       ON ra.organization_id = m.organization_id AND ra.membership_id = m.id
+    JOIN organization_roles role ON role.id = ra.role_id AND role.organization_id = m.organization_id
     JOIN organization_role_permissions rp ON rp.role_id = ra.role_id
     WHERE m.organization_id = si.organization_id
       AND m.person_id = a.person_id
@@ -84,7 +88,7 @@ WHERE si.organization_id = sqlc.arg(organization_id)::bigint
 -- name: InsertPriceReport :one
 INSERT INTO source_price_reports (
   organization_id, intake_id, recorded_by_account_id,
-  amount, currency_code, price_basis_code, source_basis_code, note,
+  amount, currency_code, price_basis_code, source_basis_code, statement_at, note,
   request_key, request_hash
 )
 SELECT
@@ -93,6 +97,7 @@ SELECT
   sqlc.arg(currency)::text,
   NULLIF(btrim(sqlc.arg(price_basis)::text), ''),
   NULLIF(btrim(sqlc.arg(source_basis)::text), ''),
+  NULLIF(sqlc.arg(statement_at)::text, '')::timestamptz,
   NULLIF(btrim(sqlc.arg(note)::text), ''),
   sqlc.arg(price_request_key)::text,
   sqlc.arg(price_request_hash)::text
@@ -106,6 +111,7 @@ WHERE si.id = sqlc.arg(intake_id)::bigint
     SELECT 1 FROM organization_memberships m
     JOIN organization_role_assignments ra
       ON ra.organization_id = m.organization_id AND ra.membership_id = m.id
+    JOIN organization_roles role ON role.id = ra.role_id AND role.organization_id = m.organization_id
     JOIN organization_role_permissions rp ON rp.role_id = ra.role_id
     WHERE m.organization_id = si.organization_id AND m.person_id = a.person_id
       AND m.joined_at <= NOW() AND m.ended_at IS NULL
@@ -128,7 +134,7 @@ SELECT
   COALESCE(si.reported_area_m2::text, '')::text AS reported_area_m2,
   COALESCE(si.area_basis_code, '')::text AS area_basis_code,
   COALESCE(si.summary, '')::text AS summary,
-  si.version, si.recorded_at
+  si.version, si.recorded_at, si.received_at
 FROM source_intakes si
 JOIN organizations o ON o.party_id = si.organization_id
 JOIN accounts a ON a.id = sqlc.arg(actor_account_id)::bigint
@@ -139,6 +145,7 @@ WHERE si.id = sqlc.arg(intake_id)::bigint
     SELECT 1 FROM organization_memberships m
     JOIN organization_role_assignments ra
       ON ra.organization_id = m.organization_id AND ra.membership_id = m.id
+    JOIN organization_roles role ON role.id = ra.role_id AND role.organization_id = m.organization_id
     JOIN organization_role_permissions rp ON rp.role_id = ra.role_id
     WHERE m.organization_id = si.organization_id AND m.person_id = a.person_id
       AND m.joined_at <= NOW() AND m.ended_at IS NULL
@@ -158,7 +165,7 @@ SELECT
   COALESCE(spr.price_basis_code, '')::text AS price_basis_code,
   COALESCE(spr.source_basis_code, '')::text AS source_basis_code,
   COALESCE(spr.note, '')::text AS note,
-  spr.recorded_at
+  spr.recorded_at, spr.statement_at
 FROM source_price_reports spr
 JOIN source_intakes si
   ON si.organization_id = spr.organization_id AND si.id = spr.intake_id
@@ -171,6 +178,7 @@ WHERE spr.organization_id = sqlc.arg(organization_id)::bigint
     SELECT 1 FROM organization_memberships m
     JOIN organization_role_assignments ra
       ON ra.organization_id = m.organization_id AND ra.membership_id = m.id
+    JOIN organization_roles role ON role.id = ra.role_id AND role.organization_id = m.organization_id
     JOIN organization_role_permissions rp ON rp.role_id = ra.role_id
     WHERE m.organization_id = si.organization_id AND m.person_id = a.person_id
       AND m.joined_at <= NOW() AND m.ended_at IS NULL
@@ -201,6 +209,7 @@ WHERE spr.organization_id = sqlc.arg(organization_id)::bigint
     SELECT 1 FROM organization_memberships m
     JOIN organization_role_assignments ra
       ON ra.organization_id = m.organization_id AND ra.membership_id = m.id
+    JOIN organization_roles role ON role.id = ra.role_id AND role.organization_id = m.organization_id
     JOIN organization_role_permissions rp ON rp.role_id = ra.role_id
     WHERE m.organization_id = si.organization_id AND m.person_id = a.person_id
       AND m.joined_at <= NOW() AND m.ended_at IS NULL
