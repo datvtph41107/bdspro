@@ -88,6 +88,6 @@ When dev CI is green: reconcile user's local uncommitted work non-destructively,
 ## H. Verified CI and walkthrough
 
 - Integrated Go/PostgreSQL, sqlc, formatted generated code and no module drift passed [GitHub Actions #38138653261](https://github.com/datvtph41107/bdspro/actions/runs/38138653261): 4 Core journey tests + 11 Source tests, migration UP/DOWN/UP, server smoke.
-- golang-migrate CLI acceptance is configured separately in CI; review the latest dev CI run before marking that tool invocation proven.
+- Versioned golang-migrate CLI applied all five migrations, checked version, performed DOWN 1 → UP 1 successfully on a disposable PostgreSQL database in [GitHub Actions #38138891535](https://github.com/datvtph41107/bdspro/actions/runs/38138891535). That same run passed sqlc generation drift checks, gofmt/vet and PostgreSQL integration tests.
 - A reproducible human acceptance script for the actual HTTP path is in [LOCAL-ACCEPTANCE.md](LOCAL-ACCEPTANCE.md).
 - This is not a certification of the user's pre-existing local working tree, PostgreSQL instance or a production security deployment.
