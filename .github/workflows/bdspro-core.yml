@@ -31,10 +31,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Dependencies and sqlc
-        run: |
-          go mod tidy
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+      - name: Install sqlc
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
       - name: Apply canonical migrations
         run: |
           createdb -h localhost -U root bdspro_source_ci
@@ -43,6 +41,8 @@ jobs:
           done
       - name: Generate source query package
         run: sqlc generate -f sqlc.source.yaml
+      - name: Resolve generated Go dependencies
+        run: go mod tidy
       - name: Format and build
         run: |
           gofmt -w auth organization source main.go
