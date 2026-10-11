@@ -186,7 +186,7 @@ ORDER BY spr.recorded_at, spr.id;
 
 
 -- name: FindAuthorizedPriceReplay :one
-SELECT spr.id, spr.request_hash
+SELECT spr.id, COALESCE(spr.request_hash, '')::text AS request_hash
 FROM source_price_reports spr
 JOIN source_intakes si
   ON si.id = spr.intake_id AND si.organization_id = spr.organization_id
