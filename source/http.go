@@ -18,19 +18,21 @@ type captureBody struct {
  Label string `json:"label"`
  AreaM2 string `json:"area_m2"`
  AreaBasis string `json:"area_basis"`
+ ReceivedAt string `json:"received_at"`
  Summary string `json:"summary"`
  InitialPrice *priceBody `json:"initial_price"`
 }
 type priceBody struct {
  Amount string `json:"amount"`
  Currency string `json:"currency"`
+ StatementAt string `json:"statement_at"`
  PriceBasis string `json:"price_basis"`
  SourceBasis string `json:"source_basis"`
  Note string `json:"note"`
 }
 func (p priceBody) toInput() PriceInput {
  return PriceInput{
-  Amount:p.Amount,Currency:p.Currency,PriceBasis:p.PriceBasis,
+  Amount:p.Amount,Currency:p.Currency,StatementAt:p.StatementAt,PriceBasis:p.PriceBasis,
   SourceBasis:p.SourceBasis,Note:p.Note,
  }
 }
@@ -85,7 +87,7 @@ func NewHandler(service *Service,resolve AccountResolver) http.Handler {
   if b.InitialPrice!=nil {p:=b.InitialPrice.toInput();price=&p}
   result,err:=service.Capture(r.Context(),actor,org,r.Header.Get("Idempotency-Key"),
    CaptureInput{Channel:b.Channel,Label:b.Label,AreaM2:b.AreaM2,AreaBasis:b.AreaBasis,
-    Summary:b.Summary,InitialPrice:price})
+    Summary:b.Summary,ReceivedAt:b.ReceivedAt,InitialPrice:price})
   if err!=nil{writeFailure(w,err);return}
   status:=http.StatusCreated
   if result.Replayed{status=http.StatusOK}
@@ -102,7 +104,7 @@ func NewHandler(service *Service,resolve AccountResolver) http.Handler {
    "id":value.ID,"organization_id":value.OrganizationID,
    "recorded_by_account_id":value.RecordedByAccountID,"channel":value.Channel,
    "label":value.Label,"area_m2":value.AreaM2,"area_basis":value.AreaBasis,
-   "summary":value.Summary,"version":value.Version,"recorded_at":value.RecordedAt,
+   "summary":value.Summary,"version":value.Version,"recorded_at":value.RecordedAt,"received_at":value.ReceivedAt,
   })
  })
  mux.HandleFunc("POST /organizations/{organizationID}/sources/{sourceID}/price-reports",func(w http.ResponseWriter,r *http.Request){
@@ -130,7 +132,7 @@ func NewHandler(service *Service,resolve AccountResolver) http.Handler {
    out=append(out,map[string]any{
     "id":p.ID,"intake_id":p.IntakeID,"recorded_by_account_id":p.RecordedByAccountID,
     "amount":p.Amount,"currency":p.Currency,"price_basis":p.PriceBasis,
-    "source_basis":p.SourceBasis,"note":p.Note,"recorded_at":p.RecordedAt,
+    "source_basis":p.SourceBasis,"note":p.Note,"recorded_at":p.RecordedAt,"statement_at":p.StatementAt,
    })
   }
   writeJSON(w,http.StatusOK,out)
