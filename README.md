@@ -1,5 +1,7 @@
 # BDSPro — Nền tảng Core từ CORE-01 đến CORE-05
 
+> **CORE-01 bổ sung 12/10/2026:** migration `000006_party_kind_immutability` khóa không cho đổi loại Party; hai test mới về chuyển loại và cạnh tranh cập nhật. [CI 38221355862 thành công](https://github.com/datvtph41107/bdspro/actions/runs/38221355862); [quyết định và giới hạn](docs/implementation/CORE-01-KIND-IMMUTABILITY.md). Không sửa lịch sử migration `000001`.
+>
 > **Ngôn ngữ tài liệu đang hoạt động: tiếng Việt.** Tên bảng, cột, API, câu lệnh và mã nguồn giữ nguyên tiếng Anh để đối chiếu trực tiếp với PostgreSQL/Go.  
 > **Nhánh triển khai duy nhất:** `dev`. **Phạm vi đã hoàn thành:** baseline kỹ thuật Core, **không phải** toàn bộ sản phẩm BDSPro hay bản phát hành production.
 
@@ -31,6 +33,7 @@ Một người đăng ký tài khoản
 | CORE-03 — Authorization | Membership, Role, Permission, gán quyền, khóa thành viên, lời mời và quản trị viên workspace | `000003_organization_authorization` |
 | CORE-04 — Onboarding | Yêu cầu đăng ký tổ chức, claim tổ chức đã tồn tại, quyền reviewer và định danh đăng ký được xác minh | `000004_organization_onboarding` |
 | CORE-05 — Source | Nguồn tin chưa xác minh, lịch sử báo giá dạng thêm mới, khóa phạm vi Organization, retry an toàn | `000005_source_intake` |
+| CORE-01 follow-up — Party kind | Guard PostgreSQL chặn Person bị đổi thành Organization (và ngược lại) tại cùng Party ID | `000006_party_kind_immutability` |
 
 **Stack thực tế:** Go 1.27.1, PostgreSQL 18, `pgx/v5`, `sqlc`, `golang-migrate`. Auth và Organization sử dụng SQL/pgx tường minh; đường dữ liệu Source sử dụng Go sinh từ sqlc.
 
@@ -38,12 +41,12 @@ Một người đăng ký tài khoản
 
 ## 3. Bằng chứng nghiệm thu kỹ thuật
 
-[GitHub Actions — Core End-to-End CI đã thành công](https://github.com/datvtph41107/bdspro/actions/runs/38139052788).
+[GitHub Actions — Core End-to-End CI đã thành công, có migration 000006](https://github.com/datvtph41107/bdspro/actions/runs/38221355862).
 
-- PostgreSQL 18 thực thi chuỗi migration 000001–000005.
+- PostgreSQL 18 thực thi chuỗi migration 000001–000006.
 - CLI `golang-migrate` kiểm tra phiên bản, `UP → DOWN 1 → UP 1` trên database dùng riêng.
 - `sqlc generate`, `go mod tidy`, `gofmt`, `go vet` và kiểm tra generated files không bị lệch.
-- **15 test đạt:** 4 kiểm thử tích hợp Account → Organization → Source, 11 kiểm thử chuyên sâu Source/Price.
+- **17 test đạt:** 4 kiểm thử tích hợp Account → Organization → Source, 11 kiểm thử chuyên sâu Source/Price, 2 kiểm thử Party kind.
 - Server khởi động thành công trên database CI.
 
 **Không suy diễn:** CI không chứng minh máy local của bạn đã đồng bộ, dữ liệu cũ đã được migrate, doanh nghiệp đã được xác minh ngoài thực tế, hoặc hệ thống đã sẵn sàng triển khai production.
@@ -51,7 +54,7 @@ Một người đăng ký tài khoản
 ## 4. Cấu trúc nguồn chính
 
 ```text
-migrations/                  # DDL theo thứ tự 000001 → 000005
+migrations/                  # DDL theo thứ tự 000001 → 000006
 auth/                        # Đăng ký, xác minh email, password, Session, HTTP
 organization/                # Review, claim, invitations, membership, HTTP
 source/                      # Tiếp nhận nguồn, lịch sử giá, HTTP và tests

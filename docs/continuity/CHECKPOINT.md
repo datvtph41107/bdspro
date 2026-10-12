@@ -1,12 +1,14 @@
 # CHECKPOINT BDSPro — tiếng Việt (hiệu lực từ 11/10/2026)
 
-> **Nguồn trạng thái hiện hành:** nhánh `dev` trên GitHub, 5 migration CORE-01 → CORE-05, đã có Auth/Organization/Source và kiểm thử end-to-end. Cách làm được người dùng chốt: **triển khai theo module đủ lớn trực tiếp trên `dev`, chia thành commit có ý nghĩa và CI; người dùng đồng bộ local khi kết thúc module**.
+> **Nguồn trạng thái hiện hành:** nhánh `dev` trên GitHub, 6 migration (`000001`–`000006`) cho CORE-01 → CORE-05 và guard Identity bổ sung, đã có Auth/Organization/Source và kiểm thử end-to-end. Cách làm được người dùng chốt: **triển khai theo module đủ lớn trực tiếp trên `dev`, chia thành commit có ý nghĩa và CI; người dùng đồng bộ local khi kết thúc module**.
 >
-> **Đã nghiệm thu trên GitHub CI:** [run 38139052788](https://github.com/datvtph41107/bdspro/actions/runs/38139052788), PostgreSQL 18; `golang-migrate UP → version → DOWN 1 → UP 1`, `sqlc`, gofmt/vet, 4 test Core + 11 test Source, server smoke. Những commit **chỉ đổi docs** sau run này không làm thay đổi executable code, nhưng vẫn phải xem CI của HEAD mới. **Local của người dùng chưa được quan sát sau đồng bộ.**
+> **Đã nghiệm thu trên GitHub CI:** [run 38221355862](https://github.com/datvtph41107/bdspro/actions/runs/38221355862), PostgreSQL 18; `golang-migrate UP → version → DOWN 1 → UP 1`, `sqlc`, gofmt/vet, 4 test Core + 11 test Source + 2 test Party kind, server smoke. Những commit **chỉ đổi docs** sau run này không làm thay đổi executable code, nhưng vẫn phải xem CI của HEAD mới. **Local của người dùng chưa được quan sát sau đồng bộ.**
 >
 > **Tài liệu tiếng Việt ưu tiên đọc:** [README](../../README.md), [Báo cáo tổng kết](../implementation/BAO-CAO-GIAI-DOAN-CORE-01-05.md), [Quy trình làm việc](../implementation/QUY-TRINH-LAM-VIEC.md), [Quyết định thiết kế](../implementation/CORE-01-TO-05.md), [Hướng dẫn nghiệm thu local](../implementation/LOCAL-ACCEPTANCE.md). **Không coi** các chỉ dẫn tiếng Anh cũ bên dưới là lệnh thực thi tiếp theo.
 >
 > **GATE-NEXT:** người dùng clone `dev` vào thư mục riêng (không ghi đè `~/projects/bdspro`), kiểm tra `git status`/HEAD, tạo database LAB mới, chạy migrations/test và hành trình HTTP Account → Org → Source; ghi kết quả. Sau gate này mở CORE-06: CRM Inquiry & Follow-up với khách chưa có Account.
+>
+> **CORE-01 technical follow-up ngày 12/10/2026:** [migration 000006](../../migrations/000006_party_kind_immutability.up.sql) thêm BEFORE UPDATE trigger ngăn thay đổi `parties.kind`; không sửa 000001. CI [38221355862](https://github.com/datvtph41107/bdspro/actions/runs/38221355862) SUCCESS: migrations, sqlc, Go tests, rollback/reapply, server smoke. Xem [quyết định chi tiết](../implementation/CORE-01-KIND-IMMUTABILITY.md). C01 subtype và kind immutability đã có regression tests trên PostgreSQL CI; local của user và quyền DDL đặc biệt chưa được kiểm chứng.
 >
 > **Còn mở trước production:** CSRF, rate limiting, account recovery, SMTP outbox/retry, reviewer audit, database least privilege, bảo vệ dữ liệu, race thu hồi quyền, kiểm chứng pháp lý. Các bảng passkey/external identity/service-account mới có cấu trúc chứ chưa có authentication runtime tương ứng.
 

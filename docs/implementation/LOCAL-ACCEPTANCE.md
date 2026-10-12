@@ -1,6 +1,6 @@
 # Hướng dẫn đồng bộ và nghiệm thu CORE-01 → CORE-05 tại local
 
-> Hướng dẫn dành cho **PostgreSQL 18 và code branch `dev`**, trong môi trường thử nghiệm. Chỉ thực hiện thao tác có thể làm thay đổi dữ liệu sau khi đã đọc đúng database/branch. **Không ghi đè thư mục `~/projects/bdspro` cũ.**
+> Hướng dẫn dành cho **PostgreSQL 18 và code branch `dev`**, trong môi trường thử nghiệm. Tính đến 12/10/2026, nhánh `dev` có thêm migration `000006_party_kind_immutability` (bảo vệ loại Party không đổi); lệnh `migrate ... up` phải đi đến version **6** trên database LAB mới. CI [38221355862](https://github.com/datvtph41107/bdspro/actions/runs/38221355862) đã thành công; local vẫn phải tự nghiệm thu. Chỉ thực hiện thao tác có thể làm thay đổi dữ liệu sau khi đã đọc đúng database/branch. **Không ghi đè thư mục `~/projects/bdspro` cũ.**
 
 ## A. Lấy đầy đủ code từ remote về thư mục mới
 
