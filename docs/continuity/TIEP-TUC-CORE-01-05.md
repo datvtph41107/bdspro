@@ -1,3 +1,7 @@
+> **LƯU TRỮ LỊCH SỬ — 2026-10-15:** Prompt CORE-01→05 / GATE-LOCAL-01 / CORE-06 bên dưới là chỉ dẫn của giai đoạn cũ. Hướng hiện tại đã chuyển sang [Engineering Core checkpoint](checkpoints/2026-10-15-engineering-core-reorientation/README.md) và [prompt mới cho chat tiếp theo](checkpoints/2026-10-15-engineering-core-reorientation/CONTINUE-PROMPT.md). Không dùng tài liệu này làm next-task tự động.
+
+---
+
 # Prompt tiếp tục BDSPro — bản tiếng Việt
 
 Tôi đang tiếp tục BDSPro tại repository `datvtph41107/bdspro`, **chỉ làm việc trên nhánh `dev`**. Đọc và ưu tiên trạng thái mới nhất trong:

@@ -1,3 +1,5 @@
+> **RECOVERY PRIORITY UPDATE 2026-10-15:** Khi bắt đầu chat mới, trước hết đọc [Engineering Core checkpoint](checkpoints/2026-10-15-engineering-core-reorientation/README.md) và [prompt phục hồi](checkpoints/2026-10-15-engineering-core-reorientation/CONTINUE-PROMPT.md). Mục tiêu hiện hành là nghiên cứu từ code Go thực tế và hình thành quy chuẩn kỹ thuật developer, **không phải triển khai Business Core hay CORE-06**. Những đoạn "current/next" bên dưới về migration/feature được giữ để tra cứu lịch sử; trạng thái live code/Git/DB cần kiểm chứng riêng.
+
 # BDSPro Continuity Master
 
 This is the durable entry point for continuing work in a fresh chat, machine or

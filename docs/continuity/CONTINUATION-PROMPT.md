@@ -1,3 +1,7 @@
+> **BẢN HIỆN HÀNH — 2026-10-15, ƯU TIÊN CAO NHẤT:** Dùng [prompt khôi phục Engineering Core](checkpoints/2026-10-15-engineering-core-reorientation/CONTINUE-PROMPT.md); đọc [checkpoint tư duy và trạng thái](checkpoints/2026-10-15-engineering-core-reorientation/README.md). Người dùng đã chuyển trọng tâm sang **Engineering Core / Go technical foundations / developer conventions**; không tự động tiếp tục CORE-06, GATE-LOCAL-01, SQL-01, hoặc kế hoạch triển khai feature ở các prompt lịch sử phía dưới. Code hiện có là đối tượng review; không sửa Go/SQL/CI nếu chưa được yêu cầu. GitHub live source là authority cho code, checkpoint mới là authority cho trọng tâm, local DB/Git chỉ được xác định bằng output thật.
+
+---
+
 > **Bản tiếng Việt đang áp dụng (11/10/2026):** [TIEP-TUC-CORE-01-05.md](TIEP-TUC-CORE-01-05.md). Nội dung phía dưới là prompt lưu trữ của giai đoạn trước, không thay thế checkpoint hiện tại.
 
 # BDSPro Continuation Prompt
