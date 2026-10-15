@@ -1,3 +1,7 @@
+> **HƯỚNG KHÔI PHỤC MỚI NHẤT (2026-10-15):** [Engineering Operating Model checkpoint](checkpoints/2026-10-15-engineering-core-operating-model/README.md) · [chapter matrix CH00–CH19](checkpoints/2026-10-15-engineering-core-operating-model/CHAPTER-MATRIX.md) · [portable prompt](checkpoints/2026-10-15-engineering-core-operating-model/CONTINUE-PROMPT.md). Trọng tâm hiện tại **CH01 Configuration & Developer Workflow**, ownership/canonical source of truth, SimpleBank đối chứng. Nội dung cũ bên dưới là lịch sử; cần kiểm chứng HEAD/source/DB live.
+
+---
+
 > **RECOVERY PRIORITY UPDATE 2026-10-15:** Khi bắt đầu chat mới, trước hết đọc [Engineering Core checkpoint](checkpoints/2026-10-15-engineering-core-reorientation/README.md) và [prompt phục hồi](checkpoints/2026-10-15-engineering-core-reorientation/CONTINUE-PROMPT.md). Mục tiêu hiện hành là nghiên cứu từ code Go thực tế và hình thành quy chuẩn kỹ thuật developer, **không phải triển khai Business Core hay CORE-06**. Những đoạn "current/next" bên dưới về migration/feature được giữ để tra cứu lịch sử; trạng thái live code/Git/DB cần kiểm chứng riêng.
 
 # BDSPro Continuity Master
