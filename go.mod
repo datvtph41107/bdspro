@@ -3,6 +3,7 @@ module github.com/datvtph41107/bdspro
 go 1.27.1
 
 require (
+	github.com/gin-gonic/gin v1.12.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/crypto v0.58.0

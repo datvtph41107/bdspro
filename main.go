@@ -13,7 +13,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/datvtph41107/bdspro/api"
 	"github.com/datvtph41107/bdspro/auth"
+	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -77,7 +79,6 @@ func run() error {
 	organizations.RegisterRoutes(mux)
 	src := source.NewHandler(source.NewService(pool), authentication.Account)
 	mux.Handle("/organizations/", src)
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("ok")) })
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		c, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
@@ -87,6 +88,7 @@ func run() error {
 		}
 		_, _ = w.Write([]byte("ready"))
 	})
+	app := api.NewServer(dbsqlc.NewStore(pool), authentication, mux)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		method := r.Method
 		if method != "GET" && method != "HEAD" && method != "OPTIONS" {
@@ -101,7 +103,7 @@ func run() error {
 				return
 			}
 		}
-		mux.ServeHTTP(w, r)
+		app.Handler().ServeHTTP(w, r)
 	})
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 	address := net.JoinHostPort(host, port)
