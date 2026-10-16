@@ -66,6 +66,8 @@ jobs:
                   go vet ./...
             - name: PostgreSQL integration and full build
               run: go test ./... -count=1 -v
+            - name: Race-check SQLC transaction and concurrency tests
+              run: go test -race ./db/sqlc -count=1 -timeout=120s -v
             - name: Verify migration rollback in disposable DB
               run: |
                   for migration in $(find migrations -maxdepth 1 -name '*.down.sql' | sort -r); do

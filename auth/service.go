@@ -111,34 +111,8 @@ func (s *Service) Register(ctx context.Context, email, password string) (Registr
 	if err != nil {
 		return Registration{}, err
 	}
-	var accountID int64
-	err = pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
-		q := dbsqlc.New(tx)
-		partyID, err := q.CreatePersonParty(ctx)
-		if err != nil {
-			return err
-		}
-		if err := q.CreatePersonSubtype(ctx, partyID); err != nil {
-			return err
-		}
-		accountID, err = q.CreateAccount(ctx, partyID)
-		if err != nil {
-			return err
-		}
-		emailID, err := q.CreatePrimaryAccountEmail(ctx, dbsqlc.CreatePrimaryAccountEmailParams{
-			AccountID: accountID, Email: email,
-		})
-		if err != nil {
-			return err
-		}
-		if err := q.CreatePasswordCredential(ctx, dbsqlc.CreatePasswordCredentialParams{
-			AccountID: accountID, PasswordHash: hash,
-		}); err != nil {
-			return err
-		}
-		return q.CreateEmailVerificationToken(ctx, dbsqlc.CreateEmailVerificationTokenParams{
-			AccountEmailID: emailID, TokenHash: tokenHash,
-		})
+	result, err := dbsqlc.NewStore(s.Pool).RegisterTx(ctx, dbsqlc.RegisterTxParams{
+		Email: email, PasswordHash: hash, TokenHash: tokenHash,
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -149,10 +123,10 @@ func (s *Service) Register(ctx context.Context, email, password string) (Registr
 	}
 	if s.Mailer != nil {
 		if err := s.Mailer.SendVerification(ctx, email, token); err != nil {
-			return Registration{AccountID: accountID}, fmt.Errorf("%w: %v", ErrMailerUnavailable, err)
+			return Registration{AccountID: result.AccountID}, fmt.Errorf("%w: %v", ErrMailerUnavailable, err)
 		}
 	}
-	return Registration{AccountID: accountID, VerificationToken: token}, nil
+	return Registration{AccountID: result.AccountID, VerificationToken: token}, nil
 }
 
 func (s *Service) VerifyEmail(ctx context.Context, token string) error {
