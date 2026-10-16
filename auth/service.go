@@ -115,17 +115,27 @@ func (s *Service) Register(ctx context.Context, email, password string) (Registr
 	err = pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
 		q := dbsqlc.New(tx)
 		partyID, err := q.CreatePersonParty(ctx)
-		if err != nil { return err }
-		if err := q.CreatePersonSubtype(ctx, partyID); err != nil { return err }
+		if err != nil {
+			return err
+		}
+		if err := q.CreatePersonSubtype(ctx, partyID); err != nil {
+			return err
+		}
 		accountID, err = q.CreateAccount(ctx, partyID)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		emailID, err := q.CreatePrimaryAccountEmail(ctx, dbsqlc.CreatePrimaryAccountEmailParams{
 			AccountID: accountID, Email: email,
 		})
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		if err := q.CreatePasswordCredential(ctx, dbsqlc.CreatePasswordCredentialParams{
 			AccountID: accountID, PasswordHash: hash,
-		}); err != nil { return err }
+		}); err != nil {
+			return err
+		}
 		return q.CreateEmailVerificationToken(ctx, dbsqlc.CreateEmailVerificationTokenParams{
 			AccountEmailID: emailID, TokenHash: tokenHash,
 		})
@@ -146,19 +156,25 @@ func (s *Service) Register(ctx context.Context, email, password string) (Registr
 }
 
 func (s *Service) VerifyEmail(ctx context.Context, token string) error {
-	if len(token) < 30 || len(token) > 256 { return ErrInvalidToken }
+	if len(token) < 30 || len(token) > 256 {
+		return ErrInvalidToken
+	}
 	hash := digestToken(token)
 	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
 		q := dbsqlc.New(tx)
 		emailID, err := q.ConsumeEmailVerificationToken(ctx, hash)
-		if errors.Is(err, pgx.ErrNoRows) { return ErrInvalidToken }
-		if err != nil { return err }
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrInvalidToken
+		}
+		if err != nil {
+			return err
+		}
 		return q.MarkAccountEmailVerified(ctx, emailID)
 	})
 }
 
 type LoginResult struct {
-	Token string
+	Token     string
 	ExpiresAt time.Time
 	AccountID int64
 }
@@ -175,27 +191,43 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 		_ = checkPassword(password, dummyHash)
 		return LoginResult{}, ErrInvalidCredentials
 	}
-	if err != nil { return LoginResult{}, err }
-	if !checkPassword(password, credentials.PasswordHash) { return LoginResult{}, ErrInvalidCredentials }
-	if !credentials.VerifiedAt.Valid { return LoginResult{}, ErrUnverified }
+	if err != nil {
+		return LoginResult{}, err
+	}
+	if !checkPassword(password, credentials.PasswordHash) {
+		return LoginResult{}, ErrInvalidCredentials
+	}
+	if !credentials.VerifiedAt.Valid {
+		return LoginResult{}, ErrUnverified
+	}
 	token, hash, err := randomToken()
-	if err != nil { return LoginResult{}, err }
+	if err != nil {
+		return LoginResult{}, err
+	}
 	expiry, err := q.CreateLoginSession(ctx, dbsqlc.CreateLoginSessionParams{
 		AccountID: credentials.AccountID, TokenHash: hash,
 	})
-	if err != nil { return LoginResult{}, err }
+	if err != nil {
+		return LoginResult{}, err
+	}
 	return LoginResult{Token: token, ExpiresAt: expiry, AccountID: credentials.AccountID}, nil
 }
 
 func (s *Service) AccountFromToken(ctx context.Context, token string) (int64, error) {
-	if token == "" { return 0, ErrUnauthorized }
+	if token == "" {
+		return 0, ErrUnauthorized
+	}
 	id, err := dbsqlc.New(s.Pool).GetSessionAccount(ctx, digestToken(token))
-	if errors.Is(err, pgx.ErrNoRows) { return 0, ErrUnauthorized }
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrUnauthorized
+	}
 	return id, err
 }
 
 func (s *Service) Logout(ctx context.Context, token string) error {
-	if token == "" { return nil }
+	if token == "" {
+		return nil
+	}
 	return dbsqlc.New(s.Pool).RevokeSession(ctx, digestToken(token))
 }
 
