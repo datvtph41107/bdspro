@@ -177,7 +177,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 	}
 	if err != nil { return LoginResult{}, err }
 	if !checkPassword(password, credentials.PasswordHash) { return LoginResult{}, ErrInvalidCredentials }
-	if !credentials.EmailVerified { return LoginResult{}, ErrUnverified }
+	if !credentials.VerifiedAt.Valid { return LoginResult{}, ErrUnverified }
 	token, hash, err := randomToken()
 	if err != nil { return LoginResult{}, err }
 	expiry, err := q.CreateLoginSession(ctx, dbsqlc.CreateLoginSessionParams{

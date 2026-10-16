@@ -10,7 +10,7 @@ INSERT INTO password_credentials (account_id, password_hash)
 VALUES (sqlc.arg(account_id), sqlc.arg(password_hash));
 
 -- name: GetLoginCredentials :one
-SELECT a.id AS account_id, pc.password_hash, (ae.verified_at IS NOT NULL) AS email_verified
+SELECT a.id AS account_id, pc.password_hash, ae.verified_at
 FROM accounts a
 JOIN account_emails ae ON ae.account_id = a.id AND ae.is_primary
 JOIN password_credentials pc ON pc.account_id = a.id
