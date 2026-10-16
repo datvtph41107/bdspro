@@ -18,6 +18,7 @@ import (
 	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
+	"github.com/datvtph41107/bdspro/util"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -27,24 +28,29 @@ func main() {
 	}
 }
 func run() error {
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		return fmt.Errorf("DATABASE_URL required")
+	config, err := util.LoadConfig(".")
+	if err != nil {
+		return fmt.Errorf("cannot load config: %w", err)
 	}
-	dev := os.Getenv("APP_ENV") == "development"
-	host := os.Getenv("BIND_HOST")
-	if host == "" {
-		host = "127.0.0.1"
+	if config.DBDriver != "postgres" {
+		return fmt.Errorf("unsupported DB_DRIVER %q", config.DBDriver)
 	}
+	if config.DBSource == "" {
+		return fmt.Errorf("DB_SOURCE required")
+	}
+	if config.ServerAddress == "" {
+		return fmt.Errorf("SERVER_ADDRESS required")
+	}
+	host, _, err := net.SplitHostPort(config.ServerAddress)
+	if err != nil {
+		return fmt.Errorf("invalid SERVER_ADDRESS: %w", err)
+	}
+	dev := config.Environment == "development"
 	if dev && host != "localhost" && host != "127.0.0.1" && host != "::1" {
 		return fmt.Errorf("development verification tokens require a loopback listener")
 	}
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, databaseURL)
+	pool, err := pgxpool.New(ctx, config.DBSource)
 	if err != nil {
 		return err
 	}
@@ -56,22 +62,22 @@ func run() error {
 		return fmt.Errorf("ping database: %w", err)
 	}
 	var mailer auth.Mailer
-	if os.Getenv("SMTP_ADDR") != "" {
+	if config.SMTPAddr != "" {
 		mailer = auth.SMTPMailer{
-			Addr: os.Getenv("SMTP_ADDR"), User: os.Getenv("SMTP_USER"),
-			Password: os.Getenv("SMTP_PASSWORD"), From: os.Getenv("SMTP_FROM"),
-			VerificationURL: os.Getenv("VERIFICATION_URL"),
+			Addr: config.SMTPAddr, User: config.SMTPUser,
+			Password: config.SMTPPassword, From: config.SMTPFrom,
+			VerificationURL: config.VerificationURL,
 		}
 	}
 	if !dev && mailer == nil {
 		return fmt.Errorf("SMTP_ADDR required outside development")
 	}
-	if !dev && os.Getenv("ALLOWED_ORIGIN") == "" {
+	if !dev && config.AllowedOrigin == "" {
 		return fmt.Errorf("ALLOWED_ORIGIN required outside development")
 	}
 	authentication := &auth.Handler{
 		S: auth.New(pool, mailer), Development: dev, SecureCookies: !dev,
-		AllowedOrigin: os.Getenv("ALLOWED_ORIGIN"),
+		AllowedOrigin: config.AllowedOrigin,
 	}
 	organizations := &organization.Handler{Service: organization.New(pool), Auth: authentication}
 	mux := http.NewServeMux()
@@ -106,8 +112,7 @@ func run() error {
 		app.Handler().ServeHTTP(w, r)
 	})
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
-	address := net.JoinHostPort(host, port)
-	ln, err := net.Listen("tcp", address)
+	ln, err := net.Listen("tcp", config.ServerAddress)
 	if err != nil {
 		return err
 	}
