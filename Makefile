@@ -1,32 +1,54 @@
-# BDSPro canonical core (Go + PostgreSQL 18 + golang-migrate + sqlc)
-# Explicitly set DB_URL. No silent migration against old bdspro Listing databases.
+# BDSPro Go + PostgreSQL. Targets follow the SimpleBank workflow.
+# DB_URL must be passed explicitly; never default a migration to production.
 DB_URL ?=
-.PHONY: sqlc test testsqlc testsqlc-race migrateup migratedown newmigration
+DB_NAME ?= bdspro_sqlc_ci
+POSTGRES_CONTAINER ?= postgres
+
+.PHONY: postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc test testsqlc testsqlc-race server newmigration
+
+postgres:
+	docker run --name $(POSTGRES_CONTAINER) -p 5432:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -d postgres:18-alpine
+
+createdb:
+	docker exec $(POSTGRES_CONTAINER) createdb --username=root --owner=root $(DB_NAME)
+
+dropdb:
+	@case "$(DB_NAME)" in *_ci) ;; *) echo 'dropdb requires a disposable *_ci database'; exit 1 ;; esac
+	@test "$(CONFIRM_DROP)" = "yes" || (echo 'Set CONFIRM_DROP=yes to drop $(DB_NAME)'; exit 1)
+	docker exec $(POSTGRES_CONTAINER) dropdb --username=root $(DB_NAME)
+
+newmigration:
+	@test -n "$(name)" || (echo 'Usage: make newmigration name=change_name'; exit 1)
+	migrate create -ext sql -dir db/migration -seq $(name)
+
+migrateup:
+	@test -n "$(DB_URL)" || (echo 'Set DB_URL=postgresql://.../database?sslmode=disable'; exit 1)
+	migrate -path db/migration -database "$(DB_URL)" -verbose up
+
+migrateup1:
+	@test -n "$(DB_URL)" || (echo 'Set DB_URL explicitly'; exit 1)
+	migrate -path db/migration -database "$(DB_URL)" -verbose up 1
+
+# Preserve the prior single-step safety behavior for developer databases.
+migratedown:
+	@test -n "$(DB_URL)" || (echo 'Set DB_URL explicitly'; exit 1)
+	migrate -path db/migration -database "$(DB_URL)" -verbose down 1
+
+migratedown1: migratedown
 
 sqlc:
 	sqlc generate
 
 test:
-	go test ./... -count=1
+	go test -v -cover ./...
 
-newmigration:
-	@test -n "$(name)" || (echo 'Usage: make newmigration name=change_name'; exit 1)
-	migrate create -ext sql -dir migrations -seq $(name)
-
-migrateup:
-	@test -n "$(DB_URL)" || (echo 'Usage: make migrateup DB_URL=postgresql://.../bdspro_core_dev?sslmode=disable'; exit 1)
-	migrate -path migrations -database "$(DB_URL)" -verbose up
-
-migratedown:
-	@test -n "$(DB_URL)" || (echo 'Usage: make migratedown DB_URL=... (destructive on managed data)'; exit 1)
-	migrate -path migrations -database "$(DB_URL)" -verbose down 1
-
-# Set SQLC_TEST_DATABASE_URL explicitly. COMMIT tests only run on disposable
-# bdspro_sqlc_ci; regular bdspro tests use rollback or skip.
 testsqlc:
-	@test -n "$(SQLC_TEST_DATABASE_URL)" || (echo 'Set SQLC_TEST_DATABASE_URL to an explicitly selected test DB'; exit 1)
-	go test ./db/sqlc -count=1 -v
+	@test -n "$(SQLC_TEST_DATABASE_URL)" || (echo 'Set SQLC_TEST_DATABASE_URL'; exit 1)
+	go test -v -cover ./db/sqlc -count=1
 
 testsqlc-race:
-	@test -n "$(SQLC_TEST_DATABASE_URL)" || (echo 'Set SQLC_TEST_DATABASE_URL to an explicitly selected test DB'; exit 1)
-	go test -race ./db/sqlc -count=1 -timeout=120s
+	@test -n "$(SQLC_TEST_DATABASE_URL)" || (echo 'Set SQLC_TEST_DATABASE_URL'; exit 1)
+	go test -race ./db/sqlc -count=1 -timeout=120s -v
+
+server:
+	go run .

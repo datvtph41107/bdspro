@@ -338,3 +338,73 @@ func TestInvitationDoesNotCrossTenant(t *testing.T) {
 		t.Fatalf("expected role-scope FK 23503: %v", err)
 	}
 }
+
+// TestConcurrentOrganizationRegistrationApproval demonstrates row-level locking
+// on a real BDSPro approval, rather than a fictitious money transfer.
+func TestConcurrentOrganizationRegistrationApproval(t *testing.T) {
+	db := coreDB(t)
+	ctx := context.Background()
+	accounts := auth.New(db, nil)
+	organizations := organization.New(db)
+
+	reviewerID, _ := coreUser(t, accounts, "concurrent-reviewer@example.test")
+	applicantID, _ := coreUser(t, accounts, "concurrent-applicant@example.test")
+
+	_, err := db.Exec(ctx, `INSERT INTO platform_organization_reviewers
+		(account_id, authorization_reference)
+		VALUES ($1, 'CI-only-authorization')`, reviewerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	requestID, err := organizations.SubmitRegistration(
+		ctx, applicantID, "Concurrent Realty", "VN", "CONCURRENT-001",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type approval struct {
+		organizationID int64
+		err            error
+	}
+	results := make(chan approval, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			id, err := organizations.ApproveRegistration(
+				ctx, reviewerID, requestID, "CI-reviewed",
+			)
+			results <- approval{organizationID: id, err: err}
+		}()
+	}
+
+	approved := 0
+	notFound := 0
+	for i := 0; i < 2; i++ {
+		result := <-results
+		switch {
+		case result.err == nil:
+			if result.organizationID <= 0 {
+				t.Fatal("approval did not return an organization")
+			}
+			approved++
+		case errors.Is(result.err, organization.ErrNotFound):
+			notFound++
+		default:
+			t.Fatalf("unexpected concurrent approval error: %v", result.err)
+		}
+	}
+	if approved != 1 || notFound != 1 {
+		t.Fatalf("expected one approval and one rejected duplicate: approved=%d not_found=%d", approved, notFound)
+	}
+
+	var count int
+	if err := db.QueryRow(ctx,
+		"SELECT count(*) FROM organizations WHERE name='Concurrent Realty'",
+	).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("duplicate organization from concurrent approval: %d", count)
+	}
+}

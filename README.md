@@ -1,3 +1,5 @@
+> **Canonical working tree before Lecture Gin:** Migrations: `db/migration/`; CI: `.github/workflows/ci.yml`; commands: `make migrateup DB_URL=...`, `make sqlc`, `make test`. Historical checkpoints below may retain old paths.
+
 > **TRỌNG TÂM REVIEW HIỆN TẠI 2026-10-15:** Xây dựng **Engineering Core Operating Model** (chưa triển khai Business Core tiếp theo): [checkpoint](docs/continuity/checkpoints/2026-10-15-engineering-core-operating-model/README.md) · [ma trận 20 chương](docs/continuity/checkpoints/2026-10-15-engineering-core-operating-model/CHAPTER-MATRIX.md) · [CH01 config/workflow](docs/continuity/checkpoints/2026-10-15-engineering-core-operating-model/CH01-CONFIG-AND-WORKFLOW.md) · [chat handoff prompt](docs/continuity/checkpoints/2026-10-15-engineering-core-operating-model/CONTINUE-PROMPT.md). Các mục "Bước kế tiếp CORE-06" bên dưới là lịch sử sản phẩm, **không phải task đang làm**. Git live là authority cho source; checkpoint mới là authority cho review focus. Không thay đổi runtime/source trong checkpoint này.
 
 # BDSPro — Nền tảng Core từ CORE-01 đến CORE-05
@@ -56,7 +58,7 @@ Một người đăng ký tài khoản
 ## 4. Cấu trúc nguồn chính
 
 ```text
-migrations/                  # DDL theo thứ tự 000001 → 000006
+db/migration/                  # DDL theo thứ tự 000001 → 000006
 auth/                        # Đăng ký, xác minh email, password, Session, HTTP
 organization/                # Review, claim, invitations, membership, HTTP
 source/                      # Tiếp nhận nguồn, lịch sử giá, HTTP và tests
@@ -65,7 +67,7 @@ db/sourcesqlc/              # Code do sqlc sinh, đã commit
 sqlc.source.yaml             # Cấu hình sinh Go
 main.go                      # Khởi chạy HTTP server, gắn các module
 integration_test.go          # Luồng kiểm thử xuyên module
-.github/workflows/bdspro-core.yml
+.github/workflows/ci.yml
 docs/implementation/        # Báo cáo, quy trình và nghiệm thu bằng tiếng Việt
 docs/continuity/CHECKPOINT.md
 ```
@@ -87,8 +89,8 @@ Chỉ dùng database PostgreSQL **mới, dành cho thử nghiệm** (ví dụ `b
 
 ```bash
 export DB_URL='postgresql://root:secret@localhost:5432/bdspro_core_dev?sslmode=disable'
-migrate -path migrations -database "$DB_URL" -verbose up
-migrate -path migrations -database "$DB_URL" version
+migrate -path db/migration -database "$DB_URL" -verbose up
+migrate -path db/migration -database "$DB_URL" version
 sqlc generate -f sqlc.source.yaml
 go test ./...
 ```

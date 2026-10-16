@@ -2,29 +2,43 @@ package db
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Store combines generated SQLC queries and transactions, as in SimpleBank.
-// It owns database writes only; HTTP validation, password hashing and mail stay
-// in the application service.
+// Store provides all functions to execute database queries and transactions.
 type Store struct {
-	pool *pgxpool.Pool
+	db *pgxpool.Pool
 	*Queries
 }
 
-func NewStore(pool *pgxpool.Pool) *Store {
-	return &Store{pool: pool, Queries: New(pool)}
+// NewStore creates a new Store.
+func NewStore(db *pgxpool.Pool) *Store {
+	return &Store{
+		db:      db,
+		Queries: New(db),
+	}
 }
 
-// execTx makes the callback and its final deferred constraints one atomic unit.
-// pgx commits on nil and rolls back on an error (including COMMIT errors).
-func (s *Store) execTx(ctx context.Context, fn func(*Queries) error) error {
-	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		return fn(s.WithTx(tx))
-	})
+// execTx executes a function within a database transaction.
+func (store *Store) execTx(ctx context.Context, fn func(*Queries) error) error {
+	tx, err := store.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	q := New(tx)
+	err = fn(q)
+	if err != nil {
+		// Use a live context for rollback even if the request was cancelled.
+		if rbErr := tx.Rollback(context.Background()); rbErr != nil {
+			return fmt.Errorf("tx err: %v, rb err: %v", err, rbErr)
+		}
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 type RegisterTxParams struct {
@@ -39,8 +53,7 @@ type RegisterTxResult struct {
 	AccountEmailID int64
 }
 
-// RegisterTx is the BDSPro analogue of SimpleBank's TransferTx:
-// multiple SQLC writes succeed together, or none remain.
+// RegisterTx creates one Party, Person, Account and verification token atomically.
 func (s *Store) RegisterTx(ctx context.Context, arg RegisterTxParams) (RegisterTxResult, error) {
 	var result RegisterTxResult
 	err := s.execTx(ctx, func(q *Queries) error {

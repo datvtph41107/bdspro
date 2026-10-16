@@ -1,0 +1,94 @@
+name: ci-test
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U root -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGPASSWORD: secret
+      SOURCE_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_source_ci?sslmode=disable
+      CORE_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_core_ci?sslmode=disable
+      SQLC_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_sqlc_ci?sslmode=disable
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install sqlc and golang-migrate
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+          go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.20.0
+
+      - name: Create test databases
+        run: |
+          createdb -h localhost -U root bdspro_core_ci
+          createdb -h localhost -U root bdspro_source_ci
+          createdb -h localhost -U root bdspro_sqlc_ci
+          createdb -h localhost -U root bdspro_migrate_ci
+
+      - name: Run migrations
+        run: |
+          for database in bdspro_core_ci bdspro_source_ci bdspro_sqlc_ci bdspro_migrate_ci; do
+            make migrateup DB_URL="postgresql://root:secret@localhost:5432/$database?sslmode=disable"
+          done
+
+      - name: Verify migrations UP-DOWN-UP
+        run: |
+          url='postgresql://root:secret@localhost:5432/bdspro_migrate_ci?sslmode=disable'
+          migrate -path db/migration -database "$url" version
+          make migratedown1 DB_URL="$url"
+          make migrateup1 DB_URL="$url"
+
+      - name: Generate SQLC
+        run: make sqlc
+
+      - name: Check source consistency
+        run: |
+          go mod tidy
+          gofmt -w auth organization source db/sqlc util main.go integration_test.go party_kind_test.go
+          git diff --exit-code -- go.mod go.sum db/sqlc util auth organization source main.go integration_test.go party_kind_test.go
+          test -z "$(git ls-files --others --exclude-standard -- db/sqlc)"
+          go vet ./...
+
+      - name: Test
+        run: make test
+
+      - name: Race tests
+        run: make testsqlc-race
+
+      - name: Smoke server startup
+        run: |
+          set +e
+          APP_ENV=development DATABASE_URL="$CORE_TEST_DATABASE_URL" PORT=0 timeout 6s go run . >server.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 124 ]; then cat server.log; exit 1; fi
+          grep 'BDSPro listening' server.log

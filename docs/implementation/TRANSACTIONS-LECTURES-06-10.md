@@ -1,31 +1,37 @@
-# Lecture #6–#10 — PostgreSQL Transactions, Locks, Isolation & GitHub Actions
+# Chốt giai đoạn trước Lecture #11 — SimpleBank-aligned BDSPro
 
-Canonical target: BDSPro dev; SimpleBank historical Section 1. Official numbering:
-- #6 Transaction with Store + execTx + business transaction
-- #7 Transaction locking and deadlock analysis
-- #8 Avoid deadlocks through globally consistent lock ordering
-- #9 Isolation levels and read phenomena
-- #10 GitHub Actions automation (SimpleBank #11 is Gin API, **not** Actions)
+Mốc tham chiếu: SimpleBank `56a8785` (Store/TransferTx); `b383211` (CI khởi tạo); `d670f28` (PostgreSQL CI).
 
-## BDSPro mapping
+## Cấu trúc theo bài học
 
-- `db/sqlc/store.go`: `Store` embeds generated `*Queries`, holds `*pgxpool.Pool`; `execTx` wraps `pgx.BeginFunc`. `RegisterTx` is the real multi-table transaction analogous to `TransferTx`.
-- `auth/service.go`: validates input and hashes password, delegates SQL writes to `Store.RegisterTx`, then sends verification email **after** commit. A mail delivery failure does not rollback committed SQL (existing behavior).
-- `db/sqlc/store_test.go`: successful COMMIT, duplicate-email rollback, five competing registrations (exactly one success).
-- `db/sqlc/locking_test.go`: two accounts locked in the same global order despite reversed caller order, including concurrent transactions. Educational demonstration, not a new source of production locking requirements.
-- `db/sqlc/isolation_test.go`: compares READ COMMITTED and REPEATABLE READ using two live PostgreSQL transactions and a committed update.
-- GitHub Actions: disposable PostgreSQL 18 databases, migration, SQLC generate, tidy, formatting, vet, integration suite and SQLC race tests.
+- `db/migration/`: vị trí theo SimpleBank; chuyển 12 file .up/.down cũ **không thay đổi nội dung hay version**. Không chạy lại migrations đã áp dụng chỉ vì di chuyển file.
+- `db/query/`, `db/sqlc/`, `sqlc.yaml`: SQLC một nguồn, một output.
+- `db/sqlc/store.go`: `Store`, `NewStore`, `execTx` tự thực hiện `Begin → New(tx) → callback → Rollback/Commit`, theo tác giả SimpleBank. `RegisterTx` là transaction nghiệp vụ thật của BDSPro, tương ứng vai trò `TransferTx` chứ không sao chép chuyển tiền giả.
+- `db/sqlc/store_test.go`: kiểm thử COMMIT, rollback khi trùng email, cạnh tranh 5 đăng ký và quan sát isolation READ COMMITTED/REPEATABLE READ.
+- `integration_test.go`: thêm hai lời duyệt cùng `OrganizationRegistration` đồng thời; khóa `FOR UPDATE` chỉ cho một lần phê duyệt, lần thứ hai không tạo tổ chức thứ hai.
+- Bỏ các file demo `locking_test.go`, `isolation_test.go` tách rời; isolation test được chuyển về `store_test.go`, locking được chứng minh ở transaction tổ chức thật.
+- `.github/workflows/ci.yml`: tên `ci-test`, job `test`, chạy khi push/PR `dev`; PostgreSQL 18, `make migrateup`, `make sqlc`, `make test`, race tests và smoke startup.
+- `Makefile`: các target giống workflow SimpleBank; DB_URL bắt buộc để giảm nguy cơ migrate nhầm database.
 
-## Safety boundary
+## Khác biệt có chủ đích và giới hạn
 
-COMMIT tests run **only** when `SQLC_TEST_DATABASE_URL` points to the local-host database named `bdspro_sqlc_ci`; all committed test rows are deleted in a subsequent cleanup transaction, never with TRUNCATE. The developer's `bdspro` database remains suitable for rollback-only SQLC tests. These names are test guards, not authorization for a production DB.
+- SimpleBank dùng `database/sql`; BDSPro đang dùng `pgx/v5`, nhưng transaction flow được trình bày cùng thứ tự.
+- BDSPro chưa có chuyển tiền, số dư hoặc nghiệp vụ cần khóa hai Account đối nghịch. Không dùng `TransferTx` hay `AddAccountBalance` giả. Nghiệp vụ khóa hiện tại chỉ bảo vệ duyệt một hồ sơ cùng lúc; **không chứng minh mọi luồng nghiệp vụ không thể deadlock**.
+- `migratedown` ở BDSPro giữ giới hạn DOWN 1 để bảo vệ dữ liệu, không sao chép thao tác hủy toàn bộ schema mặc định từ bài giảng.
+- COMMIT tests chỉ chạy với database được chủ động cung cấp đúng tên `bdspro_sqlc_ci`. `bdspro_core_ci` và `bdspro_source_ci` dùng test tích hợp có TRUNCATE. Không hướng các biến CI vào database phát triển.
+- HTTP `net/http` hiện tại được giữ như nghiệp vụ đã tồn tại; **Lecture Gin chưa được triển khai**. Không đổi route hay bảo mật HTTP trong commit này.
 
-On the developer machine, prepare an intentionally disposable PostgreSQL DB:
+## Chạy kiểm chứng
+
 ```sh
-createdb -h localhost -U root bdspro_sqlc_ci
+make sqlc
 make migrateup DB_URL='postgresql://root:secret@localhost:5432/bdspro_sqlc_ci?sslmode=disable'
 SQLC_TEST_DATABASE_URL='postgresql://root:secret@localhost:5432/bdspro_sqlc_ci?sslmode=disable' make testsqlc
 SQLC_TEST_DATABASE_URL='postgresql://root:secret@localhost:5432/bdspro_sqlc_ci?sslmode=disable' make testsqlc-race
 ```
 
-Never run destructive integration scripts with `CORE_TEST_DATABASE_URL` or `SOURCE_TEST_DATABASE_URL` pointed to `bdspro`.
+Các lệnh trên yêu cầu một PostgreSQL local và database test đã được chủ động tạo. Nếu schema đã ở version 6, `migrateup` không tạo bảng lần nữa.
+
+## Đồng bộ local
+
+Giữ nguyên các thay đổi chưa commit ở `source/service.go`, `db/sqlc/transaction_test.go` và stash trước khi pull; không reset hard, clean hay pop stash tự động. Sau khi `dev` đồng bộ và CI PASS, mốc tiếp theo là Lecture #11 — Gin HTTP API.

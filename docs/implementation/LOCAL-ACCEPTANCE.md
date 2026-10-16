@@ -48,8 +48,8 @@ Nếu đã có `bdspro_core_dev`, phải kiểm tra `schema_migrations`/các b�
 Yêu cầu CLI `migrate` (golang-migrate) và `sqlc` đã cài. Tại clone mới:
 
 ```bash
-migrate -path migrations -database "$DB_URL" -verbose up
-migrate -path migrations -database "$DB_URL" version
+migrate -path db/migration -database "$DB_URL" -verbose up
+migrate -path db/migration -database "$DB_URL" version
 
 sqlc generate -f sqlc.source.yaml
 go test ./...
@@ -58,7 +58,7 @@ git status --short --branch
 
 Trong một checkout hoàn toàn khớp CI, sinh lại sqlc không nên làm thay đổi các file generated đã commit. Chạy `git diff -- db/sourcesqlc go.mod go.sum` nếu phát hiện thay đổi. `root/secret` chỉ là credential trong Docker LAB, tuyệt đối không dùng cho production.
 
-**Phân biệt test:** `go test ./...` khi không có biến `SOURCE_TEST_DATABASE_URL` và `CORE_TEST_DATABASE_URL` sẽ **SKIP** các bài integration test có PostgreSQL (thay vì tự tạo bảng/dữ liệu). Để tự chạy toàn bộ ca giống CI trên local, cần tạo **hai database thử nghiệm trống, riêng biệt, đúng tên** `bdspro_source_ci` và `bdspro_core_ci`, áp dụng đủ migration vào từng database, rồi đặt hai biến môi trường tương ứng theo chỉ dẫn trong `.github/workflows/bdspro-core.yml`. Các bài test có lệnh `TRUNCATE ... CASCADE`: **tuyệt đối không gán chúng vào database có dữ liệu cần giữ**, kể cả khi tên trùng. Nếu chưa xác nhận DB trống, chỉ dựa vào CI làm bằng chứng integration và tiến hành hành trình HTTP thủ công trên `bdspro_core_dev`.
+**Phân biệt test:** `go test ./...` khi không có biến `SOURCE_TEST_DATABASE_URL` và `CORE_TEST_DATABASE_URL` sẽ **SKIP** các bài integration test có PostgreSQL (thay vì tự tạo bảng/dữ liệu). Để tự chạy toàn bộ ca giống CI trên local, cần tạo **hai database thử nghiệm trống, riêng biệt, đúng tên** `bdspro_source_ci` và `bdspro_core_ci`, áp dụng đủ migration vào từng database, rồi đặt hai biến môi trường tương ứng theo chỉ dẫn trong `.github/workflows/ci.yml`. Các bài test có lệnh `TRUNCATE ... CASCADE`: **tuyệt đối không gán chúng vào database có dữ liệu cần giữ**, kể cả khi tên trùng. Nếu chưa xác nhận DB trống, chỉ dựa vào CI làm bằng chứng integration và tiến hành hành trình HTTP thủ công trên `bdspro_core_dev`.
 
 ## C. Khởi chạy API
 
