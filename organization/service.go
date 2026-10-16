@@ -10,6 +10,7 @@ import (
 	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -109,8 +110,8 @@ func (s *Service) ApproveRegistration(ctx context.Context, reviewerID, requestID
 		}); err != nil { return err }
 		if err := grantInitialAdmin(ctx, tx, orgID, personID); err != nil { return err }
 		rows, err := q.ResolveOrganizationRegistration(ctx, dbsqlc.ResolveOrganizationRegistrationParams{
-			OrganizationID: orgID, ReviewerID: reviewerID,
-			Reference: strings.TrimSpace(reference), RequestID: requestID,
+			OrganizationID: pgtype.Int8{Int64: orgID, Valid: true}, ReviewerID: pgtype.Int8{Int64: reviewerID, Valid: true},
+			Reference: pgtype.Text{String: strings.TrimSpace(reference), Valid: true}, RequestID: requestID,
 		})
 		if err != nil { return err }
 		if rows != 1 { return ErrConflict }
@@ -145,7 +146,7 @@ func (s *Service) ApproveInitialClaim(ctx context.Context, reviewerID, requestID
 		if err != nil { return ErrConflict }
 		if err := grantInitialAdmin(ctx, tx, orgID, personID); err != nil { return err }
 		rows, err := q.ResolveOrganizationClaim(ctx, dbsqlc.ResolveOrganizationClaimParams{
-			ReviewerID: reviewerID, Reference: strings.TrimSpace(reference), RequestID: requestID,
+			ReviewerID: pgtype.Int8{Int64: reviewerID, Valid: true}, Reference: pgtype.Text{String: strings.TrimSpace(reference), Valid: true}, RequestID: requestID,
 		})
 		if err != nil { return err }
 		if rows != 1 { return ErrConflict }
@@ -179,7 +180,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, accountID, invitationID 
 		personID, err := q.GetInvitationAccountPersonID(ctx, accountID)
 		if err != nil { return err }
 		membership, err = q.CreateInvitationMembership(ctx, dbsqlc.CreateInvitationMembershipParams{
-			OrganizationID: invitation.OrganizationID, PersonID: personID, InvitationID: invitationID,
+			OrganizationID: invitation.OrganizationID, PersonID: personID, InvitationID: pgtype.Int8{Int64: invitationID, Valid: true},
 		})
 		if err != nil { return err }
 		return q.AssignInvitationRole(ctx, dbsqlc.AssignInvitationRoleParams{
