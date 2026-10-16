@@ -52,14 +52,15 @@ jobs:
           migrate -path migrations -database "$url" version
           migrate -path migrations -database "$url" -verbose down 1
           migrate -path migrations -database "$url" -verbose up 1
-      - name: Generate source query package
-        run: sqlc generate -f sqlc.source.yaml
+      - name: Generate SQLC query package
+        run: sqlc generate
       - name: Resolve generated Go dependencies
         run: go mod tidy
       - name: Enforce generated and formatted files checked in
         run: |
           gofmt -w auth organization source main.go integration_test.go party_kind_test.go
-          git diff --exit-code -- go.mod go.sum db/sourcesqlc auth organization source main.go integration_test.go party_kind_test.go
+          git diff --exit-code -- go.mod go.sum db/sqlc auth organization source main.go integration_test.go party_kind_test.go
+          test -z "$(git ls-files --others --exclude-standard -- db/sqlc)"
           go vet ./...
       - name: PostgreSQL integration and full build
         run: go test ./... -count=1 -v

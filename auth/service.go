@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -112,27 +113,22 @@ func (s *Service) Register(ctx context.Context, email, password string) (Registr
 	}
 	var accountID int64
 	err = pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
-		var partyID int64
-		if err := tx.QueryRow(ctx, "INSERT INTO parties(kind) VALUES ('PERSON') RETURNING id").Scan(&partyID); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, "INSERT INTO persons(party_id) VALUES ($1)", partyID); err != nil {
-			return err
-		}
-		if err := tx.QueryRow(ctx, "INSERT INTO accounts(person_id) VALUES ($1) RETURNING id", partyID).Scan(&accountID); err != nil {
-			return err
-		}
-		var emailID int64
-		if err := tx.QueryRow(ctx, "INSERT INTO account_emails(account_id,email,is_primary) VALUES($1,$2,true) RETURNING id", accountID, email).Scan(&emailID); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, "INSERT INTO password_credentials(account_id,password_hash) VALUES ($1,$2)", accountID, hash); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, "INSERT INTO email_verification_tokens(account_email_id,token_hash,expires_at) VALUES($1,$2,now()+interval '30 minutes')", emailID, tokenHash); err != nil {
-			return err
-		}
-		return nil
+		q := dbsqlc.New(tx)
+		partyID, err := q.CreatePersonParty(ctx)
+		if err != nil { return err }
+		if err := q.CreatePersonSubtype(ctx, partyID); err != nil { return err }
+		accountID, err = q.CreateAccount(ctx, partyID)
+		if err != nil { return err }
+		emailID, err := q.CreatePrimaryAccountEmail(ctx, dbsqlc.CreatePrimaryAccountEmailParams{
+			AccountID: accountID, Email: email,
+		})
+		if err != nil { return err }
+		if err := q.CreatePasswordCredential(ctx, dbsqlc.CreatePasswordCredentialParams{
+			AccountID: accountID, PasswordHash: hash,
+		}); err != nil { return err }
+		return q.CreateEmailVerificationToken(ctx, dbsqlc.CreateEmailVerificationTokenParams{
+			AccountEmailID: emailID, TokenHash: tokenHash,
+		})
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -150,30 +146,19 @@ func (s *Service) Register(ctx context.Context, email, password string) (Registr
 }
 
 func (s *Service) VerifyEmail(ctx context.Context, token string) error {
-	if len(token) < 30 || len(token) > 256 {
-		return ErrInvalidToken
-	}
+	if len(token) < 30 || len(token) > 256 { return ErrInvalidToken }
 	hash := digestToken(token)
-	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
-		var emailID int64
-		err := tx.QueryRow(ctx, `UPDATE email_verification_tokens
- SET consumed_at=now()
- WHERE token_hash=$1 AND consumed_at IS NULL AND expires_at>now()
- RETURNING account_email_id`, hash).Scan(&emailID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrInvalidToken
-		}
-		if err != nil {
-			return err
-		}
-		_, err = tx.Exec(ctx, "UPDATE account_emails SET verified_at=now() WHERE id=$1 AND verified_at IS NULL", emailID)
-		return err
+	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+		q := dbsqlc.New(tx)
+		emailID, err := q.ConsumeEmailVerificationToken(ctx, hash)
+		if errors.Is(err, pgx.ErrNoRows) { return ErrInvalidToken }
+		if err != nil { return err }
+		return q.MarkAccountEmailVerified(ctx, emailID)
 	})
-	return err
 }
 
 type LoginResult struct {
-	Token     string
+	Token string
 	ExpiresAt time.Time
 	AccountID int64
 }
@@ -184,58 +169,34 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 		_ = checkPassword(password, dummyHash)
 		return LoginResult{}, ErrInvalidCredentials
 	}
-	var accountID int64
-	var stored string
-	var verified *time.Time
-	err = s.Pool.QueryRow(ctx, `SELECT a.id, pc.password_hash,ae.verified_at
- FROM accounts a
- JOIN account_emails ae ON ae.account_id=a.id AND ae.is_primary
- JOIN password_credentials pc ON pc.account_id=a.id
- WHERE lower(btrim(ae.email))=$1 AND a.closed_at IS NULL`, email).Scan(&accountID, &stored, &verified)
+	q := dbsqlc.New(s.Pool)
+	credentials, err := q.GetLoginCredentials(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		_ = checkPassword(password, dummyHash)
 		return LoginResult{}, ErrInvalidCredentials
 	}
-	if err != nil {
-		return LoginResult{}, err
-	}
-	if !checkPassword(password, stored) {
-		return LoginResult{}, ErrInvalidCredentials
-	}
-	if verified == nil {
-		return LoginResult{}, ErrUnverified
-	}
+	if err != nil { return LoginResult{}, err }
+	if !checkPassword(password, credentials.PasswordHash) { return LoginResult{}, ErrInvalidCredentials }
+	if !credentials.EmailVerified { return LoginResult{}, ErrUnverified }
 	token, hash, err := randomToken()
-	if err != nil {
-		return LoginResult{}, err
-	}
-	var expiry time.Time
-	err = s.Pool.QueryRow(ctx, `INSERT INTO sessions(account_id,token_hash,expires_at)
- VALUES($1,$2,now()+interval '24 hours') RETURNING expires_at`, accountID, hash).Scan(&expiry)
-	if err != nil {
-		return LoginResult{}, err
-	}
-	return LoginResult{Token: token, ExpiresAt: expiry, AccountID: accountID}, nil
+	if err != nil { return LoginResult{}, err }
+	expiry, err := q.CreateLoginSession(ctx, dbsqlc.CreateLoginSessionParams{
+		AccountID: credentials.AccountID, TokenHash: hash,
+	})
+	if err != nil { return LoginResult{}, err }
+	return LoginResult{Token: token, ExpiresAt: expiry, AccountID: credentials.AccountID}, nil
 }
+
 func (s *Service) AccountFromToken(ctx context.Context, token string) (int64, error) {
-	if token == "" {
-		return 0, ErrUnauthorized
-	}
-	var id int64
-	err := s.Pool.QueryRow(ctx, `SELECT a.id FROM sessions se JOIN accounts a ON a.id=se.account_id
- WHERE se.token_hash=$1 AND se.revoked_at IS NULL AND se.expires_at>now()
- AND a.closed_at IS NULL`, digestToken(token)).Scan(&id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return 0, ErrUnauthorized
-	}
+	if token == "" { return 0, ErrUnauthorized }
+	id, err := dbsqlc.New(s.Pool).GetSessionAccount(ctx, digestToken(token))
+	if errors.Is(err, pgx.ErrNoRows) { return 0, ErrUnauthorized }
 	return id, err
 }
+
 func (s *Service) Logout(ctx context.Context, token string) error {
-	if token == "" {
-		return nil
-	}
-	_, err := s.Pool.Exec(ctx, "UPDATE sessions SET revoked_at=now() WHERE token_hash=$1 AND revoked_at IS NULL", digestToken(token))
-	return err
+	if token == "" { return nil }
+	return dbsqlc.New(s.Pool).RevokeSession(ctx, digestToken(token))
 }
 
 // Stable API boundary validates explicitly supplied integer route IDs.

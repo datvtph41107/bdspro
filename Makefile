@@ -4,7 +4,7 @@ DB_URL ?=
 .PHONY: sqlc test migrateup migratedown newmigration
 
 sqlc:
-	sqlc generate -f sqlc.source.yaml
+	sqlc generate
 
 test:
 	go test ./... -count=1

@@ -1,0 +1,61 @@
+name: SQLC core bootstrap (temporary)
+on:
+  push:
+    branches: [work/sqlc-lecture04-full]
+permissions:
+  contents: write
+jobs:
+  generate-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U root -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: secret
+      CORE_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_core_ci?sslmode=disable
+      SOURCE_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_source_ci?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install pinned SQLC
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+      - name: Generate SQLC and format Go
+        run: |
+          sqlc generate
+          gofmt -w auth/service.go organization/service.go source/service.go
+          go mod tidy
+      - name: Prepare canonical databases
+        run: |
+          createdb -h localhost -U root bdspro_core_ci
+          createdb -h localhost -U root bdspro_source_ci
+          for database in bdspro_core_ci bdspro_source_ci; do
+            for migration in migrations/*.up.sql; do
+              psql -v ON_ERROR_STOP=1 -h localhost -U root -d "$database" -f "$migration"
+            done
+          done
+      - name: Validate application
+        run: |
+          go test ./... -count=1
+          go vet ./...
+      - name: Commit reproducible generated output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add db/sqlc auth/service.go organization/service.go source/service.go go.mod go.sum
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(sqlc): generate Go queries and format services"
+            git push origin HEAD:work/sqlc-lecture04-full
+          fi

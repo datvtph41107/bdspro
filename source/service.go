@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datvtph41107/bdspro/db/sourcesqlc"
+	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -204,15 +204,15 @@ func (s *Service) Capture(ctx context.Context, accountID, organizationID int64, 
 	}
 	var result CaptureResult
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		q := sourcesqlc.New(tx)
-		id, err := q.InsertSourceIntake(ctx, sourcesqlc.InsertSourceIntakeParams{
+		q := dbsqlc.New(tx)
+		id, err := q.InsertSourceIntake(ctx, dbsqlc.InsertSourceIntakeParams{
 			OrganizationID: organizationID, ActorAccountID: accountID,
 			Channel: input.Channel, Label: input.Label, AreaM2: input.AreaM2,
 			AreaBasis: input.AreaBasis, ReceivedAt: input.ReceivedAt, Summary: input.Summary,
 			RequestKey: key, RequestHash: digest, HasInitialPrice: input.InitialPrice != nil,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
-			old, e := q.FindAuthorizedCaptureReplay(ctx, sourcesqlc.FindAuthorizedCaptureReplayParams{
+			old, e := q.FindAuthorizedCaptureReplay(ctx, dbsqlc.FindAuthorizedCaptureReplayParams{
 				OrganizationID: organizationID, ActorAccountID: accountID, RequestKey: key,
 			})
 			if errors.Is(e, pgx.ErrNoRows) {
@@ -232,7 +232,7 @@ func (s *Service) Capture(ctx context.Context, accountID, organizationID int64, 
 		}
 		if input.InitialPrice != nil {
 			p := *input.InitialPrice
-			_, err = q.InsertPriceReport(ctx, sourcesqlc.InsertPriceReportParams{
+			_, err = q.InsertPriceReport(ctx, dbsqlc.InsertPriceReportParams{
 				OrganizationID: organizationID, IntakeID: id, ActorAccountID: accountID,
 				Amount: p.Amount, Currency: p.Currency, PriceBasis: p.PriceBasis,
 				SourceBasis: p.SourceBasis, StatementAt: p.StatementAt, Note: p.Note,
@@ -272,15 +272,15 @@ func (s *Service) ReportPrice(ctx context.Context, accountID, organizationID, in
 	key = "p:" + key
 	var result PriceResult
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		q := sourcesqlc.New(tx)
-		id, err := q.InsertPriceReport(ctx, sourcesqlc.InsertPriceReportParams{
+		q := dbsqlc.New(tx)
+		id, err := q.InsertPriceReport(ctx, dbsqlc.InsertPriceReportParams{
 			OrganizationID: organizationID, IntakeID: intakeID, ActorAccountID: accountID,
 			Amount: input.Amount, Currency: input.Currency, PriceBasis: input.PriceBasis,
 			SourceBasis: input.SourceBasis, StatementAt: input.StatementAt, Note: input.Note,
 			PriceRequestKey: key, PriceRequestHash: digest,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
-			old, e := q.FindAuthorizedPriceReplay(ctx, sourcesqlc.FindAuthorizedPriceReplayParams{
+			old, e := q.FindAuthorizedPriceReplay(ctx, dbsqlc.FindAuthorizedPriceReplayParams{
 				OrganizationID: organizationID, IntakeID: intakeID, ActorAccountID: accountID,
 				PriceRequestKey: key,
 			})
@@ -312,8 +312,8 @@ func (s *Service) Read(ctx context.Context, accountID, organizationID, intakeID 
 	if accountID <= 0 || organizationID <= 0 || intakeID <= 0 {
 		return Source{}, ErrNotFound
 	}
-	q := sourcesqlc.New(s.pool)
-	r, err := q.GetAuthorizedSource(ctx, sourcesqlc.GetAuthorizedSourceParams{
+	q := dbsqlc.New(s.pool)
+	r, err := q.GetAuthorizedSource(ctx, dbsqlc.GetAuthorizedSourceParams{
 		OrganizationID: organizationID, IntakeID: intakeID, ActorAccountID: accountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -330,15 +330,15 @@ func (s *Service) Read(ctx context.Context, accountID, organizationID, intakeID 
 	return Source{
 		ID: r.ID, OrganizationID: r.OrganizationID, RecordedByAccountID: r.RecordedByAccountID,
 		Channel: r.SourceChannelCode, Label: r.SourceLabel, AreaM2: r.ReportedAreaM2,
-		AreaBasis: r.AreaBasisCode, Summary: r.Summary, Version: r.Version, RecordedAt: r.RecordedAt.Time, ReceivedAt: receivedAt,
+		AreaBasis: r.AreaBasisCode, Summary: r.Summary, Version: r.Version, RecordedAt: r.RecordedAt, ReceivedAt: receivedAt,
 	}, nil
 }
 func (s *Service) PriceHistory(ctx context.Context, accountID, organizationID, intakeID int64) ([]PriceReport, error) {
 	if _, err := s.Read(ctx, accountID, organizationID, intakeID); err != nil {
 		return nil, err
 	}
-	q := sourcesqlc.New(s.pool)
-	rows, err := q.ListAuthorizedPriceReports(ctx, sourcesqlc.ListAuthorizedPriceReportsParams{
+	q := dbsqlc.New(s.pool)
+	rows, err := q.ListAuthorizedPriceReports(ctx, dbsqlc.ListAuthorizedPriceReportsParams{
 		OrganizationID: organizationID, IntakeID: intakeID, ActorAccountID: accountID,
 	})
 	if err != nil {
@@ -354,7 +354,7 @@ func (s *Service) PriceHistory(ctx context.Context, accountID, organizationID, i
 		history = append(history, PriceReport{
 			ID: r.ID, IntakeID: r.IntakeID, RecordedByAccountID: r.RecordedByAccountID,
 			Amount: r.Amount, Currency: r.CurrencyCode, PriceBasis: r.PriceBasisCode,
-			SourceBasis: r.SourceBasisCode, Note: r.Note, RecordedAt: r.RecordedAt.Time, StatementAt: statementAt,
+			SourceBasis: r.SourceBasisCode, Note: r.Note, RecordedAt: r.RecordedAt, StatementAt: statementAt,
 		})
 	}
 	return history, nil
