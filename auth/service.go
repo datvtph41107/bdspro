@@ -143,14 +143,34 @@ func (s *Service) ResendVerification(ctx context.Context, email string) error {
 	if err != nil {
 		return err
 	}
-	_, err = dbsqlc.New(s.Pool).CreateVerificationResendToken(ctx, dbsqlc.CreateVerificationResendTokenParams{
-		TokenHash: hash, Email: email,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
+	var issued bool
+	// Lock the account email first, then evaluate the cooldown in a fresh
+	// READ COMMITTED statement. Concurrent requests cannot bypass the limits.
+	err = dbsqlc.NewStore(s.Pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
+		_, err := q.LockVerificationResendTarget(ctx, email)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		_, err = q.CreateVerificationResendToken(ctx, dbsqlc.CreateVerificationResendTokenParams{
+			TokenHash: hash, Email: email,
+		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		issued = true
 		return nil
-	}
+	})
 	if err != nil {
 		return fmt.Errorf("verification resend: %w", err)
+	}
+	if !issued {
+		return nil
 	}
 	if err := s.Mailer.SendVerification(ctx, email, token); err != nil {
 		return fmt.Errorf("%w: %v", ErrMailerUnavailable, err)

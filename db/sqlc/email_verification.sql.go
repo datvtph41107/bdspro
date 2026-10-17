@@ -68,6 +68,24 @@ func (q *Queries) CreateVerificationResendToken(ctx context.Context, arg CreateV
 	return account_email_id, err
 }
 
+const lockVerificationResendTarget = `-- name: LockVerificationResendTarget :one
+-- Serialize token issuance for the same account email before evaluating limits.
+-- Caller must keep this lock through a separate token-insert statement in one transaction.
+SELECT ae.id
+FROM account_emails ae
+JOIN accounts a ON a.id = ae.account_id
+WHERE lower(btrim(ae.email)) = $1::text
+  AND ae.verified_at IS NULL AND a.closed_at IS NULL
+FOR UPDATE OF ae
+`
+
+func (q *Queries) LockVerificationResendTarget(ctx context.Context, email string) (int64, error) {
+	row := q.db.QueryRow(ctx, lockVerificationResendTarget, email)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const markAccountEmailVerified = `-- name: MarkAccountEmailVerified :exec
 UPDATE account_emails SET verified_at = now()
 WHERE id = $1 AND verified_at IS NULL

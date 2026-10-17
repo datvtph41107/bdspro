@@ -2,6 +2,16 @@
 INSERT INTO email_verification_tokens (account_email_id, token_hash, expires_at)
 VALUES (sqlc.arg(account_email_id), sqlc.arg(token_hash), now() + interval '30 minutes');
 
+-- name: LockVerificationResendTarget :one
+-- Serialize token issuance for the same account email before evaluating limits.
+-- Caller must keep this lock through a separate token-insert statement in one transaction.
+SELECT ae.id
+FROM account_emails ae
+JOIN accounts a ON a.id = ae.account_id
+WHERE lower(btrim(ae.email)) = sqlc.arg(email)::text
+  AND ae.verified_at IS NULL AND a.closed_at IS NULL
+FOR UPDATE OF ae;
+
 -- name: CreateVerificationResendToken :one
 -- Resend is intentionally silent for missing/verified/closed accounts and throttled addresses.
 INSERT INTO email_verification_tokens (account_email_id, token_hash, expires_at)
