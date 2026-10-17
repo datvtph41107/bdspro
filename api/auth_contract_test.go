@@ -19,6 +19,10 @@ type authStub struct {
 	verifyErr     error
 	loginResult   auth.LoginResult
 	loginErr      error
+	accountID     int64
+	accountErr    error
+	accountCalls  int
+	accountToken  string
 	logoutErr     error
 	resendErr     error
 	registerCalls int
@@ -45,8 +49,10 @@ func (s *authStub) Login(context.Context, string, string) (auth.LoginResult, err
 	s.loginCalls++
 	return s.loginResult, s.loginErr
 }
-func (s *authStub) AccountFromToken(context.Context, string) (int64, error) {
-	return 0, auth.ErrUnauthorized
+func (s *authStub) AccountFromToken(_ context.Context, token string) (int64, error) {
+	s.accountCalls++
+	s.accountToken = token
+	return s.accountID, s.accountErr
 }
 func (s *authStub) Logout(context.Context, string) error {
 	s.logoutCalls++
@@ -241,4 +247,62 @@ func TestLoginServiceOutcomes(t *testing.T) {
 		server.Handler().ServeHTTP(w, req)
 		require.Equal(t, http.StatusServiceUnavailable, w.Code)
 	})
+}
+
+func TestCurrentAccountFailureSemantics(t *testing.T) {
+	cases := []struct {
+		name       string
+		cookie     bool
+		accountID  int64
+		accountErr error
+		status     int
+		calls      int
+	}{
+		{"missing_cookie", false, 0, nil, http.StatusUnauthorized, 0},
+		{"expired_session", true, 0, auth.ErrUnauthorized, http.StatusUnauthorized, 1},
+		{"database_unavailable", true, 0, errors.New("connection refused"), http.StatusServiceUnavailable, 1},
+		{"valid_session", true, 17, nil, http.StatusOK, 1},
+		{"zero_account_id", true, 0, nil, http.StatusUnauthorized, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &authStub{accountID: tc.accountID, accountErr: tc.accountErr}
+			server := NewServer(nil, fake, nil, nil, true, "")
+			req := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
+			if tc.cookie {
+				req.AddCookie(&http.Cookie{Name: "bdspro_session", Value: "test-session"})
+			}
+			w := httptest.NewRecorder()
+			server.Handler().ServeHTTP(w, req)
+			require.Equal(t, tc.status, w.Code)
+			require.Equal(t, tc.calls, fake.accountCalls)
+			if tc.calls > 0 {
+				require.Equal(t, "test-session", fake.accountToken)
+			}
+			if tc.status == http.StatusOK {
+				require.Contains(t, w.Body.String(), `"account_id":17`)
+				require.Equal(t, 1, fake.accountCalls, "middleware and handler must authenticate only once")
+			}
+		})
+	}
+}
+
+func TestLoginProductionCookieContract(t *testing.T) {
+	fake := &authStub{loginResult: auth.LoginResult{
+		AccountID: 17, Token: "test-session", ExpiresAt: time.Now().Add(time.Hour),
+	}}
+	server := NewServer(nil, fake, nil, nil, false, "https://app.example.test")
+	req := httptest.NewRequest(http.MethodPost, "/auth/login",
+		strings.NewReader(`{"email":"test@example.test","password":"some-password"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Len(t, w.Result().Cookies(), 1)
+	cookie := w.Result().Cookies()[0]
+	require.Equal(t, "__Host-bdspro_session", cookie.Name)
+	require.Equal(t, "/", cookie.Path)
+	require.True(t, cookie.Secure)
+	require.True(t, cookie.HttpOnly)
+	require.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
 }

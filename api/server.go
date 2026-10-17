@@ -57,21 +57,21 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.POST("/auth/verify-email", server.verifyEmail)
 	router.POST("/auth/resend-verification", server.resendVerification)
 	router.POST("/auth/login", server.login)
-	router.GET("/auth/me", server.me)
+	router.GET("/auth/me", server.requireSession, server.me)
 	router.POST("/auth/logout", server.logout)
 
-	router.POST("/organizations/registrations", server.submitOrganizationRegistration)
-	router.POST("/organizations/:id/claims", server.submitOrganizationClaim)
-	router.POST("/platform/organizations/registrations/:id/approve", server.approveOrganizationRegistration)
-	router.POST("/platform/organizations/claims/:id/approve", server.approveOrganizationClaim)
-	router.POST("/organizations/:id/invitations", server.inviteOrganizationMember)
-	router.POST("/organizations/invitations/:id/accept", server.acceptOrganizationInvitation)
-	router.GET("/organizations/:id/members", server.listOrganizationMembers)
+	router.POST("/organizations/registrations", server.requireSession, server.submitOrganizationRegistration)
+	router.POST("/organizations/:id/claims", server.requireSession, server.submitOrganizationClaim)
+	router.POST("/platform/organizations/registrations/:id/approve", server.requireSession, server.approveOrganizationRegistration)
+	router.POST("/platform/organizations/claims/:id/approve", server.requireSession, server.approveOrganizationClaim)
+	router.POST("/organizations/:id/invitations", server.requireSession, server.inviteOrganizationMember)
+	router.POST("/organizations/invitations/:id/accept", server.requireSession, server.acceptOrganizationInvitation)
+	router.GET("/organizations/:id/members", server.requireSession, server.listOrganizationMembers)
 
-	router.POST("/organizations/:id/sources", server.captureSource)
-	router.GET("/organizations/:id/sources/:sourceID", server.readSource)
-	router.POST("/organizations/:id/sources/:sourceID/price-reports", server.reportSourcePrice)
-	router.GET("/organizations/:id/sources/:sourceID/price-reports", server.listSourcePrices)
+	router.POST("/organizations/:id/sources", server.requireSession, server.captureSource)
+	router.GET("/organizations/:id/sources/:sourceID", server.requireSession, server.readSource)
+	router.POST("/organizations/:id/sources/:sourceID/price-reports", server.requireSession, server.reportSourcePrice)
+	router.GET("/organizations/:id/sources/:sourceID/price-reports", server.requireSession, server.listSourcePrices)
 
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "ok")
@@ -80,6 +80,15 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 
 	server.router = router
 	return server
+}
+
+// requireSession authenticates once per request. Tenant authorization stays in SQL.
+func (server *Server) requireSession(ctx *gin.Context) {
+	if _, ok := server.currentAccount(ctx); !ok {
+		ctx.Abort()
+		return
+	}
+	ctx.Next()
 }
 
 // checkOrigin keeps the existing browser-origin boundary for state-changing requests.

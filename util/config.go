@@ -11,16 +11,17 @@ import (
 
 // Config stores application settings read from app.env or environment variables.
 type Config struct {
-	Environment     string `mapstructure:"ENVIRONMENT"`
-	DBDriver        string `mapstructure:"DB_DRIVER"`
-	DBSource        string `mapstructure:"DB_SOURCE"`
-	ServerAddress   string `mapstructure:"SERVER_ADDRESS"`
-	AllowedOrigin   string `mapstructure:"ALLOWED_ORIGIN"`
-	SMTPAddr        string `mapstructure:"SMTP_ADDR"`
-	SMTPUser        string `mapstructure:"SMTP_USER"`
-	SMTPPassword    string `mapstructure:"SMTP_PASSWORD"`
-	SMTPFrom        string `mapstructure:"SMTP_FROM"`
-	VerificationURL string `mapstructure:"VERIFICATION_URL"`
+	Environment           string `mapstructure:"ENVIRONMENT"`
+	AllowContainerDevBind bool   `mapstructure:"ALLOW_CONTAINER_DEV_BIND"`
+	DBDriver              string `mapstructure:"DB_DRIVER"`
+	DBSource              string `mapstructure:"DB_SOURCE"`
+	ServerAddress         string `mapstructure:"SERVER_ADDRESS"`
+	AllowedOrigin         string `mapstructure:"ALLOWED_ORIGIN"`
+	SMTPAddr              string `mapstructure:"SMTP_ADDR"`
+	SMTPUser              string `mapstructure:"SMTP_USER"`
+	SMTPPassword          string `mapstructure:"SMTP_PASSWORD"`
+	SMTPFrom              string `mapstructure:"SMTP_FROM"`
+	VerificationURL       string `mapstructure:"VERIFICATION_URL"`
 }
 
 // LoadConfig follows SimpleBank's Viper file-and-environment workflow.
@@ -55,10 +56,13 @@ func (config Config) validate() error {
 		return fmt.Errorf("invalid SERVER_ADDRESS: %w", err)
 	}
 	if config.Environment == "development" {
-		if host != "localhost" && host != "127.0.0.1" && host != "::1" {
+		if host != "localhost" && host != "127.0.0.1" && host != "::1" && !config.AllowContainerDevBind {
 			return fmt.Errorf("development verification tokens require a loopback listener")
 		}
 		return nil
+	}
+	if config.AllowContainerDevBind {
+		return fmt.Errorf("ALLOW_CONTAINER_DEV_BIND only allowed in development")
 	}
 	if config.SMTPAddr == "" {
 		return fmt.Errorf("SMTP_ADDR required outside development")

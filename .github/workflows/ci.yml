@@ -92,3 +92,21 @@ jobs:
           set -e
           if [ "$status" -ne 124 ]; then cat server.log; exit 1; fi
           grep 'BDSPro listening' server.log
+
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Build and smoke Docker Compose stack
+        run: |
+          docker compose up --build -d
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:18080/ready; then exit 0; fi
+            sleep 2
+          done
+          docker compose ps
+          docker compose logs
+          exit 1
+
+      - name: Stop Docker Compose stack
+        if: always()
+        run: docker compose down
