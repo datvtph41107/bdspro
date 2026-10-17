@@ -1,3 +1,5 @@
+> **Gin HTTP layer:** `api/` nay quản lý các endpoint Auth, Organization, Source và health, không còn `net/http` handlers rời trong từng domain. Xem [GIN-HTTP-MIGRATION.md](docs/implementation/GIN-HTTP-MIGRATION.md); business services và database không đổi. Các sơ đồ/mô tả handler trong checkpoint cũ là lịch sử.
+
 > **Lecture #12 — Viper:** BDSPro hiện dùng [`app.env`](app.env) + [`util/config.go`](util/config.go) theo SimpleBank. Chạy `make server` từ root (config mặc định cho PostgreSQL Docker local), ghi đè bằng `DB_SOURCE`/`SERVER_ADDRESS`/`ENVIRONMENT` khi cần. Xem [hướng dẫn cấu hình](docs/implementation/CONFIG-LECTURE-12.md). Các hướng dẫn env cũ trong tài liệu checkpoint mang tính lịch sử.
 
 > **Canonical working tree before Lecture Gin:** Migrations: `db/migration/`; CI: `.github/workflows/ci.yml`; commands: `make migrateup DB_URL=...`, `make sqlc`, `make test`. Historical checkpoints below may retain old paths.

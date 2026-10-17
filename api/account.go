@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/datvtph41107/bdspro/auth"
 	"github.com/gin-gonic/gin"
@@ -14,59 +13,36 @@ type createAccountRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-// createAccount corresponds to SimpleBank's CreateAccount handler, but
-// registration remains the identity-owned, multi-table transaction of BDSPro.
+// createAccount implements the SimpleBank handler pattern for BDSPro registration.
 func (server *Server) createAccount(ctx *gin.Context) {
-	if strings.EqualFold(ctx.GetHeader("Sec-Fetch-Site"), "cross-site") {
-		ctx.String(http.StatusForbidden, "cross-site request denied")
-		return
-	}
-	origin := ctx.GetHeader("Origin")
-	allowedOrigin := ""
-	if server.authentication != nil {
-		allowedOrigin = server.authentication.AllowedOrigin
-	}
-	if origin != "" && (allowedOrigin == "" || origin != allowedOrigin) {
-		ctx.String(http.StatusForbidden, "origin not allowed")
-		return
-	}
-
-	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, 8192)
 	var req createAccountRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if !bindJSON(ctx, &req, 8192) {
 		ctx.String(http.StatusBadRequest, "invalid input")
 		return
 	}
-	if server.authentication == nil || server.authentication.S == nil {
+	if server.authentication == nil {
 		ctx.String(http.StatusServiceUnavailable, "registration unavailable")
 		return
 	}
-
-	registration, err := server.authentication.S.Register(
+	registration, err := server.authentication.Register(
 		ctx.Request.Context(), req.Email, req.Password,
 	)
 	switch {
 	case errors.Is(err, auth.ErrInvalid):
 		ctx.String(http.StatusBadRequest, "invalid input")
-		return
 	case errors.Is(err, auth.ErrEmailUsed):
 		ctx.String(http.StatusConflict, "email unavailable")
-		return
 	case errors.Is(err, auth.ErrMailerUnavailable):
 		ctx.String(http.StatusServiceUnavailable, "verification delivery unavailable; contact support")
-		return
 	case err != nil:
 		ctx.String(http.StatusInternalServerError, "registration failed")
-		return
+	default:
+		result := gin.H{
+			"account_id": registration.AccountID, "verification_required": true,
+		}
+		if server.development {
+			result["verification_token"] = registration.VerificationToken
+		}
+		replyJSON(ctx, http.StatusCreated, result)
 	}
-
-	result := gin.H{
-		"account_id":            registration.AccountID,
-		"verification_required": true,
-	}
-	if server.authentication.Development {
-		result["verification_token"] = registration.VerificationToken
-	}
-	ctx.Header("Cache-Control", "no-store")
-	ctx.JSON(http.StatusCreated, result)
 }

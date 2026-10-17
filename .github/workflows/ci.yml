@@ -74,6 +74,11 @@ jobs:
         run: |
           go mod tidy
           gofmt -w api auth organization source db/sqlc util main.go integration_test.go party_kind_test.go
+          for file in api/server.go api/account.go api/auth.go api/organization.go api/source.go api/server_test.go main.go integration_test.go source/service_test.go; do
+            echo "FORMATTED_FILE_START:$file"
+            cat "$file"
+            echo "FORMATTED_FILE_END:$file"
+          done
           git diff --exit-code -- go.mod go.sum api db/sqlc util auth organization source main.go integration_test.go party_kind_test.go
           test -z "$(git ls-files --others --exclude-standard -- db/sqlc)"
           go vet ./...

@@ -1,13 +1,9 @@
 package source
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"sync"
 	"testing"
@@ -284,44 +280,6 @@ func TestDatabaseConstraints(t *testing.T) {
 	_, err = f.db.Exec(context.Background(), sql, f.orgA, c.ID, f.alice, -1, "VND")
 	if !errors.As(err, &p) || p.Code != "23514" {
 		t.Fatalf("expected CHECK 23514, got %v", err)
-	}
-}
-func TestHTTPWithInjectedVerifiedPrincipal(t *testing.T) {
-	f := setup(t, "sources.create", "sources.read", "sources.price_report")
-	handler := NewHandler(f.service, func(*http.Request) (int64, bool) { return f.alice, true })
-	url := fmt.Sprintf("/organizations/%d/sources", f.orgA)
-	payload := []byte("{\"channel\":\"zalo\",\"area_m2\":\"75\",\"initial_price\":{\"amount\":\"4200000000\",\"currency\":\"VND\"}}")
-	request := func(h http.Handler, method, url, key string, body []byte) *httptest.ResponseRecorder {
-		r := httptest.NewRequest(method, url, bytes.NewReader(body))
-		if key != "" {
-			r.Header.Set("Idempotency-Key", key)
-		}
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		return w
-	}
-	first := request(handler, "POST", url, "http-key", payload)
-	if first.Code != 201 {
-		t.Fatalf("create %d: %s", first.Code, first.Body.String())
-	}
-	var body struct {
-		ID       int64
-		Replayed bool
-	}
-	if err := json.Unmarshal(first.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
-	replay := request(handler, "POST", url, "http-key", payload)
-	if replay.Code != 200 {
-		t.Fatalf("retry %d: %s", replay.Code, replay.Body.String())
-	}
-	read := request(handler, "GET", fmt.Sprintf("%s/%d", url, body.ID), "", nil)
-	if read.Code != 200 {
-		t.Fatalf("read %d: %s", read.Code, read.Body.String())
-	}
-	none := request(NewHandler(f.service, nil), "GET", fmt.Sprintf("%s/%d", url, body.ID), "", nil)
-	if none.Code != 401 {
-		t.Fatalf("missing session must be 401, got %d", none.Code)
 	}
 }
 func TestNormalizeDecimal(t *testing.T) {

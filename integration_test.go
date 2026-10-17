@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -407,4 +408,124 @@ func TestConcurrentOrganizationRegistrationApproval(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("duplicate organization from concurrent approval: %d", count)
 	}
+}
+
+func TestGinOrganizationAndSourceHTTP(t *testing.T) {
+	pool := coreDB(t)
+	ctx := context.Background()
+	a := auth.New(pool, nil)
+	org := organization.New(pool)
+	sources := source.NewService(pool)
+	server := api.NewServer(dbsqlc.NewStore(pool), a, org, sources, true, "https://app.example.test")
+
+	reviewerID, reviewerToken := coreUser(t, a, "gin-reviewer@example.test")
+	_, anToken := coreUser(t, a, "gin-an@example.test")
+	_, lanToken := coreUser(t, a, "gin-lan@example.test")
+	_, err := pool.Exec(ctx,
+		"INSERT INTO platform_organization_reviewers(account_id,authorization_reference) VALUES($1,'reviewed-fixture')",
+		reviewerID)
+	if err != nil { t.Fatal(err) }
+
+	call := func(method, path, token, key, body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, path, bytes.NewBufferString(body))
+		if body != "" { r.Header.Set("Content-Type", "application/json") }
+		if token != "" { r.AddCookie(&http.Cookie{Name: "bdspro_session", Value: token}) }
+		if key != "" { r.Header.Set("Idempotency-Key", key) }
+		w := httptest.NewRecorder()
+		server.Handler().ServeHTTP(w, r)
+		return w
+	}
+	var readID = func(t *testing.T, w *httptest.ResponseRecorder, field string) int64 {
+		t.Helper()
+		var body map[string]json.RawMessage
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil { t.Fatal(err) }
+		var id int64
+		if err := json.Unmarshal(body[field], &id); err != nil || id <= 0 {
+			t.Fatalf("missing %s: %s (%v)", field, w.Body.String(), err)
+		}
+		return id
+	}
+
+	registrationBody := `{"name":"Gin Realty","jurisdiction":"VN","registration_code":"GIN-001"}`
+	if w := call("POST", "/organizations/registrations", "", "", registrationBody); w.Code != 401 {
+		t.Fatalf("anonymous registration: %d", w.Code)
+	}
+	registration := call("POST", "/organizations/registrations", anToken, "", registrationBody)
+	if registration.Code != 201 { t.Fatalf("register organization: %d %s", registration.Code, registration.Body.String()) }
+	requestID := readID(t, registration, "request_id")
+
+	approveURL := fmt.Sprintf("/platform/organizations/registrations/%d/approve", requestID)
+	if w := call("POST", approveURL, anToken, "", `{"review_reference":"test"}`); w.Code != 404 {
+		t.Fatalf("non-reviewer approved request: %d %s", w.Code, w.Body.String())
+	}
+	approved := call("POST", approveURL, reviewerToken, "", `{"review_reference":"reviewed"}`)
+	if approved.Code != 200 { t.Fatalf("approve organization: %d %s", approved.Code, approved.Body.String()) }
+	orgID := readID(t, approved, "organization_id")
+
+	// The second registration attempt to represent the organization must
+	// not silently steal the incumbent administrator.
+	claimURL := fmt.Sprintf("/organizations/%d/claims", orgID)
+	claim := call("POST", claimURL, lanToken, "", `{"evidence_reference":"unverified-claim"}`)
+	if claim.Code != 201 { t.Fatalf("claim request: %d %s", claim.Code, claim.Body.String()) }
+	claimID := readID(t, claim, "request_id")
+	approveClaim := fmt.Sprintf("/platform/organizations/claims/%d/approve", claimID)
+	if w := call("POST", approveClaim, reviewerToken, "", `{"review_reference":"deny-claim"}`); w.Code != 409 {
+		t.Fatalf("incumbent admin displaced: %d %s", w.Code, w.Body.String())
+	}
+
+	var roleID int64
+	if err := pool.QueryRow(ctx, "SELECT id FROM organization_roles WHERE organization_id=$1", orgID).Scan(&roleID); err != nil { t.Fatal(err) }
+	inviteURL := fmt.Sprintf("/organizations/%d/invitations", orgID)
+	inviteBody := fmt.Sprintf(`{"email":"gin-lan@example.test","role_id":%d}`, roleID)
+	invite := call("POST", inviteURL, anToken, "", inviteBody)
+	if invite.Code != 201 { t.Fatalf("invite: %d %s", invite.Code, invite.Body.String()) }
+	invitationID := readID(t, invite, "invitation_id")
+	acceptURL := fmt.Sprintf("/organizations/invitations/%d/accept", invitationID)
+	if w := call("POST", acceptURL, lanToken, "", ""); w.Code != 200 {
+		t.Fatalf("accept invitation: %d %s", w.Code, w.Body.String())
+	}
+	membersURL := fmt.Sprintf("/organizations/%d/members", orgID)
+	if w := call("GET", membersURL, lanToken, "", ""); w.Code != 200 {
+		t.Fatalf("list members: %d %s", w.Code, w.Body.String())
+	}
+
+	sourceURL := fmt.Sprintf("/organizations/%d/sources", orgID)
+	captureBody := `{"channel":"zalo","label":"House","area_m2":"75","initial_price":{"amount":"4200000000","currency":"VND"}}`
+	first := call("POST", sourceURL, lanToken, "gin-capture-1", captureBody)
+	if first.Code != 201 { t.Fatalf("capture: %d %s", first.Code, first.Body.String()) }
+	sourceID := readID(t, first, "id")
+	if w := call("POST", sourceURL, lanToken, "gin-capture-1", captureBody); w.Code != 200 {
+		t.Fatalf("idempotent replay: %d %s", w.Code, w.Body.String())
+	}
+	if w := call("POST", sourceURL, lanToken, "gin-capture-1", `{"channel":"phone"}`); w.Code != 409 {
+		t.Fatalf("idempotency mismatch: %d %s", w.Code, w.Body.String())
+	}
+
+	getSourceURL := fmt.Sprintf("%s/%d", sourceURL, sourceID)
+	if w := call("GET", getSourceURL, lanToken, "", ""); w.Code != 200 {
+		t.Fatalf("read source: %d %s", w.Code, w.Body.String())
+	}
+	if w := call("GET", getSourceURL, reviewerToken, "", ""); w.Code != 404 {
+		t.Fatalf("cross-tenant source read: %d %s", w.Code, w.Body.String())
+	}
+	priceURL := getSourceURL + "/price-reports"
+	if w := call("POST", priceURL, lanToken, "gin-price-1", `{"amount":"4100000000","currency":"VND"}`); w.Code != 201 {
+		t.Fatalf("report price: %d %s", w.Code, w.Body.String())
+	}
+	if w := call("GET", priceURL, lanToken, "", ""); w.Code != 200 {
+		t.Fatalf("price history: %d %s", w.Code, w.Body.String())
+	}
+	if w := call("POST", priceURL, lanToken, "gin-price-2", `{"amount":"100","currency":"VND"}{"extra":true}`); w.Code != 400 {
+		t.Fatalf("accepted trailing JSON: %d %s", w.Code, w.Body.String())
+	}
+	if w := call("GET", "/organizations/0/sources/1", lanToken, "", ""); w.Code != 400 {
+		t.Fatalf("invalid route ID: %d %s", w.Code, w.Body.String())
+	}
+
+	crossSite := httptest.NewRequest(http.MethodPost, sourceURL, bytes.NewBufferString(captureBody))
+	crossSite.AddCookie(&http.Cookie{Name: "bdspro_session", Value: lanToken})
+	crossSite.Header.Set("Sec-Fetch-Site", "cross-site")
+	denied := httptest.NewRecorder()
+	server.Handler().ServeHTTP(denied, crossSite)
+	if denied.Code != 403 { t.Fatalf("cross-site write: %d %s", denied.Code, denied.Body.String()) }
 }

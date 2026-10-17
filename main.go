@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -75,43 +74,16 @@ func run() error {
 	if !dev && config.AllowedOrigin == "" {
 		return fmt.Errorf("ALLOWED_ORIGIN required outside development")
 	}
-	authentication := &auth.Handler{
-		S: auth.New(pool, mailer), Development: dev, SecureCookies: !dev,
-		AllowedOrigin: config.AllowedOrigin,
+	authentication := auth.New(pool, mailer)
+	app := api.NewServer(
+		dbsqlc.NewStore(pool), authentication,
+		organization.New(pool), source.NewService(pool),
+		dev, config.AllowedOrigin,
+	)
+	server := &http.Server{
+		Handler: app.Handler(), ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout: 60 * time.Second,
 	}
-	organizations := &organization.Handler{Service: organization.New(pool), Auth: authentication}
-	mux := http.NewServeMux()
-	authentication.RegisterRoutes(mux)
-	organizations.RegisterRoutes(mux)
-	src := source.NewHandler(source.NewService(pool), authentication.Account)
-	mux.Handle("/organizations/", src)
-	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
-		c, cancel := context.WithTimeout(r.Context(), time.Second)
-		defer cancel()
-		if err := pool.Ping(c); err != nil {
-			http.Error(w, "not ready", 503)
-			return
-		}
-		_, _ = w.Write([]byte("ready"))
-	})
-	app := api.NewServer(dbsqlc.NewStore(pool), authentication, mux)
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		method := r.Method
-		if method != "GET" && method != "HEAD" && method != "OPTIONS" {
-			site := strings.ToLower(r.Header.Get("Sec-Fetch-Site"))
-			if site == "cross-site" {
-				http.Error(w, "cross-site request denied", 403)
-				return
-			}
-			origin := r.Header.Get("Origin")
-			if origin != "" && origin != authentication.AllowedOrigin {
-				http.Error(w, "origin not allowed", 403)
-				return
-			}
-		}
-		app.Handler().ServeHTTP(w, r)
-	})
-	server := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 	ln, err := net.Listen("tcp", config.ServerAddress)
 	if err != nil {
 		return err
