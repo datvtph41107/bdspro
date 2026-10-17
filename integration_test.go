@@ -424,13 +424,21 @@ func TestGinOrganizationAndSourceHTTP(t *testing.T) {
 	_, err := pool.Exec(ctx,
 		"INSERT INTO platform_organization_reviewers(account_id,authorization_reference) VALUES($1,'reviewed-fixture')",
 		reviewerID)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	call := func(method, path, token, key, body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, path, bytes.NewBufferString(body))
-		if body != "" { r.Header.Set("Content-Type", "application/json") }
-		if token != "" { r.AddCookie(&http.Cookie{Name: "bdspro_session", Value: token}) }
-		if key != "" { r.Header.Set("Idempotency-Key", key) }
+		if body != "" {
+			r.Header.Set("Content-Type", "application/json")
+		}
+		if token != "" {
+			r.AddCookie(&http.Cookie{Name: "bdspro_session", Value: token})
+		}
+		if key != "" {
+			r.Header.Set("Idempotency-Key", key)
+		}
 		w := httptest.NewRecorder()
 		server.Handler().ServeHTTP(w, r)
 		return w
@@ -438,7 +446,9 @@ func TestGinOrganizationAndSourceHTTP(t *testing.T) {
 	var readID = func(t *testing.T, w *httptest.ResponseRecorder, field string) int64 {
 		t.Helper()
 		var body map[string]json.RawMessage
-		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil { t.Fatal(err) }
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
 		var id int64
 		if err := json.Unmarshal(body[field], &id); err != nil || id <= 0 {
 			t.Fatalf("missing %s: %s (%v)", field, w.Body.String(), err)
@@ -451,7 +461,9 @@ func TestGinOrganizationAndSourceHTTP(t *testing.T) {
 		t.Fatalf("anonymous registration: %d", w.Code)
 	}
 	registration := call("POST", "/organizations/registrations", anToken, "", registrationBody)
-	if registration.Code != 201 { t.Fatalf("register organization: %d %s", registration.Code, registration.Body.String()) }
+	if registration.Code != 201 {
+		t.Fatalf("register organization: %d %s", registration.Code, registration.Body.String())
+	}
 	requestID := readID(t, registration, "request_id")
 
 	approveURL := fmt.Sprintf("/platform/organizations/registrations/%d/approve", requestID)
@@ -459,14 +471,18 @@ func TestGinOrganizationAndSourceHTTP(t *testing.T) {
 		t.Fatalf("non-reviewer approved request: %d %s", w.Code, w.Body.String())
 	}
 	approved := call("POST", approveURL, reviewerToken, "", `{"review_reference":"reviewed"}`)
-	if approved.Code != 200 { t.Fatalf("approve organization: %d %s", approved.Code, approved.Body.String()) }
+	if approved.Code != 200 {
+		t.Fatalf("approve organization: %d %s", approved.Code, approved.Body.String())
+	}
 	orgID := readID(t, approved, "organization_id")
 
 	// The second registration attempt to represent the organization must
 	// not silently steal the incumbent administrator.
 	claimURL := fmt.Sprintf("/organizations/%d/claims", orgID)
 	claim := call("POST", claimURL, lanToken, "", `{"evidence_reference":"unverified-claim"}`)
-	if claim.Code != 201 { t.Fatalf("claim request: %d %s", claim.Code, claim.Body.String()) }
+	if claim.Code != 201 {
+		t.Fatalf("claim request: %d %s", claim.Code, claim.Body.String())
+	}
 	claimID := readID(t, claim, "request_id")
 	approveClaim := fmt.Sprintf("/platform/organizations/claims/%d/approve", claimID)
 	if w := call("POST", approveClaim, reviewerToken, "", `{"review_reference":"deny-claim"}`); w.Code != 409 {
@@ -474,11 +490,15 @@ func TestGinOrganizationAndSourceHTTP(t *testing.T) {
 	}
 
 	var roleID int64
-	if err := pool.QueryRow(ctx, "SELECT id FROM organization_roles WHERE organization_id=$1", orgID).Scan(&roleID); err != nil { t.Fatal(err) }
+	if err := pool.QueryRow(ctx, "SELECT id FROM organization_roles WHERE organization_id=$1", orgID).Scan(&roleID); err != nil {
+		t.Fatal(err)
+	}
 	inviteURL := fmt.Sprintf("/organizations/%d/invitations", orgID)
 	inviteBody := fmt.Sprintf(`{"email":"gin-lan@example.test","role_id":%d}`, roleID)
 	invite := call("POST", inviteURL, anToken, "", inviteBody)
-	if invite.Code != 201 { t.Fatalf("invite: %d %s", invite.Code, invite.Body.String()) }
+	if invite.Code != 201 {
+		t.Fatalf("invite: %d %s", invite.Code, invite.Body.String())
+	}
 	invitationID := readID(t, invite, "invitation_id")
 	acceptURL := fmt.Sprintf("/organizations/invitations/%d/accept", invitationID)
 	if w := call("POST", acceptURL, lanToken, "", ""); w.Code != 200 {
@@ -492,7 +512,9 @@ func TestGinOrganizationAndSourceHTTP(t *testing.T) {
 	sourceURL := fmt.Sprintf("/organizations/%d/sources", orgID)
 	captureBody := `{"channel":"zalo","label":"House","area_m2":"75","initial_price":{"amount":"4200000000","currency":"VND"}}`
 	first := call("POST", sourceURL, lanToken, "gin-capture-1", captureBody)
-	if first.Code != 201 { t.Fatalf("capture: %d %s", first.Code, first.Body.String()) }
+	if first.Code != 201 {
+		t.Fatalf("capture: %d %s", first.Code, first.Body.String())
+	}
 	sourceID := readID(t, first, "id")
 	if w := call("POST", sourceURL, lanToken, "gin-capture-1", captureBody); w.Code != 200 {
 		t.Fatalf("idempotent replay: %d %s", w.Code, w.Body.String())
@@ -527,5 +549,7 @@ func TestGinOrganizationAndSourceHTTP(t *testing.T) {
 	crossSite.Header.Set("Sec-Fetch-Site", "cross-site")
 	denied := httptest.NewRecorder()
 	server.Handler().ServeHTTP(denied, crossSite)
-	if denied.Code != 403 { t.Fatalf("cross-site write: %d %s", denied.Code, denied.Body.String()) }
+	if denied.Code != 403 {
+		t.Fatalf("cross-site write: %d %s", denied.Code, denied.Body.String())
+	}
 }

@@ -39,14 +39,19 @@ type organizationRegistrationRequest struct {
 
 func (server *Server) submitOrganizationRegistration(ctx *gin.Context) {
 	actor, ok := server.currentAccount(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	var req organizationRegistrationRequest
 	if !bindJSON(ctx, &req, 16<<10) {
 		ctx.String(http.StatusBadRequest, "invalid request body")
 		return
 	}
 	id, err := server.organizations.SubmitRegistration(ctx.Request.Context(), actor, req.Name, req.Jurisdiction, req.RegistrationCode)
-	if err != nil { organizationError(ctx, err); return }
+	if err != nil {
+		organizationError(ctx, err)
+		return
+	}
 	replyJSON(ctx, http.StatusCreated, gin.H{"request_id": id, "status": "PENDING"})
 }
 
@@ -56,16 +61,23 @@ type organizationClaimRequest struct {
 
 func (server *Server) submitOrganizationClaim(ctx *gin.Context) {
 	actor, ok := server.currentAccount(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	orgID, ok := server.organizationID(ctx, "organization id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	var req organizationClaimRequest
 	if !bindJSON(ctx, &req, 16<<10) {
 		ctx.String(http.StatusBadRequest, "invalid request body")
 		return
 	}
 	id, err := server.organizations.SubmitClaim(ctx.Request.Context(), actor, orgID, req.EvidenceReference)
-	if err != nil { organizationError(ctx, err); return }
+	if err != nil {
+		organizationError(ctx, err)
+		return
+	}
 	replyJSON(ctx, http.StatusCreated, gin.H{"request_id": id, "status": "PENDING"})
 }
 
@@ -75,31 +87,45 @@ type organizationApprovalRequest struct {
 
 func (server *Server) approveOrganizationRegistration(ctx *gin.Context) {
 	reviewer, ok := server.currentAccount(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	id, ok := server.organizationID(ctx, "request id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	var req organizationApprovalRequest
 	if !bindJSON(ctx, &req, 16<<10) {
 		ctx.String(http.StatusBadRequest, "invalid request body")
 		return
 	}
 	orgID, err := server.organizations.ApproveRegistration(ctx.Request.Context(), reviewer, id, req.ReviewReference)
-	if err != nil { organizationError(ctx, err); return }
+	if err != nil {
+		organizationError(ctx, err)
+		return
+	}
 	replyJSON(ctx, http.StatusOK, gin.H{"organization_id": orgID, "status": "APPROVED"})
 }
 
 func (server *Server) approveOrganizationClaim(ctx *gin.Context) {
 	reviewer, ok := server.currentAccount(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	id, ok := server.organizationID(ctx, "request id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	var req organizationApprovalRequest
 	if !bindJSON(ctx, &req, 16<<10) {
 		ctx.String(http.StatusBadRequest, "invalid request body")
 		return
 	}
 	orgID, err := server.organizations.ApproveInitialClaim(ctx.Request.Context(), reviewer, id, req.ReviewReference)
-	if err != nil { organizationError(ctx, err); return }
+	if err != nil {
+		organizationError(ctx, err)
+		return
+	}
 	replyJSON(ctx, http.StatusOK, gin.H{"organization_id": orgID, "status": "APPROVED"})
 }
 
@@ -110,35 +136,56 @@ type organizationInvitationRequest struct {
 
 func (server *Server) inviteOrganizationMember(ctx *gin.Context) {
 	actor, ok := server.currentAccount(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	orgID, ok := server.organizationID(ctx, "org id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	var req organizationInvitationRequest
 	if !bindJSON(ctx, &req, 16<<10) {
 		ctx.String(http.StatusBadRequest, "invalid request body")
 		return
 	}
 	id, err := server.organizations.Invite(ctx.Request.Context(), actor, orgID, req.RoleID, req.Email)
-	if err != nil { organizationError(ctx, err); return }
+	if err != nil {
+		organizationError(ctx, err)
+		return
+	}
 	replyJSON(ctx, http.StatusCreated, gin.H{"invitation_id": id, "status": "PENDING"})
 }
 
 func (server *Server) acceptOrganizationInvitation(ctx *gin.Context) {
 	actor, ok := server.currentAccount(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	id, ok := server.organizationID(ctx, "invitation id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	membershipID, err := server.organizations.AcceptInvitation(ctx.Request.Context(), actor, id)
-	if err != nil { organizationError(ctx, err); return }
+	if err != nil {
+		organizationError(ctx, err)
+		return
+	}
 	replyJSON(ctx, http.StatusOK, gin.H{"membership_id": membershipID, "status": "ACTIVE"})
 }
 
 func (server *Server) listOrganizationMembers(ctx *gin.Context) {
 	actor, ok := server.currentAccount(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	orgID, ok := server.organizationID(ctx, "org id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	members, err := server.organizations.ListMembers(ctx.Request.Context(), actor, orgID)
-	if err != nil { organizationError(ctx, err); return }
+	if err != nil {
+		organizationError(ctx, err)
+		return
+	}
 	replyJSON(ctx, http.StatusOK, members)
 }

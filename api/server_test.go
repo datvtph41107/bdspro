@@ -24,30 +24,34 @@ func TestServerHealthAndReadiness(t *testing.T) {
 func TestAllLegacyRoutesNowUseGin(t *testing.T) {
 	server := NewServer(nil, nil, nil, nil, true, "")
 	want := map[string]bool{
-		"POST /auth/register": false,
-		"POST /auth/verify-email": false,
-		"POST /auth/login": false,
-		"GET /auth/me": false,
-		"POST /auth/logout": false,
-		"POST /organizations/registrations": false,
-		"POST /organizations/:id/claims": false,
-		"POST /platform/organizations/registrations/:id/approve": false,
-		"POST /platform/organizations/claims/:id/approve": false,
-		"POST /organizations/:id/invitations": false,
-		"POST /organizations/invitations/:id/accept": false,
-		"GET /organizations/:id/members": false,
-		"POST /organizations/:id/sources": false,
-		"GET /organizations/:id/sources/:sourceID": false,
+		"POST /auth/register":                                     false,
+		"POST /auth/verify-email":                                 false,
+		"POST /auth/login":                                        false,
+		"GET /auth/me":                                            false,
+		"POST /auth/logout":                                       false,
+		"POST /organizations/registrations":                       false,
+		"POST /organizations/:id/claims":                          false,
+		"POST /platform/organizations/registrations/:id/approve":  false,
+		"POST /platform/organizations/claims/:id/approve":         false,
+		"POST /organizations/:id/invitations":                     false,
+		"POST /organizations/invitations/:id/accept":              false,
+		"GET /organizations/:id/members":                          false,
+		"POST /organizations/:id/sources":                         false,
+		"GET /organizations/:id/sources/:sourceID":                false,
 		"POST /organizations/:id/sources/:sourceID/price-reports": false,
-		"GET /organizations/:id/sources/:sourceID/price-reports": false,
-		"GET /health": false,
-		"GET /ready": false,
+		"GET /organizations/:id/sources/:sourceID/price-reports":  false,
+		"GET /health":                                             false,
+		"GET /ready":                                              false,
 	}
 	for _, route := range server.router.Routes() {
 		key := route.Method + " " + route.Path
-		if _, ok := want[key]; ok { want[key] = true }
+		if _, ok := want[key]; ok {
+			want[key] = true
+		}
 	}
-	for name, found := range want { require.True(t, found, "missing Gin route: %s", name) }
+	for name, found := range want {
+		require.True(t, found, "missing Gin route: %s", name)
+	}
 }
 
 func TestCreateAccountInvalidRequest(t *testing.T) {
