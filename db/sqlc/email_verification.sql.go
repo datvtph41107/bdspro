@@ -69,8 +69,6 @@ func (q *Queries) CreateVerificationResendToken(ctx context.Context, arg CreateV
 }
 
 const lockVerificationResendTarget = `-- name: LockVerificationResendTarget :one
--- Serialize token issuance for the same account email before evaluating limits.
--- Caller must keep this lock through a separate token-insert statement in one transaction.
 SELECT ae.id
 FROM account_emails ae
 JOIN accounts a ON a.id = ae.account_id
