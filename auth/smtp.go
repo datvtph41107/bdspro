@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+	"time"
 )
 
 // SMTPMailer requires STARTTLS; it will never transmit verification
@@ -37,6 +38,15 @@ func (m SMTPMailer) SendVerification(ctx context.Context, to, token string) erro
 	if err != nil {
 		return err
 	}
+	// DialContext limits only connection establishment, not later SMTP reads/writes.
+	deadline := time.Now().Add(15 * time.Second)
+	if requestDeadline, ok := ctx.Deadline(); ok && requestDeadline.Before(deadline) {
+		deadline = requestDeadline
+	}
+	if err := conn.SetDeadline(deadline); err != nil {
+		_ = conn.Close()
+		return err
+	}
 	c, err := smtp.NewClient(conn, host)
 	if err != nil {
 		_ = conn.Close()
@@ -60,11 +70,6 @@ func (m SMTPMailer) SendVerification(ctx context.Context, to, token string) erro
 	if err := c.Rcpt(to); err != nil {
 		return err
 	}
-	w, err := c.Data()
-	if err != nil {
-		return err
-	}
-	defer w.Close()
 	url := m.VerificationURL
 	if strings.Contains(url, "?") {
 		url += "&token=" + token
@@ -72,6 +77,19 @@ func (m SMTPMailer) SendVerification(ctx context.Context, to, token string) erro
 		url += "?token=" + token
 	}
 	body := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: Verify your BDSPro email\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nVerify your email:\r\n%s\r\n", m.From, to, url)
-	_, err = w.Write([]byte(body))
-	return err
+	return writeSMTPData(c, body)
+}
+
+// writeSMTPData must check Close: the SMTP server's final DATA acceptance
+// arrives only after the message terminator, not after Write succeeds.
+func writeSMTPData(c *smtp.Client, body string) error {
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(body)); err != nil {
+		_ = w.Close()
+		return err
+	}
+	return w.Close()
 }

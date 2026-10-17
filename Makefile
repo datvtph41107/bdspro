@@ -1,7 +1,7 @@
 # BDSPro Go + PostgreSQL. Targets follow the SimpleBank workflow.
 # DB_URL must be passed explicitly; never default a migration to production.
 DB_URL ?=
-DB_NAME ?= bdspro_sqlc_ci
+DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
 .PHONY: postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc test testsqlc testsqlc-race server newmigration

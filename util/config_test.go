@@ -44,7 +44,9 @@ func TestLoadConfigValidation(t *testing.T) {
 		{"address", "SERVER_ADDRESS=not-an-address", "invalid SERVER_ADDRESS"},
 		{"unsafe_development_bind", "SERVER_ADDRESS=0.0.0.0:8080", "loopback listener"},
 		{"production_smtp", "ENVIRONMENT=production", "SMTP_ADDR required"},
-		{"production_origin", "ENVIRONMENT=production\nSMTP_ADDR=smtp.example.test:587", "ALLOWED_ORIGIN required"},
+		{"production_from", "ENVIRONMENT=production\nSMTP_ADDR=smtp.example.test:587", "SMTP_FROM must be a valid sender"},
+		{"production_url", "ENVIRONMENT=production\nSMTP_ADDR=smtp.example.test:587\nSMTP_FROM=sender@example.test", "VERIFICATION_URL must be an absolute HTTPS URL"},
+		{"production_origin", "ENVIRONMENT=production\nSMTP_ADDR=smtp.example.test:587\nSMTP_FROM=sender@example.test\nVERIFICATION_URL=https://example.test/verify", "ALLOWED_ORIGIN required"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -60,7 +62,7 @@ func TestLoadConfigValidation(t *testing.T) {
 
 func TestLoadProductionConfig(t *testing.T) {
 	path := t.TempDir()
-	contents := "ENVIRONMENT=production\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://host.example.test/bdspro\nSERVER_ADDRESS=0.0.0.0:8080\nSMTP_ADDR=smtp.example.test:587\nALLOWED_ORIGIN=https://app.example.test\n"
+	contents := "ENVIRONMENT=production\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://host.example.test/bdspro\nSERVER_ADDRESS=0.0.0.0:8080\nSMTP_ADDR=smtp.example.test:587\nSMTP_FROM=sender@example.test\nVERIFICATION_URL=https://example.test/verify\nALLOWED_ORIGIN=https://app.example.test\n"
 	require.NoError(t, os.WriteFile(filepath.Join(path, "app.env"), []byte(contents), 0600))
 
 	config, err := LoadConfig(path)

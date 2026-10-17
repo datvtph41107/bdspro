@@ -3,6 +3,8 @@ package util
 import (
 	"fmt"
 	"net"
+	"net/mail"
+	"net/url"
 
 	"github.com/spf13/viper"
 )
@@ -60,6 +62,14 @@ func (config Config) validate() error {
 	}
 	if config.SMTPAddr == "" {
 		return fmt.Errorf("SMTP_ADDR required outside development")
+	}
+	from, err := mail.ParseAddress(config.SMTPFrom)
+	if err != nil || from.Address != config.SMTPFrom {
+		return fmt.Errorf("SMTP_FROM must be a valid sender address outside development")
+	}
+	verificationURL, err := url.Parse(config.VerificationURL)
+	if err != nil || verificationURL.Scheme != "https" || verificationURL.Host == "" {
+		return fmt.Errorf("VERIFICATION_URL must be an absolute HTTPS URL outside development")
 	}
 	if config.AllowedOrigin == "" {
 		return fmt.Errorf("ALLOWED_ORIGIN required outside development")
