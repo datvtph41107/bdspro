@@ -26,6 +26,7 @@ type Querier interface {
 	CreatePersonParty(ctx context.Context) (int64, error)
 	CreatePersonSubtype(ctx context.Context, partyID int64) error
 	CreatePrimaryAccountEmail(ctx context.Context, arg CreatePrimaryAccountEmailParams) (int64, error)
+	CreateVerificationResendToken(ctx context.Context, arg CreateVerificationResendTokenParams) (int64, error)
 	CreateVerifiedRegistryIdentifier(ctx context.Context, arg CreateVerifiedRegistryIdentifierParams) error
 	CreateWorkspaceAdminRole(ctx context.Context, organizationID int64) (int64, error)
 	FindAuthorizedCaptureReplay(ctx context.Context, arg FindAuthorizedCaptureReplayParams) (FindAuthorizedCaptureReplayRow, error)

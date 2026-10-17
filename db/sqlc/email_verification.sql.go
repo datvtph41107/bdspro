@@ -37,6 +37,37 @@ func (q *Queries) CreateEmailVerificationToken(ctx context.Context, arg CreateEm
 	return err
 }
 
+const createVerificationResendToken = `-- name: CreateVerificationResendToken :one
+-- Resend is intentionally silent for missing/verified/closed accounts and throttled addresses.
+INSERT INTO email_verification_tokens (account_email_id, token_hash, expires_at)
+SELECT ae.id, $1::text, now() + interval '30 minutes'
+FROM account_emails ae
+JOIN accounts a ON a.id = ae.account_id
+WHERE lower(btrim(ae.email)) = $2::text
+  AND ae.verified_at IS NULL AND a.closed_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM email_verification_tokens recent
+    WHERE recent.account_email_id = ae.id AND recent.created_at > now() - interval '60 seconds'
+  )
+  AND (
+    SELECT count(*) FROM email_verification_tokens daily
+    WHERE daily.account_email_id = ae.id AND daily.created_at > now() - interval '24 hours'
+  ) < 6
+RETURNING account_email_id
+`
+
+type CreateVerificationResendTokenParams struct {
+	TokenHash string `json:"token_hash"`
+	Email     string `json:"email"`
+}
+
+func (q *Queries) CreateVerificationResendToken(ctx context.Context, arg CreateVerificationResendTokenParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createVerificationResendToken, arg.TokenHash, arg.Email)
+	var account_email_id int64
+	err := row.Scan(&account_email_id)
+	return account_email_id, err
+}
+
 const markAccountEmailVerified = `-- name: MarkAccountEmailVerified :exec
 UPDATE account_emails SET verified_at = now()
 WHERE id = $1 AND verified_at IS NULL
