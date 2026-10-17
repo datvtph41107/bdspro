@@ -38,7 +38,6 @@ func (q *Queries) CreateEmailVerificationToken(ctx context.Context, arg CreateEm
 }
 
 const createVerificationResendToken = `-- name: CreateVerificationResendToken :one
--- Resend is intentionally silent for missing/verified/closed accounts and throttled addresses.
 INSERT INTO email_verification_tokens (account_email_id, token_hash, expires_at)
 SELECT ae.id, $1::text, now() + interval '30 minutes'
 FROM account_emails ae
@@ -61,6 +60,7 @@ type CreateVerificationResendTokenParams struct {
 	Email     string `json:"email"`
 }
 
+// Resend is intentionally silent for missing/verified/closed accounts and throttled addresses.
 func (q *Queries) CreateVerificationResendToken(ctx context.Context, arg CreateVerificationResendTokenParams) (int64, error) {
 	row := q.db.QueryRow(ctx, createVerificationResendToken, arg.TokenHash, arg.Email)
 	var account_email_id int64

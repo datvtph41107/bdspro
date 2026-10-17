@@ -27,7 +27,7 @@ func TestAllLegacyRoutesNowUseGin(t *testing.T) {
 	want := map[string]bool{
 		"POST /auth/register":                                     false,
 		"POST /auth/verify-email":                                 false,
-		"POST /auth/resend-verification":                         false,
+		"POST /auth/resend-verification":                          false,
 		"POST /auth/login":                                        false,
 		"GET /auth/me":                                            false,
 		"POST /auth/logout":                                       false,
