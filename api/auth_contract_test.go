@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
 	"github.com/stretchr/testify/require"
@@ -15,9 +16,14 @@ import (
 type authStub struct {
 	registration  auth.Registration
 	registerErr   error
+	verifyErr     error
+	loginResult   auth.LoginResult
+	loginErr      error
 	logoutErr     error
 	resendErr     error
 	registerCalls int
+	verifyCalls   int
+	loginCalls    int
 	logoutCalls   int
 	resendCalls   int
 }
@@ -27,13 +33,17 @@ func (s *authStub) Register(context.Context, string, string) (auth.Registration,
 	return s.registration, s.registerErr
 }
 
-func (s *authStub) VerifyEmail(context.Context, string) error { return nil }
+func (s *authStub) VerifyEmail(context.Context, string) error {
+	s.verifyCalls++
+	return s.verifyErr
+}
 func (s *authStub) ResendVerification(context.Context, string) error {
 	s.resendCalls++
 	return s.resendErr
 }
 func (s *authStub) Login(context.Context, string, string) (auth.LoginResult, error) {
-	return auth.LoginResult{}, nil
+	s.loginCalls++
+	return s.loginResult, s.loginErr
 }
 func (s *authStub) AccountFromToken(context.Context, string) (int64, error) {
 	return 0, auth.ErrUnauthorized
@@ -118,4 +128,117 @@ func TestResendVerificationDoesNotExposeDeliveryOrAccountStatus(t *testing.T) {
 	w := httptest.NewRecorder()
 	server.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestVerifyEmailServiceOutcomes(t *testing.T) {
+	cases := []struct {
+		name   string
+		err    error
+		status int
+	}{
+		{"verified", nil, http.StatusNoContent},
+		{"invalid_token", auth.ErrInvalidToken, http.StatusBadRequest},
+		{"backend_failure", errors.New("database unavailable"), http.StatusInternalServerError},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &authStub{verifyErr: tc.err}
+			server := NewServer(nil, fake, nil, nil, true, "")
+			req := httptest.NewRequest(http.MethodPost, "/auth/verify-email", strings.NewReader(`{"token":"verification-token"}`))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			server.Handler().ServeHTTP(w, req)
+
+			require.Equal(t, tc.status, w.Code)
+			require.Equal(t, 1, fake.verifyCalls)
+			require.Empty(t, w.Result().Cookies())
+		})
+	}
+
+	t.Run("invalid_request", func(t *testing.T) {
+		fake := &authStub{}
+		server := NewServer(nil, fake, nil, nil, true, "")
+		req := httptest.NewRequest(http.MethodPost, "/auth/verify-email", strings.NewReader(`{"token":""}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		server.Handler().ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		require.Zero(t, fake.verifyCalls, "invalid input must not reach the service")
+	})
+
+	t.Run("service_unavailable", func(t *testing.T) {
+		server := NewServer(nil, nil, nil, nil, true, "")
+		req := httptest.NewRequest(http.MethodPost, "/auth/verify-email", strings.NewReader(`{"token":"verification-token"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		server.Handler().ServeHTTP(w, req)
+		require.Equal(t, http.StatusServiceUnavailable, w.Code)
+	})
+}
+
+func TestLoginServiceOutcomes(t *testing.T) {
+	cases := []struct {
+		name   string
+		err    error
+		status int
+	}{
+		{"authenticated", nil, http.StatusOK},
+		{"invalid_credentials", auth.ErrInvalidCredentials, http.StatusUnauthorized},
+		{"unverified_email", auth.ErrUnverified, http.StatusForbidden},
+		{"backend_failure", errors.New("database unavailable"), http.StatusInternalServerError},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := &authStub{
+				loginResult: auth.LoginResult{
+					AccountID: 17,
+					Token:     "mock-session",
+					ExpiresAt: time.Now().Add(time.Hour),
+				},
+				loginErr: tc.err,
+			}
+			server := NewServer(nil, fake, nil, nil, true, "")
+			req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"email":"sample@example.test","password":"long-enough-password"}`))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			server.Handler().ServeHTTP(w, req)
+
+			require.Equal(t, tc.status, w.Code)
+			require.Equal(t, 1, fake.loginCalls)
+			cookies := w.Result().Cookies()
+			if tc.err == nil {
+				require.Contains(t, w.Body.String(), `"account_id":17`)
+				require.Len(t, cookies, 1)
+				require.Equal(t, "bdspro_session", cookies[0].Name)
+				require.Equal(t, "mock-session", cookies[0].Value)
+				require.True(t, cookies[0].HttpOnly)
+				require.Equal(t, http.SameSiteLaxMode, cookies[0].SameSite)
+				require.False(t, cookies[0].Secure, "development uses a local HTTP listener")
+			} else {
+				require.Empty(t, cookies, "login failure must not issue a session cookie")
+			}
+		})
+	}
+
+	t.Run("invalid_request", func(t *testing.T) {
+		fake := &authStub{}
+		server := NewServer(nil, fake, nil, nil, true, "")
+		req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"email":"sample@example.test"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		server.Handler().ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		require.Zero(t, fake.loginCalls, "invalid input must not reach the service")
+	})
+
+	t.Run("service_unavailable", func(t *testing.T) {
+		server := NewServer(nil, nil, nil, nil, true, "")
+		req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"email":"sample@example.test","password":"long-enough-password"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		server.Handler().ServeHTTP(w, req)
+		require.Equal(t, http.StatusServiceUnavailable, w.Code)
+	})
 }
