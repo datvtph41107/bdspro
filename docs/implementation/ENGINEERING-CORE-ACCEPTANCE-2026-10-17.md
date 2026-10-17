@@ -56,7 +56,7 @@
 1. PostgreSQL 18, áp dụng migrations, kiểm tra UP-DOWN-UP migration cuối.
 2. `sqlc generate`, gofmt, `go mod tidy`, `go vet`, diff generated không đổi.
 3. `go test -v -cover ./...` với ba disposable PostgreSQL CI databases; không chấp nhận SKIP ngầm.
-4. SQLC race tests, HTTP smoke startup.
+4. Race tests trên tất cả Go packages (`go test -race ./...`), HTTP smoke startup.
 5. Kiểm tra logs không có FAIL; trạng thái GitHub Actions completed/success.
 
 ## 6. Quyết định để tiếp tục Lecture #13

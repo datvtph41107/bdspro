@@ -17,6 +17,8 @@ Nếu đã có local clone, trước tiên chạy `git status --short --branch`,
 
 ```bash
 make postgres
+# Khi container mới vừa khởi tạo, đợi pg_isready trả mã 0:
+docker exec postgres pg_isready -U root -d postgres
 make createdb DB_NAME=bdspro
 ```
 
@@ -46,7 +48,7 @@ Server dùng `app.env` mặc định, DEVELOPMENT lắng nghe loopback. `go test
 
 - `POST /auth/register`: tạo tài khoản; trong local development trả verification token debug.
 - `POST /auth/verify-email`: xác minh bằng token.
-- `POST /auth/resend-verification`: body `{"email":"someone@example.test"}`, trả HTTP 202 chung khi email hợp lệ. Không tiết lộ email có tồn tại hay không. Trường hợp có cooldown 60 giây.
+- `POST /auth/resend-verification`: body `{"email":"someone@example.test"}`, trả HTTP 202 chung khi email hợp lệ, kể cả địa chỉ không có trong hệ thống. Cooldown 60 giây, quota tối đa 6 token/24 giờ được tuần tự hóa theo account email. Đây là phản hồi đồng nhất theo trạng thái HTTP, **không** bảo đảm kháng phân tích thời gian phản hồi; cần bảo vệ chống abuse ở lớp HTTP trước public deployment.
 - `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`.
 - Các routes Organization và Source theo `api/server.go`.
 
