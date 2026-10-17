@@ -16,8 +16,10 @@ type authStub struct {
 	registration  auth.Registration
 	registerErr   error
 	logoutErr     error
+	resendErr     error
 	registerCalls int
 	logoutCalls   int
+	resendCalls   int
 }
 
 func (s *authStub) Register(context.Context, string, string) (auth.Registration, error) {
@@ -26,6 +28,10 @@ func (s *authStub) Register(context.Context, string, string) (auth.Registration,
 }
 
 func (s *authStub) VerifyEmail(context.Context, string) error { return nil }
+func (s *authStub) ResendVerification(context.Context, string) error {
+	s.resendCalls++
+	return s.resendErr
+}
 func (s *authStub) Login(context.Context, string, string) (auth.LoginResult, error) {
 	return auth.LoginResult{}, nil
 }
@@ -91,4 +97,25 @@ func TestLogoutHonorsRevocationFailure(t *testing.T) {
 	server.Handler().ServeHTTP(w, withoutCookie)
 	require.Equal(t, http.StatusNoContent, w.Code)
 	require.Equal(t, 1, success.logoutCalls, "no cookie must not require a backend revoke")
+}
+
+func TestResendVerificationDoesNotExposeDeliveryOrAccountStatus(t *testing.T) {
+	for _, backendError := range []error{nil, auth.ErrMailerUnavailable, errors.New("database unavailable")} {
+		fake := &authStub{resendErr: backendError}
+		server := NewServer(nil, fake, nil, nil, true, "")
+		req := httptest.NewRequest(http.MethodPost, "/auth/resend-verification", strings.NewReader(`{"email":"unknown@example.test"}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		server.Handler().ServeHTTP(w, req)
+		require.Equal(t, http.StatusAccepted, w.Code)
+		require.Equal(t, 1, fake.resendCalls)
+	}
+
+	fake := &authStub{resendErr: auth.ErrInvalid}
+	server := NewServer(nil, fake, nil, nil, true, "")
+	req := httptest.NewRequest(http.MethodPost, "/auth/resend-verification", strings.NewReader(`{"email":"not-an-email"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
 }

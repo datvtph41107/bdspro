@@ -25,6 +25,7 @@ import (
 type Authentication interface {
 	Register(context.Context, string, string) (auth.Registration, error)
 	VerifyEmail(context.Context, string) error
+	ResendVerification(context.Context, string) error
 	Login(context.Context, string, string) (auth.LoginResult, error)
 	AccountFromToken(context.Context, string) (int64, error)
 	Logout(context.Context, string) error
@@ -54,6 +55,7 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 
 	router.POST("/auth/register", server.createAccount)
 	router.POST("/auth/verify-email", server.verifyEmail)
+	router.POST("/auth/resend-verification", server.resendVerification)
 	router.POST("/auth/login", server.login)
 	router.GET("/auth/me", server.me)
 	router.POST("/auth/logout", server.logout)

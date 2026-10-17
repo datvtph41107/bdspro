@@ -129,6 +129,35 @@ func (s *Service) Register(ctx context.Context, email, password string) (Registr
 	return Registration{AccountID: result.AccountID, VerificationToken: token}, nil
 }
 
+// ResendVerification provides recovery after registration commits but email delivery fails.
+// Unknown, verified, closed, and throttled accounts are indistinguishable to callers.
+func (s *Service) ResendVerification(ctx context.Context, email string) error {
+	email, err := normalizedEmail(email)
+	if err != nil {
+		return ErrInvalid
+	}
+	if s.Mailer == nil {
+		return ErrMailerUnavailable
+	}
+	token, hash, err := randomToken()
+	if err != nil {
+		return err
+	}
+	_, err = dbsqlc.New(s.Pool).CreateVerificationResendToken(ctx, dbsqlc.CreateVerificationResendTokenParams{
+		TokenHash: hash, Email: email,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("verification resend: %w", err)
+	}
+	if err := s.Mailer.SendVerification(ctx, email, token); err != nil {
+		return fmt.Errorf("%w: %v", ErrMailerUnavailable, err)
+	}
+	return nil
+}
+
 func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 	if len(token) < 30 || len(token) > 256 {
 		return ErrInvalidToken

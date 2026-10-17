@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -87,6 +88,33 @@ func (server *Server) verifyEmail(ctx *gin.Context) {
 		return
 	}
 	ctx.Status(http.StatusNoContent)
+}
+
+type resendVerificationRequest struct {
+	Email string `json:"email" binding:"required"`
+}
+
+// Return the same response for unknown, already verified, and throttled addresses.
+// Delivery/database failures are logged internally, never exposed as an enumeration oracle.
+func (server *Server) resendVerification(ctx *gin.Context) {
+	var req resendVerificationRequest
+	if !bindJSON(ctx, &req, 8192) {
+		ctx.String(http.StatusBadRequest, "invalid input")
+		return
+	}
+	if server.authentication == nil {
+		ctx.String(http.StatusServiceUnavailable, "verification unavailable")
+		return
+	}
+	err := server.authentication.ResendVerification(ctx.Request.Context(), req.Email)
+	if errors.Is(err, auth.ErrInvalid) {
+		ctx.String(http.StatusBadRequest, "invalid input")
+		return
+	}
+	if err != nil {
+		log.Printf("verification resend unavailable: %v", err)
+	}
+	ctx.Status(http.StatusAccepted)
 }
 
 type loginRequest struct {
