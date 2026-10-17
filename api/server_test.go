@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -98,4 +99,13 @@ func TestProtectedRoutesRejectMissingSession(t *testing.T) {
 		server.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, target, nil))
 		require.Equal(t, http.StatusUnauthorized, w.Code, target)
 	}
+}
+
+func TestServerStartRejectsOccupiedAddress(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	server := NewServer(nil, nil, nil, nil, true, "")
+	require.Error(t, server.Start(listener.Addr().String()))
 }

@@ -13,6 +13,17 @@ import (
 // tokens over a plaintext SMTP channel. It does not store the token.
 type SMTPMailer struct{ Addr, User, Password, From, VerificationURL string }
 
+// NewSMTPMailer creates the optional SMTP sender for application startup.
+func NewSMTPMailer(addr, user, password, from, verificationURL string) Mailer {
+	if addr == "" {
+		return nil
+	}
+	return SMTPMailer{
+		Addr: addr, User: user, Password: password,
+		From: from, VerificationURL: verificationURL,
+	}
+}
+
 func (m SMTPMailer) SendVerification(ctx context.Context, to, token string) error {
 	if m.Addr == "" || m.From == "" || m.VerificationURL == "" {
 		return ErrMailerUnavailable

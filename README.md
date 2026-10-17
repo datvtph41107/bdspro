@@ -1,3 +1,5 @@
+> **Bootstrap chuẩn Lecture #12:** [`main.go`](main.go) chỉ nạp Viper config → PostgreSQL pool → Store/Services → Gin `Start`. Validate environment nằm tại [`util/config.go`](util/config.go); graceful shutdown nằm tại [`api/server.go`](api/server.go). [Xem giải thích và lệnh nghiệm thu](docs/implementation/MAIN-BOOTSTRAP-LECTURE-12.md). Bản này chưa triển khai Lecture #13.
+
 > **Gin HTTP layer:** `api/` nay quản lý các endpoint Auth, Organization, Source và health, không còn `net/http` handlers rời trong từng domain. Xem [GIN-HTTP-MIGRATION.md](docs/implementation/GIN-HTTP-MIGRATION.md); business services và database không đổi. Các sơ đồ/mô tả handler trong checkpoint cũ là lịch sử.
 
 > **Lecture #12 — Viper:** BDSPro hiện dùng [`app.env`](app.env) + [`util/config.go`](util/config.go) theo SimpleBank. Chạy `make server` từ root (config mặc định cho PostgreSQL Docker local), ghi đè bằng `DB_SOURCE`/`SERVER_ADDRESS`/`ENVIRONMENT` khi cần. Xem [hướng dẫn cấu hình](docs/implementation/CONFIG-LECTURE-12.md). Các hướng dẫn env cũ trong tài liệu checkpoint mang tính lịch sử.

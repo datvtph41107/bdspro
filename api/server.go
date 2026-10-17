@@ -2,8 +2,14 @@ package api
 
 import (
 	"context"
+	"errors"
+	"log"
+	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
@@ -98,9 +104,37 @@ func (server *Server) ready(ctx *gin.Context) {
 	ctx.String(http.StatusOK, "ready")
 }
 
-// Start runs the HTTP server on a specific address.
+// Start serves HTTP and shuts down gracefully on SIGINT or SIGTERM.
 func (server *Server) Start(address string) error {
-	return server.router.Run(address)
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	httpServer := &http.Server{
+		Handler: server.router,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout: 60 * time.Second,
+	}
+	signals, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	done := make(chan error, 1)
+	go func() { done <- httpServer.Serve(listener) }()
+	log.Printf("BDSPro listening on %s", listener.Addr())
+
+	select {
+	case err := <-done:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
+	case <-signals.Done():
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return httpServer.Shutdown(ctx)
+	}
 }
 
 // Handler supports the current graceful-shutdown HTTP server.

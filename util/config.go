@@ -2,12 +2,12 @@ package util
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/spf13/viper"
 )
 
-// Config stores all configuration of the application.
-// Values are read by Viper from app.env or environment variables.
+// Config stores application settings read from app.env or environment variables.
 type Config struct {
 	Environment     string `mapstructure:"ENVIRONMENT"`
 	DBDriver        string `mapstructure:"DB_DRIVER"`
@@ -21,7 +21,8 @@ type Config struct {
 	VerificationURL string `mapstructure:"VERIFICATION_URL"`
 }
 
-// LoadConfig reads configuration from app.env and environment variables.
+// LoadConfig follows SimpleBank's Viper file-and-environment workflow.
+// A new Viper instance keeps independent test calls isolated.
 func LoadConfig(path string) (config Config, err error) {
 	v := viper.New()
 	v.AddConfigPath(path)
@@ -29,20 +30,39 @@ func LoadConfig(path string) (config Config, err error) {
 	v.SetConfigType("env")
 	v.AutomaticEnv()
 
-	// Environment-only values must also be known to Unmarshal.
-	for _, key := range []string{
-		"ENVIRONMENT", "DB_DRIVER", "DB_SOURCE", "SERVER_ADDRESS",
-		"ALLOWED_ORIGIN", "SMTP_ADDR", "SMTP_USER", "SMTP_PASSWORD",
-		"SMTP_FROM", "VERIFICATION_URL",
-	} {
-		if err = v.BindEnv(key); err != nil {
-			return config, fmt.Errorf("bind %s: %w", key, err)
-		}
-	}
-
 	if err = v.ReadInConfig(); err != nil {
-		return config, err
+		return
 	}
-	err = v.Unmarshal(&config)
+	if err = v.Unmarshal(&config); err != nil {
+		return
+	}
+	err = config.validate()
 	return
+}
+
+// validate keeps deployment rules at the configuration boundary, not in main.
+func (config Config) validate() error {
+	if config.DBDriver != "postgres" {
+		return fmt.Errorf("DB_DRIVER must be postgres")
+	}
+	if config.DBSource == "" {
+		return fmt.Errorf("DB_SOURCE required")
+	}
+	host, _, err := net.SplitHostPort(config.ServerAddress)
+	if err != nil {
+		return fmt.Errorf("invalid SERVER_ADDRESS: %w", err)
+	}
+	if config.Environment == "development" {
+		if host != "localhost" && host != "127.0.0.1" && host != "::1" {
+			return fmt.Errorf("development verification tokens require a loopback listener")
+		}
+		return nil
+	}
+	if config.SMTPAddr == "" {
+		return fmt.Errorf("SMTP_ADDR required outside development")
+	}
+	if config.AllowedOrigin == "" {
+		return fmt.Errorf("ALLOWED_ORIGIN required outside development")
+	}
+	return nil
 }
