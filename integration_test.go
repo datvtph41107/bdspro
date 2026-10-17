@@ -206,6 +206,67 @@ func TestCoreJourneyRegisterOrganizationInviteSource(t *testing.T) {
 	}
 }
 
+// recoveryMailer simulates the external delivery boundary independently of PostgreSQL.
+type recoveryMailer struct {
+	attempts  int
+	failNext  bool
+	lastToken string
+}
+
+func (m *recoveryMailer) SendVerification(_ context.Context, _ string, token string) error {
+	m.attempts++
+	if m.failNext {
+		m.failNext = false
+		return errors.New("SMTP rejected the message")
+	}
+	m.lastToken = token
+	return nil
+}
+
+func TestRegistrationDeliveryFailureCanRecover(t *testing.T) {
+	pool := coreDB(t)
+	ctx := context.Background()
+	mailer := &recoveryMailer{failNext: true}
+	service := auth.New(pool, mailer)
+	registration, err := service.Register(ctx, "recover@example.test", "VeryLongPassword1234!")
+	if !errors.Is(err, auth.ErrMailerUnavailable) || registration.AccountID <= 0 {
+		t.Fatalf("expected committed account with delivery failure, got %+v, %v", registration, err)
+	}
+	if mailer.attempts != 1 {
+		t.Fatalf("expected SMTP attempted once, got %d", mailer.attempts)
+	}
+	// The first verification token remains in storage despite failed delivery.
+	if err := service.ResendVerification(ctx, "recover@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	if mailer.attempts != 1 {
+		t.Fatal("resend must observe one-minute cooldown")
+	}
+	_, err = pool.Exec(ctx, `UPDATE email_verification_tokens SET created_at=now()-interval '2 minutes'
+WHERE account_email_id=(SELECT id FROM account_emails WHERE account_id=$1)`, registration.AccountID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.ResendVerification(ctx, "RECOVER@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	if mailer.attempts != 2 || mailer.lastToken == "" {
+		t.Fatalf("resend failed, attempts=%d", mailer.attempts)
+	}
+	if err := service.VerifyEmail(ctx, mailer.lastToken); err != nil {
+		t.Fatalf("resend token did not verify the account: %v", err)
+	}
+	if err := service.ResendVerification(ctx, "recover@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.ResendVerification(ctx, "unknown@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	if mailer.attempts != 2 {
+		t.Fatal("resend leaked verified or unknown state via extra SMTP calls")
+	}
+}
+
 func TestC01DeferredSubtypeAndRegistrationRollback(t *testing.T) {
 	db := coreDB(t)
 	ctx := context.Background()
