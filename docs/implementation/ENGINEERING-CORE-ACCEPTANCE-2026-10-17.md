@@ -20,7 +20,7 @@
 | Logout | HTTP trả 503 khi thu hồi session lỗi; không xóa cookie trong response lỗi; không cookie vẫn 204 | `TestLogoutHonorsRevocationFailure`, `TestAuthCookieLifecycle` |
 | SMTP | Trả lỗi `DataWriter.Close()`; giới hạn SMTP I/O bằng deadline 15 giây (hoặc deadline ngắn hơn của context) | `TestWriteSMTPDataChecksFinalServerResponse` |
 | Config | Ngoài development yêu cầu sender hợp lệ và verification URL HTTPS, kiểm tra trước khi nhận request | `TestLoadConfigValidation`, `TestLoadProductionConfig` |
-| Recovery | `POST /auth/resend-verification`; 202 chung cho trạng thái tài khoản, 400 email lỗi; 60 giây cooldown, tối đa 6 token trong 24 giờ kể cả token đăng ký đầu | `TestRegistrationDeliveryFailureCanRecover`, HTTP stub tests |
+| Recovery | `POST /auth/resend-verification`; 202 chung cho trạng thái tài khoản, 400 email lỗi; khóa theo account_email trước khi kiểm tra cooldown 60 giây và quota tối đa 6 token trong 24 giờ | `TestRegistrationDeliveryFailureCanRecover`, `TestConcurrentResendDoesNotBypassCooldown`, `TestResendDailyTokenCap`, HTTP stub tests |
 | Organization | Từ chối nhận lời mời nếu Organization archived | `TestOrganizationMembershipAndInvitationQueries` |
 | Gin | Consumer-defined `Authentication` interface, readiness dùng pool trực tiếp, bỏ Store field không dùng | `TestCreateAccountServiceOutcomes`, `TestServerHealthAndReadiness` |
 | Onboarding | `DB_NAME` mặc định `bdspro`, hướng dẫn quickstart mới | `LOCAL-QUICKSTART.md` |
@@ -33,7 +33,7 @@
 
 **Register:** PostgreSQL COMMIT trước SMTP; email không thuộc transaction. Lỗi SMTP không xóa Account. Người dùng có thể yêu cầu gửi lại sau cooldown. Endpoint không trả trạng thái có/không có account.
 
-**Resend:** Token sinh ngẫu nhiên, chỉ lưu hash, hết hạn 30 phút. SQL chỉ tạo token cho account chưa đóng và email chưa verified. Có giới hạn theo địa chỉ; chưa bảo đảm quota đúng tuyệt đối trước cạnh tranh nhiều requests cùng thời điểm, chưa có rate limit IP/global.
+**Resend:** Token sinh ngẫu nhiên, chỉ lưu hash, hết hạn 30 phút. SQL chỉ tạo token cho account chưa đóng và email chưa verified. Có khóa hàng account_email giữ qua transaction tới khi tạo token, nên nhiều requests đồng thời cùng địa chỉ được tuần tự hóa khi tính quota. Chưa có rate limit IP/global hoặc bảo vệ phân tích thời gian phản hồi (timing enumeration).
 
 **Organization:** Invitation chỉ được chấp nhận khi chưa resolved, chưa hết hạn, account đang mở, email verified trùng và Organization chưa archived. SQL vẫn bảo vệ scope role/membership.
 

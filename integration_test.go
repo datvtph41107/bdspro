@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/datvtph41107/bdspro/api"
@@ -264,6 +266,85 @@ WHERE account_email_id=(SELECT id FROM account_emails WHERE account_id=$1)`, reg
 	}
 	if mailer.attempts != 2 {
 		t.Fatal("resend leaked verified or unknown state via extra SMTP calls")
+	}
+}
+
+type resendCounterMailer struct {
+	calls atomic.Int64
+}
+
+func (m *resendCounterMailer) SendVerification(context.Context, string, string) error {
+	m.calls.Add(1)
+	return nil
+}
+
+func TestConcurrentResendDoesNotBypassCooldown(t *testing.T) {
+	pool := coreDB(t)
+	ctx := context.Background()
+	mailer := &resendCounterMailer{}
+	service := auth.New(pool, mailer)
+	registration, err := service.Register(ctx, "concurrent-resend@example.test", "VeryLongPassword1234!")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `UPDATE email_verification_tokens SET created_at=now()-interval '2 minutes'
+WHERE account_email_id=(SELECT id FROM account_emails WHERE account_id=$1)`, registration.AccountID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	errs := make(chan error, 8)
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- service.ResendVerification(ctx, "concurrent-resend@example.test")
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent resend: %v", err)
+		}
+	}
+	if got := mailer.calls.Load(); got != 2 {
+		t.Fatalf("expected registration + one resend, delivered %d messages", got)
+	}
+	var tokens int64
+	err = pool.QueryRow(ctx, `SELECT count(*) FROM email_verification_tokens
+WHERE account_email_id=(SELECT id FROM account_emails WHERE account_id=$1)`, registration.AccountID).Scan(&tokens)
+	if err != nil || tokens != 2 {
+		t.Fatalf("concurrent resend issued %d tokens: %v", tokens, err)
+	}
+}
+
+func TestResendDailyTokenCap(t *testing.T) {
+	pool := coreDB(t)
+	ctx := context.Background()
+	mailer := &resendCounterMailer{}
+	service := auth.New(pool, mailer)
+	registration, err := service.Register(ctx, "daily-resend@example.test", "VeryLongPassword1234!")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var emailID int64
+	if err := pool.QueryRow(ctx, "SELECT id FROM account_emails WHERE account_id=$1", registration.AccountID).Scan(&emailID); err != nil {
+		t.Fatal(err)
+	}
+	// Registration consumes one of six token issuances in the last 24 hours.
+	for i := 0; i < 5; i++ {
+		_, err := pool.Exec(ctx, `INSERT INTO email_verification_tokens(account_email_id, token_hash, created_at, expires_at)
+VALUES($1, $2, now()-interval '2 minutes', now()+interval '30 minutes')`, emailID, fmt.Sprintf("daily-fixture-%d", i))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := service.ResendVerification(ctx, "daily-resend@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	if got := mailer.calls.Load(); got != 1 {
+		t.Fatalf("24-hour quota ignored; SMTP sent %d emails", got)
 	}
 }
 
