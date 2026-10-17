@@ -127,10 +127,19 @@ func (server *Server) me(ctx *gin.Context) {
 }
 
 func (server *Server) logout(ctx *gin.Context) {
-	if server.authentication != nil {
-		if cookie, err := ctx.Request.Cookie(server.cookieName()); err == nil {
-			_ = server.authentication.Logout(ctx.Request.Context(), cookie.Value)
-		}
+	cookie, err := ctx.Request.Cookie(server.cookieName())
+	if err != nil {
+		server.cookie(ctx, "", -1)
+		ctx.Status(http.StatusNoContent)
+		return
+	}
+	if server.authentication == nil {
+		ctx.String(http.StatusServiceUnavailable, "logout unavailable")
+		return
+	}
+	if err := server.authentication.Logout(ctx.Request.Context(), cookie.Value); err != nil {
+		ctx.String(http.StatusServiceUnavailable, "logout unavailable")
+		return
 	}
 	server.cookie(ctx, "", -1)
 	ctx.Status(http.StatusNoContent)

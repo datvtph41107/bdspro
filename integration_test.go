@@ -13,7 +13,6 @@ import (
 
 	"github.com/datvtph41107/bdspro/api"
 	"github.com/datvtph41107/bdspro/auth"
-	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -247,7 +246,7 @@ func TestC01DeferredSubtypeAndRegistrationRollback(t *testing.T) {
 func TestAuthCookieLifecycle(t *testing.T) {
 	db := coreDB(t)
 	service := auth.New(db, nil)
-	server := api.NewServer(dbsqlc.NewStore(db), service, organization.New(db), source.NewService(db), true, "")
+	server := api.NewServer(db, service, organization.New(db), source.NewService(db), true, "")
 	act := func(method, path string, body []byte, cookie *http.Cookie) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, bytes.NewReader(body))
 		if cookie != nil {
@@ -416,7 +415,7 @@ func TestGinOrganizationAndSourceHTTP(t *testing.T) {
 	a := auth.New(pool, nil)
 	org := organization.New(pool)
 	sources := source.NewService(pool)
-	server := api.NewServer(dbsqlc.NewStore(pool), a, org, sources, true, "https://app.example.test")
+	server := api.NewServer(pool, a, org, sources, true, "https://app.example.test")
 
 	reviewerID, reviewerToken := coreUser(t, a, "gin-reviewer@example.test")
 	_, anToken := coreUser(t, a, "gin-an@example.test")

@@ -6,7 +6,6 @@ import (
 
 	"github.com/datvtph41107/bdspro/api"
 	"github.com/datvtph41107/bdspro/auth"
-	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
 	"github.com/datvtph41107/bdspro/util"
@@ -29,13 +28,12 @@ func main() {
 		log.Fatal("cannot reach database:", err)
 	}
 
-	store := db.NewStore(pool)
 	mailer := auth.NewSMTPMailer(
 		config.SMTPAddr, config.SMTPUser, config.SMTPPassword,
 		config.SMTPFrom, config.VerificationURL,
 	)
 	server := api.NewServer(
-		store, auth.New(pool, mailer),
+		pool, auth.New(pool, mailer),
 		organization.New(pool), source.NewService(pool),
 		config.Environment == "development", config.AllowedOrigin,
 	)

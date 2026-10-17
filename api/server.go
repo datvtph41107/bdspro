@@ -13,17 +13,27 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
-	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 )
 
+// Authentication defines only the auth behaviors consumed by HTTP.
+// It allows handler tests to simulate failures without a PostgreSQL connection.
+type Authentication interface {
+	Register(context.Context, string, string) (auth.Registration, error)
+	VerifyEmail(context.Context, string) error
+	Login(context.Context, string, string) (auth.LoginResult, error)
+	AccountFromToken(context.Context, string) (int64, error)
+	Logout(context.Context, string) error
+}
+
 // Server serves HTTP requests for BDSPro, following SimpleBank's API layout.
 type Server struct {
-	store          *db.Store
-	authentication *auth.Service
+	pool           *pgxpool.Pool
+	authentication Authentication
 	organizations  *organization.Service
 	sources        *source.Service
 	development    bool
@@ -32,9 +42,9 @@ type Server struct {
 }
 
 // NewServer creates a Gin server and sets up all HTTP routes.
-func NewServer(store *db.Store, authentication *auth.Service, organizations *organization.Service, sources *source.Service, development bool, allowedOrigin string) *Server {
+func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations *organization.Service, sources *source.Service, development bool, allowedOrigin string) *Server {
 	server := &Server{
-		store: store, authentication: authentication,
+		pool: pool, authentication: authentication,
 		organizations: organizations, sources: sources,
 		development: development, allowedOrigin: allowedOrigin,
 	}
@@ -91,13 +101,13 @@ func (server *Server) checkOrigin(ctx *gin.Context) {
 }
 
 func (server *Server) ready(ctx *gin.Context) {
-	if server.authentication == nil || server.authentication.Pool == nil {
+	if server.pool == nil {
 		ctx.String(http.StatusServiceUnavailable, "not ready")
 		return
 	}
 	ping, cancel := context.WithTimeout(ctx.Request.Context(), time.Second)
 	defer cancel()
-	if err := server.authentication.Pool.Ping(ping); err != nil {
+	if err := server.pool.Ping(ping); err != nil {
 		ctx.String(http.StatusServiceUnavailable, "not ready")
 		return
 	}
