@@ -113,9 +113,9 @@ func (server *Server) Start(address string) error {
 	defer listener.Close()
 
 	httpServer := &http.Server{
-		Handler: server.router,
+		Handler:           server.router,
 		ReadHeaderTimeout: 5 * time.Second,
-		IdleTimeout: 60 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 	signals, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
