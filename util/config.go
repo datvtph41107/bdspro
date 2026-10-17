@@ -11,17 +11,17 @@ import (
 
 // Config stores application settings read from app.env or environment variables.
 type Config struct {
-	Environment     string `mapstructure:"ENVIRONMENT"`
-	AllowContainerDevBind bool `mapstructure:"ALLOW_CONTAINER_DEV_BIND"`
-	DBDriver        string `mapstructure:"DB_DRIVER"`
-	DBSource        string `mapstructure:"DB_SOURCE"`
-	ServerAddress   string `mapstructure:"SERVER_ADDRESS"`
-	AllowedOrigin   string `mapstructure:"ALLOWED_ORIGIN"`
-	SMTPAddr        string `mapstructure:"SMTP_ADDR"`
-	SMTPUser        string `mapstructure:"SMTP_USER"`
-	SMTPPassword    string `mapstructure:"SMTP_PASSWORD"`
-	SMTPFrom        string `mapstructure:"SMTP_FROM"`
-	VerificationURL string `mapstructure:"VERIFICATION_URL"`
+	Environment           string `mapstructure:"ENVIRONMENT"`
+	AllowContainerDevBind bool   `mapstructure:"ALLOW_CONTAINER_DEV_BIND"`
+	DBDriver              string `mapstructure:"DB_DRIVER"`
+	DBSource              string `mapstructure:"DB_SOURCE"`
+	ServerAddress         string `mapstructure:"SERVER_ADDRESS"`
+	AllowedOrigin         string `mapstructure:"ALLOWED_ORIGIN"`
+	SMTPAddr              string `mapstructure:"SMTP_ADDR"`
+	SMTPUser              string `mapstructure:"SMTP_USER"`
+	SMTPPassword          string `mapstructure:"SMTP_PASSWORD"`
+	SMTPFrom              string `mapstructure:"SMTP_FROM"`
+	VerificationURL       string `mapstructure:"VERIFICATION_URL"`
 }
 
 // LoadConfig follows SimpleBank's Viper file-and-environment workflow.
