@@ -203,8 +203,7 @@ func (s *Service) Capture(ctx context.Context, accountID, organizationID int64, 
 		return CaptureResult{}, err
 	}
 	var result CaptureResult
-	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		q := dbsqlc.New(tx)
+	err = dbsqlc.NewStore(s.pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
 		id, err := q.InsertSourceIntake(ctx, dbsqlc.InsertSourceIntakeParams{
 			OrganizationID: organizationID, ActorAccountID: accountID,
 			Channel: input.Channel, Label: input.Label, AreaM2: input.AreaM2,
@@ -271,8 +270,7 @@ func (s *Service) ReportPrice(ctx context.Context, accountID, organizationID, in
 	}
 	key = "p:" + key
 	var result PriceResult
-	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		q := dbsqlc.New(tx)
+	err = dbsqlc.NewStore(s.pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
 		id, err := q.InsertPriceReport(ctx, dbsqlc.InsertPriceReportParams{
 			OrganizationID: organizationID, IntakeID: intakeID, ActorAccountID: accountID,
 			Amount: input.Amount, Currency: input.Currency, PriceBasis: input.PriceBasis,

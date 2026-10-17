@@ -134,8 +134,7 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 		return ErrInvalidToken
 	}
 	hash := digestToken(token)
-	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
-		q := dbsqlc.New(tx)
+	return dbsqlc.NewStore(s.Pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
 		emailID, err := q.ConsumeEmailVerificationToken(ctx, hash)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrInvalidToken

@@ -69,16 +69,15 @@ func (s *Service) SubmitClaim(ctx context.Context, accountID, organizationID int
 
 // Only an operator (NOT tenant admin) can provision platform_organization_reviewers.
 // Reviewer authority is checked and row-locked in the same transaction as approval.
-func requireReviewer(ctx context.Context, tx pgx.Tx, accountID int64) error {
-	_, err := dbsqlc.New(tx).LockActivePlatformReviewer(ctx, accountID)
+func requireReviewer(ctx context.Context, q *dbsqlc.Queries, accountID int64) error {
+	_, err := q.LockActivePlatformReviewer(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrForbidden
 	}
 	return err
 }
 
-func grantInitialAdmin(ctx context.Context, tx pgx.Tx, orgID, personID int64) error {
-	q := dbsqlc.New(tx)
+func grantInitialAdmin(ctx context.Context, q *dbsqlc.Queries, orgID, personID int64) error {
 	membershipID, err := q.UpsertInitialOrganizationMembership(ctx, dbsqlc.UpsertInitialOrganizationMembershipParams{
 		OrganizationID: orgID, PersonID: personID,
 	})
@@ -109,11 +108,10 @@ func (s *Service) ApproveRegistration(ctx context.Context, reviewerID, requestID
 		return 0, ErrInvalid
 	}
 	var orgID int64
-	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
-		if err := requireReviewer(ctx, tx, reviewerID); err != nil {
+	err := dbsqlc.NewStore(s.Pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
+		if err := requireReviewer(ctx, q, reviewerID); err != nil {
 			return err
 		}
-		q := dbsqlc.New(tx)
 		request, err := q.GetPendingOrganizationRegistrationForUpdate(ctx, requestID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
@@ -146,7 +144,7 @@ func (s *Service) ApproveRegistration(ctx context.Context, reviewerID, requestID
 		}); err != nil {
 			return err
 		}
-		if err := grantInitialAdmin(ctx, tx, orgID, personID); err != nil {
+		if err := grantInitialAdmin(ctx, q, orgID, personID); err != nil {
 			return err
 		}
 		rows, err := q.ResolveOrganizationRegistration(ctx, dbsqlc.ResolveOrganizationRegistrationParams{
@@ -178,11 +176,10 @@ func (s *Service) ApproveInitialClaim(ctx context.Context, reviewerID, requestID
 		return 0, ErrInvalid
 	}
 	var orgID int64
-	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
-		if err := requireReviewer(ctx, tx, reviewerID); err != nil {
+	err := dbsqlc.NewStore(s.Pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
+		if err := requireReviewer(ctx, q, reviewerID); err != nil {
 			return err
 		}
-		q := dbsqlc.New(tx)
 		request, err := q.GetPendingOrganizationClaimForUpdate(ctx, requestID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
@@ -206,7 +203,7 @@ func (s *Service) ApproveInitialClaim(ctx context.Context, reviewerID, requestID
 		if err != nil {
 			return ErrConflict
 		}
-		if err := grantInitialAdmin(ctx, tx, orgID, personID); err != nil {
+		if err := grantInitialAdmin(ctx, q, orgID, personID); err != nil {
 			return err
 		}
 		rows, err := q.ResolveOrganizationClaim(ctx, dbsqlc.ResolveOrganizationClaimParams{
@@ -248,8 +245,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, accountID, invitationID 
 		return 0, ErrInvalid
 	}
 	var membership int64
-	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
-		q := dbsqlc.New(tx)
+	err := dbsqlc.NewStore(s.Pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
 		invitation, err := q.AcceptPendingInvitation(ctx, dbsqlc.AcceptPendingInvitationParams{
 			InvitationID: invitationID, AccountID: accountID,
 		})

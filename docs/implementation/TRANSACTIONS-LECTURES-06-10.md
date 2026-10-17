@@ -1,4 +1,4 @@
-# Chốt giai đoạn trước Lecture #11 — SimpleBank-aligned BDSPro
+> **Cập nhật sau Lecture #12 (17/10/2026):** BDSPro thống nhất sáu transaction của Auth, Organization và Source với `db/sqlc/Store.ExecTx`. Đây là bản export của helper `execTx` theo SimpleBank, vì các service ở package khác cần truy cập. Callback nhận `*dbsqlc.Queries` đã gắn vào `pgx.Tx`; business rules vẫn ở service, truy vấn vẫn ở SQLC. Các đoạn mô tả `execTx` và HTTP `net/http` bên dưới là lịch sử giai đoạn trước Lecture #11, không phải trạng thái source hiện tại. Các unit/integration tests của giai đoạn tiếp theo cần xác nhận rollback, locks, quyền và idempotency. Không thay đổi schema.\n\n# Chốt giai đoạn trước Lecture #11 — SimpleBank-aligned BDSPro
 
 Mốc tham chiếu: SimpleBank `56a8785` (Store/TransferTx); `b383211` (CI khởi tạo); `d670f28` (PostgreSQL CI).
 

@@ -21,12 +21,15 @@ func NewStore(db *pgxpool.Pool) *Store {
 	}
 }
 
-// execTx executes a function within a database transaction.
-func (store *Store) execTx(ctx context.Context, fn func(*Queries) error) error {
+// ExecTx executes SQLC queries within a single database transaction.
+// The callback must use the supplied Queries so every statement uses the same tx.
+func (store *Store) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 	tx, err := store.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
+
+	defer func() { _ = tx.Rollback(context.Background()) }()
 
 	q := New(tx)
 	err = fn(q)
@@ -56,7 +59,7 @@ type RegisterTxResult struct {
 // RegisterTx creates one Party, Person, Account and verification token atomically.
 func (s *Store) RegisterTx(ctx context.Context, arg RegisterTxParams) (RegisterTxResult, error) {
 	var result RegisterTxResult
-	err := s.execTx(ctx, func(q *Queries) error {
+	err := s.ExecTx(ctx, func(q *Queries) error {
 		var err error
 
 		result.PartyID, err = q.CreatePersonParty(ctx)

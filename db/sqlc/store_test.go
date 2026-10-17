@@ -60,7 +60,7 @@ func cleanupRegistration(t *testing.T, result RegisterTxResult) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	err := pgx.BeginFunc(ctx, testDB, func(tx pgx.Tx) error {
+	err := NewStore(testDB).ExecTx(ctx, func(q *Queries) error {
 		statements := []struct {
 			sql string
 			id  int64
@@ -73,13 +73,40 @@ func cleanupRegistration(t *testing.T, result RegisterTxResult) {
 			{"DELETE FROM parties WHERE id=$1", result.PartyID},
 		}
 		for _, stmt := range statements {
-			if _, err := tx.Exec(ctx, stmt.sql, stmt.id); err != nil {
+			if _, err := q.db.Exec(ctx, stmt.sql, stmt.id); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+// ExecTx must roll back a partially written Party when the callback fails.
+func TestStoreExecTxRollsBackOnError(t *testing.T) {
+	requireCommitTestDB(t)
+	ctx := context.Background()
+	forced := errors.New("stop before commit")
+	var partyID int64
+
+	err := NewStore(testDB).ExecTx(ctx, func(q *Queries) error {
+		var err error
+		partyID, err = q.CreatePersonParty(ctx)
+		if err != nil {
+			return err
+		}
+		if err := q.CreatePersonSubtype(ctx, partyID); err != nil {
+			return err
+		}
+		return forced
+	})
+	require.ErrorIs(t, err, forced)
+	require.Positive(t, partyID)
+
+	var count int
+	require.NoError(t, testDB.QueryRow(ctx,
+		"SELECT count(*) FROM parties WHERE id=$1", partyID).Scan(&count))
+	require.Zero(t, count, "callback error must roll back all SQLC writes")
 }
 
 func TestStoreRegisterTxCommit(t *testing.T) {
