@@ -29,8 +29,8 @@ func TestWriteSMTPDataChecksFinalServerResponse(t *testing.T) {
 		response string
 		rejected bool
 	}{
-		{"accepted", "250 queued\\r\\n", false},
-		{"rejected", "554 content rejected\\r\\n", true},
+		{"accepted", "250 queued\r\n", false},
+		{"rejected", "554 content rejected\r\n", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -53,30 +53,30 @@ func TestWriteSMTPDataChecksFinalServerResponse(t *testing.T) {
 					}
 					return w.Flush()
 				}
-				if err := reply("220 fake SMTP ready\\r\\n"); err != nil {
+				if err := reply("220 fake SMTP ready\r\n"); err != nil {
 					done <- err
 					return
 				}
 				for {
-					line, err := r.ReadString('\\n')
+					line, err := r.ReadString('\n')
 					if err != nil {
 						done <- err
 						return
 					}
 					switch {
 					case strings.HasPrefix(line, "EHLO "), strings.HasPrefix(line, "HELO "):
-						err = reply("250 localhost\\r\\n")
+						err = reply("250 localhost\r\n")
 					case strings.HasPrefix(line, "MAIL FROM:"), strings.HasPrefix(line, "RCPT TO:"):
-						err = reply("250 accepted\\r\\n")
-					case line == "DATA\\r\\n":
-						if err = reply("354 send data\\r\\n"); err == nil {
+						err = reply("250 accepted\r\n")
+					case line == "DATA\r\n":
+						if err = reply("354 send data\r\n"); err == nil {
 							for {
-								data, e := r.ReadString('\\n')
+								data, e := r.ReadString('\n')
 								if e != nil {
 									err = e
 									break
 								}
-								if data == ".\\r\\n" {
+								if data == ".\r\n" {
 									break
 								}
 							}
@@ -87,7 +87,7 @@ func TestWriteSMTPDataChecksFinalServerResponse(t *testing.T) {
 						done <- err
 						return
 					default:
-						err = reply("500 unsupported\\r\\n")
+						err = reply("500 unsupported\r\n")
 					}
 					if err != nil {
 						done <- err
@@ -102,7 +102,7 @@ func TestWriteSMTPDataChecksFinalServerResponse(t *testing.T) {
 			defer c.Close()
 			require.NoError(t, c.Mail("sender@example.test"))
 			require.NoError(t, c.Rcpt("recipient@example.test"))
-			err = writeSMTPData(c, "From: sender@example.test\\r\\nTo: recipient@example.test\\r\\nSubject: test\\r\\n\\r\\nHello\\r\\n")
+			err = writeSMTPData(c, "From: sender@example.test\r\nTo: recipient@example.test\r\nSubject: test\r\n\r\nHello\r\n")
 			if tc.rejected {
 				require.ErrorContains(t, err, "554")
 			} else {

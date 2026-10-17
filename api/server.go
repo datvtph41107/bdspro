@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Authentication defines only the auth behaviors consumed by HTTP.
