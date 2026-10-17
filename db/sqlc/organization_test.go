@@ -162,6 +162,16 @@ func TestOrganizationMembershipAndInvitationQueries(t *testing.T) {
 	require.NoError(t, err)
 	require.Positive(t, invitationID)
 
+	// An archived workspace must not grant a new membership from an old invitation.
+	_, err = tx.Exec(ctx, "UPDATE organizations SET archived_at=now() WHERE party_id=$1", orgID)
+	require.NoError(t, err)
+	_, err = q.AcceptPendingInvitation(ctx, AcceptPendingInvitationParams{
+		InvitationID: invitationID, AccountID: inviteeAccountID,
+	})
+	require.ErrorIs(t, err, pgx.ErrNoRows)
+	_, err = tx.Exec(ctx, "UPDATE organizations SET archived_at=NULL WHERE party_id=$1", orgID)
+	require.NoError(t, err)
+
 	invitation, err := q.AcceptPendingInvitation(ctx, AcceptPendingInvitationParams{
 		InvitationID: invitationID, AccountID: inviteeAccountID,
 	})

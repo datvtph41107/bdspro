@@ -16,6 +16,7 @@ const acceptPendingInvitation = `-- name: AcceptPendingInvitation :one
 UPDATE organization_invitations i
 SET outcome = 'ACCEPTED', resolved_at = now()
 WHERE i.id = $1 AND i.outcome IS NULL AND i.expires_at > now()
+  AND EXISTS (SELECT 1 FROM organizations o WHERE o.party_id = i.organization_id AND o.archived_at IS NULL)
   AND EXISTS (
     SELECT 1 FROM accounts a JOIN account_emails ae ON ae.account_id = a.id
     WHERE a.id = $2 AND a.closed_at IS NULL
