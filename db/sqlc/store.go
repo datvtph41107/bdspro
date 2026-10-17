@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -29,14 +31,21 @@ func (store *Store) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 		return err
 	}
 
-	defer func() { _ = tx.Rollback(context.Background()) }()
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
 
 	q := New(tx)
 	err = fn(q)
 	if err != nil {
 		// Use a live context for rollback even if the request was cancelled.
-		if rbErr := tx.Rollback(context.Background()); rbErr != nil {
-			return fmt.Errorf("tx err: %v, rb err: %v", err, rbErr)
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		rbErr := tx.Rollback(cleanup)
+		cancel()
+		if rbErr != nil {
+			return errors.Join(err, fmt.Errorf("rollback failed: %w", rbErr))
 		}
 		return err
 	}

@@ -47,6 +47,9 @@ func (server *Server) cookie(ctx *gin.Context, token string, age int) {
 }
 
 func (server *Server) currentAccount(ctx *gin.Context) (int64, bool) {
+	if id := ctx.GetInt64("bdspro_account_id"); id > 0 {
+		return id, true
+	}
 	if server.authentication == nil {
 		ctx.String(http.StatusUnauthorized, "unauthorized")
 		return 0, false
@@ -57,10 +60,15 @@ func (server *Server) currentAccount(ctx *gin.Context) (int64, bool) {
 		return 0, false
 	}
 	id, err := server.authentication.AccountFromToken(ctx.Request.Context(), cookie.Value)
-	if err != nil || id <= 0 {
+	if errors.Is(err, auth.ErrUnauthorized) || (err == nil && id <= 0) {
 		ctx.String(http.StatusUnauthorized, "unauthorized")
 		return 0, false
 	}
+	if err != nil {
+		ctx.String(http.StatusServiceUnavailable, "authentication unavailable")
+		return 0, false
+	}
+	ctx.Set("bdspro_account_id", id)
 	return id, true
 }
 

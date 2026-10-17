@@ -116,7 +116,8 @@ func (s *Service) Register(ctx context.Context, email, password string) (Registr
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
+			pgErr.ConstraintName == "account_emails_login_key_uq" {
 			return Registration{}, ErrEmailUsed
 		}
 		return Registration{}, fmt.Errorf("registration transaction: %w", err)
