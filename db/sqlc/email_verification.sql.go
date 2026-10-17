@@ -79,6 +79,8 @@ WHERE lower(btrim(ae.email)) = $1::text
 FOR UPDATE OF ae
 `
 
+// Serialize token issuance for the same account email before evaluating limits.
+// Caller must keep this lock through a separate token-insert statement in one transaction.
 func (q *Queries) LockVerificationResendTarget(ctx context.Context, email string) (int64, error) {
 	row := q.db.QueryRow(ctx, lockVerificationResendTarget, email)
 	var id int64
