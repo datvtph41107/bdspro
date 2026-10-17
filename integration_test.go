@@ -11,7 +11,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/api"
 	"github.com/datvtph41107/bdspro/auth"
+	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -245,16 +247,14 @@ func TestC01DeferredSubtypeAndRegistrationRollback(t *testing.T) {
 func TestAuthCookieLifecycle(t *testing.T) {
 	db := coreDB(t)
 	service := auth.New(db, nil)
-	h := &auth.Handler{S: service, Development: true, SecureCookies: false}
-	mux := http.NewServeMux()
-	h.RegisterRoutes(mux)
+	server := api.NewServer(dbsqlc.NewStore(db), service, organization.New(db), source.NewService(db), true, "")
 	act := func(method, path string, body []byte, cookie *http.Cookie) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, bytes.NewReader(body))
 		if cookie != nil {
 			req.AddCookie(cookie)
 		}
 		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, req)
+		server.Handler().ServeHTTP(w, req)
 		return w
 	}
 	payload := []byte(`{"email":"minh@example.test","password":"VeryLongPassword1234!"}`)
