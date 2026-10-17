@@ -13,9 +13,9 @@ import (
 )
 
 type authStub struct {
-	registration auth.Registration
-	registerErr  error
-	logoutErr    error
+	registration  auth.Registration
+	registerErr   error
+	logoutErr     error
 	registerCalls int
 	logoutCalls   int
 }
@@ -39,9 +39,9 @@ func (s *authStub) Logout(context.Context, string) error {
 
 func TestCreateAccountServiceOutcomes(t *testing.T) {
 	cases := []struct {
-		name      string
-		regErr    error
-		status    int
+		name   string
+		regErr error
+		status int
 	}{
 		{"success", nil, http.StatusCreated},
 		{"duplicate_email", auth.ErrEmailUsed, http.StatusConflict},
