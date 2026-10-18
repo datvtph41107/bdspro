@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/datvtph41107/bdspro/api"
 	"github.com/datvtph41107/bdspro/auth"
@@ -692,5 +693,96 @@ func TestGinOrganizationAndSourceHTTP(t *testing.T) {
 	server.Handler().ServeHTTP(denied, crossSite)
 	if denied.Code != 403 {
 		t.Fatalf("cross-site write: %d %s", denied.Code, denied.Body.String())
+	}
+}
+
+func TestRegistryIdentityConflictDoesNotLeaveOrphanParty(t *testing.T) {
+	pool := coreDB(t)
+	ctx := context.Background()
+	accounts := auth.New(pool, nil)
+	organizations := organization.New(pool)
+
+	reviewerID, _ := coreUser(t, accounts, "sqlstate-reviewer@example.test")
+	firstID, _ := coreUser(t, accounts, "sqlstate-first@example.test")
+	secondID, _ := coreUser(t, accounts, "sqlstate-second@example.test")
+	_, err := pool.Exec(ctx, `INSERT INTO platform_organization_reviewers(account_id,authorization_reference)
+VALUES ($1,'sqlstate-fixture')`, reviewerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := organizations.SubmitRegistration(ctx, firstID, "First Realty", "VN", "SAME-REG-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := organizations.ApproveRegistration(ctx, reviewerID, first, "approved"); err != nil {
+		t.Fatal(err)
+	}
+	var before int64
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	second, err := organizations.SubmitRegistration(ctx, secondID, "Second Realty", "VN", "SAME-REG-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := organizations.ApproveRegistration(ctx, reviewerID, second, "duplicate"); !errors.Is(err, organization.ErrConflict) {
+		t.Fatalf("expected registry unique violation to map to business conflict, got %v", err)
+	}
+	var after int64
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if before != after {
+		t.Fatalf("duplicate registration committed an orphan Party: before=%d after=%d", before, after)
+	}
+}
+
+func TestClaimApprovalDatabaseTimeoutIsNotBusinessConflict(t *testing.T) {
+	pool := coreDB(t)
+	ctx := context.Background()
+	accounts := auth.New(pool, nil)
+	organizations := organization.New(pool)
+
+	reviewerID, _ := coreUser(t, accounts, "sqlstate-claim-reviewer@example.test")
+	ownerID, _ := coreUser(t, accounts, "sqlstate-claim-owner@example.test")
+	claimantID, _ := coreUser(t, accounts, "sqlstate-claimant@example.test")
+	_, err := pool.Exec(ctx, `INSERT INTO platform_organization_reviewers(account_id,authorization_reference)
+VALUES ($1,'timeout-fixture')`, reviewerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	regID, err := organizations.SubmitRegistration(ctx, ownerID, "Timeout Realty", "VN", "TIMEOUT-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	orgID, err := organizations.ApproveRegistration(ctx, reviewerID, regID, "reviewed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimID, err := organizations.SubmitClaim(ctx, claimantID, orgID, "claim reference")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Hold the row needed by ApproveInitialClaim, forcing the service's
+	// organization lock to exceed its request deadline.
+	blocker, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blocker.Rollback(context.Background())
+	var locked int64
+	if err := blocker.QueryRow(ctx,
+		"SELECT party_id FROM organizations WHERE party_id=$1 FOR UPDATE",
+		orgID).Scan(&locked); err != nil {
+		t.Fatal(err)
+	}
+	deadline, cancel := context.WithTimeout(ctx, 150*time.Millisecond)
+	defer cancel()
+	_, err = organizations.ApproveInitialClaim(deadline, reviewerID, claimID, "timeout")
+	if err == nil || errors.Is(err, organization.ErrConflict) {
+		t.Fatalf("backend timeout must not be translated into business conflict: %v", err)
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected request deadline to survive transaction cleanup: %v", err)
 	}
 }
