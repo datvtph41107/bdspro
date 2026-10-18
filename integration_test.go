@@ -44,7 +44,7 @@ func coreDB(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(ctx, "INSERT INTO permissions(code) VALUES('members.read'),('members.invite'),('sources.create'),('sources.read'),('sources.price_report')")
+	_, err = db.Exec(ctx, "INSERT INTO permissions(code) VALUES('members.read'),('members.invite'),('members.remove'),('sources.create'),('sources.read'),('sources.price_report')")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -67,6 +67,7 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.POST("/organizations/:id/invitations", server.requireSession, server.inviteOrganizationMember)
 	router.POST("/organizations/invitations/:id/accept", server.requireSession, server.acceptOrganizationInvitation)
 	router.GET("/organizations/:id/members", server.requireSession, server.listOrganizationMembers)
+	router.DELETE("/organizations/:id/members/:membershipID", server.requireSession, server.removeOrganizationMember)
 
 	router.POST("/organizations/:id/sources", server.requireSession, server.captureSource)
 	router.GET("/organizations/:id/sources/:sourceID", server.requireSession, server.readSource)

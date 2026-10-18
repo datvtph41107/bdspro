@@ -30,6 +30,8 @@ type Querier interface {
 	CreateVerificationResendToken(ctx context.Context, arg CreateVerificationResendTokenParams) (int64, error)
 	CreateVerifiedRegistryIdentifier(ctx context.Context, arg CreateVerifiedRegistryIdentifierParams) error
 	CreateWorkspaceAdminRole(ctx context.Context, organizationID int64) (int64, error)
+	EndAuthorizedOrganizationMembership(ctx context.Context, arg EndAuthorizedOrganizationMembershipParams) (int64, error)
+	EndOrganizationMembershipRoles(ctx context.Context, arg EndOrganizationMembershipRolesParams) (int64, error)
 	FindAuthorizedCaptureReplay(ctx context.Context, arg FindAuthorizedCaptureReplayParams) (FindAuthorizedCaptureReplayRow, error)
 	FindAuthorizedPriceReplay(ctx context.Context, arg FindAuthorizedPriceReplayParams) (FindAuthorizedPriceReplayRow, error)
 	GetAuthorizedSource(ctx context.Context, arg GetAuthorizedSourceParams) (GetAuthorizedSourceRow, error)
@@ -40,6 +42,7 @@ type Querier interface {
 	GetPendingOrganizationClaimForUpdate(ctx context.Context, id int64) (GetPendingOrganizationClaimForUpdateRow, error)
 	GetPendingOrganizationRegistrationForUpdate(ctx context.Context, id int64) (GetPendingOrganizationRegistrationForUpdateRow, error)
 	GetSessionAccount(ctx context.Context, tokenHash string) (int64, error)
+	GrantInitialMemberRemovalPermission(ctx context.Context, roleID int64) error
 	GrantInitialRolePermissions(ctx context.Context, roleID int64) error
 	InsertPriceReport(ctx context.Context, arg InsertPriceReportParams) (int64, error)
 	// CORE-05 sqlc queries. Never trust org/account context from client payloads:
@@ -51,6 +54,7 @@ type Querier interface {
 	LockActivePlatformReviewer(ctx context.Context, accountID int64) (int64, error)
 	// Serialize token issuance for the same account email before evaluating limits.
 	// Caller must keep this lock through a separate token-insert statement in one transaction.
+	LockOrganizationForSourceWrite(ctx context.Context, partyID int64) (int64, error)
 	LockVerificationResendTarget(ctx context.Context, email string) (int64, error)
 	MarkAccountEmailVerified(ctx context.Context, id int64) error
 	ResolveOrganizationClaim(ctx context.Context, arg ResolveOrganizationClaimParams) (int64, error)
