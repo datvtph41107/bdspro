@@ -60,7 +60,7 @@ func TestRequestLoggingSanitizesRouteAndRejectsSpoofedID(t *testing.T) {
 func TestRequestLoggingSuccessForbiddenAndNotFound(t *testing.T) {
 	cases := []struct {
 		name, method, path, fetchSite, route string
-		status int
+		status                               int
 	}{
 		{"health", http.MethodGet, "/health", "", "/health", http.StatusOK},
 		{"missing_auth", http.MethodGet, "/auth/me?secret=hidden", "", "/auth/me", http.StatusUnauthorized},
