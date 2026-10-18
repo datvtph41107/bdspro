@@ -204,6 +204,14 @@ func (s *Service) Capture(ctx context.Context, accountID, organizationID int64, 
 	}
 	var result CaptureResult
 	err = dbsqlc.NewStore(s.pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
+		// Shared organization lock protects authorization and the resulting
+		// write from a concurrent member removal on the same organization.
+		if _, err := q.LockOrganizationForSourceWrite(ctx, organizationID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrForbidden
+			}
+			return err
+		}
 		id, err := q.InsertSourceIntake(ctx, dbsqlc.InsertSourceIntakeParams{
 			OrganizationID: organizationID, ActorAccountID: accountID,
 			Channel: input.Channel, Label: input.Label, AreaM2: input.AreaM2,
@@ -271,6 +279,12 @@ func (s *Service) ReportPrice(ctx context.Context, accountID, organizationID, in
 	key = "p:" + key
 	var result PriceResult
 	err = dbsqlc.NewStore(s.pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
+		if _, err := q.LockOrganizationForSourceWrite(ctx, organizationID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrForbidden
+			}
+			return err
+		}
 		id, err := q.InsertPriceReport(ctx, dbsqlc.InsertPriceReportParams{
 			OrganizationID: organizationID, IntakeID: intakeID, ActorAccountID: accountID,
 			Amount: input.Amount, Currency: input.Currency, PriceBasis: input.PriceBasis,

@@ -189,3 +189,24 @@ func (server *Server) listOrganizationMembers(ctx *gin.Context) {
 	}
 	replyJSON(ctx, http.StatusOK, members)
 }
+
+func (server *Server) removeOrganizationMember(ctx *gin.Context) {
+	actorID, ok := server.currentAccount(ctx)
+	if !ok {
+		return
+	}
+	orgID, ok := server.organizationID(ctx, "organization id")
+	if !ok {
+		return
+	}
+	memberID, err := auth.PositiveID(ctx.Param("membershipID"))
+	if err != nil {
+		ctx.String(http.StatusBadRequest, "invalid membership id")
+		return
+	}
+	if err := server.organizations.RemoveMember(ctx.Request.Context(), actorID, orgID, memberID); err != nil {
+		organizationError(ctx, err)
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}

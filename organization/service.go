@@ -91,6 +91,9 @@ func grantInitialAdmin(ctx context.Context, q *dbsqlc.Queries, orgID, personID i
 	if err := q.GrantInitialRolePermissions(ctx, roleID); err != nil {
 		return err
 	}
+	if err := q.GrantInitialMemberRemovalPermission(ctx, roleID); err != nil {
+		return err
+	}
 	if err := q.CreateInitialRoleAssignment(ctx, dbsqlc.CreateInitialRoleAssignmentParams{
 		OrganizationID: orgID, MembershipID: membershipID, RoleID: roleID,
 	}); err != nil {
@@ -305,4 +308,34 @@ func (s *Service) ListMembers(ctx context.Context, accountID, organizationID int
 		return nil, ErrNotFound
 	}
 	return members, nil
+}
+
+// RemoveMember revokes a non-primary member and their active role assignments.
+// An organization row lock serializes this change with Source writes. Actor
+// authority is checked in SQL after acquiring the lock, never from a cookie role.
+func (s *Service) RemoveMember(ctx context.Context, actorID, orgID, memberID int64) error {
+	if actorID <= 0 || orgID <= 0 || memberID <= 0 {
+		return ErrInvalid
+	}
+	return dbsqlc.NewStore(s.Pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
+		if _, err := q.LockActiveOrganizationForUpdate(ctx, orgID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			return err
+		}
+		n, err := q.EndAuthorizedOrganizationMembership(ctx, dbsqlc.EndAuthorizedOrganizationMembershipParams{
+			OrganizationID: orgID, MembershipID: memberID, ActorAccountID: actorID,
+		})
+		if err != nil {
+			return err
+		}
+		if n != 1 {
+			return ErrNotFound
+		}
+		_, err = q.EndOrganizationMembershipRoles(ctx, dbsqlc.EndOrganizationMembershipRolesParams{
+			OrganizationID: orgID, MembershipID: memberID,
+		})
+		return err
+	})
 }
