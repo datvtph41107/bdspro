@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -114,4 +115,28 @@ func TestRequestLoggingOmitsBodyAndRecoveredPanicDetails(t *testing.T) {
 	require.Equal(t, true, entry["panic_recovered"])
 	require.NotContains(t, logs.String(), "panic-payload-canary")
 	require.NotContains(t, w.Body.String(), "panic-payload-canary")
+}
+
+func TestResendLoggingDoesNotExposeEmailOrBackendError(t *testing.T) {
+	var logs bytes.Buffer
+	backend := &authStub{resendErr: errors.New("provider failed for private-email-canary@example.test")}
+	s := loggingTestServer(&logs, backend)
+	req := httptest.NewRequest(http.MethodPost, "/auth/resend-verification",
+		strings.NewReader(`{"email":"private-email-canary@example.test"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, req)
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.Equal(t, 1, backend.resendCalls)
+	lines := bytes.Split(bytes.TrimSpace(logs.Bytes()), []byte("\n"))
+	require.Len(t, lines, 2, "one redacted backend event plus one request event")
+	var backendEvent, requestEvent map[string]any
+	require.NoError(t, json.Unmarshal(lines[0], &backendEvent))
+	require.NoError(t, json.Unmarshal(lines[1], &requestEvent))
+	require.Equal(t, "verification_resend_failed", backendEvent["msg"])
+	require.Equal(t, "http_request", requestEvent["msg"])
+	require.Equal(t, w.Header().Get("X-Request-ID"), backendEvent["request_id"])
+	require.Equal(t, backendEvent["request_id"], requestEvent["request_id"])
+	require.NotContains(t, logs.String(), "private-email-canary@example.test")
+	require.NotContains(t, logs.String(), "provider failed")
 }
