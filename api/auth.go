@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -120,7 +119,9 @@ func (server *Server) resendVerification(ctx *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.Printf("verification resend unavailable: %v", err)
+		// Backend errors may contain email addresses or provider diagnostics.
+		server.logger.WarnContext(ctx.Request.Context(), "verification_resend_failed",
+			"request_id", ctx.GetString("request_id"))
 	}
 	ctx.Status(http.StatusAccepted)
 }

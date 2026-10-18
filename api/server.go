@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -39,6 +41,7 @@ type Server struct {
 	sources        *source.Service
 	development    bool
 	allowedOrigin  string
+	logger         *slog.Logger
 	router         *gin.Engine
 }
 
@@ -48,8 +51,15 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 		pool: pool, authentication: authentication,
 		organizations: organizations, sources: sources,
 		development: development, allowedOrigin: allowedOrigin,
+		logger: slog.New(slog.NewJSONHandler(os.Stdout, nil)),
 	}
-	router := gin.Default()
+	// Default Gin logging includes raw URLs; use a strict, safe field allowlist.
+	router := gin.New()
+	router.Use(server.logRequest)
+	router.Use(gin.CustomRecoveryWithWriter(io.Discard, func(ctx *gin.Context, _ any) {
+		ctx.Set("panic_recovered", true)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+	}))
 	binding.EnableDecoderDisallowUnknownFields = true
 	router.Use(server.checkOrigin)
 
