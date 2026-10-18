@@ -52,9 +52,9 @@ type Querier interface {
 	ListAuthorizedPriceReports(ctx context.Context, arg ListAuthorizedPriceReportsParams) ([]ListAuthorizedPriceReportsRow, error)
 	LockActiveOrganizationForUpdate(ctx context.Context, partyID int64) (int64, error)
 	LockActivePlatformReviewer(ctx context.Context, accountID int64) (int64, error)
+	LockOrganizationForSourceWrite(ctx context.Context, partyID int64) (int64, error)
 	// Serialize token issuance for the same account email before evaluating limits.
 	// Caller must keep this lock through a separate token-insert statement in one transaction.
-	LockOrganizationForSourceWrite(ctx context.Context, partyID int64) (int64, error)
 	LockVerificationResendTarget(ctx context.Context, email string) (int64, error)
 	MarkAccountEmailVerified(ctx context.Context, id int64) error
 	ResolveOrganizationClaim(ctx context.Context, arg ResolveOrganizationClaimParams) (int64, error)
