@@ -92,6 +92,11 @@ func TestRBACRemoveMemberDoesNotInvalidateSession(t *testing.T) {
 	if w:=f.request(http.MethodPost,sourcePath,f.memberToken,"after-revoke",`{"channel":"zalo"}`);w.Code!=404 { t.Fatalf("write after revoke=%d",w.Code) }
 	if w:=f.request(http.MethodGet,fmt.Sprintf("%s/%d",sourcePath,existing.ID),f.memberToken,"","");w.Code!=404 { t.Fatalf("read after revoke=%d",w.Code) }
 	if w:=f.request(http.MethodGet,fmt.Sprintf("%s/%d",sourcePath,existing.ID),f.ownerToken,"","");w.Code!=200 { t.Fatalf("owner read=%d",w.Code) }
+	_, err = f.source.ReportPrice(ctx, f.member, f.orgID, existing.ID, "after-remove-price",
+		source.PriceInput{Amount: "100", Currency: "VND"})
+	if !errors.Is(err, source.ErrForbidden) {
+		t.Fatalf("revoked price report: %v", err)
+	}
 }
 
 func TestRBACSourceWriterLockBlocksMemberRemoval(t *testing.T) {
@@ -122,4 +127,32 @@ func TestRBACSourceWriterLockBlocksMemberRemoval(t *testing.T) {
 	}
 	_,err=f.source.Capture(ctx,f.member,f.orgID,"blocked-after-remove",source.CaptureInput{Channel:"zalo"})
 	if !errors.Is(err,source.ErrForbidden) { t.Fatalf("revoked user wrote source: %v",err) }
+}
+
+func TestRBACInvitePermissionDoesNotGrantRemovePermission(t *testing.T) {
+	f := setupRBAC(t)
+	ctx := context.Background()
+	// The invited member initially holds Workspace Administrator. Replace it
+	// with a role granting invitation only: the scopes must remain distinct.
+	_, err := f.pool.Exec(ctx, "UPDATE organization_role_assignments SET ended_at=now() WHERE membership_id=$1", f.membership)
+	if err != nil { t.Fatal(err) }
+	var inviteOnlyRole int64
+	if err := f.pool.QueryRow(ctx,
+		"INSERT INTO organization_roles(organization_id,name) VALUES($1,'Invitation Only') RETURNING id",
+		f.orgID).Scan(&inviteOnlyRole); err != nil { t.Fatal(err) }
+	if _, err := f.pool.Exec(ctx,
+		"INSERT INTO organization_role_permissions(role_id,permission_code) VALUES($1,'members.invite')",
+		inviteOnlyRole); err != nil { t.Fatal(err) }
+	if _, err := f.pool.Exec(ctx,
+		"INSERT INTO organization_role_assignments(organization_id,membership_id,role_id) VALUES($1,$2,$3)",
+		f.orgID, f.membership, inviteOnlyRole); err != nil { t.Fatal(err) }
+	if _, err := f.org.Invite(ctx, f.member, f.orgID, inviteOnlyRole, "rbac-stranger@example.test"); err != nil {
+		t.Fatalf("members.invite permission must still work: %v", err)
+	}
+	if err := f.org.RemoveMember(ctx, f.member, f.orgID, f.membership); !errors.Is(err, organization.ErrNotFound) {
+		t.Fatalf("invite-only actor unexpectedly removed a member: %v", err)
+	}
+	if err := f.org.RemoveMember(ctx, f.owner, f.orgID, f.membership); err != nil {
+		t.Fatalf("actual tenant administrator cannot remove invite-only member: %v", err)
+	}
 }
