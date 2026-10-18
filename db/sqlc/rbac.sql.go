@@ -11,8 +11,8 @@ import (
 
 const endAuthorizedOrganizationMembership = `-- name: EndAuthorizedOrganizationMembership :execrows
 UPDATE organization_memberships AS target SET ended_at = now()
-WHERE target.organization_id = sqlc.arg(organization_id)::bigint
-  AND target.id = sqlc.arg(membership_id)::bigint
+WHERE target.organization_id = $1::bigint
+  AND target.id = $2::bigint
   AND target.ended_at IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM organization_primary_administrators pa
@@ -25,7 +25,7 @@ WHERE target.organization_id = sqlc.arg(organization_id)::bigint
     JOIN organization_role_assignments ra
       ON ra.organization_id = m.organization_id AND ra.membership_id = m.id
     JOIN organization_role_permissions rp ON rp.role_id = ra.role_id
-    WHERE actor.id = sqlc.arg(actor_account_id)::bigint
+    WHERE actor.id = $3::bigint
       AND actor.closed_at IS NULL
       AND m.ended_at IS NULL AND m.joined_at <= now()
       AND ra.ended_at IS NULL AND ra.assigned_at <= now()
@@ -39,30 +39,34 @@ WHERE target.organization_id = sqlc.arg(organization_id)::bigint
 
 type EndAuthorizedOrganizationMembershipParams struct {
 	OrganizationID int64 `json:"organization_id"`
-	MembershipID int64 `json:"membership_id"`
+	MembershipID   int64 `json:"membership_id"`
 	ActorAccountID int64 `json:"actor_account_id"`
 }
 
 func (q *Queries) EndAuthorizedOrganizationMembership(ctx context.Context, arg EndAuthorizedOrganizationMembershipParams) (int64, error) {
 	result, err := q.db.Exec(ctx, endAuthorizedOrganizationMembership, arg.OrganizationID, arg.MembershipID, arg.ActorAccountID)
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 	return result.RowsAffected(), nil
 }
 
 const endOrganizationMembershipRoles = `-- name: EndOrganizationMembershipRoles :execrows
 UPDATE organization_role_assignments SET ended_at = now()
-WHERE organization_id = sqlc.arg(organization_id)::bigint
-  AND membership_id = sqlc.arg(membership_id)::bigint AND ended_at IS NULL
+WHERE organization_id = $1::bigint
+  AND membership_id = $2::bigint AND ended_at IS NULL
 `
 
 type EndOrganizationMembershipRolesParams struct {
 	OrganizationID int64 `json:"organization_id"`
-	MembershipID int64 `json:"membership_id"`
+	MembershipID   int64 `json:"membership_id"`
 }
 
 func (q *Queries) EndOrganizationMembershipRoles(ctx context.Context, arg EndOrganizationMembershipRolesParams) (int64, error) {
 	result, err := q.db.Exec(ctx, endOrganizationMembershipRoles, arg.OrganizationID, arg.MembershipID)
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 	return result.RowsAffected(), nil
 }
 
@@ -89,4 +93,3 @@ func (q *Queries) LockOrganizationForSourceWrite(ctx context.Context, partyID in
 	err := row.Scan(&party_id)
 	return party_id, err
 }
-
