@@ -9,7 +9,7 @@ import (
 
 	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/datvtph41107/bdspro/db/pgerrors"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -163,8 +163,9 @@ func (s *Service) ApproveRegistration(ctx context.Context, reviewerID, requestID
 		return nil
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && (pgErr.Code == "23505" || pgErr.Code == "23503") {
+		// A known registry identity collision is a business conflict.
+		// Unrelated database constraint failures remain internal errors.
+		if pgerrors.UniqueConstraint(err, "organization_registry_identifiers_jurisdiction_code_registration_code_key") {
 			return 0, ErrConflict
 		}
 		return 0, err
@@ -273,8 +274,11 @@ func (s *Service) AcceptInvitation(ctx context.Context, accountID, invitationID 
 		})
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if pgerrors.UniqueConstraint(err,
+			"organization_memberships_one_open_uq",
+			"organization_memberships_originating_invitation_id_key",
+			"organization_role_assignments_one_open_uq",
+		) {
 			return 0, ErrConflict
 		}
 		return 0, err

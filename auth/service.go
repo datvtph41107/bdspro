@@ -16,7 +16,7 @@ import (
 
 	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/datvtph41107/bdspro/db/pgerrors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/argon2"
 )
@@ -115,9 +115,7 @@ func (s *Service) Register(ctx context.Context, email, password string) (Registr
 		Email: email, PasswordHash: hash, TokenHash: tokenHash,
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
-			pgErr.ConstraintName == "account_emails_login_key_uq" {
+		if pgerrors.UniqueConstraint(err, "account_emails_login_key_uq") {
 			return Registration{}, ErrEmailUsed
 		}
 		return Registration{}, fmt.Errorf("registration transaction: %w", err)
