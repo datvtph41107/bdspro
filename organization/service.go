@@ -9,7 +9,6 @@ import (
 
 	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -163,8 +162,7 @@ func (s *Service) ApproveRegistration(ctx context.Context, reviewerID, requestID
 		return nil
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && (pgErr.Code == "23505" || pgErr.Code == "23503") {
+		if isRegistryIdentityConflict(err) {
 			return 0, ErrConflict
 		}
 		return 0, err
@@ -193,7 +191,10 @@ func (s *Service) ApproveInitialClaim(ctx context.Context, reviewerID, requestID
 		orgID = request.OrganizationID
 		// Organization row serializes competing initial claims of the same company.
 		if _, err := q.LockActiveOrganizationForUpdate(ctx, orgID); err != nil {
-			return ErrConflict
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrConflict
+			}
+			return err
 		}
 		_, err = q.GetOrganizationPrimaryAdministrator(ctx, orgID)
 		if err == nil {
@@ -203,8 +204,11 @@ func (s *Service) ApproveInitialClaim(ctx context.Context, reviewerID, requestID
 			return err
 		}
 		personID, err := q.GetOpenAccountPersonID(ctx, request.RequestedByAccountID)
-		if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrConflict
+		}
+		if err != nil {
+			return err
 		}
 		if err := grantInitialAdmin(ctx, q, orgID, personID); err != nil {
 			return err
@@ -273,8 +277,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, accountID, invitationID 
 		})
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if isInvitationMembershipConflict(err) {
 			return 0, ErrConflict
 		}
 		return 0, err
@@ -338,4 +341,25 @@ func (s *Service) RemoveMember(ctx context.Context, actorID, orgID, memberID int
 		})
 		return err
 	})
+}
+
+// isRegistryIdentityConflict is deliberately restricted to the registry table.
+// Its two UNIQUE constraints represent known registration identity conflicts.
+// An unrelated UNIQUE or FK violation must surface as an internal failure,
+// not masquerade as a client-caused HTTP 409.
+func isRegistryIdentityConflict(err error) bool {
+	pgErr := dbsqlc.PostgresError(err)
+	return pgErr != nil &&
+		pgErr.Code == "23505" &&
+		pgErr.TableName == "organization_registry_identifiers" &&
+		pgErr.ConstraintName != ""
+}
+
+// Only an already-open membership or a reused invitation is a known 409.
+// New constraints must be explicitly reviewed before adding them here.
+func isInvitationMembershipConflict(err error) bool {
+	pgErr := dbsqlc.PostgresError(err)
+	return pgErr != nil && pgErr.Code == "23505" &&
+		(pgErr.ConstraintName == "organization_memberships_one_open_uq" ||
+			pgErr.ConstraintName == "organization_memberships_originating_invitation_id_key")
 }
