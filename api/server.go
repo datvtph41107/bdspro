@@ -29,6 +29,8 @@ type Authentication interface {
 	VerifyEmail(context.Context, string) error
 	ResendVerification(context.Context, string) error
 	Login(context.Context, string, string) (auth.LoginResult, error)
+	StartPhoneLogin(context.Context, string) (auth.PhoneLoginStart, error)
+	VerifyPhoneLogin(context.Context, string, string) (auth.LoginResult, error)
 	StartPhoneVerification(context.Context, int64, string) error
 	VerifyPhoneCode(context.Context, int64, string, string) error
 	AccountFromToken(context.Context, string) (int64, error)
@@ -80,6 +82,8 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.POST("/auth/verify-email", server.limitAuthClient("verify", ratePolicy{burst: 30, window: 15 * time.Minute}), server.verifyEmail)
 	router.POST("/auth/resend-verification", server.limitAuthClient("resend", ratePolicy{burst: 12, window: 15 * time.Minute}), server.resendVerification)
 	router.POST("/auth/login", server.limitAuthClient("login", ratePolicy{burst: 30, window: time.Minute}), server.login)
+	router.POST("/auth/phone/login/start", server.limitAuthClient("phone-login-start", ratePolicy{burst: 6, window: 15 * time.Minute}), server.loginPhoneStart)
+	router.POST("/auth/phone/login/verify", server.limitAuthClient("phone-login-verify", ratePolicy{burst: 20, window: 15 * time.Minute}), server.loginPhoneVerify)
 	router.POST("/auth/token/renew", server.limitAuthClient("renew", ratePolicy{burst: 30, window: time.Minute}), server.renewAccessToken)
 	router.GET("/auth/me", server.requireSession, server.me)
 	router.GET("/auth/workspaces", server.requireSession, server.listMyWorkspaces)
