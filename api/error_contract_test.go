@@ -38,18 +38,18 @@ func checkPublicError(t *testing.T, w *httptest.ResponseRecorder, status int, co
 func TestPublicErrorContractAcrossHTTPBoundaries(t *testing.T) {
 	failure := errors.New("postgres: password=server-secret-canary@example.test")
 	cases := []struct {
-		name       string
-		method     string
-		path       string
-		body       string
-		origin     string
-		proof      bool
-		cookie     bool
-		accountID  int64
-		accountErr error
+		name        string
+		method      string
+		path        string
+		body        string
+		origin      string
+		proof       bool
+		cookie      bool
+		accountID   int64
+		accountErr  error
 		registerErr error
-		status     int
-		code       string
+		status      int
+		code        string
 	}{
 		{"invalid_json", "POST", "/auth/register", "{", "", false, false, 0, nil, nil, 400, "invalid_request"},
 		{"session_missing", "GET", "/auth/me", "", "", false, false, 0, nil, nil, 401, "unauthorized"},

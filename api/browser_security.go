@@ -28,7 +28,7 @@ func (server *Server) browserSecurity(ctx *gin.Context) {
 			!allowedPreflightMethod(ctx.GetHeader("Access-Control-Request-Method")) ||
 			!allowedPreflightHeaders(ctx.GetHeader("Access-Control-Request-Headers")) {
 			writeAPIError(ctx, http.StatusForbidden, "request origin not allowed")
-			ctx.Abort()
+		ctx.Abort()
 			return
 		}
 		ctx.Header("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
@@ -46,7 +46,7 @@ func (server *Server) browserSecurity(ctx *gin.Context) {
 
 	if strings.EqualFold(ctx.GetHeader("Sec-Fetch-Site"), "cross-site") {
 		writeAPIError(ctx, http.StatusForbidden, "request origin not allowed")
-			ctx.Abort()
+		ctx.Abort()
 		return
 	}
 	// A present Origin must match the configured UI origin or the actual API
@@ -54,7 +54,7 @@ func (server *Server) browserSecurity(ctx *gin.Context) {
 	// spoofable X-Forwarded-Host or X-Forwarded-Proto.
 	if origin != "" && !server.allowedBrowserOrigin(ctx.Request, origin) {
 		writeAPIError(ctx, http.StatusForbidden, "request origin not allowed")
-			ctx.Abort()
+		ctx.Abort()
 		return
 	}
 
@@ -68,7 +68,7 @@ func (server *Server) browserSecurity(ctx *gin.Context) {
 		!strings.EqualFold(ctx.GetHeader("Sec-Fetch-Site"), "same-origin") &&
 		ctx.GetHeader(csrfProofHeader) != "1" {
 		writeAPIError(ctx, http.StatusForbidden, "request origin not allowed")
-			ctx.Abort()
+		ctx.Abort()
 		return
 	}
 	ctx.Next()

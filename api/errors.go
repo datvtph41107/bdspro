@@ -38,8 +38,8 @@ func writeAPIError(ctx *gin.Context, status int, publicMessage string) {
 	ctx.Header("Cache-Control", "no-store")
 	ctx.JSON(status, gin.H{
 		"error": gin.H{
-			"code": code,
-			"message": publicMessage,
+			"code":       code,
+			"message":    publicMessage,
 			"request_id": ctx.GetString(requestIDKey),
 		},
 	})

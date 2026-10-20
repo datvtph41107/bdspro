@@ -202,4 +202,3 @@ func (server *Server) serve(ctx context.Context, listener net.Listener, gracePer
 func (server *Server) Handler() http.Handler {
 	return server.router
 }
-
