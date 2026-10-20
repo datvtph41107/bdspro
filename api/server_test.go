@@ -29,6 +29,8 @@ func TestAllLegacyRoutesNowUseGin(t *testing.T) {
 		"POST /auth/verify-email":                                 false,
 		"POST /auth/resend-verification":                          false,
 		"POST /auth/login":                                        false,
+		"POST /auth/phone/login/start":                            false,
+		"POST /auth/phone/login/verify":                           false,
 		"GET /auth/me":                                            false,
 		"GET /auth/workspaces":                                    false,
 		"POST /auth/logout":                                       false,
