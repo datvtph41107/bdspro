@@ -1,3 +1,5 @@
+> **Roadmap Engineering Core không deployment (2026-10-20):** [Full-Code Roadmap G00–G10](docs/implementation/ENGINEERING-CORE-FULL-CODE-ROADMAP.md) bao phủ SimpleBank #0–77 theo capability, giữ các bài AWS/EKS/Kubernetes/public deploy ở trạng thái hoãn. Mỗi giai đoạn phải có source + integration tests + tài liệu + CI nghiệm thu trước khi merge. Trạng thái thực tế luôn đối chiếu với `dev`/CI, không lấy tài liệu cũ mô tả 'next lecture' làm hiện trạng.
+
 > **Engineering Core acceptance (2026-10-17):** [Báo cáo nghiệm thu, các thay đổi và giới hạn](docs/implementation/ENGINEERING-CORE-ACCEPTANCE-2026-10-17.md) · [Quickstart hiện hành](docs/implementation/LOCAL-QUICKSTART.md). HTTP đã có `POST /auth/resend-verification` để khôi phục sau lỗi gửi email. Đây là baseline cho Lecture #13, chưa là production-ready.
 
 > **Transaction convention:** `db/sqlc/Store.ExecTx` là đường đi duy nhất cho các transaction nghiệp vụ hiện tại trong Auth, Organization, Source và `RegisterTx`. Helper chung quản lý Begin/Commit/Rollback; service callback sử dụng SQLC Queries. [Chi tiết và giới hạn](docs/implementation/TRANSACTIONS-LECTURES-06-10.md).
