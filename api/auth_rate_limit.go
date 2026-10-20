@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"net/netip"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"sync"
 	"time"
@@ -86,7 +86,7 @@ func (l *authLimiter) allow(scope, identity string, policy ratePolicy, now time.
 	}
 	if b.tokens < 1 {
 		l.buckets[key] = b
-		wait := int(math.Ceil((1-b.tokens)*policy.window.Seconds()/float64(policy.burst)))
+		wait := int(math.Ceil((1 - b.tokens) * policy.window.Seconds() / float64(policy.burst)))
 		if wait < 1 {
 			wait = 1
 		}
