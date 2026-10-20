@@ -36,6 +36,8 @@ type Mailer interface {
 type Service struct {
 	Pool   *pgxpool.Pool
 	Mailer Mailer
+	SMS SMSSender
+	OTPKey []byte
 }
 
 func New(pool *pgxpool.Pool, mailer Mailer) *Service { return &Service{Pool: pool, Mailer: mailer} }

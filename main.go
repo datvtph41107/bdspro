@@ -41,8 +41,15 @@ func run() error {
 		config.SMTPAddr, config.SMTPUser, config.SMTPPassword,
 		config.SMTPFrom, config.VerificationURL,
 	)
+	authService := auth.New(pool, mailer)
+	if config.PhoneOTPKey != "" {
+		sender := auth.NewTwilioSMS(config.TwilioAccountSID, config.TwilioAuthToken, config.TwilioFrom)
+		if err := authService.ConfigurePhoneVerification(config.PhoneOTPKey, sender); err != nil {
+			return fmt.Errorf("invalid phone OTP configuration: %w", err)
+		}
+	}
 	server := api.NewServer(
-		pool, auth.New(pool, mailer),
+		pool, authService,
 		organization.New(pool), source.NewService(pool),
 		config.Environment == "development", config.AllowedOrigin,
 	)

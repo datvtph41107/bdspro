@@ -29,6 +29,8 @@ type Authentication interface {
 	VerifyEmail(context.Context, string) error
 	ResendVerification(context.Context, string) error
 	Login(context.Context, string, string) (auth.LoginResult, error)
+	StartPhoneVerification(context.Context, int64, string) error
+	VerifyPhoneCode(context.Context, int64, string, string) error
 	AccountFromToken(context.Context, string) (int64, error)
 	AccountFromSessionHash(context.Context, string) (int64, error)
 	Logout(context.Context, string) error
@@ -80,6 +82,8 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.GET("/auth/me", server.requireSession, server.me)
 	router.POST("/auth/logout", server.logout)
 	router.POST("/auth/logout-all", server.requireSession, server.logoutAll)
+	router.POST("/auth/phone/start", server.limitAuthClient("phone-start", ratePolicy{burst: 6, window: 15 * time.Minute}), server.requireSession, server.startPhoneVerification)
+	router.POST("/auth/phone/verify", server.limitAuthClient("phone-verify", ratePolicy{burst: 20, window: 15 * time.Minute}), server.requireSession, server.verifyPhoneCode)
 
 	router.POST("/organizations/registrations", server.requireSession, server.submitOrganizationRegistration)
 	router.POST("/organizations/:id/claims", server.requireSession, server.submitOrganizationClaim)

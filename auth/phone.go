@@ -108,7 +108,8 @@ func (s *Service) VerifyPhoneCode(ctx context.Context, accountID int64, rawPhone
 	if !sixDigits.MatchString(code) {return ErrPhoneCode}
 	if accountID<=0 {return ErrUnauthorized}
 	if len(s.OTPKey)<32 {return ErrSMSUnavailable}
-	return dbsqlc.NewStore(s.Pool).ExecTx(ctx,func(q *dbsqlc.Queries) error{
+	var verified bool
+	err:=dbsqlc.NewStore(s.Pool).ExecTx(ctx,func(q *dbsqlc.Queries) error{
 		if _,err:=q.LockSessionAccount(ctx,accountID);err!=nil{
 			if errors.Is(err,pgx.ErrNoRows){return ErrUnauthorized}
 			return err
@@ -132,6 +133,11 @@ func (s *Service) VerifyPhoneCode(ctx context.Context, accountID int64, rawPhone
 				pgErr.ConstraintName=="account_phones_verified_number_uq" {return ErrPhoneInUse}
 			return err
 		}
-		return q.ConsumePhoneChallenge(ctx,challenge.ID)
+		if err:=q.ConsumePhoneChallenge(ctx,challenge.ID);err!=nil{return err}
+		verified=true
+		return nil
 	})
+	if err!=nil{return err}
+	if !verified{return ErrPhoneCode}
+	return nil
 }

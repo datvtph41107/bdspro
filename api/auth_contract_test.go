@@ -33,6 +33,10 @@ type authStub struct {
 	loginCalls     int
 	logoutCalls    int
 	resendCalls    int
+	phoneStartCalls int
+	phoneVerifyCalls int
+	phoneStartErr error
+	phoneVerifyErr error
 }
 
 func (s *authStub) Register(context.Context, string, string) (auth.Registration, error) {
@@ -323,4 +327,13 @@ func TestLoginProductionCookieContract(t *testing.T) {
 	require.True(t, cookie.Secure)
 	require.True(t, cookie.HttpOnly)
 	require.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
+}
+
+func (s *authStub) StartPhoneVerification(context.Context, int64, string) error {
+	s.phoneStartCalls++
+	return s.phoneStartErr
+}
+func (s *authStub) VerifyPhoneCode(context.Context, int64, string, string) error {
+	s.phoneVerifyCalls++
+	return s.phoneVerifyErr
 }
