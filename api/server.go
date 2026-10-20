@@ -34,7 +34,9 @@ type Authentication interface {
 	AccountFromToken(context.Context, string) (int64, error)
 	AccountFromSessionHash(context.Context, string) (int64, error)
 	Logout(context.Context, string) error
+	LogoutSessionHash(context.Context, string) error
 	LogoutAll(context.Context, string) error
+	LogoutAllSessionHash(context.Context, string) error
 }
 
 // Server serves HTTP requests for BDSPro, following SimpleBank's API layout.
