@@ -22,7 +22,16 @@ HTTP login response adds `access_token`, `token_type: Bearer`,
 `access_token_expires_at` without changing the opaque cookie.
 `POST /auth/token/renew` requires the cookie plus existing CSRF controls;
 it issues another short-lived access token without extending the session's
-absolute 24-hour expiration. JWTs are returned in JSON and NOT written
+absolute 24-hour expiration. Both `POST /auth/logout` and
+`POST /auth/logout-all` now accept a **validated Bearer JWT without a cookie**
+and revoke the PostgreSQL session behind its signed `sid`. If both Bearer
+and cookie credentials are present, Bearer takes precedence and these
+endpoints do not clear or revoke an unrelated cookie session. Invalid
+Bearer tokens never fall back to the cookie. Cookie-only logout and its
+existing CSRF requirements remain unchanged; Bearer requests must still
+obey the endpoint's browser-origin and request-proof rules.
+
+JWTs are returned in JSON and NOT written
 into persistent browser storage by the API. Browser clients should store
 access tokens in memory; cookie remains HttpOnly, Secure outside development.
 

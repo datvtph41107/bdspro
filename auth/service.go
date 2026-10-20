@@ -267,7 +267,7 @@ func (s *Service) AccountFromToken(ctx context.Context, token string) (int64, er
 // token. This intentional DB read preserves immediate revocation semantics
 // across logout/logout-all while tenant permissions remain evaluated in SQL.
 func (s *Service) AccountFromSessionHash(ctx context.Context, hash string) (int64, error) {
-	if len(hash) != 64 {
+	if !validSessionHash(hash) {
 		return 0, ErrUnauthorized
 	}
 	id, err := dbsqlc.New(s.Pool).GetSessionAccount(ctx, hash)
@@ -282,6 +282,23 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 		return nil
 	}
 	return dbsqlc.New(s.Pool).RevokeSession(ctx, digestToken(token))
+}
+
+// LogoutSessionHash revokes a session identified by the authenticated JWT sid.
+// HTTP must verify the signature and confirm the session is active first.
+func (s *Service) LogoutSessionHash(ctx context.Context, hash string) error {
+	if !validSessionHash(hash) {
+		return ErrUnauthorized
+	}
+	return dbsqlc.New(s.Pool).RevokeSession(ctx, hash)
+}
+
+func validSessionHash(hash string) bool {
+	if len(hash) != 64 {
+		return false
+	}
+	_, err := hex.DecodeString(hash)
+	return err == nil
 }
 
 // Stable API boundary validates explicitly supplied integer route IDs.
@@ -300,7 +317,19 @@ func (s *Service) LogoutAll(ctx context.Context, token string) error {
 	if token == "" {
 		return ErrUnauthorized
 	}
-	hash := digestToken(token)
+	return s.logoutAllByHash(ctx, digestToken(token))
+}
+
+// LogoutAllSessionHash uses the same account lock and in-transaction session
+// revalidation as cookie logout-all; a prevalidated JWT is not enough alone.
+func (s *Service) LogoutAllSessionHash(ctx context.Context, hash string) error {
+	if !validSessionHash(hash) {
+		return ErrUnauthorized
+	}
+	return s.logoutAllByHash(ctx, hash)
+}
+
+func (s *Service) logoutAllByHash(ctx context.Context, hash string) error {
 	return dbsqlc.NewStore(s.Pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
 		accountID, err := q.GetSessionAccount(ctx, hash)
 		if errors.Is(err, pgx.ErrNoRows) {

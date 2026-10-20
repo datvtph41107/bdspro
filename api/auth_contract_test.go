@@ -14,29 +14,33 @@ import (
 )
 
 type authStub struct {
-	registration     auth.Registration
-	registerErr      error
-	verifyErr        error
-	loginResult      auth.LoginResult
-	loginErr         error
-	accountID        int64
-	accountErr       error
-	accountCalls     int
-	accountToken     string
-	accountHash      string
-	logoutErr        error
-	logoutAllErr     error
-	logoutAllCalls   int
-	resendErr        error
-	registerCalls    int
-	verifyCalls      int
-	loginCalls       int
-	logoutCalls      int
-	resendCalls      int
-	phoneStartCalls  int
-	phoneVerifyCalls int
-	phoneStartErr    error
-	phoneVerifyErr   error
+	registration       auth.Registration
+	registerErr        error
+	verifyErr          error
+	loginResult        auth.LoginResult
+	loginErr           error
+	accountID          int64
+	accountErr         error
+	accountCalls       int
+	accountToken       string
+	accountHash        string
+	logoutErr          error
+	logoutHash         string
+	logoutHashCalls    int
+	logoutAllErr       error
+	logoutAllCalls     int
+	logoutAllHash      string
+	logoutAllHashCalls int
+	resendErr          error
+	registerCalls      int
+	verifyCalls        int
+	loginCalls         int
+	logoutCalls        int
+	resendCalls        int
+	phoneStartCalls    int
+	phoneVerifyCalls   int
+	phoneStartErr      error
+	phoneVerifyErr     error
 }
 
 func (s *authStub) Register(context.Context, string, string) (auth.Registration, error) {
@@ -72,6 +76,16 @@ func (s *authStub) Logout(context.Context, string) error {
 }
 func (s *authStub) LogoutAll(context.Context, string) error {
 	s.logoutAllCalls++
+	return s.logoutAllErr
+}
+func (s *authStub) LogoutSessionHash(_ context.Context, hash string) error {
+	s.logoutHash = hash
+	s.logoutHashCalls++
+	return s.logoutErr
+}
+func (s *authStub) LogoutAllSessionHash(_ context.Context, hash string) error {
+	s.logoutAllHash = hash
+	s.logoutAllHashCalls++
 	return s.logoutAllErr
 }
 
