@@ -92,6 +92,10 @@ func (s *Service) StartPhoneVerification(ctx context.Context, accountID int64, r
 			}
 			return err
 		}
+		// Serialize all accounts targeting this phone, then check global quota.
+		if err := q.LockOTPPhoneDestination(ctx, phone); err != nil {
+			return err
+		}
 		phoneID, err := q.UpsertAccountPhone(ctx, dbsqlc.UpsertAccountPhoneParams{
 			AccountID: accountID, Phone: phone,
 		})
@@ -104,6 +108,10 @@ func (s *Service) StartPhoneVerification(ctx context.Context, accountID int64, r
 		}
 		if !allowed.Valid || !allowed.Bool {
 			return ErrPhoneThrottle
+		}
+		// A newly issued code invalidates older unconsumed codes atomically.
+		if err := q.InvalidatePriorPhoneChallenges(ctx, phoneID); err != nil {
+			return err
 		}
 		if err := q.CreatePhoneChallenge(ctx, dbsqlc.CreatePhoneChallengeParams{
 			AccountPhoneID: phoneID, Nonce: nonce, OtpMac: phoneMAC(s.OTPKey, phoneID, nonce, code),
