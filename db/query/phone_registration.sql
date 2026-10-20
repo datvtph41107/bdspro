@@ -1,9 +1,7 @@
 -- name: PhoneAlreadyRegistered :one
 -- Closed accounts retain verified phone ownership; no silent takeover.
-SELECT EXISTS (
-    SELECT 1 FROM account_phones ap
-    WHERE ap.phone = $1 AND ap.verified_at IS NOT NULL
-) AS registered;
+SELECT count(*) FROM account_phones ap
+WHERE ap.phone = $1 AND ap.verified_at IS NOT NULL;
 
 -- name: CanIssuePhoneRegistration :one
 -- Shared destination cap across registration, login, and enrollment.
