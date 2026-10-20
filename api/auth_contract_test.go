@@ -41,6 +41,12 @@ type authStub struct {
 	phoneVerifyCalls   int
 	phoneStartErr      error
 	phoneVerifyErr     error
+	phoneLoginStart      auth.PhoneLoginStart
+	phoneLoginStartErr   error
+	phoneLoginVerify    auth.LoginResult
+	phoneLoginVerifyErr error
+	phoneLoginStarts    int
+	phoneLoginVerifies  int
 }
 
 func (s *authStub) Register(context.Context, string, string) (auth.Registration, error) {
@@ -60,6 +66,15 @@ func (s *authStub) Login(context.Context, string, string) (auth.LoginResult, err
 	s.loginCalls++
 	return s.loginResult, s.loginErr
 }
+func (s *authStub) StartPhoneLogin(_ context.Context, _ string) (auth.PhoneLoginStart, error) {
+	s.phoneLoginStarts++
+	return s.phoneLoginStart, s.phoneLoginStartErr
+}
+func (s *authStub) VerifyPhoneLogin(_ context.Context, _, _ string) (auth.LoginResult, error) {
+	s.phoneLoginVerifies++
+	return s.phoneLoginVerify, s.phoneLoginVerifyErr
+}
+
 func (s *authStub) AccountFromToken(_ context.Context, token string) (int64, error) {
 	s.accountCalls++
 	s.accountToken = token
