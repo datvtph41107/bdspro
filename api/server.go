@@ -82,6 +82,7 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.POST("/auth/login", server.limitAuthClient("login", ratePolicy{burst: 30, window: time.Minute}), server.login)
 	router.POST("/auth/token/renew", server.limitAuthClient("renew", ratePolicy{burst: 30, window: time.Minute}), server.renewAccessToken)
 	router.GET("/auth/me", server.requireSession, server.me)
+	router.GET("/auth/workspaces", server.requireSession, server.listMyWorkspaces)
 	router.POST("/auth/logout", server.logout)
 	router.POST("/auth/logout-all", server.requireSession, server.logoutAll)
 	router.POST("/auth/phone/start", server.limitAuthClient("phone-start", ratePolicy{burst: 6, window: 15 * time.Minute}), server.requireSession, server.startPhoneVerification)
