@@ -12,20 +12,20 @@ import (
 func organizationError(ctx *gin.Context, err error) {
 	switch {
 	case errors.Is(err, organization.ErrForbidden), errors.Is(err, organization.ErrNotFound):
-		ctx.String(http.StatusNotFound, "resource unavailable")
+		writeAPIError(ctx, http.StatusNotFound, "resource unavailable")
 	case errors.Is(err, organization.ErrInvalid):
-		ctx.String(http.StatusBadRequest, "invalid request")
+		writeAPIError(ctx, http.StatusBadRequest, "invalid request")
 	case errors.Is(err, organization.ErrConflict):
-		ctx.String(http.StatusConflict, "conflict")
+		writeAPIError(ctx, http.StatusConflict, "conflict")
 	default:
-		ctx.String(http.StatusInternalServerError, "internal server error")
+		writeAPIError(ctx, http.StatusInternalServerError, "internal server error")
 	}
 }
 
 func (server *Server) organizationID(ctx *gin.Context, label string) (int64, bool) {
 	id, err := auth.PositiveID(ctx.Param("id"))
 	if err != nil {
-		ctx.String(http.StatusBadRequest, "invalid %s", label)
+		writeAPIError(ctx, http.StatusBadRequest, "invalid "+label)
 		return 0, false
 	}
 	return id, true
@@ -44,7 +44,6 @@ func (server *Server) submitOrganizationRegistration(ctx *gin.Context) {
 	}
 	var req organizationRegistrationRequest
 	if !bindJSON(ctx, &req, 16<<10) {
-		ctx.String(http.StatusBadRequest, "invalid request body")
 		return
 	}
 	id, err := server.organizations.SubmitRegistration(ctx.Request.Context(), actor, req.Name, req.Jurisdiction, req.RegistrationCode)
@@ -70,7 +69,6 @@ func (server *Server) submitOrganizationClaim(ctx *gin.Context) {
 	}
 	var req organizationClaimRequest
 	if !bindJSON(ctx, &req, 16<<10) {
-		ctx.String(http.StatusBadRequest, "invalid request body")
 		return
 	}
 	id, err := server.organizations.SubmitClaim(ctx.Request.Context(), actor, orgID, req.EvidenceReference)
@@ -96,7 +94,6 @@ func (server *Server) approveOrganizationRegistration(ctx *gin.Context) {
 	}
 	var req organizationApprovalRequest
 	if !bindJSON(ctx, &req, 16<<10) {
-		ctx.String(http.StatusBadRequest, "invalid request body")
 		return
 	}
 	orgID, err := server.organizations.ApproveRegistration(ctx.Request.Context(), reviewer, id, req.ReviewReference)
@@ -118,7 +115,6 @@ func (server *Server) approveOrganizationClaim(ctx *gin.Context) {
 	}
 	var req organizationApprovalRequest
 	if !bindJSON(ctx, &req, 16<<10) {
-		ctx.String(http.StatusBadRequest, "invalid request body")
 		return
 	}
 	orgID, err := server.organizations.ApproveInitialClaim(ctx.Request.Context(), reviewer, id, req.ReviewReference)
@@ -145,7 +141,6 @@ func (server *Server) inviteOrganizationMember(ctx *gin.Context) {
 	}
 	var req organizationInvitationRequest
 	if !bindJSON(ctx, &req, 16<<10) {
-		ctx.String(http.StatusBadRequest, "invalid request body")
 		return
 	}
 	id, err := server.organizations.Invite(ctx.Request.Context(), actor, orgID, req.RoleID, req.Email)
@@ -201,7 +196,7 @@ func (server *Server) removeOrganizationMember(ctx *gin.Context) {
 	}
 	memberID, err := auth.PositiveID(ctx.Param("membershipID"))
 	if err != nil {
-		ctx.String(http.StatusBadRequest, "invalid membership id")
+		writeAPIError(ctx, http.StatusBadRequest, "invalid membership id")
 		return
 	}
 	if err := server.organizations.RemoveMember(ctx.Request.Context(), actorID, orgID, memberID); err != nil {

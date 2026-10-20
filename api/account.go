@@ -17,11 +17,10 @@ type createAccountRequest struct {
 func (server *Server) createAccount(ctx *gin.Context) {
 	var req createAccountRequest
 	if !bindJSON(ctx, &req, 8192) {
-		ctx.String(http.StatusBadRequest, "invalid input")
 		return
 	}
 	if server.authentication == nil {
-		ctx.String(http.StatusServiceUnavailable, "registration unavailable")
+		writeAPIError(ctx, http.StatusServiceUnavailable, "registration unavailable")
 		return
 	}
 	registration, err := server.authentication.Register(
@@ -29,13 +28,13 @@ func (server *Server) createAccount(ctx *gin.Context) {
 	)
 	switch {
 	case errors.Is(err, auth.ErrInvalid):
-		ctx.String(http.StatusBadRequest, "invalid input")
+		writeAPIError(ctx, http.StatusBadRequest, "invalid input")
 	case errors.Is(err, auth.ErrEmailUsed):
-		ctx.String(http.StatusConflict, "email unavailable")
+		writeAPIError(ctx, http.StatusConflict, "email unavailable")
 	case errors.Is(err, auth.ErrMailerUnavailable):
-		ctx.String(http.StatusServiceUnavailable, "verification delivery unavailable; contact support")
+		writeAPIError(ctx, http.StatusServiceUnavailable, "verification delivery unavailable; contact support")
 	case err != nil:
-		ctx.String(http.StatusInternalServerError, "registration failed")
+		writeAPIError(ctx, http.StatusInternalServerError, "registration failed")
 	default:
 		result := gin.H{
 			"account_id": registration.AccountID, "verification_required": true,

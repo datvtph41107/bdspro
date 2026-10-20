@@ -56,10 +56,12 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	}
 	// Default Gin logging includes raw URLs; use a strict, safe field allowlist.
 	router := gin.New()
+	router.HandleMethodNotAllowed = true
 	router.Use(server.logRequest)
 	router.Use(gin.CustomRecoveryWithWriter(io.Discard, func(ctx *gin.Context, _ any) {
 		ctx.Set("panic_recovered", true)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		writeAPIError(ctx, http.StatusInternalServerError, "internal server error")
+		ctx.Abort()
 	}))
 	binding.EnableDecoderDisallowUnknownFields = true
 	router.Use(server.rejectDuringShutdown)
@@ -90,6 +92,12 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 		ctx.String(http.StatusOK, "ok")
 	})
 	router.GET("/ready", server.ready)
+	router.NoRoute(func(ctx *gin.Context) {
+		writeAPIError(ctx, http.StatusNotFound, "resource not found")
+	})
+	router.NoMethod(func(ctx *gin.Context) {
+		writeAPIError(ctx, http.StatusMethodNotAllowed, "method not allowed")
+	})
 
 	server.router = router
 	return server
@@ -109,7 +117,8 @@ func (server *Server) requireSession(ctx *gin.Context) {
 // stop admitting work. In-flight handlers continue with their request contexts.
 func (server *Server) rejectDuringShutdown(ctx *gin.Context) {
 	if server.draining.Load() && ctx.FullPath() != "/health" {
-		ctx.AbortWithStatus(http.StatusServiceUnavailable)
+		writeAPIError(ctx, http.StatusServiceUnavailable, "service unavailable")
+		ctx.Abort()
 		return
 	}
 	ctx.Next()
@@ -117,13 +126,13 @@ func (server *Server) rejectDuringShutdown(ctx *gin.Context) {
 
 func (server *Server) ready(ctx *gin.Context) {
 	if server.draining.Load() || server.pool == nil {
-		ctx.String(http.StatusServiceUnavailable, "not ready")
+		writeAPIError(ctx, http.StatusServiceUnavailable, "not ready")
 		return
 	}
 	ping, cancel := context.WithTimeout(ctx.Request.Context(), time.Second)
 	defer cancel()
 	if err := server.pool.Ping(ping); err != nil {
-		ctx.String(http.StatusServiceUnavailable, "not ready")
+		writeAPIError(ctx, http.StatusServiceUnavailable, "not ready")
 		return
 	}
 	ctx.String(http.StatusOK, "ready")
@@ -192,8 +201,4 @@ func (server *Server) serve(ctx context.Context, listener net.Listener, gracePer
 // Handler supports the current graceful-shutdown HTTP server.
 func (server *Server) Handler() http.Handler {
 	return server.router
-}
-
-func errorResponse(err error) gin.H {
-	return gin.H{"error": err.Error()}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -13,16 +14,40 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// bindJSON preserves the legacy size, unknown-field and single-JSON-document
-// checks while Gin performs binding and request validation.
+// bindJSON validates the wire format before Gin's existing struct validation.
+// Missing Content-Type remains accepted for legacy non-browser clients;
+// explicit non-JSON media types are rejected. Failure writes the response.
 func bindJSON(ctx *gin.Context, req any, limit int64) bool {
+	if contentType := ctx.GetHeader("Content-Type"); contentType != "" {
+		mediaType, _, err := mime.ParseMediaType(contentType)
+		if err != nil || mediaType != "application/json" {
+			writeAPIError(ctx, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
+			return false
+		}
+	}
 	ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, limit)
 	body, err := io.ReadAll(ctx.Request.Body)
-	if err != nil || !json.Valid(body) {
+	if err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeAPIError(ctx, http.StatusRequestEntityTooLarge, "request body too large")
+		} else {
+			writeAPIError(ctx, http.StatusBadRequest, "invalid request body")
+		}
+		return false
+	}
+	// All existing request bodies are JSON objects, never scalars or arrays.
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 || trimmed[0] != '{' || !json.Valid(trimmed) {
+		writeAPIError(ctx, http.StatusBadRequest, "invalid request body")
 		return false
 	}
 	ctx.Request.Body = io.NopCloser(bytes.NewReader(body))
-	return ctx.ShouldBindJSON(req) == nil
+	if err := ctx.ShouldBindJSON(req); err != nil {
+		writeAPIError(ctx, http.StatusBadRequest, "invalid request body")
+		return false
+	}
+	return true
 }
 
 func replyJSON(ctx *gin.Context, status int, value any) {
@@ -50,21 +75,21 @@ func (server *Server) currentAccount(ctx *gin.Context) (int64, bool) {
 		return id, true
 	}
 	if server.authentication == nil {
-		ctx.String(http.StatusUnauthorized, "unauthorized")
+		writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
 		return 0, false
 	}
 	cookie, err := ctx.Request.Cookie(server.cookieName())
 	if err != nil {
-		ctx.String(http.StatusUnauthorized, "unauthorized")
+		writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
 		return 0, false
 	}
 	id, err := server.authentication.AccountFromToken(ctx.Request.Context(), cookie.Value)
 	if errors.Is(err, auth.ErrUnauthorized) || (err == nil && id <= 0) {
-		ctx.String(http.StatusUnauthorized, "unauthorized")
+		writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
 		return 0, false
 	}
 	if err != nil {
-		ctx.String(http.StatusServiceUnavailable, "authentication unavailable")
+		writeAPIError(ctx, http.StatusServiceUnavailable, "authentication unavailable")
 		return 0, false
 	}
 	ctx.Set("bdspro_account_id", id)
@@ -78,20 +103,19 @@ type verifyEmailRequest struct {
 func (server *Server) verifyEmail(ctx *gin.Context) {
 	var req verifyEmailRequest
 	if !bindJSON(ctx, &req, 8192) {
-		ctx.String(http.StatusBadRequest, "invalid input")
 		return
 	}
 	if server.authentication == nil {
-		ctx.String(http.StatusServiceUnavailable, "verification unavailable")
+		writeAPIError(ctx, http.StatusServiceUnavailable, "verification unavailable")
 		return
 	}
 	err := server.authentication.VerifyEmail(ctx.Request.Context(), strings.TrimSpace(req.Token))
 	if errors.Is(err, auth.ErrInvalidToken) {
-		ctx.String(http.StatusBadRequest, "invalid or expired token")
+		writeAPIError(ctx, http.StatusBadRequest, "invalid or expired token")
 		return
 	}
 	if err != nil {
-		ctx.String(http.StatusInternalServerError, "verification failed")
+		writeAPIError(ctx, http.StatusInternalServerError, "verification failed")
 		return
 	}
 	ctx.Status(http.StatusNoContent)
@@ -106,16 +130,15 @@ type resendVerificationRequest struct {
 func (server *Server) resendVerification(ctx *gin.Context) {
 	var req resendVerificationRequest
 	if !bindJSON(ctx, &req, 8192) {
-		ctx.String(http.StatusBadRequest, "invalid input")
 		return
 	}
 	if server.authentication == nil {
-		ctx.String(http.StatusServiceUnavailable, "verification unavailable")
+		writeAPIError(ctx, http.StatusServiceUnavailable, "verification unavailable")
 		return
 	}
 	err := server.authentication.ResendVerification(ctx.Request.Context(), req.Email)
 	if errors.Is(err, auth.ErrInvalid) {
-		ctx.String(http.StatusBadRequest, "invalid input")
+		writeAPIError(ctx, http.StatusBadRequest, "invalid input")
 		return
 	}
 	if err != nil {
@@ -134,21 +157,20 @@ type loginRequest struct {
 func (server *Server) login(ctx *gin.Context) {
 	var req loginRequest
 	if !bindJSON(ctx, &req, 8192) {
-		ctx.String(http.StatusBadRequest, "invalid input")
 		return
 	}
 	if server.authentication == nil {
-		ctx.String(http.StatusServiceUnavailable, "login unavailable")
+		writeAPIError(ctx, http.StatusServiceUnavailable, "login unavailable")
 		return
 	}
 	result, err := server.authentication.Login(ctx.Request.Context(), req.Email, req.Password)
 	switch {
 	case errors.Is(err, auth.ErrInvalidCredentials):
-		ctx.String(http.StatusUnauthorized, "invalid credentials")
+		writeAPIError(ctx, http.StatusUnauthorized, "invalid credentials")
 	case errors.Is(err, auth.ErrUnverified):
-		ctx.String(http.StatusForbidden, "email verification required")
+		writeAPIError(ctx, http.StatusForbidden, "email verification required")
 	case err != nil:
-		ctx.String(http.StatusInternalServerError, "login failed")
+		writeAPIError(ctx, http.StatusInternalServerError, "login failed")
 	default:
 		server.cookie(ctx, result.Token, int(time.Until(result.ExpiresAt).Seconds()))
 		replyJSON(ctx, http.StatusOK, gin.H{"account_id": result.AccountID})
@@ -171,11 +193,11 @@ func (server *Server) logout(ctx *gin.Context) {
 		return
 	}
 	if server.authentication == nil {
-		ctx.String(http.StatusServiceUnavailable, "logout unavailable")
+		writeAPIError(ctx, http.StatusServiceUnavailable, "logout unavailable")
 		return
 	}
 	if err := server.authentication.Logout(ctx.Request.Context(), cookie.Value); err != nil {
-		ctx.String(http.StatusServiceUnavailable, "logout unavailable")
+		writeAPIError(ctx, http.StatusServiceUnavailable, "logout unavailable")
 		return
 	}
 	server.cookie(ctx, "", -1)
