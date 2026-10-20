@@ -211,3 +211,25 @@ func (server *Server) logout(ctx *gin.Context) {
 	server.cookie(ctx, "", -1)
 	ctx.Status(http.StatusNoContent)
 }
+
+func (server *Server) logoutAll(ctx *gin.Context) {
+	cookie, err := ctx.Request.Cookie(server.cookieName())
+	if err != nil {
+		writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if server.authentication == nil {
+		writeAPIError(ctx, http.StatusServiceUnavailable, "logout unavailable")
+		return
+	}
+	err = server.authentication.LogoutAll(ctx.Request.Context(), cookie.Value)
+	switch {
+	case errors.Is(err, auth.ErrUnauthorized):
+		writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
+	case err != nil:
+		writeAPIError(ctx, http.StatusServiceUnavailable, "logout unavailable")
+	default:
+		server.cookie(ctx, "", -1)
+		ctx.Status(http.StatusNoContent)
+	}
+}

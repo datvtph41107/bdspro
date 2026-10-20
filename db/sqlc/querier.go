@@ -50,6 +50,7 @@ type Querier interface {
 	InsertSourceIntake(ctx context.Context, arg InsertSourceIntakeParams) (int64, error)
 	ListAuthorizedMembers(ctx context.Context, arg ListAuthorizedMembersParams) ([]ListAuthorizedMembersRow, error)
 	ListAuthorizedPriceReports(ctx context.Context, arg ListAuthorizedPriceReportsParams) ([]ListAuthorizedPriceReportsRow, error)
+	LockSessionAccount(ctx context.Context, id int64) (int64, error)
 	LockActiveOrganizationForUpdate(ctx context.Context, partyID int64) (int64, error)
 	LockActivePlatformReviewer(ctx context.Context, accountID int64) (int64, error)
 	LockOrganizationForSourceWrite(ctx context.Context, partyID int64) (int64, error)
@@ -57,8 +58,10 @@ type Querier interface {
 	// Caller must keep this lock through a separate token-insert statement in one transaction.
 	LockVerificationResendTarget(ctx context.Context, email string) (int64, error)
 	MarkAccountEmailVerified(ctx context.Context, id int64) error
+	PruneExcessSessions(ctx context.Context, accountID int64) error
 	ResolveOrganizationClaim(ctx context.Context, arg ResolveOrganizationClaimParams) (int64, error)
 	ResolveOrganizationRegistration(ctx context.Context, arg ResolveOrganizationRegistrationParams) (int64, error)
+	RevokeAccountSessions(ctx context.Context, accountID int64) error
 	RevokeSession(ctx context.Context, tokenHash string) error
 	SetPrimaryAdministrator(ctx context.Context, arg SetPrimaryAdministratorParams) error
 	SubmitOrganizationClaim(ctx context.Context, arg SubmitOrganizationClaimParams) (int64, error)

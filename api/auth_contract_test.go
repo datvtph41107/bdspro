@@ -24,6 +24,8 @@ type authStub struct {
 	accountCalls  int
 	accountToken  string
 	logoutErr     error
+	logoutAllErr  error
+	logoutAllCalls int
 	resendErr     error
 	registerCalls int
 	verifyCalls   int
@@ -57,6 +59,10 @@ func (s *authStub) AccountFromToken(_ context.Context, token string) (int64, err
 func (s *authStub) Logout(context.Context, string) error {
 	s.logoutCalls++
 	return s.logoutErr
+}
+func (s *authStub) LogoutAll(context.Context, string) error {
+	s.logoutAllCalls++
+	return s.logoutAllErr
 }
 
 func TestCreateAccountServiceOutcomes(t *testing.T) {

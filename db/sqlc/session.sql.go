@@ -41,6 +41,44 @@ func (q *Queries) GetSessionAccount(ctx context.Context, tokenHash string) (int6
 	return id, err
 }
 
+const lockSessionAccount = `-- name: LockSessionAccount :one
+-- All operations that change account-wide session state must lock this row.
+SELECT id FROM accounts WHERE id = $1 AND closed_at IS NULL FOR UPDATE
+`
+
+func (q *Queries) LockSessionAccount(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRow(ctx, lockSessionAccount, id)
+	var id_2 int64
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
+const pruneExcessSessions = `-- name: PruneExcessSessions :exec
+-- Keep the five most recently created active sessions; ties break by id.
+WITH excess AS (
+    SELECT id FROM sessions
+    WHERE account_id = $1 AND revoked_at IS NULL AND expires_at > now()
+    ORDER BY created_at DESC, id DESC OFFSET 5
+)
+UPDATE sessions SET revoked_at = now()
+WHERE id IN (SELECT id FROM excess)
+`
+
+func (q *Queries) PruneExcessSessions(ctx context.Context, accountID int64) error {
+	_, err := q.db.Exec(ctx, pruneExcessSessions, accountID)
+	return err
+}
+
+const revokeAccountSessions = `-- name: RevokeAccountSessions :exec
+UPDATE sessions SET revoked_at = now()
+WHERE account_id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokeAccountSessions(ctx context.Context, accountID int64) error {
+	_, err := q.db.Exec(ctx, revokeAccountSessions, accountID)
+	return err
+}
+
 const revokeSession = `-- name: RevokeSession :exec
 UPDATE sessions SET revoked_at = now()
 WHERE token_hash = $1 AND revoked_at IS NULL

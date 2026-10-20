@@ -225,8 +225,24 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 	if err != nil {
 		return LoginResult{}, err
 	}
-	expiry, err := q.CreateLoginSession(ctx, dbsqlc.CreateLoginSessionParams{
-		AccountID: credentials.AccountID, TokenHash: hash,
+	// Serialize session creation and account-wide revocation on the same
+	// accounts row. The five-session cap holds across concurrent logins.
+	var expiry time.Time
+	err = dbsqlc.NewStore(s.Pool).ExecTx(ctx, func(tx *dbsqlc.Queries) error {
+		if _, err := tx.LockSessionAccount(ctx, credentials.AccountID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrInvalidCredentials
+			}
+			return err
+		}
+		var err error
+		expiry, err = tx.CreateLoginSession(ctx, dbsqlc.CreateLoginSessionParams{
+			AccountID: credentials.AccountID, TokenHash: hash,
+		})
+		if err != nil {
+			return err
+		}
+		return tx.PruneExcessSessions(ctx, credentials.AccountID)
 	})
 	if err != nil {
 		return LoginResult{}, err
@@ -259,4 +275,38 @@ func PositiveID(raw string) (int64, error) {
 		return 0, ErrInvalid
 	}
 	return id, nil
+}
+
+// LogoutAll revokes every session of the account associated with token.
+// The token is revalidated AFTER acquiring the account lock so a concurrent
+// logout cannot authorize this operation using stale prior verification.
+func (s *Service) LogoutAll(ctx context.Context, token string) error {
+	if token == "" {
+		return ErrUnauthorized
+	}
+	hash := digestToken(token)
+	return dbsqlc.NewStore(s.Pool).ExecTx(ctx, func(q *dbsqlc.Queries) error {
+		accountID, err := q.GetSessionAccount(ctx, hash)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrUnauthorized
+		}
+		if err != nil {
+			return err
+		}
+		if _, err := q.LockSessionAccount(ctx, accountID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrUnauthorized
+			}
+			return err
+		}
+		// Re-check under the lock before applying an account-wide change.
+		lockedAccount, err := q.GetSessionAccount(ctx, hash)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && lockedAccount != accountID) {
+			return ErrUnauthorized
+		}
+		if err != nil {
+			return err
+		}
+		return q.RevokeAccountSessions(ctx, accountID)
+	})
 }
