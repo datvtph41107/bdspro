@@ -95,13 +95,6 @@ jobs:
       - name: Generate SQLC
         run: make sqlc
 
-      - name: Inspect generated authentication SQLC output (temporary)
-        run: |
-          cat db/sqlc/phone_verification.sql.go
-          git diff -- db/sqlc/models.go db/sqlc/querier.go
-          go mod tidy
-          git diff -- go.mod go.sum
-
       - name: Check source consistency
         run: |
           go mod tidy
