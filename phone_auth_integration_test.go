@@ -60,7 +60,11 @@ func TestPhoneOTPSingleUseCooldownAndAttempts(t *testing.T) {
 	if err := authService.StartPhoneVerification(ctx, owner, phone); !errors.Is(err, auth.ErrPhoneThrottle) {
 		t.Fatalf("cooldown: %v", err)
 	}
-	if err := authService.VerifyPhoneCode(ctx, owner, phone, "000000"); !errors.Is(err, auth.ErrPhoneCode) {
+	wrong := "000000"
+	if wrong == code {
+		wrong = "999999"
+	}
+	if err := authService.VerifyPhoneCode(ctx, owner, phone, wrong); !errors.Is(err, auth.ErrPhoneCode) {
 		t.Fatalf("wrong guess: %v", err)
 	}
 	var attempts int
@@ -138,6 +142,13 @@ func TestPhoneOTPVerifiedNumberExclusiveAcrossAccounts(t *testing.T) {
 	if err := a.VerifyPhoneCode(ctx, id1, phone, code); err != nil {
 		t.Fatal(err)
 	}
+	// Permit second issuance after the global destination cooldown to test
+	// the partial unique constraint instead of the SMS abuse limiter.
+	if _, err := db.Exec(ctx, `UPDATE phone_verification_challenges
+		SET created_at = now() - interval '61 seconds'
+		WHERE account_phone_id IN (SELECT id FROM account_phones WHERE phone=$1)`, phone); err != nil {
+		t.Fatal(err)
+	}
 	if err := a.StartPhoneVerification(ctx, id2, phone); err != nil {
 		t.Fatal(err)
 	}
@@ -197,5 +208,73 @@ func TestPhoneOTPAccountWideDailyQuotaAcrossNumbers(t *testing.T) {
 	_, _, sent := sms.last()
 	if sent != 10 {
 		t.Fatalf("SMS count %d, expected 10", sent)
+	}
+}
+
+func TestPhoneOTPGlobalDestinationCooldownAcrossAccounts(t *testing.T) {
+	db := coreDB(t)
+	ctx := context.Background()
+	a := auth.New(db, nil)
+	first, _ := coreUser(t, a, "globalphone1@example.test")
+	second, _ := coreUser(t, a, "globalphone2@example.test")
+	sms := &fakePhoneSMS{}
+	if err := a.ConfigurePhoneVerification(strings.Repeat("G", 32), sms); err != nil {
+		t.Fatal(err)
+	}
+	const phone = "+84907770123"
+	if err := a.StartPhoneVerification(ctx, first, phone); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.StartPhoneVerification(ctx, second, phone); !errors.Is(err, auth.ErrPhoneThrottle) {
+		t.Fatalf("cross-account destination limiter bypassed: %v", err)
+	}
+	_, _, sent := sms.last()
+	if sent != 1 {
+		t.Fatalf("expected one SMS, sent %d", sent)
+	}
+}
+
+func TestPhoneOTPReissueInvalidatesPriorCode(t *testing.T) {
+	db := coreDB(t)
+	ctx := context.Background()
+	a := auth.New(db, nil)
+	id, _ := coreUser(t, a, "otp-reissue@example.test")
+	sms := &fakePhoneSMS{}
+	if err := a.ConfigurePhoneVerification(strings.Repeat("R", 32), sms); err != nil {
+		t.Fatal(err)
+	}
+	const phone = "+84903331234"
+	if err := a.StartPhoneVerification(ctx, id, phone); err != nil {
+		t.Fatal(err)
+	}
+	_, firstCode, _ := sms.last()
+	if _, err := db.Exec(ctx, `UPDATE phone_verification_challenges
+		SET created_at = now() - interval '61 seconds'
+		WHERE account_phone_id IN (SELECT id FROM account_phones WHERE account_id=$1 AND phone=$2)`, id, phone); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.StartPhoneVerification(ctx, id, phone); err != nil {
+		t.Fatal(err)
+	}
+	_, newCode, sent := sms.last()
+	if sent != 2 {
+		t.Fatalf("expected second OTP SMS, got %d", sent)
+	}
+	if firstCode == newCode {
+		// A one-in-a-million collision is allowed by the random generator, so
+		// rely on database invalidation rather than value inequality.
+		var priorConsumed bool
+		if err := db.QueryRow(ctx, `SELECT consumed_at IS NOT NULL FROM
+			phone_verification_challenges ORDER BY id LIMIT 1`).Scan(&priorConsumed); err != nil {
+			t.Fatal(err)
+		}
+		if !priorConsumed {
+			t.Fatal("previous OTP was not consumed on reissue")
+		}
+	} else if err := a.VerifyPhoneCode(ctx, id, phone, firstCode); !errors.Is(err, auth.ErrPhoneCode) {
+		t.Fatalf("prior OTP accepted after replacement: %v", err)
+	}
+	if err := a.VerifyPhoneCode(ctx, id, phone, newCode); err != nil {
+		t.Fatalf("new OTP rejected: %v", err)
 	}
 }
