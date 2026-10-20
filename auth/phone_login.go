@@ -75,6 +75,13 @@ func (s *Service) StartPhoneLogin(ctx context.Context, rawPhone string) (PhoneLo
 		if fresh.AccountID != target.AccountID || fresh.AccountPhoneID != target.AccountPhoneID {
 			return nil
 		}
+		sharedRegistration, err := q.CanIssuePhoneRegistration(ctx, phone)
+		if err != nil {
+			return err
+		}
+		if !sharedRegistration.Valid || !sharedRegistration.Bool {
+			return nil
+		}
 		allowed, err := q.CanIssuePhoneLogin(ctx, dbsqlc.CanIssuePhoneLoginParams{
 			Phone: phone, AccountID: target.AccountID,
 		})
