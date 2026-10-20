@@ -46,6 +46,7 @@ type Querier interface {
 	GetOpenAccountPersonID(ctx context.Context, id int64) (int64, error)
 	GetOrganizationPrimaryAdministrator(ctx context.Context, organizationID int64) (int64, error)
 	GetOwnedAccountPhone(ctx context.Context, arg GetOwnedAccountPhoneParams) (int64, error)
+	InvalidatePriorPhoneChallenges(ctx context.Context, accountPhoneID int64) error
 	GetPendingOrganizationClaimForUpdate(ctx context.Context, id int64) (GetPendingOrganizationClaimForUpdateRow, error)
 	GetPendingOrganizationRegistrationForUpdate(ctx context.Context, id int64) (GetPendingOrganizationRegistrationForUpdateRow, error)
 	GetSessionAccount(ctx context.Context, tokenHash string) (int64, error)
@@ -60,6 +61,7 @@ type Querier interface {
 	LockActiveOrganizationForUpdate(ctx context.Context, partyID int64) (int64, error)
 	LockActivePlatformReviewer(ctx context.Context, accountID int64) (int64, error)
 	LockLatestPhoneChallenge(ctx context.Context, accountPhoneID int64) (LockLatestPhoneChallengeRow, error)
+	LockOTPPhoneDestination(ctx context.Context, phone string) error
 	LockOrganizationForSourceWrite(ctx context.Context, partyID int64) (int64, error)
 	// All operations that change account-wide session state must lock this row.
 	LockSessionAccount(ctx context.Context, id int64) (int64, error)
