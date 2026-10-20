@@ -41,7 +41,7 @@ func coreDB(t *testing.T) *pgxpool.Pool {
 	if name != "bdspro_core_ci" {
 		t.Fatalf("refusing to truncate %q (requires bdspro_core_ci)", name)
 	}
-	_, err = db.Exec(ctx, "TRUNCATE parties,permissions,platform_organization_reviewers RESTART IDENTITY CASCADE")
+	_, err = db.Exec(ctx, "TRUNCATE parties,permissions,platform_organization_reviewers,phone_registration_challenges RESTART IDENTITY CASCADE")
 	if err != nil {
 		t.Fatal(err)
 	}
