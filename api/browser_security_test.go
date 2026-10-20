@@ -46,7 +46,7 @@ func TestCredentialedCORSPreflightContract(t *testing.T) {
 				require.Equal(t, "true", w.Header().Get("Access-Control-Allow-Credentials"))
 				require.Contains(t, w.Header().Get("Access-Control-Allow-Headers"), "X-BDSPro-Request")
 				require.Equal(t, "300", w.Header().Get("Access-Control-Max-Age"))
-				require.Empty(t, w.Header().Get("Access-Control-Allow-Methods") == "", "allow methods required")
+				require.NotEmpty(t, w.Header().Get("Access-Control-Allow-Methods"), "allow methods required")
 			} else {
 				require.Empty(t, w.Header().Get("Access-Control-Allow-Methods"))
 				if tc.origin == "https://attacker.example.test" || tc.origin == "null" || tc.origin == "" {
