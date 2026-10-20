@@ -19,8 +19,8 @@ import (
 
 type httpOutcome struct {
 	status int
-	body string
-	err error
+	body   string
+	err    error
 }
 
 func runRequest(client *http.Client, url string, out chan<- httpOutcome) {
@@ -102,7 +102,7 @@ func TestShutdownRejectsNewWorkButHealthRemainsLive(t *testing.T) {
 	server := NewServer(nil, nil, nil, nil, true, "")
 	server.draining.Store(true)
 	for _, tc := range []struct {
-		path string
+		path   string
 		status int
 	}{
 		{"/health", http.StatusOK},
@@ -162,9 +162,10 @@ func TestShutdownDeadlineClosesActiveConnection(t *testing.T) {
 }
 
 type brokenListener struct{}
+
 func (brokenListener) Accept() (net.Conn, error) { return nil, errors.New("forced listener failure") }
-func (brokenListener) Close() error { return nil }
-func (brokenListener) Addr() net.Addr { return &net.TCPAddr{IP:net.IPv4(127,0,0,1)} }
+func (brokenListener) Close() error              { return nil }
+func (brokenListener) Addr() net.Addr            { return &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)} }
 
 func TestUnexpectedHTTPServeFailureIsNotHidden(t *testing.T) {
 	server := NewServer(nil, nil, nil, nil, true, "")
@@ -225,11 +226,11 @@ func TestShutdownDrainsPostgresTransactionBeforePoolClose(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- server.serve(runCtx, listener, time.Second) }()
 	out := make(chan httpOutcome, 1)
-	go runRequest(&http.Client{Timeout: 3*time.Second},
+	go runRequest(&http.Client{Timeout: 3 * time.Second},
 		"http://"+listener.Addr().String()+"/tx-in-flight", out)
 	select {
 	case <-entered:
-	case <-time.After(3*time.Second):
+	case <-time.After(3 * time.Second):
 		t.Fatal("transaction never started")
 	}
 	cancel()
@@ -242,13 +243,13 @@ func TestShutdownDrainsPostgresTransactionBeforePoolClose(t *testing.T) {
 		require.NoError(t, result.err)
 		require.Equal(t, http.StatusOK, result.status)
 		require.True(t, strings.Contains(result.body, "committed"))
-	case <-time.After(3*time.Second):
+	case <-time.After(3 * time.Second):
 		t.Fatal("transaction response did not complete")
 	}
 	select {
 	case err := <-done:
 		require.NoError(t, err)
-	case <-time.After(3*time.Second):
+	case <-time.After(3 * time.Second):
 		t.Fatal("server did not stop")
 	}
 	require.EqualValues(t, 0, pool.Stat().AcquiredConns(),
