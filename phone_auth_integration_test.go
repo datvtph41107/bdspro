@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -172,5 +173,29 @@ func TestJWTAccessTracksActualSessionRevocation(t *testing.T) {
 	}
 	if _, err := a.AccountFromSessionHash(ctx, sessionHash); !errors.Is(err, auth.ErrUnauthorized) {
 		t.Fatalf("revoked session accepted via JWT: %v", err)
+	}
+}
+
+func TestPhoneOTPAccountWideDailyQuotaAcrossNumbers(t *testing.T) {
+	db := coreDB(t)
+	ctx := context.Background()
+	a := auth.New(db, nil)
+	id, _ := coreUser(t, a, "accountwide@example.test")
+	sms := &fakePhoneSMS{}
+	if err := a.ConfigurePhoneVerification(strings.Repeat("M", 32), sms); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		phone := fmt.Sprintf("+84908888%03d", i)
+		if err := a.StartPhoneVerification(ctx, id, phone); err != nil {
+			t.Fatalf("issuance %d: %v", i, err)
+		}
+	}
+	if err := a.StartPhoneVerification(ctx, id, "+84908888999"); !errors.Is(err, auth.ErrPhoneThrottle) {
+		t.Fatalf("account-wide SMS cap bypassed: %v", err)
+	}
+	_, _, sent := sms.last()
+	if sent != 10 {
+		t.Fatalf("SMS count %d, expected 10", sent)
 	}
 }
