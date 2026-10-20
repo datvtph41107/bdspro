@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -64,7 +63,7 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	}))
 	binding.EnableDecoderDisallowUnknownFields = true
 	router.Use(server.rejectDuringShutdown)
-	router.Use(server.checkOrigin)
+	router.Use(server.browserSecurity)
 
 	router.POST("/auth/register", server.createAccount)
 	router.POST("/auth/verify-email", server.verifyEmail)
@@ -111,26 +110,6 @@ func (server *Server) requireSession(ctx *gin.Context) {
 func (server *Server) rejectDuringShutdown(ctx *gin.Context) {
 	if server.draining.Load() && ctx.FullPath() != "/health" {
 		ctx.AbortWithStatus(http.StatusServiceUnavailable)
-		return
-	}
-	ctx.Next()
-}
-
-// checkOrigin keeps the existing browser-origin boundary for state-changing requests.
-func (server *Server) checkOrigin(ctx *gin.Context) {
-	method := ctx.Request.Method
-	if method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions {
-		ctx.Next()
-		return
-	}
-	if strings.EqualFold(ctx.GetHeader("Sec-Fetch-Site"), "cross-site") {
-		ctx.String(http.StatusForbidden, "cross-site request denied")
-		ctx.Abort()
-		return
-	}
-	if origin := ctx.GetHeader("Origin"); origin != "" && origin != server.allowedOrigin {
-		ctx.String(http.StatusForbidden, "origin not allowed")
-		ctx.Abort()
 		return
 	}
 	ctx.Next()

@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/mail"
 	"net/url"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -54,6 +55,20 @@ func (config Config) validate() error {
 	host, _, err := net.SplitHostPort(config.ServerAddress)
 	if err != nil {
 		return fmt.Errorf("invalid SERVER_ADDRESS: %w", err)
+	}
+	if config.AllowedOrigin != "" {
+		origin, err := url.Parse(config.AllowedOrigin)
+		if err != nil || origin.Hostname() == "" || origin.User != nil || origin.Opaque != "" ||
+			(origin.Scheme != "https" && origin.Scheme != "http") ||
+			origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" ||
+			strings.ContainsAny(config.AllowedOrigin, " \t\r\n") ||
+			strings.Contains(config.AllowedOrigin, "*") ||
+			origin.String() != config.AllowedOrigin {
+			return fmt.Errorf("ALLOWED_ORIGIN must be an exact HTTP(S) origin without path, query or wildcard")
+		}
+		if config.Environment != "development" && origin.Scheme != "https" {
+			return fmt.Errorf("ALLOWED_ORIGIN must use HTTPS outside development")
+		}
 	}
 	if config.Environment == "development" {
 		if host != "localhost" && host != "127.0.0.1" && host != "::1" && !config.AllowContainerDevBind {
