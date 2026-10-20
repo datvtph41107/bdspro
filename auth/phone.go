@@ -121,6 +121,13 @@ func (s *Service) StartPhoneVerification(ctx context.Context, accountID int64, r
 		if !shared.Valid || !shared.Bool {
 			return ErrPhoneThrottle
 		}
+		sharedRegistration, err := q.CanIssuePhoneRegistration(ctx, phone)
+		if err != nil {
+			return err
+		}
+		if !sharedRegistration.Valid || !sharedRegistration.Bool {
+			return ErrPhoneThrottle
+		}
 		// A newly issued code invalidates older unconsumed codes atomically.
 		if err := q.InvalidatePriorPhoneChallenges(ctx, phoneID); err != nil {
 			return err
