@@ -13,7 +13,13 @@ SELECT NOT EXISTS (
     SELECT count(*) FROM phone_verification_challenges c
     WHERE c.account_phone_id = $1
       AND c.created_at > now() - interval '24 hours'
-) < 5 AS allowed;
+) < 5 AND (
+    SELECT count(*) FROM phone_verification_challenges recent
+    JOIN account_phones ap ON ap.id = recent.account_phone_id
+    WHERE ap.account_id = (
+        SELECT account_id FROM account_phones WHERE id = $1
+    ) AND recent.created_at > now() - interval '24 hours'
+) < 10 AS allowed;
 
 -- name: CreatePhoneChallenge :exec
 INSERT INTO phone_verification_challenges(account_phone_id, nonce, otp_mac)
