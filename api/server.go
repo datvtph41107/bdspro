@@ -31,6 +31,8 @@ type Authentication interface {
 	Login(context.Context, string, string) (auth.LoginResult, error)
 	StartPhoneLogin(context.Context, string) (auth.PhoneLoginStart, error)
 	VerifyPhoneLogin(context.Context, string, string) (auth.LoginResult, error)
+	StartPhoneRegistration(context.Context, string) (auth.PhoneLoginStart, error)
+	VerifyPhoneRegistration(context.Context, string, string) (auth.LoginResult, error)
 	StartPhoneVerification(context.Context, int64, string) error
 	VerifyPhoneCode(context.Context, int64, string, string) error
 	AccountFromToken(context.Context, string) (int64, error)
@@ -84,6 +86,8 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.POST("/auth/login", server.limitAuthClient("login", ratePolicy{burst: 30, window: time.Minute}), server.login)
 	router.POST("/auth/phone/login/start", server.limitAuthClient("phone-login-start", ratePolicy{burst: 6, window: 15 * time.Minute}), server.loginPhoneStart)
 	router.POST("/auth/phone/login/verify", server.limitAuthClient("phone-login-verify", ratePolicy{burst: 20, window: 15 * time.Minute}), server.loginPhoneVerify)
+	router.POST("/auth/phone/register/start", server.limitAuthClient("phone-register-start", ratePolicy{burst: 6, window: 15 * time.Minute}), server.registerPhoneStart)
+	router.POST("/auth/phone/register/verify", server.limitAuthClient("phone-register-verify", ratePolicy{burst: 20, window: 15 * time.Minute}), server.registerPhoneVerify)
 	router.POST("/auth/token/renew", server.limitAuthClient("renew", ratePolicy{burst: 30, window: time.Minute}), server.renewAccessToken)
 	router.GET("/auth/me", server.requireSession, server.me)
 	router.GET("/auth/workspaces", server.requireSession, server.listMyWorkspaces)

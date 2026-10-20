@@ -14,39 +14,45 @@ import (
 )
 
 type authStub struct {
-	registration        auth.Registration
-	registerErr         error
-	verifyErr           error
-	loginResult         auth.LoginResult
-	loginErr            error
-	accountID           int64
-	accountErr          error
-	accountCalls        int
-	accountToken        string
-	accountHash         string
-	logoutErr           error
-	logoutHash          string
-	logoutHashCalls     int
-	logoutAllErr        error
-	logoutAllCalls      int
-	logoutAllHash       string
-	logoutAllHashCalls  int
-	resendErr           error
-	registerCalls       int
-	verifyCalls         int
-	loginCalls          int
-	logoutCalls         int
-	resendCalls         int
-	phoneStartCalls     int
-	phoneVerifyCalls    int
-	phoneStartErr       error
-	phoneVerifyErr      error
-	phoneLoginStart     auth.PhoneLoginStart
-	phoneLoginStartErr  error
-	phoneLoginVerify    auth.LoginResult
-	phoneLoginVerifyErr error
-	phoneLoginStarts    int
-	phoneLoginVerifies  int
+	registration               auth.Registration
+	registerErr                error
+	verifyErr                  error
+	loginResult                auth.LoginResult
+	loginErr                   error
+	accountID                  int64
+	accountErr                 error
+	accountCalls               int
+	accountToken               string
+	accountHash                string
+	logoutErr                  error
+	logoutHash                 string
+	logoutHashCalls            int
+	logoutAllErr               error
+	logoutAllCalls             int
+	logoutAllHash              string
+	logoutAllHashCalls         int
+	resendErr                  error
+	registerCalls              int
+	verifyCalls                int
+	loginCalls                 int
+	logoutCalls                int
+	resendCalls                int
+	phoneStartCalls            int
+	phoneVerifyCalls           int
+	phoneStartErr              error
+	phoneVerifyErr             error
+	phoneLoginStart            auth.PhoneLoginStart
+	phoneLoginStartErr         error
+	phoneLoginVerify           auth.LoginResult
+	phoneLoginVerifyErr        error
+	phoneLoginStarts           int
+	phoneLoginVerifies         int
+	phoneRegistrationStart     auth.PhoneLoginStart
+	phoneRegistrationStartErr  error
+	phoneRegistrationVerify    auth.LoginResult
+	phoneRegistrationVerifyErr error
+	phoneRegistrationStarts    int
+	phoneRegistrationVerifies  int
 }
 
 func (s *authStub) Register(context.Context, string, string) (auth.Registration, error) {
@@ -73,6 +79,15 @@ func (s *authStub) StartPhoneLogin(_ context.Context, _ string) (auth.PhoneLogin
 func (s *authStub) VerifyPhoneLogin(_ context.Context, _, _ string) (auth.LoginResult, error) {
 	s.phoneLoginVerifies++
 	return s.phoneLoginVerify, s.phoneLoginVerifyErr
+}
+
+func (s *authStub) StartPhoneRegistration(context.Context, string) (auth.PhoneLoginStart, error) {
+	s.phoneRegistrationStarts++
+	return s.phoneRegistrationStart, s.phoneRegistrationStartErr
+}
+func (s *authStub) VerifyPhoneRegistration(context.Context, string, string) (auth.LoginResult, error) {
+	s.phoneRegistrationVerifies++
+	return s.phoneRegistrationVerify, s.phoneRegistrationVerifyErr
 }
 
 func (s *authStub) AccountFromToken(_ context.Context, token string) (int64, error) {
