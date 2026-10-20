@@ -46,6 +46,13 @@ func run() error {
 		organization.New(pool), source.NewService(pool),
 		config.Environment == "development", config.AllowedOrigin,
 	)
+	if config.AccessTokenKey != "" {
+		issuer, err := auth.NewAccessTokens(config.AccessTokenKey)
+		if err != nil {
+			return fmt.Errorf("invalid access token configuration: %w", err)
+		}
+		server.EnableAccessTokens(issuer)
+	}
 
 	if err := server.Start(config.ServerAddress); err != nil {
 		return fmt.Errorf("cannot start server: %w", err)

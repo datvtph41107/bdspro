@@ -78,6 +78,31 @@ func (server *Server) currentAccount(ctx *gin.Context) (int64, bool) {
 		writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
 		return 0, false
 	}
+	// An explicit Bearer header never falls back to a valid cookie when
+	// invalid. This avoids credential confusion and token downgrade.
+	if header := ctx.GetHeader("Authorization"); header != "" {
+		parts := strings.Fields(header)
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || server.accessTokens == nil {
+			writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
+			return 0, false
+		}
+		subject, sessionHash, err := server.accessTokens.Verify(parts[1])
+		if err != nil {
+			writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
+			return 0, false
+		}
+		id, err := server.authentication.AccountFromSessionHash(ctx.Request.Context(), sessionHash)
+		if errors.Is(err, auth.ErrUnauthorized) || (err == nil && id != subject) {
+			writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
+			return 0, false
+		}
+		if err != nil {
+			writeAPIError(ctx, http.StatusServiceUnavailable, "authentication unavailable")
+			return 0, false
+		}
+		ctx.Set("bdspro_account_id", id)
+		return id, true
+	}
 	cookie, err := ctx.Request.Cookie(server.cookieName())
 	if err != nil {
 		writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
@@ -180,8 +205,22 @@ func (server *Server) login(ctx *gin.Context) {
 	case err != nil:
 		writeAPIError(ctx, http.StatusInternalServerError, "login failed")
 	default:
+		response := gin.H{"account_id": result.AccountID}
+		if server.accessTokens != nil {
+			accessToken, accessExpiry, tokenErr := server.accessTokens.Issue(result.AccountID, result.Token)
+			if tokenErr != nil {
+				// A committed DB session must not survive a failed access-token
+				// response and become an orphaned login.
+				_ = server.authentication.Logout(ctx.Request.Context(), result.Token)
+				writeAPIError(ctx, http.StatusServiceUnavailable, "login unavailable")
+				return
+			}
+			response["access_token"] = accessToken
+			response["token_type"] = "Bearer"
+			response["access_token_expires_at"] = accessExpiry
+		}
 		server.cookie(ctx, result.Token, int(time.Until(result.ExpiresAt).Seconds()))
-		replyJSON(ctx, http.StatusOK, gin.H{"account_id": result.AccountID})
+		replyJSON(ctx, http.StatusOK, response)
 	}
 }
 
@@ -232,4 +271,37 @@ func (server *Server) logoutAll(ctx *gin.Context) {
 		server.cookie(ctx, "", -1)
 		ctx.Status(http.StatusNoContent)
 	}
+}
+
+// renewAccessToken requires the opaque session cookie, NOT an old access JWT.
+// It does not extend the 24-hour absolute session expiry.
+func (server *Server) renewAccessToken(ctx *gin.Context) {
+	if server.accessTokens == nil || server.authentication == nil {
+		writeAPIError(ctx, http.StatusServiceUnavailable, "token renewal unavailable")
+		return
+	}
+	cookie, err := ctx.Request.Cookie(server.cookieName())
+	if err != nil || cookie.Value == "" {
+		writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	accountID, err := server.authentication.AccountFromToken(ctx.Request.Context(), cookie.Value)
+	if errors.Is(err, auth.ErrUnauthorized) || (err == nil && accountID <= 0) {
+		writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if err != nil {
+		writeAPIError(ctx, http.StatusServiceUnavailable, "authentication unavailable")
+		return
+	}
+	jwtToken, expiry, err := server.accessTokens.Issue(accountID, cookie.Value)
+	if err != nil {
+		writeAPIError(ctx, http.StatusServiceUnavailable, "token renewal unavailable")
+		return
+	}
+	replyJSON(ctx, http.StatusOK, gin.H{
+		"access_token": jwtToken,
+		"token_type": "Bearer",
+		"access_token_expires_at": expiry,
+	})
 }

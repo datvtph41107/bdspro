@@ -261,6 +261,20 @@ func (s *Service) AccountFromToken(ctx context.Context, token string) (int64, er
 	return id, err
 }
 
+// AccountFromSessionHash validates the PostgreSQL session for a signed access
+// token. This intentional DB read preserves immediate revocation semantics
+// across logout/logout-all while tenant permissions remain evaluated in SQL.
+func (s *Service) AccountFromSessionHash(ctx context.Context, hash string) (int64, error) {
+	if len(hash) != 64 {
+		return 0, ErrUnauthorized
+	}
+	id, err := dbsqlc.New(s.Pool).GetSessionAccount(ctx, hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrUnauthorized
+	}
+	return id, err
+}
+
 func (s *Service) Logout(ctx context.Context, token string) error {
 	if token == "" {
 		return nil
