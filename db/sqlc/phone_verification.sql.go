@@ -36,21 +36,6 @@ SELECT NOT EXISTS (
     JOIN account_phones ap ON ap.id = recent.account_phone_id
     WHERE ap.phone = (SELECT phone FROM account_phones WHERE id = $1)
       AND recent.created_at > now() - interval '24 hours'
-) < 5 AND NOT EXISTS (
-    SELECT 1 FROM phone_login_challenges recent
-    JOIN account_phones ap ON ap.id = recent.account_phone_id
-    WHERE ap.phone = (SELECT phone FROM account_phones WHERE id = $1)
-      AND recent.created_at > now() - interval '60 seconds'
-) AND (
-    SELECT count(*) FROM phone_login_challenges recent
-    JOIN account_phones ap ON ap.id = recent.account_phone_id
-    WHERE ap.phone = (SELECT phone FROM account_phones WHERE id = $1)
-      AND recent.created_at > now() - interval '24 hours'
-) + (
-    SELECT count(*) FROM phone_verification_challenges recent
-    JOIN account_phones ap ON ap.id = recent.account_phone_id
-    WHERE ap.phone = (SELECT phone FROM account_phones WHERE id = $1)
-      AND recent.created_at > now() - interval '24 hours'
 ) < 5 AS allowed
 `
 
