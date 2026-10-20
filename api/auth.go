@@ -101,6 +101,7 @@ func (server *Server) currentAccount(ctx *gin.Context) (int64, bool) {
 			return 0, false
 		}
 		ctx.Set("bdspro_account_id", id)
+		ctx.Set("bdspro_session_hash", sessionHash)
 		return id, true
 	}
 	cookie, err := ctx.Request.Cookie(server.cookieName())
@@ -233,6 +234,29 @@ func (server *Server) me(ctx *gin.Context) {
 }
 
 func (server *Server) logout(ctx *gin.Context) {
+	// An explicit Authorization header selects JWT authentication, even if a
+	// different browser session cookie is also present. Never silently report
+	// success without revoking the bearer token's backing DB session.
+	if ctx.GetHeader("Authorization") != "" {
+		if _, ok := server.currentAccount(ctx); !ok {
+			return
+		}
+		hash := ctx.GetString("bdspro_session_hash")
+		if hash == "" {
+			writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if err := server.authentication.LogoutSessionHash(ctx.Request.Context(), hash); err != nil {
+			if errors.Is(err, auth.ErrUnauthorized) {
+				writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
+			} else {
+				writeAPIError(ctx, http.StatusServiceUnavailable, "logout unavailable")
+			}
+			return
+		}
+		ctx.Status(http.StatusNoContent)
+		return
+	}
 	cookie, err := ctx.Request.Cookie(server.cookieName())
 	if err != nil {
 		server.cookie(ctx, "", -1)
@@ -252,6 +276,20 @@ func (server *Server) logout(ctx *gin.Context) {
 }
 
 func (server *Server) logoutAll(ctx *gin.Context) {
+	// requireSession has authenticated the JWT and stored its backing session
+	// hash. Service must recheck that session inside the account-locked tx.
+	if hash := ctx.GetString("bdspro_session_hash"); hash != "" {
+		err := server.authentication.LogoutAllSessionHash(ctx.Request.Context(), hash)
+		switch {
+		case errors.Is(err, auth.ErrUnauthorized):
+			writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
+		case err != nil:
+			writeAPIError(ctx, http.StatusServiceUnavailable, "logout unavailable")
+		default:
+			ctx.Status(http.StatusNoContent)
+		}
+		return
+	}
 	cookie, err := ctx.Request.Cookie(server.cookieName())
 	if err != nil {
 		writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
