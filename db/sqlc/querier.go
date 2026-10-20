@@ -56,6 +56,7 @@ type Querier interface {
 	// actor_account_id must come from a verified session in the HTTP adapter.
 	InsertSourceIntake(ctx context.Context, arg InsertSourceIntakeParams) (int64, error)
 	InvalidatePriorPhoneChallenges(ctx context.Context, accountPhoneID int64) error
+	ListActiveAccountWorkspaces(ctx context.Context, accountID int64) ([]ListActiveAccountWorkspacesRow, error)
 	ListAuthorizedMembers(ctx context.Context, arg ListAuthorizedMembersParams) ([]ListAuthorizedMembersRow, error)
 	ListAuthorizedPriceReports(ctx context.Context, arg ListAuthorizedPriceReportsParams) ([]ListAuthorizedPriceReportsRow, error)
 	LockActiveOrganizationForUpdate(ctx context.Context, partyID int64) (int64, error)
