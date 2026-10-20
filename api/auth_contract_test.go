@@ -14,29 +14,29 @@ import (
 )
 
 type authStub struct {
-	registration   auth.Registration
-	registerErr    error
-	verifyErr      error
-	loginResult    auth.LoginResult
-	loginErr       error
-	accountID      int64
-	accountErr     error
-	accountCalls   int
-	accountToken   string
-	accountHash    string
-	logoutErr      error
-	logoutAllErr   error
-	logoutAllCalls int
-	resendErr      error
-	registerCalls  int
-	verifyCalls    int
-	loginCalls     int
-	logoutCalls    int
-	resendCalls    int
-	phoneStartCalls int
+	registration     auth.Registration
+	registerErr      error
+	verifyErr        error
+	loginResult      auth.LoginResult
+	loginErr         error
+	accountID        int64
+	accountErr       error
+	accountCalls     int
+	accountToken     string
+	accountHash      string
+	logoutErr        error
+	logoutAllErr     error
+	logoutAllCalls   int
+	resendErr        error
+	registerCalls    int
+	verifyCalls      int
+	loginCalls       int
+	logoutCalls      int
+	resendCalls      int
+	phoneStartCalls  int
 	phoneVerifyCalls int
-	phoneStartErr error
-	phoneVerifyErr error
+	phoneStartErr    error
+	phoneVerifyErr   error
 }
 
 func (s *authStub) Register(context.Context, string, string) (auth.Registration, error) {
