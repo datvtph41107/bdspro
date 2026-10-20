@@ -56,7 +56,10 @@ type Querier interface {
 	// actor_account_id must come from a verified session in the HTTP adapter.
 	InsertSourceIntake(ctx context.Context, arg InsertSourceIntakeParams) (int64, error)
 	InvalidatePriorPhoneChallenges(ctx context.Context, accountPhoneID int64) error
-	ListActiveAccountWorkspaces(ctx context.Context, accountID int64) ([]ListActiveAccountWorkspacesRow, error)
+	// List accessible workspaces using the currently authenticated Account's Person.
+	// This is a navigation projection, not an action permission grant.
+	// Every organization action MUST still check live membership and permission.
+	ListActiveAccountWorkspaces(ctx context.Context, id int64) ([]ListActiveAccountWorkspacesRow, error)
 	ListAuthorizedMembers(ctx context.Context, arg ListAuthorizedMembersParams) ([]ListAuthorizedMembersRow, error)
 	ListAuthorizedPriceReports(ctx context.Context, arg ListAuthorizedPriceReportsParams) ([]ListAuthorizedPriceReportsRow, error)
 	LockActiveOrganizationForUpdate(ctx context.Context, partyID int64) (int64, error)
