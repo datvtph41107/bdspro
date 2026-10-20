@@ -14,35 +14,35 @@ import (
 )
 
 type authStub struct {
-	registration       auth.Registration
-	registerErr        error
-	verifyErr          error
-	loginResult        auth.LoginResult
-	loginErr           error
-	accountID          int64
-	accountErr         error
-	accountCalls       int
-	accountToken       string
-	accountHash        string
-	logoutErr          error
-	logoutHash         string
-	logoutHashCalls    int
-	logoutAllErr       error
-	logoutAllCalls     int
-	logoutAllHash      string
-	logoutAllHashCalls int
-	resendErr          error
-	registerCalls      int
-	verifyCalls        int
-	loginCalls         int
-	logoutCalls        int
-	resendCalls        int
-	phoneStartCalls    int
-	phoneVerifyCalls   int
-	phoneStartErr      error
-	phoneVerifyErr     error
-	phoneLoginStart      auth.PhoneLoginStart
-	phoneLoginStartErr   error
+	registration        auth.Registration
+	registerErr         error
+	verifyErr           error
+	loginResult         auth.LoginResult
+	loginErr            error
+	accountID           int64
+	accountErr          error
+	accountCalls        int
+	accountToken        string
+	accountHash         string
+	logoutErr           error
+	logoutHash          string
+	logoutHashCalls     int
+	logoutAllErr        error
+	logoutAllCalls      int
+	logoutAllHash       string
+	logoutAllHashCalls  int
+	resendErr           error
+	registerCalls       int
+	verifyCalls         int
+	loginCalls          int
+	logoutCalls         int
+	resendCalls         int
+	phoneStartCalls     int
+	phoneVerifyCalls    int
+	phoneStartErr       error
+	phoneVerifyErr      error
+	phoneLoginStart     auth.PhoneLoginStart
+	phoneLoginStartErr  error
 	phoneLoginVerify    auth.LoginResult
 	phoneLoginVerifyErr error
 	phoneLoginStarts    int
