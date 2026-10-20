@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -79,4 +80,73 @@ func TestJWTInvalidBearerNeverDowngradesToCookie(t *testing.T) {
 	server.Handler().ServeHTTP(w, req)
 	require.Equal(t, 401, w.Code)
 	require.Zero(t, stub.accountCalls)
+}
+
+func TestJWTBearerLogoutRevokesCurrentSession(t *testing.T) {
+	issuer, err := auth.NewAccessTokens(strings.Repeat("Z", 32))
+	require.NoError(t, err)
+	jwtToken, _, err := issuer.Issue(17, "opaque-session")
+	require.NoError(t, err)
+
+	stub := &authStub{accountID: 17}
+	server := NewServer(nil, stub, nil, nil, true, "")
+	server.EnableAccessTokens(issuer)
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	req.Header.Set("Authorization", "Bearer "+jwtToken)
+	req.Header.Set("X-BDSPro-Request", "1")
+	w := httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, req)
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Equal(t, 1, stub.logoutHashCalls)
+	require.Len(t, stub.logoutHash, 64)
+	require.Zero(t, stub.logoutCalls)
+	require.Empty(t, w.Result().Cookies(), "bearer logout must not clear an unrelated cookie")
+
+	// A database session revoked by logout must reject even a valid JWT.
+	stub.accountErr = auth.ErrUnauthorized
+	w = httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, req)
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	require.Equal(t, 1, stub.logoutHashCalls)
+
+	// An invalid Bearer must never use the (otherwise valid) cookie.
+	bad := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	bad.Header.Set("Authorization", "Bearer invalid")
+	bad.Header.Set("X-BDSPro-Request", "1")
+	bad.AddCookie(&http.Cookie{Name: "bdspro_session", Value: "different-session"})
+	w = httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, bad)
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	require.Equal(t, 1, stub.logoutHashCalls)
+	require.Zero(t, stub.logoutCalls)
+}
+
+func TestJWTBearerLogoutAllRevokesWithoutCookie(t *testing.T) {
+	issuer, err := auth.NewAccessTokens(strings.Repeat("Z", 32))
+	require.NoError(t, err)
+	jwtToken, _, err := issuer.Issue(17, "opaque-session")
+	require.NoError(t, err)
+	stub := &authStub{accountID: 17}
+	server := NewServer(nil, stub, nil, nil, true, "")
+	server.EnableAccessTokens(issuer)
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout-all", nil)
+	req.Header.Set("Authorization", "Bearer "+jwtToken)
+	w := httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, req)
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Equal(t, 1, stub.logoutAllHashCalls)
+	require.Len(t, stub.logoutAllHash, 64)
+	require.Zero(t, stub.logoutAllCalls)
+	require.Empty(t, w.Result().Cookies())
+
+	stub.logoutAllErr = auth.ErrUnauthorized
+	w = httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, req)
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+
+	stub.logoutAllErr = errors.New("db down")
+	w = httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, req)
+	require.Equal(t, http.StatusServiceUnavailable, w.Code)
+	require.Empty(t, w.Result().Cookies())
 }
