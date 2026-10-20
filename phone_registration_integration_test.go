@@ -199,7 +199,7 @@ func TestPhoneRegistrationAttemptLimitAndExpiry(t *testing.T) {
 	}
 	_, secondCode, _ := sms.last()
 	if _, err := a.Pool.Exec(ctx,
-		"UPDATE phone_registration_challenges SET expires_at=now()-interval '1 second' WHERE challenge_hash=$1",
+		"UPDATE phone_registration_challenges SET created_at=now()-interval '10 minutes', expires_at=now()-interval '1 second' WHERE challenge_hash=$1",
 		phoneLoginHash(second.ChallengeToken)); err != nil {
 		t.Fatal(err)
 	}
