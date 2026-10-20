@@ -15,6 +15,8 @@ type Querier interface {
 	AcceptPendingInvitation(ctx context.Context, arg AcceptPendingInvitationParams) (AcceptPendingInvitationRow, error)
 	AssignInvitationRole(ctx context.Context, arg AssignInvitationRoleParams) error
 	CanIssuePhoneChallenge(ctx context.Context, accountPhoneID int64) (pgtype.Bool, error)
+	// Enrollment and login share the same 60-second/daily destination SMS budget.
+	// Account-level login quota bounds repeated sends across different numbers.
 	CanIssuePhoneLogin(ctx context.Context, arg CanIssuePhoneLoginParams) (pgtype.Bool, error)
 	ConsumeEmailVerificationToken(ctx context.Context, tokenHash string) (int64, error)
 	ConsumePhoneChallenge(ctx context.Context, id int64) error
@@ -52,8 +54,10 @@ type Querier interface {
 	GetOwnedAccountPhone(ctx context.Context, arg GetOwnedAccountPhoneParams) (int64, error)
 	GetPendingOrganizationClaimForUpdate(ctx context.Context, id int64) (GetPendingOrganizationClaimForUpdateRow, error)
 	GetPendingOrganizationRegistrationForUpdate(ctx context.Context, id int64) (GetPendingOrganizationRegistrationForUpdateRow, error)
+	// The first read only chooses an account lock; it is not authorization.
 	GetPhoneLoginChallengeAccount(ctx context.Context, challengeHash string) (int64, error)
 	GetSessionAccount(ctx context.Context, tokenHash string) (int64, error)
+	// A phone login cannot target an unverified number or closed account.
 	GetVerifiedPhoneLoginTarget(ctx context.Context, phone string) (GetVerifiedPhoneLoginTargetRow, error)
 	GrantInitialMemberRemovalPermission(ctx context.Context, roleID int64) error
 	GrantInitialRolePermissions(ctx context.Context, roleID int64) error
@@ -62,14 +66,15 @@ type Querier interface {
 	// actor_account_id must come from a verified session in the HTTP adapter.
 	InsertSourceIntake(ctx context.Context, arg InsertSourceIntakeParams) (int64, error)
 	InvalidatePriorPhoneChallenges(ctx context.Context, accountPhoneID int64) error
+	InvalidatePriorPhoneLoginChallenges(ctx context.Context, accountPhoneID int64) error
 	// List accessible workspaces using the currently authenticated Account's Person.
 	// This is a navigation projection, not an action permission grant.
 	// Every organization action MUST still check live membership and permission.
-	InvalidatePriorPhoneLoginChallenges(ctx context.Context, accountPhoneID int64) error
 	ListActiveAccountWorkspaces(ctx context.Context, id int64) ([]ListActiveAccountWorkspacesRow, error)
 	ListAuthorizedMembers(ctx context.Context, arg ListAuthorizedMembersParams) ([]ListAuthorizedMembersRow, error)
 	ListAuthorizedPriceReports(ctx context.Context, arg ListAuthorizedPriceReportsParams) ([]ListAuthorizedPriceReportsRow, error)
 	LockActiveOrganizationForUpdate(ctx context.Context, partyID int64) (int64, error)
+	// Re-evaluate all eligibility under the account lock and row lock.
 	LockActivePhoneLoginChallenge(ctx context.Context, arg LockActivePhoneLoginChallengeParams) (LockActivePhoneLoginChallengeRow, error)
 	LockActivePlatformReviewer(ctx context.Context, accountID int64) (int64, error)
 	LockLatestPhoneChallenge(ctx context.Context, accountPhoneID int64) (LockLatestPhoneChallengeRow, error)
