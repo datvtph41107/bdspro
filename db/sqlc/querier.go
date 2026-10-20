@@ -100,7 +100,6 @@ type Querier interface {
 	LockVerificationResendTarget(ctx context.Context, email string) (int64, error)
 	MarkAccountEmailVerified(ctx context.Context, id int64) error
 	MarkAccountPhoneVerified(ctx context.Context, id int64) error
-	// Keep the five most recently created active sessions; ties break by id.
 	// Closed accounts retain verified phone ownership; no silent takeover.
 	PhoneAlreadyRegistered(ctx context.Context, phone string) (int64, error)
 	// Keep the five most recently created active sessions; ties break by id.
