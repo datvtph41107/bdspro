@@ -67,14 +67,39 @@ jobs:
           make migratedown1 DB_URL="$url"
           make migrateup1 DB_URL="$url"
 
+      - name: Generate implemented DB docs (Lecture 38)
+        env:
+          DB_DOCS_DATABASE_URL: ${{ env.CORE_TEST_DATABASE_URL }}
+        run: |
+          set -eu
+          output="$RUNNER_TEMP/bdspro-dbdocs"
+          go run ./cmd/dbdocs -out "$output"
+          docker run --rm --network host -e PGPASSWORD=secret postgres:18-alpine \
+            pg_dump --schema-only --no-owner --no-privileges --schema=public \
+            -h 127.0.0.1 -U root -d bdspro_core_ci > "$output/schema.sql"
+          grep -q '^Table parties {' "$output/implemented.dbml"
+          grep -q '^Table sessions {' "$output/implemented.dbml"
+          grep -q 'CREATE TABLE public.parties' "$output/schema.sql"
+          grep -q 'CREATE TABLE public.sessions' "$output/schema.sql"
+          grep -q 'CREATE UNIQUE INDEX.*accounts_one_open_per_person_uq' "$output/schema.sql"
+          grep -q 'assert_party_subtype' "$output/constraints.md"
+
+      - name: Upload implemented DB schema docs
+        uses: actions/upload-artifact@v4
+        with:
+          name: bdspro-implemented-schema
+          path: ${{ runner.temp }}/bdspro-dbdocs/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Generate SQLC
         run: make sqlc
 
       - name: Check source consistency
         run: |
           go mod tidy
-          gofmt -w api auth organization source db/sqlc util main.go integration_test.go party_kind_test.go
-          git diff --exit-code -- go.mod go.sum api db/sqlc util auth organization source main.go integration_test.go party_kind_test.go
+          gofmt -w api auth organization source db/sqlc util cmd/dbdocs main.go integration_test.go party_kind_test.go
+          git diff --exit-code -- go.mod go.sum api db/sqlc util cmd/dbdocs auth organization source main.go integration_test.go party_kind_test.go
           test -z "$(git ls-files --others --exclude-standard -- db/sqlc)"
           go vet ./...
 
