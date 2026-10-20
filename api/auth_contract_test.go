@@ -24,7 +24,7 @@ type authStub struct {
 	accountCalls  int
 	accountToken  string
 	logoutErr     error
-	logoutAllErr  error
+	logoutAllErr   error
 	logoutAllCalls int
 	resendErr     error
 	registerCalls int
