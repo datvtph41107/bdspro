@@ -3,9 +3,9 @@ package util
 import (
 	"fmt"
 	"net"
-	"strings"
 	"net/mail"
 	"net/url"
+	"strings"
 
 	"github.com/spf13/viper"
 )
