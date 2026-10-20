@@ -28,7 +28,7 @@ func (server *Server) browserSecurity(ctx *gin.Context) {
 			!allowedPreflightMethod(ctx.GetHeader("Access-Control-Request-Method")) ||
 			!allowedPreflightHeaders(ctx.GetHeader("Access-Control-Request-Headers")) {
 			writeAPIError(ctx, http.StatusForbidden, "request origin not allowed")
-		ctx.Abort()
+			ctx.Abort()
 			return
 		}
 		ctx.Header("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
