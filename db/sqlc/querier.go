@@ -46,7 +46,6 @@ type Querier interface {
 	GetOpenAccountPersonID(ctx context.Context, id int64) (int64, error)
 	GetOrganizationPrimaryAdministrator(ctx context.Context, organizationID int64) (int64, error)
 	GetOwnedAccountPhone(ctx context.Context, arg GetOwnedAccountPhoneParams) (int64, error)
-	InvalidatePriorPhoneChallenges(ctx context.Context, accountPhoneID int64) error
 	GetPendingOrganizationClaimForUpdate(ctx context.Context, id int64) (GetPendingOrganizationClaimForUpdateRow, error)
 	GetPendingOrganizationRegistrationForUpdate(ctx context.Context, id int64) (GetPendingOrganizationRegistrationForUpdateRow, error)
 	GetSessionAccount(ctx context.Context, tokenHash string) (int64, error)
@@ -56,11 +55,14 @@ type Querier interface {
 	// CORE-05 sqlc queries. Never trust org/account context from client payloads:
 	// actor_account_id must come from a verified session in the HTTP adapter.
 	InsertSourceIntake(ctx context.Context, arg InsertSourceIntakeParams) (int64, error)
+	InvalidatePriorPhoneChallenges(ctx context.Context, accountPhoneID int64) error
 	ListAuthorizedMembers(ctx context.Context, arg ListAuthorizedMembersParams) ([]ListAuthorizedMembersRow, error)
 	ListAuthorizedPriceReports(ctx context.Context, arg ListAuthorizedPriceReportsParams) ([]ListAuthorizedPriceReportsRow, error)
 	LockActiveOrganizationForUpdate(ctx context.Context, partyID int64) (int64, error)
 	LockActivePlatformReviewer(ctx context.Context, accountID int64) (int64, error)
 	LockLatestPhoneChallenge(ctx context.Context, accountPhoneID int64) (LockLatestPhoneChallengeRow, error)
+	// Account row is locked first; this transaction-scoped advisory lock serializes
+	// issuance to one phone number across distinct accounts.
 	LockOTPPhoneDestination(ctx context.Context, phone string) error
 	LockOrganizationForSourceWrite(ctx context.Context, partyID int64) (int64, error)
 	// All operations that change account-wide session state must lock this row.
