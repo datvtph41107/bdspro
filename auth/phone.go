@@ -109,6 +109,18 @@ func (s *Service) StartPhoneVerification(ctx context.Context, accountID int64, r
 		if !allowed.Valid || !allowed.Bool {
 			return ErrPhoneThrottle
 		}
+		// Both anonymous login and authenticated phone verification send SMS.
+		// Apply the same destination cooldown and daily budget to both paths
+		// while holding the shared advisory lock.
+		shared, err := q.CanIssuePhoneLogin(ctx, dbsqlc.CanIssuePhoneLoginParams{
+			Phone: phone, AccountID: accountID,
+		})
+		if err != nil {
+			return err
+		}
+		if !shared.Valid || !shared.Bool {
+			return ErrPhoneThrottle
+		}
 		// A newly issued code invalidates older unconsumed codes atomically.
 		if err := q.InvalidatePriorPhoneChallenges(ctx, phoneID); err != nil {
 			return err
