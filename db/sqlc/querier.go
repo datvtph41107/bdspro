@@ -18,6 +18,8 @@ type Querier interface {
 	// Enrollment and login share the same 60-second/daily destination SMS budget.
 	// Account-level login quota bounds repeated sends across different numbers.
 	CanIssuePhoneLogin(ctx context.Context, arg CanIssuePhoneLoginParams) (pgtype.Bool, error)
+	// Shared destination cap across registration, login, and enrollment.
+	// Call only with the same per-phone advisory lock held by other send paths.
 	CanIssuePhoneRegistration(ctx context.Context, phone string) (pgtype.Bool, error)
 	ConsumeEmailVerificationToken(ctx context.Context, tokenHash string) (int64, error)
 	ConsumePhoneChallenge(ctx context.Context, id int64) error
@@ -42,8 +44,8 @@ type Querier interface {
 	CreatePhoneLoginChallenge(ctx context.Context, arg CreatePhoneLoginChallengeParams) error
 	CreatePhoneRegistrationChallenge(ctx context.Context, arg CreatePhoneRegistrationChallengeParams) error
 	CreatePrimaryAccountEmail(ctx context.Context, arg CreatePrimaryAccountEmailParams) (int64, error)
-	// Resend is intentionally silent for missing/verified/closed accounts and throttled addresses.
 	CreatePrimaryVerifiedAccountPhone(ctx context.Context, arg CreatePrimaryVerifiedAccountPhoneParams) error
+	// Resend is intentionally silent for missing/verified/closed accounts and throttled addresses.
 	CreateVerificationResendToken(ctx context.Context, arg CreateVerificationResendTokenParams) (int64, error)
 	CreateVerifiedRegistryIdentifier(ctx context.Context, arg CreateVerifiedRegistryIdentifierParams) error
 	CreateWorkspaceAdminRole(ctx context.Context, organizationID int64) (int64, error)
@@ -61,6 +63,7 @@ type Querier interface {
 	GetPendingOrganizationRegistrationForUpdate(ctx context.Context, id int64) (GetPendingOrganizationRegistrationForUpdateRow, error)
 	// The first read only chooses an account lock; it is not authorization.
 	GetPhoneLoginChallengeAccount(ctx context.Context, challengeHash string) (int64, error)
+	// Only picks a phone advisory lock. This result is NOT authentication.
 	GetPhoneRegistrationCandidate(ctx context.Context, challengeHash string) (string, error)
 	GetSessionAccount(ctx context.Context, tokenHash string) (int64, error)
 	// A phone login cannot target an unverified number or closed account.
@@ -98,7 +101,9 @@ type Querier interface {
 	MarkAccountEmailVerified(ctx context.Context, id int64) error
 	MarkAccountPhoneVerified(ctx context.Context, id int64) error
 	// Keep the five most recently created active sessions; ties break by id.
+	// Closed accounts retain verified phone ownership; no silent takeover.
 	PhoneAlreadyRegistered(ctx context.Context, phone string) (int64, error)
+	// Keep the five most recently created active sessions; ties break by id.
 	PruneExcessSessions(ctx context.Context, accountID int64) error
 	ResolveOrganizationClaim(ctx context.Context, arg ResolveOrganizationClaimParams) (int64, error)
 	ResolveOrganizationRegistration(ctx context.Context, arg ResolveOrganizationRegistrationParams) (int64, error)
