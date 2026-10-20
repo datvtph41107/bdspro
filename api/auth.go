@@ -206,23 +206,28 @@ func (server *Server) login(ctx *gin.Context) {
 	case err != nil:
 		writeAPIError(ctx, http.StatusInternalServerError, "login failed")
 	default:
-		response := gin.H{"account_id": result.AccountID}
-		if server.accessTokens != nil {
-			accessToken, accessExpiry, tokenErr := server.accessTokens.Issue(result.AccountID, result.Token)
-			if tokenErr != nil {
-				// A committed DB session must not survive a failed access-token
-				// response and become an orphaned login.
-				_ = server.authentication.Logout(ctx.Request.Context(), result.Token)
-				writeAPIError(ctx, http.StatusServiceUnavailable, "login unavailable")
-				return
-			}
-			response["access_token"] = accessToken
-			response["token_type"] = "Bearer"
-			response["access_token_expires_at"] = accessExpiry
-		}
-		server.cookie(ctx, result.Token, int(time.Until(result.ExpiresAt).Seconds()))
-		replyJSON(ctx, http.StatusOK, response)
+		server.respondLoginSession(ctx, result)
 	}
+}
+
+// Both credentials (email/password and verified phone OTP) converge on exactly
+// the same cookie, JWT and cleanup contract.
+func (server *Server) respondLoginSession(ctx *gin.Context, result auth.LoginResult) {
+	response := gin.H{"account_id": result.AccountID}
+	if server.accessTokens != nil {
+		accessToken, accessExpiry, tokenErr := server.accessTokens.Issue(result.AccountID, result.Token)
+		if tokenErr != nil {
+			// A committed DB session must not survive failed JWT issuance.
+			_ = server.authentication.Logout(ctx.Request.Context(), result.Token)
+			writeAPIError(ctx, http.StatusServiceUnavailable, "login unavailable")
+			return
+		}
+		response["access_token"] = accessToken
+		response["token_type"] = "Bearer"
+		response["access_token_expires_at"] = accessExpiry
+	}
+	server.cookie(ctx, result.Token, int(time.Until(result.ExpiresAt).Seconds()))
+	replyJSON(ctx, http.StatusOK, response)
 }
 
 func (server *Server) me(ctx *gin.Context) {
