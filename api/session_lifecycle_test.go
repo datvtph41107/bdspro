@@ -12,8 +12,8 @@ import (
 
 func TestLogoutAllHTTPContract(t *testing.T) {
 	cases := []struct {
-		name, cookie, proof string
-		accountErr, logoutAllErr error
+		name, cookie, proof             string
+		accountErr, logoutAllErr        error
 		want, accountCalls, logoutCalls int
 	}{
 		{"missing_cookie", "", "1", nil, nil, 401, 0, 0},

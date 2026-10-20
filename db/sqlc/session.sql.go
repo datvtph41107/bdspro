@@ -46,6 +46,7 @@ const lockSessionAccount = `-- name: LockSessionAccount :one
 SELECT id FROM accounts WHERE id = $1 AND closed_at IS NULL FOR UPDATE
 `
 
+// All operations that change account-wide session state must lock this row.
 func (q *Queries) LockSessionAccount(ctx context.Context, id int64) (int64, error) {
 	row := q.db.QueryRow(ctx, lockSessionAccount, id)
 	var id_2 int64
@@ -64,6 +65,7 @@ UPDATE sessions AS dst SET revoked_at = now()
 WHERE dst.id IN (SELECT id FROM excess)
 `
 
+// Keep the five most recently created active sessions; ties break by id.
 func (q *Queries) PruneExcessSessions(ctx context.Context, accountID int64) error {
 	_, err := q.db.Exec(ctx, pruneExcessSessions, accountID)
 	return err
