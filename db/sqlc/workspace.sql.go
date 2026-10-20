@@ -42,8 +42,11 @@ type ListActiveAccountWorkspacesRow struct {
 	JoinedAt         time.Time `json:"joined_at"`
 }
 
-func (q *Queries) ListActiveAccountWorkspaces(ctx context.Context, accountID int64) ([]ListActiveAccountWorkspacesRow, error) {
-	rows, err := q.db.Query(ctx, listActiveAccountWorkspaces, accountID)
+// List accessible workspaces using the currently authenticated Account's Person.
+// This is a navigation projection, not an action permission grant.
+// Every organization action MUST still check live membership and permission.
+func (q *Queries) ListActiveAccountWorkspaces(ctx context.Context, id int64) ([]ListActiveAccountWorkspacesRow, error) {
+	rows, err := q.db.Query(ctx, listActiveAccountWorkspaces, id)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +54,12 @@ func (q *Queries) ListActiveAccountWorkspaces(ctx context.Context, accountID int
 	items := []ListActiveAccountWorkspacesRow{}
 	for rows.Next() {
 		var i ListActiveAccountWorkspacesRow
-		if err := rows.Scan(&i.OrganizationID, &i.OrganizationName, &i.MembershipID, &i.JoinedAt); err != nil {
+		if err := rows.Scan(
+			&i.OrganizationID,
+			&i.OrganizationName,
+			&i.MembershipID,
+			&i.JoinedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
