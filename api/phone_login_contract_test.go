@@ -76,6 +76,8 @@ func TestPhoneLoginRequiresBrowserProofAndDoesNotRequireExistingSession(t *testi
 	require.Equal(t, 403, w.Code, "anonymous login must use existing browser origin/CSRF rules")
 	require.Equal(t, 0, fake.phoneLoginStarts)
 
+	req = httptest.NewRequest(http.MethodPost, "/auth/phone/login/start", strings.NewReader(`{"phone":"+84901234567"}`))
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-BDSPro-Request", "1")
 	w = httptest.NewRecorder()
 	server.Handler().ServeHTTP(w, req)
