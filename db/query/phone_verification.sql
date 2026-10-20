@@ -4,6 +4,11 @@ VALUES (sqlc.arg(account_id), sqlc.arg(phone), false)
 ON CONFLICT (account_id, phone) DO UPDATE SET phone = EXCLUDED.phone
 RETURNING id;
 
+-- name: LockOTPPhoneDestination :exec
+-- Account row is locked first; this transaction-scoped advisory lock serializes
+-- issuance to one phone number across distinct accounts.
+SELECT pg_advisory_xact_lock(hashtextextended(sqlc.arg(phone)::text, 737681));
+
 -- name: CanIssuePhoneChallenge :one
 SELECT NOT EXISTS (
     SELECT 1 FROM phone_verification_challenges c
@@ -19,7 +24,21 @@ SELECT NOT EXISTS (
     WHERE ap.account_id = (
         SELECT account_id FROM account_phones WHERE id = $1
     ) AND recent.created_at > now() - interval '24 hours'
-) < 10 AS allowed;
+) < 10 AND NOT EXISTS (
+    SELECT 1 FROM phone_verification_challenges recent
+    JOIN account_phones ap ON ap.id = recent.account_phone_id
+    WHERE ap.phone = (SELECT phone FROM account_phones WHERE id = $1)
+      AND recent.created_at > now() - interval '60 seconds'
+) AND (
+    SELECT count(*) FROM phone_verification_challenges recent
+    JOIN account_phones ap ON ap.id = recent.account_phone_id
+    WHERE ap.phone = (SELECT phone FROM account_phones WHERE id = $1)
+      AND recent.created_at > now() - interval '24 hours'
+) < 5 AS allowed;
+
+-- name: InvalidatePriorPhoneChallenges :exec
+UPDATE phone_verification_challenges SET consumed_at = now()
+WHERE account_phone_id = $1 AND consumed_at IS NULL;
 
 -- name: CreatePhoneChallenge :exec
 INSERT INTO phone_verification_challenges(account_phone_id, nonce, otp_mac)
