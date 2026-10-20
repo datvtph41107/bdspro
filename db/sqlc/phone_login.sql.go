@@ -12,8 +12,6 @@ import (
 )
 
 const canIssuePhoneLogin = `-- name: CanIssuePhoneLogin :one
--- Enrollment and login share the same 60-second/daily destination SMS budget.
--- Account-level login quota bounds repeated sends across different numbers.
 SELECT (
   (
     (SELECT count(*) FROM phone_login_challenges c
@@ -43,10 +41,12 @@ SELECT (
 `
 
 type CanIssuePhoneLoginParams struct {
-	Phone string `json:"phone"`
-	AccountID int64 `json:"account_id"`
+	Phone     string `json:"phone"`
+	AccountID int64  `json:"account_id"`
 }
 
+// Enrollment and login share the same 60-second/daily destination SMS budget.
+// Account-level login quota bounds repeated sends across different numbers.
 func (q *Queries) CanIssuePhoneLogin(ctx context.Context, arg CanIssuePhoneLoginParams) (pgtype.Bool, error) {
 	row := q.db.QueryRow(ctx, canIssuePhoneLogin, arg.Phone, arg.AccountID)
 	var allowed pgtype.Bool
@@ -60,7 +60,7 @@ WHERE id = $1 AND consumed_at IS NULL
 `
 
 func (q *Queries) ConsumePhoneLoginChallenge(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, consumePhoneLoginChallenge, iD)
+	_, err := q.db.Exec(ctx, consumePhoneLoginChallenge, id)
 	return err
 }
 
@@ -70,7 +70,7 @@ WHERE id = $1 AND consumed_at IS NULL AND attempts < 5
 `
 
 func (q *Queries) CountPhoneLoginAttempt(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, countPhoneLoginAttempt, iD)
+	_, err := q.db.Exec(ctx, countPhoneLoginAttempt, id)
 	return err
 }
 
@@ -81,25 +81,30 @@ VALUES ($1, $2,
 `
 
 type CreatePhoneLoginChallengeParams struct {
-	AccountPhoneID int64 `json:"account_phone_id"`
-	ChallengeHash string `json:"challenge_hash"`
-	Nonce string `json:"nonce"`
-	OtpMac string `json:"otp_mac"`
+	AccountPhoneID int64  `json:"account_phone_id"`
+	ChallengeHash  string `json:"challenge_hash"`
+	Nonce          string `json:"nonce"`
+	OtpMac         string `json:"otp_mac"`
 }
 
 func (q *Queries) CreatePhoneLoginChallenge(ctx context.Context, arg CreatePhoneLoginChallengeParams) error {
-	_, err := q.db.Exec(ctx, createPhoneLoginChallenge, arg.AccountPhoneID, arg.ChallengeHash, arg.Nonce, arg.OtpMac)
+	_, err := q.db.Exec(ctx, createPhoneLoginChallenge,
+		arg.AccountPhoneID,
+		arg.ChallengeHash,
+		arg.Nonce,
+		arg.OtpMac,
+	)
 	return err
 }
 
 const getPhoneLoginChallengeAccount = `-- name: GetPhoneLoginChallengeAccount :one
--- The first read only chooses an account lock; it is not authorization.
 SELECT ap.account_id
 FROM phone_login_challenges c
 JOIN account_phones ap ON ap.id = c.account_phone_id
 WHERE c.challenge_hash = $1
 `
 
+// The first read only chooses an account lock; it is not authorization.
 func (q *Queries) GetPhoneLoginChallengeAccount(ctx context.Context, challengeHash string) (int64, error) {
 	row := q.db.QueryRow(ctx, getPhoneLoginChallengeAccount, challengeHash)
 	var account_id int64
@@ -108,7 +113,6 @@ func (q *Queries) GetPhoneLoginChallengeAccount(ctx context.Context, challengeHa
 }
 
 const getVerifiedPhoneLoginTarget = `-- name: GetVerifiedPhoneLoginTarget :one
--- A phone login cannot target an unverified number or closed account.
 SELECT ap.id AS account_phone_id, a.id AS account_id
 FROM account_phones ap
 JOIN accounts a ON a.id = ap.account_id
@@ -120,6 +124,7 @@ type GetVerifiedPhoneLoginTargetRow struct {
 	AccountID      int64 `json:"account_id"`
 }
 
+// A phone login cannot target an unverified number or closed account.
 func (q *Queries) GetVerifiedPhoneLoginTarget(ctx context.Context, phone string) (GetVerifiedPhoneLoginTargetRow, error) {
 	row := q.db.QueryRow(ctx, getVerifiedPhoneLoginTarget, phone)
 	var i GetVerifiedPhoneLoginTargetRow
@@ -138,7 +143,6 @@ func (q *Queries) InvalidatePriorPhoneLoginChallenges(ctx context.Context, accou
 }
 
 const lockActivePhoneLoginChallenge = `-- name: LockActivePhoneLoginChallenge :one
--- Re-evaluate all eligibility under the account lock and row lock.
 SELECT c.id, c.account_phone_id, c.nonce, c.otp_mac
 FROM phone_login_challenges c
 JOIN account_phones ap ON ap.id = c.account_phone_id
@@ -150,6 +154,11 @@ WHERE c.challenge_hash = $1
 FOR UPDATE OF c
 `
 
+type LockActivePhoneLoginChallengeParams struct {
+	ChallengeHash string `json:"challenge_hash"`
+	AccountID     int64  `json:"account_id"`
+}
+
 type LockActivePhoneLoginChallengeRow struct {
 	ID             int64  `json:"id"`
 	AccountPhoneID int64  `json:"account_phone_id"`
@@ -157,11 +166,7 @@ type LockActivePhoneLoginChallengeRow struct {
 	OtpMac         string `json:"otp_mac"`
 }
 
-type LockActivePhoneLoginChallengeParams struct {
-	ChallengeHash string `json:"challenge_hash"`
-	AccountID int64 `json:"account_id"`
-}
-
+// Re-evaluate all eligibility under the account lock and row lock.
 func (q *Queries) LockActivePhoneLoginChallenge(ctx context.Context, arg LockActivePhoneLoginChallengeParams) (LockActivePhoneLoginChallengeRow, error) {
 	row := q.db.QueryRow(ctx, lockActivePhoneLoginChallenge, arg.ChallengeHash, arg.AccountID)
 	var i LockActivePhoneLoginChallengeRow
