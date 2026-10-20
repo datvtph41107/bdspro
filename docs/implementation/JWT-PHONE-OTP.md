@@ -41,9 +41,14 @@ proof**, not standalone login, password reset, or proof of identity.
 Phone numbers are required in E.164 format. A random six-digit OTP is
 stored only as an HMAC-SHA256 digest using `PHONE_OTP_KEY`, account-phone
 ID and random nonce. The code expires in **5 minutes**, allows **5
-attempts**, has **60-second issuance cooldown** and **5 challenges/24h per phone and 10 challenges/24h per account**
-per number/account. PostgreSQL locks the owner account and challenge to
-prevent concurrency bypasses; a partial unique index prevents two
+attempts**, has a **60-second issuance cooldown globally per destination**
+and at most **5 challenges/24h per destination**, independent of the
+requesting account. A separate **10 challenges/24h per account** cap
+prevents rotating numbers to bypass an account's SMS budget. Issuing
+a new code invalidates all earlier outstanding codes for that account/phone.
+PostgreSQL locks the owner account, the destination (transaction-scoped
+advisory lock) and the challenge to prevent concurrency bypasses; a
+partial unique index prevents two
 accounts claiming the same verified phone number.
 
 The existing per-socket-IP admission limits are an additional layer:
