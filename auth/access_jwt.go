@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	accessIssuer = "bdspro-auth"
+	accessIssuer   = "bdspro-auth"
 	accessAudience = "bdspro-api"
-	accessTTL = 15 * time.Minute
+	accessTTL      = 15 * time.Minute
 )
+
 var ErrAccessToken = errors.New("invalid access token")
 
 // AccessTokens signs short-lived JWTs, each bound to an actual PostgreSQL
@@ -26,7 +27,7 @@ type AccessTokens struct {
 }
 
 type accessClaims struct {
-	TokenType string `json:"token_type"`
+	TokenType   string `json:"token_type"`
 	SessionHash string `json:"sid"`
 	jwt.RegisteredClaims
 }
@@ -50,16 +51,16 @@ func (s *AccessTokens) Issue(accountID int64, sessionToken string) (string, time
 	expiry := now.Add(accessTTL)
 	sum := sha256.Sum256([]byte(sessionToken))
 	claims := accessClaims{
-		TokenType: "access",
+		TokenType:   "access",
 		SessionHash: hex.EncodeToString(sum[:]),
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer: accessIssuer,
-			Audience: jwt.ClaimStrings{accessAudience},
-			Subject: strconv.FormatInt(accountID, 10),
-			IssuedAt: jwt.NewNumericDate(now),
+			Issuer:    accessIssuer,
+			Audience:  jwt.ClaimStrings{accessAudience},
+			Subject:   strconv.FormatInt(accountID, 10),
+			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(expiry),
-			ID: hex.EncodeToString(nonce),
+			ID:        hex.EncodeToString(nonce),
 		},
 	}
 	t, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.key)
