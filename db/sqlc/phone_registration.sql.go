@@ -43,8 +43,8 @@ SELECT (
 ) < 5 AS allowed
 `
 
--- Shared destination cap across registration, login, and enrollment.
--- Call only with the same per-phone advisory lock held by other send paths.
+// Shared destination cap across registration, login, and enrollment.
+// Call only with the same per-phone advisory lock held by other send paths.
 func (q *Queries) CanIssuePhoneRegistration(ctx context.Context, phone string) (pgtype.Bool, error) {
 	row := q.db.QueryRow(ctx, canIssuePhoneRegistration, phone)
 	var allowed pgtype.Bool
@@ -111,7 +111,7 @@ SELECT phone FROM phone_registration_challenges
 WHERE challenge_hash = $1
 `
 
--- Only picks a phone advisory lock. This result is NOT authentication.
+// Only picks a phone advisory lock. This result is NOT authentication.
 func (q *Queries) GetPhoneRegistrationCandidate(ctx context.Context, challengeHash string) (string, error) {
 	row := q.db.QueryRow(ctx, getPhoneRegistrationCandidate, challengeHash)
 	var phone string
@@ -163,7 +163,7 @@ SELECT count(*) FROM account_phones ap
 WHERE ap.phone = $1 AND ap.verified_at IS NOT NULL
 `
 
--- Closed accounts retain verified phone ownership; no silent takeover.
+// Closed accounts retain verified phone ownership; no silent takeover.
 func (q *Queries) PhoneAlreadyRegistered(ctx context.Context, phone string) (int64, error) {
 	row := q.db.QueryRow(ctx, phoneAlreadyRegistered, phone)
 	var count int64
