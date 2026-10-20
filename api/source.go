@@ -38,13 +38,13 @@ func (p sourcePriceRequest) toInput() source.PriceInput {
 func sourceError(ctx *gin.Context, err error) {
 	switch {
 	case errors.Is(err, source.ErrInvalid):
-		ctx.String(http.StatusBadRequest, "invalid input")
+		writeAPIError(ctx, http.StatusBadRequest, "invalid input")
 	case errors.Is(err, source.ErrKeyConflict):
-		ctx.String(http.StatusConflict, "idempotency key conflict")
+		writeAPIError(ctx, http.StatusConflict, "idempotency key conflict")
 	case errors.Is(err, source.ErrForbidden), errors.Is(err, source.ErrNotFound):
-		ctx.String(http.StatusNotFound, "resource not found")
+		writeAPIError(ctx, http.StatusNotFound, "resource not found")
 	default:
-		ctx.String(http.StatusInternalServerError, "internal server error")
+		writeAPIError(ctx, http.StatusInternalServerError, "internal server error")
 	}
 }
 
@@ -52,7 +52,7 @@ func (server *Server) sourceIDs(ctx *gin.Context) (int64, int64, bool) {
 	orgID, e1 := auth.PositiveID(ctx.Param("id"))
 	sourceID, e2 := auth.PositiveID(ctx.Param("sourceID"))
 	if e1 != nil || e2 != nil {
-		ctx.String(http.StatusBadRequest, "invalid input")
+		writeAPIError(ctx, http.StatusBadRequest, "invalid input")
 		return 0, 0, false
 	}
 	return orgID, sourceID, true
@@ -70,7 +70,6 @@ func (server *Server) captureSource(ctx *gin.Context) {
 	}
 	var req captureSourceRequest
 	if !bindJSON(ctx, &req, 1<<20) {
-		sourceError(ctx, source.ErrInvalid)
 		return
 	}
 	var price *source.PriceInput
@@ -130,7 +129,6 @@ func (server *Server) reportSourcePrice(ctx *gin.Context) {
 	}
 	var req sourcePriceRequest
 	if !bindJSON(ctx, &req, 1<<20) {
-		sourceError(ctx, source.ErrInvalid)
 		return
 	}
 	result, err := server.sources.ReportPrice(ctx.Request.Context(), actor, orgID, sourceID,
