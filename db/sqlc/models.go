@@ -185,6 +185,17 @@ type PersonProfile struct {
 	Bio         pgtype.Text `json:"bio"`
 }
 
+type PhoneVerificationChallenge struct {
+	ID             int64              `json:"id"`
+	AccountPhoneID int64              `json:"account_phone_id"`
+	Nonce          string             `json:"nonce"`
+	OtpMac         string             `json:"otp_mac"`
+	Attempts       int32              `json:"attempts"`
+	CreatedAt      time.Time          `json:"created_at"`
+	ExpiresAt      time.Time          `json:"expires_at"`
+	ConsumedAt     pgtype.Timestamptz `json:"consumed_at"`
+}
+
 type PlatformOrganizationReviewer struct {
 	AccountID              int64              `json:"account_id"`
 	AuthorizedAt           time.Time          `json:"authorized_at"`
