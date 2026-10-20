@@ -11,8 +11,8 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
