@@ -25,8 +25,12 @@ type authStub struct {
 	accountToken     string
 	accountHash      string
 	logoutErr        error
+	logoutHash       string
+	logoutHashCalls  int
 	logoutAllErr     error
 	logoutAllCalls   int
+	logoutAllHash    string
+	logoutAllHashCalls int
 	resendErr        error
 	registerCalls    int
 	verifyCalls      int
@@ -72,6 +76,16 @@ func (s *authStub) Logout(context.Context, string) error {
 }
 func (s *authStub) LogoutAll(context.Context, string) error {
 	s.logoutAllCalls++
+	return s.logoutAllErr
+}
+func (s *authStub) LogoutSessionHash(_ context.Context, hash string) error {
+	s.logoutHash = hash
+	s.logoutHashCalls++
+	return s.logoutErr
+}
+func (s *authStub) LogoutAllSessionHash(_ context.Context, hash string) error {
+	s.logoutAllHash = hash
+	s.logoutAllHashCalls++
 	return s.logoutAllErr
 }
 
