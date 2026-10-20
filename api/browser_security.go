@@ -32,7 +32,7 @@ func (server *Server) browserSecurity(ctx *gin.Context) {
 			return
 		}
 		ctx.Header("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
-		ctx.Header("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key, X-BDSPro-Request")
+		ctx.Header("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key, X-BDSPro-Request, Authorization")
 		ctx.Header("Access-Control-Max-Age", "300")
 		ctx.AbortWithStatus(http.StatusNoContent)
 		return
@@ -105,7 +105,7 @@ func allowedPreflightHeaders(headers string) bool {
 	}
 	for _, part := range strings.Split(headers, ",") {
 		switch strings.ToLower(strings.TrimSpace(part)) {
-		case "content-type", "idempotency-key", "x-bdspro-request":
+		case "content-type", "idempotency-key", "x-bdspro-request", "authorization":
 		default:
 			return false
 		}

@@ -29,7 +29,10 @@ type Authentication interface {
 	VerifyEmail(context.Context, string) error
 	ResendVerification(context.Context, string) error
 	Login(context.Context, string, string) (auth.LoginResult, error)
+	StartPhoneVerification(context.Context, int64, string) error
+	VerifyPhoneCode(context.Context, int64, string, string) error
 	AccountFromToken(context.Context, string) (int64, error)
+	AccountFromSessionHash(context.Context, string) (int64, error)
 	Logout(context.Context, string) error
 	LogoutAll(context.Context, string) error
 }
@@ -44,6 +47,7 @@ type Server struct {
 	allowedOrigin  string
 	logger         *slog.Logger
 	authLimiter    *authLimiter
+	accessTokens   *auth.AccessTokens
 	draining       atomic.Bool
 	router         *gin.Engine
 }
@@ -74,9 +78,12 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.POST("/auth/verify-email", server.limitAuthClient("verify", ratePolicy{burst: 30, window: 15 * time.Minute}), server.verifyEmail)
 	router.POST("/auth/resend-verification", server.limitAuthClient("resend", ratePolicy{burst: 12, window: 15 * time.Minute}), server.resendVerification)
 	router.POST("/auth/login", server.limitAuthClient("login", ratePolicy{burst: 30, window: time.Minute}), server.login)
+	router.POST("/auth/token/renew", server.limitAuthClient("renew", ratePolicy{burst: 30, window: time.Minute}), server.renewAccessToken)
 	router.GET("/auth/me", server.requireSession, server.me)
 	router.POST("/auth/logout", server.logout)
 	router.POST("/auth/logout-all", server.requireSession, server.logoutAll)
+	router.POST("/auth/phone/start", server.limitAuthClient("phone-start", ratePolicy{burst: 6, window: 15 * time.Minute}), server.requireSession, server.startPhoneVerification)
+	router.POST("/auth/phone/verify", server.limitAuthClient("phone-verify", ratePolicy{burst: 20, window: 15 * time.Minute}), server.requireSession, server.verifyPhoneCode)
 
 	router.POST("/organizations/registrations", server.requireSession, server.submitOrganizationRegistration)
 	router.POST("/organizations/:id/claims", server.requireSession, server.submitOrganizationClaim)
@@ -205,4 +212,10 @@ func (server *Server) serve(ctx context.Context, listener net.Listener, gracePer
 // Handler supports the current graceful-shutdown HTTP server.
 func (server *Server) Handler() http.Handler {
 	return server.router
+}
+
+// EnableAccessTokens configures signed, short-lived JWT access tokens.
+// It is called during startup, before the router serves requests.
+func (server *Server) EnableAccessTokens(issuer *auth.AccessTokens) {
+	server.accessTokens = issuer
 }

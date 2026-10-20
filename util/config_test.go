@@ -3,6 +3,7 @@ package util
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -53,6 +54,9 @@ func TestLoadConfigValidation(t *testing.T) {
 			dir := t.TempDir()
 			contents := "ENVIRONMENT=development\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://example.test/bdspro\nSERVER_ADDRESS=127.0.0.1:8080\n"
 			contents += tc.config + "\n"
+			if strings.Contains(tc.config, "ENVIRONMENT=production") {
+				contents += "ACCESS_TOKEN_KEY=production-fixture-secret-key-more-than-32-bytes\n"
+			}
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "app.env"), []byte(contents), 0600))
 			_, err := LoadConfig(dir)
 			require.ErrorContains(t, err, tc.errorContains)
@@ -62,7 +66,7 @@ func TestLoadConfigValidation(t *testing.T) {
 
 func TestLoadProductionConfig(t *testing.T) {
 	path := t.TempDir()
-	contents := "ENVIRONMENT=production\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://host.example.test/bdspro\nSERVER_ADDRESS=0.0.0.0:8080\nSMTP_ADDR=smtp.example.test:587\nSMTP_FROM=sender@example.test\nVERIFICATION_URL=https://example.test/verify\nALLOWED_ORIGIN=https://app.example.test\n"
+	contents := "ENVIRONMENT=production\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://host.example.test/bdspro\nSERVER_ADDRESS=0.0.0.0:8080\nSMTP_ADDR=smtp.example.test:587\nSMTP_FROM=sender@example.test\nVERIFICATION_URL=https://example.test/verify\nALLOWED_ORIGIN=https://app.example.test\nACCESS_TOKEN_KEY=production-fixture-secret-key-more-than-32-bytes\n"
 	require.NoError(t, os.WriteFile(filepath.Join(path, "app.env"), []byte(contents), 0600))
 
 	config, err := LoadConfig(path)

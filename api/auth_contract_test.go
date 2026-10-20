@@ -14,24 +14,29 @@ import (
 )
 
 type authStub struct {
-	registration   auth.Registration
-	registerErr    error
-	verifyErr      error
-	loginResult    auth.LoginResult
-	loginErr       error
-	accountID      int64
-	accountErr     error
-	accountCalls   int
-	accountToken   string
-	logoutErr      error
-	logoutAllErr   error
-	logoutAllCalls int
-	resendErr      error
-	registerCalls  int
-	verifyCalls    int
-	loginCalls     int
-	logoutCalls    int
-	resendCalls    int
+	registration     auth.Registration
+	registerErr      error
+	verifyErr        error
+	loginResult      auth.LoginResult
+	loginErr         error
+	accountID        int64
+	accountErr       error
+	accountCalls     int
+	accountToken     string
+	accountHash      string
+	logoutErr        error
+	logoutAllErr     error
+	logoutAllCalls   int
+	resendErr        error
+	registerCalls    int
+	verifyCalls      int
+	loginCalls       int
+	logoutCalls      int
+	resendCalls      int
+	phoneStartCalls  int
+	phoneVerifyCalls int
+	phoneStartErr    error
+	phoneVerifyErr   error
 }
 
 func (s *authStub) Register(context.Context, string, string) (auth.Registration, error) {
@@ -54,6 +59,11 @@ func (s *authStub) Login(context.Context, string, string) (auth.LoginResult, err
 func (s *authStub) AccountFromToken(_ context.Context, token string) (int64, error) {
 	s.accountCalls++
 	s.accountToken = token
+	return s.accountID, s.accountErr
+}
+func (s *authStub) AccountFromSessionHash(_ context.Context, hash string) (int64, error) {
+	s.accountCalls++
+	s.accountHash = hash
 	return s.accountID, s.accountErr
 }
 func (s *authStub) Logout(context.Context, string) error {
@@ -317,4 +327,13 @@ func TestLoginProductionCookieContract(t *testing.T) {
 	require.True(t, cookie.Secure)
 	require.True(t, cookie.HttpOnly)
 	require.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
+}
+
+func (s *authStub) StartPhoneVerification(context.Context, int64, string) error {
+	s.phoneStartCalls++
+	return s.phoneStartErr
+}
+func (s *authStub) VerifyPhoneCode(context.Context, int64, string, string) error {
+	s.phoneVerifyCalls++
+	return s.phoneVerifyErr
 }

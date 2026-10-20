@@ -18,6 +18,11 @@ type Config struct {
 	DBSource              string `mapstructure:"DB_SOURCE"`
 	ServerAddress         string `mapstructure:"SERVER_ADDRESS"`
 	AllowedOrigin         string `mapstructure:"ALLOWED_ORIGIN"`
+	AccessTokenKey        string `mapstructure:"ACCESS_TOKEN_KEY"`
+	PhoneOTPKey           string `mapstructure:"PHONE_OTP_KEY"`
+	TwilioAccountSID      string `mapstructure:"TWILIO_ACCOUNT_SID"`
+	TwilioAuthToken       string `mapstructure:"TWILIO_AUTH_TOKEN"`
+	TwilioFrom            string `mapstructure:"TWILIO_FROM"`
 	SMTPAddr              string `mapstructure:"SMTP_ADDR"`
 	SMTPUser              string `mapstructure:"SMTP_USER"`
 	SMTPPassword          string `mapstructure:"SMTP_PASSWORD"`
@@ -70,6 +75,19 @@ func (config Config) validate() error {
 			return fmt.Errorf("ALLOWED_ORIGIN must use HTTPS outside development")
 		}
 	}
+	if config.AccessTokenKey != "" && len(config.AccessTokenKey) < 32 {
+		return fmt.Errorf("ACCESS_TOKEN_KEY must contain at least 32 bytes")
+	}
+	if config.PhoneOTPKey != "" && len(config.PhoneOTPKey) < 32 {
+		return fmt.Errorf("PHONE_OTP_KEY must contain at least 32 bytes")
+	}
+	if config.TwilioAccountSID != "" || config.TwilioAuthToken != "" || config.TwilioFrom != "" {
+		if len(config.TwilioAccountSID) != 34 || !strings.HasPrefix(config.TwilioAccountSID, "AC") ||
+			config.TwilioAuthToken == "" || config.PhoneOTPKey == "" ||
+			len(config.TwilioFrom) < 9 || config.TwilioFrom[0] != '+' {
+			return fmt.Errorf("Twilio SMS requires valid TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM and PHONE_OTP_KEY")
+		}
+	}
 	if config.Environment == "development" {
 		if host != "localhost" && host != "127.0.0.1" && host != "::1" && !config.AllowContainerDevBind {
 			return fmt.Errorf("development verification tokens require a loopback listener")
@@ -78,6 +96,9 @@ func (config Config) validate() error {
 	}
 	if config.AllowContainerDevBind {
 		return fmt.Errorf("ALLOW_CONTAINER_DEV_BIND only allowed in development")
+	}
+	if len(config.AccessTokenKey) < 32 || config.AccessTokenKey == "dev-only-local-key-change-before-deployment-2026" {
+		return fmt.Errorf("ACCESS_TOKEN_KEY must be a non-development secret with at least 32 bytes")
 	}
 	if config.SMTPAddr == "" {
 		return fmt.Errorf("SMTP_ADDR required outside development")

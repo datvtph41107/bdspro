@@ -23,7 +23,8 @@ func TestCredentialedCORSPreflightContract(t *testing.T) {
 		{"null_origin", "null", "POST", "content-type", 403},
 		{"missing_origin", "", "POST", "content-type", 403},
 		{"disallowed_method", "https://app.example.test", "PATCH", "content-type", 403},
-		{"disallowed_header", "https://app.example.test", "POST", "authorization", 403},
+		{"allowed_authorization", "https://app.example.test", "POST", "authorization", 204},
+		{"disallowed_header", "https://app.example.test", "POST", "x-sneaky-token", 403},
 		{"empty_header_token", "https://app.example.test", "POST", "content-type,", 403},
 	}
 	s := NewServer(nil, nil, nil, nil, true, "https://app.example.test")

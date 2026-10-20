@@ -36,6 +36,8 @@ type Mailer interface {
 type Service struct {
 	Pool   *pgxpool.Pool
 	Mailer Mailer
+	SMS    SMSSender
+	OTPKey []byte
 }
 
 func New(pool *pgxpool.Pool, mailer Mailer) *Service { return &Service{Pool: pool, Mailer: mailer} }
@@ -255,6 +257,20 @@ func (s *Service) AccountFromToken(ctx context.Context, token string) (int64, er
 		return 0, ErrUnauthorized
 	}
 	id, err := dbsqlc.New(s.Pool).GetSessionAccount(ctx, digestToken(token))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrUnauthorized
+	}
+	return id, err
+}
+
+// AccountFromSessionHash validates the PostgreSQL session for a signed access
+// token. This intentional DB read preserves immediate revocation semantics
+// across logout/logout-all while tenant permissions remain evaluated in SQL.
+func (s *Service) AccountFromSessionHash(ctx context.Context, hash string) (int64, error) {
+	if len(hash) != 64 {
+		return 0, ErrUnauthorized
+	}
+	id, err := dbsqlc.New(s.Pool).GetSessionAccount(ctx, hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, ErrUnauthorized
 	}
