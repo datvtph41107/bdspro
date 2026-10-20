@@ -84,7 +84,7 @@ func (s *Service) StartPhoneVerification(ctx context.Context, accountID int64, r
 		if err!=nil {return err}
 		allowed,err:=q.CanIssuePhoneChallenge(ctx,phoneID)
 		if err!=nil {return err}
-		if !allowed {return ErrPhoneThrottle}
+		if !allowed.Valid || !allowed.Bool {return ErrPhoneThrottle}
 		if err:=q.CreatePhoneChallenge(ctx,dbsqlc.CreatePhoneChallengeParams{
 			AccountPhoneID:phoneID,Nonce:nonce,OtpMac:phoneMAC(s.OTPKey,phoneID,nonce,code),
 		});err!=nil{return err}
