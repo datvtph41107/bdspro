@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"sync/atomic"
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
@@ -42,6 +43,7 @@ type Server struct {
 	development    bool
 	allowedOrigin  string
 	logger         *slog.Logger
+	draining       atomic.Bool
 	router         *gin.Engine
 }
 
@@ -61,6 +63,7 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 	}))
 	binding.EnableDecoderDisallowUnknownFields = true
+	router.Use(server.rejectDuringShutdown)
 	router.Use(server.checkOrigin)
 
 	router.POST("/auth/register", server.createAccount)
@@ -102,6 +105,17 @@ func (server *Server) requireSession(ctx *gin.Context) {
 	ctx.Next()
 }
 
+// rejectDuringShutdown closes the admission gate before draining requests.
+// Health still reports that the process is alive; readiness and business routes
+// stop admitting work. In-flight handlers continue with their request contexts.
+func (server *Server) rejectDuringShutdown(ctx *gin.Context) {
+	if server.draining.Load() && ctx.FullPath() != "/health" {
+		ctx.AbortWithStatus(http.StatusServiceUnavailable)
+		return
+	}
+	ctx.Next()
+}
+
 // checkOrigin keeps the existing browser-origin boundary for state-changing requests.
 func (server *Server) checkOrigin(ctx *gin.Context) {
 	method := ctx.Request.Method
@@ -123,7 +137,7 @@ func (server *Server) checkOrigin(ctx *gin.Context) {
 }
 
 func (server *Server) ready(ctx *gin.Context) {
-	if server.pool == nil {
+	if server.draining.Load() || server.pool == nil {
 		ctx.String(http.StatusServiceUnavailable, "not ready")
 		return
 	}
@@ -136,7 +150,10 @@ func (server *Server) ready(ctx *gin.Context) {
 	ctx.String(http.StatusOK, "ready")
 }
 
-// Start serves HTTP and shuts down gracefully on SIGINT or SIGTERM.
+const shutdownGracePeriod = 5 * time.Second
+
+// Start owns signal subscription and the listener. The database pool is owned
+// by main.go and is closed only after Start has returned.
 func (server *Server) Start(address string) error {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -144,14 +161,20 @@ func (server *Server) Start(address string) error {
 	}
 	defer listener.Close()
 
+	signals, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return server.serve(signals, listener, shutdownGracePeriod)
+}
+
+// serve accepts a cancellation context for deterministic lifecycle tests.
+// A separate, bounded background context is essential: the signal context is
+// already cancelled and cannot be passed to http.Server.Shutdown.
+func (server *Server) serve(ctx context.Context, listener net.Listener, gracePeriod time.Duration) error {
 	httpServer := &http.Server{
 		Handler:           server.router,
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	signals, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	done := make(chan error, 1)
 	go func() { done <- httpServer.Serve(listener) }()
 	log.Printf("BDSPro listening on %s", listener.Addr())
@@ -162,10 +185,28 @@ func (server *Server) Start(address string) error {
 			return nil
 		}
 		return err
-	case <-signals.Done():
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		return httpServer.Shutdown(ctx)
+	case <-ctx.Done():
+		// Fail readiness and reject new application work, but do not cancel
+		// contexts of requests that were already admitted.
+		server.draining.Store(true)
+
+		grace, cancel := context.WithTimeout(context.Background(), gracePeriod)
+		shutdownErr := httpServer.Shutdown(grace)
+		cancel()
+		if shutdownErr != nil {
+			// After the grace period, stop active connections too. Request
+			// contexts are then cancelled so pgx can abandon pending queries.
+			if closeErr := httpServer.Close(); closeErr != nil {
+				shutdownErr = errors.Join(shutdownErr, closeErr)
+			}
+		}
+
+		// Wait for the HTTP accept loop to finish before main closes pgxpool.
+		serveErr := <-done
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			return errors.Join(shutdownErr, serveErr)
+		}
+		return shutdownErr
 	}
 }
 
