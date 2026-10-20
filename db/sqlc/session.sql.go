@@ -42,7 +42,6 @@ func (q *Queries) GetSessionAccount(ctx context.Context, tokenHash string) (int6
 }
 
 const lockSessionAccount = `-- name: LockSessionAccount :one
--- All operations that change account-wide session state must lock this row.
 SELECT id FROM accounts WHERE id = $1 AND closed_at IS NULL FOR UPDATE
 `
 
@@ -55,7 +54,6 @@ func (q *Queries) LockSessionAccount(ctx context.Context, id int64) (int64, erro
 }
 
 const pruneExcessSessions = `-- name: PruneExcessSessions :exec
--- Keep the five most recently created active sessions; ties break by id.
 WITH excess AS (
     SELECT s.id FROM sessions AS s
     WHERE s.account_id = $1::bigint AND s.revoked_at IS NULL AND s.expires_at > now()
