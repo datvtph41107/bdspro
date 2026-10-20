@@ -44,7 +44,7 @@ SELECT (
 
 type CanIssuePhoneLoginParams struct {
 	Phone string `json:"phone"`
-	AccountID int64 `json:"account_i_d"`
+	AccountID int64 `json:"account_id"`
 }
 
 func (q *Queries) CanIssuePhoneLogin(ctx context.Context, arg CanIssuePhoneLoginParams) (pgtype.Bool, error) {
@@ -59,7 +59,7 @@ UPDATE phone_login_challenges SET consumed_at = now()
 WHERE id = $1 AND consumed_at IS NULL
 `
 
-func (q *Queries) ConsumePhoneLoginChallenge(ctx context.Context, iD int64) error {
+func (q *Queries) ConsumePhoneLoginChallenge(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, consumePhoneLoginChallenge, iD)
 	return err
 }
@@ -69,7 +69,7 @@ UPDATE phone_login_challenges SET attempts = attempts + 1
 WHERE id = $1 AND consumed_at IS NULL AND attempts < 5
 `
 
-func (q *Queries) CountPhoneLoginAttempt(ctx context.Context, iD int64) error {
+func (q *Queries) CountPhoneLoginAttempt(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, countPhoneLoginAttempt, iD)
 	return err
 }
@@ -81,7 +81,7 @@ VALUES ($1, $2,
 `
 
 type CreatePhoneLoginChallengeParams struct {
-	AccountPhoneID int64 `json:"account_phone_i_d"`
+	AccountPhoneID int64 `json:"account_phone_id"`
 	ChallengeHash string `json:"challenge_hash"`
 	Nonce string `json:"nonce"`
 	OtpMac string `json:"otp_mac"`
@@ -159,7 +159,7 @@ type LockActivePhoneLoginChallengeRow struct {
 
 type LockActivePhoneLoginChallengeParams struct {
 	ChallengeHash string `json:"challenge_hash"`
-	AccountID int64 `json:"account_i_d"`
+	AccountID int64 `json:"account_id"`
 }
 
 func (q *Queries) LockActivePhoneLoginChallenge(ctx context.Context, arg LockActivePhoneLoginChallengeParams) (LockActivePhoneLoginChallengeRow, error) {
