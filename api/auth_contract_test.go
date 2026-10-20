@@ -93,6 +93,7 @@ func TestLogoutHonorsRevocationFailure(t *testing.T) {
 	server := NewServer(nil, failure, nil, nil, true, "")
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	req.AddCookie(&http.Cookie{Name: "bdspro_session", Value: "session-token"})
+	req.Header.Set("X-BDSPro-Request", "1")
 	w := httptest.NewRecorder()
 	server.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusServiceUnavailable, w.Code)
@@ -109,6 +110,7 @@ func TestLogoutHonorsRevocationFailure(t *testing.T) {
 	require.Less(t, w.Result().Cookies()[0].MaxAge, 0)
 
 	withoutCookie := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	withoutCookie.Header.Set("X-BDSPro-Request", "1")
 	w = httptest.NewRecorder()
 	server.Handler().ServeHTTP(w, withoutCookie)
 	require.Equal(t, http.StatusNoContent, w.Code)
@@ -207,6 +209,7 @@ func TestLoginServiceOutcomes(t *testing.T) {
 			server := NewServer(nil, fake, nil, nil, true, "")
 			req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"email":"sample@example.test","password":"long-enough-password"}`))
 			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-BDSPro-Request", "1")
 			w := httptest.NewRecorder()
 			server.Handler().ServeHTTP(w, req)
 
@@ -232,6 +235,7 @@ func TestLoginServiceOutcomes(t *testing.T) {
 		server := NewServer(nil, fake, nil, nil, true, "")
 		req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"email":"sample@example.test"}`))
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-BDSPro-Request", "1")
 		w := httptest.NewRecorder()
 		server.Handler().ServeHTTP(w, req)
 
@@ -243,6 +247,7 @@ func TestLoginServiceOutcomes(t *testing.T) {
 		server := NewServer(nil, nil, nil, nil, true, "")
 		req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"email":"sample@example.test","password":"long-enough-password"}`))
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-BDSPro-Request", "1")
 		w := httptest.NewRecorder()
 		server.Handler().ServeHTTP(w, req)
 		require.Equal(t, http.StatusServiceUnavailable, w.Code)
@@ -295,6 +300,7 @@ func TestLoginProductionCookieContract(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/auth/login",
 		strings.NewReader(`{"email":"test@example.test","password":"some-password"}`))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-BDSPro-Request", "1")
 	w := httptest.NewRecorder()
 	server.Handler().ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)

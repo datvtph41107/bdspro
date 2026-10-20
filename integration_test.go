@@ -394,6 +394,10 @@ func TestAuthCookieLifecycle(t *testing.T) {
 		req := httptest.NewRequest(method, path, bytes.NewReader(body))
 		if cookie != nil {
 			req.AddCookie(cookie)
+			req.Header.Set("X-BDSPro-Request", "1")
+		}
+		if path == "/auth/login" {
+			req.Header.Set("X-BDSPro-Request", "1")
 		}
 		w := httptest.NewRecorder()
 		server.Handler().ServeHTTP(w, req)
@@ -577,6 +581,7 @@ func TestGinOrganizationAndSourceHTTP(t *testing.T) {
 		}
 		if token != "" {
 			r.AddCookie(&http.Cookie{Name: "bdspro_session", Value: token})
+			r.Header.Set("X-BDSPro-Request", "1")
 		}
 		if key != "" {
 			r.Header.Set("Idempotency-Key", key)

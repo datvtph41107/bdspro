@@ -64,7 +64,7 @@ func (f rbacFixture) request(method, path, token, key, body string) *httptest.Re
 	srv := api.NewServer(f.pool, f.auth, f.org, f.source, true, "")
 	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
 	if body != "" { req.Header.Set("Content-Type", "application/json") }
-	if token != "" { req.AddCookie(&http.Cookie{Name:"bdspro_session",Value:token}) }
+	if token != "" { req.AddCookie(&http.Cookie{Name:"bdspro_session",Value:token}); req.Header.Set("X-BDSPro-Request", "1") }
 	if key != "" { req.Header.Set("Idempotency-Key", key) }
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w,req)
