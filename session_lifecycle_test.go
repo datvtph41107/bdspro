@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -178,5 +179,70 @@ func TestLogoutAllWaitsForAccountLock(t *testing.T) {
 	}
 	if _, err := s.AccountFromToken(ctx, token); !errors.Is(err, auth.ErrUnauthorized) {
 		t.Fatalf("logout-all committed but token remains active: %v", err)
+	}
+}
+
+func TestBearerLogoutAndLogoutAllRevokeRealPostgresSessions(t *testing.T) {
+	db := coreDB(t)
+	service, accountID, firstToken := registerSessionAccount(t, db)
+	ctx := context.Background()
+	issuer, err := auth.NewAccessTokens(strings.Repeat("J", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := api.NewServer(db, service, nil, nil, true, "")
+	server.EnableAccessTokens(issuer)
+
+	firstJWT, _, err := issuer.Issue(accountID, firstToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logout := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	logout.Header.Set("Authorization", "Bearer "+firstJWT)
+	logout.Header.Set("X-BDSPro-Request", "1")
+	w := httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, logout)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("bearer logout status=%d body=%s", w.Code, w.Body.String())
+	}
+	if _, err := service.AccountFromToken(ctx, firstToken); !errors.Is(err, auth.ErrUnauthorized) {
+		t.Fatalf("bearer logout left backing session live: %v", err)
+	}
+	check := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
+	check.Header.Set("Authorization", "Bearer "+firstJWT)
+	w = httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, check)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("revoked signed access JWT still authenticates: %d", w.Code)
+	}
+
+	second, err := service.Login(ctx, "session-owner@example.test", sessionTestPassword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	third, err := service.Login(ctx, "session-owner@example.test", sessionTestPassword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondJWT, _, err := issuer.Issue(accountID, second.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := httptest.NewRequest(http.MethodPost, "/auth/logout-all", nil)
+	all.Header.Set("Authorization", "Bearer "+secondJWT)
+	w = httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, all)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("bearer logout-all status=%d body=%s", w.Code, w.Body.String())
+	}
+	for _, token := range []string{second.Token, third.Token} {
+		if _, err := service.AccountFromToken(ctx, token); !errors.Is(err, auth.ErrUnauthorized) {
+			t.Fatalf("bearer logout-all left session active: %v", err)
+		}
+	}
+	w = httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, all)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("replayed revoked bearer logout-all status=%d", w.Code)
 	}
 }
