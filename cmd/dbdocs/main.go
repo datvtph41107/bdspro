@@ -17,18 +17,18 @@ import (
 
 type column struct {
 	Table, Name, Type string
-	NotNull, Primary bool
+	NotNull, Primary  bool
 }
 type reference struct {
 	Name, FromTable, ToTable string
-	FromColumns, ToColumns []string
+	FromColumns, ToColumns   []string
 }
 type definition struct {
 	Table, Name, SQL string
 }
 type schema struct {
-	Columns []column
-	References []reference
+	Columns                                   []column
+	References                                []reference
 	Constraints, Indexes, Triggers, Functions []definition
 }
 
@@ -62,7 +62,7 @@ func main() {
 	}
 	for file, data := range map[string][]byte{
 		"implemented.dbml": renderDBML(doc),
-		"constraints.md": renderDetails(doc),
+		"constraints.md":   renderDetails(doc),
 	} {
 		if err := os.WriteFile(filepath.Join(*out, file), data, 0644); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -101,7 +101,9 @@ ORDER BY src.relname, k.conname, attrs.ord
 func inspect(ctx context.Context, conn *pgx.Conn) (schema, error) {
 	var s schema
 	rows, err := conn.Query(ctx, columnsSQL)
-	if err != nil { return s, err }
+	if err != nil {
+		return s, err
+	}
 	for rows.Next() {
 		var c column
 		if err := rows.Scan(&c.Table, &c.Name, &c.Type, &c.NotNull, &c.Primary); err != nil {
@@ -110,11 +112,16 @@ func inspect(ctx context.Context, conn *pgx.Conn) (schema, error) {
 		}
 		s.Columns = append(s.Columns, c)
 	}
-	if err := rows.Err(); err != nil { rows.Close(); return s, err }
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return s, err
+	}
 	rows.Close()
 
 	rows, err = conn.Query(ctx, referencesSQL)
-	if err != nil { return s, err }
+	if err != nil {
+		return s, err
+	}
 	for rows.Next() {
 		var from, to, name, fc, tc string
 		if err := rows.Scan(&from, &to, &name, &fc, &tc); err != nil {
@@ -123,17 +130,20 @@ func inspect(ctx context.Context, conn *pgx.Conn) (schema, error) {
 		}
 		n := len(s.References)
 		if n == 0 || s.References[n-1].Name != name || s.References[n-1].FromTable != from {
-			s.References = append(s.References, reference{Name:name, FromTable:from, ToTable:to})
+			s.References = append(s.References, reference{Name: name, FromTable: from, ToTable: to})
 			n++
 		}
 		s.References[n-1].FromColumns = append(s.References[n-1].FromColumns, fc)
 		s.References[n-1].ToColumns = append(s.References[n-1].ToColumns, tc)
 	}
-	if err := rows.Err(); err != nil { rows.Close(); return s, err }
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return s, err
+	}
 	rows.Close()
 
 	queries := []struct {
-		sql string
+		sql    string
 		target *[]definition
 	}{
 		{`SELECT rel.relname, k.conname, pg_get_constraintdef(k.oid, true)
@@ -156,7 +166,9 @@ ORDER BY p.proname, pg_get_function_identity_arguments(p.oid)`, &s.Functions},
 	}
 	for _, q := range queries {
 		rows, err := conn.Query(ctx, q.sql)
-		if err != nil { return s, err }
+		if err != nil {
+			return s, err
+		}
 		for rows.Next() {
 			var item definition
 			if err := rows.Scan(&item.Table, &item.Name, &item.SQL); err != nil {
@@ -165,7 +177,10 @@ ORDER BY p.proname, pg_get_function_identity_arguments(p.oid)`, &s.Functions},
 			}
 			*q.target = append(*q.target, item)
 		}
-		if err := rows.Err(); err != nil { rows.Close(); return s, err }
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return s, err
+		}
 		rows.Close()
 	}
 	return s, nil
@@ -174,7 +189,9 @@ ORDER BY p.proname, pg_get_function_identity_arguments(p.oid)`, &s.Functions},
 var simpleName = regexp.MustCompile(`^[a-z_][a-z_0-9]*$`)
 
 func name(v string) string {
-	if simpleName.MatchString(v) { return v }
+	if simpleName.MatchString(v) {
+		return v
+	}
 	return "\"" + strings.ReplaceAll(v, "\"", "\"\"") + "\""
 }
 
@@ -198,28 +215,38 @@ func renderDBML(s schema) []byte {
 	last := ""
 	for _, c := range s.Columns {
 		if c.Table != last {
-			if last != "" { out.WriteString("}\n\n") }
+			if last != "" {
+				out.WriteString("}\n\n")
+			}
 			fmt.Fprintf(&out, "Table %s {\n", name(c.Table))
 			last = c.Table
 		}
 		opts := []string{}
-		if c.Primary { opts = append(opts, "pk") }
-		if c.NotNull { opts = append(opts, "not null") }
+		if c.Primary {
+			opts = append(opts, "pk")
+		}
+		if c.NotNull {
+			opts = append(opts, "not null")
+		}
 		fmt.Fprintf(&out, "  %s %s", name(c.Name), dbmlType(c.Type))
-		if len(opts)>0 { fmt.Fprintf(&out," [%s]",strings.Join(opts,", ")) }
+		if len(opts) > 0 {
+			fmt.Fprintf(&out, " [%s]", strings.Join(opts, ", "))
+		}
 		out.WriteByte('\n')
 	}
-	if last != "" { out.WriteString("}\n\n") }
+	if last != "" {
+		out.WriteString("}\n\n")
+	}
 	for _, r := range s.References {
 		l, rr := make([]string, len(r.FromColumns)), make([]string, len(r.ToColumns))
 		for i := range l {
-			l[i] = name(r.FromTable)+"."+name(r.FromColumns[i])
-			rr[i] = name(r.ToTable)+"."+name(r.ToColumns[i])
+			l[i] = name(r.FromTable) + "." + name(r.FromColumns[i])
+			rr[i] = name(r.ToTable) + "." + name(r.ToColumns[i])
 		}
-		if len(l)==1 {
-			fmt.Fprintf(&out, "Ref: %s > %s\n",l[0],rr[0])
+		if len(l) == 1 {
+			fmt.Fprintf(&out, "Ref: %s > %s\n", l[0], rr[0])
 		} else {
-			fmt.Fprintf(&out, "Ref: {%s} > {%s}\n",strings.Join(l,", "),strings.Join(rr,", "))
+			fmt.Fprintf(&out, "Ref: {%s} > {%s}\n", strings.Join(l, ", "), strings.Join(rr, ", "))
 		}
 	}
 	return out.Bytes()
@@ -230,18 +257,18 @@ func renderDetails(s schema) []byte {
 	out.WriteString("# Implemented PostgreSQL schema details\n\n")
 	out.WriteString("Generated from a migrated database; this document is read-only.\n")
 	out.WriteString("See `implemented.dbml` for tables/FKs and `schema.sql` for exact DDL.\n")
-	for _, group := range []struct{
+	for _, group := range []struct {
 		title string
 		items []definition
 	}{
-		{"Constraints",s.Constraints},
-		{"Indexes (including partial and expression indexes)",s.Indexes},
-		{"Triggers",s.Triggers},
-		{"Functions",s.Functions},
+		{"Constraints", s.Constraints},
+		{"Indexes (including partial and expression indexes)", s.Indexes},
+		{"Triggers", s.Triggers},
+		{"Functions", s.Functions},
 	} {
-		fmt.Fprintf(&out,"\n## %s\n",group.title)
+		fmt.Fprintf(&out, "\n## %s\n", group.title)
 		for _, d := range group.items {
-			fmt.Fprintf(&out,"\n### %s.%s\n\n```sql\n%s\n```\n",d.Table,d.Name,d.SQL)
+			fmt.Fprintf(&out, "\n### %s.%s\n\n```sql\n%s\n```\n", d.Table, d.Name, d.SQL)
 		}
 	}
 	return out.Bytes()
