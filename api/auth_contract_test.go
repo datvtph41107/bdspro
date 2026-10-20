@@ -14,22 +14,24 @@ import (
 )
 
 type authStub struct {
-	registration  auth.Registration
-	registerErr   error
-	verifyErr     error
-	loginResult   auth.LoginResult
-	loginErr      error
-	accountID     int64
-	accountErr    error
-	accountCalls  int
-	accountToken  string
-	logoutErr     error
-	resendErr     error
-	registerCalls int
-	verifyCalls   int
-	loginCalls    int
-	logoutCalls   int
-	resendCalls   int
+	registration   auth.Registration
+	registerErr    error
+	verifyErr      error
+	loginResult    auth.LoginResult
+	loginErr       error
+	accountID      int64
+	accountErr     error
+	accountCalls   int
+	accountToken   string
+	logoutErr      error
+	logoutAllErr   error
+	logoutAllCalls int
+	resendErr      error
+	registerCalls  int
+	verifyCalls    int
+	loginCalls     int
+	logoutCalls    int
+	resendCalls    int
 }
 
 func (s *authStub) Register(context.Context, string, string) (auth.Registration, error) {
@@ -57,6 +59,10 @@ func (s *authStub) AccountFromToken(_ context.Context, token string) (int64, err
 func (s *authStub) Logout(context.Context, string) error {
 	s.logoutCalls++
 	return s.logoutErr
+}
+func (s *authStub) LogoutAll(context.Context, string) error {
+	s.logoutAllCalls++
+	return s.logoutAllErr
 }
 
 func TestCreateAccountServiceOutcomes(t *testing.T) {

@@ -31,6 +31,7 @@ type Authentication interface {
 	Login(context.Context, string, string) (auth.LoginResult, error)
 	AccountFromToken(context.Context, string) (int64, error)
 	Logout(context.Context, string) error
+	LogoutAll(context.Context, string) error
 }
 
 // Server serves HTTP requests for BDSPro, following SimpleBank's API layout.
@@ -75,6 +76,7 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.POST("/auth/login", server.limitAuthClient("login", ratePolicy{burst: 30, window: time.Minute}), server.login)
 	router.GET("/auth/me", server.requireSession, server.me)
 	router.POST("/auth/logout", server.logout)
+	router.POST("/auth/logout-all", server.requireSession, server.logoutAll)
 
 	router.POST("/organizations/registrations", server.requireSession, server.submitOrganizationRegistration)
 	router.POST("/organizations/:id/claims", server.requireSession, server.submitOrganizationClaim)
