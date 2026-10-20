@@ -28,6 +28,8 @@ func writeAPIError(ctx *gin.Context, status int, publicMessage string) {
 		code = "payload_too_large"
 	case http.StatusUnsupportedMediaType:
 		code = "unsupported_media_type"
+	case http.StatusTooManyRequests:
+		code = "too_many_requests"
 	case http.StatusServiceUnavailable:
 		code = "service_unavailable"
 	default:

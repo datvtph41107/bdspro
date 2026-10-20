@@ -42,6 +42,7 @@ type Server struct {
 	development    bool
 	allowedOrigin  string
 	logger         *slog.Logger
+	authLimiter    *authLimiter
 	draining       atomic.Bool
 	router         *gin.Engine
 }
@@ -52,7 +53,8 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 		pool: pool, authentication: authentication,
 		organizations: organizations, sources: sources,
 		development: development, allowedOrigin: allowedOrigin,
-		logger: slog.New(slog.NewJSONHandler(os.Stdout, nil)),
+		logger:      slog.New(slog.NewJSONHandler(os.Stdout, nil)),
+		authLimiter: newAuthLimiter(4096),
 	}
 	// Default Gin logging includes raw URLs; use a strict, safe field allowlist.
 	router := gin.New()
@@ -67,10 +69,10 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.Use(server.rejectDuringShutdown)
 	router.Use(server.browserSecurity)
 
-	router.POST("/auth/register", server.createAccount)
-	router.POST("/auth/verify-email", server.verifyEmail)
-	router.POST("/auth/resend-verification", server.resendVerification)
-	router.POST("/auth/login", server.login)
+	router.POST("/auth/register", server.limitAuthClient("register", ratePolicy{burst: 12, window: time.Hour}), server.createAccount)
+	router.POST("/auth/verify-email", server.limitAuthClient("verify", ratePolicy{burst: 30, window: 15 * time.Minute}), server.verifyEmail)
+	router.POST("/auth/resend-verification", server.limitAuthClient("resend", ratePolicy{burst: 12, window: 15 * time.Minute}), server.resendVerification)
+	router.POST("/auth/login", server.limitAuthClient("login", ratePolicy{burst: 30, window: time.Minute}), server.login)
 	router.GET("/auth/me", server.requireSession, server.me)
 	router.POST("/auth/logout", server.logout)
 

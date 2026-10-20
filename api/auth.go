@@ -159,6 +159,14 @@ func (server *Server) login(ctx *gin.Context) {
 	if !bindJSON(ctx, &req, 8192) {
 		return
 	}
+	// Independent per-identifier bucket limits distributed password guessing.
+	// Email is normalized before fingerprinting; raw identifiers are never logged.
+	identifier := strings.ToLower(strings.TrimSpace(req.Email))
+	if ok, retry := server.authLimiter.allow("login-identity", fingerprint(identifier),
+		ratePolicy{burst: 12, window: 15 * time.Minute}, time.Now()); !ok {
+		authRateLimitExceeded(ctx, retry)
+		return
+	}
 	if server.authentication == nil {
 		writeAPIError(ctx, http.StatusServiceUnavailable, "login unavailable")
 		return
