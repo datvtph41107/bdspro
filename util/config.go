@@ -62,6 +62,7 @@ func (config Config) validate() error {
 			(origin.Scheme != "https" && origin.Scheme != "http") ||
 			origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" ||
 			strings.ContainsAny(config.AllowedOrigin, " \t\r\n") ||
+			strings.Contains(config.AllowedOrigin, "*") ||
 			origin.String() != config.AllowedOrigin {
 			return fmt.Errorf("ALLOWED_ORIGIN must be an exact HTTP(S) origin without path, query or wildcard")
 		}
