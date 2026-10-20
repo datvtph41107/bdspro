@@ -36,7 +36,7 @@ type Mailer interface {
 type Service struct {
 	Pool   *pgxpool.Pool
 	Mailer Mailer
-	SMS SMSSender
+	SMS    SMSSender
 	OTPKey []byte
 }
 
