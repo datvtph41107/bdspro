@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -154,5 +156,146 @@ func TestRBACInvitePermissionDoesNotGrantRemovePermission(t *testing.T) {
 	}
 	if err := f.org.RemoveMember(ctx, f.owner, f.orgID, f.membership); err != nil {
 		t.Fatalf("actual tenant administrator cannot remove invite-only member: %v", err)
+	}
+}
+
+func TestWorkspaceDiscoveryUsesLiveMembershipNotJWTClaims(t *testing.T) {
+	f := setupRBAC(t)
+	ctx := context.Background()
+
+	read := func(token string) ([]organization.Workspace, int) {
+		t.Helper()
+		w := f.request(http.MethodGet, "/auth/workspaces", token, "", "")
+		if w.Code != http.StatusOK {
+			return nil, w.Code
+		}
+		var body struct {
+			Workspaces []organization.Workspace `json:"workspaces"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Workspaces == nil {
+			t.Fatal("workspaces must be [] instead of null")
+		}
+		return body.Workspaces, w.Code
+	}
+	if _, status := read(""); status != http.StatusUnauthorized {
+		t.Fatalf("anonymous workspace status=%d", status)
+	}
+	for _, tc := range []struct {
+		token string
+		want  int64
+		size  int
+	}{
+		{f.ownerToken, f.orgID, 1},
+		{f.memberToken, f.orgID, 1},
+		{f.strangerToken, 0, 0},
+	} {
+		rows, status := read(tc.token)
+		if status != 200 || len(rows) != tc.size {
+			t.Fatalf("workspace discovery status=%d rows=%+v, wanted=%d", status, rows, tc.size)
+		}
+		if tc.size == 1 && (rows[0].OrganizationID != tc.want || rows[0].MembershipID <= 0) {
+			t.Fatalf("wrong workspace identity: %+v", rows)
+		}
+	}
+
+	issuer, err := auth.NewAccessTokens(strings.Repeat("W", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	jwtToken, _, err := issuer.Issue(f.member, f.memberToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := api.NewServer(f.pool, f.auth, f.org, f.source, true, "")
+	srv.EnableAccessTokens(issuer)
+	bearerRead := func() (int, []organization.Workspace) {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodGet, "/auth/workspaces", nil)
+		request.Header.Set("Authorization", "Bearer "+jwtToken)
+		w := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(w, request)
+		if w.Code != 200 {
+			return w.Code, nil
+		}
+		var body struct {
+			Workspaces []organization.Workspace `json:"workspaces"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		return w.Code, body.Workspaces
+	}
+	if status, rows := bearerRead(); status != 200 || len(rows) != 1 {
+		t.Fatalf("bearer workspace status=%d rows=%+v", status, rows)
+	}
+
+	// The JWT stays signed and session stays valid, but a live block must
+	// remove the workspace immediately from both cookie and Bearer listing.
+	var blockID int64
+	err = f.pool.QueryRow(ctx, "INSERT INTO organization_membership_blocks(membership_id) VALUES($1) RETURNING id", f.membership).Scan(&blockID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows, status := read(f.memberToken); status != 200 || len(rows) != 0 {
+		t.Fatalf("blocked cookie user sees workspace: status=%d rows=%+v", status, rows)
+	}
+	if status, rows := bearerRead(); status != 200 || len(rows) != 0 {
+		t.Fatalf("blocked Bearer user sees workspace: status=%d rows=%+v", status, rows)
+	}
+	if _, err := f.pool.Exec(ctx, "UPDATE organization_membership_blocks SET ended_at=now() WHERE id=$1", blockID); err != nil {
+		t.Fatal(err)
+	}
+	if rows, status := read(f.memberToken); status != 200 || len(rows) != 1 {
+		t.Fatalf("unblocked member cannot discover workspace: status=%d rows=%+v", status, rows)
+	}
+
+	// A membership with no active role/permission is not a usable workspace.
+	if _, err := f.pool.Exec(ctx,
+		"UPDATE organization_role_assignments SET ended_at=now() WHERE membership_id=$1",
+		f.membership); err != nil {
+		t.Fatal(err)
+	}
+	if rows, status := read(f.memberToken); status != 200 || len(rows) != 0 {
+		t.Fatalf("role-less membership exposed: status=%d rows=%+v", status, rows)
+	}
+	var adminRole int64
+	if err := f.pool.QueryRow(ctx,
+		"SELECT id FROM organization_roles WHERE organization_id=$1 AND name='Workspace Administrator'",
+		f.orgID).Scan(&adminRole); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx,
+		"INSERT INTO organization_role_assignments(organization_id,membership_id,role_id) VALUES($1,$2,$3)",
+		f.orgID, f.membership, adminRole); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := f.org.RemoveMember(ctx, f.owner, f.orgID, f.membership); err != nil {
+		t.Fatal(err)
+	}
+	if rows, status := read(f.memberToken); status != 200 || len(rows) != 0 {
+		t.Fatalf("removed member sees tenant: status=%d rows=%+v", status, rows)
+	}
+	if status, rows := bearerRead(); status != 200 || len(rows) != 0 {
+		t.Fatalf("removed member JWT sees tenant: status=%d rows=%+v", status, rows)
+	}
+	if w := f.request(http.MethodGet, "/auth/me", f.memberToken, "", ""); w.Code != 200 {
+		t.Fatalf("tenant removal revoked personal identity session: %d", w.Code)
+	}
+
+	if _, err := f.pool.Exec(ctx, "UPDATE organizations SET archived_at=now() WHERE party_id=$1", f.orgID); err != nil {
+		t.Fatal(err)
+	}
+	if rows, status := read(f.ownerToken); status != 200 || len(rows) != 0 {
+		t.Fatalf("archived tenant still listed: status=%d rows=%+v", status, rows)
+	}
+	if err := f.auth.Logout(ctx, f.memberToken); err != nil {
+		t.Fatal(err)
+	}
+	if status, _ := bearerRead(); status != 401 {
+		t.Fatalf("revoked session still exposes workspace list: status=%d", status)
 	}
 }
