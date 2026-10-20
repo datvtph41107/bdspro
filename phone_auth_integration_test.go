@@ -278,3 +278,48 @@ func TestPhoneOTPReissueInvalidatesPriorCode(t *testing.T) {
 		t.Fatalf("new OTP rejected: %v", err)
 	}
 }
+
+func TestPhoneOTPGlobalDestinationQuotaConcurrentAccounts(t *testing.T) {
+	db := coreDB(t)
+	ctx := context.Background()
+	a := auth.New(db, nil)
+	first, _ := coreUser(t, a, "concurrentphone1@example.test")
+	second, _ := coreUser(t, a, "concurrentphone2@example.test")
+	sms := &fakePhoneSMS{}
+	if err := a.ConfigurePhoneVerification(strings.Repeat("C", 32), sms); err != nil {
+		t.Fatal(err)
+	}
+	const phone = "+84906660123"
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	var wg sync.WaitGroup
+	for _, accountID := range []int64{first, second} {
+		wg.Add(1)
+		go func(id int64) {
+			defer wg.Done()
+			<-start
+			results <- a.StartPhoneVerification(ctx, id, phone)
+		}(accountID)
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	accepted, throttled := 0, 0
+	for err := range results {
+		switch {
+		case err == nil:
+			accepted++
+		case errors.Is(err, auth.ErrPhoneThrottle):
+			throttled++
+		default:
+			t.Fatalf("unexpected concurrent OTP result: %v", err)
+		}
+	}
+	if accepted != 1 || throttled != 1 {
+		t.Fatalf("global phone quota bypassed: accepted=%d throttled=%d", accepted, throttled)
+	}
+	_, _, sent := sms.last()
+	if sent != 1 {
+		t.Fatalf("expected exactly one SMS, got %d", sent)
+	}
+}
