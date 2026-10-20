@@ -14,7 +14,7 @@ import (
 func TestCredentialedCORSPreflightContract(t *testing.T) {
 	cases := []struct {
 		name, origin, method, headers string
-		status                       int
+		status                        int
 	}{
 		{"allowed", "https://app.example.test", "POST", "Content-Type, Idempotency-Key, X-BDSPro-Request", 204},
 		{"allowed_case_insensitive_headers", "https://app.example.test", "DELETE", "x-bdspro-request,content-type", 204},
@@ -92,8 +92,8 @@ func TestCORSDoesNotReflectUnknownOriginOrUseWildcard(t *testing.T) {
 func TestBrowserCSRFGateForSessionCookie(t *testing.T) {
 	cases := []struct {
 		name, origin, fetchSite, proof string
-		status                        int
-		calls                         int
+		status                         int
+		calls                          int
 	}{
 		{"no_browser_proof", "", "", "", 403, 0},
 		{"sibling_site_without_origin", "", "same-site", "", 403, 0},
@@ -132,8 +132,8 @@ func TestBrowserCSRFGateForSessionCookie(t *testing.T) {
 func TestLoginRequiresOriginOrNonSimpleRequestHeader(t *testing.T) {
 	cases := []struct {
 		name, origin, proof, fetchSite string
-		status                        int
-		calls                         int
+		status                         int
+		calls                          int
 	}{
 		{"no_proof", "", "", "", 403, 0},
 		{"foreign_origin", "https://evil.example.test", "", "", 403, 0},
