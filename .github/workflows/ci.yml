@@ -95,11 +95,18 @@ jobs:
       - name: Generate SQLC
         run: make sqlc
 
+      - name: Inspect generated authentication SQLC output (temporary)
+        run: |
+          cat db/sqlc/phone_verification.sql.go
+          git diff -- db/sqlc/models.go db/sqlc/querier.go
+          go mod tidy
+          git diff -- go.mod go.sum
+
       - name: Check source consistency
         run: |
           go mod tidy
-          gofmt -w api auth organization source db/sqlc util cmd/dbdocs main.go integration_test.go party_kind_test.go
-          git diff --exit-code -- go.mod go.sum api db/sqlc util cmd/dbdocs auth organization source main.go integration_test.go party_kind_test.go
+          gofmt -w api auth organization source db/sqlc util cmd/dbdocs main.go integration_test.go party_kind_test.go phone_auth_integration_test.go
+          git diff --exit-code -- go.mod go.sum api db/sqlc util cmd/dbdocs auth organization source main.go integration_test.go party_kind_test.go phone_auth_integration_test.go
           test -z "$(git ls-files --others --exclude-standard -- db/sqlc)"
           go vet ./...
 
