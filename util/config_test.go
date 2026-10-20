@@ -55,7 +55,7 @@ func TestLoadConfigValidation(t *testing.T) {
 			contents := "ENVIRONMENT=development\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://example.test/bdspro\nSERVER_ADDRESS=127.0.0.1:8080\n"
 			contents += tc.config + "\n"
 			if strings.Contains(tc.config, "ENVIRONMENT=production") {
-				contents += "ACCESS_TOKEN_KEY=production-fixture-secret-key-more-than-32-bytes\\n"
+				contents += "ACCESS_TOKEN_KEY=production-fixture-secret-key-more-than-32-bytes\n"
 			}
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "app.env"), []byte(contents), 0600))
 			_, err := LoadConfig(dir)
