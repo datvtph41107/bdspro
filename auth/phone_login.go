@@ -89,9 +89,9 @@ func (s *Service) StartPhoneLogin(ctx context.Context, rawPhone string) (PhoneLo
 		}
 		if err := q.CreatePhoneLoginChallenge(ctx, dbsqlc.CreatePhoneLoginChallengeParams{
 			AccountPhoneID: target.AccountPhoneID,
-			ChallengeHash: challengeHash,
-			Nonce: nonce,
-			OtpMac: phoneMAC(s.OTPKey, target.AccountPhoneID, "login|"+nonce, code),
+			ChallengeHash:  challengeHash,
+			Nonce:          nonce,
+			OtpMac:         phoneMAC(s.OTPKey, target.AccountPhoneID, "login|"+nonce, code),
 		}); err != nil {
 			return err
 		}
