@@ -80,14 +80,19 @@ VALUES ($1, $2,
 `
 
 type CreatePhoneRegistrationChallengeParams struct {
-	Phone string `json:"phone"`
+	Phone         string `json:"phone"`
 	ChallengeHash string `json:"challenge_hash"`
-	Nonce string `json:"nonce"`
-	OtpMac string `json:"otp_mac"`
+	Nonce         string `json:"nonce"`
+	OtpMac        string `json:"otp_mac"`
 }
 
 func (q *Queries) CreatePhoneRegistrationChallenge(ctx context.Context, arg CreatePhoneRegistrationChallengeParams) error {
-	_, err := q.db.Exec(ctx, createPhoneRegistrationChallenge, arg.Phone, arg.ChallengeHash, arg.Nonce, arg.OtpMac)
+	_, err := q.db.Exec(ctx, createPhoneRegistrationChallenge,
+		arg.Phone,
+		arg.ChallengeHash,
+		arg.Nonce,
+		arg.OtpMac,
+	)
 	return err
 }
 
@@ -97,8 +102,8 @@ VALUES ($1, $2, now(), true)
 `
 
 type CreatePrimaryVerifiedAccountPhoneParams struct {
-	AccountID int64 `json:"account_id"`
-	Phone string `json:"phone"`
+	AccountID int64  `json:"account_id"`
+	Phone     string `json:"phone"`
 }
 
 func (q *Queries) CreatePrimaryVerifiedAccountPhone(ctx context.Context, arg CreatePrimaryVerifiedAccountPhoneParams) error {
@@ -139,22 +144,27 @@ WHERE challenge_hash = $1
 FOR UPDATE
 `
 
-type LockActivePhoneRegistrationChallengeRow struct {
-	ID int64 `json:"id"`
-	Phone string `json:"phone"`
-	Nonce string `json:"nonce"`
-	OtpMac string `json:"otp_mac"`
-}
-
 type LockActivePhoneRegistrationChallengeParams struct {
 	ChallengeHash string `json:"challenge_hash"`
-	Phone string `json:"phone"`
+	Phone         string `json:"phone"`
+}
+
+type LockActivePhoneRegistrationChallengeRow struct {
+	ID     int64  `json:"id"`
+	Phone  string `json:"phone"`
+	Nonce  string `json:"nonce"`
+	OtpMac string `json:"otp_mac"`
 }
 
 func (q *Queries) LockActivePhoneRegistrationChallenge(ctx context.Context, arg LockActivePhoneRegistrationChallengeParams) (LockActivePhoneRegistrationChallengeRow, error) {
 	row := q.db.QueryRow(ctx, lockActivePhoneRegistrationChallenge, arg.ChallengeHash, arg.Phone)
 	var i LockActivePhoneRegistrationChallengeRow
-	err := row.Scan(&i.ID, &i.Phone, &i.Nonce, &i.OtpMac)
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.Nonce,
+		&i.OtpMac,
+	)
 	return i, err
 }
 
