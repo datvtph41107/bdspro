@@ -63,7 +63,9 @@ func (server *Server) browserSecurity(ctx *gin.Context) {
 	// The custom header is a browser non-simple header, requiring preflight
 	// for cross-origin JavaScript; non-browser clients can set it directly.
 	_, hasCookie := ctx.Request.Header["Cookie"]
-	protected := hasCookie || ctx.FullPath() == "/auth/login" || ctx.FullPath() == "/auth/logout"
+	protected := hasCookie || ctx.FullPath() == "/auth/login" ||
+		ctx.FullPath() == "/auth/phone/login/start" || ctx.FullPath() == "/auth/phone/login/verify" ||
+		ctx.FullPath() == "/auth/logout"
 	if protected && origin == "" &&
 		!strings.EqualFold(ctx.GetHeader("Sec-Fetch-Site"), "same-origin") &&
 		ctx.GetHeader(csrfProofHeader) != "1" {

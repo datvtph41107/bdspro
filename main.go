@@ -43,7 +43,16 @@ func run() error {
 	)
 	authService := auth.New(pool, mailer)
 	if config.PhoneOTPKey != "" {
-		sender := auth.NewTwilioSMS(config.TwilioAccountSID, config.TwilioAuthToken, config.TwilioFrom)
+		var sender auth.SMSSender
+		if config.DevSMSOutbox {
+			// Development-only transport; config validation fails closed in production.
+			sender, err = auth.NewDevelopmentSMSOutbox(context.Background(), pool)
+			if err != nil {
+				return fmt.Errorf("cannot initialize development SMS outbox: %w", err)
+			}
+		} else {
+			sender = auth.NewTwilioSMS(config.TwilioAccountSID, config.TwilioAuthToken, config.TwilioFrom)
+		}
 		if err := authService.ConfigurePhoneVerification(config.PhoneOTPKey, sender); err != nil {
 			return fmt.Errorf("invalid phone OTP configuration: %w", err)
 		}

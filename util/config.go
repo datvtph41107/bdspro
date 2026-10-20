@@ -20,6 +20,7 @@ type Config struct {
 	AllowedOrigin         string `mapstructure:"ALLOWED_ORIGIN"`
 	AccessTokenKey        string `mapstructure:"ACCESS_TOKEN_KEY"`
 	PhoneOTPKey           string `mapstructure:"PHONE_OTP_KEY"`
+	DevSMSOutbox          bool   `mapstructure:"DEV_SMS_OUTBOX"`
 	TwilioAccountSID      string `mapstructure:"TWILIO_ACCOUNT_SID"`
 	TwilioAuthToken       string `mapstructure:"TWILIO_AUTH_TOKEN"`
 	TwilioFrom            string `mapstructure:"TWILIO_FROM"`
@@ -80,6 +81,15 @@ func (config Config) validate() error {
 	}
 	if config.PhoneOTPKey != "" && len(config.PhoneOTPKey) < 32 {
 		return fmt.Errorf("PHONE_OTP_KEY must contain at least 32 bytes")
+	}
+	if config.DevSMSOutbox && config.Environment != "development" {
+		return fmt.Errorf("DEV_SMS_OUTBOX is allowed only in development")
+	}
+	if config.DevSMSOutbox && (config.TwilioAccountSID != "" || config.TwilioAuthToken != "" || config.TwilioFrom != "") {
+		return fmt.Errorf("DEV_SMS_OUTBOX and Twilio delivery are mutually exclusive")
+	}
+	if config.DevSMSOutbox && len(config.PhoneOTPKey) < 32 {
+		return fmt.Errorf("DEV_SMS_OUTBOX requires PHONE_OTP_KEY")
 	}
 	if config.TwilioAccountSID != "" || config.TwilioAuthToken != "" || config.TwilioFrom != "" {
 		if len(config.TwilioAccountSID) != 34 || !strings.HasPrefix(config.TwilioAccountSID, "AC") ||
