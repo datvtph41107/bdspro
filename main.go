@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/datvtph41107/bdspro/api"
@@ -12,20 +13,28 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// main may terminate the process only after run has released its resources.
+// log.Fatal inside run would call os.Exit and skip deferred pool.Close.
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	config, err := util.LoadConfig(".")
 	if err != nil {
-		log.Fatal("cannot load config:", err)
+		return fmt.Errorf("cannot load config: %w", err)
 	}
 
 	pool, err := pgxpool.New(context.Background(), config.DBSource)
 	if err != nil {
-		log.Fatal("cannot connect to db:", err)
+		return fmt.Errorf("cannot connect to db: %w", err)
 	}
 	defer pool.Close()
 
 	if err := pool.Ping(context.Background()); err != nil {
-		log.Fatal("cannot reach database:", err)
+		return fmt.Errorf("cannot reach database: %w", err)
 	}
 
 	mailer := auth.NewSMTPMailer(
@@ -39,6 +48,7 @@ func main() {
 	)
 
 	if err := server.Start(config.ServerAddress); err != nil {
-		log.Fatal("cannot start server:", err)
+		return fmt.Errorf("cannot start server: %w", err)
 	}
+	return nil
 }

@@ -23,7 +23,10 @@ or shutdown timeout. `main.go` already owned the `pgxpool.Pool` and called
 - If the grace deadline expires, call `Close` to terminate active connections
   and cancel their request contexts; return the timeout error, not false success.
 - Always wait for the accept loop to exit before returning from `Start`.
-  The application still closes `pgxpool` afterwards through `main.go`.
+- `main.go` delegates resource ownership to `run() error`, which defers
+  `pool.Close()`. Only after `run` returns does `main` call `log.Fatal`
+  on errors. Calling `log.Fatal` inside the resource-owning function would
+  bypass Go defers and leak the intended database pool shutdown path.
 
 ## Tests
 
