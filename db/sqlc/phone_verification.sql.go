@@ -26,7 +26,17 @@ SELECT NOT EXISTS (
     WHERE ap.account_id = (
         SELECT account_id FROM account_phones WHERE id = $1
     ) AND recent.created_at > now() - interval '24 hours'
-) < 10 AS allowed
+) < 10 AND NOT EXISTS (
+    SELECT 1 FROM phone_verification_challenges recent
+    JOIN account_phones ap ON ap.id = recent.account_phone_id
+    WHERE ap.phone = (SELECT phone FROM account_phones WHERE id = $1)
+      AND recent.created_at > now() - interval '60 seconds'
+) AND (
+    SELECT count(*) FROM phone_verification_challenges recent
+    JOIN account_phones ap ON ap.id = recent.account_phone_id
+    WHERE ap.phone = (SELECT phone FROM account_phones WHERE id = $1)
+      AND recent.created_at > now() - interval '24 hours'
+) < 5 AS allowed
 `
 
 func (q *Queries) CanIssuePhoneChallenge(ctx context.Context, accountPhoneID int64) (pgtype.Bool, error) {
@@ -109,6 +119,27 @@ func (q *Queries) LockLatestPhoneChallenge(ctx context.Context, accountPhoneID i
 	var i LockLatestPhoneChallengeRow
 	err := row.Scan(&i.ID, &i.Nonce, &i.OtpMac)
 	return i, err
+}
+
+const lockOTPPhoneDestination = `-- name: LockOTPPhoneDestination :exec
+-- Account row is locked first; this transaction-scoped advisory lock serializes
+-- issuance to one phone number across distinct accounts.
+SELECT pg_advisory_xact_lock(hashtextextended($1::text, 737681))
+`
+
+func (q *Queries) LockOTPPhoneDestination(ctx context.Context, phone string) error {
+	_, err := q.db.Exec(ctx, lockOTPPhoneDestination, phone)
+	return err
+}
+
+const invalidatePriorPhoneChallenges = `-- name: InvalidatePriorPhoneChallenges :exec
+UPDATE phone_verification_challenges SET consumed_at = now()
+WHERE account_phone_id = $1 AND consumed_at IS NULL
+`
+
+func (q *Queries) InvalidatePriorPhoneChallenges(ctx context.Context, accountPhoneID int64) error {
+	_, err := q.db.Exec(ctx, invalidatePriorPhoneChallenges, accountPhoneID)
+	return err
 }
 
 const markAccountPhoneVerified = `-- name: MarkAccountPhoneVerified :exec
