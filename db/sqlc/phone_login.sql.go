@@ -178,4 +178,3 @@ func (q *Queries) LockActivePhoneLoginChallenge(ctx context.Context, arg LockAct
 	)
 	return i, err
 }
-
