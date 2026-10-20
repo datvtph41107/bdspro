@@ -30,6 +30,7 @@ func TestAllLegacyRoutesNowUseGin(t *testing.T) {
 		"POST /auth/resend-verification":                          false,
 		"POST /auth/login":                                        false,
 		"GET /auth/me":                                            false,
+		"GET /auth/workspaces":                                    false,
 		"POST /auth/logout":                                       false,
 		"POST /organizations/registrations":                       false,
 		"POST /organizations/:id/claims":                          false,
@@ -93,7 +94,7 @@ func TestCreateAccountRejectsCrossSiteRequest(t *testing.T) {
 func TestProtectedRoutesRejectMissingSession(t *testing.T) {
 	server := NewServer(nil, nil, nil, nil, true, "")
 	for _, target := range []string{
-		"/auth/me", "/organizations/1/members",
+		"/auth/me", "/auth/workspaces", "/organizations/1/members",
 		"/organizations/1/sources/1", "/organizations/1/sources/1/price-reports",
 	} {
 		w := httptest.NewRecorder()
