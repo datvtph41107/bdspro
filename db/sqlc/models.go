@@ -197,6 +197,18 @@ type PhoneLoginChallenge struct {
 	ConsumedAt     pgtype.Timestamptz `json:"consumed_at"`
 }
 
+type PhoneRegistrationChallenge struct {
+	ID            int64              `json:"id"`
+	Phone         string             `json:"phone"`
+	ChallengeHash string             `json:"challenge_hash"`
+	Nonce         string             `json:"nonce"`
+	OtpMac        string             `json:"otp_mac"`
+	Attempts      int32              `json:"attempts"`
+	CreatedAt     time.Time          `json:"created_at"`
+	ExpiresAt     time.Time          `json:"expires_at"`
+	ConsumedAt    pgtype.Timestamptz `json:"consumed_at"`
+}
+
 type PhoneVerificationChallenge struct {
 	ID             int64              `json:"id"`
 	AccountPhoneID int64              `json:"account_phone_id"`
