@@ -300,8 +300,8 @@ func (server *Server) renewAccessToken(ctx *gin.Context) {
 		return
 	}
 	replyJSON(ctx, http.StatusOK, gin.H{
-		"access_token": jwtToken,
-		"token_type": "Bearer",
+		"access_token":            jwtToken,
+		"token_type":              "Bearer",
 		"access_token_expires_at": expiry,
 	})
 }
