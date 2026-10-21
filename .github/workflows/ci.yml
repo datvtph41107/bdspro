@@ -49,6 +49,45 @@ jobs:
         env:
           DB_TEST_URL: postgres://root:secret@127.0.0.1:5432/bdspro_lecture37_test?sslmode=disable
         run: go test -v -count=1 ./db/sqlc
+      - name: Smoke test full HTTP auth flow against Postgres
+        env:
+          DB_SOURCE: postgres://root:secret@127.0.0.1:5432/bdspro_lecture37_test?sslmode=disable
+          SERVER_ADDRESS: 127.0.0.1:18081
+        run: |
+          go build -o /tmp/bdspro-lecture37 .
+          /tmp/bdspro-lecture37 > /tmp/bdspro-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; cat /tmp/bdspro-server.log' EXIT
+          python3 - <<'PY'
+          import json, time, urllib.request, urllib.error
+          base = "http://127.0.0.1:18081"
+          def request(method, path, body=None, access=None):
+              data = None if body is None else json.dumps(body).encode()
+              headers = {"Content-Type":"application/json"}
+              if access: headers["Authorization"] = "Bearer " + access
+              req = urllib.request.Request(base+path, data=data, headers=headers, method=method)
+              with urllib.request.urlopen(req, timeout=5) as resp:
+                  return resp.status, json.load(resp)
+          for attempt in range(50):
+              try:
+                  status, _ = request("POST", "/users", {"email":"smoke@example.test","password":"strong-password-123"})
+                  assert status == 201
+                  break
+              except urllib.error.URLError as err:
+                  if isinstance(err, urllib.error.HTTPError): raise
+                  time.sleep(0.2)
+          else:
+              raise SystemExit("Go HTTP server did not start")
+          status, login = request("POST", "/users/login", {"email":"smoke@example.test","password":"strong-password-123"})
+          assert status == 200 and login["session_id"] and login["access_token"] and login["refresh_token"]
+          status, me = request("GET", "/users/me", access=login["access_token"])
+          assert status == 200 and me["account_id"] == login["user"]["account_id"]
+          status, renewed = request("POST", "/tokens/renew_access", {"refresh_token":login["refresh_token"]})
+          assert status == 200 and renewed["access_token"]
+          status, me2 = request("GET", "/users/me", access=renewed["access_token"])
+          assert status == 200 and me2["account_id"] == me["account_id"]
+          print("Lecture37 HTTP smoke PASS: register -> login -> me -> renew -> me")
+          PY
       - name: Validate local reset script syntax
         run: bash -n scripts/reset-bdspro-lecture37.sh
       - name: Generated source stays in sync
