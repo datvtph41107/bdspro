@@ -1,4 +1,5 @@
--- Isolated Lecture 37 baseline. Apply to a NEW database, never to an existing BDSPro database.
+-- Lecture 37 canonical baseline. Requires an EMPTY database, or the verified
+-- backup/reset procedure in scripts/reset-bdspro-lecture37.sh.
 CREATE TABLE parties (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY
 );

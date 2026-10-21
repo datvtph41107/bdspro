@@ -1,16 +1,18 @@
+# Separate optional Compose environment, NOT the existing 'postgres' Docker container.
+# For the existing local 'postgres' container use make resetbdspro instead.
 services:
   db:
     image: postgres:18-alpine
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: secret
-      POSTGRES_DB: bdspro_l37
+      POSTGRES_DB: bdspro
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:15432:5432"
     volumes:
       - lecture37-postgres:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d bdspro_l37"]
+      test: ["CMD-SHELL", "pg_isready -U root -d bdspro"]
       interval: 5s
       timeout: 3s
       retries: 15
@@ -18,14 +20,14 @@ services:
     image: migrate/migrate:v4.18.3
     volumes:
       - ./db/migration:/migrations:ro
-    command: ["-path", "/migrations", "-database", "postgres://root:secret@db:5432/bdspro_l37?sslmode=disable", "up"]
+    command: ["-path", "/migrations", "-database", "postgres://root:secret@db:5432/bdspro?sslmode=disable", "up"]
     depends_on:
       db:
         condition: service_healthy
   api:
     build: .
     environment:
-      DB_SOURCE: postgres://root:secret@db:5432/bdspro_l37?sslmode=disable
+      DB_SOURCE: postgres://root:secret@db:5432/bdspro?sslmode=disable
       SERVER_ADDRESS: 0.0.0.0:8080
     ports:
       - "127.0.0.1:18080:8080"

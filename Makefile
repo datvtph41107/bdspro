@@ -1,8 +1,8 @@
 DB_URL ?=
-DB_NAME ?= bdspro_l37
+DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
-.PHONY: postgres createdb migrateup migratedown sqlc mock test testdb server
+.PHONY: postgres createdb migrateup migratedown sqlc mock test testdb server resetbdspro
 
 postgres:
 	docker start $(POSTGRES_CONTAINER)
@@ -27,6 +27,11 @@ test:
 
 testdb:
 	$(if $(DB_TEST_URL),go test -v -count=1 ./db/sqlc,$(error DB_TEST_URL is required))
+
+# Creates a verified local backup, then replaces only bdspro.
+# Requires CONFIRM_RESET_BDSPRO=RESET_BDSPRO_TO_LECTURE37
+resetbdspro:
+	bash scripts/reset-bdspro-lecture37.sh
 
 server:
 	go run .

@@ -2,7 +2,7 @@ name: Lecture 37 baseline
 
 on:
   push:
-    branches: [refactor/lecture-37-simplebank-baseline]
+    branches: [dev, refactor/lecture-37-simplebank-baseline]
   pull_request:
 
 jobs:
@@ -49,6 +49,8 @@ jobs:
         env:
           DB_TEST_URL: postgres://root:secret@127.0.0.1:5432/bdspro_lecture37_test?sslmode=disable
         run: go test -v -count=1 ./db/sqlc
+      - name: Validate local reset script syntax
+        run: bash -n scripts/reset-bdspro-lecture37.sh
       - name: Generated source stays in sync
         run: |
           gofmt -w api db token util main.go
