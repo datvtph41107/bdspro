@@ -20,6 +20,7 @@ func writeAppConfig(t *testing.T, content string) string {
 func exampleAppConfig() string {
 	return "DB_SOURCE=postgres://root:secret@localhost:5432/bdspro?sslmode=disable\n" +
 		"SERVER_ADDRESS=127.0.0.1:8080\n" +
+		"ALLOWED_ORIGINS=http://localhost:3000,https://example.com\n" +
 		"TOKEN_SYMMETRIC_KEY=" + strings.Repeat("a", 32) + "\n" +
 		"ACCESS_TOKEN_DURATION=15m\nREFRESH_TOKEN_DURATION=24h\n"
 }
@@ -34,6 +35,7 @@ func TestLoadConfig(t *testing.T) {
 	require.Equal(t, "127.0.0.1:8080", config.ServerAddress)
 	require.Equal(t, 15*time.Minute, config.AccessTokenDuration)
 	require.Equal(t, 24*time.Hour, config.RefreshTokenDuration)
+	require.Equal(t, []string{"http://localhost:3000", "https://example.com"}, config.AllowedOrigins)
 }
 
 func TestLoadConfigProcessEnvOverridesFile(t *testing.T) {

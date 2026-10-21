@@ -56,6 +56,10 @@ Access JWT đã phát vẫn có hiệu lực đến khi hết hạn; revoke ch�
 
 Xem đối chiếu lecture và quy tắc tổ chức: [docs/LECTURE-MATRIX.md](docs/LECTURE-MATRIX.md).
 
+## HTTP lifecycle
+
+Gin sử dụng logger theo `log/slog` và CORS chỉ cho nguồn trong `ALLOWED_ORIGINS`. `SIGINT`/`SIGTERM` kích hoạt shutdown HTTP (tối đa 10 giây); pool PostgreSQL đóng sau khi dừng HTTP. DBML ở `doc/db.dbml`.
+
 ## CI
 
 `.github/workflows/test.yml` giữ đúng pipeline SimpleBank: checkout → setup Go → install go-migrate → `make migrateup` → `make test`. PostgreSQL 18 tạm thời do GitHub Actions khởi tạo, database tên `bdspro`. Chưa triển khai AWS hoặc production deploy.

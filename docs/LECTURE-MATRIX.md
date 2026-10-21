@@ -12,12 +12,12 @@ Mốc BDSPro: nhánh `dev`. Phần trạng thái dưới đây xác định **co
 | 3: AWS/K8s | Docker, cloud deployment | Dockerfile, Compose, CI | Chỉ local, không AWS |
 | 4: Session/gRPC | Refresh session, gRPC, PASETO | JWT + PostgreSQL session | gRPC/PASETO chưa triển khai |
 | 5: Worker | Redis/Asynq, email verification | Chưa triển khai | Chưa có provider/use case xác định |
-| 6: Reliability | Test, security, lifecycle | Bcrypt, JWT expiry, DB unique, CI | Theo luồng đã dùng |
+| 6: Reliability | Test, security, lifecycle | Bcrypt, JWT expiry, DB unique, CI | Đã có một phần: CORS, HTTP logging, HTTP shutdown |
 
 ## Canonical request flow
 
 ```text
-main -> LoadConfig -> pgxpool -> NewStore -> NewServer -> Gin
+main -> LoadConfig -> pgxpool -> NewStore -> NewServer -> Gin (graceful HTTP stop)
   POST /users               -> RegisterTx (Party + Person + Account)
   POST /users/login         -> bcrypt -> access/refresh JWT -> CreateSession
   POST /tokens/renew_access -> VerifyToken(refresh) -> GetSession -> access JWT

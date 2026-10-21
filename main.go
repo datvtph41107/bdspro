@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/datvtph41107/bdspro/api"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
@@ -11,25 +14,33 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	config, err := util.LoadConfig(".")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	pool, err := pgxpool.New(context.Background(), config.DBSource)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := pgxpool.New(ctx, config.DBSource)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer pool.Close()
-	if err := pool.Ping(context.Background()); err != nil {
-		log.Fatal(err)
+	if err := pool.Ping(ctx); err != nil {
+		return err
 	}
 
 	store := db.NewStore(pool)
 	server, err := api.NewServer(config, store)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	if err := server.Start(config.ServerAddress); err != nil {
-		log.Fatal(err)
-	}
+	return server.Start(ctx, config.ServerAddress)
 }

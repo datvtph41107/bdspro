@@ -1,8 +1,13 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"time"
+
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
@@ -27,7 +32,8 @@ func NewServer(config util.Config, store db.Store) (*Server, error) {
 }
 
 func (server *Server) setupRouter() {
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Recovery(), requestLogger(), corsMiddleware(server.config.AllowedOrigins))
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
@@ -43,7 +49,37 @@ func (server *Server) setupRouter() {
 
 func (server *Server) me(ctx *gin.Context) {
 	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-	ctx.JSON(200, gin.H{"account_id": payload.AccountID})
+	ctx.JSON(http.StatusOK, gin.H{"account_id": payload.AccountID})
 }
 
-func (server *Server) Start(address string) error { return server.router.Run(address) }
+func (server *Server) Start(ctx context.Context, address string) error {
+	httpServer := &http.Server{
+		Addr:              address,
+		Handler:           server.router,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	errorsCh := make(chan error, 1)
+	go func() {
+		errorsCh <- httpServer.ListenAndServe()
+	}()
+
+	select {
+	case err := <-errorsCh:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("shutdown HTTP server: %w", err)
+		}
+		err := <-errorsCh
+		if errors.Is(err, http.ErrServerClosed) {
+			slog.Info("HTTP server stopped")
+			return nil
+		}
+		return err
+	}
+}
