@@ -2,14 +2,8 @@ package source
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
-	"regexp"
-	"strings"
 	"time"
 
 	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
@@ -17,175 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var (
-	ErrInvalid     = errors.New("invalid source input")
-	ErrForbidden   = errors.New("source operation not permitted")
-	ErrNotFound    = errors.New("source not found")
-	ErrKeyConflict = errors.New("idempotency key reused with different input")
-)
-var (
-	areaRe     = regexp.MustCompile("^[0-9]{1,14}(\\.[0-9]{1,4})?$")
-	priceRe    = regexp.MustCompile("^[0-9]{1,15}(\\.[0-9]{1,4})?$")
-	currencyRe = regexp.MustCompile("^[A-Z]{3}$")
-)
-
 type Service struct{ pool *pgxpool.Pool }
 
 func NewService(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
-
-// The accountID parameter must originate from a verified session, not request JSON.
-type PriceInput struct {
-	Amount      string
-	Currency    string
-	StatementAt string
-	PriceBasis  string
-	SourceBasis string
-	Note        string
-}
-type CaptureInput struct {
-	Channel      string
-	Label        string
-	AreaM2       string
-	AreaBasis    string
-	ReceivedAt   string
-	Summary      string
-	InitialPrice *PriceInput
-}
-type CaptureResult struct {
-	ID       int64
-	Replayed bool
-}
-type PriceResult struct {
-	ID       int64
-	Replayed bool
-}
-type Source struct {
-	ID                  int64
-	OrganizationID      int64
-	RecordedByAccountID int64
-	Channel             string
-	Label               string
-	AreaM2              string
-	AreaBasis           string
-	Summary             string
-	Version             int32
-	RecordedAt          time.Time
-	ReceivedAt          *time.Time
-}
-type PriceReport struct {
-	ID                  int64
-	IntakeID            int64
-	RecordedByAccountID int64
-	Amount              string
-	Currency            string
-	PriceBasis          string
-	SourceBasis         string
-	Note                string
-	RecordedAt          time.Time
-	StatementAt         *time.Time
-}
-
-func normalizeDecimal(v string, pattern *regexp.Regexp) (string, error) {
-	v = strings.TrimSpace(v)
-	if !pattern.MatchString(v) {
-		return "", ErrInvalid
-	}
-	r := new(big.Rat)
-	if _, ok := r.SetString(v); !ok || r.Sign() <= 0 {
-		return "", ErrInvalid
-	}
-	parts := strings.SplitN(v, ".", 2)
-	whole := strings.TrimLeft(parts[0], "0")
-	if whole == "" {
-		whole = "0"
-	}
-	if len(parts) < 2 {
-		return whole, nil
-	}
-	frac := strings.TrimRight(parts[1], "0")
-	if frac == "" {
-		return whole, nil
-	}
-	return whole + "." + frac, nil
-}
-func normalizeTimestamp(value string) (string, error) {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return "", nil
-	}
-	t, err := time.Parse(time.RFC3339Nano, value)
-	if err != nil {
-		return "", ErrInvalid
-	}
-	return t.UTC().Format(time.RFC3339Nano), nil
-}
-func normalizePrice(p PriceInput) (PriceInput, error) {
-	var err error
-	p.Amount, err = normalizeDecimal(p.Amount, priceRe)
-	if err != nil {
-		return PriceInput{}, fmt.Errorf("%w: price amount", ErrInvalid)
-	}
-	p.Currency = strings.ToUpper(strings.TrimSpace(p.Currency))
-	if !currencyRe.MatchString(p.Currency) {
-		return PriceInput{}, fmt.Errorf("%w: currency", ErrInvalid)
-	}
-	p.StatementAt, err = normalizeTimestamp(p.StatementAt)
-	if err != nil {
-		return PriceInput{}, fmt.Errorf("%w: statement_at", ErrInvalid)
-	}
-	p.PriceBasis = strings.TrimSpace(p.PriceBasis)
-	p.SourceBasis = strings.TrimSpace(p.SourceBasis)
-	p.Note = strings.TrimSpace(p.Note)
-	if len(p.Note) > 4000 {
-		return PriceInput{}, fmt.Errorf("%w: price note too long", ErrInvalid)
-	}
-	return p, nil
-}
-func normalizeCapture(in CaptureInput) (CaptureInput, error) {
-	in.Channel = strings.ToLower(strings.TrimSpace(in.Channel))
-	in.Label = strings.TrimSpace(in.Label)
-	in.AreaM2 = strings.TrimSpace(in.AreaM2)
-	in.AreaBasis = strings.TrimSpace(in.AreaBasis)
-	in.Summary = strings.TrimSpace(in.Summary)
-	var stampErr error
-	in.ReceivedAt, stampErr = normalizeTimestamp(in.ReceivedAt)
-	if stampErr != nil {
-		return CaptureInput{}, fmt.Errorf("%w: received_at", ErrInvalid)
-	}
-	if in.Channel == "" || len(in.Channel) > 50 || len(in.Label) > 400 ||
-		len(in.Summary) > 4000 || len(in.AreaBasis) > 80 {
-		return CaptureInput{}, fmt.Errorf("%w: source metadata", ErrInvalid)
-	}
-	if in.AreaM2 != "" {
-		var err error
-		in.AreaM2, err = normalizeDecimal(in.AreaM2, areaRe)
-		if err != nil {
-			return CaptureInput{}, fmt.Errorf("%w: area", ErrInvalid)
-		}
-	}
-	if in.InitialPrice != nil {
-		p, err := normalizePrice(*in.InitialPrice)
-		if err != nil {
-			return CaptureInput{}, err
-		}
-		in.InitialPrice = &p
-	}
-	return in, nil
-}
-func validateKey(key string) error {
-	if len(key) == 0 || len(key) > 100 || strings.TrimSpace(key) != key {
-		return fmt.Errorf("%w: Idempotency-Key must be 1..100 bytes", ErrInvalid)
-	}
-	return nil
-}
-func hashRequest(v any) (string, error) {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return "", err
-	}
-	h := sha256.Sum256(b)
-	return hex.EncodeToString(h[:]), nil
-}
 
 func (s *Service) Capture(ctx context.Context, accountID, organizationID int64, key string, input CaptureInput) (CaptureResult, error) {
 	if accountID <= 0 || organizationID <= 0 {
@@ -194,7 +22,7 @@ func (s *Service) Capture(ctx context.Context, accountID, organizationID int64, 
 	if err := validateKey(key); err != nil {
 		return CaptureResult{}, err
 	}
-	input, err := normalizeCapture(input)
+	input, err := prepareCapture(input)
 	if err != nil {
 		return CaptureResult{}, err
 	}
@@ -268,7 +96,7 @@ func (s *Service) ReportPrice(ctx context.Context, accountID, organizationID, in
 	if err := validateKey(key); err != nil {
 		return PriceResult{}, err
 	}
-	input, err := normalizePrice(input)
+	input, err := preparePrice(input)
 	if err != nil {
 		return PriceResult{}, err
 	}
