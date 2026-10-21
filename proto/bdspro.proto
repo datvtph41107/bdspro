@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package pb;
+option go_package = "github.com/datvtph41107/bdspro/pb";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+service BDSPro {
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (google.api.http) = { post: "/v1/users" body: "*" };
+  }
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = { post: "/v1/users/login" body: "*" };
+  }
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse) {
+    option (google.api.http) = { get: "/v1/users/verify_email" };
+  }
+}
+
+message Account {
+  int64 account_id = 1;
+  string email = 2;
+  google.protobuf.Timestamp created_at = 3;
+  bool is_email_verified = 4;
+}
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message RegisterResponse { Account account = 1; }
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string session_id = 1;
+  string access_token = 2;
+  google.protobuf.Timestamp access_token_expires_at = 3;
+  string refresh_token = 4;
+  google.protobuf.Timestamp refresh_token_expires_at = 5;
+  Account account = 6;
+}
+
+message VerifyEmailRequest {
+  int64 email_id = 1;
+  string secret_code = 2;
+}
+
+message VerifyEmailResponse { bool verified = 1; }

@@ -1,0 +1,49 @@
+name: Generate protobuf and Swagger
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "proto/**"
+      - ".github/workflows/proto.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Install generators
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+          go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.27.3
+          go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.27.3
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Generate
+        run: |
+          mkdir -p pb doc/swagger
+          protoc -I proto \
+            --go_out=. --go_opt=module=github.com/datvtph41107/bdspro \
+            --go-grpc_out=. --go-grpc_opt=module=github.com/datvtph41107/bdspro \
+            --grpc-gateway_out=. --grpc-gateway_opt=module=github.com/datvtph41107/bdspro \
+            --openapiv2_out=doc/swagger \
+            proto/bdspro.proto
+      - name: Commit generated source
+        run: |
+          git add pb doc/swagger
+          if ! git diff --cached --quiet; then
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore(proto): generate gRPC Gateway and Swagger source"
+            git push origin HEAD:dev
+          fi
