@@ -66,7 +66,7 @@ còn sống trong DB.
 # Đảm bảo PATH có Go bin: export PATH="$(go env GOPATH)/bin:$PATH"
 go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
-go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.27.8
+go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.31.0
 
 buf lint
 buf build
@@ -75,7 +75,7 @@ git diff --exit-code -- pb docs/grpc-swagger
 go test ./...
 ```
 
-CI kiểm tra source generated code và schema, vẫn chạy các migrations,
+CI dùng prebuilt protoc-gen-openapiv2 v2.31.0 với SHA-256 pinned và kiểm tra source generated code và schema, vẫn chạy các migrations,
 SQLC, Go tests, race, Gin/Compose smoke. Nếu CI không PASS thì chưa merge.
 
 **Vendor provenance:** Các file `proto/google/api/*` (Google APIs,
