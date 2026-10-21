@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type createOrganizationRequest struct {
@@ -100,4 +101,41 @@ func (server *Server) addOrganizationMember(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusCreated, member)
+}
+
+type updateOrganizationRequest struct {
+	Name *string `json:"name"`
+}
+
+func (server *Server) updateOrganization(ctx *gin.Context) {
+	organizationID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil || organizationID <= 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization"})
+		return
+	}
+	var req updateOrganizationRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil || req.Name == nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+		return
+	}
+	name := strings.TrimSpace(*req.Name)
+	if name == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+		return
+	}
+	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+	organization, err := server.store.UpdateOrganization(ctx, db.UpdateOrganizationParams{
+		OrganizationID: organizationID,
+		ActorAccountID: payload.AccountID,
+		Name: pgtype.Text{String: name, Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "organization owner required"})
+		return
+	}
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "update organization failed"})
+		return
+	}
+	ctx.JSON(http.StatusOK, organization)
 }

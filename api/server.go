@@ -50,6 +50,7 @@ func (server *Server) setupRouter() {
 	authorized.POST("/organizations", server.createOrganization)
 	authorized.GET("/organizations", server.listOrganizations)
 	authorized.POST("/organizations/:id/members", server.addOrganizationMember)
+	authorized.PATCH("/organizations/:id", server.updateOrganization)
 	server.router = router
 }
 

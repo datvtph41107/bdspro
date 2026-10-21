@@ -57,6 +57,7 @@ make fmt
 | POST | `/organizations` | Tạo Organization và owner trong transaction |
 | GET | `/organizations` | Các Organization mà Person đang tham gia |
 | POST | `/organizations/:id/members` | Owner thêm Person làm member, kiểm tra quyền tại SQL |
+| PATCH | `/organizations/:id` | Owner cập nhật tên Organization, kiểm tra quyền trực tiếp trong UPDATE SQL |
 
 JWT `Payload` chứa UUID, AccountID, TokenType, IssuedAt, ExpiredAt. Chuyển từ `jwt.RegisteredClaims` sang getter thủ công theo phong cách SimpleBank có thể làm token trước đó không tương thích: đăng nhập lại để nhận token mới.
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,4 +47,46 @@ func TestOrganizationMembershipAndAuthorization(t *testing.T) {
 	memberOrganizations, err := store.ListOrganizationsForPerson(ctx, member.PersonID)
 	require.NoError(t, err)
 	require.Len(t, memberOrganizations, 1)
+}
+
+func TestUpdateOrganizationOwnerOnly(t *testing.T) {
+	pool := openTestDB(t)
+	ctx := context.Background()
+	store := NewStore(pool)
+	owner, err := store.RegisterTx(ctx, RegisterTxParams{
+		Email: uuid.NewString() + "@example.test", PasswordHash: "hash",
+	})
+	require.NoError(t, err)
+	member, err := store.RegisterTx(ctx, RegisterTxParams{
+		Email: uuid.NewString() + "@example.test", PasswordHash: "hash",
+	})
+	require.NoError(t, err)
+	organization, err := store.CreateOrganizationTx(ctx, CreateOrganizationTxParams{
+		Name: "Original Organization", OwnerPersonID: owner.PersonID,
+	})
+	require.NoError(t, err)
+	_, err = store.AddOrganizationMember(ctx, AddOrganizationMemberParams{
+		OrganizationID: organization.PartyID, PersonID: member.PersonID, ActorAccountID: owner.ID,
+	})
+	require.NoError(t, err)
+
+	_, err = store.UpdateOrganization(ctx, UpdateOrganizationParams{
+		OrganizationID: organization.PartyID, ActorAccountID: member.ID,
+		Name: pgtype.Text{String: "Illegal Rename", Valid: true},
+	})
+	require.ErrorIs(t, err, pgx.ErrNoRows)
+
+	updated, err := store.UpdateOrganization(ctx, UpdateOrganizationParams{
+		OrganizationID: organization.PartyID, ActorAccountID: owner.ID,
+		Name: pgtype.Text{String: "Renamed Organization", Valid: true},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Renamed Organization", updated.Name)
+
+	unchanged, err := store.UpdateOrganization(ctx, UpdateOrganizationParams{
+		OrganizationID: organization.PartyID, ActorAccountID: owner.ID,
+		Name: pgtype.Text{Valid: false},
+	})
+	require.NoError(t, err)
+	require.Equal(t, updated.Name, unchanged.Name)
 }
