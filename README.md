@@ -52,6 +52,9 @@ make mock
 | POST | `/tokens/revoke` | Thu hồi refresh session, chặn renew tiếp theo |
 | GET | `/health` | HTTP liveness, không kiểm tra database |
 | GET | `/users/me` | Bearer access-token; trả account ID |
+| POST | `/organizations` | Tạo Organization và owner trong transaction |
+| GET | `/organizations` | Các Organization mà Person đang tham gia |
+| POST | `/organizations/:id/members` | Owner thêm Person làm member, kiểm tra quyền tại SQL |
 
 JWT `Payload` chứa UUID, AccountID, TokenType, IssuedAt, ExpiredAt. Chuyển từ `jwt.RegisteredClaims` sang getter thủ công theo phong cách SimpleBank có thể làm token trước đó không tương thích: đăng nhập lại để nhận token mới.
 
@@ -66,6 +69,10 @@ Gin sử dụng logger theo `log/slog` và CORS chỉ cho nguồn trong `ALLOWED
 ## Email verification (Redis/Asynq)
 
 Đăng ký gọi `RegisterTx` và enqueue `task:send_verify_email` trong callback transaction. Worker đọc account, tạo mã dùng một lần và gửi qua Gmail SMTP. URL xác minh: `/users/verify_email?email_id=...&secret_code=...`. Cần Redis hoạt động và cấu hình `EMAIL_SENDER_*` hợp lệ để thực sự gửi email. Compose chạy kèm Redis; nếu chưa cung cấp Gmail App Password, tác vụ sẽ retry và email sẽ không được gửi. Migration `000002` bổ sung `accounts.is_email_verified` và `verify_emails`, không chỉnh migration gốc. Local đang ở migration v1 cần chạy `make migrateup` một lần trước khi chạy server phiên bản mới.
+
+## Organization và phân quyền
+
+Migration `000003` tạo `organizations` và `organization_memberships`. Party không có `kind` hay trigger. Transaction `CreateOrganizationTx` tạo Party, Organization và owner membership. Owner mới được thêm member bằng câu lệnh SQL `INSERT ... SELECT ... WHERE EXISTS`. Partial unique index ngăn hai membership đang hoạt động cho một cặp Organization/Person. Sau khi đồng bộ code, local cần chạy `make migrateup` một lần để áp dụng migration mới; không sửa hay chạy lại migration cũ.
 
 ## CI
 

@@ -47,6 +47,9 @@ func (server *Server) setupRouter() {
 
 	authorized := router.Group("/").Use(authMiddleware(server.tokenMaker))
 	authorized.GET("/users/me", server.me)
+	authorized.POST("/organizations", server.createOrganization)
+	authorized.GET("/organizations", server.listOrganizations)
+	authorized.POST("/organizations/:id/members", server.addOrganizationMember)
 	server.router = router
 }
 
