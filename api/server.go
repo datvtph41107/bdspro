@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
+	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
 	"github.com/gin-gonic/gin"
@@ -53,7 +54,7 @@ type Server struct {
 	allowedOrigin  string
 	logger         *slog.Logger
 	authLimiter    *authLimiter
-	accessTokens   *auth.AccessTokens
+	jwtMaker   *token.JWTMaker
 	draining       atomic.Bool
 	router         *gin.Engine
 }
@@ -88,7 +89,7 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.POST("/auth/phone/login/verify", server.limitAuthClient("phone-login-verify", ratePolicy{burst: 20, window: 15 * time.Minute}), server.loginPhoneVerify)
 	router.POST("/auth/phone/register/start", server.limitAuthClient("phone-register-start", ratePolicy{burst: 6, window: 15 * time.Minute}), server.registerPhoneStart)
 	router.POST("/auth/phone/register/verify", server.limitAuthClient("phone-register-verify", ratePolicy{burst: 20, window: 15 * time.Minute}), server.registerPhoneVerify)
-	router.POST("/auth/token/renew", server.limitAuthClient("renew", ratePolicy{burst: 30, window: time.Minute}), server.renewAccessToken)
+	router.POST("/auth/token/renew", server.limitAuthClient("renew", ratePolicy{burst: 30, window: time.Minute}), server.renewJWT)
 	router.GET("/auth/me", server.requireSession, server.me)
 	router.GET("/auth/workspaces", server.requireSession, server.listMyWorkspaces)
 	router.POST("/auth/logout", server.logout)
@@ -225,8 +226,8 @@ func (server *Server) Handler() http.Handler {
 	return server.router
 }
 
-// EnableAccessTokens configures signed, short-lived JWT access tokens.
+// SetJWTMaker installs the session-bound JWT signer for HTTP authentication.
 // It is called during startup, before the router serves requests.
-func (server *Server) EnableAccessTokens(issuer *auth.AccessTokens) {
-	server.accessTokens = issuer
+func (server *Server) SetJWTMaker(maker *token.JWTMaker) {
+	server.jwtMaker = maker
 }
