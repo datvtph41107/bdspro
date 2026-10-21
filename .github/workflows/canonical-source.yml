@@ -8,6 +8,8 @@ on:
       - "db/query/**"
       - "db/migration/**"
       - "db/sqlc/store.go"
+      - "api/organization.go"
+      - "api/organization_test.go"
 
 permissions:
   contents: write
