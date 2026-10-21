@@ -12,6 +12,39 @@ import (
 	"github.com/google/uuid"
 )
 
+const blockSession = `-- name: BlockSession :one
+UPDATE sessions
+SET is_blocked = TRUE
+WHERE id = $1
+  AND account_id = $2
+  AND refresh_token = $3
+  AND is_blocked = FALSE
+  AND expires_at > now()
+RETURNING id, account_id, refresh_token, user_agent, client_ip, is_blocked, created_at, expires_at
+`
+
+type BlockSessionParams struct {
+	ID           uuid.UUID `json:"id"`
+	AccountID    int64     `json:"account_id"`
+	RefreshToken string    `json:"refresh_token"`
+}
+
+func (q *Queries) BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error) {
+	row := q.db.QueryRow(ctx, blockSession, arg.ID, arg.AccountID, arg.RefreshToken)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.RefreshToken,
+		&i.UserAgent,
+		&i.ClientIp,
+		&i.IsBlocked,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (id, account_id, refresh_token, user_agent, client_ip, is_blocked, expires_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7)

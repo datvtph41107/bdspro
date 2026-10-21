@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreatePerson(ctx context.Context, partyID int64) error
 	CreatePersonParty(ctx context.Context) (int64, error)

@@ -28,7 +28,7 @@ func TestRenewAccessTokenAPI(t *testing.T) {
 			store.EXPECT().GetSession(gomock.Any(), payload.ID).Return(db.Session{
 				ID: payload.ID, AccountID: 23, RefreshToken: raw, IsBlocked: blocked, ExpiresAt: time.Now().Add(time.Hour),
 			}, nil)
-			body, _ := json.Marshal(renewAccessTokenRequest{RefreshToken: raw})
+			body, _ := json.Marshal(refreshTokenRequest{RefreshToken: raw})
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "/tokens/renew_access", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -50,7 +50,7 @@ func TestRenewRejectsAccessToken(t *testing.T) {
 	server := newTestServer(t, nil)
 	raw, _, err := server.tokenMaker.CreateToken(23, time.Hour, token.TokenTypeAccess)
 	require.NoError(t, err)
-	body, _ := json.Marshal(renewAccessTokenRequest{RefreshToken: raw})
+	body, _ := json.Marshal(refreshTokenRequest{RefreshToken: raw})
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/tokens/renew_access", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -91,7 +91,7 @@ func TestRenewSessionFailures(t *testing.T) {
 			} else {
 				store.EXPECT().GetSession(gomock.Any(), payload.ID).Return(session, nil)
 			}
-			body, _ := json.Marshal(renewAccessTokenRequest{RefreshToken: raw})
+			body, _ := json.Marshal(refreshTokenRequest{RefreshToken: raw})
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "/tokens/renew_access", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")

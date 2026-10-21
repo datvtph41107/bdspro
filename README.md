@@ -46,9 +46,15 @@ make mock
 | POST | `/users` | Đăng ký Account + Party/Person trong transaction |
 | POST | `/users/login` | Xác minh bcrypt, cấp access/refresh JWT, tạo Session |
 | POST | `/tokens/renew_access` | Kiểm tra refresh JWT + Session, cấp access JWT |
+| POST | `/tokens/revoke` | Thu hồi refresh session, chặn renew tiếp theo |
+| GET | `/health` | HTTP liveness, không kiểm tra database |
 | GET | `/users/me` | Bearer access-token; trả account ID |
 
 JWT `Payload` chứa UUID, AccountID, TokenType, IssuedAt, ExpiredAt. Chuyển từ `jwt.RegisteredClaims` sang getter thủ công theo phong cách SimpleBank có thể làm token trước đó không tương thích: đăng nhập lại để nhận token mới.
+
+Access JWT đã phát vẫn có hiệu lực đến khi hết hạn; revoke chỉ chặn refresh token. Không thêm migration, dùng `sessions.is_blocked` có sẵn.
+
+Xem đối chiếu lecture và quy tắc tổ chức: [docs/LECTURE-MATRIX.md](docs/LECTURE-MATRIX.md).
 
 ## CI
 

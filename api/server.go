@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
@@ -27,9 +28,13 @@ func NewServer(config util.Config, store db.Store) (*Server, error) {
 
 func (server *Server) setupRouter() {
 	router := gin.Default()
+	router.GET("/health", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
 	router.POST("/users", server.createUser)
 	router.POST("/users/login", server.loginUser)
 	router.POST("/tokens/renew_access", server.renewAccessToken)
+	router.POST("/tokens/revoke", server.revokeRefreshToken)
 
 	authorized := router.Group("/").Use(authMiddleware(server.tokenMaker))
 	authorized.GET("/users/me", server.me)
