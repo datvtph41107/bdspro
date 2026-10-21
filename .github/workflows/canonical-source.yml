@@ -18,6 +18,7 @@ on:
       - "worker/**"
       - "go.mod"
       - "Dockerfile"
+      - "Makefile"
 
 permissions:
   contents: write
@@ -43,7 +44,7 @@ jobs:
           find . -type f -name '*.go' -not -path './.git/*' -print0 | xargs -0 gofmt -w
       - name: Commit reproducible code
         run: |
-          git add db/sqlc db/mock
+          git add db/sqlc db/mock worker/mock
           git add -u
           if ! git diff --cached --quiet; then
             git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "style(go): regenerate sqlc, mocks and apply gofmt"

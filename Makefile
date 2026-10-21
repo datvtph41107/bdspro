@@ -43,6 +43,7 @@ sqlc:
 
 mock:
 	mockgen -package mockdb -destination db/mock/store.go github.com/datvtph41107/bdspro/db/sqlc Store
+	mockgen -package mockwk -destination worker/mock/distributor.go github.com/datvtph41107/bdspro/worker TaskDistributor
 
 test:
 	go test -v -cover ./...
