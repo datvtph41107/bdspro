@@ -5,6 +5,9 @@ on:
     branches: [dev]
     paths:
       - ".github/workflows/canonical-source.yml"
+      - "db/query/**"
+      - "db/migration/**"
+      - "db/sqlc/store.go"
 
 permissions:
   contents: write

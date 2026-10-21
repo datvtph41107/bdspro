@@ -17,13 +17,13 @@ ORDER BY o.party_id;
 
 -- name: AddOrganizationMember :one
 INSERT INTO organization_memberships (organization_id, person_id, role)
-SELECT $1, $2, 'member'
+SELECT sqlc.arg(organization_id), sqlc.arg(person_id), 'member'
 WHERE EXISTS (
   SELECT 1
   FROM organization_memberships owner
   JOIN accounts a ON a.person_id = owner.person_id
-  WHERE owner.organization_id = $1
-    AND a.id = $3
+  WHERE owner.organization_id = sqlc.arg(organization_id)
+    AND a.id = sqlc.arg(actor_account_id)
     AND owner.role = 'owner'
     AND owner.ended_at IS NULL
 )
