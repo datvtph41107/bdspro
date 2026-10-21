@@ -39,8 +39,9 @@ migratedown1: migratedown
 sqlc:
 	sqlc generate
 
-# Buf validates and generates protobuf message types into pb/.
-# Tools: buf CLI + protoc-gen-go v1.36.10; never edit generated pb files.
+# Buf generates versioned messages, gRPC stubs and RPC-only Swagger v2.
+# Tools: buf + pinned protoc-gen-go, protoc-gen-go-grpc, protoc-gen-openapiv2.
+# Never edit generated pb files or docs/grpc-swagger outputs.
 proto:
 	buf lint
 	buf build

@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package bdspro.v1;
+
+option go_package = "github.com/datvtph41107/bdspro/pb/bdspro/v1;bdspb";
+
+import "bdspro/v1/rpc_get_current_account.proto";
+import "bdspro/v1/rpc_list_workspaces.proto";
+import "google/api/annotations.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+// Swagger v2 applies only to the prospective gRPC-Gateway endpoints below.
+// The existing Gin OpenAPI 3.1 document at api/openapi.json stays authoritative
+// for the currently running REST server.
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "BDSPro gRPC-Gateway API";
+    version: "0.1.0";
+    description: "RPC contract. These HTTP mappings are not live until gapi and Gateway are implemented.";
+  };
+};
+
+// The gRPC transport adapter must resolve Account identity from the signed
+// Bearer JWT plus active PostgreSQL Session, and current Workspace access from
+// the shared Organization service. None of those rules live in generated pb.
+service AccountService {
+  rpc GetCurrentAccount(GetCurrentAccountRequest) returns (GetCurrentAccountResponse) {
+    option (google.api.http) = { get: "/v1/accounts/me" };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Get the authenticated Account";
+      description: "Requires a valid session-bound JWT. No caller-supplied Account identifier.";
+    };
+  }
+
+  rpc ListWorkspaces(ListWorkspacesRequest) returns (ListWorkspacesResponse) {
+    option (google.api.http) = { get: "/v1/accounts/me/workspaces" };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "List current Account workspaces";
+      description: "Read memberships from PostgreSQL; role and tenant permissions are not JWT claims.";
+    };
+  }
+}

@@ -5,11 +5,14 @@ go 1.27.1
 require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.8
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/crypto v0.58.0
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57
+	google.golang.org/grpc v1.78.0
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
@@ -53,4 +56,5 @@ require (
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260209200024-4cfbd4190f57 // indirect
 )

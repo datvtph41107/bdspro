@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package bdspro.v1;
+
+option go_package = "github.com/datvtph41107/bdspro/pb/bdspro/v1;bdspb";
+
+import "google/protobuf/timestamp.proto";
+
+// Workspace is a live membership read projection, not a persisted role grant.
+message Workspace {
+  int64 organization_id = 1;
+  string organization_name = 2;
+  int64 membership_id = 3;
+  google.protobuf.Timestamp joined_at = 4;
+}

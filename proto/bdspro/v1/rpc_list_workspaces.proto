@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package bdspro.v1;
+
+option go_package = "github.com/datvtph41107/bdspro/pb/bdspro/v1;bdspb";
+
+import "bdspro/v1/workspace.proto";
+
+// No caller-owned account_id, org_id, or role assertion.
+message ListWorkspacesRequest {}
+
+message ListWorkspacesResponse {
+  repeated Workspace workspaces = 1;
+}
