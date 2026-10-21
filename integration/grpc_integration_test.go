@@ -58,7 +58,7 @@ VALUES($1,'test-reviewed')`, reviewer); err != nil {
 	lis := bufconn.Listen(1024 * 1024)
 	t.Cleanup(func() { server.Stop(); lis.Close() })
 	go func() { _ = server.Serve(lis) }()
-	conn, err := grpc.NewClient("bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+	conn, err := grpc.NewClient("passthrough:///bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return lis.Dial()
 	}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
