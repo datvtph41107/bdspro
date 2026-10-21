@@ -20,12 +20,12 @@ const swaggerUIHTML = `<!doctype html>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <title>BDSPro — Local API Reference</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css">
   <style>html,body{margin:0;background:#fafafa} .topbar{display:none}</style>
 </head>
 <body>
   <div id="swagger-ui"></div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-bundle.min.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
   <script>
     window.addEventListener('load', function () {
       window.ui = SwaggerUIBundle({
@@ -47,9 +47,9 @@ const swaggerUIHTML = `<!doctype html>
 </html>`
 
 const docsCSP = "default-src 'none'; connect-src 'self'; " +
-	"script-src 'unsafe-inline' https://cdnjs.cloudflare.com; " +
-	"style-src 'unsafe-inline' https://cdnjs.cloudflare.com; " +
-	"img-src 'self' data:; font-src 'self' data: https://cdnjs.cloudflare.com; " +
+	"script-src 'unsafe-inline' https://unpkg.com; " +
+	"style-src 'unsafe-inline' https://unpkg.com; " +
+	"img-src 'self' data:; font-src 'self' data: https://unpkg.com; " +
 	"frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 
 // Documentation is opt-in by ENVIRONMENT=development. It is deliberately not
