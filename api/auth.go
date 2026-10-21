@@ -82,11 +82,11 @@ func (server *Server) currentAccount(ctx *gin.Context) (int64, bool) {
 	// invalid. This avoids credential confusion and token downgrade.
 	if header := ctx.GetHeader("Authorization"); header != "" {
 		parts := strings.Fields(header)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || server.accessTokens == nil {
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || server.jwtMaker == nil {
 			writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
 			return 0, false
 		}
-		subject, sessionHash, err := server.accessTokens.Verify(parts[1])
+		subject, sessionHash, err := server.jwtMaker.Verify(parts[1])
 		if err != nil {
 			writeAPIError(ctx, http.StatusUnauthorized, "unauthorized")
 			return 0, false
@@ -214,17 +214,17 @@ func (server *Server) login(ctx *gin.Context) {
 // the same cookie, JWT and cleanup contract.
 func (server *Server) respondLoginSession(ctx *gin.Context, result auth.LoginResult) {
 	response := gin.H{"account_id": result.AccountID}
-	if server.accessTokens != nil {
-		accessToken, accessExpiry, tokenErr := server.accessTokens.Issue(result.AccountID, result.Token)
+	if server.jwtMaker != nil {
+		jwtToken, jwtExpiry, tokenErr := server.jwtMaker.Issue(result.AccountID, result.Token)
 		if tokenErr != nil {
 			// A committed DB session must not survive failed JWT issuance.
 			_ = server.authentication.Logout(ctx.Request.Context(), result.Token)
 			writeAPIError(ctx, http.StatusServiceUnavailable, "login unavailable")
 			return
 		}
-		response["access_token"] = accessToken
+		response["access_token"] = jwtToken
 		response["token_type"] = "Bearer"
-		response["access_token_expires_at"] = accessExpiry
+		response["access_token_expires_at"] = jwtExpiry
 	}
 	server.cookie(ctx, result.Token, int(time.Until(result.ExpiresAt).Seconds()))
 	replyJSON(ctx, http.StatusOK, response)
@@ -316,10 +316,10 @@ func (server *Server) logoutAll(ctx *gin.Context) {
 	}
 }
 
-// renewAccessToken requires the opaque session cookie, NOT an old access JWT.
+// renewJWT requires an authenticated opaque session cookie, not an old Bearer JWT.
 // It does not extend the 24-hour absolute session expiry.
-func (server *Server) renewAccessToken(ctx *gin.Context) {
-	if server.accessTokens == nil || server.authentication == nil {
+func (server *Server) renewJWT(ctx *gin.Context) {
+	if server.jwtMaker == nil || server.authentication == nil {
 		writeAPIError(ctx, http.StatusServiceUnavailable, "token renewal unavailable")
 		return
 	}
@@ -337,7 +337,7 @@ func (server *Server) renewAccessToken(ctx *gin.Context) {
 		writeAPIError(ctx, http.StatusServiceUnavailable, "authentication unavailable")
 		return
 	}
-	jwtToken, expiry, err := server.accessTokens.Issue(accountID, cookie.Value)
+	jwtToken, expiry, err := server.jwtMaker.Issue(accountID, cookie.Value)
 	if err != nil {
 		writeAPIError(ctx, http.StatusServiceUnavailable, "token renewal unavailable")
 		return

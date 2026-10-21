@@ -11,7 +11,7 @@ import (
 
 func TestLoadConfig(t *testing.T) {
 	path := t.TempDir()
-	contents := "ENVIRONMENT=development\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://file-host/bdspro\nSERVER_ADDRESS=127.0.0.1:8080\nALLOWED_ORIGIN=\n"
+	contents := "ENVIRONMENT=development\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://file-host/bdspro\nSERVER_ADDRESS=127.0.0.1:8080\nALLOWED_ORIGIN=\nTOKEN_SYMMETRIC_KEY=development-jwt-key-at-least-thirty-two-bytes\n"
 	require.NoError(t, os.WriteFile(filepath.Join(path, "app.env"), []byte(contents), 0600))
 
 	config, err := LoadConfig(path)
@@ -20,15 +20,18 @@ func TestLoadConfig(t *testing.T) {
 	require.Equal(t, "postgres", config.DBDriver)
 	require.Equal(t, "postgresql://file-host/bdspro", config.DBSource)
 	require.Equal(t, "127.0.0.1:8080", config.ServerAddress)
+	require.Equal(t, "development-jwt-key-at-least-thirty-two-bytes", config.TokenSymmetricKey)
 
 	t.Setenv("DB_SOURCE", "postgresql://override-host/bdspro")
 	t.Setenv("SERVER_ADDRESS", "127.0.0.1:9090")
 	t.Setenv("ALLOWED_ORIGIN", "https://example.test")
+	t.Setenv("TOKEN_SYMMETRIC_KEY", "override-jwt-key-at-least-thirty-two-bytes")
 	override, err := LoadConfig(path)
 	require.NoError(t, err)
 	require.Equal(t, "postgresql://override-host/bdspro", override.DBSource)
 	require.Equal(t, "127.0.0.1:9090", override.ServerAddress)
 	require.Equal(t, "https://example.test", override.AllowedOrigin)
+	require.Equal(t, "override-jwt-key-at-least-thirty-two-bytes", override.TokenSymmetricKey)
 }
 
 func TestLoadConfigMissingFile(t *testing.T) {
@@ -55,7 +58,7 @@ func TestLoadConfigValidation(t *testing.T) {
 			contents := "ENVIRONMENT=development\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://example.test/bdspro\nSERVER_ADDRESS=127.0.0.1:8080\n"
 			contents += tc.config + "\n"
 			if strings.Contains(tc.config, "ENVIRONMENT=production") {
-				contents += "ACCESS_TOKEN_KEY=production-fixture-secret-key-more-than-32-bytes\n"
+				contents += "TOKEN_SYMMETRIC_KEY=production-fixture-secret-key-more-than-32-bytes\n"
 			}
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "app.env"), []byte(contents), 0600))
 			_, err := LoadConfig(dir)
@@ -66,7 +69,7 @@ func TestLoadConfigValidation(t *testing.T) {
 
 func TestLoadProductionConfig(t *testing.T) {
 	path := t.TempDir()
-	contents := "ENVIRONMENT=production\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://host.example.test/bdspro\nSERVER_ADDRESS=0.0.0.0:8080\nSMTP_ADDR=smtp.example.test:587\nSMTP_FROM=sender@example.test\nVERIFICATION_URL=https://example.test/verify\nALLOWED_ORIGIN=https://app.example.test\nACCESS_TOKEN_KEY=production-fixture-secret-key-more-than-32-bytes\n"
+	contents := "ENVIRONMENT=production\nDB_DRIVER=postgres\nDB_SOURCE=postgresql://host.example.test/bdspro\nSERVER_ADDRESS=0.0.0.0:8080\nSMTP_ADDR=smtp.example.test:587\nSMTP_FROM=sender@example.test\nVERIFICATION_URL=https://example.test/verify\nALLOWED_ORIGIN=https://app.example.test\nTOKEN_SYMMETRIC_KEY=production-fixture-secret-key-more-than-32-bytes\n"
 	require.NoError(t, os.WriteFile(filepath.Join(path, "app.env"), []byte(contents), 0600))
 
 	config, err := LoadConfig(path)

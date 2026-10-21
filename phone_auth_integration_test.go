@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/auth"
+	"github.com/datvtph41107/bdspro/token"
 )
 
 type fakePhoneSMS struct {
@@ -163,7 +164,7 @@ func TestJWTAccessTracksActualSessionRevocation(t *testing.T) {
 	ctx := context.Background()
 	a := auth.New(db, nil)
 	id, opaque := coreUser(t, a, "jwtowner@example.test")
-	issuer, err := auth.NewAccessTokens(strings.Repeat("J", 32))
+	issuer, err := token.NewJWTMaker(strings.Repeat("J", 32))
 	if err != nil {
 		t.Fatal(err)
 	}

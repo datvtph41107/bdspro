@@ -1,4 +1,4 @@
-package auth
+package token
 
 import (
 	"crypto/rand"
@@ -13,49 +13,49 @@ import (
 )
 
 const (
-	accessIssuer   = "bdspro-auth"
-	accessAudience = "bdspro-api"
-	accessTTL      = 15 * time.Minute
+	jwtIssuer   = "bdspro-auth"
+	jwtAudience = "bdspro-api"
+	jwtTTL      = 15 * time.Minute
 )
 
-var ErrAccessToken = errors.New("invalid access token")
+var ErrInvalidToken = errors.New("invalid JWT")
 
-// AccessTokens signs short-lived JWTs, each bound to an actual PostgreSQL
+// JWTMaker signs short-lived JWTs, each bound to an actual PostgreSQL
 // opaque session. The signature alone does NOT grant tenant authorization.
-type AccessTokens struct {
+type JWTMaker struct {
 	key []byte
 }
 
-type accessClaims struct {
+type jwtClaims struct {
 	TokenType   string `json:"token_type"`
 	SessionHash string `json:"sid"`
 	jwt.RegisteredClaims
 }
 
-func NewAccessTokens(secret string) (*AccessTokens, error) {
+func NewJWTMaker(secret string) (*JWTMaker, error) {
 	if len(secret) < 32 {
-		return nil, fmt.Errorf("ACCESS_TOKEN_KEY must contain at least 32 bytes")
+		return nil, fmt.Errorf("TOKEN_SYMMETRIC_KEY must contain at least 32 bytes")
 	}
-	return &AccessTokens{key: []byte(secret)}, nil
+	return &JWTMaker{key: []byte(secret)}, nil
 }
 
-func (s *AccessTokens) Issue(accountID int64, sessionToken string) (string, time.Time, error) {
+func (s *JWTMaker) Issue(accountID int64, sessionToken string) (string, time.Time, error) {
 	if accountID <= 0 || sessionToken == "" {
-		return "", time.Time{}, ErrAccessToken
+		return "", time.Time{}, ErrInvalidToken
 	}
 	nonce := make([]byte, 16)
 	if _, err := rand.Read(nonce); err != nil {
 		return "", time.Time{}, err
 	}
 	now := time.Now().UTC()
-	expiry := now.Add(accessTTL)
+	expiry := now.Add(jwtTTL)
 	sum := sha256.Sum256([]byte(sessionToken))
-	claims := accessClaims{
+	claims := jwtClaims{
 		TokenType:   "access",
 		SessionHash: hex.EncodeToString(sum[:]),
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    accessIssuer,
-			Audience:  jwt.ClaimStrings{accessAudience},
+			Issuer:    jwtIssuer,
+			Audience:  jwt.ClaimStrings{jwtAudience},
 			Subject:   strconv.FormatInt(accountID, 10),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
@@ -70,28 +70,28 @@ func (s *AccessTokens) Issue(accountID int64, sessionToken string) (string, time
 	return t, expiry, nil
 }
 
-func (s *AccessTokens) Verify(raw string) (int64, string, error) {
+func (s *JWTMaker) Verify(raw string) (int64, string, error) {
 	if len(raw) > 4096 || raw == "" {
-		return 0, "", ErrAccessToken
+		return 0, "", ErrInvalidToken
 	}
-	var claims accessClaims
+	var claims jwtClaims
 	t, err := jwt.ParseWithClaims(raw, &claims, func(*jwt.Token) (any, error) {
 		return s.key, nil
 	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
-		jwt.WithIssuer(accessIssuer), jwt.WithAudience(accessAudience),
+		jwt.WithIssuer(jwtIssuer), jwt.WithAudience(jwtAudience),
 		jwt.WithExpirationRequired(), jwt.WithIssuedAt(), jwt.WithNotBeforeRequired())
 	if err != nil || t == nil || !t.Valid ||
 		claims.TokenType != "access" || len(claims.SessionHash) != 64 ||
 		claims.ID == "" || claims.IssuedAt == nil || claims.ExpiresAt == nil ||
-		claims.ExpiresAt.Time.Sub(claims.IssuedAt.Time) > accessTTL+time.Second {
-		return 0, "", ErrAccessToken
+		claims.ExpiresAt.Time.Sub(claims.IssuedAt.Time) > jwtTTL+time.Second {
+		return 0, "", ErrInvalidToken
 	}
 	accountID, err := strconv.ParseInt(claims.Subject, 10, 64)
 	if err != nil || accountID <= 0 {
-		return 0, "", ErrAccessToken
+		return 0, "", ErrInvalidToken
 	}
 	if _, err := hex.DecodeString(claims.SessionHash); err != nil {
-		return 0, "", ErrAccessToken
+		return 0, "", ErrInvalidToken
 	}
 	return accountID, claims.SessionHash, nil
 }

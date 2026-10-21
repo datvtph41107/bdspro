@@ -13,6 +13,7 @@ import (
 
 	"github.com/datvtph41107/bdspro/api"
 	"github.com/datvtph41107/bdspro/auth"
+	"github.com/datvtph41107/bdspro/token"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -186,12 +187,12 @@ func TestBearerLogoutAndLogoutAllRevokeRealPostgresSessions(t *testing.T) {
 	db := coreDB(t)
 	service, accountID, firstToken := registerSessionAccount(t, db)
 	ctx := context.Background()
-	issuer, err := auth.NewAccessTokens(strings.Repeat("J", 32))
+	issuer, err := token.NewJWTMaker(strings.Repeat("J", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
 	server := api.NewServer(db, service, nil, nil, true, "")
-	server.EnableAccessTokens(issuer)
+	server.EnableJWTMaker(issuer)
 
 	firstJWT, _, err := issuer.Issue(accountID, firstToken)
 	if err != nil {

@@ -17,6 +17,7 @@ import (
 	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
+	"github.com/datvtph41107/bdspro/token"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -201,7 +202,7 @@ func TestWorkspaceDiscoveryUsesLiveMembershipNotJWTClaims(t *testing.T) {
 		}
 	}
 
-	issuer, err := auth.NewAccessTokens(strings.Repeat("W", 32))
+	issuer, err := token.NewJWTMaker(strings.Repeat("W", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +211,7 @@ func TestWorkspaceDiscoveryUsesLiveMembershipNotJWTClaims(t *testing.T) {
 		t.Fatal(err)
 	}
 	srv := api.NewServer(f.pool, f.auth, f.org, f.source, true, "")
-	srv.EnableAccessTokens(issuer)
+	srv.EnableJWTMaker(issuer)
 	bearerRead := func() (int, []organization.Workspace) {
 		t.Helper()
 		request := httptest.NewRequest(http.MethodGet, "/auth/workspaces", nil)
