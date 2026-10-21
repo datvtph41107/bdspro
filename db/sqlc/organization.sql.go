@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addOrganizationMember = `-- name: AddOrganizationMember :one
@@ -114,4 +116,33 @@ func (q *Queries) ListOrganizationsForPerson(ctx context.Context, personID int64
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateOrganization = `-- name: UpdateOrganization :one
+UPDATE organizations AS o
+SET name = COALESCE($1::text, o.name)
+WHERE o.party_id = $2
+  AND EXISTS (
+    SELECT 1
+    FROM organization_memberships AS m
+    JOIN accounts AS a ON a.person_id = m.person_id
+    WHERE m.organization_id = o.party_id
+      AND a.id = $3
+      AND m.role = 'owner'
+      AND m.ended_at IS NULL
+  )
+RETURNING o.party_id, o.name, o.created_at
+`
+
+type UpdateOrganizationParams struct {
+	Name           pgtype.Text `json:"name"`
+	OrganizationID int64       `json:"organization_id"`
+	ActorAccountID int64       `json:"actor_account_id"`
+}
+
+func (q *Queries) UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error) {
+	row := q.db.QueryRow(ctx, updateOrganization, arg.Name, arg.OrganizationID, arg.ActorAccountID)
+	var i Organization
+	err := row.Scan(&i.PartyID, &i.Name, &i.CreatedAt)
+	return i, err
 }

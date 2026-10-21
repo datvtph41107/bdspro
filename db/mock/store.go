@@ -296,6 +296,21 @@ func (mr *MockStoreMockRecorder) RegisterTx(ctx, arg any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterTx", reflect.TypeOf((*MockStore)(nil).RegisterTx), ctx, arg)
 }
 
+// UpdateOrganization mocks base method.
+func (m *MockStore) UpdateOrganization(ctx context.Context, arg db.UpdateOrganizationParams) (db.Organization, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateOrganization", ctx, arg)
+	ret0, _ := ret[0].(db.Organization)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateOrganization indicates an expected call of UpdateOrganization.
+func (mr *MockStoreMockRecorder) UpdateOrganization(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOrganization", reflect.TypeOf((*MockStore)(nil).UpdateOrganization), ctx, arg)
+}
+
 // VerifyEmailTx mocks base method.
 func (m *MockStore) VerifyEmailTx(ctx context.Context, arg db.ConsumeVerifyEmailParams) (db.Account, error) {
 	m.ctrl.T.Helper()

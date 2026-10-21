@@ -26,6 +26,7 @@ type Querier interface {
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
 	ListOrganizationsForPerson(ctx context.Context, personID int64) ([]Organization, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
+	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 }
 
 var _ Querier = (*Queries)(nil)
