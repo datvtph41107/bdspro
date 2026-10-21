@@ -111,6 +111,12 @@ func NewServer(pool *pgxpool.Pool, authentication Authentication, organizations 
 	router.POST("/organizations/:id/sources/:sourceID/price-reports", server.requireSession, server.reportSourcePrice)
 	router.GET("/organizations/:id/sources/:sourceID/price-reports", server.requireSession, server.listSourcePrices)
 
+	if development {
+		// Swagger and OpenAPI are not published outside local development.
+		router.GET("/docs", server.serveSwaggerUI)
+		router.GET("/docs/openapi.json", server.serveOpenAPI)
+	}
+
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "ok")
 	})
