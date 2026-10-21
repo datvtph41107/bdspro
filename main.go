@@ -174,7 +174,7 @@ func runGatewayServer(
 		return err
 	}
 	jsonOption := runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
-		MarshalOptions: protojson.MarshalOptions{UseProtoNames: true},
+		MarshalOptions:   protojson.MarshalOptions{UseProtoNames: true},
 		UnmarshalOptions: protojson.UnmarshalOptions{DiscardUnknown: true},
 	})
 	grpcMux := runtime.NewServeMux(jsonOption)
@@ -212,12 +212,12 @@ func runGatewayServer(
 			http.MethodHead, http.MethodOptions, http.MethodGet, http.MethodPost,
 			http.MethodPut, http.MethodPatch, http.MethodDelete,
 		},
-		AllowedHeaders: []string{"Content-Type", "Authorization"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
 	})
 	httpServer := &http.Server{
-		Addr: config.HTTPServerAddress,
-		Handler: c.Handler(gapi.HttpLogger(mux)),
+		Addr:              config.HTTPServerAddress,
+		Handler:           c.Handler(gapi.HttpLogger(mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	waitGroup.Go(func() error {

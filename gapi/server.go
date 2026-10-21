@@ -140,4 +140,3 @@ func (s *Server) UpdateOrganization(ctx context.Context, req *pb.UpdateOrganizat
 		CreatedAt: timestamppb.New(organization.CreatedAt),
 	}}, nil
 }
-
