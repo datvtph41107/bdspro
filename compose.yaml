@@ -1,5 +1,5 @@
-# Separate optional Compose environment, NOT the existing 'postgres' Docker container.
-# For the existing local 'postgres' container use make resetbdspro instead.
+# Optional isolated Docker Compose stack; it never operates on the local 'postgres' container.
+# The existing local PostgreSQL container and its bdspro database are preserved.
 services:
   db:
     image: postgres:18-alpine
