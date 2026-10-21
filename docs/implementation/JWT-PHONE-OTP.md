@@ -5,7 +5,7 @@
 JWT **is integrated**, not merely a lab. BDSPro still keeps a PostgreSQL
 opaque session cookie for renewal, cookie-based clients and immediate
 revocation. A signed **HS256 access JWT (15 minutes)** is issued on login
-when `ACCESS_TOKEN_KEY` is configured. The JWT has mandatory issuer
+when `TOKEN_SYMMETRIC_KEY` is configured. The JWT has mandatory issuer
 (`bdspro-auth`), audience (`bdspro-api`), subject (account ID),
 issued-at, not-before, expiration, unique token ID and a `sid`
 SHA-256 fingerprint of the session. No role, organization membership,
@@ -86,10 +86,11 @@ does NOT confirm live SMS carrier delivery or recipient ownership.
 
 Credentialed CORS allows the `Authorization` header only from the
 configured/same origin, and CSRF checks still apply to cookie mutations.
-The legacy email/password registration + email verification remains
-canonical. Register -> verify email -> login -> start phone OTP -> verify
-phone is the supported staged onboarding; a phone-only login is
-intentionally NOT enabled until risk acceptance.
+Email/password and phone-only registration/login now coexist. An existing
+Account can verify a phone through the authenticated endpoints; anonymous
+phone-only registration creates the Account only after a verified one-time
+challenge. See `G01-1-PHONE-ONLY-REGISTRATION.md` and
+`PHONE-OTP-LOGIN.md` for the current flows.
 
 SMS via PSTN is a restricted authenticator (SIM swap, porting, SS7).
 This is an optional verification factor and MUST NOT be treated as
