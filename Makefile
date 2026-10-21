@@ -1,8 +1,8 @@
-DB_URL ?=
+DB_URL ?= postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
-.PHONY: postgres createdb migrateup migratedown sqlc mock test testdb server
+.PHONY: postgres createdb migrateup migratedown sqlc mock test server
 
 postgres:
 	docker start $(POSTGRES_CONTAINER)
@@ -11,10 +11,10 @@ createdb:
 	docker exec $(POSTGRES_CONTAINER) createdb --username=root --owner=root $(DB_NAME)
 
 migrateup:
-	$(if $(DB_URL),migrate -path db/migration -database "$(DB_URL)" -verbose up,$(error DB_URL is required))
+	migrate -path db/migration -database "$(DB_URL)" -verbose up
 
 migratedown:
-	$(if $(DB_URL),migrate -path db/migration -database "$(DB_URL)" -verbose down 1,$(error DB_URL is required))
+	migrate -path db/migration -database "$(DB_URL)" -verbose down 1
 
 sqlc:
 	sqlc generate
@@ -25,8 +25,5 @@ mock:
 test:
 	go test -v -cover ./...
 
-testdb:
-	$(if $(DB_TEST_URL),go test -v -count=1 ./db/sqlc,$(error DB_TEST_URL is required))
-
 server:
-	go run .
+	go run main.go

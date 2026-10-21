@@ -5,21 +5,29 @@ import (
 	"os"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/util"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
 
+// openTestDB runs write-capable integration tests only on an isolated Actions runner.
+// Both environments call the database bdspro; the local database is never a test target.
 func openTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("DB_TEST_URL")
-	if dsn == "" {
-		t.Skip("DB_TEST_URL is unset: PostgreSQL integration test not run")
+	if os.Getenv("GITHUB_ACTIONS") != "true" {
+		t.Skip("database integration tests are limited to GitHub Actions to protect local bdspro")
 	}
-	pool, err := pgxpool.New(context.Background(), dsn)
+
+	config, err := util.LoadConfig("../..")
+	require.NoError(t, err)
+
+	pool, err := pgxpool.New(context.Background(), config.DBSource)
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
+
 	var name string
 	require.NoError(t, pool.QueryRow(context.Background(), "SELECT current_database()").Scan(&name))
-	require.Equal(t, "bdspro_lecture37_test", name, "refusing to write another database")
+	require.Equal(t, "bdspro", name, "refusing to run integration tests against another database")
+
 	return pool
 }
