@@ -45,6 +45,7 @@ make mock
 |---|---|---|
 | POST | `/users` | Đăng ký Account + Party/Person trong transaction |
 | POST | `/users/login` | Xác minh bcrypt, cấp access/refresh JWT, tạo Session |
+| GET | `/users/verify_email` | Xác minh email một lần trong transaction |
 | POST | `/tokens/renew_access` | Kiểm tra refresh JWT + Session, cấp access JWT |
 | POST | `/tokens/revoke` | Thu hồi refresh session, chặn renew tiếp theo |
 | GET | `/health` | HTTP liveness, không kiểm tra database |
@@ -59,6 +60,10 @@ Xem đối chiếu lecture và quy tắc tổ chức: [docs/LECTURE-MATRIX.md](d
 ## HTTP lifecycle
 
 Gin sử dụng logger theo `log/slog` và CORS chỉ cho nguồn trong `ALLOWED_ORIGINS`. `SIGINT`/`SIGTERM` kích hoạt shutdown HTTP (tối đa 10 giây); pool PostgreSQL đóng sau khi dừng HTTP. DBML ở `doc/db.dbml`.
+
+## Email verification (Redis/Asynq)
+
+Đăng ký gọi `RegisterTx` và enqueue `task:send_verify_email` trong callback transaction. Worker đọc account, tạo mã dùng một lần và gửi qua Gmail SMTP. URL xác minh: `/users/verify_email?email_id=...&secret_code=...`. Cần Redis hoạt động và cấu hình `EMAIL_SENDER_*` hợp lệ để thực sự gửi email. Compose chạy kèm Redis; nếu chưa cung cấp Gmail App Password, tác vụ sẽ retry và email sẽ không được gửi. Migration `000002` bổ sung `accounts.is_email_verified` và `verify_emails`, không chỉnh migration gốc. Local đang ở migration v1 cần chạy `make migrateup` một lần trước khi chạy server phiên bản mới.
 
 ## CI
 

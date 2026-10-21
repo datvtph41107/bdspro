@@ -10,6 +10,9 @@ import (
 	"github.com/datvtph41107/bdspro/api"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/mail"
+	"github.com/datvtph41107/bdspro/worker"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -38,7 +41,18 @@ func run() error {
 	}
 
 	store := db.NewStore(pool)
-	server, err := api.NewServer(config, store)
+	redis := asynq.RedisClientOpt{Addr: config.RedisAddress}
+	distributor := worker.NewRedisTaskDistributor(redis)
+	defer distributor.Close()
+
+	mailer := mail.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
+	processor := worker.NewRedisTaskProcessor(redis, store, mailer, config.VerifyEmailURL)
+	if err := processor.Start(); err != nil {
+		return err
+	}
+	defer processor.Shutdown()
+
+	server, err := api.NewServer(config, store, distributor)
 	if err != nil {
 		return err
 	}

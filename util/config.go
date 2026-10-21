@@ -10,6 +10,11 @@ import (
 // Config stores the application settings loaded from app.env.
 type Config struct {
 	AllowedOrigins       []string      `mapstructure:"ALLOWED_ORIGINS"`
+	RedisAddress         string        `mapstructure:"REDIS_ADDRESS"`
+	VerifyEmailURL       string        `mapstructure:"VERIFY_EMAIL_URL"`
+	EmailSenderName      string        `mapstructure:"EMAIL_SENDER_NAME"`
+	EmailSenderAddress   string        `mapstructure:"EMAIL_SENDER_ADDRESS"`
+	EmailSenderPassword  string        `mapstructure:"EMAIL_SENDER_PASSWORD"`
 	DBSource             string        `mapstructure:"DB_SOURCE"`
 	ServerAddress        string        `mapstructure:"SERVER_ADDRESS"`
 	TokenSymmetricKey    string        `mapstructure:"TOKEN_SYMMETRIC_KEY"`

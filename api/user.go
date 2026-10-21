@@ -9,6 +9,8 @@ import (
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/worker"
+	"github.com/hibiken/asynq"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -23,10 +25,11 @@ type userResponse struct {
 	AccountID int64     `json:"account_id"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
+	IsEmailVerified bool `json:"is_email_verified"`
 }
 
 func newUserResponse(account db.Account) userResponse {
-	return userResponse{AccountID: account.ID, Email: account.Email, CreatedAt: account.CreatedAt}
+	return userResponse{AccountID: account.ID, Email: account.Email, CreatedAt: account.CreatedAt, IsEmailVerified: account.IsEmailVerified}
 }
 
 func (server *Server) createUser(ctx *gin.Context) {
@@ -45,6 +48,12 @@ func (server *Server) createUser(ctx *gin.Context) {
 	account, err := server.store.RegisterTx(ctx, db.RegisterTxParams{
 		Email:        strings.ToLower(strings.TrimSpace(req.Email)),
 		PasswordHash: hash,
+		AfterCreate: func(created db.Account) error {
+			return server.taskDistributor.DistributeTaskSendVerifyEmail(
+				ctx, &worker.PayloadSendVerifyEmail{AccountID: created.ID},
+				asynq.MaxRetry(10), asynq.ProcessIn(10*time.Second), asynq.Queue(worker.QueueCritical),
+			)
+		},
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError

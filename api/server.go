@@ -11,22 +11,24 @@ import (
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/worker"
 	"github.com/gin-gonic/gin"
 )
 
 type Server struct {
 	config     util.Config
 	store      db.Store
+	taskDistributor worker.TaskDistributor
 	tokenMaker token.Maker
 	router     *gin.Engine
 }
 
-func NewServer(config util.Config, store db.Store) (*Server, error) {
+func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) (*Server, error) {
 	maker, err := token.NewJWTMaker(config.TokenSymmetricKey)
 	if err != nil {
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}
-	server := &Server{config: config, store: store, tokenMaker: maker}
+	server := &Server{config: config, store: store, tokenMaker: maker, taskDistributor: taskDistributor}
 	server.setupRouter()
 	return server, nil
 }
@@ -39,6 +41,7 @@ func (server *Server) setupRouter() {
 	})
 	router.POST("/users", server.createUser)
 	router.POST("/users/login", server.loginUser)
+	router.GET("/users/verify_email", server.verifyEmail)
 	router.POST("/tokens/renew_access", server.renewAccessToken)
 	router.POST("/tokens/revoke", server.revokeRefreshToken)
 

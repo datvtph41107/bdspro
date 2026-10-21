@@ -38,7 +38,7 @@ func TestCORS(t *testing.T) {
 }
 
 func TestGracefulShutdown(t *testing.T) {
-	server, err := NewServer(util.Config{TokenSymmetricKey: "12345678901234567890123456789012"}, nil)
+	server, err := NewServer(util.Config{TokenSymmetricKey: "12345678901234567890123456789012"}, nil, testTaskDistributor{})
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
