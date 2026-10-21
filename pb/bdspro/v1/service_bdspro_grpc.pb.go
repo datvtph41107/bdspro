@@ -28,7 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // The gRPC transport adapter must resolve Account identity from the signed
-// *** plus active PostgreSQL Session, and current Workspace access from
+// Bearer JWT plus active PostgreSQL Session, and current Workspace access from
 // the shared Organization service. None of those rules live in generated pb.
 type AccountServiceClient interface {
 	GetCurrentAccount(ctx context.Context, in *GetCurrentAccountRequest, opts ...grpc.CallOption) (*GetCurrentAccountResponse, error)
