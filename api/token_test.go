@@ -1,20 +1,20 @@
 package api
 
 import (
-    "bytes"
-    "encoding/json"
-    "errors"
-    "net/http"
-    "net/http/httptest"
-    "testing"
-    "time"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
 
-    mockdb "github.com/datvtph41107/bdspro/db/mock"
-    db "github.com/datvtph41107/bdspro/db/sqlc"
-    "github.com/datvtph41107/bdspro/token"
-    "github.com/jackc/pgx/v5"
-    "github.com/stretchr/testify/require"
-    "go.uber.org/mock/gomock"
+	mockdb "github.com/datvtph41107/bdspro/db/mock"
+	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/datvtph41107/bdspro/token"
+	"github.com/jackc/pgx/v5"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestRenewAccessTokenAPI(t *testing.T) {
