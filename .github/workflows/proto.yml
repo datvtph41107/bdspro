@@ -28,6 +28,7 @@ jobs:
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+          go install github.com/rakyll/statik@v0.1.7
           go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.27.3
           go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.27.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
@@ -40,6 +41,7 @@ jobs:
             --grpc-gateway_out=. --grpc-gateway_opt=module=github.com/datvtph41107/bdspro \
             --openapiv2_out=doc/swagger \
             proto/bdspro.proto
+          statik -src=./doc/swagger -dest=./doc
       - name: Synchronize protobuf dependencies
         run: |
           go get google.golang.org/grpc@v1.76.0 github.com/grpc-ecosystem/grpc-gateway/v2@v2.27.3
@@ -47,7 +49,7 @@ jobs:
           go mod tidy
       - name: Commit generated source
         run: |
-          git add pb doc/swagger go.mod go.sum
+          git add pb doc/swagger doc/statik go.mod go.sum
           if ! git diff --cached --quiet; then
             git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore(proto): generate gRPC Gateway and Swagger source"
             git push origin HEAD:dev

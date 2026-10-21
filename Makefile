@@ -56,6 +56,7 @@ proto:
 		--go-grpc_out=. --go-grpc_opt=module=github.com/datvtph41107/bdspro \
 		--grpc-gateway_out=. --grpc-gateway_opt=module=github.com/datvtph41107/bdspro \
 		--openapiv2_out=doc/swagger proto/bdspro.proto
+	statik -src=./doc/swagger -dest=./doc
 
 fmt:
 	find . -type f -name '*.go' -not -path './.git/*' -print0 | xargs -0 gofmt -w
