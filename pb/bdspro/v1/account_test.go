@@ -34,15 +34,19 @@ func TestAccountRPCContractNeverTrustsCallerAccountID(t *testing.T) {
 func TestWorkspaceProtobufRoundTrip(t *testing.T) {
 	now := time.Date(2026, 10, 21, 9, 30, 0, 0, time.UTC)
 	in := &ListWorkspacesResponse{Workspaces: []*Workspace{{
-		OrganizationId: 42,
+		OrganizationId:   42,
 		OrganizationName: "Example Organization",
-		MembershipId: 87,
-		JoinedAt: timestamppb.New(now),
+		MembershipId:     87,
+		JoinedAt:         timestamppb.New(now),
 	}}}
 	data, err := proto.Marshal(in)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	var decoded ListWorkspacesResponse
-	if err := proto.Unmarshal(data, &decoded); err != nil { t.Fatal(err) }
+	if err := proto.Unmarshal(data, &decoded); err != nil {
+		t.Fatal(err)
+	}
 	if !proto.Equal(in, &decoded) {
 		t.Fatalf("Protobuf binary round-trip changed message: %v", &decoded)
 	}
