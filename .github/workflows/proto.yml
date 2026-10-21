@@ -43,6 +43,7 @@ jobs:
       - name: Synchronize protobuf dependencies
         run: |
           go get google.golang.org/grpc@v1.76.0 github.com/grpc-ecosystem/grpc-gateway/v2@v2.27.3
+          go get google.golang.org/genproto@v0.0.0-20261019180522-ce908d29299b
           go mod tidy
       - name: Commit generated source
         run: |
