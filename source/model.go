@@ -53,4 +53,3 @@ type PriceReport struct {
 	RecordedAt          time.Time
 	StatementAt         *time.Time
 }
-
