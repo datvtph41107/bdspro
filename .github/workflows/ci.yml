@@ -102,7 +102,14 @@ jobs:
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
-          go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.27.8
+          # Pinned upstream release avoids compiling the large generator
+          # during every CI run; verify SHA-256 before executing it.
+          openapi_bin="$(go env GOPATH)/bin/protoc-gen-openapiv2"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v2.31.0/protoc-gen-openapiv2-v2.31.0-linux-x86_64 \
+            --output "$openapi_bin"
+          printf '%s  %s\n' a05f17a2a934692cc9d0b46a5a597f23cf2f1e34c76e0a457943aa5afffa33ba "$openapi_bin" | sha256sum --check
+          chmod +x "$openapi_bin"
           buf lint
           buf build
           buf generate
