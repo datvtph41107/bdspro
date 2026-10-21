@@ -4,3 +4,17 @@ plugins:
     out: pb
     opt:
       - paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: pb
+    opt:
+      - paths=source_relative
+  - local: protoc-gen-openapiv2
+    out: docs/grpc-swagger
+    strategy: all
+    opt:
+      - allow_merge=true
+      - merge_file_name=bdspro
+inputs:
+  - directory: proto
+    paths:
+      - proto/bdspro/v1
