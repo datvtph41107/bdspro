@@ -58,10 +58,18 @@ const getAccountByID = `-- name: GetAccountByID :one
 SELECT id, person_id, email, password_hash, created_at, is_email_verified
 FROM accounts WHERE id = $1 LIMIT 1
 `
+
 func (q *Queries) GetAccountByID(ctx context.Context, id int64) (Account, error) {
 	row := q.db.QueryRow(ctx, getAccountByID, id)
 	var i Account
-	err := row.Scan(&i.ID, &i.PersonID, &i.Email, &i.PasswordHash, &i.CreatedAt, &i.IsEmailVerified)
+	err := row.Scan(
+		&i.ID,
+		&i.PersonID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.CreatedAt,
+		&i.IsEmailVerified,
+	)
 	return i, err
 }
 
@@ -70,13 +78,22 @@ UPDATE accounts SET is_email_verified = TRUE
 WHERE id = $1 AND lower(btrim(email)) = lower(btrim($2))
 RETURNING id, person_id, email, password_hash, created_at, is_email_verified
 `
+
 type MarkEmailVerifiedParams struct {
 	ID    int64  `json:"id"`
 	Email string `json:"email"`
 }
+
 func (q *Queries) MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error) {
 	row := q.db.QueryRow(ctx, markEmailVerified, arg.ID, arg.Email)
 	var i Account
-	err := row.Scan(&i.ID, &i.PersonID, &i.Email, &i.PasswordHash, &i.CreatedAt, &i.IsEmailVerified)
+	err := row.Scan(
+		&i.ID,
+		&i.PersonID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.CreatedAt,
+		&i.IsEmailVerified,
+	)
 	return i, err
 }

@@ -9,16 +9,16 @@ import (
 	"syscall"
 
 	"github.com/datvtph41107/bdspro/api"
-	"github.com/datvtph41107/bdspro/gapi"
-	"github.com/datvtph41107/bdspro/pb"
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"golang.org/x/sync/errgroup"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
-	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/gapi"
 	"github.com/datvtph41107/bdspro/mail"
+	"github.com/datvtph41107/bdspro/pb"
+	"github.com/datvtph41107/bdspro/util"
 	"github.com/datvtph41107/bdspro/worker"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 //go:embed doc/swagger/bdspro.swagger.json
@@ -65,9 +65,13 @@ func run() error {
 		return err
 	}
 	grpcServer, err := gapi.NewServer(config, store, distributor)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	mux := runtime.NewServeMux()
-	if err := pb.RegisterBDSProHandlerServer(ctx, mux, grpcServer); err != nil { return err }
+	if err := pb.RegisterBDSProHandlerServer(ctx, mux, grpcServer); err != nil {
+		return err
+	}
 	server.MountGateway(mux)
 	server.MountOpenAPI(openAPI)
 

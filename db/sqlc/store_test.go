@@ -48,7 +48,7 @@ func TestRegisterTxEnqueueFailureRollsBack(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&before))
 
 	_, err := NewStore(pool).RegisterTx(ctx, RegisterTxParams{
-		Email: email,
+		Email:        email,
 		PasswordHash: "hash",
 		AfterCreate: func(account Account) error {
 			require.NotZero(t, account.ID)

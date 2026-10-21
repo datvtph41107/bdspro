@@ -32,11 +32,11 @@ func Register(ctx context.Context, store db.Store, distributor worker.TaskDistri
 }
 
 type LoginResult struct {
-	Account db.Account
-	Session db.Session
-	AccessToken string
-	AccessExpiresAt time.Time
-	RefreshToken string
+	Account          db.Account
+	Session          db.Session
+	AccessToken      string
+	AccessExpiresAt  time.Time
+	RefreshToken     string
 	RefreshExpiresAt time.Time
 }
 
@@ -54,14 +54,20 @@ func Login(ctx context.Context, store db.Store, maker token.Maker, config util.C
 	}
 
 	accessToken, accessPayload, err := maker.CreateToken(account.ID, config.AccessTokenDuration, token.TokenTypeAccess)
-	if err != nil { return result, err }
+	if err != nil {
+		return result, err
+	}
 	refreshToken, refreshPayload, err := maker.CreateToken(account.ID, config.RefreshTokenDuration, token.TokenTypeRefresh)
-	if err != nil { return result, err }
+	if err != nil {
+		return result, err
+	}
 	session, err := store.CreateSession(ctx, db.CreateSessionParams{
 		ID: refreshPayload.ID, AccountID: account.ID, RefreshToken: refreshToken,
 		UserAgent: userAgent, ClientIp: clientIP, ExpiresAt: refreshPayload.ExpiredAt,
 	})
-	if err != nil { return result, err }
+	if err != nil {
+		return result, err
+	}
 	return LoginResult{
 		Account: account, Session: session,
 		AccessToken: accessToken, AccessExpiresAt: accessPayload.ExpiredAt,

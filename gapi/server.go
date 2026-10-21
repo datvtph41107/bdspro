@@ -28,9 +28,9 @@ import (
 
 type Server struct {
 	pb.UnimplementedBDSProServer
-	config util.Config
-	store db.Store
-	tokenMaker token.Maker
+	config          util.Config
+	store           db.Store
+	tokenMaker      token.Maker
 	taskDistributor worker.TaskDistributor
 }
 
@@ -71,8 +71,12 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 	}
 	var userAgent, clientIP string
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if values := md.Get("user-agent"); len(values) != 0 { userAgent = values[0] }
-		if values := md.Get("x-forwarded-for"); len(values) != 0 { clientIP = strings.TrimSpace(strings.Split(values[0], ",")[0]) }
+		if values := md.Get("user-agent"); len(values) != 0 {
+			userAgent = values[0]
+		}
+		if values := md.Get("x-forwarded-for"); len(values) != 0 {
+			clientIP = strings.TrimSpace(strings.Split(values[0], ",")[0])
+		}
 	}
 	result, err := auth.Login(ctx, s.store, s.tokenMaker, s.config, req.Email, req.Password, userAgent, clientIP)
 	if errors.Is(err, auth.ErrInvalidCredentials) {
@@ -82,7 +86,7 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 		return nil, status.Error(codes.Internal, "login failed")
 	}
 	return &pb.LoginResponse{
-		SessionId: result.Session.ID.String(),
+		SessionId:   result.Session.ID.String(),
 		AccessToken: result.AccessToken, AccessTokenExpiresAt: timestamppb.New(result.AccessExpiresAt),
 		RefreshToken: result.RefreshToken, RefreshTokenExpiresAt: timestamppb.New(result.RefreshExpiresAt),
 		Account: convertAccount(result.Account),
@@ -113,7 +117,9 @@ func unaryLogger(ctx context.Context, req any, info *grpc.UnaryServerInfo, handl
 
 func (s *Server) Start(ctx context.Context, address string) error {
 	listener, err := net.Listen("tcp", address)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer listener.Close()
 
 	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(unaryLogger))
@@ -124,12 +130,16 @@ func (s *Server) Start(ctx context.Context, address string) error {
 
 	select {
 	case err := <-errorsCh:
-		if errors.Is(err, grpc.ErrServerStopped) { return nil }
+		if errors.Is(err, grpc.ErrServerStopped) {
+			return nil
+		}
 		return err
 	case <-ctx.Done():
 		grpcServer.GracefulStop()
 		err := <-errorsCh
-		if errors.Is(err, grpc.ErrServerStopped) { return nil }
+		if errors.Is(err, grpc.ErrServerStopped) {
+			return nil
+		}
 		return err
 	}
 }

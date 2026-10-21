@@ -20,7 +20,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type testTaskDistributor struct {}
+type testTaskDistributor struct{}
+
 func (testTaskDistributor) DistributeTaskSendVerifyEmail(_ context.Context, _ *worker.PayloadSendVerifyEmail, _ ...asynq.Option) error {
 	return nil
 }
@@ -28,9 +29,9 @@ func (testTaskDistributor) DistributeTaskSendVerifyEmail(_ context.Context, _ *w
 func newTestServer(t *testing.T, store db.Store) *Server {
 	t.Helper()
 	server, err := NewServer(util.Config{
-		TokenSymmetricKey: strings.Repeat("s", 32),
-		AccessTokenDuration: 15*time.Minute,
-		RefreshTokenDuration: 24*time.Hour,
+		TokenSymmetricKey:    strings.Repeat("s", 32),
+		AccessTokenDuration:  15 * time.Minute,
+		RefreshTokenDuration: 24 * time.Hour,
 	}, store, testTaskDistributor{})
 	require.NoError(t, err)
 	return server
@@ -97,7 +98,7 @@ func TestLoginMissingAccount(t *testing.T) {
 func TestVerifyEmail(t *testing.T) {
 	for _, tc := range []struct {
 		name string
-		err error
+		err  error
 		code codes.Code
 	}{
 		{name: "OK", code: codes.OK},
@@ -113,7 +114,9 @@ func TestVerifyEmail(t *testing.T) {
 			reply, err := newTestServer(t, store).VerifyEmail(context.Background(),
 				&pb.VerifyEmailRequest{EmailId: 5, SecretCode: "code"})
 			require.Equal(t, tc.code, status.Code(err))
-			if tc.err == nil { require.True(t, reply.Verified) }
+			if tc.err == nil {
+				require.True(t, reply.Verified)
+			}
 		})
 	}
 }

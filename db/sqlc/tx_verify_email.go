@@ -1,4 +1,5 @@
 package db
+
 import "context"
 
 // VerifyEmailTx consumes one code and updates the owning account in one transaction.
@@ -6,7 +7,9 @@ func (s *SQLStore) VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailPara
 	var account Account
 	err := s.execTx(ctx, func(q *Queries) error {
 		verification, err := q.ConsumeVerifyEmail(ctx, arg)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		account, err = q.MarkEmailVerified(ctx, MarkEmailVerifiedParams{ID: verification.AccountID, Email: verification.Email})
 		return err
 	})

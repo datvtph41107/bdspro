@@ -5,7 +5,44 @@
 
 package db
 
-import "context"
+import (
+	"context"
+)
+
+const addOrganizationMember = `-- name: AddOrganizationMember :one
+INSERT INTO organization_memberships (organization_id, person_id, role)
+SELECT $1, $2, 'member'
+WHERE EXISTS (
+  SELECT 1
+  FROM organization_memberships owner
+  JOIN accounts a ON a.person_id = owner.person_id
+  WHERE owner.organization_id = $1
+    AND a.id = $3
+    AND owner.role = 'owner'
+    AND owner.ended_at IS NULL
+)
+RETURNING id, organization_id, person_id, role, joined_at, ended_at
+`
+
+type AddOrganizationMemberParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	PersonID       int64 `json:"person_id"`
+	ActorAccountID int64 `json:"actor_account_id"`
+}
+
+func (q *Queries) AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMembership, error) {
+	row := q.db.QueryRow(ctx, addOrganizationMember, arg.OrganizationID, arg.PersonID, arg.ActorAccountID)
+	var i OrganizationMembership
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.PersonID,
+		&i.Role,
+		&i.JoinedAt,
+		&i.EndedAt,
+	)
+	return i, err
+}
 
 const createOrganization = `-- name: CreateOrganization :one
 INSERT INTO organizations (party_id, name)
@@ -40,7 +77,14 @@ type CreateOrganizationMembershipParams struct {
 func (q *Queries) CreateOrganizationMembership(ctx context.Context, arg CreateOrganizationMembershipParams) (OrganizationMembership, error) {
 	row := q.db.QueryRow(ctx, createOrganizationMembership, arg.OrganizationID, arg.PersonID, arg.Role)
 	var i OrganizationMembership
-	err := row.Scan(&i.ID, &i.OrganizationID, &i.PersonID, &i.Role, &i.JoinedAt, &i.EndedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.PersonID,
+		&i.Role,
+		&i.JoinedAt,
+		&i.EndedAt,
+	)
 	return i, err
 }
 
@@ -54,37 +98,20 @@ ORDER BY o.party_id
 
 func (q *Queries) ListOrganizationsForPerson(ctx context.Context, personID int64) ([]Organization, error) {
 	rows, err := q.db.Query(ctx, listOrganizationsForPerson, personID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 	var items []Organization
 	for rows.Next() {
 		var i Organization
-		if err := rows.Scan(&i.PartyID, &i.Name, &i.CreatedAt); err != nil { return nil, err }
+		if err := rows.Scan(&i.PartyID, &i.Name, &i.CreatedAt); err != nil {
+			return nil, err
+		}
 		items = append(items, i)
 	}
-	return items, rows.Err()
-}
-
-const addOrganizationMember = `-- name: AddOrganizationMember :one
-INSERT INTO organization_memberships (organization_id, person_id, role)
-SELECT $1, $2, 'member'
-WHERE EXISTS (
-  SELECT 1 FROM organization_memberships owner
-  JOIN accounts a ON a.person_id = owner.person_id
-  WHERE owner.organization_id = $1 AND a.id = $3 AND owner.role = 'owner' AND owner.ended_at IS NULL
-)
-RETURNING id, organization_id, person_id, role, joined_at, ended_at
-`
-
-type AddOrganizationMemberParams struct {
-	OrganizationID int64 `json:"organization_id"`
-	PersonID       int64 `json:"person_id"`
-	ActorAccountID int64 `json:"actor_account_id"`
-}
-
-func (q *Queries) AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMembership, error) {
-	row := q.db.QueryRow(ctx, addOrganizationMember, arg.OrganizationID, arg.PersonID, arg.ActorAccountID)
-	var i OrganizationMembership
-	err := row.Scan(&i.ID, &i.OrganizationID, &i.PersonID, &i.Role, &i.JoinedAt, &i.EndedAt)
-	return i, err
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

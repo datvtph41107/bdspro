@@ -11,11 +11,15 @@ func (s *SQLStore) CreateOrganizationTx(ctx context.Context, arg CreateOrganizat
 	var organization Organization
 	err := s.execTx(ctx, func(q *Queries) error {
 		partyID, err := q.CreateParty(ctx)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		organization, err = q.CreateOrganization(ctx, CreateOrganizationParams{
 			PartyID: partyID, Name: arg.Name,
 		})
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		_, err = q.CreateOrganizationMembership(ctx, CreateOrganizationMembershipParams{
 			OrganizationID: partyID, PersonID: arg.OwnerPersonID, Role: "owner",
 		})

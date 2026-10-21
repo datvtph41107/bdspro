@@ -70,8 +70,8 @@ func (server *Server) revokeRefreshToken(ctx *gin.Context) {
 		return
 	}
 	_, err = server.store.BlockSession(ctx, db.BlockSessionParams{
-		ID: payload.ID,
-		AccountID: payload.AccountID,
+		ID:           payload.ID,
+		AccountID:    payload.AccountID,
 		RefreshToken: req.RefreshToken,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {

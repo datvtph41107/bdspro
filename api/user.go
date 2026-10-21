@@ -17,10 +17,10 @@ type createUserRequest struct {
 }
 
 type userResponse struct {
-	AccountID int64     `json:"account_id"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
-	IsEmailVerified bool `json:"is_email_verified"`
+	AccountID       int64     `json:"account_id"`
+	Email           string    `json:"email"`
+	CreatedAt       time.Time `json:"created_at"`
+	IsEmailVerified bool      `json:"is_email_verified"`
 }
 
 func newUserResponse(account db.Account) userResponse {
@@ -50,17 +50,17 @@ func (server *Server) createUser(ctx *gin.Context) {
 }
 
 type loginUserRequest struct {
-	Email string `json:"email" binding:"required,email"`
+	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
 }
 
 type loginUserResponse struct {
-	SessionID string `json:"session_id"`
-	AccessToken string `json:"access_token"`
-	AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
-	RefreshToken string `json:"refresh_token"`
-	RefreshTokenExpiresAt time.Time `json:"refresh_token_expires_at"`
-	User userResponse `json:"user"`
+	SessionID             string       `json:"session_id"`
+	AccessToken           string       `json:"access_token"`
+	AccessTokenExpiresAt  time.Time    `json:"access_token_expires_at"`
+	RefreshToken          string       `json:"refresh_token"`
+	RefreshTokenExpiresAt time.Time    `json:"refresh_token_expires_at"`
+	User                  userResponse `json:"user"`
 }
 
 func (server *Server) loginUser(ctx *gin.Context) {
@@ -80,7 +80,7 @@ func (server *Server) loginUser(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, loginUserResponse{
-		SessionID: result.Session.ID.String(),
+		SessionID:   result.Session.ID.String(),
 		AccessToken: result.AccessToken, AccessTokenExpiresAt: result.AccessExpiresAt,
 		RefreshToken: result.RefreshToken, RefreshTokenExpiresAt: result.RefreshExpiresAt,
 		User: newUserResponse(result.Account),

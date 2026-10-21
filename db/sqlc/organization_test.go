@@ -14,11 +14,11 @@ func TestOrganizationMembershipAndAuthorization(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(pool)
 	owner, err := store.RegisterTx(ctx, RegisterTxParams{
-		Email: uuid.NewString()+"@example.test", PasswordHash: "hash",
+		Email: uuid.NewString() + "@example.test", PasswordHash: "hash",
 	})
 	require.NoError(t, err)
 	member, err := store.RegisterTx(ctx, RegisterTxParams{
-		Email: uuid.NewString()+"@example.test", PasswordHash: "hash",
+		Email: uuid.NewString() + "@example.test", PasswordHash: "hash",
 	})
 	require.NoError(t, err)
 	organization, err := store.CreateOrganizationTx(ctx, CreateOrganizationTxParams{

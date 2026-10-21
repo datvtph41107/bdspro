@@ -77,7 +77,7 @@ func (server *Server) addOrganizationMember(ctx *gin.Context) {
 	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 	member, err := server.store.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
 		OrganizationID: organizationID,
-		PersonID: req.PersonID,
+		PersonID:       req.PersonID,
 		ActorAccountID: payload.AccountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {

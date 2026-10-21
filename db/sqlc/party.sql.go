@@ -9,15 +9,6 @@ import (
 	"context"
 )
 
-const createPerson = `-- name: CreatePerson :exec
-INSERT INTO persons (party_id) VALUES ($1)
-`
-
-func (q *Queries) CreatePerson(ctx context.Context, partyID int64) error {
-	_, err := q.db.Exec(ctx, createPerson, partyID)
-	return err
-}
-
 const createParty = `-- name: CreateParty :one
 INSERT INTO parties DEFAULT VALUES RETURNING id
 `
@@ -27,4 +18,13 @@ func (q *Queries) CreateParty(ctx context.Context) (int64, error) {
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const createPerson = `-- name: CreatePerson :exec
+INSERT INTO persons (party_id) VALUES ($1)
+`
+
+func (q *Queries) CreatePerson(ctx context.Context, partyID int64) error {
+	_, err := q.db.Exec(ctx, createPerson, partyID)
+	return err
 }

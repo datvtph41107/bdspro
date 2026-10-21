@@ -16,11 +16,11 @@ import (
 )
 
 type Server struct {
-	config     util.Config
-	store      db.Store
+	config          util.Config
+	store           db.Store
 	taskDistributor worker.TaskDistributor
-	tokenMaker token.Maker
-	router     *gin.Engine
+	tokenMaker      token.Maker
+	router          *gin.Engine
 }
 
 func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) (*Server, error) {

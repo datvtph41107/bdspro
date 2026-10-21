@@ -14,14 +14,16 @@ import (
 )
 
 type mailRecorder struct {
-	subject string
-	content string
+	subject   string
+	content   string
 	recipient string
 }
 
 func (m *mailRecorder) SendEmail(subject, content string, to, cc, bcc, attachFiles []string) error {
 	m.subject, m.content = subject, content
-	if len(to) == 1 { m.recipient = to[0] }
+	if len(to) == 1 {
+		m.recipient = to[0]
+	}
 	return nil
 }
 

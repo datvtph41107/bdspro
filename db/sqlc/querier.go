@@ -12,20 +12,20 @@ import (
 
 type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMembership, error)
+	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
+	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
+	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	CreateOrganizationMembership(ctx context.Context, arg CreateOrganizationMembershipParams) (OrganizationMembership, error)
-	ListOrganizationsForPerson(ctx context.Context, personID int64) ([]Organization, error)
-	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
-	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
-	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
-	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
-	GetAccountByID(ctx context.Context, id int64) (Account, error)
-	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
-	CreatePerson(ctx context.Context, partyID int64) error
 	CreateParty(ctx context.Context) (int64, error)
+	CreatePerson(ctx context.Context, partyID int64) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	GetAccountByEmail(ctx context.Context, btrim string) (Account, error)
+	GetAccountByID(ctx context.Context, id int64) (Account, error)
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
+	ListOrganizationsForPerson(ctx context.Context, personID int64) ([]Organization, error)
+	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
 }
 
 var _ Querier = (*Queries)(nil)

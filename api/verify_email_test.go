@@ -15,8 +15,8 @@ import (
 
 func TestVerifyEmailAPI(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		err error
+		name   string
+		err    error
 		status int
 	}{
 		{name: "OK", status: http.StatusOK},
