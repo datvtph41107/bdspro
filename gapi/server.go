@@ -131,7 +131,7 @@ func (s *Server) UpdateOrganization(ctx context.Context, req *pb.UpdateOrganizat
 	organization, err := s.store.UpdateOrganization(ctx, db.UpdateOrganizationParams{
 		OrganizationID: req.GetOrganizationId(),
 		ActorAccountID: payload.AccountID,
-		Name: pgtype.Text{String: strings.TrimSpace(req.GetName()), Valid: true},
+		Name:           pgtype.Text{String: strings.TrimSpace(req.GetName()), Valid: true},
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, status.Error(codes.PermissionDenied, "organization owner required")
@@ -140,8 +140,8 @@ func (s *Server) UpdateOrganization(ctx context.Context, req *pb.UpdateOrganizat
 		return nil, status.Error(codes.Internal, "update organization failed")
 	}
 	return &pb.UpdateOrganizationResponse{Organization: &pb.Organization{
-		PartyId: organization.PartyID,
-		Name: organization.Name,
+		PartyId:   organization.PartyID,
+		Name:      organization.Name,
 		CreatedAt: timestamppb.New(organization.CreatedAt),
 	}}, nil
 }

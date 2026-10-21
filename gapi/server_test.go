@@ -14,12 +14,12 @@ import (
 	"github.com/datvtph41107/bdspro/worker"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/metadata"
-	"github.com/jackc/pgx/v5/pgtype"
+	"google.golang.org/grpc/status"
 )
 
 type testTaskDistributor struct{}
@@ -125,9 +125,9 @@ func TestVerifyEmail(t *testing.T) {
 
 func TestUpdateOrganizationRPC(t *testing.T) {
 	for _, tc := range []struct {
-		name string
+		name  string
 		dbErr error
-		want codes.Code
+		want  codes.Code
 	}{
 		{name: "Owner", want: codes.OK},
 		{name: "NotOwner", dbErr: pgx.ErrNoRows, want: codes.PermissionDenied},
