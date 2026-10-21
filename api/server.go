@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
-	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
+	"github.com/datvtph41107/bdspro/token"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -54,7 +54,7 @@ type Server struct {
 	allowedOrigin  string
 	logger         *slog.Logger
 	authLimiter    *authLimiter
-	jwtMaker   *token.JWTMaker
+	jwtMaker       *token.JWTMaker
 	draining       atomic.Bool
 	router         *gin.Engine
 }
