@@ -11,5 +11,5 @@ USER app
 WORKDIR /app
 COPY --from=builder /out/bdspro /app/bdspro
 COPY app.env /app/app.env
-EXPOSE 8080
+EXPOSE 8080 9090
 CMD ["/app/bdspro"]

@@ -31,6 +31,7 @@ services:
     environment:
       DB_SOURCE: postgres://root:secret@db:5432/bdspro?sslmode=disable
       SERVER_ADDRESS: 0.0.0.0:8080
+      GRPC_SERVER_ADDRESS: 0.0.0.0:9090
       REDIS_ADDRESS: redis:6379
       VERIFY_EMAIL_URL: http://localhost:18080/users/verify_email
       EMAIL_SENDER_NAME: ${EMAIL_SENDER_NAME:-BDSPro}
@@ -38,6 +39,7 @@ services:
       EMAIL_SENDER_PASSWORD: ${EMAIL_SENDER_PASSWORD:-}
     ports:
       - "127.0.0.1:18080:8080"
+      - "127.0.0.1:19090:9090"
     depends_on:
       migrate:
         condition: service_completed_successfully
