@@ -27,6 +27,13 @@ jobs:
           go-version-file: go.mod
       - name: Download modules
         run: go mod tidy
+      - name: Regenerate SQLC and Store mock
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          go install go.uber.org/mock/mockgen@v0.6.0
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          sqlc generate
+          mockgen -package mockdb -destination db/mock/store.go github.com/datvtph41107/bdspro/db/sqlc Store
       - name: Lint and unit tests
         run: |
           go vet ./...
