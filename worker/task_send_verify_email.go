@@ -27,12 +27,12 @@ func (d *RedisTaskDistributor) DistributeTaskSendVerifyEmail(ctx context.Context
 	}
 	task := asynq.NewTask(TaskSendVerifyEmail, body, opts...)
 	info, err := d.client.EnqueueContext(ctx, task)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	log.Info().Str("type", task.Type()).Str("queue", info.Queue).Msg("task enqueued")
 	return nil
 }
-
-
 
 func (p *RedisTaskProcessor) ProcessTaskSendVerifyEmail(ctx context.Context, task *asynq.Task) error {
 	var payload PayloadSendVerifyEmail
@@ -68,4 +68,3 @@ func (p *RedisTaskProcessor) ProcessTaskSendVerifyEmail(ctx context.Context, tas
 	log.Info().Str("type", task.Type()).Str("email", account.Email).Msg("verification email task completed")
 	return nil
 }
-

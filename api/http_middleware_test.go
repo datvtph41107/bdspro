@@ -15,9 +15,9 @@ func TestCORS(t *testing.T) {
 	server := newTestServer(t, nil)
 	server.config.AllowedOrigins = []string{"http://localhost:3000"}
 	handler := cors.New(cors.Options{
-		AllowedOrigins: server.config.AllowedOrigins,
-		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders: []string{"Authorization", "Content-Type"},
+		AllowedOrigins:   server.config.AllowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
 	}).Handler(server.Handler())
 

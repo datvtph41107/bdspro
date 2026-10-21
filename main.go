@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"io"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -14,8 +14,8 @@ import (
 
 	"github.com/datvtph41107/bdspro/api"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
-	"github.com/datvtph41107/bdspro/gapi"
 	_ "github.com/datvtph41107/bdspro/doc/statik"
+	"github.com/datvtph41107/bdspro/gapi"
 	"github.com/datvtph41107/bdspro/mail"
 	"github.com/datvtph41107/bdspro/pb"
 	"github.com/datvtph41107/bdspro/util"

@@ -12,4 +12,3 @@ func convertAccount(account db.Account) *pb.Account {
 		CreatedAt: timestamppb.New(account.CreatedAt), IsEmailVerified: account.IsEmailVerified,
 	}
 }
-

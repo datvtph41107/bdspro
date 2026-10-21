@@ -24,4 +24,3 @@ func (s *Server) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*
 	}
 	return &pb.VerifyEmailResponse{Verified: true}, nil
 }
-

@@ -12,7 +12,7 @@ import (
 
 const (
 	QueueCritical = "critical"
-	QueueDefault = "default"
+	QueueDefault  = "default"
 )
 
 type TaskProcessor interface {

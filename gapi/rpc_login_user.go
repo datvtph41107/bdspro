@@ -40,4 +40,3 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 		Account: convertAccount(result.Account),
 	}, nil
 }
-

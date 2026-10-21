@@ -27,4 +27,3 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 	}
 	return &pb.RegisterResponse{Account: convertAccount(account)}, nil
 }
-
