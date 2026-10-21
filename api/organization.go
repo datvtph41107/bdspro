@@ -127,7 +127,7 @@ func (server *Server) updateOrganization(ctx *gin.Context) {
 	organization, err := server.store.UpdateOrganization(ctx, db.UpdateOrganizationParams{
 		OrganizationID: organizationID,
 		ActorAccountID: payload.AccountID,
-		Name: pgtype.Text{String: name, Valid: true},
+		Name:           pgtype.Text{String: name, Valid: true},
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "organization owner required"})

@@ -56,9 +56,9 @@ func TestAddOrganizationMemberRequiresOwner(t *testing.T) {
 
 func TestUpdateOrganizationAPI(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		dbErr error
-		want int
+		want  int
 	}{
 		{name: "Owner", want: http.StatusOK},
 		{name: "NotOwner", dbErr: pgx.ErrNoRows, want: http.StatusForbidden},
@@ -70,7 +70,7 @@ func TestUpdateOrganizationAPI(t *testing.T) {
 			store.EXPECT().UpdateOrganization(gomock.Any(), db.UpdateOrganizationParams{
 				OrganizationID: 20,
 				ActorAccountID: 10,
-				Name: pgtype.Text{String: "Updated Organization", Valid: true},
+				Name:           pgtype.Text{String: "Updated Organization", Valid: true},
 			}).Return(db.Organization{PartyID: 20, Name: "Updated Organization"}, tc.dbErr)
 			server := newTestServer(t, store)
 			w := httptest.NewRecorder()
