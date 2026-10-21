@@ -68,7 +68,7 @@ func (c *accountServiceClient) ListWorkspaces(ctx context.Context, in *ListWorks
 // for forward compatibility.
 //
 // The gRPC transport adapter must resolve Account identity from the signed
-// *** plus active PostgreSQL Session, and current Workspace access from
+// Bearer JWT plus active PostgreSQL Session, and current Workspace access from
 // the shared Organization service. None of those rules live in generated pb.
 type AccountServiceServer interface {
 	GetCurrentAccount(context.Context, *GetCurrentAccountRequest) (*GetCurrentAccountResponse, error)
