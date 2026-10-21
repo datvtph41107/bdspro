@@ -18,6 +18,8 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/metadata"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type testTaskDistributor struct{}
@@ -119,4 +121,55 @@ func TestVerifyEmail(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUpdateOrganizationRPC(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		dbErr error
+		want codes.Code
+	}{
+		{name: "Owner", want: codes.OK},
+		{name: "NotOwner", dbErr: pgx.ErrNoRows, want: codes.PermissionDenied},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			store := mockdb.NewMockStore(ctrl)
+			store.EXPECT().UpdateOrganization(gomock.Any(), db.UpdateOrganizationParams{
+				OrganizationID: 21, ActorAccountID: 77,
+				Name: pgtype.Text{String: "New Name", Valid: true},
+			}).Return(db.Organization{PartyID: 21, Name: "New Name", CreatedAt: time.Now()}, tc.dbErr)
+			server := newTestServer(t, store)
+			raw, _, err := server.tokenMaker.CreateToken(77, time.Hour, token.TokenTypeAccess)
+			require.NoError(t, err)
+			ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer "+raw))
+			name := " New Name "
+			response, err := server.UpdateOrganization(ctx, &pb.UpdateOrganizationRequest{OrganizationId: 21, Name: &name})
+			require.Equal(t, tc.want, status.Code(err))
+			if tc.dbErr == nil {
+				require.Equal(t, int64(21), response.Organization.PartyId)
+				require.Equal(t, "New Name", response.Organization.Name)
+			}
+		})
+	}
+}
+
+func TestUpdateOrganizationRPCRequiresAccessToken(t *testing.T) {
+	server := newTestServer(t, nil)
+	name := "New Name"
+	_, err := server.UpdateOrganization(context.Background(), &pb.UpdateOrganizationRequest{
+		OrganizationId: 21, Name: &name,
+	})
+	require.Equal(t, codes.Unauthenticated, status.Code(err))
+	raw, _, err := server.tokenMaker.CreateToken(77, time.Hour, token.TokenTypeRefresh)
+	require.NoError(t, err)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer "+raw))
+	_, err = server.UpdateOrganization(ctx, &pb.UpdateOrganizationRequest{OrganizationId: 21, Name: &name})
+	require.Equal(t, codes.Unauthenticated, status.Code(err))
+}
+
+func TestUpdateOrganizationRPCRequiresName(t *testing.T) {
+	server := newTestServer(t, nil)
+	_, err := server.UpdateOrganization(context.Background(), &pb.UpdateOrganizationRequest{OrganizationId: 21})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 }

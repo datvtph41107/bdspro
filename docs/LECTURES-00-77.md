@@ -53,9 +53,9 @@ Mốc: [TechSchool SimpleBank README](https://github.com/techschool/simplebank/b
 | 46 | Embed static frontend files inside Golang backend server's binary | Đã embed OpenAPI JSON, chưa embed frontend |
 | 47 | Validate gRPC parameters and send human/machine friendly response | Đã có status codes và kiểm tra input tối thiểu |
 | 48 | Run DB migrations directly inside Golang code | Compose áp dụng migration qua service migrate; chưa migrate trong Go |
-| 49 | Partial update DB record with SQLC nullable parameters | Chưa có partial-update SQLC nullable |
-| 50 | Build gRPC update API with optional parameters | Chưa có gRPC update profile |
-| 51 | Add authorization to protect gRPC API | Chưa có protected gRPC update; có owner/member qua Gin |
+| 49 | Partial update DB record with SQLC nullable parameters | SQLC narg + owner-only UPDATE Organization |
+| 50 | Build gRPC update API with optional parameters | gRPC UpdateOrganization + Gateway PATCH |
+| 51 | Add authorization to protect gRPC API | JWT metadata + owner authorization trong SQL |
 | 52 | Write structured logs for gRPC APIs | Đã có structured gRPC logging |
 | 53 | How to write HTTP logger middleware in Go | Đã có HTTP logger middleware |
 | 54 | Implement background worker in Go with Redis and Asynq | Đã có Redis/Asynq worker |

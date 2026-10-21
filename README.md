@@ -81,6 +81,10 @@ Migration `000003` tạo `organizations` và `organization_memberships`. Party k
 
 Cùng một nghiệp vụ Register/Login chạy qua Gin (`/users`, `/users/login`) và gRPC (`Register`, `Login`). gRPC Gateway có các route `/v1/users`, `/v1/users/login`, `/v1/users/verify_email`. Tài liệu OpenAPI: `GET /docs/openapi.json`. `GRPC_SERVER_ADDRESS` mặc định trong `app.env` là `127.0.0.1:9090`; Docker Compose ánh xạ cổng `19090` tới gRPC của stack riêng. `make proto` tái sinh protobuf + Gateway + Swagger, `make sqlc` và `make mock` tái sinh DB access và mocks.
 
+## Organization partial update (Lecture 49–51)
+
+`PATCH /organizations/:id` và `PATCH /v1/organizations/{organization_id}` hỗ trợ cùng quyền `owner`, cập nhật `name` qua `sqlc.narg()` có kiểu nullable `pgtype.Text`. gRPC chỉ nhận access JWT theo metadata `authorization: Bearer ...`; token refresh không dùng để gọi RPC này. Không tạo bảng hay service mới.
+
 ## CI
 
 `.github/workflows/test.yml` giữ đúng pipeline SimpleBank: checkout → setup Go → install go-migrate → `make migrateup` → `make test`. PostgreSQL 18 tạm thời do GitHub Actions khởi tạo, database tên `bdspro`. Chưa triển khai AWS hoặc production deploy.
