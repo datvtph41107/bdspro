@@ -4,6 +4,11 @@ modules:
 lint:
   use:
     - STANDARD
+  # Third-party annotations are vendored for reproducible local builds.
+  # Only first-party bdspro/v1 is held to BDSPro's naming policy.
+  ignore:
+    - proto/google
+    - proto/protoc-gen-openapiv2
 breaking:
   use:
     - FILE
