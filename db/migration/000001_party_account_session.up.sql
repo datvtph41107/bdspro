@@ -1,27 +1,41 @@
--- Lecture 37 canonical baseline. Requires an EMPTY database, or the verified
--- backup/reset procedure in scripts/reset-bdspro-lecture37.sh.
-CREATE TABLE parties (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+-- Canonical Lecture 37 BDSPro baseline. New databases only.
+-- Existing bdspro databases at migration v1 need no rerun.
+-- Layout matches SimpleBank: tables, relations, indexes.
+-- Account means login identity, not a bank balance account.
+
+CREATE TABLE "parties" (
+  "id" bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY
 );
-CREATE TABLE persons (
-    party_id BIGINT PRIMARY KEY REFERENCES parties(id)
+
+CREATE TABLE "persons" (
+  "party_id" bigint PRIMARY KEY
 );
-CREATE TABLE accounts (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    person_id BIGINT NOT NULL UNIQUE REFERENCES persons(party_id),
-    email TEXT NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+
+CREATE TABLE "accounts" (
+  "id" bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "person_id" bigint NOT NULL UNIQUE,
+  "email" text NOT NULL,
+  "password_hash" text NOT NULL,
+  "created_at" timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX accounts_email_login_uq ON accounts (lower(btrim(email)));
-CREATE TABLE sessions (
-    id UUID PRIMARY KEY,
-    account_id BIGINT NOT NULL REFERENCES accounts(id),
-    refresh_token TEXT NOT NULL,
-    user_agent TEXT NOT NULL,
-    client_ip TEXT NOT NULL,
-    is_blocked BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    expires_at TIMESTAMPTZ NOT NULL
+
+CREATE TABLE "sessions" (
+  "id" uuid PRIMARY KEY,
+  "account_id" bigint NOT NULL,
+  "refresh_token" text NOT NULL,
+  "user_agent" text NOT NULL,
+  "client_ip" text NOT NULL,
+  "is_blocked" boolean NOT NULL DEFAULT false,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "expires_at" timestamptz NOT NULL
 );
-CREATE INDEX sessions_account_idx ON sessions(account_id);
+
+ALTER TABLE "persons" ADD FOREIGN KEY ("party_id") REFERENCES "parties" ("id");
+
+ALTER TABLE "accounts" ADD FOREIGN KEY ("person_id") REFERENCES "persons" ("party_id");
+
+ALTER TABLE "sessions" ADD FOREIGN KEY ("account_id") REFERENCES "accounts" ("id");
+
+CREATE UNIQUE INDEX "accounts_email_login_uq" ON "accounts" (lower(btrim("email")));
+
+CREATE INDEX "sessions_account_idx" ON "sessions" ("account_id");
