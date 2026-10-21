@@ -18,7 +18,7 @@ type Config struct {
 	DBSource              string `mapstructure:"DB_SOURCE"`
 	ServerAddress         string `mapstructure:"SERVER_ADDRESS"`
 	AllowedOrigin         string `mapstructure:"ALLOWED_ORIGIN"`
-	AccessTokenKey        string `mapstructure:"ACCESS_TOKEN_KEY"`
+	TokenSymmetricKey        string `mapstructure:"TOKEN_SYMMETRIC_KEY"`
 	PhoneOTPKey           string `mapstructure:"PHONE_OTP_KEY"`
 	DevSMSOutbox          bool   `mapstructure:"DEV_SMS_OUTBOX"`
 	TwilioAccountSID      string `mapstructure:"TWILIO_ACCOUNT_SID"`
@@ -76,8 +76,8 @@ func (config Config) validate() error {
 			return fmt.Errorf("ALLOWED_ORIGIN must use HTTPS outside development")
 		}
 	}
-	if config.AccessTokenKey != "" && len(config.AccessTokenKey) < 32 {
-		return fmt.Errorf("ACCESS_TOKEN_KEY must contain at least 32 bytes")
+	if config.TokenSymmetricKey != "" && len(config.TokenSymmetricKey) < 32 {
+		return fmt.Errorf("TOKEN_SYMMETRIC_KEY must contain at least 32 bytes")
 	}
 	if config.PhoneOTPKey != "" && len(config.PhoneOTPKey) < 32 {
 		return fmt.Errorf("PHONE_OTP_KEY must contain at least 32 bytes")
@@ -107,8 +107,8 @@ func (config Config) validate() error {
 	if config.AllowContainerDevBind {
 		return fmt.Errorf("ALLOW_CONTAINER_DEV_BIND only allowed in development")
 	}
-	if len(config.AccessTokenKey) < 32 || config.AccessTokenKey == "dev-only-local-key-change-before-deployment-2026" {
-		return fmt.Errorf("ACCESS_TOKEN_KEY must be a non-development secret with at least 32 bytes")
+	if len(config.TokenSymmetricKey) < 32 || config.TokenSymmetricKey == "dev-only-local-key-change-before-deployment-2026" {
+		return fmt.Errorf("TOKEN_SYMMETRIC_KEY must be a non-development secret with at least 32 bytes")
 	}
 	if config.SMTPAddr == "" {
 		return fmt.Errorf("SMTP_ADDR required outside development")
