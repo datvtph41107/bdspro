@@ -1,0 +1,37 @@
+name: Canonical Go source generation
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - ".github/workflows/canonical-source.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install generators
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          go install go.uber.org/mock/mockgen@v0.6.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Regenerate SQL and mocks
+        run: |
+          make sqlc
+          make mock
+          find . -type f -name '*.go' -not -path './.git/*' -print0 | xargs -0 gofmt -w
+      - name: Commit reproducible code
+        run: |
+          git add db/sqlc db/mock
+          git add -u
+          if ! git diff --cached --quiet; then
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "style(go): regenerate sqlc, mocks and apply gofmt"
+            git push origin HEAD:dev
+          fi
