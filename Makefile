@@ -4,7 +4,7 @@ DB_URL ?=
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
-.PHONY: postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc test testsqlc testsqlc-race server newmigration
+.PHONY: postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc proto test testsqlc testsqlc-race server newmigration
 
 postgres:
 	docker run --name $(POSTGRES_CONTAINER) -p 5432:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -d postgres:18-alpine
@@ -38,6 +38,13 @@ migratedown1: migratedown
 
 sqlc:
 	sqlc generate
+
+# Buf validates and generates protobuf message types into pb/.
+# Tools: buf CLI + protoc-gen-go v1.36.10; never edit generated pb files.
+proto:
+	buf lint
+	buf build
+	buf generate
 
 test:
 	go test -v -cover ./...
