@@ -34,9 +34,10 @@ type schema struct {
 
 func main() {
 	out := flag.String("out", "", "directory for generated documentation")
+	dbmlFile := flag.String("dbml", "implemented.dbml", "DBML output filename (basename only)")
 	flag.Parse()
 	dsn := os.Getenv("DB_DOCS_DATABASE_URL")
-	if *out == "" || dsn == "" {
+	if *out == "" || dsn == "" || filepath.Base(*dbmlFile) != *dbmlFile || *dbmlFile == "." || *dbmlFile == "" {
 		fmt.Fprintln(os.Stderr, "set DB_DOCS_DATABASE_URL and -out (read-only schema projection)")
 		os.Exit(2)
 	}
@@ -61,7 +62,7 @@ func main() {
 		os.Exit(1)
 	}
 	for file, data := range map[string][]byte{
-		"implemented.dbml": renderDBML(doc),
+		*dbmlFile:         renderDBML(doc),
 		"constraints.md":   renderDetails(doc),
 	} {
 		if err := os.WriteFile(filepath.Join(*out, file), data, 0644); err != nil {
