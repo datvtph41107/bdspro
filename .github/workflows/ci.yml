@@ -112,8 +112,8 @@ jobs:
       - name: Check source consistency
         run: |
           go mod tidy
-          gofmt -w api auth organization source db/sqlc pb util cmd/dbdocs main.go integration_test.go party_kind_test.go phone_auth_integration_test.go
-          git diff --exit-code -- go.mod go.sum api pb db/sqlc util cmd/dbdocs auth organization source main.go integration_test.go party_kind_test.go phone_auth_integration_test.go
+          gofmt -w api auth organization source db/sqlc pb util integration cmd/dbdocs main.go
+          git diff --exit-code -- go.mod go.sum api pb db/sqlc util integration cmd/dbdocs auth organization source main.go
           test -z "$(git ls-files --others --exclude-standard -- db/sqlc)"
           go vet ./...
 
