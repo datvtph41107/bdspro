@@ -226,7 +226,7 @@ func TestPhoneLoginHTTPUsesSharedJWTAndCookieContract(t *testing.T) {
 		t.Fatalf("verify HTTP=%d cookies=%d %s", verify.Code, len(verify.Result().Cookies()), verify.Body.String())
 	}
 	var response struct {
-		AccountID int64 `json:"account_id"`
+		AccountID   int64  `json:"account_id"`
 		AccessToken string `json:"access_token"`
 	}
 	if err := json.Unmarshal(verify.Body.Bytes(), &response); err != nil || response.AccountID != accountID || response.AccessToken == "" {
