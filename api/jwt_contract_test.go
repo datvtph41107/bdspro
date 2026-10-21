@@ -10,16 +10,17 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
+	"github.com/datvtph41107/bdspro/token"
 	"github.com/stretchr/testify/require"
 )
 
 func TestJWTBearerLoginRenewAndLogoutBoundary(t *testing.T) {
-	jwtIssuer, err := auth.NewAccessTokens(strings.Repeat("Z", 32))
+	jwtIssuer, err := token.NewJWTMaker(strings.Repeat("Z", 32))
 	require.NoError(t, err)
 	stub := &authStub{loginResult: auth.LoginResult{
 		AccountID: 17, Token: "opaque-session", ExpiresAt: time.Now().Add(24 * time.Hour)}, accountID: 17}
 	server := NewServer(nil, stub, nil, nil, true, "")
-	server.EnableAccessTokens(jwtIssuer)
+	server.SetJWTMaker(jwtIssuer)
 
 	loginReq := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"email":"user@example.test","password":"ValidPassword123!"}`))
 	loginReq.Header.Set("Content-Type", "application/json")
@@ -68,11 +69,11 @@ func TestJWTBearerLoginRenewAndLogoutBoundary(t *testing.T) {
 }
 
 func TestJWTInvalidBearerNeverDowngradesToCookie(t *testing.T) {
-	issuer, err := auth.NewAccessTokens(strings.Repeat("Z", 32))
+	issuer, err := token.NewJWTMaker(strings.Repeat("Z", 32))
 	require.NoError(t, err)
 	stub := &authStub{accountID: 17}
 	server := NewServer(nil, stub, nil, nil, true, "")
-	server.EnableAccessTokens(issuer)
+	server.SetJWTMaker(issuer)
 	req := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
 	req.AddCookie(&http.Cookie{Name: "bdspro_session", Value: "valid-cookie"})
 	req.Header.Set("Authorization", "Bearer invalid")
@@ -83,14 +84,14 @@ func TestJWTInvalidBearerNeverDowngradesToCookie(t *testing.T) {
 }
 
 func TestJWTBearerLogoutRevokesCurrentSession(t *testing.T) {
-	issuer, err := auth.NewAccessTokens(strings.Repeat("Z", 32))
+	issuer, err := token.NewJWTMaker(strings.Repeat("Z", 32))
 	require.NoError(t, err)
 	jwtToken, _, err := issuer.Issue(17, "opaque-session")
 	require.NoError(t, err)
 
 	stub := &authStub{accountID: 17}
 	server := NewServer(nil, stub, nil, nil, true, "")
-	server.EnableAccessTokens(issuer)
+	server.SetJWTMaker(issuer)
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
 	req.Header.Set("Authorization", "Bearer "+jwtToken)
 	req.Header.Set("X-BDSPro-Request", "1")
@@ -122,13 +123,13 @@ func TestJWTBearerLogoutRevokesCurrentSession(t *testing.T) {
 }
 
 func TestJWTBearerLogoutAllRevokesWithoutCookie(t *testing.T) {
-	issuer, err := auth.NewAccessTokens(strings.Repeat("Z", 32))
+	issuer, err := token.NewJWTMaker(strings.Repeat("Z", 32))
 	require.NoError(t, err)
 	jwtToken, _, err := issuer.Issue(17, "opaque-session")
 	require.NoError(t, err)
 	stub := &authStub{accountID: 17}
 	server := NewServer(nil, stub, nil, nil, true, "")
-	server.EnableAccessTokens(issuer)
+	server.SetJWTMaker(issuer)
 	req := httptest.NewRequest(http.MethodPost, "/auth/logout-all", nil)
 	req.Header.Set("Authorization", "Bearer "+jwtToken)
 	w := httptest.NewRecorder()
