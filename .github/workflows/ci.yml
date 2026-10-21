@@ -104,8 +104,6 @@ jobs:
           buf lint
           buf build
           buf generate
-          # Bootstrap: generated output from canonical source, never handwritten.
-          sed 's/^/GENPROTOFILE|/' pb/bdspro/v1/account.pb.go
           test -z "$(git ls-files --others --exclude-standard -- pb)"
 
       - name: Generate SQLC
