@@ -13,6 +13,10 @@ import (
 type Querier interface {
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
+	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
+	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
+	GetAccountByID(ctx context.Context, id int64) (Account, error)
+	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
 	CreatePerson(ctx context.Context, partyID int64) error
 	CreatePersonParty(ctx context.Context) (int64, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)

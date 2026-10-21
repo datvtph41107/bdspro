@@ -12,7 +12,7 @@ import (
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (person_id, email, password_hash)
 VALUES ($1, $2, $3)
-RETURNING id, person_id, email, password_hash, created_at
+RETURNING id, person_id, email, password_hash, created_at, is_email_verified
 `
 
 type CreateAccountParams struct {
@@ -30,12 +30,13 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.Email,
 		&i.PasswordHash,
 		&i.CreatedAt,
+		&i.IsEmailVerified,
 	)
 	return i, err
 }
 
 const getAccountByEmail = `-- name: GetAccountByEmail :one
-SELECT id, person_id, email, password_hash, created_at
+SELECT id, person_id, email, password_hash, created_at, is_email_verified
 FROM accounts WHERE lower(btrim(email)) = lower(btrim($1)) LIMIT 1
 `
 
@@ -48,6 +49,34 @@ func (q *Queries) GetAccountByEmail(ctx context.Context, btrim string) (Account,
 		&i.Email,
 		&i.PasswordHash,
 		&i.CreatedAt,
+		&i.IsEmailVerified,
 	)
+	return i, err
+}
+
+const getAccountByID = `-- name: GetAccountByID :one
+SELECT id, person_id, email, password_hash, created_at, is_email_verified
+FROM accounts WHERE id = $1 LIMIT 1
+`
+func (q *Queries) GetAccountByID(ctx context.Context, id int64) (Account, error) {
+	row := q.db.QueryRow(ctx, getAccountByID, id)
+	var i Account
+	err := row.Scan(&i.ID, &i.PersonID, &i.Email, &i.PasswordHash, &i.CreatedAt, &i.IsEmailVerified)
+	return i, err
+}
+
+const markEmailVerified = `-- name: MarkEmailVerified :one
+UPDATE accounts SET is_email_verified = TRUE
+WHERE id = $1 AND lower(btrim(email)) = lower(btrim($2))
+RETURNING id, person_id, email, password_hash, created_at, is_email_verified
+`
+type MarkEmailVerifiedParams struct {
+	ID    int64  `json:"id"`
+	Email string `json:"email"`
+}
+func (q *Queries) MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error) {
+	row := q.db.QueryRow(ctx, markEmailVerified, arg.ID, arg.Email)
+	var i Account
+	err := row.Scan(&i.ID, &i.PersonID, &i.Email, &i.PasswordHash, &i.CreatedAt, &i.IsEmailVerified)
 	return i, err
 }

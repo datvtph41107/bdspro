@@ -10,6 +10,7 @@ import (
 type Store interface {
 	Querier
 	RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
+	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
 }
 
 type SQLStore struct {
@@ -38,6 +39,7 @@ func (s *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error {
 type RegisterTxParams struct {
 	Email        string
 	PasswordHash string
+	AfterCreate  func(account Account) error
 }
 
 // RegisterTx creates Party, Person and Account atomically.
@@ -54,7 +56,13 @@ func (s *SQLStore) RegisterTx(ctx context.Context, arg RegisterTxParams) (Accoun
 		account, err = q.CreateAccount(ctx, CreateAccountParams{
 			PersonID: partyID, Email: arg.Email, PasswordHash: arg.PasswordHash,
 		})
-		return err
+		if err != nil {
+			return err
+		}
+		if arg.AfterCreate != nil {
+			return arg.AfterCreate(account)
+		}
+		return nil
 	})
 	return account, err
 }

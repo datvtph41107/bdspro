@@ -15,7 +15,8 @@ type Account struct {
 	PersonID     int64     `json:"person_id"`
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"password_hash"`
-	CreatedAt    time.Time `json:"created_at"`
+	CreatedAt       time.Time `json:"created_at"`
+	IsEmailVerified bool `json:"is_email_verified"`
 }
 
 type Party struct {
@@ -35,4 +36,14 @@ type Session struct {
 	IsBlocked    bool      `json:"is_blocked"`
 	CreatedAt    time.Time `json:"created_at"`
 	ExpiresAt    time.Time `json:"expires_at"`
+}
+
+type VerifyEmail struct {
+	ID         int64     `json:"id"`
+	AccountID  int64     `json:"account_id"`
+	Email      string    `json:"email"`
+	SecretCode string    `json:"secret_code"`
+	IsUsed     bool      `json:"is_used"`
+	CreatedAt  time.Time `json:"created_at"`
+	ExpiredAt  time.Time `json:"expired_at"`
 }
