@@ -49,17 +49,8 @@ jobs:
         env:
           DB_TEST_URL: postgres://root:secret@127.0.0.1:5432/bdspro_lecture37_test?sslmode=disable
         run: go test -v -count=1 ./db/sqlc
-      - name: Export generated source changes for review
+      - name: Generated source stays in sync
         run: |
           gofmt -w api db token util main.go
-          python3 - <<'PY'
-          import json
-          import pathlib
-          import subprocess
-          changed = subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines()
-          allowed = ("api/", "db/sqlc/", "db/mock/", "token/", "util/")
-          for filename in sorted(changed):
-              if filename.startswith(allowed) or filename in ("main.go", "go.mod", "go.sum"):
-                  path = pathlib.Path(filename)
-                  print("BASELINE_FILE_JSON:" + json.dumps({"path": filename, "content": path.read_text()}, separators=(",", ":")))
-          PY
+          git diff --exit-code -- go.mod go.sum api db/sqlc db/mock token util main.go
+          docker compose config --quiet
