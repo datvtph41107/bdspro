@@ -113,7 +113,7 @@ func (server *Server) loginUser(ctx *gin.Context) {
 		UserAgent:    ctx.Request.UserAgent(),
 		ClientIp:     ctx.ClientIP(),
 		IsBlocked:    false,
-		ExpiresAt:    refreshPayload.ExpiresAt.Time,
+		ExpiresAt:    refreshPayload.ExpiredAt,
 	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
@@ -122,9 +122,9 @@ func (server *Server) loginUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, loginUserResponse{
 		SessionID:             session.ID.String(),
 		AccessToken:           accessToken,
-		AccessTokenExpiresAt:  accessPayload.ExpiresAt.Time,
+		AccessTokenExpiresAt:  accessPayload.ExpiredAt,
 		RefreshToken:          refreshToken,
-		RefreshTokenExpiresAt: refreshPayload.ExpiresAt.Time,
+		RefreshTokenExpiresAt: refreshPayload.ExpiredAt,
 		User:                  newUserResponse(account),
 	})
 }

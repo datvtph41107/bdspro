@@ -1,118 +1,69 @@
-# BDSPro — Authentication/Authorization baseline (SimpleBank Lecture #37)
+# BDSPro — Authentication baseline
 
-Canonical source: branch `dev`. Reference: [SimpleBank Lecture #37, commit 5663a678](https://github.com/techschool/simplebank/commit/5663a678fa15e8427619a997af5ed6dbd6f31e33).
+Kiến trúc tham khảo [TechSchool SimpleBank Lecture #37 (commit 5663a678)](https://github.com/techschool/simplebank/commit/5663a678fa15e8427619a997af5ed6dbd6f31e33). BDSPro giữ cách tổ chức Go/Gin/SQLC/Store/Token của SimpleBank, nhưng dùng `Party → Person → Account`, login bằng email và `pgx/v5`.
 
-## Phạm vi hiện tại
+## Source và trách nhiệm
 
-- `api.Server` giữ `config`, `store`, `tokenMaker`, `router` theo phong cách SimpleBank.
-- `POST /users`: tạo `Party → Person → Account` trong `db.SQLStore.RegisterTx`.
-- `POST /users/login`: kiểm tra mật khẩu, phát hành access/refresh JWT, tạo phiên PostgreSQL.
-- `POST /tokens/renew_access`: kiểm tra refresh JWT và session hiện hành.
-- `GET /users/me`: middleware Bearer access-token bảo vệ endpoint.
-- `token.Maker`, `db.Store`, sqlc, PostgreSQL migration và password helper chỉ tồn tại tại một vị trí mỗi trách nhiệm.
+- `main.go`: đọc `app.env`, kết nối PostgreSQL, tạo Store và Server.
+- `util/config.go`: Viper `ReadInConfig` + `AutomaticEnv`, không có `BindEnv` hoặc cơ chế `.env` fallback.
+- `util/password.go`: bcrypt hash/verify mật khẩu.
+- `db/migration/`: schema `parties`, `persons`, `accounts`, `sessions`; migration `000001` đã áp dụng trên local thì **không sửa hoặc chạy lại bằng tay**.
+- `db/query/`: các SQL query đầu vào của sqlc; `db/sqlc/` là code được sinh, ngoại trừ Store và các test thủ công.
+- `db/sqlc/store.go`: `Store`/ `SQLStore`, `execTx`, `RegisterTx` (Party, Person, Account trong cùng transaction).
+- `token/`: `Maker`, `Payload`, HS256 JWT, phân biệt access/refresh bằng `TokenType`; không đưa Role giả hoặc PASETO vào baseline.
+- `api/`: Gin Server, Register/Login, middleware Bearer, refresh token, các unit test dùng MockStore.
 
-**Authentication** tại #37 gồm các luồng trên. **Authorization** ở mốc này là xác thực Bearer token và kiểm tra quyền truy cập vào endpoint của account hiện hành; **chưa có Role/Permission/RBAC hoặc workspace**. Không nên gọi bảo vệ endpoint là hệ thống phân quyền hoàn chỉnh.
+## Database: duy nhất tên `bdspro`
 
-Không có `source/`, `organization/`, `auth/`, `gapi/`, `proto/`, `pb/`, email verification, SMS OTP, SMS Outbox hay worker/outbox nghiệp vụ trong baseline. Những chức năng này thuộc các mốc triển khai sau khi có thiết kế và bài học tương ứng; **không dựng stub/mock hay package rỗng để chuẩn bị trước**.
+Local dùng container `postgres` và database `bdspro`. GitHub Actions cũng tạo database tên `bdspro`, **nhưng trên PostgreSQL tạm riêng của runner**, không liên quan dữ liệu local. Không tạo `bdspro_test`, `bdspro_core`, hoặc `bdspro_lecture37_test`.
 
-## Test và mock: một vị trí cho mỗi trách nhiệm
-
-```text
-api/
-  main_test.go        # newTestServer dùng chung trong package API
-  user_test.go        # Register/Login, validation, DB failure
-  token_test.go       # Renew access, blocked/expired/missing session
-  middleware_test.go  # Bearer access; từ chối refresh token
-db/
-  mock/store.go       # MockStore DUY NHẤT; sinh từ db.Store
-  sqlc/main_test.go   # Helpers cho PostgreSQL test database
-  sqlc/store_test.go  # RegisterTx, commit/rollback
-  sqlc/session_test.go
-token/jwt_maker_test.go
-util/password_test.go
-```
-
-Không có `*_test.go` tại root. Không dùng `authStub`, Source mock, OTP mock hoặc test contract của các module đã rút.
-
-```bash
-go test -v ./api ./token ./util
-go vet ./...
-go test ./...
-```
-
-`go test ./...` khi không có `DB_TEST_URL` **sẽ SKIP** những integration tests đòi PostgreSQL, vì vậy phải chạy trên DB test riêng để nghiệm thu dữ liệu. Ví dụ:
-
-```bash
-docker exec postgres createdb -U root -O root bdspro_lecture37_test
-migrate -path db/migration -database 'postgres://root:secret@127.0.0.1:5432/bdspro_lecture37_test?sslmode=disable' up
-DB_TEST_URL='postgres://root:secret@127.0.0.1:5432/bdspro_lecture37_test?sslmode=disable' make testdb
-```
-
-Hai lệnh tạo/migrate database test dành cho môi trường chưa có `bdspro_lecture37_test`; không chạy lại nếu DB test đã tồn tại và đang có schema.
-
-Tính tái lập các file sinh tự động:
-
-```bash
-make sqlc
-make mock
-go mod tidy
-gofmt -w api db token util main.go
-git diff --exit-code
-```
-
-CI kiểm tra `sqlc v1.30.0`, `go.uber.org/mock/mockgen v0.6.0`, Go test, migration, PostgreSQL integration, HTTP Register/Login/Renew/Me smoke và generated-code drift.
-
-## Database vận hành
-
-**Cấu hình theo Lecture #37**: `app.env` là file mặc định được commit (development only). Nếu có `.env` (local, bị Git ignore), `util.LoadConfig` sẽ đọc **`.env` thay cho `app.env`**. Biến môi trường của process ưu tiên cao nhất. Không cần export thủ công từng biến khi chạy `make server`. Cả hai file mẫu đều trỏ về database `bdspro` trong container `postgres`, không trỏ về lab DB song song. Schema hiện hành gồm `parties`, `persons`, `accounts`, `sessions` và `schema_migrations`. **Không chạy lại reset script hoặc tự ý drop DB khi đang phát triển và test.**
+Xác minh local (chỉ đọc):
 
 ```bash
 docker exec postgres pg_isready -U root -d bdspro
 docker exec postgres psql -U root -d bdspro -c 'SELECT version, dirty FROM schema_migrations'
+```
+
+Nếu local đang `version=1, dirty=false`, không cần chạy `make migrateup` hoặc reset DB. Với database mới được tạo riêng, `make migrateup` sẽ áp dụng migration chưa chạy; không dùng `migratedown` tùy tiện.
+
+`db/sqlc/main_test.go` chỉ cho phép DB integration tests ghi dữ liệu khi đang chạy trong GitHub Actions, và xác nhận `current_database() = 'bdspro'`. `make test` thông thường trên WSL chạy unit tests và skip DB integration tests để không ghi dữ liệu vào DB local. Trên CI, `make test` chạy tất cả bài test sau migration.
+
+## Quy trình chạy
+
+```bash
 make server
+make test
+make sqlc
+make mock
 ```
 
-Ví dụ chạy thử:
+`make server` đọc `app.env`. URL DB local: `postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable`. `make migrateup` dùng URL mặc định trên và cho phép đổi bằng `DB_URL` khi chạy. File `app.env` chỉ là mẫu local; khóa JWT trong đó tuyệt đối không dùng production.
+
+## HTTP API
+
+| Method | Route | Mục đích |
+|---|---|---|
+| POST | `/users` | Đăng ký Account + Party/Person trong transaction |
+| POST | `/users/login` | Xác minh bcrypt, cấp access/refresh JWT, tạo Session |
+| POST | `/tokens/renew_access` | Kiểm tra refresh JWT + Session, cấp access JWT |
+| GET | `/users/me` | Bearer access-token; trả account ID |
+
+JWT `Payload` chứa UUID, AccountID, TokenType, IssuedAt, ExpiredAt. Chuyển từ `jwt.RegisteredClaims` sang getter thủ công theo phong cách SimpleBank có thể làm token trước đó không tương thích: đăng nhập lại để nhận token mới.
+
+## CI
+
+`.github/workflows/test.yml` giữ đúng pipeline SimpleBank: checkout → setup Go → install go-migrate → `make migrateup` → `make test`. PostgreSQL 18 tạm thời do GitHub Actions khởi tạo, database tên `bdspro`. Chưa triển khai AWS hoặc production deploy.
+
+## Đồng bộ local sau khi merge
+
+**Không clone đè lên thư mục WSL đang có chỉnh sửa chưa commit.** Clone vào thư mục mới để đối chiếu và giữ lại công việc cũ:
 
 ```bash
-curl -i -X POST http://127.0.0.1:8080/users -H 'Content-Type: application/json' -d '{"email":"test@example.test","password":"strong-password"}'
-curl -i -X POST http://127.0.0.1:8080/users/login -H 'Content-Type: application/json' -d '{"email":"test@example.test","password":"strong-password"}'
-```
-
-API login trả `access_token`, `refresh_token`, `session_id`; renew gọi `POST /tokens/renew_access` với `{"refresh_token":"..."}`; `/users/me` nhận `Authorization: Bearer <access_token>`.
-
-## Đồng bộ Git
-
-```bash
-cd ~/projects/bdspro
-git status --short --branch
-git fetch origin --prune
-git switch dev
-git merge --ff-only origin/dev
+cd ~/projects
+git clone --branch dev https://github.com/datvtph41107/bdspro.git bdspro-fresh
+cd bdspro-fresh
 git log -1 --oneline
+git status --short --branch
 ```
 
-Nhánh `archive/pre-lecture37-2026-10-21` giữ checkpoint lịch sử. Những thay đổi local cũ đã được người phát triển `stash` thì **không `stash pop` tự động** vào baseline này.
-
-## Đối chiếu với SimpleBank Lecture #37
-
-| Lớp | BDSPro hiện hành | SimpleBank ở commit 5663a678 | Kết luận |
-|---|---|---|---|
-| Entry point | `main.go` → Config → Store → Server | Cùng luồng | Tương ứng |
-| API | Gin `api.Server`, `/users`, `/users/login`, `/tokens/renew_access` | Gin với ba route tương ứng, thêm banking | Tương ứng luồng authentication |
-| Identity | `Party → Person → Account`, email đăng nhập | `users.username` | Khác mô hình có chủ đích |
-| Store | `db.Store`, `db.SQLStore`, transaction `RegisterTx` | `db.Store`, `db.SQLStore`, `TransferTx` | Cùng mô hình, khác nghiệp vụ |
-| SQLC | Query SQL, generated `db/sqlc` (pgx/v5) | SQLC dùng `database/sql` | Không đồng nhất driver |
-| Token | Access/refresh **JWT** phân biệt token type | Mặc định **PASETO**, có JWT maker | Không đồng nhất token implementation |
-| Session | PostgreSQL: UUID, refresh token, account ID | PostgreSQL: UUID, refresh token, username | Tương ứng lifecycle |
-| Unit tests | `api/*_test.go`, `token/*_test.go`, `util/*_test.go` | Phân theo package tương ứng | Tương ứng |
-| DB tests/mocks | SQL integration tests trên test DB riêng; một `db/mock/store.go` | Cùng nguyên tắc | Tương ứng |
-| Banking/AWS | Không có | Có Account/Entry/Transfer, AWS deployment | Cố ý loại khỏi phạm vi |
-
-File migration `000001_party_account_session.up.sql` được trình bày theo thứ tự **CREATE TABLE → ALTER TABLE FOREIGN KEY → CREATE INDEX** như SimpleBank, nhưng vẫn khai báo chính xác các bảng và quan hệ đã có. Không thêm migration hoặc thay đổi dữ liệu trong database `bdspro` đã chạy version 1. Đây là chuẩn hóa cách viết, không phải nâng cấp schema.
-
-**Chỉ tương ứng kiến trúc và flow**, không đồng nhất tuyệt đối từng dòng với SimpleBank: copy trực tiếp các bảng banking, PASETO hoặc `database/sql` sẽ làm thay đổi mô hình và API đã chốt của BDSPro.
-
-## Ranh giới bảo mật
-
-Đây là baseline học tập chạy local, chưa phải hệ thống production. Refresh JWT hiện được lưu dạng plaintext trong PostgreSQL theo flow SimpleBank #37. Khi triển khai Internet cần thiết kế token-at-rest, rotate/revoke, rate limit, email/phone verification, HTTPS và policy authorization; không sinh OTP, SMS Outbox hay role/permission chỉ vì dự đoán sẽ dùng về sau.
+Mã Go và các test có thể chạy bằng `go test ./...` mà không ghi dữ liệu PostgreSQL local. Nếu cần đối chiếu dữ liệu trong DB, chỉ chạy SQL `SELECT`.
