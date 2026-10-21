@@ -10,7 +10,7 @@ Mốc BDSPro: nhánh `dev`. Phần trạng thái dưới đây xác định **co
 | 1: PostgreSQL | Migrations, sqlc, transaction | Party, Person, Account, Session và RegisterTx | Đã có |
 | 2: Gin REST | HTTP handlers, middleware, test, JWT | Register, Login, Renew, Revoke, Me, Health | Đã có |
 | 3: AWS/K8s | Docker, cloud deployment | Dockerfile, Compose, CI | Chỉ local, không AWS |
-| 4: Session/gRPC | Refresh session, gRPC, PASETO | JWT + PostgreSQL session | gRPC/PASETO chưa triển khai |
+| 4: Session/gRPC | Refresh session, gRPC, PASETO | JWT + session + gRPC + Gateway + OpenAPI | Đã có gRPC; không dùng PASETO |
 | 5: Worker | Redis/Asynq, email verification | Có worker, Gmail sender và VerifyEmailTx; cần SMTP thực tế | Đã có code, delivery ngoài CI |
 | 6: Reliability | Test, security, lifecycle | Bcrypt, JWT expiry, DB unique, CI | Đã có một phần: CORS, HTTP logging, HTTP shutdown |
 
@@ -55,4 +55,4 @@ main -> LoadConfig -> pgxpool -> NewStore -> NewServer -> Gin (graceful HTTP sto
 
 ## Chưa triển khai
 
-Phone OTP, authorization theo workspace/person/organization, gRPC và AWS chưa có implementation. Email verification qua Redis/Gmail đã có source, cần Gmail SMTP credentials để kiểm chứng gửi thật. Không đánh đồng các mục chưa làm với yêu cầu hoàn thành khóa học.
+Phone OTP, AWS/Kubernetes, gRPC partial update và gRPC RBAC chưa có implementation. Organization membership owner/member đã có. Email verification qua Redis/Gmail đã có source, cần Gmail SMTP credentials để kiểm chứng gửi thật. Không đánh đồng các mục chưa làm với yêu cầu hoàn thành khóa học.

@@ -37,6 +37,8 @@ make server
 make test
 make sqlc
 make mock
+make proto
+make fmt
 ```
 
 `make server` đọc `app.env`. URL DB local: `postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable`. `make migrateup` dùng URL mặc định trên và cho phép đổi bằng `DB_URL` khi chạy. File `app.env` chỉ là mẫu local; khóa JWT trong đó tuyệt đối không dùng production.
@@ -73,6 +75,10 @@ Gin sử dụng logger theo `log/slog` và CORS chỉ cho nguồn trong `ALLOWED
 ## Organization và phân quyền
 
 Migration `000003` tạo `organizations` và `organization_memberships`. Party không có `kind` hay trigger. Transaction `CreateOrganizationTx` tạo Party, Organization và owner membership. Owner mới được thêm member bằng câu lệnh SQL `INSERT ... SELECT ... WHERE EXISTS`. Partial unique index ngăn hai membership đang hoạt động cho một cặp Organization/Person. Sau khi đồng bộ code, local cần chạy `make migrateup` một lần để áp dụng migration mới; không sửa hay chạy lại migration cũ.
+
+## HTTP + gRPC Gateway
+
+Cùng một nghiệp vụ Register/Login chạy qua Gin (`/users`, `/users/login`) và gRPC (`Register`, `Login`). gRPC Gateway có các route `/v1/users`, `/v1/users/login`, `/v1/users/verify_email`. Tài liệu OpenAPI: `GET /docs/openapi.json`. `GRPC_SERVER_ADDRESS` mặc định trong `app.env` là `127.0.0.1:9090`; Docker Compose ánh xạ cổng `19090` tới gRPC của stack riêng. `make proto` tái sinh protobuf + Gateway + Swagger, `make sqlc` và `make mock` tái sinh DB access và mocks.
 
 ## CI
 

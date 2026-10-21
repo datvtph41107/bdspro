@@ -42,43 +42,43 @@ Mốc: [TechSchool SimpleBank README](https://github.com/techschool/simplebank/b
 | 35 | Automatic issue TLS certificates in Kubernetes with Let's Encrypt | AWS chưa triển khai |
 | 36 | Automatic deploy to Kubernetes with Github Action | AWS chưa triển khai |
 | 37 | How to manage user session with refresh token - Golang | Session hiện có |
-| 38 | Generate DB documentation page and schema SQL dump from DBML | DBML hiện có |
-| 39 | Introduction to gRPC | gRPC/Swagger chưa triển khai |
-| 40 | Define gRPC API and generate Go code with protobuf | gRPC/Swagger chưa triển khai |
-| 41 | How to run a golang gRPC server and call its API | gRPC/Swagger chưa triển khai |
-| 42 | Implement gRPC API to create and login users in Go | gRPC/Swagger chưa triển khai |
-| 43 | gRPC gateway: write code once, serve both gRPC & HTTP requests | gRPC/Swagger chưa triển khai |
-| 44 | How to extract info from gRPC metadata | gRPC/Swagger chưa triển khai |
-| 45 | Automatic generate & serve Swagger docs from Go server | gRPC/Swagger chưa triển khai |
-| 46 | Embed static frontend files inside Golang backend server's binary | gRPC/Swagger chưa triển khai |
-| 47 | Validate gRPC parameters and send human/machine friendly response | gRPC/Swagger chưa triển khai |
-| 48 | Run DB migrations directly inside Golang code | gRPC/Swagger chưa triển khai |
-| 49 | Partial update DB record with SQLC nullable parameters | gRPC/Swagger chưa triển khai |
-| 50 | Build gRPC update API with optional parameters | gRPC/Swagger chưa triển khai |
-| 51 | Add authorization to protect gRPC API | gRPC/Swagger chưa triển khai |
-| 52 | Write structured logs for gRPC APIs | gRPC/Swagger chưa triển khai |
-| 53 | How to write HTTP logger middleware in Go | gRPC/Swagger chưa triển khai |
-| 54 | Implement background worker in Go with Redis and Asynq | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 55 | Integrate async worker to Go web server | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 56 | Send async tasks to Redis within a DB transaction | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 57 | How to handle errors and print logs for Go Asynq workers | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 58 | A bit of delay might be good for your async tasks | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 59 | How to send emails in Go via Gmail | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 60 | How to skip test in Go and config test flag in vscode | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 61 | Email verification in Go: design DB and send email | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 62 | Implement email verification API in Go | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 63 | Unit test gRPC API with mock DB & Redis | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 64 | How to test a gRPC API that requires authentication | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
-| 65 | Config sqlc version 2 for Go and Postgres | sqlc v2/pgx hiện có |
-| 66 | Switch DB driver from lib/pq to pgx | sqlc v2/pgx hiện có |
-| 67 | How to handle DB errors with PGX driver | sqlc v2/pgx hiện có |
-| 68 | Docker compose: port + volume mapping | Compose hiện có |
+| 38 | Generate DB documentation page and schema SQL dump from DBML | Đã có DBML và mô tả schema; chưa xuất bản dbdocs |
+| 39 | Introduction to gRPC | Đã có gRPC server |
+| 40 | Define gRPC API and generate Go code with protobuf | Đã có Proto contract và generated Go code |
+| 41 | How to run a golang gRPC server and call its API | Đã có listener gRPC cổng 9090 |
+| 42 | Implement gRPC API to create and login users in Go | Đã có RPC Register/Login + test |
+| 43 | gRPC gateway: write code once, serve both gRPC & HTTP requests | Đã có HTTP Gateway /v1 |
+| 44 | How to extract info from gRPC metadata | Có đọc metadata user-agent, x-forwarded-for |
+| 45 | Automatic generate & serve Swagger docs from Go server | Đã sinh OpenAPI và phục vụ /docs/openapi.json |
+| 46 | Embed static frontend files inside Golang backend server's binary | Đã embed OpenAPI JSON, chưa embed frontend |
+| 47 | Validate gRPC parameters and send human/machine friendly response | Đã có status codes và kiểm tra input tối thiểu |
+| 48 | Run DB migrations directly inside Golang code | Compose áp dụng migration qua service migrate; chưa migrate trong Go |
+| 49 | Partial update DB record with SQLC nullable parameters | Chưa có partial-update SQLC nullable |
+| 50 | Build gRPC update API with optional parameters | Chưa có gRPC update profile |
+| 51 | Add authorization to protect gRPC API | Chưa có protected gRPC update; có owner/member qua Gin |
+| 52 | Write structured logs for gRPC APIs | Đã có structured gRPC logging |
+| 53 | How to write HTTP logger middleware in Go | Đã có HTTP logger middleware |
+| 54 | Implement background worker in Go with Redis and Asynq | Đã có Redis/Asynq worker |
+| 55 | Integrate async worker to Go web server | Đã tích hợp worker vào main.go |
+| 56 | Send async tasks to Redis within a DB transaction | Đã enqueue trong callback RegisterTx |
+| 57 | How to handle errors and print logs for Go Asynq workers | Có worker error logger |
+| 58 | A bit of delay might be good for your async tasks | Có ProcessIn 10 giây |
+| 59 | How to send emails in Go via Gmail | Đã có Gmail sender, cần SMTP credentials thật |
+| 60 | How to skip test in Go and config test flag in vscode | Integration test DB skip local, chạy CI |
+| 61 | Email verification in Go: design DB and send email | Đã có verify_emails và worker |
+| 62 | Implement email verification API in Go | Đã có VerifyEmail API Gin/gRPC |
+| 63 | Unit test gRPC API with mock DB & Redis | Đã có mock DB/worker test, chưa gRPC multi-mock tổng quát |
+| 64 | How to test a gRPC API that requires authentication | Chưa có gRPC authenticated update test |
+| 65 | Config sqlc version 2 for Go and Postgres | Đã có sqlc v2 |
+| 66 | Switch DB driver from lib/pq to pgx | Đã có pgx/v5 |
+| 67 | How to handle DB errors with PGX driver | Có xử lý lỗi pgconn/pgx |
+| 68 | Docker compose: port + volume mapping | Đã có Compose port+volume |
 | 69 | How to install & use binary packages in Go | Tooling |
-| 70 | Implement role-based access control (RBAC) in Go | RBAC chưa triển khai |
+| 70 | Implement role-based access control (RBAC) in Go | Có membership owner/member qua Gin + SQL |
 | 71 | Grant AWS EKS cluster access to Postgres and Redis using security group | AWS chưa triển khai |
 | 72 | Deploy gRPC + HTTP server to AWS EKS cluster | AWS chưa triển khai |
 | 73 | Don't lose money on AWS | AWS chưa triển khai |
-| 74 | Graceful shutdown gRPC/HTTP servers and async worker | HTTP shutdown hiện có |
+| 74 | Graceful shutdown gRPC/HTTP servers and async worker | Đã có graceful HTTP/gRPC/Asynq |
 | 75 | Go 1.22 fixed the most common for-loop trap | Go mới |
-| 76 | Setup CORS policy with Go and VueJS | CORS hiện có |
-| 77 | Upgrade golang JWT package to v5 | JWT v5 hiện có |
+| 76 | Setup CORS policy with Go and VueJS | Đã có CORS middleware |
+| 77 | Upgrade golang JWT package to v5 | Đã có JWT v5 |
