@@ -56,3 +56,9 @@ main -> LoadConfig -> pgxpool -> NewStore -> NewServer -> Gin (graceful HTTP sto
 ## Chưa triển khai
 
 Phone OTP, AWS/Kubernetes, gRPC partial update và gRPC RBAC chưa có implementation. Organization membership owner/member đã có. Email verification qua Redis/Gmail đã có source, cần Gmail SMTP credentials để kiểm chứng gửi thật. Không đánh đồng các mục chưa làm với yêu cầu hoàn thành khóa học.
+
+## Đối chiếu tổ chức nguồn
+
+- `gapi/server.go` chỉ chứa `Server/NewServer`, từng RPC ở `gapi/rpc_*.go`, phần chuyển Account ở `gapi/user.go`, HTTP/gRPC logger nằm riêng.
+- `worker/distributor.go` chứa `TaskDistributor`, `worker/processor.go` chứa `TaskProcessor` và Redis lifecycle, `worker/task_send_verify_email.go` chứa queue payload và handler, `worker/logger.go` nối logging Asynq.
+- `util/random.go` dùng helpers mẫu giống SimpleBank nhưng đối tượng là Person/Organization. Mã verification dùng `crypto/rand`.
