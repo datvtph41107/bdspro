@@ -64,7 +64,7 @@ CI kiểm tra `sqlc v1.30.0`, `go.uber.org/mock/mockgen v0.6.0`, Go test, migrat
 
 ## Database vận hành
 
-`app.env` trỏ về `bdspro` trên container PostgreSQL `postgres`, không trỏ về lab DB song song. Schema hiện hành gồm `parties`, `persons`, `accounts`, `sessions` và `schema_migrations`. **Không chạy lại reset script hoặc tự ý drop DB khi đang phát triển và test.**
+**Cấu hình theo Lecture #37**: `app.env` là file mặc định được commit (development only). Nếu có `.env` (local, bị Git ignore), `util.LoadConfig` sẽ đọc **`.env` thay cho `app.env`**. Biến môi trường của process ưu tiên cao nhất. Không cần export thủ công từng biến khi chạy `make server`. Cả hai file mẫu đều trỏ về database `bdspro` trong container `postgres`, không trỏ về lab DB song song. Schema hiện hành gồm `parties`, `persons`, `accounts`, `sessions` và `schema_migrations`. **Không chạy lại reset script hoặc tự ý drop DB khi đang phát triển và test.**
 
 ```bash
 docker exec postgres pg_isready -U root -d bdspro
@@ -93,6 +93,25 @@ git log -1 --oneline
 ```
 
 Nhánh `archive/pre-lecture37-2026-10-21` giữ checkpoint lịch sử. Những thay đổi local cũ đã được người phát triển `stash` thì **không `stash pop` tự động** vào baseline này.
+
+## Đối chiếu với SimpleBank Lecture #37
+
+| Lớp | BDSPro hiện hành | SimpleBank ở commit 5663a678 | Kết luận |
+|---|---|---|---|
+| Entry point | `main.go` → Config → Store → Server | Cùng luồng | Tương ứng |
+| API | Gin `api.Server`, `/users`, `/users/login`, `/tokens/renew_access` | Gin với ba route tương ứng, thêm banking | Tương ứng luồng authentication |
+| Identity | `Party → Person → Account`, email đăng nhập | `users.username` | Khác mô hình có chủ đích |
+| Store | `db.Store`, `db.SQLStore`, transaction `RegisterTx` | `db.Store`, `db.SQLStore`, `TransferTx` | Cùng mô hình, khác nghiệp vụ |
+| SQLC | Query SQL, generated `db/sqlc` (pgx/v5) | SQLC dùng `database/sql` | Không đồng nhất driver |
+| Token | Access/refresh **JWT** phân biệt token type | Mặc định **PASETO**, có JWT maker | Không đồng nhất token implementation |
+| Session | PostgreSQL: UUID, refresh token, account ID | PostgreSQL: UUID, refresh token, username | Tương ứng lifecycle |
+| Unit tests | `api/*_test.go`, `token/*_test.go`, `util/*_test.go` | Phân theo package tương ứng | Tương ứng |
+| DB tests/mocks | SQL integration tests trên test DB riêng; một `db/mock/store.go` | Cùng nguyên tắc | Tương ứng |
+| Banking/AWS | Không có | Có Account/Entry/Transfer, AWS deployment | Cố ý loại khỏi phạm vi |
+
+File migration `000001_party_account_session.up.sql` được trình bày theo thứ tự **CREATE TABLE → ALTER TABLE FOREIGN KEY → CREATE INDEX** như SimpleBank, nhưng vẫn khai báo chính xác các bảng và quan hệ đã có. Không thêm migration hoặc thay đổi dữ liệu trong database `bdspro` đã chạy version 1. Đây là chuẩn hóa cách viết, không phải nâng cấp schema.
+
+**Chỉ tương ứng kiến trúc và flow**, không đồng nhất tuyệt đối từng dòng với SimpleBank: copy trực tiếp các bảng banking, PASETO hoặc `database/sql` sẽ làm thay đổi mô hình và API đã chốt của BDSPro.
 
 ## Ranh giới bảo mật
 
