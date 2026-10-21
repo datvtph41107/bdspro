@@ -110,9 +110,23 @@ jobs:
             --output "$openapi_bin"
           printf '%s  %s\n' a05f17a2a934692cc9d0b46a5a597f23cf2f1e34c76e0a457943aa5afffa33ba "$openapi_bin" | sha256sum --check
           chmod +x "$openapi_bin"
-          buf lint
-          buf build
-          buf generate
+          set +e
+          buf lint > /tmp/buf-lint.log 2>&1
+          lint_status=$?
+          buf build > /tmp/buf-build.log 2>&1
+          build_status=$?
+          buf generate > /tmp/buf-generate.log 2>&1
+          generate_status=$?
+          set -e
+          printf 'BUF_LINT_STATUS=%s\\n' "$lint_status"
+          cat /tmp/buf-lint.log
+          printf 'BUF_BUILD_STATUS=%s\\n' "$build_status"
+          cat /tmp/buf-build.log
+          printf 'BUF_GENERATE_STATUS=%s\\n' "$generate_status"
+          cat /tmp/buf-generate.log
+          test "$lint_status" -eq 0
+          test "$build_status" -eq 0
+          test "$generate_status" -eq 0
           git diff --exit-code -- pb docs/grpc-swagger
           test -z "$(git ls-files --others --exclude-standard -- pb docs/grpc-swagger)"
 
