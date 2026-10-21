@@ -419,6 +419,162 @@ func (x *VerifyEmailResponse) GetVerified() bool {
 	return false
 }
 
+type UpdateOrganizationRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	OrganizationId int64                  `protobuf:"varint,1,opt,name=organization_id,json=organizationId,proto3" json:"organization_id,omitempty"`
+	Name           *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *UpdateOrganizationRequest) Reset() {
+	*x = UpdateOrganizationRequest{}
+	mi := &file_bdspro_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateOrganizationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateOrganizationRequest) ProtoMessage() {}
+
+func (x *UpdateOrganizationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_bdspro_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateOrganizationRequest.ProtoReflect.Descriptor instead.
+func (*UpdateOrganizationRequest) Descriptor() ([]byte, []int) {
+	return file_bdspro_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *UpdateOrganizationRequest) GetOrganizationId() int64 {
+	if x != nil {
+		return x.OrganizationId
+	}
+	return 0
+}
+
+func (x *UpdateOrganizationRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+type Organization struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyId       int64                  `protobuf:"varint,1,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Organization) Reset() {
+	*x = Organization{}
+	mi := &file_bdspro_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Organization) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Organization) ProtoMessage() {}
+
+func (x *Organization) ProtoReflect() protoreflect.Message {
+	mi := &file_bdspro_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Organization.ProtoReflect.Descriptor instead.
+func (*Organization) Descriptor() ([]byte, []int) {
+	return file_bdspro_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Organization) GetPartyId() int64 {
+	if x != nil {
+		return x.PartyId
+	}
+	return 0
+}
+
+func (x *Organization) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Organization) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type UpdateOrganizationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Organization  *Organization          `protobuf:"bytes,1,opt,name=organization,proto3" json:"organization,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateOrganizationResponse) Reset() {
+	*x = UpdateOrganizationResponse{}
+	mi := &file_bdspro_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateOrganizationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateOrganizationResponse) ProtoMessage() {}
+
+func (x *UpdateOrganizationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_bdspro_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateOrganizationResponse.ProtoReflect.Descriptor instead.
+func (*UpdateOrganizationResponse) Descriptor() ([]byte, []int) {
+	return file_bdspro_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *UpdateOrganizationResponse) GetOrganization() *Organization {
+	if x != nil {
+		return x.Organization
+	}
+	return nil
+}
+
 var File_bdspro_proto protoreflect.FileDescriptor
 
 const file_bdspro_proto_rawDesc = "" +
@@ -452,11 +608,23 @@ const file_bdspro_proto_rawDesc = "" +
 	"\vsecret_code\x18\x02 \x01(\tR\n" +
 	"secretCode\"1\n" +
 	"\x13VerifyEmailResponse\x12\x1a\n" +
-	"\bverified\x18\x01 \x01(\bR\bverified2\xff\x01\n" +
+	"\bverified\x18\x01 \x01(\bR\bverified\"f\n" +
+	"\x19UpdateOrganizationRequest\x12'\n" +
+	"\x0forganization_id\x18\x01 \x01(\x03R\x0eorganizationId\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01B\a\n" +
+	"\x05_name\"x\n" +
+	"\fOrganization\x12\x19\n" +
+	"\bparty_id\x18\x01 \x01(\x03R\apartyId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x129\n" +
+	"\n" +
+	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"R\n" +
+	"\x1aUpdateOrganizationResponse\x124\n" +
+	"\forganization\x18\x01 \x01(\v2\x10.pb.OrganizationR\forganization2\x85\x03\n" +
 	"\x06BDSPro\x12K\n" +
 	"\bRegister\x12\x13.pb.RegisterRequest\x1a\x14.pb.RegisterResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/users\x12H\n" +
 	"\x05Login\x12\x10.pb.LoginRequest\x1a\x11.pb.LoginResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/users/login\x12^\n" +
-	"\vVerifyEmail\x12\x16.pb.VerifyEmailRequest\x1a\x17.pb.VerifyEmailResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/v1/users/verify_emailB#Z!github.com/datvtph41107/bdspro/pbb\x06proto3"
+	"\vVerifyEmail\x12\x16.pb.VerifyEmailRequest\x1a\x17.pb.VerifyEmailResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/v1/users/verify_email\x12\x83\x01\n" +
+	"\x12UpdateOrganization\x12\x1d.pb.UpdateOrganizationRequest\x1a\x1e.pb.UpdateOrganizationResponse\".\x82\xd3\xe4\x93\x02(:\x01*2#/v1/organizations/{organization_id}B#Z!github.com/datvtph41107/bdspro/pbb\x06proto3"
 
 var (
 	file_bdspro_proto_rawDescOnce sync.Once
@@ -470,34 +638,41 @@ func file_bdspro_proto_rawDescGZIP() []byte {
 	return file_bdspro_proto_rawDescData
 }
 
-var file_bdspro_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_bdspro_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_bdspro_proto_goTypes = []any{
-	(*Account)(nil),               // 0: pb.Account
-	(*RegisterRequest)(nil),       // 1: pb.RegisterRequest
-	(*RegisterResponse)(nil),      // 2: pb.RegisterResponse
-	(*LoginRequest)(nil),          // 3: pb.LoginRequest
-	(*LoginResponse)(nil),         // 4: pb.LoginResponse
-	(*VerifyEmailRequest)(nil),    // 5: pb.VerifyEmailRequest
-	(*VerifyEmailResponse)(nil),   // 6: pb.VerifyEmailResponse
-	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
+	(*Account)(nil),                    // 0: pb.Account
+	(*RegisterRequest)(nil),            // 1: pb.RegisterRequest
+	(*RegisterResponse)(nil),           // 2: pb.RegisterResponse
+	(*LoginRequest)(nil),               // 3: pb.LoginRequest
+	(*LoginResponse)(nil),              // 4: pb.LoginResponse
+	(*VerifyEmailRequest)(nil),         // 5: pb.VerifyEmailRequest
+	(*VerifyEmailResponse)(nil),        // 6: pb.VerifyEmailResponse
+	(*UpdateOrganizationRequest)(nil),  // 7: pb.UpdateOrganizationRequest
+	(*Organization)(nil),               // 8: pb.Organization
+	(*UpdateOrganizationResponse)(nil), // 9: pb.UpdateOrganizationResponse
+	(*timestamppb.Timestamp)(nil),      // 10: google.protobuf.Timestamp
 }
 var file_bdspro_proto_depIdxs = []int32{
-	7, // 0: pb.Account.created_at:type_name -> google.protobuf.Timestamp
-	0, // 1: pb.RegisterResponse.account:type_name -> pb.Account
-	7, // 2: pb.LoginResponse.access_token_expires_at:type_name -> google.protobuf.Timestamp
-	7, // 3: pb.LoginResponse.refresh_token_expires_at:type_name -> google.protobuf.Timestamp
-	0, // 4: pb.LoginResponse.account:type_name -> pb.Account
-	1, // 5: pb.BDSPro.Register:input_type -> pb.RegisterRequest
-	3, // 6: pb.BDSPro.Login:input_type -> pb.LoginRequest
-	5, // 7: pb.BDSPro.VerifyEmail:input_type -> pb.VerifyEmailRequest
-	2, // 8: pb.BDSPro.Register:output_type -> pb.RegisterResponse
-	4, // 9: pb.BDSPro.Login:output_type -> pb.LoginResponse
-	6, // 10: pb.BDSPro.VerifyEmail:output_type -> pb.VerifyEmailResponse
-	8, // [8:11] is the sub-list for method output_type
-	5, // [5:8] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	10, // 0: pb.Account.created_at:type_name -> google.protobuf.Timestamp
+	0,  // 1: pb.RegisterResponse.account:type_name -> pb.Account
+	10, // 2: pb.LoginResponse.access_token_expires_at:type_name -> google.protobuf.Timestamp
+	10, // 3: pb.LoginResponse.refresh_token_expires_at:type_name -> google.protobuf.Timestamp
+	0,  // 4: pb.LoginResponse.account:type_name -> pb.Account
+	10, // 5: pb.Organization.created_at:type_name -> google.protobuf.Timestamp
+	8,  // 6: pb.UpdateOrganizationResponse.organization:type_name -> pb.Organization
+	1,  // 7: pb.BDSPro.Register:input_type -> pb.RegisterRequest
+	3,  // 8: pb.BDSPro.Login:input_type -> pb.LoginRequest
+	5,  // 9: pb.BDSPro.VerifyEmail:input_type -> pb.VerifyEmailRequest
+	7,  // 10: pb.BDSPro.UpdateOrganization:input_type -> pb.UpdateOrganizationRequest
+	2,  // 11: pb.BDSPro.Register:output_type -> pb.RegisterResponse
+	4,  // 12: pb.BDSPro.Login:output_type -> pb.LoginResponse
+	6,  // 13: pb.BDSPro.VerifyEmail:output_type -> pb.VerifyEmailResponse
+	9,  // 14: pb.BDSPro.UpdateOrganization:output_type -> pb.UpdateOrganizationResponse
+	11, // [11:15] is the sub-list for method output_type
+	7,  // [7:11] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_bdspro_proto_init() }
@@ -505,13 +680,14 @@ func file_bdspro_proto_init() {
 	if File_bdspro_proto != nil {
 		return
 	}
+	file_bdspro_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_bdspro_proto_rawDesc), len(file_bdspro_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

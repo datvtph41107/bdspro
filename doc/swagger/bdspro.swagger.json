@@ -16,6 +16,45 @@
     "application/json"
   ],
   "paths": {
+    "/v1/organizations/{organizationId}": {
+      "patch": {
+        "operationId": "BDSPro_UpdateOrganization",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pbUpdateOrganizationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/BDSProUpdateOrganizationBody"
+            }
+          }
+        ],
+        "tags": [
+          "BDSPro"
+        ]
+      }
+    },
     "/v1/users": {
       "post": {
         "operationId": "BDSPro_Register",
@@ -119,6 +158,14 @@
     }
   },
   "definitions": {
+    "BDSProUpdateOrganizationBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
     "pbAccount": {
       "type": "object",
       "properties": {
@@ -174,6 +221,22 @@
         }
       }
     },
+    "pbOrganization": {
+      "type": "object",
+      "properties": {
+        "partyId": {
+          "type": "string",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "pbRegisterRequest": {
       "type": "object",
       "properties": {
@@ -190,6 +253,14 @@
       "properties": {
         "account": {
           "$ref": "#/definitions/pbAccount"
+        }
+      }
+    },
+    "pbUpdateOrganizationResponse": {
+      "type": "object",
+      "properties": {
+        "organization": {
+          "$ref": "#/definitions/pbOrganization"
         }
       }
     },
