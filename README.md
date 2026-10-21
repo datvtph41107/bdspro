@@ -114,3 +114,7 @@ HTTP Gateway sử dụng `/v1/`, Swagger `/swagger/` và `/docs/openapi.json`; c
 ## Swagger và logging canonical
 
 `doc/statik/statik.go` được sinh từ `doc/swagger/bdspro.swagger.json` bằng `statik`, không sửa tay. `main.go` dùng `statik/fs` phục vụ `/swagger/`, còn `/docs/openapi.json` là alias cho ứng dụng hiện có. CORS và HTTP request logging chỉ gắn ở Gateway boundary; gRPC logging gắn tại UnaryInterceptor, không nhân đôi middleware trong Gin.
+
+## Kiểm chứng bố cục SimpleBank
+
+Xem [docs/SOURCE-MAP-SIMPLEBANK.md](docs/SOURCE-MAP-SIMPLEBANK.md) để đối chiếu từng file, ownership, bootstrap, nghiệp vụ và các khác biệt có chủ đích.

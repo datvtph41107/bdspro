@@ -76,6 +76,11 @@ jobs:
           call("PATCH", f"/v1/organizations/{org_id}", {"name": "No Token"}, expected=401)
           print("Organization owner rules verified over Gin and gRPC Gateway")
           PY
+      - name: Check container startup and database migrations
+        run: |
+          docker compose exec -T api sh -c "test -x /app/start.sh && test -x /app/wait-for.sh && nc -z postgres 5432 && nc -z redis 6379"
+          current="$(docker compose exec -T postgres psql -U root -d bdspro -tAc 'SELECT version || chr(124) || dirty FROM schema_migrations')"
+          test "$current" = "3|false" || test "$current" = "3|f"
       - name: Show logs
         if: failure()
         run: docker compose logs --no-color --tail=200

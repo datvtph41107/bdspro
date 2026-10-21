@@ -1,4 +1,4 @@
-name: Canonical Go source generation
+name: Verify canonical Go source
 
 on:
   push:
@@ -20,9 +20,6 @@ on:
       - "Dockerfile"
       - "Makefile"
 
-permissions:
-  contents: write
-
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -42,11 +39,10 @@ jobs:
           make sqlc
           make mock
           find . -type f -name '*.go' -not -path './.git/*' -print0 | xargs -0 gofmt -w
-      - name: Commit reproducible code
+      - name: Verify generated files are committed
         run: |
-          git add db/sqlc db/mock worker/mock
-          git add -u
-          if ! git diff --cached --quiet; then
-            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "style(go): regenerate sqlc, mocks and apply gofmt"
-            git push origin HEAD:dev
+          git diff --exit-code
+          if [ -n "$(git ls-files --others --exclude-standard db/sqlc db/mock worker/mock)" ]; then
+            echo "Generated files are not committed"
+            exit 1
           fi
