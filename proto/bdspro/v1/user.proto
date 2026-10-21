@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package bdspro.v1;
+
+option go_package = "github.com/datvtph41107/bdspro/pb/bdspro/v1;bdspb";
+
+// User is a transport read projection of the signed-in Account.
+// It is not a new User table, a Party subtype or an authorization grant.
+message User {
+  int64 account_id = 1;
+}
