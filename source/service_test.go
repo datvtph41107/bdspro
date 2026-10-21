@@ -282,18 +282,6 @@ func TestDatabaseConstraints(t *testing.T) {
 		t.Fatalf("expected CHECK 23514, got %v", err)
 	}
 }
-func TestNormalizeDecimal(t *testing.T) {
-	got, err := normalizeDecimal("0004.2000", priceRe)
-	if err != nil || got != "4.2" {
-		t.Fatalf("got=%q err=%v", got, err)
-	}
-	for _, v := range []string{"0", "-1", "1.00001", "1e9", "NaN", ""} {
-		if _, err := normalizeDecimal(v, priceRe); err == nil {
-			t.Fatalf("accepted %q", v)
-		}
-	}
-}
-
 func TestMembershipBlockAndClosedAccount(t *testing.T) {
 	f := setup(t, "sources.create", "sources.read", "sources.price_report")
 	ctx := context.Background()

@@ -26,12 +26,6 @@ type JWTMaker struct {
 	key []byte
 }
 
-type jwtClaims struct {
-	TokenType   string `json:"token_type"`
-	SessionHash string `json:"sid"`
-	jwt.RegisteredClaims
-}
-
 func NewJWTMaker(secret string) (*JWTMaker, error) {
 	if len(secret) < 32 {
 		return nil, fmt.Errorf("TOKEN_SYMMETRIC_KEY must contain at least 32 bytes")
@@ -50,7 +44,7 @@ func (s *JWTMaker) Issue(accountID int64, sessionToken string) (string, time.Tim
 	now := time.Now().UTC()
 	expiry := now.Add(jwtTTL)
 	sum := sha256.Sum256([]byte(sessionToken))
-	claims := jwtClaims{
+	claims := Payload{
 		TokenType:   "access",
 		SessionHash: hex.EncodeToString(sum[:]),
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -74,7 +68,7 @@ func (s *JWTMaker) Verify(raw string) (int64, string, error) {
 	if len(raw) > 4096 || raw == "" {
 		return 0, "", ErrInvalidToken
 	}
-	var claims jwtClaims
+	var claims Payload
 	t, err := jwt.ParseWithClaims(raw, &claims, func(*jwt.Token) (any, error) {
 		return s.key, nil
 	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
