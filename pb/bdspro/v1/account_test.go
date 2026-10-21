@@ -21,7 +21,7 @@ func TestAccountRPCContractNeverTrustsCallerAccountID(t *testing.T) {
 				msg.ProtoReflect().Descriptor().FullName(), got)
 		}
 	}
-	service := File_bdspro_v1_account_proto.Services().ByName(protoreflect.Name("AccountService"))
+	service := File_bdspro_v1_service_bdspro_proto.Services().ByName(protoreflect.Name("AccountService"))
 	if service == nil || service.Methods().Len() != 2 {
 		t.Fatal("missing stable AccountService RPC surface")
 	}
