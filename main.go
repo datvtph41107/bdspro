@@ -9,6 +9,7 @@ import (
 	"github.com/datvtph41107/bdspro/auth"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
+	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -62,12 +63,12 @@ func run() error {
 		organization.New(pool), source.NewService(pool),
 		config.Environment == "development", config.AllowedOrigin,
 	)
-	if config.AccessTokenKey != "" {
-		issuer, err := auth.NewAccessTokens(config.AccessTokenKey)
+	if config.TokenSymmetricKey != "" {
+		issuer, err := token.NewJWTMaker(config.TokenSymmetricKey)
 		if err != nil {
-			return fmt.Errorf("invalid access token configuration: %w", err)
+			return fmt.Errorf("invalid JWT signing configuration: %w", err)
 		}
-		server.EnableAccessTokens(issuer)
+		server.EnableJWTMaker(issuer)
 	}
 
 	if err := server.Start(config.ServerAddress); err != nil {
