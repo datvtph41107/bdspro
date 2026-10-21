@@ -88,8 +88,14 @@ jobs:
           assert status == 200 and me2["account_id"] == me["account_id"]
           print("Lecture37 HTTP smoke PASS: register -> login -> me -> renew -> me")
           PY
-      - name: Validate local reset script syntax
-        run: bash -n scripts/reset-bdspro-lecture37.sh
+      - name: Confirm Lecture 37 package and test scope
+        run: |
+          test -z "$(find . -maxdepth 1 -name '*_test.go' -print)"
+          for directory in auth source organization gapi proto pb integration; do
+            test ! -e "$directory"
+          done
+          test ! -e api/extra_test.go
+          test ! -e api/register_test.go
       - name: Generated source stays in sync
         run: |
           gofmt -w api db token util main.go
