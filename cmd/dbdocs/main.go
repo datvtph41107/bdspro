@@ -62,8 +62,8 @@ func main() {
 		os.Exit(1)
 	}
 	for file, data := range map[string][]byte{
-		*dbmlFile:         renderDBML(doc),
-		"constraints.md":   renderDetails(doc),
+		*dbmlFile:        renderDBML(doc),
+		"constraints.md": renderDetails(doc),
 	} {
 		if err := os.WriteFile(filepath.Join(*out, file), data, 0644); err != nil {
 			fmt.Fprintln(os.Stderr, err)
