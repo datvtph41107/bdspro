@@ -58,17 +58,17 @@ Mốc: [TechSchool SimpleBank README](https://github.com/techschool/simplebank/b
 | 51 | Add authorization to protect gRPC API | gRPC/Swagger chưa triển khai |
 | 52 | Write structured logs for gRPC APIs | gRPC/Swagger chưa triển khai |
 | 53 | How to write HTTP logger middleware in Go | gRPC/Swagger chưa triển khai |
-| 54 | Implement background worker in Go with Redis and Asynq | Worker/email chưa triển khai |
-| 55 | Integrate async worker to Go web server | Worker/email chưa triển khai |
-| 56 | Send async tasks to Redis within a DB transaction | Worker/email chưa triển khai |
-| 57 | How to handle errors and print logs for Go Asynq workers | Worker/email chưa triển khai |
-| 58 | A bit of delay might be good for your async tasks | Worker/email chưa triển khai |
-| 59 | How to send emails in Go via Gmail | Worker/email chưa triển khai |
-| 60 | How to skip test in Go and config test flag in vscode | Worker/email chưa triển khai |
-| 61 | Email verification in Go: design DB and send email | Worker/email chưa triển khai |
-| 62 | Implement email verification API in Go | Worker/email chưa triển khai |
-| 63 | Unit test gRPC API with mock DB & Redis | Worker/email chưa triển khai |
-| 64 | How to test a gRPC API that requires authentication | Worker/email chưa triển khai |
+| 54 | Implement background worker in Go with Redis and Asynq | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
+| 55 | Integrate async worker to Go web server | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
+| 56 | Send async tasks to Redis within a DB transaction | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
+| 57 | How to handle errors and print logs for Go Asynq workers | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
+| 58 | A bit of delay might be good for your async tasks | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
+| 59 | How to send emails in Go via Gmail | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
+| 60 | How to skip test in Go and config test flag in vscode | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
+| 61 | Email verification in Go: design DB and send email | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
+| 62 | Implement email verification API in Go | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
+| 63 | Unit test gRPC API with mock DB & Redis | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
+| 64 | How to test a gRPC API that requires authentication | Redis/email source có; SMTP ngoài CI chưa kiểm chứng |
 | 65 | Config sqlc version 2 for Go and Postgres | sqlc v2/pgx hiện có |
 | 66 | Switch DB driver from lib/pq to pgx | sqlc v2/pgx hiện có |
 | 67 | How to handle DB errors with PGX driver | sqlc v2/pgx hiện có |

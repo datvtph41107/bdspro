@@ -1,6 +1,8 @@
-# BDSPro — Authentication baseline
+# BDSPro — Core Backend
 
-Kiến trúc tham khảo [TechSchool SimpleBank Lecture #37 (commit 5663a678)](https://github.com/techschool/simplebank/commit/5663a678fa15e8427619a997af5ed6dbd6f31e33). BDSPro giữ cách tổ chức Go/Gin/SQLC/Store/Token của SimpleBank, nhưng dùng `Party → Person → Account`, login bằng email và `pgx/v5`.
+Kiến trúc tham khảo [TechSchool SimpleBank (78 lecture backend)](https://github.com/techschool/simplebank/blob/97f000fe58ad01a0774179ffa8884ac7784cf263/README.md). BDSPro giữ cách tổ chức Go/Gin/SQLC/Store/Token của SimpleBank, nhưng dùng `Party → Person → Account`, login bằng email và `pgx/v5`.
+
+Xem [ma trận từng bài #0–77](docs/LECTURES-00-77.md) để phân biệt phần có code với phần chưa triển khai.
 
 ## Source và trách nhiệm
 

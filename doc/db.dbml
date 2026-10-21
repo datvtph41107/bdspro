@@ -15,7 +15,18 @@ Table accounts {
   email text [not null, note: 'Unique index on lower(btrim(email))']
   password_hash text [not null]
   created_at timestamptz [not null, default: `now()`]
+  is_email_verified boolean [not null, default: false]
 }
+Table verify_emails {
+  id bigint [pk, increment]
+  account_id bigint [not null, ref: > accounts.id]
+  email text [not null]
+  secret_code text [not null]
+  is_used boolean [not null, default: false]
+  created_at timestamptz [not null, default: `now()`]
+  expired_at timestamptz [not null, note: 'now() + 15 minutes']
+}
+
 Table sessions {
   id uuid [pk]
   account_id bigint [not null, ref: > accounts.id]
