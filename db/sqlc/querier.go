@@ -11,6 +11,10 @@ import (
 )
 
 type Querier interface {
+	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMembership, error)
+	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
+	CreateOrganizationMembership(ctx context.Context, arg CreateOrganizationMembershipParams) (OrganizationMembership, error)
+	ListOrganizationsForPerson(ctx context.Context, personID int64) ([]Organization, error)
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
@@ -18,7 +22,7 @@ type Querier interface {
 	GetAccountByID(ctx context.Context, id int64) (Account, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
 	CreatePerson(ctx context.Context, partyID int64) error
-	CreatePersonParty(ctx context.Context) (int64, error)
+	CreateParty(ctx context.Context) (int64, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	GetAccountByEmail(ctx context.Context, btrim string) (Account, error)
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)

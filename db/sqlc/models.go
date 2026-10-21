@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Account struct {
@@ -46,4 +47,19 @@ type VerifyEmail struct {
 	IsUsed     bool      `json:"is_used"`
 	CreatedAt  time.Time `json:"created_at"`
 	ExpiredAt  time.Time `json:"expired_at"`
+}
+
+type Organization struct {
+	PartyID   int64     `json:"party_id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type OrganizationMembership struct {
+	ID             int64               `json:"id"`
+	OrganizationID int64               `json:"organization_id"`
+	PersonID       int64               `json:"person_id"`
+	Role           string              `json:"role"`
+	JoinedAt       time.Time           `json:"joined_at"`
+	EndedAt        pgtype.Timestamptz  `json:"ended_at"`
 }

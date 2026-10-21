@@ -10,6 +10,7 @@ import (
 type Store interface {
 	Querier
 	RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
+	CreateOrganizationTx(ctx context.Context, arg CreateOrganizationTxParams) (Organization, error)
 	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
 }
 
@@ -46,7 +47,7 @@ type RegisterTxParams struct {
 func (s *SQLStore) RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error) {
 	var account Account
 	err := s.execTx(ctx, func(q *Queries) error {
-		partyID, err := q.CreatePersonParty(ctx)
+		partyID, err := q.CreateParty(ctx)
 		if err != nil {
 			return err
 		}

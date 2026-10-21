@@ -18,12 +18,12 @@ func (q *Queries) CreatePerson(ctx context.Context, partyID int64) error {
 	return err
 }
 
-const createPersonParty = `-- name: CreatePersonParty :one
+const createParty = `-- name: CreateParty :one
 INSERT INTO parties DEFAULT VALUES RETURNING id
 `
 
-func (q *Queries) CreatePersonParty(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, createPersonParty)
+func (q *Queries) CreateParty(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, createParty)
 	var id int64
 	err := row.Scan(&id)
 	return id, err

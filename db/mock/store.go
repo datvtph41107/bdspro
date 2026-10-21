@@ -127,6 +127,76 @@ func (mr *MockStoreMockRecorder) VerifyEmailTx(ctx, arg any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyEmailTx", reflect.TypeOf((*MockStore)(nil).VerifyEmailTx), ctx, arg)
 }
 
+// AddOrganizationMember mocks base method.
+func (m *MockStore) AddOrganizationMember(ctx context.Context, arg db.AddOrganizationMemberParams) (db.OrganizationMembership, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddOrganizationMember", ctx, arg)
+	ret0, _ := ret[0].(db.OrganizationMembership)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+// AddOrganizationMember indicates an expected call of AddOrganizationMember.
+func (mr *MockStoreMockRecorder) AddOrganizationMember(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOrganizationMember", reflect.TypeOf((*MockStore)(nil).AddOrganizationMember), ctx, arg)
+}
+
+// CreateOrganization mocks base method.
+func (m *MockStore) CreateOrganization(ctx context.Context, arg db.CreateOrganizationParams) (db.Organization, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateOrganization", ctx, arg)
+	ret0, _ := ret[0].(db.Organization)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+// CreateOrganization indicates an expected call of CreateOrganization.
+func (mr *MockStoreMockRecorder) CreateOrganization(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrganization", reflect.TypeOf((*MockStore)(nil).CreateOrganization), ctx, arg)
+}
+
+// CreateOrganizationMembership mocks base method.
+func (m *MockStore) CreateOrganizationMembership(ctx context.Context, arg db.CreateOrganizationMembershipParams) (db.OrganizationMembership, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateOrganizationMembership", ctx, arg)
+	ret0, _ := ret[0].(db.OrganizationMembership)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+// CreateOrganizationMembership indicates an expected call of CreateOrganizationMembership.
+func (mr *MockStoreMockRecorder) CreateOrganizationMembership(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrganizationMembership", reflect.TypeOf((*MockStore)(nil).CreateOrganizationMembership), ctx, arg)
+}
+
+// ListOrganizationsForPerson mocks base method.
+func (m *MockStore) ListOrganizationsForPerson(ctx context.Context, arg int64) ([]db.Organization, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListOrganizationsForPerson", ctx, arg)
+	ret0, _ := ret[0].([]db.Organization)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+// ListOrganizationsForPerson indicates an expected call of ListOrganizationsForPerson.
+func (mr *MockStoreMockRecorder) ListOrganizationsForPerson(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListOrganizationsForPerson", reflect.TypeOf((*MockStore)(nil).ListOrganizationsForPerson), ctx, arg)
+}
+
+// CreateOrganizationTx mocks base method.
+func (m *MockStore) CreateOrganizationTx(ctx context.Context, arg db.CreateOrganizationTxParams) (db.Organization, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateOrganizationTx", ctx, arg)
+	ret0, _ := ret[0].(db.Organization)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+// CreateOrganizationTx indicates an expected call of CreateOrganizationTx.
+func (mr *MockStoreMockRecorder) CreateOrganizationTx(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrganizationTx", reflect.TypeOf((*MockStore)(nil).CreateOrganizationTx), ctx, arg)
+}
+
 // CreateAccount mocks base method.
 func (m *MockStore) CreateAccount(ctx context.Context, arg db.CreateAccountParams) (db.Account, error) {
 	m.ctrl.T.Helper()
@@ -156,19 +226,19 @@ func (mr *MockStoreMockRecorder) CreatePerson(ctx, partyID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePerson", reflect.TypeOf((*MockStore)(nil).CreatePerson), ctx, partyID)
 }
 
-// CreatePersonParty mocks base method.
-func (m *MockStore) CreatePersonParty(ctx context.Context) (int64, error) {
+// CreateParty mocks base method.
+func (m *MockStore) CreateParty(ctx context.Context) (int64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreatePersonParty", ctx)
+	ret := m.ctrl.Call(m, "CreateParty", ctx)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CreatePersonParty indicates an expected call of CreatePersonParty.
-func (mr *MockStoreMockRecorder) CreatePersonParty(ctx any) *gomock.Call {
+// CreateParty indicates an expected call of CreateParty.
+func (mr *MockStoreMockRecorder) CreateParty(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePersonParty", reflect.TypeOf((*MockStore)(nil).CreatePersonParty), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateParty", reflect.TypeOf((*MockStore)(nil).CreateParty), ctx)
 }
 
 // CreateSession mocks base method.

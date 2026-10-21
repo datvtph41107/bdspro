@@ -1,4 +1,4 @@
--- name: CreatePersonParty :one
+-- name: CreateParty :one
 INSERT INTO parties DEFAULT VALUES RETURNING id;
 
 -- name: CreatePerson :exec
