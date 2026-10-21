@@ -28,3 +28,18 @@ WHERE EXISTS (
     AND owner.ended_at IS NULL
 )
 RETURNING id, organization_id, person_id, role, joined_at, ended_at;
+
+-- name: UpdateOrganization :one
+UPDATE organizations AS o
+SET name = COALESCE(sqlc.narg(name)::text, o.name)
+WHERE o.party_id = sqlc.arg(organization_id)
+  AND EXISTS (
+    SELECT 1
+    FROM organization_memberships AS m
+    JOIN accounts AS a ON a.person_id = m.person_id
+    WHERE m.organization_id = o.party_id
+      AND a.id = sqlc.arg(actor_account_id)
+      AND m.role = 'owner'
+      AND m.ended_at IS NULL
+  )
+RETURNING o.party_id, o.name, o.created_at;
