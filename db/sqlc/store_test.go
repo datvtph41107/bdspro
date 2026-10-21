@@ -25,11 +25,15 @@ func TestRegisterTx(t *testing.T) {
 		account.PersonID).Scan(&personExists))
 	require.True(t, personExists)
 
+	var partiesBefore int
+	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&partiesBefore))
 	_, err = NewStore(pool).RegisterTx(ctx, RegisterTxParams{
 		Email: email, PasswordHash: "different",
 	})
 	require.Error(t, err)
-	var count int
+	var partiesAfter, count int
+	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&partiesAfter))
+	require.Equal(t, partiesBefore, partiesAfter, "duplicate registration must roll back the inserted Party")
 	require.NoError(t, pool.QueryRow(ctx,
 		"SELECT count(*) FROM accounts WHERE email=$1", email).Scan(&count))
 	require.Equal(t, 1, count)

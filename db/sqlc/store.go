@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Store collects the generated queries and the domain transaction.
 type Store interface {
 	Querier
 	RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
@@ -20,35 +21,42 @@ func NewStore(pool *pgxpool.Pool) Store {
 	return &SQLStore{pool: pool, Queries: New(pool)}
 }
 
+// execTx owns transaction creation, commit and rollback, like SimpleBank.
+func (s *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err = fn(New(tx)); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 type RegisterTxParams struct {
 	Email        string
 	PasswordHash string
 }
 
+// RegisterTx creates Party, Person and Account atomically.
 func (s *SQLStore) RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return Account{}, err
-	}
-	defer tx.Rollback(ctx)
-	q := New(tx)
-	partyID, err := q.CreatePersonParty(ctx)
-	if err != nil {
-		return Account{}, err
-	}
-	if err := q.CreatePerson(ctx, partyID); err != nil {
-		return Account{}, err
-	}
-	account, err := q.CreateAccount(ctx, CreateAccountParams{
-		PersonID: partyID, Email: arg.Email, PasswordHash: arg.PasswordHash,
+	var account Account
+	err := s.execTx(ctx, func(q *Queries) error {
+		partyID, err := q.CreatePersonParty(ctx)
+		if err != nil {
+			return err
+		}
+		if err = q.CreatePerson(ctx, partyID); err != nil {
+			return err
+		}
+		account, err = q.CreateAccount(ctx, CreateAccountParams{
+			PersonID: partyID, Email: arg.Email, PasswordHash: arg.PasswordHash,
+		})
+		return err
 	})
-	if err != nil {
-		return Account{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return Account{}, err
-	}
-	return account, nil
+	return account, err
 }
 
 var _ Store = (*SQLStore)(nil)
