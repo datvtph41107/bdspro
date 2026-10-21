@@ -48,13 +48,13 @@ func TestJWTMakerRejectWrongClaimsAndAlgorithm(t *testing.T) {
 	now := time.Now().UTC()
 	cases := []struct {
 		name   string
-		claims jwtClaims
+		claims Payload
 	}{
-		{"wrong_issuer", jwtClaims{TokenType: "access", SessionHash: strings.Repeat("f", 64), RegisteredClaims: jwt.RegisteredClaims{Issuer: "attacker", Audience: jwt.ClaimStrings{jwtAudience}, Subject: "3", IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)), ID: "nonce"}}},
-		{"wrong_audience", jwtClaims{TokenType: "access", SessionHash: strings.Repeat("f", 64), RegisteredClaims: jwt.RegisteredClaims{Issuer: jwtIssuer, Audience: jwt.ClaimStrings{"other-api"}, Subject: "3", IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)), ID: "nonce"}}},
-		{"wrong_token_type", jwtClaims{TokenType: "refresh", SessionHash: strings.Repeat("f", 64), RegisteredClaims: jwt.RegisteredClaims{Issuer: jwtIssuer, Audience: jwt.ClaimStrings{jwtAudience}, Subject: "3", IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)), ID: "nonce"}}},
-		{"expired", jwtClaims{TokenType: "access", SessionHash: strings.Repeat("f", 64), RegisteredClaims: jwt.RegisteredClaims{Issuer: jwtIssuer, Audience: jwt.ClaimStrings{jwtAudience}, Subject: "3", IssuedAt: jwt.NewNumericDate(now.Add(-time.Hour)), NotBefore: jwt.NewNumericDate(now.Add(-time.Hour)), ExpiresAt: jwt.NewNumericDate(now.Add(-time.Minute)), ID: "nonce"}}},
-		{"excessive_lifetime", jwtClaims{TokenType: "access", SessionHash: strings.Repeat("f", 64), RegisteredClaims: jwt.RegisteredClaims{Issuer: jwtIssuer, Audience: jwt.ClaimStrings{jwtAudience}, Subject: "3", IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(24 * time.Hour)), ID: "nonce"}}},
+		{"wrong_issuer", Payload{TokenType: "access", SessionHash: strings.Repeat("f", 64), RegisteredClaims: jwt.RegisteredClaims{Issuer: "attacker", Audience: jwt.ClaimStrings{jwtAudience}, Subject: "3", IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)), ID: "nonce"}}},
+		{"wrong_audience", Payload{TokenType: "access", SessionHash: strings.Repeat("f", 64), RegisteredClaims: jwt.RegisteredClaims{Issuer: jwtIssuer, Audience: jwt.ClaimStrings{"other-api"}, Subject: "3", IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)), ID: "nonce"}}},
+		{"wrong_token_type", Payload{TokenType: "refresh", SessionHash: strings.Repeat("f", 64), RegisteredClaims: jwt.RegisteredClaims{Issuer: jwtIssuer, Audience: jwt.ClaimStrings{jwtAudience}, Subject: "3", IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)), ID: "nonce"}}},
+		{"expired", Payload{TokenType: "access", SessionHash: strings.Repeat("f", 64), RegisteredClaims: jwt.RegisteredClaims{Issuer: jwtIssuer, Audience: jwt.ClaimStrings{jwtAudience}, Subject: "3", IssuedAt: jwt.NewNumericDate(now.Add(-time.Hour)), NotBefore: jwt.NewNumericDate(now.Add(-time.Hour)), ExpiresAt: jwt.NewNumericDate(now.Add(-time.Minute)), ID: "nonce"}}},
+		{"excessive_lifetime", Payload{TokenType: "access", SessionHash: strings.Repeat("f", 64), RegisteredClaims: jwt.RegisteredClaims{Issuer: jwtIssuer, Audience: jwt.ClaimStrings{jwtAudience}, Subject: "3", IssuedAt: jwt.NewNumericDate(now), NotBefore: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(24 * time.Hour)), ID: "nonce"}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
