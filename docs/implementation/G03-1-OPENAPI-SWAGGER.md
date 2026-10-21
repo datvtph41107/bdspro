@@ -40,9 +40,9 @@ and Go binary can't accidentally resolve to different checked-out spec
 files at runtime.
 
 **Important dependency:** Swagger UI JavaScript and CSS load from the pinned
-`swagger-ui@5.17.14` CDN (`cdnjs.cloudflare.com`) while the **API and
+`swagger-ui-dist@5.17.14` CDN (`unpkg.com`) while the **API and
 specification are always local**. The UI consequently needs Internet access
-the first time (unless these assets are already cached). This stage does
+for the JavaScript/CSS download (unless these assets are already cached). This stage does
 not claim self-contained offline vendor assets, and it does not fetch
 credentials from the CDN. Do not treat this as a public documentation endpoint
 or expose development with live credentials. An offline, vendored UI can
