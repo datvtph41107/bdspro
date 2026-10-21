@@ -165,7 +165,7 @@ func TestLogoutAllWaitsForAccountLock(t *testing.T) {
 	select {
 	case err := <-done:
 		t.Fatalf("logout-all bypassed the account row lock: %v", err)
-	case <-time.After(75*time.Millisecond):
+	case <-time.After(75 * time.Millisecond):
 	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
