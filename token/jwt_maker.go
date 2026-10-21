@@ -18,7 +18,7 @@ const (
 	jwtTTL      = 15 * time.Minute
 )
 
-var ErrInvalidToken = errors.New("invalid access token")
+var ErrInvalidToken = errors.New("invalid JWT")
 
 // JWTMaker signs short-lived JWTs, each bound to an actual PostgreSQL
 // opaque session. The signature alone does NOT grant tenant authorization.
