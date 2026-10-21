@@ -127,6 +127,17 @@ jobs:
           test "$lint_status" -eq 0
           test "$build_status" -eq 0
           test "$generate_status" -eq 0
+          # Temporary bootstrap: capture generated files for review and
+          # check-in; after codegen artifacts are committed, remove this log.
+          find pb/bdspro/v1 docs/grpc-swagger -type f -print | sort | while read -r path; do
+            case "$path" in
+              *.pb.go|*.swagger.json)
+                printf 'GENFILE_BEGIN|%s\n' "$path"
+                sed 's/^/GENFILE_LINE|/' "$path"
+                printf 'GENFILE_END|%s\n' "$path"
+                ;;
+            esac
+          done
           git diff --exit-code -- pb docs/grpc-swagger
           test -z "$(git ls-files --others --exclude-standard -- pb docs/grpc-swagger)"
 
