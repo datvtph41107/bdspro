@@ -5,7 +5,9 @@ on:
     branches: [dev]
     paths:
       - "Dockerfile"
-      - "compose.yaml"
+      - "docker-compose.yaml"
+      - "start.sh"
+      - "wait-for.sh"
       - "main.go"
       - ".github/workflows/compose-smoke.yml"
 
@@ -30,7 +32,7 @@ jobs:
           curl --fail --show-error --silent \
             -H "Content-Type: application/json" \
             -d '{"email":"compose-smoke@example.test","password":"strong-password-123"}' \
-            http://127.0.0.1:18080/v1/users | python3 -c 'import json,sys; data=json.load(sys.stdin); assert data["account"]["accountId"] != "0"'
+            http://127.0.0.1:18080/v1/users | python3 -c 'import json,sys; data=json.load(sys.stdin); assert data["account"]["account_id"] != "0"'
       - name: Exercise Organization auth over Gin and gRPC Gateway
         run: |
           python3 - <<'PY'
@@ -60,7 +62,7 @@ jobs:
               email = str(uuid.uuid4()) + "@example.test"
               body = {"email": email, "password": "strong-password-123"}
               call("POST", "/v1/users", body, expected=200)
-              return call("POST", "/v1/users/login", body)["accessToken"], body
+              return call("POST", "/v1/users/login", body)["access_token"], body
 
           owner, _ = login()
           org = call("POST", "/organizations", {"name": "Initial Org"}, owner, 201)

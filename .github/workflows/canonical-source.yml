@@ -12,6 +12,12 @@ on:
       - "api/organization_test.go"
       - "gapi/server.go"
       - "gapi/server_test.go"
+      - "main.go"
+      - "util/**"
+      - "api/server.go"
+      - "worker/**"
+      - "go.mod"
+      - "Dockerfile"
 
 permissions:
   contents: write
@@ -31,6 +37,7 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: Regenerate SQL and mocks
         run: |
+          go mod tidy
           make sqlc
           make mock
           find . -type f -name '*.go' -not -path './.git/*' -print0 | xargs -0 gofmt -w

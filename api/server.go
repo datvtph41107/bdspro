@@ -59,15 +59,9 @@ func (server *Server) me(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"account_id": payload.AccountID})
 }
 
-// MountGateway serves the protobuf HTTP gateway alongside existing Gin endpoints.
-func (server *Server) MountGateway(handler http.Handler) {
-	server.router.Any("/v1/*path", gin.WrapH(handler))
-}
-
-func (server *Server) MountOpenAPI(data []byte) {
-	server.router.GET("/docs/openapi.json", func(ctx *gin.Context) {
-		ctx.Data(http.StatusOK, "application/json", data)
-	})
+// Handler exposes the existing Gin routes for the main HTTP Gateway.
+func (server *Server) Handler() http.Handler {
+	return server.router
 }
 
 func (server *Server) Start(ctx context.Context, address string) error {

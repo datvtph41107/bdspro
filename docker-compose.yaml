@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=bdspro
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - lecture37-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d bdspro"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:18080:8080"
+      - "127.0.0.1:19090:9090"
+    environment:
+      - ENVIRONMENT=development
+      - DB_SOURCE=postgres://root:secret@postgres:5432/bdspro?sslmode=disable
+      - MIGRATION_URL=file://db/migration
+      - HTTP_SERVER_ADDRESS=0.0.0.0:8080
+      - GRPC_SERVER_ADDRESS=0.0.0.0:9090
+      - REDIS_ADDRESS=redis:6379
+      - VERIFY_EMAIL_URL=http://localhost:18080/users/verify_email
+      - EMAIL_SENDER_NAME=${EMAIL_SENDER_NAME:-BDSPro}
+      - EMAIL_SENDER_ADDRESS=${EMAIL_SENDER_ADDRESS:-}
+      - EMAIL_SENDER_PASSWORD=${EMAIL_SENDER_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    entrypoint: ["/app/wait-for.sh", "postgres:5432", "--", "/app/start.sh"]
+    command: ["/app/main"]
+
+volumes:
+  lecture37-postgres:

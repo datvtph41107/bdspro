@@ -4,11 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
-	"net"
 	"net/mail"
 	"strings"
-	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
@@ -19,10 +16,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -146,39 +141,3 @@ func (s *Server) UpdateOrganization(ctx context.Context, req *pb.UpdateOrganizat
 	}}, nil
 }
 
-func unaryLogger(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-	start := time.Now()
-	response, err := handler(ctx, req)
-	slog.InfoContext(ctx, "gRPC request", "method", info.FullMethod,
-		"code", status.Code(err), "duration", time.Since(start))
-	return response, err
-}
-
-func (s *Server) Start(ctx context.Context, address string) error {
-	listener, err := net.Listen("tcp", address)
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
-
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(unaryLogger))
-	pb.RegisterBDSProServer(grpcServer, s)
-	reflection.Register(grpcServer)
-	errorsCh := make(chan error, 1)
-	go func() { errorsCh <- grpcServer.Serve(listener) }()
-
-	select {
-	case err := <-errorsCh:
-		if errors.Is(err, grpc.ErrServerStopped) {
-			return nil
-		}
-		return err
-	case <-ctx.Done():
-		grpcServer.GracefulStop()
-		err := <-errorsCh
-		if errors.Is(err, grpc.ErrServerStopped) {
-			return nil
-		}
-		return err
-	}
-}

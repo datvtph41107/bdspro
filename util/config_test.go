@@ -19,33 +19,35 @@ func writeAppConfig(t *testing.T, content string) string {
 
 func exampleAppConfig() string {
 	return "DB_SOURCE=postgres://root:secret@localhost:5432/bdspro?sslmode=disable\n" +
-		"SERVER_ADDRESS=127.0.0.1:8080\n" +
+		"HTTP_SERVER_ADDRESS=127.0.0.1:8080\n" +
+		"MIGRATION_URL=file://db/migration\n" +
+		"GRPC_SERVER_ADDRESS=127.0.0.1:9090\n" +
 		"ALLOWED_ORIGINS=http://localhost:3000,https://example.com\n" +
 		"TOKEN_SYMMETRIC_KEY=" + strings.Repeat("a", 32) + "\n" +
 		"ACCESS_TOKEN_DURATION=15m\nREFRESH_TOKEN_DURATION=24h\n"
 }
 
 func TestLoadConfig(t *testing.T) {
-	for _, key := range []string{"DB_SOURCE", "SERVER_ADDRESS", "TOKEN_SYMMETRIC_KEY", "ACCESS_TOKEN_DURATION", "REFRESH_TOKEN_DURATION"} {
+	for _, key := range []string{"DB_SOURCE", "HTTP_SERVER_ADDRESS", "TOKEN_SYMMETRIC_KEY", "ACCESS_TOKEN_DURATION", "REFRESH_TOKEN_DURATION"} {
 		t.Setenv(key, "")
 	}
 	config, err := LoadConfig(writeAppConfig(t, exampleAppConfig()))
 	require.NoError(t, err)
 	require.Contains(t, config.DBSource, "/bdspro?")
-	require.Equal(t, "127.0.0.1:8080", config.ServerAddress)
+	require.Equal(t, "127.0.0.1:8080", config.HTTPServerAddress)
 	require.Equal(t, 15*time.Minute, config.AccessTokenDuration)
 	require.Equal(t, 24*time.Hour, config.RefreshTokenDuration)
 	require.Equal(t, []string{"http://localhost:3000", "https://example.com"}, config.AllowedOrigins)
 }
 
 func TestLoadConfigProcessEnvOverridesFile(t *testing.T) {
-	for _, key := range []string{"DB_SOURCE", "SERVER_ADDRESS", "TOKEN_SYMMETRIC_KEY", "ACCESS_TOKEN_DURATION", "REFRESH_TOKEN_DURATION"} {
+	for _, key := range []string{"DB_SOURCE", "HTTP_SERVER_ADDRESS", "TOKEN_SYMMETRIC_KEY", "ACCESS_TOKEN_DURATION", "REFRESH_TOKEN_DURATION"} {
 		t.Setenv(key, "")
 	}
-	t.Setenv("SERVER_ADDRESS", "127.0.0.1:9090")
+	t.Setenv("HTTP_SERVER_ADDRESS", "127.0.0.1:9090")
 	config, err := LoadConfig(writeAppConfig(t, exampleAppConfig()))
 	require.NoError(t, err)
-	require.Equal(t, "127.0.0.1:9090", config.ServerAddress)
+	require.Equal(t, "127.0.0.1:9090", config.HTTPServerAddress)
 }
 
 func TestLoadConfigMissingFile(t *testing.T) {
@@ -54,7 +56,7 @@ func TestLoadConfigMissingFile(t *testing.T) {
 }
 
 func TestLoadConfigInvalidKey(t *testing.T) {
-	for _, key := range []string{"DB_SOURCE", "SERVER_ADDRESS", "TOKEN_SYMMETRIC_KEY", "ACCESS_TOKEN_DURATION", "REFRESH_TOKEN_DURATION"} {
+	for _, key := range []string{"DB_SOURCE", "HTTP_SERVER_ADDRESS", "TOKEN_SYMMETRIC_KEY", "ACCESS_TOKEN_DURATION", "REFRESH_TOKEN_DURATION"} {
 		t.Setenv(key, "")
 	}
 	configFile := strings.Replace(exampleAppConfig(), strings.Repeat("a", 32), "short", 1)

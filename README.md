@@ -6,7 +6,7 @@ Xem [ma trận từng bài #0–77](docs/LECTURES-00-77.md) để phân biệt p
 
 ## Source và trách nhiệm
 
-- `main.go`: đọc `app.env`, kết nối PostgreSQL, tạo Store và Server.
+- `main.go`: cấu trúc bootstrap kiểu SimpleBank — `runDBMigration`, `runTaskProcessor`, `runGatewayServer`, `runGrpcServer`; Gin chỉ còn đường chạy tương thích.
 - `util/config.go`: Viper `ReadInConfig` + `AutomaticEnv`, không có `BindEnv` hoặc cơ chế `.env` fallback.
 - `util/password.go`: bcrypt hash/verify mật khẩu.
 - `db/migration/`: schema `parties`, `persons`, `accounts`, `sessions`; migration `000001` đã áp dụng trên local thì **không sửa hoặc chạy lại bằng tay**.
@@ -41,7 +41,7 @@ make proto
 make fmt
 ```
 
-`make server` đọc `app.env`. URL DB local: `postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable`. `make migrateup` dùng URL mặc định trên và cho phép đổi bằng `DB_URL` khi chạy. File `app.env` chỉ là mẫu local; khóa JWT trong đó tuyệt đối không dùng production.
+`make server` đọc `app.env` và tự áp dụng go-migrate Up (bỏ qua ErrNoChange). URL DB local: `postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable`. `make migrateup` là CLI riêng; startup cũng chạy migrate Up, không nhân đôi trong Docker Compose. URL mặc định trên và cho phép đổi bằng `DB_URL` khi chạy. File `app.env` chỉ là mẫu local; khóa JWT trong đó tuyệt đối không dùng production.
 
 ## HTTP API
 
@@ -67,7 +67,7 @@ Xem đối chiếu lecture và quy tắc tổ chức: [docs/LECTURE-MATRIX.md](d
 
 ## HTTP lifecycle
 
-Gin sử dụng logger theo `log/slog` và CORS chỉ cho nguồn trong `ALLOWED_ORIGINS`. `SIGINT`/`SIGTERM` kích hoạt shutdown HTTP (tối đa 10 giây); pool PostgreSQL đóng sau khi dừng HTTP. DBML ở `doc/db.dbml`.
+HTTP Gateway sử dụng `gapi.HttpLogger` và `rs/cors` theo cấu trúc SimpleBank; gRPC sử dụng `gapi.GrpcLogger`. `SIGINT`/`SIGTERM` kích hoạt shutdown HTTP (tối đa 10 giây); pool PostgreSQL đóng sau khi dừng HTTP. DBML ở `doc/db.dbml`.
 
 ## Email verification (Redis/Asynq)
 
@@ -102,3 +102,11 @@ git status --short --branch
 ```
 
 Mã Go và các test có thể chạy bằng `go test ./...` mà không ghi dữ liệu PostgreSQL local. Nếu cần đối chiếu dữ liệu trong DB, chỉ chạy SQL `SELECT`.
+
+## Runtime theo bố cục SimpleBank
+
+`main.go` tạo PostgreSQL pool, chạy `runDBMigration`, tạo `Store`, `RedisTaskDistributor` và điều phối `runTaskProcessor`, `runGatewayServer`, `runGrpcServer` bằng `errgroup.WithContext`. `gapi/server.go` chỉ khởi tạo handler, không sở hữu HTTP/gRPC listener. `gapi/grpc_logger.go` và `gapi/http_logger.go` tách trách nhiệm.
+
+`docker-compose.yaml` định nghĩa các service `postgres`, `redis`, `api`. `wait-for.sh` chờ PostgreSQL, `start.sh` exec binary, Dockerfile sao chép migrations để Go tự migrate. Compose vẫn giữ volume `lecture37-postgres` và host ports riêng `15432`, `18080`, `19090` để không ảnh hưởng PostgreSQL `postgres` đang có trên local. Không chạy `docker compose down --volumes` trên môi trường chứa dữ liệu muốn giữ.
+
+HTTP Gateway sử dụng `/v1/`, Swagger `/swagger/` và `/docs/openapi.json`; các endpoint BDSPro chưa được định nghĩa trong protobuf vẫn hoạt động qua Gin dưới cùng một HTTP server. CORS cấu hình bằng `ALLOWED_ORIGINS`, JSON từ Gateway dùng tên trường proto (`account_id`, `access_token`).

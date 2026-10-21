@@ -4,11 +4,14 @@ go 1.27.1
 
 require (
 	github.com/gin-gonic/gin v1.12.0
+	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3
 	github.com/hibiken/asynq v0.23.0
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/rs/cors v1.11.1
+	github.com/rs/zerolog v1.34.0
 	github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
