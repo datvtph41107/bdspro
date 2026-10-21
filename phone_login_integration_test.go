@@ -17,6 +17,7 @@ import (
 	"github.com/datvtph41107/bdspro/auth"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
+	"github.com/datvtph41107/bdspro/token"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -194,12 +195,12 @@ func TestPhoneLoginConcurrentSingleUse(t *testing.T) {
 
 func TestPhoneLoginHTTPUsesSharedJWTAndCookieContract(t *testing.T) {
 	db, a, sms, accountID, phone := phoneLoginFixture(t)
-	issuer, err := auth.NewAccessTokens(strings.Repeat("A", 32))
+	issuer, err := token.NewJWTMaker(strings.Repeat("A", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
 	server := api.NewServer(db, a, organization.New(db), source.NewService(db), true, "")
-	server.EnableAccessTokens(issuer)
+	server.EnableJWTMaker(issuer)
 	post := func(route, body string) *httptest.ResponseRecorder {
 		t.Helper()
 		req := httptest.NewRequest(http.MethodPost, route, bytes.NewBufferString(body))
