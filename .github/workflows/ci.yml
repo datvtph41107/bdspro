@@ -156,6 +156,15 @@ jobs:
           if [ "$status" -ne 124 ]; then cat server.log; exit 1; fi
           grep 'BDSPro listening' server.log
 
+      - name: Smoke local gRPC listener startup
+        run: |
+          set +e
+          ENVIRONMENT=development DB_SOURCE="$CORE_TEST_DATABASE_URL" GRPC_SERVER_ADDRESS=127.0.0.1:0 timeout 8s go run ./cmd/grpc >grpc.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 124 ]; then cat grpc.log; exit 1; fi
+          grep 'BDSPro gRPC listening' grpc.log
+
       - name: Validate Docker Compose
         run: docker compose config --quiet
 

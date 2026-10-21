@@ -5,7 +5,7 @@ DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 DB_DOCS_DATABASE_URL ?=
 
-.PHONY: postgres createdb dropdb newmigration migrateup migrateup1 migratedown migratedown1 sqlc proto db_docs db_schema test testsqlc testsqlc-race server
+.PHONY: postgres createdb dropdb newmigration migrateup migrateup1 migratedown migratedown1 sqlc proto db_docs db_schema test testsqlc testsqlc-race server grpc
 
 postgres:
 	docker run --name $(POSTGRES_CONTAINER) -p 5432:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -d postgres:18-alpine
@@ -56,3 +56,6 @@ testsqlc-race:
 
 server:
 	go run .
+
+grpc:
+	go run ./cmd/grpc

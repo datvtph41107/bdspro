@@ -17,6 +17,7 @@ type Config struct {
 	DBDriver              string `mapstructure:"DB_DRIVER"`
 	DBSource              string `mapstructure:"DB_SOURCE"`
 	ServerAddress         string `mapstructure:"SERVER_ADDRESS"`
+	GRPCServerAddress     string `mapstructure:"GRPC_SERVER_ADDRESS"`
 	AllowedOrigin         string `mapstructure:"ALLOWED_ORIGIN"`
 	TokenSymmetricKey     string `mapstructure:"TOKEN_SYMMETRIC_KEY"`
 	PhoneOTPKey           string `mapstructure:"PHONE_OTP_KEY"`
@@ -61,6 +62,15 @@ func (config Config) validate() error {
 	host, _, err := net.SplitHostPort(config.ServerAddress)
 	if err != nil {
 		return fmt.Errorf("invalid SERVER_ADDRESS: %w", err)
+	}
+	if config.GRPCServerAddress != "" {
+		grpcHost, grpcPort, err := net.SplitHostPort(config.GRPCServerAddress)
+		if err != nil || grpcPort == "" || (grpcHost != "127.0.0.1" && grpcHost != "::1" && grpcHost != "localhost") {
+			return fmt.Errorf("GRPC_SERVER_ADDRESS must be a loopback host:port (TLS is not configured)")
+		}
+		if len(config.TokenSymmetricKey) < 32 {
+			return fmt.Errorf("gRPC requires TOKEN_SYMMETRIC_KEY >=32 bytes")
+		}
 	}
 	if config.AllowedOrigin != "" {
 		origin, err := url.Parse(config.AllowedOrigin)
