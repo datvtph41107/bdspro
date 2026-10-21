@@ -18,7 +18,7 @@ type Config struct {
 	DBSource              string `mapstructure:"DB_SOURCE"`
 	ServerAddress         string `mapstructure:"SERVER_ADDRESS"`
 	AllowedOrigin         string `mapstructure:"ALLOWED_ORIGIN"`
-	TokenSymmetricKey        string `mapstructure:"TOKEN_SYMMETRIC_KEY"`
+	TokenSymmetricKey      string `mapstructure:"TOKEN_SYMMETRIC_KEY"`
 	PhoneOTPKey           string `mapstructure:"PHONE_OTP_KEY"`
 	DevSMSOutbox          bool   `mapstructure:"DEV_SMS_OUTBOX"`
 	TwilioAccountSID      string `mapstructure:"TWILIO_ACCOUNT_SID"`
