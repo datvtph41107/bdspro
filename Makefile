@@ -2,7 +2,7 @@ DB_URL ?= postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
-.PHONY: postgres createdb migrateup migratedown sqlc mock test server
+.PHONY: postgres createdb migrateup migratedown sqlc mock proto test server
 
 postgres:
 	docker start $(POSTGRES_CONTAINER)
@@ -27,3 +27,10 @@ test:
 
 server:
 	go run main.go
+
+proto:
+	protoc -I proto \
+		--go_out=. --go_opt=module=github.com/datvtph41107/bdspro \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/datvtph41107/bdspro \
+		--grpc-gateway_out=. --grpc-gateway_opt=module=github.com/datvtph41107/bdspro \
+		--openapiv2_out=doc/swagger proto/bdspro.proto

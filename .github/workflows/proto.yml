@@ -40,9 +40,13 @@ jobs:
             --grpc-gateway_out=. --grpc-gateway_opt=module=github.com/datvtph41107/bdspro \
             --openapiv2_out=doc/swagger \
             proto/bdspro.proto
+      - name: Synchronize protobuf dependencies
+        run: |
+          go get google.golang.org/grpc@v1.76.0 github.com/grpc-ecosystem/grpc-gateway/v2@v2.27.3
+          go mod tidy
       - name: Commit generated source
         run: |
-          git add pb doc/swagger
+          git add pb doc/swagger go.mod go.sum
           if ! git diff --cached --quiet; then
             git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore(proto): generate gRPC Gateway and Swagger source"
             git push origin HEAD:dev
