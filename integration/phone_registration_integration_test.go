@@ -34,7 +34,10 @@ func TestPhoneOnlyRegistrationAtomicIdentityAndExistingLogin(t *testing.T) {
 		t.Fatal("SMS was not delivered to dev transport")
 	}
 	var partiesBefore, accountsBefore, sessionsBefore int64
-	for _, check := range []struct{ sql string; out *int64 }{
+	for _, check := range []struct {
+		sql string
+		out *int64
+	}{
 		{"SELECT count(*) FROM parties", &partiesBefore},
 		{"SELECT count(*) FROM accounts", &accountsBefore},
 		{"SELECT count(*) FROM sessions", &sessionsBefore},
@@ -83,7 +86,10 @@ func TestPhoneOnlyRegistrationAtomicIdentityAndExistingLogin(t *testing.T) {
 		t.Fatalf("verified phone missing: %v", err)
 	}
 	var emailCount, passwordCount, orgCount int
-	for _, check := range []struct{ sql string; out *int }{
+	for _, check := range []struct {
+		sql string
+		out *int
+	}{
 		{"SELECT count(*) FROM account_emails", &emailCount},
 		{"SELECT count(*) FROM password_credentials", &passwordCount},
 		{"SELECT count(*) FROM organization_memberships", &orgCount},
