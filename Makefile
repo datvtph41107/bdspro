@@ -1,10 +1,11 @@
-# BDSPro Go + PostgreSQL. Targets follow the SimpleBank workflow.
-# DB_URL must be passed explicitly; never default a migration to production.
+# BDSPro local Go + PostgreSQL tasks (SimpleBank style).
+# Migrating or deleting a DB requires an explicit target and arguments.
 DB_URL ?=
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
+DB_DOCS_DATABASE_URL ?=
 
-.PHONY: postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc proto test testsqlc testsqlc-race server newmigration
+.PHONY: postgres createdb dropdb newmigration migrateup migrateup1 migratedown migratedown1 sqlc proto db_docs db_schema test testsqlc testsqlc-race server
 
 postgres:
 	docker run --name $(POSTGRES_CONTAINER) -p 5432:5432 -e POSTGRES_USER=root -e POSTGRES_PASSWORD=secret -d postgres:18-alpine
@@ -13,48 +14,44 @@ createdb:
 	docker exec $(POSTGRES_CONTAINER) createdb --username=root --owner=root $(DB_NAME)
 
 dropdb:
-	@case "$(DB_NAME)" in *_ci) ;; *) echo 'dropdb requires a disposable *_ci database'; exit 1 ;; esac
-	@test "$(CONFIRM_DROP)" = "yes" || (echo 'Set CONFIRM_DROP=yes to drop $(DB_NAME)'; exit 1)
-	docker exec $(POSTGRES_CONTAINER) dropdb --username=root $(DB_NAME)
+	$(if $(and $(filter %_ci,$(DB_NAME)),$(filter yes,$(CONFIRM_DROP))),docker exec $(POSTGRES_CONTAINER) dropdb --username=root $(DB_NAME),$(error Refusing dropdb: DB_NAME must end in _ci and CONFIRM_DROP=yes))
 
 newmigration:
-	@test -n "$(name)" || (echo 'Usage: make newmigration name=change_name'; exit 1)
-	migrate create -ext sql -dir db/migration -seq $(name)
+	$(if $(name),migrate create -ext sql -dir db/migration -seq $(name),$(error Pass name=change_name))
 
 migrateup:
-	@test -n "$(DB_URL)" || (echo 'Set DB_URL=postgresql://.../database?sslmode=disable'; exit 1)
-	migrate -path db/migration -database "$(DB_URL)" -verbose up
+	$(if $(DB_URL),migrate -path db/migration -database "$(DB_URL)" -verbose up,$(error Explicit DB_URL required))
 
 migrateup1:
-	@test -n "$(DB_URL)" || (echo 'Set DB_URL explicitly'; exit 1)
-	migrate -path db/migration -database "$(DB_URL)" -verbose up 1
+	$(if $(DB_URL),migrate -path db/migration -database "$(DB_URL)" -verbose up 1,$(error Explicit DB_URL required))
 
-# Preserve the prior single-step safety behavior for developer databases.
 migratedown:
-	@test -n "$(DB_URL)" || (echo 'Set DB_URL explicitly'; exit 1)
-	migrate -path db/migration -database "$(DB_URL)" -verbose down 1
+	$(if $(DB_URL),migrate -path db/migration -database "$(DB_URL)" -verbose down 1,$(error Explicit DB_URL required))
 
 migratedown1: migratedown
 
 sqlc:
 	sqlc generate
 
-# Buf validates and generates protobuf message types into pb/.
-# Tools: buf CLI + protoc-gen-go v1.36.10; never edit generated pb files.
 proto:
 	buf lint
 	buf build
 	buf generate
 
+# Generate DBML from migrated Postgres, never treat conceptual DBML as DDL.
+db_docs:
+	go run ./cmd/dbdocs -out doc -dbml db.dbml
+
+db_schema:
+	pg_dump --schema-only --no-owner --no-privileges --schema=public --dbname="$(DB_DOCS_DATABASE_URL)" > doc/schema.sql
+
 test:
 	go test -v -cover ./...
 
 testsqlc:
-	@test -n "$(SQLC_TEST_DATABASE_URL)" || (echo 'Set SQLC_TEST_DATABASE_URL'; exit 1)
 	go test -v -cover ./db/sqlc -count=1
 
 testsqlc-race:
-	@test -n "$(SQLC_TEST_DATABASE_URL)" || (echo 'Set SQLC_TEST_DATABASE_URL'; exit 1)
 	go test -race ./db/sqlc -count=1 -timeout=120s -v
 
 server:
