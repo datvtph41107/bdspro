@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"embed"
+	"io"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/datvtph41107/bdspro/api"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/gapi"
+	_ "github.com/datvtph41107/bdspro/doc/statik"
 	"github.com/datvtph41107/bdspro/mail"
 	"github.com/datvtph41107/bdspro/pb"
 	"github.com/datvtph41107/bdspro/util"
@@ -26,6 +26,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rakyll/statik/fs"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -34,9 +35,6 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/encoding/protojson"
 )
-
-//go:embed doc/swagger/*.swagger.json
-var swaggerFiles embed.FS
 
 var interruptSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
 
@@ -190,20 +188,25 @@ func runGatewayServer(
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/v1/", grpcMux)
-	mux.HandleFunc("/docs/openapi.json", func(w http.ResponseWriter, r *http.Request) {
-		data, err := swaggerFiles.ReadFile("doc/swagger/bdspro.swagger.json")
-		if err != nil {
-			http.Error(w, "OpenAPI unavailable", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(data)
-	})
-	staticFS, err := fs.Sub(swaggerFiles, "doc/swagger")
+
+	statikFS, err := fs.New()
 	if err != nil {
 		return fmt.Errorf("cannot open Swagger files: %w", err)
 	}
-	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.FS(staticFS))))
+	swaggerFile, err := statikFS.Open("/bdspro.swagger.json")
+	if err != nil {
+		return fmt.Errorf("cannot open Swagger JSON: %w", err)
+	}
+	swaggerJSON, err := io.ReadAll(swaggerFile)
+	_ = swaggerFile.Close()
+	if err != nil {
+		return fmt.Errorf("cannot read Swagger JSON: %w", err)
+	}
+	mux.HandleFunc("/docs/openapi.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(swaggerJSON)
+	})
+	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(statikFS)))
 	mux.Handle("/", ginServer.Handler())
 
 	c := cors.New(cors.Options{

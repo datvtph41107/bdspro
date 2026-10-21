@@ -7,13 +7,19 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/util"
+	"github.com/rs/cors"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCORS(t *testing.T) {
 	server := newTestServer(t, nil)
 	server.config.AllowedOrigins = []string{"http://localhost:3000"}
-	server.setupRouter()
+	handler := cors.New(cors.Options{
+		AllowedOrigins: server.config.AllowedOrigins,
+		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders: []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+	}).Handler(server.Handler())
 
 	for _, tc := range []struct {
 		name   string
@@ -30,7 +36,10 @@ func TestCORS(t *testing.T) {
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(tc.method, "/health", nil)
 			req.Header.Set("Origin", tc.origin)
-			server.router.ServeHTTP(w, req)
+			if tc.method == http.MethodOptions {
+				req.Header.Set("Access-Control-Request-Method", "GET")
+			}
+			handler.ServeHTTP(w, req)
 			require.Equal(t, tc.want, w.Code)
 			require.Equal(t, tc.allow, w.Header().Get("Access-Control-Allow-Origin"))
 		})

@@ -110,3 +110,7 @@ Mã Go và các test có thể chạy bằng `go test ./...` mà không ghi dữ
 `docker-compose.yaml` định nghĩa các service `postgres`, `redis`, `api`. `wait-for.sh` chờ PostgreSQL, `start.sh` exec binary, Dockerfile sao chép migrations để Go tự migrate. Compose vẫn giữ volume `lecture37-postgres` và host ports riêng `15432`, `18080`, `19090` để không ảnh hưởng PostgreSQL `postgres` đang có trên local. Không chạy `docker compose down --volumes` trên môi trường chứa dữ liệu muốn giữ.
 
 HTTP Gateway sử dụng `/v1/`, Swagger `/swagger/` và `/docs/openapi.json`; các endpoint BDSPro chưa được định nghĩa trong protobuf vẫn hoạt động qua Gin dưới cùng một HTTP server. CORS cấu hình bằng `ALLOWED_ORIGINS`, JSON từ Gateway dùng tên trường proto (`account_id`, `access_token`).
+
+## Swagger và logging canonical
+
+`doc/statik/statik.go` được sinh từ `doc/swagger/bdspro.swagger.json` bằng `statik`, không sửa tay. `main.go` dùng `statik/fs` phục vụ `/swagger/`, còn `/docs/openapi.json` là alias cho ứng dụng hiện có. CORS và HTTP request logging chỉ gắn ở Gateway boundary; gRPC logging gắn tại UnaryInterceptor, không nhân đôi middleware trong Gin.

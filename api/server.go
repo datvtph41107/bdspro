@@ -35,7 +35,7 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 
 func (server *Server) setupRouter() {
 	router := gin.New()
-	router.Use(gin.Recovery(), requestLogger(), corsMiddleware(server.config.AllowedOrigins))
+	router.Use(gin.Recovery())
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
