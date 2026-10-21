@@ -1,105 +1,44 @@
 package db
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"time"
+    "context"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+    "github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Store provides all functions to execute database queries and transactions.
-type Store struct {
-	db *pgxpool.Pool
-	*Queries
+type Store interface {
+    Querier
+    RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
 }
 
-// NewStore creates a new Store.
-func NewStore(db *pgxpool.Pool) *Store {
-	return &Store{
-		db:      db,
-		Queries: New(db),
-	}
+type SQLStore struct {
+    pool *pgxpool.Pool
+    *Queries
 }
 
-// ExecTx executes SQLC queries within a single database transaction.
-// The callback must use the supplied Queries so every statement uses the same tx.
-func (store *Store) ExecTx(ctx context.Context, fn func(*Queries) error) error {
-	tx, err := store.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = tx.Rollback(cleanup)
-	}()
-
-	q := New(tx)
-	err = fn(q)
-	if err != nil {
-		// Use a live context for rollback even if the request was cancelled.
-		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		rbErr := tx.Rollback(cleanup)
-		cancel()
-		if rbErr != nil {
-			return errors.Join(err, fmt.Errorf("rollback failed: %w", rbErr))
-		}
-		return err
-	}
-
-	return tx.Commit(ctx)
+func NewStore(pool *pgxpool.Pool) Store {
+    return &SQLStore{pool: pool, Queries: New(pool)}
 }
 
 type RegisterTxParams struct {
-	Email        string
-	PasswordHash string
-	TokenHash    string
+    Email        string
+    PasswordHash string
 }
 
-type RegisterTxResult struct {
-	PartyID        int64
-	AccountID      int64
-	AccountEmailID int64
+func (s *SQLStore) RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error) {
+    tx, err := s.pool.Begin(ctx)
+    if err != nil { return Account{}, err }
+    defer tx.Rollback(ctx)
+    q := New(tx)
+    partyID, err := q.CreatePersonParty(ctx)
+    if err != nil { return Account{}, err }
+    if err := q.CreatePerson(ctx, partyID); err != nil { return Account{}, err }
+    account, err := q.CreateAccount(ctx, CreateAccountParams{
+        PersonID: partyID, Email: arg.Email, PasswordHash: arg.PasswordHash,
+    })
+    if err != nil { return Account{}, err }
+    if err := tx.Commit(ctx); err != nil { return Account{}, err }
+    return account, nil
 }
 
-// RegisterTx creates one Party, Person, Account and verification token atomically.
-func (s *Store) RegisterTx(ctx context.Context, arg RegisterTxParams) (RegisterTxResult, error) {
-	var result RegisterTxResult
-	err := s.ExecTx(ctx, func(q *Queries) error {
-		var err error
-
-		result.PartyID, err = q.CreatePersonParty(ctx)
-		if err != nil {
-			return err
-		}
-		if err := q.CreatePersonSubtype(ctx, result.PartyID); err != nil {
-			return err
-		}
-
-		result.AccountID, err = q.CreateAccount(ctx, result.PartyID)
-		if err != nil {
-			return err
-		}
-		result.AccountEmailID, err = q.CreatePrimaryAccountEmail(ctx, CreatePrimaryAccountEmailParams{
-			AccountID: result.AccountID, Email: arg.Email,
-		})
-		if err != nil {
-			return err
-		}
-		if err := q.CreatePasswordCredential(ctx, CreatePasswordCredentialParams{
-			AccountID: result.AccountID, PasswordHash: arg.PasswordHash,
-		}); err != nil {
-			return err
-		}
-		return q.CreateEmailVerificationToken(ctx, CreateEmailVerificationTokenParams{
-			AccountEmailID: result.AccountEmailID, TokenHash: arg.TokenHash,
-		})
-	})
-	if err != nil {
-		return RegisterTxResult{}, err
-	}
-	return result, nil
-}
+var _ Store = (*SQLStore)(nil)

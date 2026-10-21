@@ -1,52 +1,36 @@
-# Lecture 24-25: LOCAL DEVELOPMENT ONLY. Never publish port 18080 publicly.
-# This compose project owns its own DB; it does not touch the host postgres container.
 services:
   db:
     image: postgres:18-alpine
     environment:
       POSTGRES_USER: root
-      POSTGRES_PASSWORD: ${BDS_LOCAL_DB_PASSWORD:-secret}
-      POSTGRES_DB: bdspro
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: bdspro_l37
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
-      - bdspro_local_data:/var/lib/postgresql
+      - lecture37-postgres:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d bdspro"]
-      interval: 3s
+      test: ["CMD-SHELL", "pg_isready -U root -d bdspro_l37"]
+      interval: 5s
       timeout: 3s
-      retries: 20
-    restart: unless-stopped
-
+      retries: 15
   migrate:
-    image: migrate/migrate:v4.19.1
+    image: migrate/migrate:v4.18.3
+    volumes:
+      - ./db/migration:/migrations:ro
+    command: ["-path", "/migrations", "-database", "postgres://root:secret@db:5432/bdspro_l37?sslmode=disable", "up"]
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ./db/migration:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgresql://root:${BDS_LOCAL_DB_PASSWORD:-secret}@db:5432/bdspro?sslmode=disable
-      - up
-    restart: "no"
-
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
+    environment:
+      DB_SOURCE: postgres://root:secret@db:5432/bdspro_l37?sslmode=disable
+      SERVER_ADDRESS: 0.0.0.0:8080
+    ports:
+      - "127.0.0.1:18080:8080"
     depends_on:
       migrate:
         condition: service_completed_successfully
-    ports:
-      - "127.0.0.1:18080:8080"
-    environment:
-      ENVIRONMENT: development
-      DB_DRIVER: postgres
-      DB_SOURCE: postgresql://root:${BDS_LOCAL_DB_PASSWORD:-secret}@db:5432/bdspro?sslmode=disable
-      SERVER_ADDRESS: 0.0.0.0:8080
-      # Explicit local-only escape hatch: Compose publishes only to host loopback.
-      ALLOW_CONTAINER_DEV_BIND: "true"
-      ALLOWED_ORIGIN: http://127.0.0.1:18080
-    restart: unless-stopped
-
 volumes:
-  bdspro_local_data:
+  lecture37-postgres:

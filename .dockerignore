@@ -1,8 +1,8 @@
 .git
 .github
-.env
-.env.*
 *.log
+.env
+.env.local
+app.local.env
 docs
 README.md
-**/*_test.go

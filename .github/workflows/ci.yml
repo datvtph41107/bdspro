@@ -1,184 +1,44 @@
-name: ci-test
+name: Lecture 37 baseline
 
 on:
   push:
-    branches: [dev]
+    branches: [refactor/lecture-37-simplebank-baseline]
   pull_request:
-    branches: [dev]
-  workflow_dispatch:
 
 jobs:
-  test:
-    name: Test
+  go:
     runs-on: ubuntu-latest
-
     services:
       postgres:
         image: postgres:18-alpine
         env:
           POSTGRES_USER: root
           POSTGRES_PASSWORD: secret
-          POSTGRES_DB: postgres
+          POSTGRES_DB: bdspro_lecture37_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U root -d postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      PGPASSWORD: secret
-      SOURCE_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_source_ci?sslmode=disable
-      CORE_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_core_ci?sslmode=disable
-      SQLC_TEST_DATABASE_URL: postgresql://root:secret@localhost:5432/bdspro_sqlc_ci?sslmode=disable
-
+          --health-cmd "pg_isready -U root -d bdspro_lecture37_test"
+          --health-interval 5s --health-timeout 3s --health-retries 15
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-
-      - name: Install sqlc and golang-migrate
+      - name: Download modules
+        run: go mod tidy
+      - name: Lint and unit tests
         run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
-          go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.20.0
-
-      - name: Create test databases
-        run: |
-          createdb -h localhost -U root bdspro_core_ci
-          createdb -h localhost -U root bdspro_source_ci
-          createdb -h localhost -U root bdspro_sqlc_ci
-          createdb -h localhost -U root bdspro_migrate_ci
-
-      - name: Run migrations
-        run: |
-          for database in bdspro_core_ci bdspro_source_ci bdspro_sqlc_ci bdspro_migrate_ci; do
-            make migrateup DB_URL="postgresql://root:secret@localhost:5432/$database?sslmode=disable"
-          done
-
-      - name: Verify migrations UP-DOWN-UP
-        run: |
-          url='postgresql://root:secret@localhost:5432/bdspro_migrate_ci?sslmode=disable'
-          migrate -path db/migration -database "$url" version
-          make migratedown1 DB_URL="$url"
-          make migrateup1 DB_URL="$url"
-
-      - name: Generate implemented DB docs (Lecture 38)
-        env:
-          DB_DOCS_DATABASE_URL: ${{ env.CORE_TEST_DATABASE_URL }}
-        run: |
-          set -eu
-          output="$RUNNER_TEMP/bdspro-dbdocs"
-          go run ./cmd/dbdocs -out "$output"
-          docker run --rm --network host -e PGPASSWORD=secret postgres:18-alpine \
-            pg_dump --schema-only --no-owner --no-privileges --schema=public \
-            -h 127.0.0.1 -U root -d bdspro_core_ci > "$output/schema.sql"
-          grep -q '^Table parties {' "$output/implemented.dbml"
-          grep -q '^Table sessions {' "$output/implemented.dbml"
-          grep -q 'CREATE TABLE public.parties' "$output/schema.sql"
-          grep -q 'CREATE TABLE public.sessions' "$output/schema.sql"
-          grep -q 'CREATE UNIQUE INDEX.*accounts_one_open_per_person_uq' "$output/schema.sql"
-          grep -q 'assert_party_subtype' "$output/constraints.md"
-
-      - name: Upload implemented DB schema docs
-        uses: actions/upload-artifact@v4
-        with:
-          name: bdspro-implemented-schema
-          path: ${{ runner.temp }}/bdspro-dbdocs/
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Set up Buf
-        uses: bufbuild/buf-action@v1
-        with:
-          setup_only: true
-          version: 1.59.0
-
-      - name: Check Protobuf schema and generate Go, gRPC and Gateway Swagger v2
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
-          # Pinned upstream release avoids compiling the large generator
-          # during every CI run; verify SHA-256 before executing it.
-          openapi_bin="$(go env GOPATH)/bin/protoc-gen-openapiv2"
-          curl --fail --location --retry 3 --silent --show-error \
-            https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v2.31.0/protoc-gen-openapiv2-v2.31.0-linux-x86_64 \
-            --output "$openapi_bin"
-          printf '%s  %s\n' a05f17a2a934692cc9d0b46a5a597f23cf2f1e34c76e0a457943aa5afffa33ba "$openapi_bin" | sha256sum --check
-          chmod +x "$openapi_bin"
-          set +e
-          buf lint > /tmp/buf-lint.log 2>&1
-          lint_status=$?
-          buf build > /tmp/buf-build.log 2>&1
-          build_status=$?
-          buf generate > /tmp/buf-generate.log 2>&1
-          generate_status=$?
-          set -e
-          printf 'BUF_LINT_STATUS=%s\\n' "$lint_status"
-          cat /tmp/buf-lint.log
-          printf 'BUF_BUILD_STATUS=%s\\n' "$build_status"
-          cat /tmp/buf-build.log
-          printf 'BUF_GENERATE_STATUS=%s\\n' "$generate_status"
-          cat /tmp/buf-generate.log
-          test "$lint_status" -eq 0
-          test "$build_status" -eq 0
-          test "$generate_status" -eq 0
-          git diff --exit-code -- pb docs/grpc-swagger
-          test -z "$(git ls-files --others --exclude-standard -- pb docs/grpc-swagger)"
-
-      - name: Generate SQLC
-        run: make sqlc
-
-      - name: Check source consistency
-        run: |
-          go mod tidy
-          gofmt -w api auth organization source db/sqlc pb util integration cmd/dbdocs main.go
-          git diff --exit-code -- go.mod go.sum api pb docs/grpc-swagger db/sqlc util integration cmd/dbdocs auth organization source main.go
-          test -z "$(git ls-files --others --exclude-standard -- db/sqlc)"
           go vet ./...
-
-      - name: Test
-        run: make test
-
-      - name: Race tests (all packages)
-        run: go test -race ./... -count=1 -timeout=180s
-
-      - name: Smoke server startup
+          go test -v ./api ./token ./util
+      - name: Run test migration
+        env:
+          PGPASSWORD: secret
         run: |
-          set +e
-          ENVIRONMENT=development DB_SOURCE="$CORE_TEST_DATABASE_URL" SERVER_ADDRESS=127.0.0.1:0 timeout 6s go run . >server.log 2>&1
-          status=$?
-          set -e
-          if [ "$status" -ne 124 ]; then cat server.log; exit 1; fi
-          grep 'BDSPro listening' server.log
-
-      - name: Smoke local gRPC listener startup
-        run: |
-          set +e
-          ENVIRONMENT=development DB_SOURCE="$CORE_TEST_DATABASE_URL" GRPC_SERVER_ADDRESS=127.0.0.1:0 timeout 8s go run ./cmd/grpc >grpc.log 2>&1
-          status=$?
-          set -e
-          if [ "$status" -ne 124 ]; then cat grpc.log; exit 1; fi
-          grep 'BDSPro gRPC listening' grpc.log
-
-      - name: Validate Docker Compose
-        run: docker compose config --quiet
-
-      - name: Build and smoke Docker Compose stack
-        run: |
-          docker compose up --build -d
-          for attempt in $(seq 1 40); do
-            if curl -fsS http://127.0.0.1:18080/ready; then exit 0; fi
-            sleep 2
-          done
-          docker compose ps
-          docker compose logs
-          exit 1
-
-      - name: Stop Docker Compose stack
-        if: always()
-        run: docker compose down
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+          psql -h 127.0.0.1 -U root -d bdspro_lecture37_test -v ON_ERROR_STOP=1 -f db/migration/000001_party_account_session.up.sql
+      - name: PostgreSQL integration tests
+        env:
+          DB_TEST_URL: postgres://root:secret@127.0.0.1:5432/bdspro_lecture37_test?sslmode=disable
+        run: go test -v -count=1 ./db/sqlc

@@ -1,2 +1,5 @@
-/bdspro
+app.local.env
 .env
+.env.local
+*.log
+coverage.out
