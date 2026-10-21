@@ -8,7 +8,7 @@ import (
 func TestEmail(t *testing.T) {
 	cases := []struct {
 		input string
-		want string
+		want  string
 		valid bool
 	}{
 		{"  USER@Example.COM ", "user@example.com", true},
