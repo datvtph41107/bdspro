@@ -8,6 +8,7 @@ import (
 	"time"
 
 	dbsqlc "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/datvtph41107/bdspro/val"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -234,8 +235,8 @@ func (s *Service) Invite(ctx context.Context, accountID, organizationID, roleID 
 	if err := requireAccount(accountID); err != nil {
 		return 0, err
 	}
-	email = strings.ToLower(strings.TrimSpace(email))
-	if organizationID <= 0 || roleID <= 0 || len(email) > 254 || email == "" || !strings.Contains(email, "@") {
+	email, err := val.Email(email)
+	if organizationID <= 0 || roleID <= 0 || err != nil {
 		return 0, ErrInvalid
 	}
 	id, err := dbsqlc.New(s.Pool).CreateAuthorizedInvitation(ctx, dbsqlc.CreateAuthorizedInvitationParams{
