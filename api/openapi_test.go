@@ -20,11 +20,11 @@ type openAPIOperation struct {
 		Required bool   `json:"required"`
 	} `json:"parameters"`
 	Security    []map[string]json.RawMessage `json:"security"`
-	RequestBody *json.RawMessage            `json:"requestBody"`
+	RequestBody *json.RawMessage             `json:"requestBody"`
 }
 
 type openAPIContract struct {
-	OpenAPI    string                                  `json:"openapi"`
+	OpenAPI    string                                 `json:"openapi"`
 	Paths      map[string]map[string]openAPIOperation `json:"paths"`
 	Components struct {
 		Schemas         map[string]json.RawMessage `json:"schemas"`
