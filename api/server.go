@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
+	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/organization"
 	"github.com/datvtph41107/bdspro/source"
 	"github.com/gin-gonic/gin"
@@ -53,7 +54,7 @@ type Server struct {
 	allowedOrigin  string
 	logger         *slog.Logger
 	authLimiter    *authLimiter
-	accessTokens   *auth.AccessTokens
+	jwtMaker   *token.JWTMaker
 	draining       atomic.Bool
 	router         *gin.Engine
 }
@@ -225,8 +226,8 @@ func (server *Server) Handler() http.Handler {
 	return server.router
 }
 
-// EnableAccessTokens configures signed, short-lived JWT access tokens.
+// EnableJWTMaker configures signed short-lived session-bound JWTs.
 // It is called during startup, before the router serves requests.
-func (server *Server) EnableAccessTokens(issuer *auth.AccessTokens) {
-	server.accessTokens = issuer
+func (server *Server) EnableJWTMaker(maker *token.JWTMaker) {
+	server.jwtMaker = maker
 }
