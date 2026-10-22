@@ -52,3 +52,5 @@ jobs:
           fi
       - name: Test all packages (including PostgreSQL integration)
         run: make test
+      - name: Validate disposable local integration workflow
+        run: make test-integration
