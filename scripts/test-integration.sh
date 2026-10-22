@@ -17,7 +17,7 @@ docker run --rm -d \
   -e POSTGRES_USER=root \
   -e POSTGRES_PASSWORD=secret \
   -e POSTGRES_DB=bdspro \
-  postgres:18-alpine -c cluster_name=bdspro-disposable >/dev/null
+  postgres:14-alpine -c cluster_name=bdspro-disposable >/dev/null
 
 cleanup() {
   docker stop "$container" >/dev/null 2>&1 || true

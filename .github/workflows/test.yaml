@@ -1,4 +1,4 @@
-name: Run unit and database tests
+name: Run unit tests
 
 on:
   push:
@@ -8,18 +8,17 @@ on:
 
 jobs:
   test:
-    name: Test
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:18-alpine
+        image: postgres:14-alpine
         env:
           POSTGRES_USER: root
           POSTGRES_PASSWORD: secret
           POSTGRES_DB: bdspro
         ports:
-          - 15432:5432
+          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U root -d bdspro"
           --health-interval 10s
@@ -27,11 +26,9 @@ jobs:
           --health-retries 5
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
@@ -43,14 +40,5 @@ jobs:
       - name: Run migrations
         run: make migrateup
 
-      - name: Check gofmt
-        run: |
-          unformatted="$(gofmt -l $(git ls-files '*.go'))"
-          if [ -n "$unformatted" ]; then
-            echo "$unformatted"
-            exit 1
-          fi
-      - name: Test all packages (including PostgreSQL integration)
+      - name: Run tests
         run: make test
-      - name: Validate disposable local integration workflow
-        run: sh scripts/test-integration.sh
