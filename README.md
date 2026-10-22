@@ -110,7 +110,7 @@ Mã Go và các test có thể chạy bằng `go test ./...` mà không ghi dữ
 
 `main.go` tạo PostgreSQL pool, chạy `runDBMigration`, tạo `Store`, `RedisTaskDistributor` và điều phối `runTaskProcessor` cùng `runGinServer` bằng `errgroup.WithContext`. Legacy gRPC/Gateway code vẫn tồn tại trong repository nhưng không được khởi động.
 
-`docker-compose.yaml` định nghĩa các service `postgres`, `redis`, `api`. `wait-for.sh` chờ PostgreSQL, `start.sh` exec binary, Dockerfile sao chép migrations để Go tự migrate. Compose vẫn giữ volume `lecture37-postgres` và host ports riêng `15432`, `18080`, `19090` để không ảnh hưởng PostgreSQL `postgres` đang có trên local. Không chạy `docker compose down --volumes` trên môi trường chứa dữ liệu muốn giữ.
+`docker-compose.yaml` định nghĩa các service `postgres`, `redis`, `api`. `wait-for.sh` chờ PostgreSQL, `start.sh` exec binary, Dockerfile sao chép migrations để Go tự migrate. Compose vẫn giữ volume `lecture37-postgres` và host ports riêng `15432` (PostgreSQL), `18080` (Gin HTTP) để không ảnh hưởng PostgreSQL `postgres` đang có trên local. Không công bố cổng gRPC 9090. Không chạy `docker compose down --volumes` trên môi trường chứa dữ liệu muốn giữ.
 
 HTTP Gin sử dụng routes trong `api/server.go`; CORS cấu hình bằng `ALLOWED_ORIGINS`. Các route thuộc gRPC-Gateway không còn hoạt động trong runtime mặc định.
 
