@@ -29,11 +29,11 @@ Kỳ vọng: `dev`, các service `postgres`, `redis`, `api` và HTTP `/health` t
 
 Nếu API chưa khởi động: `docker compose logs --tail=150 api`, tiếp theo kiểm tra `docker compose ps` và `docker compose logs postgres redis`.
 
-> **Bảo toàn dữ liệu:** Compose sử dụng volume `bdspro-postgres-data`. Volume cũ `lecture37-postgres` (nếu từng sử dụng ở lần triển khai trước) **không được tự động xóa hoặc tự động di chuyển dữ liệu**; volume mới là một PostgreSQL instance độc lập. Không dùng `docker compose down --volumes`, `docker volume prune` hoặc lệnh xóa database nếu chưa chủ động backup. `make down` chỉ tắt container và **giữ nguyên volume**.
+> **Bảo toàn dữ liệu:** Compose sử dụng volume `bdspro-postgres-data`. Volume cũ `lecture37-postgres` (nếu từng sử dụng ở lần triển khai trước) **không được tự động xóa hoặc tự động di chuyển dữ liệu**; volume mới là một PostgreSQL instance độc lập. Không dùng `docker compose down --volumes`, `docker volume prune` hoặc lệnh xóa database nếu chưa chủ động backup. `docker compose down` chỉ tắt container và **giữ nguyên volume**.
 
 ## 2. Hai chế độ phát triển — chọn một chế độ chạy API
 
-| Thành phần | Docker Compose (`make up`) | Go chạy trên WSL (`make infra` rồi `make server`) |
+| Thành phần | Docker Compose (`docker compose up`) | Go chạy trên WSL (`docker compose up -d postgres redis` rồi `make server`) |
 |---|---|---|
 | HTTP | `http://127.0.0.1:18080` | `http://127.0.0.1:8080` |
 | PostgreSQL (từ WSL) | `127.0.0.1:15432` | `127.0.0.1:15432` |
@@ -45,23 +45,23 @@ Nếu API chưa khởi động: `docker compose logs --tail=150 api`, tiếp the
 **Chế độ A — tất cả chạy trong Compose:**
 
 ```bash
-make up
-make ps
-make dbstatus
+docker compose up -d --build
+docker compose ps
+docker compose exec -T postgres psql -U root -d bdspro -c "SELECT version, dirty FROM schema_migrations;"
 docker compose logs --tail=100 api
 ```
 
 **Chế độ B — PostgreSQL và Redis trong Compose, Go chạy trực tiếp trên WSL:**
 
 ```bash
-docker compose stop api   # Chỉ khi trước đó đã chạy make up
-make infra
+docker compose stop api   # Nếu API đang chạy trong Compose
+docker compose up -d postgres redis
 make server
 ```
 
-`make server` dùng `go run .` và `app.env`; nó kết nối DB cổng `15432`, Redis cổng `16379`. Không chạy đồng thời hai API processes/worker cùng nhắm một dữ liệu phát triển trừ khi chủ động thử concurrency: cả hai sẽ cùng truy cập `bdspro` và Redis queue.
+`make server` dùng `go run main.go` và `app.env`; nó kết nối DB cổng `15432`, Redis cổng `16379`. Không chạy đồng thời hai API processes/worker cùng nhắm một dữ liệu phát triển trừ khi chủ động thử concurrency: cả hai sẽ cùng truy cập `bdspro` và Redis queue.
 
-Sau khi dùng chế độ B, dừng Go bằng Ctrl+C. Để trở lại Compose: `make up`.
+Sau khi dùng chế độ B, dừng Go bằng Ctrl+C. Để trở lại Compose: `docker compose up -d --build`.
 
 ## 3. Cấu hình: `app.env`, `.env` và process environment
 
@@ -88,39 +88,31 @@ EMAIL_SENDER_PASSWORD=
 
 Đối với Gmail: để trống `EMAIL_SENDER_ADDRESS/PASSWORD`, API vẫn có thể đăng ký và đăng nhập; tác vụ email verification sẽ không thực sự được gửi thành công và worker có thể retry. Đăng ký thành công **không chứng minh email đã gửi**. Cơ chế Gmail hiện tại chỉ nên dùng với credential dev/test và cấu hình được cấp riêng.
 
-## 4. Makefile — các lệnh chuẩn
+## 4. Makefile — giữ tối giản như SimpleBank
 
-| Lệnh | Tác dụng / điều kiện |
+Makefile chỉ giữ các lệnh Go, SQLC, mocks và migration thường dùng. Không bọc Docker Compose, network, logs, database inspection hay script kiểm thử trong Makefile.
+
+| Lệnh | Mục đích |
 |---|---|
-| `make up` | Build image và chạy `postgres`, `redis`, `api` |
-| `make infra` | Chỉ khởi động PostgreSQL và Redis, phục vụ Go trên WSL |
-| `make ps` | Xem container/service status |
-| `make logs` | Theo dõi log Compose |
-| `make down` | Dừng Compose, **không xóa** volume |
-| `make server` | `go run .` từ thư mục root, đọc `app.env` |
-| `make dbstatus` | Đọc `schema_migrations` trên PostgreSQL trong Compose |
-| `make test` | `go test ./...`; DB write integration tests tự skip trên local thường |
-| `make test-integration` | Tạo Postgres tạm trên `15433`, apply migration, chạy toàn bộ Go tests rồi dọn container |
-| `make migrateup` | Apply pending migrations vào DB host `15432`; **cần migrate CLI** |
-| `make migrateversion` | Đọc version qua migrate CLI, **cần migrate CLI** |
-| `make new_migration name=...` | Tạo cặp file migrations mới, **cần migrate CLI** |
-| `make sqlc` | Tái sinh Go DB queries, **cần sqlc CLI** |
-| `make mock` | Tái sinh mocks, **cần mockgen CLI** |
-| `make fmt` | `gofmt` các Go files đã track bởi Git |
+| `make server` | `go run main.go` (host WSL, đọc `app.env`) |
+| `make test` | `go test -v -cover ./...`; DB write tests được skip khi không ở môi trường test cô lập |
+| `make migrateup` | Apply migrations bằng `migrate`, trỏ vào `127.0.0.1:15432/bdspro` |
+| `make migratedown` | Rollback migration; không sử dụng tùy tiện với dữ liệu cần giữ |
+| `make new_migration name=...` | Sinh cặp file migration mới |
+| `make sqlc` | Sinh code từ SQL queries |
+| `make mock` | Sinh mock Store và TaskDistributor |
 
-Hầu hết developer chỉ cần `make up`, `make ps`, `make dbstatus`, `make test` và `make test-integration`. Các generator không cần chạy cho mỗi lần khởi động ứng dụng.
-
-Khi cần sửa schema:
+Lệnh vận hành gọi trực tiếp:
 
 ```bash
-make new_migration name=add_example_field
-# Viết migration .up.sql và .down.sql mới; không chỉnh sửa migration đã áp dụng.
-make migrateup
-make sqlc
-make test-integration
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail=100 api
+docker compose exec -T postgres psql -U root -d bdspro -c "SELECT version, dirty FROM schema_migrations;"
+docker compose down # Giữ nguyên volume
 ```
 
-Không chạy migrate down trên DB có dữ liệu cần giữ nếu chưa có kế hoạch rollback. Startup mặc định gọi `runDBMigration(...)` nên `make migrateup` chủ yếu dành cho trường hợp developer muốn kiểm soát migration thủ công trước khi chạy API.
+Khi thay schema: `make new_migration name=add_example_field` → viết migration → `make migrateup` → `make sqlc` → `sh scripts/test-integration.sh`. Chỉ cần cài các CLI tương ứng khi sử dụng.
 
 ## 5. Kiểm thử local và CI: không ghi nhầm lên database đang sử dụng
 
@@ -135,7 +127,7 @@ HTTP unit tests dùng Gin `httptest` và mock Store. Các DB integration tests t
 **Toàn bộ test trên PostgreSQL tạm, độc lập với dữ liệu Compose:**
 
 ```bash
-make test-integration
+sh scripts/test-integration.sh
 ```
 
 Lệnh này yêu cầu Docker và Go trên WSL. `scripts/test-integration.sh` tạo container tạm `bdspro-integration-postgres`, dùng database tên `bdspro`, mở cổng host `15433`, chạy migrations trong container tạm và chạy `go test -count=1 ./...`. Sau đó container tạm được dừng/xóa bằng trap, kể cả khi có test thất bại. Bộ test từ chối chạy khi local DB không ở endpoint tạm hoặc không có dấu nhận diện cluster disposable.
@@ -230,7 +222,7 @@ Lấy `access_token` từ login response và gửi qua `Authorization: Bearer <a
 
 ## 8. Database, session và giới hạn bảo mật hiện tại
 
-Migration hiện có: `000001_party_account_session`, `000002_email_verification`, `000003_organization_memberships`. `schema_migrations` là version state; **không sửa hoặc chạy lại bằng tay một migration đã được áp dụng**. Tạo migration mới khi thay schema. `make dbstatus` là câu lệnh đọc-only nên an toàn để kiểm tra version.
+Migration hiện có: `000001_party_account_session`, `000002_email_verification`, `000003_organization_memberships`. `schema_migrations` là version state; **không sửa hoặc chạy lại bằng tay một migration đã được áp dụng**. Tạo migration mới khi thay schema. Để xem migration state, dùng `docker compose exec -T postgres psql -U root -d bdspro -c "SELECT version, dirty FROM schema_migrations;"` (chỉ đọc).
 
 Hệ thống đã có `sessions` với `is_blocked`, refresh-token verification và revoke. Access JWT đã phát vẫn còn hiệu lực cho đến khi hết hạn; revoke hiện chỉ ngăn gia hạn. Role `owner/member` là quan hệ với từng Organization, **không phải global account role**.
 
@@ -242,7 +234,7 @@ Mỗi thay đổi đề xuất cần ghi nhận rõ: hành vi cần làm, nơi s
 
 ```bash
 make test
-make test-integration    # Nếu thay SQL, transaction, auth state hoặc schema
+sh scripts/test-integration.sh    # Nếu thay SQL, transaction, auth state hoặc schema
 git status --short
 git diff --check
 ```
