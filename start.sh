@@ -1,4 +1,4 @@
 #!/bin/sh
 set -e
-echo "start the app"
+echo "starting bdspro"
 exec "$@"

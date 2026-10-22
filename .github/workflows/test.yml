@@ -1,4 +1,4 @@
-name: Run unit tests
+name: Run unit and database tests
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
           POSTGRES_PASSWORD: secret
           POSTGRES_DB: bdspro
         ports:
-          - 5432:5432
+          - 15432:5432
         options: >-
           --health-cmd "pg_isready -U root -d bdspro"
           --health-interval 10s
@@ -50,5 +50,5 @@ jobs:
             echo "$unformatted"
             exit 1
           fi
-      - name: Test
+      - name: Test all packages (including PostgreSQL integration)
         run: make test

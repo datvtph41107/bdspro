@@ -1,14 +1,16 @@
+name: bdspro
+
 services:
   postgres:
     image: postgres:18-alpine
     environment:
-      - POSTGRES_USER=root
-      - POSTGRES_PASSWORD=secret
-      - POSTGRES_DB=bdspro
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: bdspro
     ports:
       - "127.0.0.1:15432:5432"
     volumes:
-      - lecture37-postgres:/var/lib/postgresql
+      - bdspro-postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U root -d bdspro"]
       interval: 5s
@@ -17,6 +19,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    ports:
+      - "127.0.0.1:16379:6379"
 
   api:
     build:
@@ -25,15 +29,16 @@ services:
     ports:
       - "127.0.0.1:18080:8080"
     environment:
-      - ENVIRONMENT=development
-      - DB_SOURCE=postgres://root:secret@postgres:5432/bdspro?sslmode=disable
-      - MIGRATION_URL=file://db/migration
-      - HTTP_SERVER_ADDRESS=0.0.0.0:8080
-      - REDIS_ADDRESS=redis:6379
-      - VERIFY_EMAIL_URL=http://localhost:18080/users/verify_email
-      - EMAIL_SENDER_NAME=${EMAIL_SENDER_NAME:-BDSPro}
-      - EMAIL_SENDER_ADDRESS=${EMAIL_SENDER_ADDRESS:-}
-      - EMAIL_SENDER_PASSWORD=${EMAIL_SENDER_PASSWORD:-}
+      ENVIRONMENT: development
+      DB_SOURCE: postgres://root:secret@postgres:5432/bdspro?sslmode=disable
+      MIGRATION_URL: file://db/migration
+      HTTP_SERVER_ADDRESS: 0.0.0.0:8080
+      REDIS_ADDRESS: redis:6379
+      TOKEN_SYMMETRIC_KEY: ${TOKEN_SYMMETRIC_KEY:-01234567890123456789012345678901}
+      VERIFY_EMAIL_URL: http://localhost:18080/users/verify_email
+      EMAIL_SENDER_NAME: ${EMAIL_SENDER_NAME:-BDSPro}
+      EMAIL_SENDER_ADDRESS: ${EMAIL_SENDER_ADDRESS:-}
+      EMAIL_SENDER_PASSWORD: ${EMAIL_SENDER_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,4 +48,5 @@ services:
     command: ["/app/main"]
 
 volumes:
-  lecture37-postgres:
+  bdspro-postgres-data:
+    name: bdspro-postgres-data

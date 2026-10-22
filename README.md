@@ -1,123 +1,252 @@
-# BDSPro — Core Backend
+# BDSPro — Go REST API Backend
 
-> **Runtime mặc định (Gin HTTP only):** `run()` chỉ khởi động Gin HTTP và Redis email-verification worker. `runGrpcServer()` và `runGatewayServer()` được giữ trong source nhưng không được gọi. Docker Compose không công bố cổng 9090. Các endpoint `/v1/...`, `/swagger/` và `/docs/openapi.json` thuộc Gateway không hoạt động ở chế độ này.
+BDSPro chạy **một Gin HTTP application** với PostgreSQL, SQLC, JWT, Redis/Asynq và Docker Compose. Repository giữ một số mã gRPC/Protobuf lịch sử để đối chiếu TechSchool SimpleBank, nhưng **không khởi động gRPC Server hoặc gRPC-Gateway**. Đây là môi trường phát triển và kiểm chứng Engineering Core; chưa được tuyên bố production-ready.
 
+**Nguồn chuẩn:** repository `datvtph41107/bdspro`, nhánh `dev`; workspace local `~/projects/bdspro`; tên database PostgreSQL **`bdspro`**; tên Docker Compose project **`bdspro`**. Không sử dụng folder clone phụ hay tên volume theo lecture.
 
-Kiến trúc tham khảo [TechSchool SimpleBank (78 lecture backend)](https://github.com/techschool/simplebank/blob/97f000fe58ad01a0774179ffa8884ac7784cf263/README.md). BDSPro giữ cách tổ chức Go/Gin/SQLC/Store/Token của SimpleBank, nhưng dùng `Party → Person → Account`, login bằng email và `pgx/v5`.
+## 1. Bắt đầu từ clone mới (WSL Ubuntu)
 
-Xem [ma trận từng bài #0–77](docs/LECTURES-00-77.md) để phân biệt phần có code với phần chưa triển khai.
+Yêu cầu: Git, Docker Engine hoặc Docker Desktop có WSL integration, Docker Compose V2, curl. Để chạy Go bên ngoài container và dùng test-integration: Go theo phiên bản trong `go.mod`. `sqlc`, `mockgen` và `migrate` CLI chỉ cần cho những thao tác tương ứng.
 
-## Source và trách nhiệm
-
-- `main.go`: bootstrap config, PostgreSQL/migrations, Redis worker và `runGinServer`; gRPC/Gateway không còn chạy trong `run()`.
-- `util/config.go`: Viper `ReadInConfig` + `AutomaticEnv`, không có `BindEnv` hoặc cơ chế `.env` fallback.
-- `util/password.go`: bcrypt hash/verify mật khẩu.
-- `db/migration/`: schema `parties`, `persons`, `accounts`, `sessions`; migration `000001` đã áp dụng trên local thì **không sửa hoặc chạy lại bằng tay**.
-- `db/query/`: các SQL query đầu vào của sqlc; `db/sqlc/` là code được sinh, ngoại trừ Store và các test thủ công.
-- `db/sqlc/store.go`: `Store`/ `SQLStore`, `execTx`, `RegisterTx` (Party, Person, Account trong cùng transaction).
-- `token/`: `Maker`, `Payload`, HS256 JWT, phân biệt access/refresh bằng `TokenType`; không đưa Role giả hoặc PASETO vào baseline.
-- `api/`: Gin Server, Register/Login, middleware Bearer, refresh token, các unit test dùng MockStore.
-
-## Database: duy nhất tên `bdspro`
-
-Local dùng container `postgres` và database `bdspro`. GitHub Actions cũng tạo database tên `bdspro`, **nhưng trên PostgreSQL tạm riêng của runner**, không liên quan dữ liệu local. Không tạo `bdspro_test`, `bdspro_core`, hoặc `bdspro_lecture37_test`.
-
-Xác minh local (chỉ đọc):
+**Chỉ clone nếu `~/projects/bdspro` chưa tồn tại.** Nếu có repository cũ, kiểm tra `git status`, sao lưu code hoặc dữ liệu cần giữ rồi tự di chuyển nó ra khỏi workspace; không xóa hay clone đè vào một thư mục đang có thay đổi. Việc clone Git **không** tự sao lưu Docker volumes.
 
 ```bash
-docker exec postgres pg_isready -U root -d bdspro
-docker exec postgres psql -U root -d bdspro -c 'SELECT version, dirty FROM schema_migrations'
-```
-
-Nếu local đang `version=1, dirty=false`, không cần chạy `make migrateup` hoặc reset DB. Với database mới được tạo riêng, `make migrateup` sẽ áp dụng migration chưa chạy; không dùng `migratedown` tùy tiện.
-
-`db/sqlc/main_test.go` chỉ cho phép DB integration tests ghi dữ liệu khi đang chạy trong GitHub Actions, và xác nhận `current_database() = 'bdspro'`. `make test` thông thường trên WSL chạy unit tests và skip DB integration tests để không ghi dữ liệu vào DB local. Trên CI, `make test` chạy tất cả bài test sau migration.
-
-## Quy trình chạy
-
-```bash
-make server
-make test
-make sqlc
-make mock
-make proto
-make fmt
-```
-
-`make server` đọc `app.env` và tự áp dụng go-migrate Up (bỏ qua ErrNoChange). URL DB local: `postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable`. `make migrateup` là CLI riêng; startup cũng chạy migrate Up, không nhân đôi trong Docker Compose. URL mặc định trên và cho phép đổi bằng `DB_URL` khi chạy. File `app.env` chỉ là mẫu local; khóa JWT trong đó tuyệt đối không dùng production.
-
-## HTTP API
-
-| Method | Route | Mục đích |
-|---|---|---|
-| POST | `/users` | Đăng ký Account + Party/Person trong transaction |
-| POST | `/users/login` | Xác minh bcrypt, cấp access/refresh JWT, tạo Session |
-| GET | `/users/verify_email` | Xác minh email một lần trong transaction |
-| POST | `/tokens/renew_access` | Kiểm tra refresh JWT + Session, cấp access JWT |
-| POST | `/tokens/revoke` | Thu hồi refresh session, chặn renew tiếp theo |
-| GET | `/health` | HTTP liveness, không kiểm tra database |
-| GET | `/users/me` | Bearer access-token; trả account ID |
-| POST | `/organizations` | Tạo Organization và owner trong transaction |
-| GET | `/organizations` | Các Organization mà Person đang tham gia |
-| POST | `/organizations/:id/members` | Owner thêm Person làm member, kiểm tra quyền tại SQL |
-| PATCH | `/organizations/:id` | Owner cập nhật tên Organization, kiểm tra quyền trực tiếp trong UPDATE SQL |
-
-JWT `Payload` chứa UUID, AccountID, TokenType, IssuedAt, ExpiredAt. Chuyển từ `jwt.RegisteredClaims` sang getter thủ công theo phong cách SimpleBank có thể làm token trước đó không tương thích: đăng nhập lại để nhận token mới.
-
-Access JWT đã phát vẫn có hiệu lực đến khi hết hạn; revoke chỉ chặn refresh token. Không thêm migration, dùng `sessions.is_blocked` có sẵn.
-
-Xem đối chiếu lecture và quy tắc tổ chức: [docs/LECTURE-MATRIX.md](docs/LECTURE-MATRIX.md).
-
-## HTTP lifecycle
-
-Gin sử dụng request logger, recovery và `rs/cors` ở HTTP boundary. `SIGINT`/`SIGTERM` kích hoạt shutdown HTTP (tối đa 10 giây); pool PostgreSQL đóng sau khi dừng HTTP. DBML ở `doc/db.dbml`.
-
-## Email verification (Redis/Asynq)
-
-Đăng ký gọi `RegisterTx` và enqueue `task:send_verify_email` trong callback transaction. Worker đọc account, tạo mã dùng một lần và gửi qua Gmail SMTP. URL xác minh: `/users/verify_email?email_id=...&secret_code=...`. Cần Redis hoạt động và cấu hình `EMAIL_SENDER_*` hợp lệ để thực sự gửi email. Compose chạy kèm Redis; nếu chưa cung cấp Gmail App Password, tác vụ sẽ retry và email sẽ không được gửi. Migration `000002` bổ sung `accounts.is_email_verified` và `verify_emails`, không chỉnh migration gốc. Local đang ở migration v1 cần chạy `make migrateup` một lần trước khi chạy server phiên bản mới.
-
-## Organization và phân quyền
-
-Migration `000003` tạo `organizations` và `organization_memberships`. Party không có `kind` hay trigger. Transaction `CreateOrganizationTx` tạo Party, Organization và owner membership. Owner mới được thêm member bằng câu lệnh SQL `INSERT ... SELECT ... WHERE EXISTS`. Partial unique index ngăn hai membership đang hoạt động cho một cặp Organization/Person. Sau khi đồng bộ code, local cần chạy `make migrateup` một lần để áp dụng migration mới; không sửa hay chạy lại migration cũ.
-
-## HTTP runtime
-
-Ứng dụng mặc định chỉ cung cấp Gin REST API (ví dụ `/users`, `/users/login`, `/tokens/renew_access`, `/organizations`). Generated Protobuf/Gateway code còn trong repository nhưng không được đăng ký lên HTTP listener và không có gRPC listener. `make sqlc` và `make mock` tiếp tục tái sinh DB access và mocks. Không sử dụng Swagger JSON cũ làm API contract của Gin runtime.
-
-## Organization partial update (Lecture 49–51)
-
-`PATCH /organizations/:id` và `PATCH /v1/organizations/{organization_id}` hỗ trợ cùng quyền `owner`, cập nhật `name` qua `sqlc.narg()` có kiểu nullable `pgtype.Text`. gRPC chỉ nhận access JWT theo metadata `authorization: Bearer ...`; token refresh không dùng để gọi RPC này. Không tạo bảng hay service mới.
-
-## CI
-
-`.github/workflows/test.yml` giữ đúng pipeline SimpleBank: checkout → setup Go → install go-migrate → `make migrateup` → `make test`. PostgreSQL 18 tạm thời do GitHub Actions khởi tạo, database tên `bdspro`. Chưa triển khai AWS hoặc production deploy.
-
-## Đồng bộ local sau khi merge
-
-**Không clone đè lên thư mục WSL đang có chỉnh sửa chưa commit.** Clone vào thư mục mới để đối chiếu và giữ lại công việc cũ:
-
-```bash
+mkdir -p ~/projects
 cd ~/projects
-git clone --branch dev https://github.com/datvtph41107/bdspro.git bdspro-fresh
-cd bdspro-fresh
-git log -1 --oneline
+git clone --branch dev https://github.com/datvtph41107/bdspro.git
+cd bdspro
+git branch --show-current
 git status --short --branch
+cp .env.example .env
+docker compose config --services
+docker compose up -d --build
+docker compose ps
+curl -i http://127.0.0.1:18080/health
+docker compose exec -T postgres psql -U root -d bdspro -c "SELECT version, dirty FROM schema_migrations;"
 ```
 
-Mã Go và các test có thể chạy bằng `go test ./...` mà không ghi dữ liệu PostgreSQL local. Nếu cần đối chiếu dữ liệu trong DB, chỉ chạy SQL `SELECT`.
+Kỳ vọng: `dev`, các service `postgres`, `redis`, `api` và HTTP `/health` trả **200**. Với DB mới, ứng dụng tự chạy migration 000001 → 000003 lúc startup; hàng cuối của `schema_migrations` có `version=3`, `dirty=false`. Không cần chạy `migrateup` thêm lần nữa sau `docker compose up`.
 
-## Runtime theo bố cục SimpleBank
+Nếu API chưa khởi động: `docker compose logs --tail=150 api`, tiếp theo kiểm tra `docker compose ps` và `docker compose logs postgres redis`.
 
-`main.go` tạo PostgreSQL pool, chạy `runDBMigration`, tạo `Store`, `RedisTaskDistributor` và điều phối `runTaskProcessor` cùng `runGinServer` bằng `errgroup.WithContext`. Legacy gRPC/Gateway code vẫn tồn tại trong repository nhưng không được khởi động.
+> **Bảo toàn dữ liệu:** Compose sử dụng volume `bdspro-postgres-data`. Volume cũ `lecture37-postgres` (nếu từng sử dụng ở lần triển khai trước) **không được tự động xóa hoặc tự động di chuyển dữ liệu**; volume mới là một PostgreSQL instance độc lập. Không dùng `docker compose down --volumes`, `docker volume prune` hoặc lệnh xóa database nếu chưa chủ động backup. `make down` chỉ tắt container và **giữ nguyên volume**.
 
-`docker-compose.yaml` định nghĩa các service `postgres`, `redis`, `api`. `wait-for.sh` chờ PostgreSQL, `start.sh` exec binary, Dockerfile sao chép migrations để Go tự migrate. Compose vẫn giữ volume `lecture37-postgres` và host ports riêng `15432` (PostgreSQL), `18080` (Gin HTTP) để không ảnh hưởng PostgreSQL `postgres` đang có trên local. Không công bố cổng gRPC 9090. Không chạy `docker compose down --volumes` trên môi trường chứa dữ liệu muốn giữ.
+## 2. Hai chế độ phát triển — chọn một chế độ chạy API
 
-HTTP Gin sử dụng routes trong `api/server.go`; CORS cấu hình bằng `ALLOWED_ORIGINS`. Các route thuộc gRPC-Gateway không còn hoạt động trong runtime mặc định.
+| Thành phần | Docker Compose (`make up`) | Go chạy trên WSL (`make infra` rồi `make server`) |
+|---|---|---|
+| HTTP | `http://127.0.0.1:18080` | `http://127.0.0.1:8080` |
+| PostgreSQL (từ WSL) | `127.0.0.1:15432` | `127.0.0.1:15432` |
+| Redis (từ WSL) | `127.0.0.1:16379` | `127.0.0.1:16379` |
+| PostgreSQL trong container | `postgres:5432` | Không áp dụng cho Go host process |
+| Redis trong container | `redis:6379` | Không áp dụng cho Go host process |
+| Database | `bdspro` | `bdspro` |
 
-## Swagger và logging canonical
+**Chế độ A — tất cả chạy trong Compose:**
 
-`doc/statik/statik.go` và `doc/swagger/bdspro.swagger.json` là generated artifacts của giai đoạn Gateway, không được phục vụ trong Gin runtime. Gin cung cấp CORS và HTTP request logging.
+```bash
+make up
+make ps
+make dbstatus
+docker compose logs --tail=100 api
+```
 
-## Kiểm chứng bố cục SimpleBank
+**Chế độ B — PostgreSQL và Redis trong Compose, Go chạy trực tiếp trên WSL:**
 
-Xem [docs/SOURCE-MAP-SIMPLEBANK.md](docs/SOURCE-MAP-SIMPLEBANK.md) để đối chiếu từng file, ownership, bootstrap, nghiệp vụ và các khác biệt có chủ đích.
+```bash
+docker compose stop api   # Chỉ khi trước đó đã chạy make up
+make infra
+make server
+```
+
+`make server` dùng `go run .` và `app.env`; nó kết nối DB cổng `15432`, Redis cổng `16379`. Không chạy đồng thời hai API processes/worker cùng nhắm một dữ liệu phát triển trừ khi chủ động thử concurrency: cả hai sẽ cùng truy cập `bdspro` và Redis queue.
+
+Sau khi dùng chế độ B, dừng Go bằng Ctrl+C. Để trở lại Compose: `make up`.
+
+## 3. Cấu hình: `app.env`, `.env` và process environment
+
+| Nguồn | Ai đọc? | Mục đích |
+|---|---|---|
+| `app.env` (được commit) | Go qua `util.LoadConfig(".")` | Giá trị phát triển **khi chạy trên WSL host**; cũng được copy vào image |
+| `.env.example` (được commit) | Developer sao chép thành `.env` | Mẫu biến để Compose nội suy |
+| `.env` (được gitignore) | Docker Compose | Secret/giá trị Compose; **không được Go tự đọc trực tiếp** |
+| Process environment | Go/Viper và Compose | Override cấu hình cho process đang chạy |
+| `docker-compose.yaml` | Compose | Host ports, internal service DNS, Compose environment |
+
+Thứ tự cần nhớ: đối với các khóa có trong `app.env`, `util.LoadConfig` cho process environment ghi đè giá trị file. Compose đặt `DB_SOURCE`, `REDIS_ADDRESS` và `HTTP_SERVER_ADDRESS` theo container network; `app.env` mặc định dùng địa chỉ loopback của WSL. **Không** dùng `127.0.0.1:15432` làm DB host từ bên trong API container.
+
+Cấu hình email cho Compose ở `.env`:
+
+```dotenv
+TOKEN_SYMMETRIC_KEY=replace-with-a-strong-unique-development-key
+EMAIL_SENDER_NAME=BDSPro
+EMAIL_SENDER_ADDRESS=
+EMAIL_SENDER_PASSWORD=
+```
+
+`TOKEN_SYMMETRIC_KEY` phải có tối thiểu 32 byte; ví dụ text trên chỉ minh họa và cần thay bằng giá trị thực dài, ngẫu nhiên. Không lưu mật khẩu thật vào `app.env` đã commit. Cấu hình native Go lấy defaults từ `app.env`; muốn ghi đè một lần, truyền process environment ngay tại lệnh chạy, ví dụ `HTTP_SERVER_ADDRESS=127.0.0.1:8081 make server`. Nếu sửa khóa trong `.env` của Compose, recreate API với `docker compose up -d --force-recreate api`.
+
+Đối với Gmail: để trống `EMAIL_SENDER_ADDRESS/PASSWORD`, API vẫn có thể đăng ký và đăng nhập; tác vụ email verification sẽ không thực sự được gửi thành công và worker có thể retry. Đăng ký thành công **không chứng minh email đã gửi**. Cơ chế Gmail hiện tại chỉ nên dùng với credential dev/test và cấu hình được cấp riêng.
+
+## 4. Makefile — các lệnh chuẩn
+
+| Lệnh | Tác dụng / điều kiện |
+|---|---|
+| `make up` | Build image và chạy `postgres`, `redis`, `api` |
+| `make infra` | Chỉ khởi động PostgreSQL và Redis, phục vụ Go trên WSL |
+| `make ps` | Xem container/service status |
+| `make logs` | Theo dõi log Compose |
+| `make down` | Dừng Compose, **không xóa** volume |
+| `make server` | `go run .` từ thư mục root, đọc `app.env` |
+| `make dbstatus` | Đọc `schema_migrations` trên PostgreSQL trong Compose |
+| `make test` | `go test ./...`; DB write integration tests tự skip trên local thường |
+| `make test-integration` | Tạo Postgres tạm trên `15433`, apply migration, chạy toàn bộ Go tests rồi dọn container |
+| `make migrateup` | Apply pending migrations vào DB host `15432`; **cần migrate CLI** |
+| `make migrateversion` | Đọc version qua migrate CLI, **cần migrate CLI** |
+| `make new_migration name=...` | Tạo cặp file migrations mới, **cần migrate CLI** |
+| `make sqlc` | Tái sinh Go DB queries, **cần sqlc CLI** |
+| `make mock` | Tái sinh mocks, **cần mockgen CLI** |
+| `make fmt` | `gofmt` các Go files đã track bởi Git |
+
+Hầu hết developer chỉ cần `make up`, `make ps`, `make dbstatus`, `make test` và `make test-integration`. Các generator không cần chạy cho mỗi lần khởi động ứng dụng.
+
+Khi cần sửa schema:
+
+```bash
+make new_migration name=add_example_field
+# Viết migration .up.sql và .down.sql mới; không chỉnh sửa migration đã áp dụng.
+make migrateup
+make sqlc
+make test-integration
+```
+
+Không chạy migrate down trên DB có dữ liệu cần giữ nếu chưa có kế hoạch rollback. Startup mặc định gọi `runDBMigration(...)` nên `make migrateup` chủ yếu dành cho trường hợp developer muốn kiểm soát migration thủ công trước khi chạy API.
+
+## 5. Kiểm thử local và CI: không ghi nhầm lên database đang sử dụng
+
+**Nhanh, không phụ thuộc DB write:**
+
+```bash
+make test
+```
+
+HTTP unit tests dùng Gin `httptest` và mock Store. Các DB integration tests trong `db/sqlc` sẽ bị skip để bảo vệ DB phát triển `bdspro`.
+
+**Toàn bộ test trên PostgreSQL tạm, độc lập với dữ liệu Compose:**
+
+```bash
+make test-integration
+```
+
+Lệnh này yêu cầu Docker và Go trên WSL. `scripts/test-integration.sh` tạo container tạm `bdspro-integration-postgres`, dùng database tên `bdspro`, mở cổng host `15433`, chạy migrations trong container tạm và chạy `go test -count=1 ./...`. Sau đó container tạm được dừng/xóa bằng trap, kể cả khi có test thất bại. Bộ test từ chối chạy khi local DB không ở endpoint tạm hoặc không có dấu nhận diện cluster disposable.
+
+**GitHub Actions:** `.github/workflows/test.yml` tạo PostgreSQL 18 tạm trên `15432`, apply migrations và chạy unit + DB integration tests. `compose-smoke.yml` build cả stack, xác minh `/health`, Register, Login, quyền owner của Organization, migration version và việc gRPC listener không mở. CI có thể dùng `down --volumes` vì đó là dữ liệu tạm do runner sở hữu, không phải local development volume.
+
+Kết quả `make test` không được gọi là “toàn bộ test PASS” nếu DB integration tests đã skip. Luôn phân biệt unit, integration, Compose smoke và production validation.
+
+## 6. Cấu trúc source và trách nhiệm
+
+```text
+bdspro/
+├── main.go                    # Config, pool, migration, Store, worker, Gin startup/shutdown
+├── api/                       # Gin routes, middleware, HTTP request/response và handler tests
+├── auth/                      # Register/Login use cases đang có
+├── token/                     # JWT maker, payload và access/refresh token types
+├── db/
+│   ├── migration/             # PostgreSQL schema migrations (nguồn schema versioned)
+│   ├── query/                 # SQL đầu vào của sqlc
+│   ├── sqlc/                  # SQLC generated queries + Store/transaction/tests viết tay
+│   └── mock/                  # Mocks được sinh
+├── worker/                    # Asynq enqueue / background email verification
+├── mail/                      # Email sender adapter
+├── util/                      # Config, password và các helpers hiện có
+├── gapi/, proto/, pb/         # Mã gRPC/Gateway lịch sử, không được startup
+├── doc/                       # DBML và generated Swagger cũ (không phục vụ HTTP)
+├── docs/                      # Tài liệu kỹ thuật và lịch sử nghiên cứu
+├── scripts/test-integration.sh
+├── Dockerfile                 # Multi-stage Go build, runtime image
+├── docker-compose.yaml        # Project bdspro, PostgreSQL, Redis, Gin API
+├── app.env                    # Dev defaults cho Go trên WSL
+├── .env.example               # Mẫu biến Docker Compose; copy thành .env
+├── Makefile                   # Lệnh phát triển/kiểm thử
+├── start.sh, wait-for.sh      # Entrypoint và chờ PostgreSQL trong container
+└── .github/workflows/         # Unit/integration, Compose smoke, generated source gates
+```
+
+`main.go` điều phối khởi động, không xử lý HTTP routes. `api/server.go` đăng ký Gin routes và middleware. `api/user.go` xử lý Register/Login HTTP, gọi `auth/auth.go` cho nghiệp vụ. `db/sqlc/store.go` quản lý PostgreSQL transaction và gọi SQLC queries; các SQL nằm ở `db/query`.
+
+**Quy tắc sửa source:** bắt đầu từ use case/invariant → xác định SQL và transaction → HTTP handler/contract → tests. Không sửa files SQLC generated bằng tay; thay `db/query/*.sql` hoặc migrations rồi chạy `make sqlc`. Không thêm package/module mới chỉ vì tên trông “đúng kiến trúc”; ranh giới module sẽ được đánh giá lại sau khi từng nghiệp vụ thực tế hoàn thành.
+
+## 7. Luồng thực thi và các endpoint hiện có
+
+**Startup:**
+
+```text
+main()
+  → util.LoadConfig(".")
+  → PostgreSQL pgxpool.New/Ping
+  → runDBMigration (apply pending migrations)
+  → db.NewStore
+  → Redis TaskDistributor + runTaskProcessor
+  → runGinServer (HTTP + CORS + Gin logger/recovery)
+  → graceful shutdown on SIGINT/SIGTERM
+```
+
+**Register:** `POST /users` → `api.createUser` → `auth.Register` → bcrypt → `Store.RegisterTx` → Party/Person/Account cùng transaction → enqueue verification task → HTTP 201.
+
+**Login:** `POST /users/login` → `auth.Login` → verify password → cấp access/refresh JWT → lưu `sessions` → HTTP 200.
+
+**Authenticated requests:** Bearer access JWT → Gin `authMiddleware` → AccountID. Với Organization, owner authorization còn được kiểm tra trong SQL operations, không chỉ dựa trên JWT.
+
+| Method | Gin endpoint | Vai trò |
+|---|---|---|
+| GET | `/health` | Liveness (không xác nhận DB readiness) |
+| POST | `/users` | Đăng ký |
+| POST | `/users/login` | Đăng nhập / tạo session |
+| GET | `/users/verify_email` | Xác minh email bằng mã |
+| POST | `/tokens/renew_access` | Đổi refresh token hợp lệ lấy access JWT |
+| POST | `/tokens/revoke` | Khóa refresh session |
+| GET | `/users/me` | Lấy AccountID của caller |
+| POST | `/organizations` | Tạo Organization cùng owner |
+| GET | `/organizations` | Liệt kê Organizations của caller |
+| POST | `/organizations/:id/members` | Owner thêm member |
+| PATCH | `/organizations/:id` | Owner đổi tên Organization |
+
+Thử REST bằng curl (đổi email nếu đã đăng ký):
+
+```bash
+curl -i http://127.0.0.1:18080/health
+
+curl -i -X POST http://127.0.0.1:18080/users \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"dev@example.test","password":"strong-password-123"}'
+
+curl -i -X POST http://127.0.0.1:18080/users/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"dev@example.test","password":"strong-password-123"}'
+```
+
+Lấy `access_token` từ login response và gửi qua `Authorization: Bearer <access-token>` tới `/users/me` hoặc các Organization endpoints. Không dán hoặc commit token thật vào source hoặc log.
+
+## 8. Database, session và giới hạn bảo mật hiện tại
+
+Migration hiện có: `000001_party_account_session`, `000002_email_verification`, `000003_organization_memberships`. `schema_migrations` là version state; **không sửa hoặc chạy lại bằng tay một migration đã được áp dụng**. Tạo migration mới khi thay schema. `make dbstatus` là câu lệnh đọc-only nên an toàn để kiểm tra version.
+
+Hệ thống đã có `sessions` với `is_blocked`, refresh-token verification và revoke. Access JWT đã phát vẫn còn hiệu lực cho đến khi hết hạn; revoke hiện chỉ ngăn gia hạn. Role `owner/member` là quan hệ với từng Organization, **không phải global account role**.
+
+**Không coi môi trường này là production-ready:** JWT signing key và PostgreSQL password trong file dev chỉ là ví dụ; chưa có TLS/reverse proxy production, secret management, rate limiting và các security controls cần được đánh giá thêm. Registration enqueue Redis bên trong PostgreSQL transaction có failure gap giữa hai hệ thống; SMTP thực tế chưa được xác nhận khi không có credentials. Các vấn đề này sẽ được review theo các luồng Authentication/Authorization, không che giấu bằng cách đánh dấu “hoàn chỉnh”.
+
+## 9. Làm việc nhóm và nghiệm thu
+
+Mỗi thay đổi đề xuất cần ghi nhận rõ: hành vi cần làm, nơi sở hữu, dữ liệu bị thay đổi, invariant, failure case, files ảnh hưởng và test chứng minh. Trước khi push:
+
+```bash
+make test
+make test-integration    # Nếu thay SQL, transaction, auth state hoặc schema
+git status --short
+git diff --check
+```
+
+CI tiếp tục kiểm tra migrations, unit/database tests, SQLC/mocks canonical source và Compose smoke. Chỉ báo cáo “đã nghiệm thu” sau khi kiểm tra kết quả workflow tại commit cụ thể; **build thành công không đồng nghĩa security hoặc business correctness đã được chứng minh**.
+
+Tài liệu lịch sử SimpleBank/lecture ở `docs/` là nguồn học và đối chiếu, không phải runtime specification. Repository, directory clone, database và Docker Compose project vận hành đều dùng tên **`bdspro`**.

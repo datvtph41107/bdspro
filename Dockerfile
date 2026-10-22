@@ -4,9 +4,9 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -o /out/main main.go
+RUN CGO_ENABLED=0 go build -trimpath -o /out/main .
 
-# Run stage
+# Runtime stage
 FROM alpine:3.22
 WORKDIR /app
 COPY --from=builder /out/main /app/main

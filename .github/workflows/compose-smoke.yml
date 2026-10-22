@@ -6,19 +6,28 @@ on:
     paths:
       - "Dockerfile"
       - "docker-compose.yaml"
+      - ".env.example"
+      - "app.env"
+      - "main.go"
+      - "api/**"
+      - "auth/**"
+      - "db/migration/**"
       - "start.sh"
       - "wait-for.sh"
-      - "main.go"
       - ".github/workflows/compose-smoke.yml"
+  pull_request:
+    branches: [dev]
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and start isolated stack
+      - name: Prepare Compose environment
+        run: cp .env.example .env
+      - name: Build and start bdspro
         run: docker compose up --build --detach
-      - name: Verify Gin HTTP registration
+      - name: Verify Gin HTTP
         run: |
           set -e
           for i in $(seq 1 45); do
@@ -32,7 +41,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"email":"compose-smoke@example.test","password":"strong-password-123"}' \
             http://127.0.0.1:18080/users | python3 -c 'import json,sys; data=json.load(sys.stdin); assert data["account_id"] > 0'
-      - name: Exercise Organization authorization over Gin
+      - name: Verify Organization owner authorization
         run: |
           python3 - <<'PY'
           import json
@@ -61,23 +70,23 @@ jobs:
               email = str(uuid.uuid4()) + "@example.test"
               body = {"email": email, "password": "strong-password-123"}
               call("POST", "/users", body, expected=201)
-              return call("POST", "/users/login", body)["access_token"], body
+              return call("POST", "/users/login", body)["access_token"]
 
-          owner, _ = login()
+          owner = login()
           org = call("POST", "/organizations", {"name": "Initial Org"}, owner, 201)
           org_id = org["party_id"]
           changed = call("PATCH", f"/organizations/{org_id}", {"name": "Gin Rename"}, owner)
           assert changed["name"] == "Gin Rename"
-          member, _ = login()
+          member = login()
           call("PATCH", f"/organizations/{org_id}", {"name": "Unauthorized"}, member, 403)
           call("PATCH", f"/organizations/{org_id}", {"name": "No Token"}, expected=401)
-          print("Organization owner rules verified over Gin HTTP")
+          print("Organization authorization verified over Gin HTTP")
           PY
-      - name: Check container startup and database migrations
+      - name: Verify migration state, network and HTTP-only runtime
         run: |
           docker compose exec -T api sh -c "test -x /app/start.sh && test -x /app/wait-for.sh && nc -z postgres 5432 && nc -z redis 6379"
           if docker compose exec -T api sh -c "nc -z 127.0.0.1 9090"; then
-            echo "Unexpected gRPC listener on port 9090"
+            echo "Unexpected gRPC listener on 9090"
             exit 1
           fi
           current="$(docker compose exec -T postgres psql -U root -d bdspro -tAc 'SELECT version || chr(124) || dirty FROM schema_migrations')"
@@ -85,6 +94,6 @@ jobs:
       - name: Show logs
         if: failure()
         run: docker compose logs --no-color --tail=200
-      - name: Stop isolated stack
+      - name: Stop CI stack and disposable volume
         if: always()
         run: docker compose down --volumes
