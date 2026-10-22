@@ -50,6 +50,14 @@ func TestLoadConfigProcessEnvOverridesFile(t *testing.T) {
 	require.Equal(t, "127.0.0.1:9090", config.HTTPServerAddress)
 }
 
+func TestLoadConfigWithoutGRPCAddress(t *testing.T) {
+	t.Setenv("GRPC_SERVER_ADDRESS", "")
+	content := strings.Replace(exampleAppConfig(), "GRPC_SERVER_ADDRESS=127.0.0.1:9090\n", "", 1)
+	config, err := LoadConfig(writeAppConfig(t, content))
+	require.NoError(t, err)
+	require.Empty(t, config.GRPCServerAddress)
+}
+
 func TestLoadConfigMissingFile(t *testing.T) {
 	_, err := LoadConfig(t.TempDir())
 	require.Error(t, err)

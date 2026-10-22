@@ -40,8 +40,8 @@ func LoadConfig(path string) (config Config, err error) {
 		return config, err
 	}
 
-	if config.DBSource == "" || config.MigrationURL == "" || config.HTTPServerAddress == "" || config.GRPCServerAddress == "" {
-		return config, fmt.Errorf("DB_SOURCE, MIGRATION_URL, HTTP_SERVER_ADDRESS and GRPC_SERVER_ADDRESS are required")
+	if config.DBSource == "" || config.MigrationURL == "" || config.HTTPServerAddress == "" {
+		return config, fmt.Errorf("DB_SOURCE, MIGRATION_URL and HTTP_SERVER_ADDRESS are required")
 	}
 	if len(config.TokenSymmetricKey) < 32 {
 		return config, fmt.Errorf("TOKEN_SYMMETRIC_KEY must contain at least 32 bytes")

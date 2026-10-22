@@ -79,12 +79,9 @@ func run() error {
 	if err := runTaskProcessor(ctx, waitGroup, config, redisOpt, store); err != nil {
 		return err
 	}
-	if err := runGatewayServer(ctx, waitGroup, config, store, taskDistributor); err != nil {
-		return err
-	}
-	if err := runGrpcServer(ctx, waitGroup, config, store, taskDistributor); err != nil {
-		return err
-	}
+	waitGroup.Go(func() error {
+		return runGinServer(ctx, config, store, taskDistributor)
+	})
 	return waitGroup.Wait()
 }
 
@@ -124,6 +121,7 @@ func runTaskProcessor(
 	return nil
 }
 
+// Legacy transport retained for reference; run() starts Gin HTTP only.
 func runGrpcServer(
 	ctx context.Context,
 	waitGroup *errgroup.Group,
@@ -243,10 +241,10 @@ func runGatewayServer(
 	return nil
 }
 
-func runGinServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) error {
+func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor) error {
 	server, err := api.NewServer(config, store, taskDistributor)
 	if err != nil {
 		return err
 	}
-	return server.Start(context.Background(), config.HTTPServerAddress)
+	return server.Start(ctx, config.HTTPServerAddress)
 }

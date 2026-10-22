@@ -13,6 +13,7 @@ import (
 	"github.com/datvtph41107/bdspro/util"
 	"github.com/datvtph41107/bdspro/worker"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/cors"
 )
 
 type Server struct {
@@ -35,7 +36,7 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 
 func (server *Server) setupRouter() {
 	router := gin.New()
-	router.Use(gin.Recovery())
+	router.Use(gin.Logger(), gin.Recovery())
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
@@ -59,15 +60,23 @@ func (server *Server) me(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"account_id": payload.AccountID})
 }
 
-// Handler exposes the existing Gin routes for the main HTTP Gateway.
+// Handler exposes Gin routes with the same CORS policy as the previous HTTP ingress.
 func (server *Server) Handler() http.Handler {
-	return server.router
+	return cors.New(cors.Options{
+		AllowedOrigins: server.config.AllowedOrigins,
+		AllowedMethods: []string{
+			http.MethodHead, http.MethodOptions, http.MethodGet, http.MethodPost,
+			http.MethodPut, http.MethodPatch, http.MethodDelete,
+		},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}).Handler(server.router)
 }
 
 func (server *Server) Start(ctx context.Context, address string) error {
 	httpServer := &http.Server{
 		Addr:              address,
-		Handler:           server.router,
+		Handler:           server.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	errorsCh := make(chan error, 1)

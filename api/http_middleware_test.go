@@ -7,19 +7,13 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/util"
-	"github.com/rs/cors"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCORS(t *testing.T) {
 	server := newTestServer(t, nil)
 	server.config.AllowedOrigins = []string{"http://localhost:3000"}
-	handler := cors.New(cors.Options{
-		AllowedOrigins:   server.config.AllowedOrigins,
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type"},
-		AllowCredentials: true,
-	}).Handler(server.Handler())
+	handler := server.Handler()
 
 	for _, tc := range []struct {
 		name   string

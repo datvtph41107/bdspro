@@ -1,12 +1,15 @@
 # BDSPro — Core Backend
 
+> **Runtime mặc định (Gin HTTP only):** `run()` chỉ khởi động Gin HTTP và Redis email-verification worker. `runGrpcServer()` và `runGatewayServer()` được giữ trong source nhưng không được gọi. Docker Compose không công bố cổng 9090. Các endpoint `/v1/...`, `/swagger/` và `/docs/openapi.json` thuộc Gateway không hoạt động ở chế độ này.
+
+
 Kiến trúc tham khảo [TechSchool SimpleBank (78 lecture backend)](https://github.com/techschool/simplebank/blob/97f000fe58ad01a0774179ffa8884ac7784cf263/README.md). BDSPro giữ cách tổ chức Go/Gin/SQLC/Store/Token của SimpleBank, nhưng dùng `Party → Person → Account`, login bằng email và `pgx/v5`.
 
 Xem [ma trận từng bài #0–77](docs/LECTURES-00-77.md) để phân biệt phần có code với phần chưa triển khai.
 
 ## Source và trách nhiệm
 
-- `main.go`: cấu trúc bootstrap kiểu SimpleBank — `runDBMigration`, `runTaskProcessor`, `runGatewayServer`, `runGrpcServer`; Gin chỉ còn đường chạy tương thích.
+- `main.go`: bootstrap config, PostgreSQL/migrations, Redis worker và `runGinServer`; gRPC/Gateway không còn chạy trong `run()`.
 - `util/config.go`: Viper `ReadInConfig` + `AutomaticEnv`, không có `BindEnv` hoặc cơ chế `.env` fallback.
 - `util/password.go`: bcrypt hash/verify mật khẩu.
 - `db/migration/`: schema `parties`, `persons`, `accounts`, `sessions`; migration `000001` đã áp dụng trên local thì **không sửa hoặc chạy lại bằng tay**.
@@ -67,7 +70,7 @@ Xem đối chiếu lecture và quy tắc tổ chức: [docs/LECTURE-MATRIX.md](d
 
 ## HTTP lifecycle
 
-HTTP Gateway sử dụng `gapi.HttpLogger` và `rs/cors` theo cấu trúc SimpleBank; gRPC sử dụng `gapi.GrpcLogger`. `SIGINT`/`SIGTERM` kích hoạt shutdown HTTP (tối đa 10 giây); pool PostgreSQL đóng sau khi dừng HTTP. DBML ở `doc/db.dbml`.
+Gin sử dụng request logger, recovery và `rs/cors` ở HTTP boundary. `SIGINT`/`SIGTERM` kích hoạt shutdown HTTP (tối đa 10 giây); pool PostgreSQL đóng sau khi dừng HTTP. DBML ở `doc/db.dbml`.
 
 ## Email verification (Redis/Asynq)
 
@@ -77,9 +80,9 @@ HTTP Gateway sử dụng `gapi.HttpLogger` và `rs/cors` theo cấu trúc Simple
 
 Migration `000003` tạo `organizations` và `organization_memberships`. Party không có `kind` hay trigger. Transaction `CreateOrganizationTx` tạo Party, Organization và owner membership. Owner mới được thêm member bằng câu lệnh SQL `INSERT ... SELECT ... WHERE EXISTS`. Partial unique index ngăn hai membership đang hoạt động cho một cặp Organization/Person. Sau khi đồng bộ code, local cần chạy `make migrateup` một lần để áp dụng migration mới; không sửa hay chạy lại migration cũ.
 
-## HTTP + gRPC Gateway
+## HTTP runtime
 
-Cùng một nghiệp vụ Register/Login chạy qua Gin (`/users`, `/users/login`) và gRPC (`Register`, `Login`). gRPC Gateway có các route `/v1/users`, `/v1/users/login`, `/v1/users/verify_email`. Tài liệu OpenAPI: `GET /docs/openapi.json`. `GRPC_SERVER_ADDRESS` mặc định trong `app.env` là `127.0.0.1:9090`; Docker Compose ánh xạ cổng `19090` tới gRPC của stack riêng. `make proto` tái sinh protobuf + Gateway + Swagger, `make sqlc` và `make mock` tái sinh DB access và mocks.
+Ứng dụng mặc định chỉ cung cấp Gin REST API (ví dụ `/users`, `/users/login`, `/tokens/renew_access`, `/organizations`). Generated Protobuf/Gateway code còn trong repository nhưng không được đăng ký lên HTTP listener và không có gRPC listener. `make sqlc` và `make mock` tiếp tục tái sinh DB access và mocks. Không sử dụng Swagger JSON cũ làm API contract của Gin runtime.
 
 ## Organization partial update (Lecture 49–51)
 
@@ -105,15 +108,15 @@ Mã Go và các test có thể chạy bằng `go test ./...` mà không ghi dữ
 
 ## Runtime theo bố cục SimpleBank
 
-`main.go` tạo PostgreSQL pool, chạy `runDBMigration`, tạo `Store`, `RedisTaskDistributor` và điều phối `runTaskProcessor`, `runGatewayServer`, `runGrpcServer` bằng `errgroup.WithContext`. `gapi/server.go` chỉ khởi tạo handler, không sở hữu HTTP/gRPC listener. `gapi/grpc_logger.go` và `gapi/http_logger.go` tách trách nhiệm.
+`main.go` tạo PostgreSQL pool, chạy `runDBMigration`, tạo `Store`, `RedisTaskDistributor` và điều phối `runTaskProcessor` cùng `runGinServer` bằng `errgroup.WithContext`. Legacy gRPC/Gateway code vẫn tồn tại trong repository nhưng không được khởi động.
 
 `docker-compose.yaml` định nghĩa các service `postgres`, `redis`, `api`. `wait-for.sh` chờ PostgreSQL, `start.sh` exec binary, Dockerfile sao chép migrations để Go tự migrate. Compose vẫn giữ volume `lecture37-postgres` và host ports riêng `15432`, `18080`, `19090` để không ảnh hưởng PostgreSQL `postgres` đang có trên local. Không chạy `docker compose down --volumes` trên môi trường chứa dữ liệu muốn giữ.
 
-HTTP Gateway sử dụng `/v1/`, Swagger `/swagger/` và `/docs/openapi.json`; các endpoint BDSPro chưa được định nghĩa trong protobuf vẫn hoạt động qua Gin dưới cùng một HTTP server. CORS cấu hình bằng `ALLOWED_ORIGINS`, JSON từ Gateway dùng tên trường proto (`account_id`, `access_token`).
+HTTP Gin sử dụng routes trong `api/server.go`; CORS cấu hình bằng `ALLOWED_ORIGINS`. Các route thuộc gRPC-Gateway không còn hoạt động trong runtime mặc định.
 
 ## Swagger và logging canonical
 
-`doc/statik/statik.go` được sinh từ `doc/swagger/bdspro.swagger.json` bằng `statik`, không sửa tay. `main.go` dùng `statik/fs` phục vụ `/swagger/`, còn `/docs/openapi.json` là alias cho ứng dụng hiện có. CORS và HTTP request logging chỉ gắn ở Gateway boundary; gRPC logging gắn tại UnaryInterceptor, không nhân đôi middleware trong Gin.
+`doc/statik/statik.go` và `doc/swagger/bdspro.swagger.json` là generated artifacts của giai đoạn Gateway, không được phục vụ trong Gin runtime. Gin cung cấp CORS và HTTP request logging.
 
 ## Kiểm chứng bố cục SimpleBank
 
