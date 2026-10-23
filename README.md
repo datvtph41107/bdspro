@@ -27,7 +27,7 @@ Kết quả mong đợi: `/health` trả HTTP 200; database mới có `schema_mi
 
 Nếu API không lên: `docker compose logs --tail=150 api`, `docker compose logs postgres`, `docker compose ps`.
 
-**Lưu ý cổng 5432/8080:** Compose dùng đúng `5432:5432`, `8080:8080` như SimpleBank; PostgreSQL được cập nhật lên phiên bản ổn định 18 thay vì 14. Nếu máy bạn đang có container `postgres` hoặc API khác chiếm các cổng này, kiểm tra `docker ps` và dừng đúng container đang xung đột khi đã chắc chắn có thể dừng; không xóa dữ liệu.
+**Lưu ý cổng 5432/6379/8080:** Compose publish `5432:5432`, `6379:6379`, `8080:8080`; PostgreSQL được cập nhật lên phiên bản ổn định 18 thay vì 14. Nếu máy bạn đang có container `postgres` hoặc API khác chiếm các cổng này, kiểm tra `docker ps` và dừng đúng container đang xung đột khi đã chắc chắn có thể dừng; không xóa dữ liệu.
 
 **Lưu ý database:** Compose dùng PostgreSQL **18** và volume riêng `bdspro-postgres18-data`, mount vào `/var/lib/postgresql` theo Docker Official Image từ PG18. Volume `bdspro_data-volume` từng sử dụng PostgreSQL 14 **không bị xóa và không được tự động gắn lại**. Các volume PG18 trước đó như `bdspro-postgres-data` cũng được giữ nguyên. Nếu cần dữ liệu cũ, phải backup/restore hoặc thực hiện nâng cấp major version; tuyệt đối không gắn trực tiếp dữ liệu PG14 vào PG18. Clone Git chỉ tải source code, không di chuyển database.
 
@@ -48,9 +48,9 @@ Không dùng `docker compose down -v` trên volume chứa dữ liệu muốn gi�
 | `docker-compose.yaml` | PostgreSQL, Redis, API; override đúng `DB_SOURCE` và `REDIS_ADDRESS` để dùng Docker DNS |
 | `Dockerfile` | Build Go binary rồi chạy bằng image Alpine tối giản |
 | `start.sh` | `exec` ứng dụng |
-| `wait-for.sh` | Chờ cổng PostgreSQL mở; Compose kiểm tra thêm PostgreSQL/Redis healthcheck |
+| `wait-for.sh` | Chờ cổng PostgreSQL mở trước khi chạy API |
 | `Makefile` | Các target Go, SQLC, migration, mock và Docker CLI cơ bản đúng tinh thần SimpleBank |
-| `.github/workflows/test.yaml` | Một CI workflow: PostgreSQL 18 → migrations → Go tests/race; job Compose smoke độc lập |
+| `.github/workflows/test.yml` | Một workflow, một job `test`: PostgreSQL 18 → migration → `make test` |
 
 **Không cần `.env` hay `.env.example` để khởi động BDSPro theo Compose hiện tại.** Go đọc `app.env`, Compose override đúng hai biến:
 
@@ -59,7 +59,7 @@ DB_SOURCE=postgresql://root:secret@postgres:5432/bdspro?sslmode=disable
 REDIS_ADDRESS=redis:6379
 ```
 
-Khi chạy Go trên máy host, `app.env` dùng `127.0.0.1:5432` và `127.0.0.1:6379`. Docker Compose publish Redis chỉ lên `127.0.0.1:6379` của host, nên khi dùng WSL bạn có thể chạy Go trực tiếp với Redis của Compose. Dừng riêng service `api` trước (`docker compose stop api`) để tránh trùng cổng 8080; không khởi tạo thêm Redis standalone trên cùng cổng.
+Khi chạy Go trên máy host, `app.env` dùng `127.0.0.1:5432` và `127.0.0.1:6379`. Docker Compose publish Redis `6379:6379` trên các host interfaces. Khi dùng WSL có thể chạy Go trực tiếp với `127.0.0.1:6379`; dừng service `api` trước (`docker compose stop api`) để tránh trùng cổng 8080 và không khởi tạo thêm Redis standalone. **Chỉ dùng cấu hình này trong môi trường development tin cậy**: Redis hiện không có xác thực và cổng 6379 có thể truy cập từ mạng ngoài nếu firewall cho phép. Tránh triển khai cấu hình này trên máy chủ có public IP.
 
 Các khóa/mật khẩu trong `app.env` là **giá trị ví dụ cho development, tuyệt đối không sử dụng production**. Nếu cần credential SMTP thật, truyền dưới dạng process environment vào môi trường thực thi phù hợp; không commit vào `app.env` hoặc Dockerfile. Khi không có `EMAIL_SENDER_ADDRESS/PASSWORD`, đăng ký có thể tạo tài khoản nhưng việc gửi email xác minh sẽ không thành công và worker có thể retry.
 
@@ -73,7 +73,7 @@ docker compose ps
 docker compose logs -f api
 ```
 
-Compose tự tạo network và PostgreSQL database `bdspro` qua `POSTGRES_DB`; không cần `make network`, `make postgres`, `make redis` hay `make createdb`.
+Compose tự tạo network và PostgreSQL database `bdspro` qua `POSTGRES_DB`; không cần `make network`, `make postgres`, `make redis` hay `make createdb`. `depends_on` tối giản chỉ xác định thứ tự bắt đầu container, không bảo đảm Redis sẵn sàng; API tự ping Redis khi khởi động và có thể phải chạy lại nếu Redis khởi tạo chậm.
 
 **Cách B — Go trên WSL, services được quản lý thủ công bằng Docker CLI:**
 
@@ -98,7 +98,7 @@ make fmt
 
 `make migrateup` dùng mặc định `postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable`. Các SQL migrations versioned ở `db/migration/`, SQL inputs ở `db/query/`, code SQLC sinh ra ở `db/sqlc/`. Khi cần đổi schema, tạo migration mới; **không chỉnh sửa migration đã áp dụng**. `make migratedown`/`make migratedown1` có thể làm mất dữ liệu và không nằm trong quy trình startup thường ngày.
 
-`make test` chạy `go test -v -cover ./...`; database write tests được skip khi chạy local thông thường để bảo vệ DB đang sử dụng. Trên GitHub Actions, tests kết nối vào PostgreSQL riêng trên runner và thực thi database integration tests. Ngoài ra, nếu cần chạy integration local độc lập với database ứng dụng, có thể gọi `make test-integration` (tương đương `sh scripts/test-integration.sh`) (Postgres tạm ở cổng 15433).
+`make test` chạy `go test -v -cover ./...`; database write tests được skip khi chạy local thông thường để bảo vệ DB đang sử dụng. Trên GitHub Actions, tests kết nối vào PostgreSQL riêng trên runner và thực thi database integration tests. Nếu cần chạy integration local độc lập với database ứng dụng, có thể dùng `sh scripts/test-integration.sh` (Postgres tạm ở cổng 15433); không thêm target này vào Makefile tối giản.
 
 `make proto` chỉ phục vụ tái sinh code legacy gRPC/Swagger nếu chủ động nghiên cứu phần này; runtime Gin không cần chạy nó. `make db_docs` và `make db_schema` cần cài DBDocs/DBML tools.
 
@@ -127,7 +127,7 @@ bdspro/
 ├── Makefile
 ├── start.sh
 ├── wait-for.sh
-└── .github/workflows/test.yaml # Một workflow CI duy nhất
+└── .github/workflows/test.yml  # Một workflow CI duy nhất
 ```
 
 ## 6. API và luồng chính
@@ -164,7 +164,7 @@ Không coi HTTPS, secret management, rate limiting hay session security là prod
 
 ## 7. GitHub Actions
 
-Chỉ giữ `.github/workflows/test.yaml`. Job `test` sử dụng PostgreSQL 18 (database `bdspro`) trên runner, setup Go từ `go.mod`, chạy `make migrateup`, `make test` và `go test -race ./...`. Job `compose-smoke` chạy Compose stack biệt lập, kiểm tra HTTP 200 từ `/health`, migration version 3 không dirty và log `startup.ready`; cuối cùng gọi `docker compose down` (không xóa volume).
+Chỉ giữ `.github/workflows/test.yml`. Workflow có một job `test`, PostgreSQL 18 (database `bdspro`), setup Go từ `go.mod`, cài migrate CLI, chạy `make migrateup` và `make test`. Không có job Compose smoke hoặc race detector.
 
 Một workflow để chứng minh tests hoạt động không đồng nghĩa toàn bộ chức năng ứng dụng hoặc bảo mật production đã được nghiệm thu. Mọi thay đổi source cần được review riêng theo use case và invariant.
 
@@ -174,7 +174,7 @@ Development in một dòng tên `BDSPro / api`, sau đó dùng zerolog console d
 mã mức log `INF` xanh lá, `WRN` vàng, `ERR`/`FTL` đỏ, `DBG` xanh cyan.
 Chỉ mã mức log có màu ANSI khi stderr là terminal và không đặt `NO_COLOR`; khi dùng Docker, redirect hoặc pipe, log tự tắt mã màu. Còn timestamp, event name và các field đơn sắc.
 Đặt `NO_COLOR=1` để tắt ANSI, hoặc dùng `ENVIRONMENT=production` để ghi JSON.
-Không tạo thư mục `logs/` trong source. `docker compose logs -f api` xem stdout/stderr. Docker Compose dùng `local` logging driver có rotation mặc định để giới hạn dung lượng. Redis có cổng host chỉ bind `127.0.0.1`, không công khai mạng ngoài. Gin mặc định release (không in danh sách routes), có thể bật `GIN_MODE=debug make server` khi cần. HTTP access log chỉ ghi route/path không kèm query string, tránh lộ mã xác minh.
+Không tạo thư mục `logs/` trong source. `docker compose logs -f api` xem stdout/stderr. Compose không cấu hình riêng logging driver/rotation. Gin mặc định release (không in danh sách routes), có thể bật `GIN_MODE=debug make server` khi cần. HTTP access log chỉ ghi route/path không kèm query string, tránh lộ mã xác minh. Redis expose port 6379 ra host đúng mẫu phát triển đã chốt; cần firewall khi làm việc trên mạng không tin cậy.
 
 Trình tự kỳ vọng khi chạy ứng dụng:
 `startup.begin` → `postgres.connected` → `migration.checked result=applied|no_change`
@@ -186,8 +186,8 @@ Nghiệm thu local an toàn trên clone mới:
 
 ```bash
 make test
-make test-integration      # Chỉ khi muốn dùng container PostgreSQL tạm (cổng 15433)
-docker compose up -d --build --wait
+sh scripts/test-integration.sh  # Tùy chọn: PostgreSQL tạm (cổng 15433)
+docker compose up -d --build
 curl -i http://127.0.0.1:8080/health
 docker compose logs --tail=100 api
 docker compose exec -T postgres psql -U root -d bdspro \
@@ -196,5 +196,5 @@ docker compose down        # KHÔNG thêm -v
 ```
 
 Không coi HTTP liveness là database readiness liên tục: PostgreSQL/Redis được xác nhận tại khởi động,
-nhưng `/health` hiện chỉ chứng minh HTTP server còn phản hồi. CI smoke xác minh khởi động,
-không thay thế kiểm thử gửi email thật (thiếu SMTP credential) hay nghiệm thu bảo mật production.
+nhưng `/health` hiện chỉ chứng minh HTTP server còn phản hồi. CI giản lược chỉ kiểm tra Go tests;
+nghiệm thu Compose, gửi email thật (thiếu SMTP credential) và bảo mật production là bước riêng.

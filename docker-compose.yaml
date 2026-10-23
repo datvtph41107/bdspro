@@ -1,55 +1,36 @@
 name: bdspro
 
 services:
-  postgres:
-    image: postgres:18-alpine
-    environment:
-      - POSTGRES_USER=root
-      - POSTGRES_PASSWORD=secret
-      - POSTGRES_DB=bdspro
-    ports:
-      - "5432:5432"
-    volumes:
-      - data-volume:/var/lib/postgresql
-    logging:
-      driver: local
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d bdspro"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+    postgres:
+        image: postgres:18-alpine
+        environment:
+            - POSTGRES_USER=root
+            - POSTGRES_PASSWORD=secret
+            - POSTGRES_DB=bdspro
+        ports:
+            - "5432:5432"
+        volumes:
+            - data-volume:/var/lib/postgresql
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "127.0.0.1:6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    logging:
-      driver: local
-
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-    environment:
-      - DB_SOURCE=postgresql://root:secret@postgres:5432/bdspro?sslmode=disable
-      - REDIS_ADDRESS=redis:6379
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    entrypoint: ["/app/wait-for.sh", "postgres:5432", "--", "/app/start.sh"]
-    command: ["/app/main"]
-    logging:
-      driver: local
+    redis:
+        image: redis:7-alpine
+        ports:
+            - "6379:6379"
+    api:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        ports:
+            - "8080:8080"
+        environment:
+            - DB_SOURCE=postgresql://root:secret@postgres:5432/bdspro?sslmode=disable
+            - REDIS_ADDRESS=redis:6379
+        depends_on:
+            - postgres
+            - redis
+        entrypoint: ["/app/wait-for.sh", "postgres:5432", "--", "/app/start.sh"]
+        command: ["/app/main"]
 
 volumes:
-  data-volume:
-    name: bdspro-postgres18-data
+    data-volume:
+        name: bdspro-postgres18-data
