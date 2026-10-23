@@ -37,7 +37,26 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 
 func (server *Server) setupRouter() {
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
+	// Never log the raw URL: email verification secrets can be in query parameters.
+	router.Use(func(ctx *gin.Context) {
+		startedAt := time.Now()
+		ctx.Next()
+		path := ctx.FullPath()
+		if path == "" {
+			path = ctx.Request.URL.Path
+		}
+		status := ctx.Writer.Status()
+		event := log.Info()
+		if status >= http.StatusInternalServerError {
+			event = log.Error()
+		}
+		event.
+			Str("method", ctx.Request.Method).
+			Str("path", path).
+			Int("status", status).
+			Dur("duration", time.Since(startedAt)).
+			Msg("http.request")
+	}, gin.Recovery())
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})

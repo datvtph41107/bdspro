@@ -11,10 +11,22 @@ import (
 // NewLogger uses compact colored level tags only in development.
 // All other text remains uncolored. Production emits machine-readable JSON.
 func NewLogger(out io.Writer, environment string) zerolog.Logger {
+	useColor := false
+	if terminal, ok := out.(*os.File); ok {
+		if info, err := terminal.Stat(); err == nil {
+			useColor = info.Mode()&os.ModeCharDevice != 0 &&
+				os.Getenv("NO_COLOR") == "" &&
+				os.Getenv("TERM") != "dumb"
+		}
+	}
+	return newLogger(out, environment, useColor)
+}
+
+// newLogger makes the ANSI decision testable without requiring a real terminal.
+func newLogger(out io.Writer, environment string, useColor bool) zerolog.Logger {
 	if environment != "development" {
 		return zerolog.New(out).With().Timestamp().Logger()
 	}
-	useColor := os.Getenv("NO_COLOR") == ""
 	writer := zerolog.ConsoleWriter{
 		Out:        out,
 		TimeFormat: "15:04:05",
