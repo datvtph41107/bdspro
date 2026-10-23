@@ -1,6 +1,6 @@
 # BDSPro
 
-Backend Go/Gin, PostgreSQL, SQLC, JWT và Redis/Asynq. Cách chạy, Dockerfile, Docker Compose, Makefile và GitHub Actions giữ bố cục đơn giản theo [TechSchool SimpleBank](https://github.com/techschool/simplebank), với các giá trị đổi thành `bdspro`.
+Backend Go/Gin, PostgreSQL, SQLC, JWT và Redis/Asynq. Phiên bản nền tảng được chọn theo bản stable đang hỗ trợ: **PostgreSQL 18**, **Go 1.27.3**, **Alpine 3.24**. Redis 7 được giữ tạm trong giai đoạn này để không thay đổi major version của worker khi chưa kiểm tra tương thích Redis/Asynq. Cách chạy, Dockerfile, Docker Compose, Makefile và GitHub Actions giữ bố cục đơn giản theo [TechSchool SimpleBank](https://github.com/techschool/simplebank), với các giá trị đổi thành `bdspro`.
 
 **Runtime hiện tại:** một Gin HTTP server trên cổng 8080 và Redis worker xử lý email verification. `runGrpcServer`/`runGatewayServer` cùng protobuf/gateway generated source còn trong repository để tham khảo, **không được khởi động**. Chưa cấu hình production deployment.
 
