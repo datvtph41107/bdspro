@@ -34,7 +34,7 @@ func TestProcessTaskSendVerifyEmail(t *testing.T) {
 	mailer := &mailRecorder{}
 
 	store.EXPECT().GetAccountByID(gomock.Any(), account.ID).Return(account, nil)
-	store.EXPECT().CreateVerifyEmail(gomock.Any(), gomock.Any()).DoAndReturn(
+	store.EXPECT().GetOrCreateVerifyEmailTx(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, args db.CreateVerifyEmailParams) (db.VerifyEmail, error) {
 			require.Equal(t, account.ID, args.AccountID)
 			require.Equal(t, account.Email, args.Email)
@@ -57,4 +57,43 @@ func TestProcessTaskBadPayload(t *testing.T) {
 	err := processor.ProcessTaskSendVerifyEmail(context.Background(), asynq.NewTask(TaskSendVerifyEmail, []byte("{invalid")))
 	require.Error(t, err)
 	require.True(t, errors.Is(err, asynq.SkipRetry))
+}
+
+func TestProcessTaskSendVerifyEmailReusesVerificationOnRetry(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mockdb.NewMockStore(ctrl)
+	account := db.Account{ID: 37, Email: "retry@example.test"}
+	record := db.VerifyEmail{ID: 91, AccountID: account.ID, Email: account.Email, SecretCode: "same-secret"}
+
+	store.EXPECT().GetAccountByID(gomock.Any(), account.ID).Return(account, nil).Times(2)
+	store.EXPECT().GetOrCreateVerifyEmailTx(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error) {
+			require.Equal(t, account.ID, arg.AccountID)
+			return record, nil
+		},
+	).Times(2)
+
+	mailer := &mailRecorder{}
+	processor := &RedisTaskProcessor{store: store, mailer: mailer, verifyEmailURL: "http://localhost:8080/users/verify_email"}
+	body, err := json.Marshal(PayloadSendVerifyEmail{AccountID: account.ID})
+	require.NoError(t, err)
+	task := asynq.NewTask(TaskSendVerifyEmail, body)
+	for i := 0; i < 2; i++ {
+		require.NoError(t, processor.ProcessTaskSendVerifyEmail(context.Background(), task))
+		require.Contains(t, mailer.content, "email_id=91")
+		require.Contains(t, mailer.content, "same-secret")
+	}
+}
+
+func TestProcessTaskSkipsAlreadyVerifiedAccount(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mockdb.NewMockStore(ctrl)
+	account := db.Account{ID: 38, Email: "done@example.test", IsEmailVerified: true}
+	store.EXPECT().GetAccountByID(gomock.Any(), account.ID).Return(account, nil)
+	processor := &RedisTaskProcessor{store: store, mailer: &mailRecorder{}}
+	body, err := json.Marshal(PayloadSendVerifyEmail{AccountID: account.ID})
+	require.NoError(t, err)
+	require.NoError(t, processor.ProcessTaskSendVerifyEmail(
+		context.Background(), asynq.NewTask(TaskSendVerifyEmail, body),
+	))
 }

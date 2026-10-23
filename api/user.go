@@ -36,7 +36,7 @@ func (server *Server) createUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	account, err := auth.Register(ctx, server.store, server.taskDistributor, req.Email, req.Password)
+	account, err := auth.Register(ctx.Request.Context(), server.store, server.taskDistributor, req.Email, req.Password)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {

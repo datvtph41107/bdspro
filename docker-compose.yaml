@@ -14,8 +14,12 @@ services:
 
     redis:
         image: redis:7-alpine
+        # Redis stores scheduled, active and retry tasks for Asynq.
+        command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
         ports:
             - "6379:6379"
+        volumes:
+            - redis-volume:/data
     api:
         build:
             context: .
@@ -34,3 +38,5 @@ services:
 volumes:
     data-volume:
         name: bdspro-postgres18-data
+    redis-volume:
+        name: bdspro-redis-data
