@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"net"
 	"net/http"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/util"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 )
 
@@ -95,4 +98,22 @@ func TestHTTPListeningAndShutdown(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("HTTP server did not shut down")
 	}
+}
+
+func TestHTTPLoggerDoesNotExposeQuerySecrets(t *testing.T) {
+	var output bytes.Buffer
+	original := log.Logger
+	log.Logger = zerolog.New(&output)
+	t.Cleanup(func() { log.Logger = original })
+
+	server := newTestServer(t, nil)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/health?secret_code=private-value", nil)
+	server.Handler().ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, output.String(), "http.request")
+	require.Contains(t, output.String(), `"path":"/health"`)
+	require.NotContains(t, output.String(), "secret_code")
+	require.NotContains(t, output.String(), "private-value")
 }

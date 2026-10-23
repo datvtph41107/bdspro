@@ -59,7 +59,7 @@ DB_SOURCE=postgresql://root:secret@postgres:5432/bdspro?sslmode=disable
 REDIS_ADDRESS=redis:6379
 ```
 
-Khi chạy Go trên máy host, `app.env` dùng `127.0.0.1:5432` và `127.0.0.1:6379`. Docker Compose không publish cổng Redis ra host, nên muốn chạy Go trực tiếp từ WSL bạn phải có Redis lắng nghe ở localhost:6379 (chẳng hạn container standalone từ `make redis`) hoặc chủ động cung cấp `REDIS_ADDRESS` phù hợp.
+Khi chạy Go trên máy host, `app.env` dùng `127.0.0.1:5432` và `127.0.0.1:6379`. Docker Compose publish Redis chỉ lên `127.0.0.1:6379` của host, nên khi dùng WSL bạn có thể chạy Go trực tiếp với Redis của Compose. Dừng riêng service `api` trước (`docker compose stop api`) để tránh trùng cổng 8080; không khởi tạo thêm Redis standalone trên cùng cổng.
 
 Các khóa/mật khẩu trong `app.env` là **giá trị ví dụ cho development, tuyệt đối không sử dụng production**. Nếu cần credential SMTP thật, truyền dưới dạng process environment vào môi trường thực thi phù hợp; không commit vào `app.env` hoặc Dockerfile. Khi không có `EMAIL_SENDER_ADDRESS/PASSWORD`, đăng ký có thể tạo tài khoản nhưng việc gửi email xác minh sẽ không thành công và worker có thể retry.
 
@@ -170,16 +170,16 @@ Một workflow để chứng minh tests hoạt động không đồng nghĩa to�
 
 ## 8. Kiểm soát vòng đời và nhật ký (đợt vận hành đầu tiên)
 
-Development dùng zerolog console dạng `10:31:59 INF startup.begin environment=development`:
+Development in một dòng tên `BDSPro / api`, sau đó dùng zerolog console dạng `10:31:59 INF startup.begin environment=development`:
 mã mức log `INF` xanh lá, `WRN` vàng, `ERR`/`FTL` đỏ, `DBG` xanh cyan.
-Chỉ mã mức log có màu ANSI; còn timestamp, event name và các field đơn sắc.
+Chỉ mã mức log có màu ANSI khi stderr là terminal và không đặt `NO_COLOR`; khi dùng Docker, redirect hoặc pipe, log tự tắt mã màu. Còn timestamp, event name và các field đơn sắc.
 Đặt `NO_COLOR=1` để tắt ANSI, hoặc dùng `ENVIRONMENT=production` để ghi JSON.
-Không tạo thư mục `logs/` trong source. `docker compose logs -f api` xem stdout/stderr.
+Không tạo thư mục `logs/` trong source. `docker compose logs -f api` xem stdout/stderr. Docker Compose dùng `local` logging driver có rotation mặc định để giới hạn dung lượng. Redis có cổng host chỉ bind `127.0.0.1`, không công khai mạng ngoài. Gin mặc định release (không in danh sách routes), có thể bật `GIN_MODE=debug make server` khi cần. HTTP access log chỉ ghi route/path không kèm query string, tránh lộ mã xác minh.
 
 Trình tự kỳ vọng khi chạy ứng dụng:
 `startup.begin` → `postgres.connected` → `migration.checked result=applied|no_change`
 → `redis.connected` → `task.processor.started` → `http.listening address=...` → `startup.ready`.
-Nếu không bind được HTTP hoặc Redis không trả lời, không được phát `startup.ready`; tiến trình phải trả lỗi và dừng worker.
+Nếu không bind được HTTP hoặc Redis không trả lời, không được phát `startup.ready`; tiến trình phải trả lỗi và dừng worker. `startup.ready` có `duration` đo từ đầu hàm `run()`.
 SIGINT/SIGTERM chủ động đóng HTTP và worker, log `http.stopped` và `task.processor.stopped`.
 
 Nghiệm thu local an toàn trên clone mới:

@@ -11,7 +11,7 @@ import (
 func TestNewLoggerDevelopmentColorsLevelOnly(t *testing.T) {
 	t.Setenv("NO_COLOR", "")
 	var output bytes.Buffer
-	logger := NewLogger(&output, "development")
+	logger := newLogger(&output, "development", true)
 	logger.Info().Str("environment", "development").Msg("startup.begin")
 	line := output.String()
 	require.Contains(t, line, "\x1b[32mINF\x1b[0m")
@@ -34,5 +34,14 @@ func TestNewLoggerProductionIsJSON(t *testing.T) {
 	logger := NewLogger(&output, "production")
 	logger.Info().Msg("startup.begin")
 	require.Contains(t, output.String(), "\"level\":\"info\"")
+	require.NotContains(t, output.String(), "\x1b[")
+}
+
+func TestNewLoggerRedirectHasNoANSI(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	var output bytes.Buffer
+	logger := NewLogger(&output, "development")
+	logger.Info().Msg("startup.begin")
+	require.Contains(t, output.String(), "INF")
 	require.NotContains(t, output.String(), "\x1b[")
 }

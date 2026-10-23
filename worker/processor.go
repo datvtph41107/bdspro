@@ -33,7 +33,8 @@ func NewRedisTaskProcessor(options asynq.RedisClientOpt, store db.Store, mailer 
 	redis.SetLogger(logger)
 	server := asynq.NewServer(options, asynq.Config{
 		Queues: map[string]int{QueueCritical: 10, QueueDefault: 5},
-		Logger: logger,
+		Logger:   logger,
+		LogLevel: asynq.WarnLevel,
 		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
 			log.Error().Err(err).Str("task", task.Type()).Msg("task failed")
 		}),

@@ -20,6 +20,7 @@ import (
 	"github.com/datvtph41107/bdspro/pb"
 	"github.com/datvtph41107/bdspro/util"
 	"github.com/datvtph41107/bdspro/worker"
+	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -45,11 +46,18 @@ func main() {
 }
 
 func run() error {
+	startedAt := time.Now()
 	config, err := util.LoadConfig(".")
 	if err != nil {
 		return fmt.Errorf("cannot load config: %w", err)
 	}
 	log.Logger = util.NewLogger(os.Stderr, config.Environment)
+	if os.Getenv(gin.EnvGinMode) == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	if config.Environment == "development" {
+		fmt.Fprint(os.Stderr, "\nBDSPro / api\n\n")
+	}
 	log.Info().Str("environment", config.Environment).Msg("startup.begin")
 
 	ctx, stop := signal.NotifyContext(context.Background(), interruptSignals...)
@@ -95,7 +103,7 @@ func run() error {
 	}
 	waitGroup.Go(func() error {
 		defer cancel() // Stop the worker if HTTP exits, including on a bind/serve error.
-		return runGinServer(ctx, config, store, taskDistributor)
+		return runGinServer(ctx, config, store, taskDistributor, startedAt)
 	})
 	return waitGroup.Wait()
 }
@@ -261,12 +269,12 @@ func runGatewayServer(
 	return nil
 }
 
-func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor) error {
+func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor, startedAt time.Time) error {
 	server, err := api.NewServer(config, store, taskDistributor)
 	if err != nil {
 		return err
 	}
 	return server.StartWithReady(ctx, config.HTTPServerAddress, func(net.Addr) {
-		log.Info().Msg("startup.ready")
+		log.Info().Dur("duration", time.Since(startedAt)).Msg("startup.ready")
 	})
 }

@@ -65,6 +65,6 @@ func (p *RedisTaskProcessor) ProcessTaskSendVerifyEmail(ctx context.Context, tas
 	if err := p.mailer.SendEmail("Verify your BDSPro email", content, []string{account.Email}, nil, nil, nil); err != nil {
 		return err
 	}
-	log.Info().Str("type", task.Type()).Str("email", account.Email).Msg("verification email task completed")
+	log.Info().Str("type", task.Type()).Msg("verification_email.completed")
 	return nil
 }
