@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -14,6 +14,7 @@ import (
 	"github.com/datvtph41107/bdspro/worker"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/cors"
+	"github.com/rs/zerolog/log"
 )
 
 type Server struct {
@@ -73,34 +74,48 @@ func (server *Server) Handler() http.Handler {
 	}).Handler(server.router)
 }
 
+// Start runs the HTTP server until shutdown or a serving error.
 func (server *Server) Start(ctx context.Context, address string) error {
+	return server.StartWithReady(ctx, address, nil)
+}
+
+// StartWithReady invokes onListening only after the TCP port has been bound.
+func (server *Server) StartWithReady(ctx context.Context, address string, onListening func(net.Addr)) error {
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return fmt.Errorf("listen HTTP: %w", err)
+	}
+	defer listener.Close()
+
 	httpServer := &http.Server{
-		Addr:              address,
 		Handler:           server.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	errorsCh := make(chan error, 1)
 	go func() {
-		errorsCh <- httpServer.ListenAndServe()
+		errorsCh <- httpServer.Serve(listener)
 	}()
+	log.Info().Str("address", listener.Addr().String()).Msg("http.listening")
+	if onListening != nil {
+		onListening(listener.Addr())
+	}
 
 	select {
 	case err := <-errorsCh:
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("serve HTTP: %w", err)
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("shutdown HTTP server: %w", err)
 		}
-		err := <-errorsCh
-		if errors.Is(err, http.ErrServerClosed) {
-			slog.Info("HTTP server stopped")
-			return nil
+		if err := <-errorsCh; err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("serve HTTP: %w", err)
 		}
-		return err
+		log.Info().Msg("http.stopped")
+		return nil
 	}
 }

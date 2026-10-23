@@ -42,3 +42,27 @@ jobs:
 
       - name: Run tests
         run: make test
+
+      - name: Race detector
+        run: go test -race ./...
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start the isolated Compose stack
+        run: docker compose up -d --build --wait
+
+      - name: Verify HTTP and applied migrations
+        run: |
+          set -eu
+          curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-connrefused http://127.0.0.1:8080/health -o /dev/null
+          docker compose exec -T postgres psql -U root -d bdspro -At -F '|' -c 'SELECT version, dirty FROM schema_migrations;' | grep -qx '3|f'
+          docker compose logs api | grep -q 'startup.ready'
+
+      - name: Stop the stack (keep volumes)
+        if: always()
+        run: |
+          docker compose logs --tail=100 api || true
+          docker compose down || true

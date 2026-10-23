@@ -24,11 +24,11 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/go-redis/redis/v8"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rakyll/statik/fs"
 	"github.com/rs/cors"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -49,12 +49,13 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("cannot load config: %w", err)
 	}
-	if config.Environment == "development" {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	}
+	log.Logger = util.NewLogger(os.Stderr, config.Environment)
+	log.Info().Str("environment", config.Environment).Msg("startup.begin")
 
 	ctx, stop := signal.NotifyContext(context.Background(), interruptSignals...)
 	defer stop()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	connPool, err := pgxpool.New(ctx, config.DBSource)
 	if err != nil {
@@ -64,10 +65,23 @@ func run() error {
 	if err := connPool.Ping(ctx); err != nil {
 		return fmt.Errorf("cannot ping db: %w", err)
 	}
+	log.Info().Msg("postgres.connected")
 
 	if err := runDBMigration(config.MigrationURL, config.DBSource); err != nil {
 		return err
 	}
+	if config.RedisAddress == "" {
+		return fmt.Errorf("REDIS_ADDRESS is required")
+	}
+	redisClient := redis.NewClient(&redis.Options{Addr: config.RedisAddress})
+	defer redisClient.Close()
+	redisCtx, cancelRedis := context.WithTimeout(ctx, 5*time.Second)
+	err = redisClient.Ping(redisCtx).Err()
+	cancelRedis()
+	if err != nil {
+		return fmt.Errorf("cannot ping redis: %w", err)
+	}
+	log.Info().Msg("redis.connected")
 
 	store := db.NewStore(connPool)
 	redisOpt := asynq.RedisClientOpt{Addr: config.RedisAddress}
@@ -80,6 +94,7 @@ func run() error {
 		return err
 	}
 	waitGroup.Go(func() error {
+		defer cancel() // Stop the worker if HTTP exits, including on a bind/serve error.
 		return runGinServer(ctx, config, store, taskDistributor)
 	})
 	return waitGroup.Wait()
@@ -92,10 +107,15 @@ func runDBMigration(migrationURL, dbSource string) error {
 	}
 	defer migration.Close()
 
-	if err := migration.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+	err = migration.Up()
+	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("cannot apply database migrations: %w", err)
 	}
-	log.Info().Msg("database migrations applied")
+	result := "applied"
+	if errors.Is(err, migrate.ErrNoChange) {
+		result = "no_change"
+	}
+	log.Info().Str("result", result).Msg("migration.checked")
 	return nil
 }
 
@@ -111,11 +131,11 @@ func runTaskProcessor(
 	if err := taskProcessor.Start(); err != nil {
 		return fmt.Errorf("cannot start task processor: %w", err)
 	}
-	log.Info().Msg("task processor started")
+	log.Info().Msg("task.processor.started")
 	waitGroup.Go(func() error {
 		<-ctx.Done()
 		taskProcessor.Shutdown()
-		log.Info().Msg("task processor stopped")
+		log.Info().Msg("task.processor.stopped")
 		return nil
 	})
 	return nil
@@ -246,5 +266,7 @@ func runGinServer(ctx context.Context, config util.Config, store db.Store, taskD
 	if err != nil {
 		return err
 	}
-	return server.Start(ctx, config.HTTPServerAddress)
+	return server.StartWithReady(ctx, config.HTTPServerAddress, func(net.Addr) {
+		log.Info().Msg("startup.ready")
+	})
 }
