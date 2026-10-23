@@ -27,9 +27,9 @@ Kết quả mong đợi: `/health` trả HTTP 200; database mới có `schema_mi
 
 Nếu API không lên: `docker compose logs --tail=150 api`, `docker compose logs postgres`, `docker compose ps`.
 
-**Lưu ý cổng 5432/8080:** Compose dùng đúng `5432:5432`, `8080:8080` như SimpleBank. Nếu máy bạn đang có container `postgres` hoặc API khác chiếm các cổng này, kiểm tra `docker ps` và dừng đúng container đang xung đột khi đã chắc chắn có thể dừng; không xóa dữ liệu.
+**Lưu ý cổng 5432/8080:** Compose dùng đúng `5432:5432`, `8080:8080` như SimpleBank; PostgreSQL được cập nhật lên phiên bản ổn định 18 thay vì 14. Nếu máy bạn đang có container `postgres` hoặc API khác chiếm các cổng này, kiểm tra `docker ps` và dừng đúng container đang xung đột khi đã chắc chắn có thể dừng; không xóa dữ liệu.
 
-**Lưu ý database:** Compose dùng PostgreSQL 14 và volume mới `bdspro_data-volume` (tên do project `bdspro` sinh). Các volume cũ từ PostgreSQL 18 như `bdspro-postgres-data` hoặc `lecture37-postgres` **không tự được gắn lại, không tự xóa và không được dùng trực tiếp với PG14**. Nếu cần giữ dữ liệu cũ, hãy backup và lên kế hoạch restore/migrate phù hợp; clone code không chuyển dữ liệu DB.
+**Lưu ý database:** Compose dùng PostgreSQL **18** và volume riêng `bdspro-postgres18-data`, mount vào `/var/lib/postgresql` theo Docker Official Image từ PG18. Volume `bdspro_data-volume` từng sử dụng PostgreSQL 14 **không bị xóa và không được tự động gắn lại**. Các volume PG18 trước đó như `bdspro-postgres-data` cũng được giữ nguyên. Nếu cần dữ liệu cũ, phải backup/restore hoặc thực hiện nâng cấp major version; tuyệt đối không gắn trực tiếp dữ liệu PG14 vào PG18. Clone Git chỉ tải source code, không di chuyển database.
 
 Dừng stack mà vẫn giữ volume:
 
@@ -50,7 +50,7 @@ Không dùng `docker compose down -v` trên volume chứa dữ liệu muốn gi�
 | `start.sh` | `exec` ứng dụng |
 | `wait-for.sh` | Chờ cổng PostgreSQL mở trước khi khởi động ứng dụng |
 | `Makefile` | Các target Go, SQLC, migration, mock và Docker CLI cơ bản đúng tinh thần SimpleBank |
-| `.github/workflows/test.yaml` | Một CI workflow duy nhất: PostgreSQL → migration → Go tests |
+| `.github/workflows/test.yaml` | Một CI workflow duy nhất: PostgreSQL 18 → migration → Go tests |
 
 **Không cần `.env` hay `.env.example` để khởi động BDSPro theo Compose hiện tại.** Go đọc `app.env`, Compose override đúng hai biến:
 
