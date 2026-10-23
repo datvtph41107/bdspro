@@ -23,14 +23,16 @@ func TestNewLoggerDevelopmentColorsLevelOnly(t *testing.T) {
 func TestNewLoggerNoColor(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	var output bytes.Buffer
-	NewLogger(&output, "development").Warn().Msg("warning")
+	logger := NewLogger(&output, "development")
+	logger.Warn().Msg("warning")
 	require.Contains(t, output.String(), "WRN")
 	require.NotContains(t, output.String(), "\x1b[")
 }
 
 func TestNewLoggerProductionIsJSON(t *testing.T) {
 	var output bytes.Buffer
-	NewLogger(&output, "production").Info().Msg("startup.begin")
+	logger := NewLogger(&output, "production")
+	logger.Info().Msg("startup.begin")
 	require.Contains(t, output.String(), "\"level\":\"info\"")
 	require.NotContains(t, output.String(), "\x1b[")
 }
