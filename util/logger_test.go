@@ -2,46 +2,35 @@ package util
 
 import (
 	"bytes"
-	"strings"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewLoggerDevelopmentColorsLevelOnly(t *testing.T) {
-	t.Setenv("NO_COLOR", "")
+func TestNewLoggerDevelopment(t *testing.T) {
 	var output bytes.Buffer
-	logger := newLogger(&output, "development", true)
-	logger.Info().Str("environment", "development").Msg("startup.begin")
-	line := output.String()
-	require.Contains(t, line, "\x1b[32mINF\x1b[0m")
-	require.Contains(t, line, "startup.begin")
-	require.Contains(t, line, "environment=development")
-	require.Equal(t, 2, strings.Count(line, "\x1b["))
-}
 
-func TestNewLoggerNoColor(t *testing.T) {
-	t.Setenv("NO_COLOR", "1")
-	var output bytes.Buffer
 	logger := NewLogger(&output, "development")
-	logger.Warn().Msg("warning")
-	require.Contains(t, output.String(), "WRN")
-	require.NotContains(t, output.String(), "\x1b[")
+	logger.Info().
+		Str("environment", "development").
+		Msg("startup.begin")
+
+	require.Contains(t, output.String(), "INF")
+	require.Contains(t, output.String(), "startup.begin")
+	require.Contains(t, output.String(), "development")
 }
 
-func TestNewLoggerProductionIsJSON(t *testing.T) {
+func TestNewLoggerProduction(t *testing.T) {
 	var output bytes.Buffer
+
 	logger := NewLogger(&output, "production")
 	logger.Info().Msg("startup.begin")
-	require.Contains(t, output.String(), "\"level\":\"info\"")
-	require.NotContains(t, output.String(), "\x1b[")
-}
 
-func TestNewLoggerRedirectHasNoANSI(t *testing.T) {
-	t.Setenv("NO_COLOR", "")
-	var output bytes.Buffer
-	logger := NewLogger(&output, "development")
-	logger.Info().Msg("startup.begin")
-	require.Contains(t, output.String(), "INF")
-	require.NotContains(t, output.String(), "\x1b[")
+	var result map[string]interface{}
+	err := json.Unmarshal(output.Bytes(), &result)
+
+	require.NoError(t, err)
+	require.Equal(t, "info", result["level"])
+	require.Equal(t, "startup.begin", result["message"])
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/datvtph41107/bdspro/util"
 	"github.com/datvtph41107/bdspro/worker"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog/log"
 )
@@ -37,26 +38,53 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 
 func (server *Server) setupRouter() {
 	router := gin.New()
+	// Generate a server-owned ID for each request; do not trust a client-supplied ID.
+	router.Use(func(ctx *gin.Context) {
+		requestID := uuid.NewString()
+		ctx.Header("X-Request-ID", requestID)
+		requestLogger := log.With().Str("request_id", requestID).Logger()
+		ctx.Request = ctx.Request.WithContext(requestLogger.WithContext(ctx.Request.Context()))
+		ctx.Next()
+	})
 	// Never log the raw URL: email verification secrets can be in query parameters.
 	router.Use(func(ctx *gin.Context) {
 		startedAt := time.Now()
 		ctx.Next()
+
 		path := ctx.FullPath()
 		if path == "" {
 			path = ctx.Request.URL.Path
 		}
+
 		status := ctx.Writer.Status()
-		event := log.Info()
+		event := log.Ctx(ctx.Request.Context()).Info()
 		if status >= http.StatusInternalServerError {
-			event = log.Error()
+			event = log.Ctx(ctx.Request.Context()).Error()
 		}
+
 		event.
 			Str("method", ctx.Request.Method).
 			Str("path", path).
 			Int("status", status).
 			Dur("duration", time.Since(startedAt)).
 			Msg("http.request")
-	}, gin.Recovery())
+	},
+		gin.CustomRecoveryWithWriter(nil, func(ctx *gin.Context, recovered any) {
+			// Không ghi panic value hoặc raw URL vì có thể chứa secret.
+			path := ctx.FullPath()
+			if path == "" {
+				path = "<unmatched>"
+			}
+
+			log.Ctx(ctx.Request.Context()).Error().
+				Str("method", ctx.Request.Method).
+				Str("path", path).
+				Str("panic_type", fmt.Sprintf("%T", recovered)).
+				Msg("http.panic")
+
+			ctx.AbortWithStatus(http.StatusInternalServerError)
+		}))
+
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
@@ -89,6 +117,7 @@ func (server *Server) Handler() http.Handler {
 			http.MethodPut, http.MethodPatch, http.MethodDelete,
 		},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		ExposedHeaders:   []string{"X-Request-ID"},
 		AllowCredentials: true,
 	}).Handler(server.router)
 }

@@ -21,11 +21,11 @@ import (
 	"github.com/datvtph41107/bdspro/util"
 	"github.com/datvtph41107/bdspro/worker"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/go-redis/redis/v8"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rakyll/statik/fs"
@@ -56,7 +56,7 @@ func run() error {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	if config.Environment == "development" {
-		fmt.Fprint(os.Stderr, "\nBDSPro / api\n\n")
+		fmt.Fprint(os.Stderr, "\nBDS PRO / API\n\n")
 	}
 	log.Info().Str("environment", config.Environment).Msg("startup.begin")
 
@@ -135,7 +135,12 @@ func runTaskProcessor(
 	store db.Store,
 ) error {
 	mailer := mail.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
-	taskProcessor := worker.NewRedisTaskProcessor(redisOpt, store, mailer, config.VerifyEmailURL)
+	taskProcessor := worker.NewRedisTaskProcessor(
+		redisOpt,
+		store,
+		mailer,
+		config.VerifyEmailURL,
+	)
 	if err := taskProcessor.Start(); err != nil {
 		return fmt.Errorf("cannot start task processor: %w", err)
 	}
