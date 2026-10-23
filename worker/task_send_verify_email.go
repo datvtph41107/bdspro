@@ -30,7 +30,7 @@ func (d *RedisTaskDistributor) DistributeTaskSendVerifyEmail(ctx context.Context
 	if err != nil {
 		return err
 	}
-	log.Info().Str("type", task.Type()).Str("queue", info.Queue).Msg("task enqueued")
+	log.Info().Str("type", task.Type()).Str("queue", info.Queue).Str("task_id", info.ID).Int64("account_id", payload.AccountID).Msg("task enqueued")
 	return nil
 }
 
@@ -43,13 +43,19 @@ func (p *RedisTaskProcessor) ProcessTaskSendVerifyEmail(ctx context.Context, tas
 	if err != nil {
 		return err
 	}
+	if account.IsEmailVerified {
+		return nil // Verification completed before this task was processed.
+	}
 	secret, err := util.RandomSecret()
 	if err != nil {
 		return err
 	}
-	record, err := p.store.CreateVerifyEmail(ctx, db.CreateVerifyEmailParams{
+	record, err := p.store.GetOrCreateVerifyEmailTx(ctx, db.CreateVerifyEmailParams{
 		AccountID: account.ID, Email: account.Email, SecretCode: secret,
 	})
+	if errors.Is(err, db.ErrEmailAlreadyVerified) {
+		return nil // The user verified their email while the worker was running.
+	}
 	if err != nil {
 		return err
 	}
@@ -59,12 +65,13 @@ func (p *RedisTaskProcessor) ProcessTaskSendVerifyEmail(ctx context.Context, tas
 	}
 	query := link.Query()
 	query.Set("email_id", fmt.Sprint(record.ID))
-	query.Set("secret_code", secret)
+	query.Set("secret_code", record.SecretCode)
 	link.RawQuery = query.Encode()
 	content := fmt.Sprintf("Welcome to BDSPro. Please verify your email: <a href=%q>Verify email</a>", html.EscapeString(link.String()))
 	if err := p.mailer.SendEmail("Verify your BDSPro email", content, []string{account.Email}, nil, nil, nil); err != nil {
 		return err
 	}
-	log.Info().Str("type", task.Type()).Msg("verification_email.completed")
+	taskID, _ := asynq.GetTaskID(ctx)
+	log.Info().Str("type", task.Type()).Str("task_id", taskID).Int64("account_id", account.ID).Msg("verification_email.completed")
 	return nil
 }

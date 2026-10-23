@@ -39,7 +39,10 @@ func NewRedisTaskProcessor(options asynq.RedisClientOpt, store db.Store, mailer 
 		Logger:   logger,
 		LogLevel: asynq.WarnLevel,
 		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
-			log.Error().Err(err).Str("task", task.Type()).Msg("task failed")
+			taskID, _ := asynq.GetTaskID(ctx)
+			retried, _ := asynq.GetRetryCount(ctx)
+			maxRetry, _ := asynq.GetMaxRetry(ctx)
+			log.Error().Err(err).Str("task", task.Type()).Str("task_id", taskID).Int("retried", retried).Int("max_retry", maxRetry).Msg("task failed")
 		}),
 	})
 	return &RedisTaskProcessor{

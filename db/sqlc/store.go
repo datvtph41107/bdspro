@@ -10,6 +10,7 @@ import (
 type Store interface {
 	Querier
 	RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
+	GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	CreateOrganizationTx(ctx context.Context, arg CreateOrganizationTxParams) (Organization, error)
 	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
 }
