@@ -65,7 +65,7 @@ func (p *RedisTaskProcessor) ProcessTaskSendVerifyEmail(ctx context.Context, tas
 	}
 	query := link.Query()
 	query.Set("email_id", fmt.Sprint(record.ID))
-	query.Set("secret_code", secret)
+	query.Set("secret_code", record.SecretCode)
 	link.RawQuery = query.Encode()
 	content := fmt.Sprintf("Welcome to BDSPro. Please verify your email: <a href=%q>Verify email</a>", html.EscapeString(link.String()))
 	if err := p.mailer.SendEmail("Verify your BDSPro email", content, []string{account.Email}, nil, nil, nil); err != nil {
