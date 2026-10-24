@@ -151,6 +151,9 @@ func (server *Server) Start(ctx context.Context, address string) error {
 
 // StartWithReady invokes onListening only after the TCP port has been bound.
 func (server *Server) StartWithReady(ctx context.Context, address string, onListening func(net.Addr)) error {
+	if (server.config.Environment == "development" || server.config.Environment == "production") && server.authRateRedis == nil {
+		return errors.New("IPActive Redis limiter must be configured before starting HTTP")
+	}
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("listen HTTP: %w", err)
