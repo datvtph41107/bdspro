@@ -6,6 +6,7 @@ import (
     "errors"
     "testing"
     "strings"
+    "sync"
 
     "github.com/google/uuid"
     "github.com/stretchr/testify/require"
@@ -79,4 +80,30 @@ func randomPhoneSuffix(t *testing.T) string {
     var b strings.Builder
     for _,v:=range raw { b.WriteByte('0'+v%10) }
     return b.String()[:10]
+}
+
+func TestPhoneOTPConcurrentConsumptionIsSingleUse(t *testing.T) {
+    pool:=openTestDB(t)
+    ctx:=context.Background()
+    account,err:=NewStore(pool).RegisterTx(ctx,RegisterTxParams{
+        Email:uuid.NewString()+"@example.test",PasswordHash:"hash",
+    })
+    require.NoError(t,err)
+    phone:="+84"+randomPhoneSuffix(t)
+    repo:=NewPhoneOTPStore(pool)
+    mac:=bytes.Repeat([]byte{7},32)
+    require.NoError(t,repo.StartChallenge(ctx,phone,"bind",account.ID,mac,"123456"))
+    results:=make(chan error,2)
+    var wg sync.WaitGroup
+    for i:=0;i<2;i++ {
+        wg.Add(1)
+        go func(){defer wg.Done();results<-repo.ConsumeChallenge(ctx,phone,"bind",account.ID,mac)}()
+    }
+    wg.Wait()
+    close(results)
+    successes:=0
+    for result:=range results {
+        if result==nil {successes++} else {require.ErrorIs(t,result,ErrOTPInvalid)}
+    }
+    require.Equal(t,1,successes)
 }
