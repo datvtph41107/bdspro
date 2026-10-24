@@ -1,6 +1,7 @@
 #!/bin/sh
 # G0 local runtime acceptance: read-only checks for an already running Compose stack.
 # Never starts/stops containers, changes Git refs, writes DB/Redis, or removes volumes.
+# Do not probe expected 401/403/429 here: RequestMonitor increments Redis counters.
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -102,16 +103,10 @@ fi
 
 base_url=${G0_HTTP_BASE_URL:-http://127.0.0.1:8080}
 health_status=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' "$base_url/health" 2>/dev/null || true)
-me_status=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' "$base_url/users/me" 2>/dev/null || true)
 if [ "$health_status" = "200" ]; then
     pass "GET /health -> 200 (HTTP liveness only)"
 else
     fail "GET /health expected 200, got ${health_status:-unavailable}"
-fi
-if [ "$me_status" = "401" ]; then
-    pass "GET /users/me without JWT -> 401"
-else
-    fail "GET /users/me expected 401, got ${me_status:-unavailable}"
 fi
 
 headers=$(curl -sS --max-time 5 -D - -o /dev/null "$base_url/health" 2>/dev/null || true)
