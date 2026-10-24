@@ -34,17 +34,18 @@ A request may cross all four, but an invariant needs a **primary place of enforc
 
 ## 3. Request boundary — do not confuse admission, identity and rights
 
-Actual password route in `api/server.go`:
+Actual password route in `api/server.go` (inside the CORS HTTP wrapper):
 
 ```text
-RequestIngress (global)
-  -> RequestMonitor (global observation, reports on unwind)
-  -> SufLogin (outcome observation, runs after handler too)
+Request ID / request log / recovery (global)
+  -> RequestMonitor (global, observes response after ctx.Next)
+  -> RequestIngress (global, body admission)
+  -> SufLogin (observes final login outcome after ctx.Next)
   -> IPActiveSource -> PreLogin -> IPActive
   -> loginUser -> auth.Login -> IssueSession -> SQL session
 ```
 
-The global Gin registration order places `RequestMonitor` **before** `RequestIngress`; observation happens after downstream execution. The diagram above groups global responsibilities conceptually rather than asserting `RequestIngress` executes first. For exact call order, inspect `api/server.go` and [request-lifecycle.md](request-lifecycle.md).
+HTTP transport timeouts are configured in `Server.StartWithReady`, outside the Gin middleware chain. For response unwinding and precise registration order, inspect `api/server.go` and [request-lifecycle.md](request-lifecycle.md).
 
 Protected organization routes use `Authenticate` to obtain account identity and SQL membership/owner conditions to decide authority. Routes for Google/Phone OTP have different middleware orders and conditional registration; **there is no universal `PreLogin`/IPActive chain for every route.**
 
