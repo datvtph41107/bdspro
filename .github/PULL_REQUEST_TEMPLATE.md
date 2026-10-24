@@ -1,23 +1,24 @@
-## Problem / intent
+## Problem / Intent
 
-<!-- What behavior needs to change? What current source and evidence did you inspect? -->
+<!-- Vấn đề thật là gì? Muốn thay đổi hành vi nào? Đã đọc những source/test nào? -->
 
-## Owner / invariant
+## Owner / Invariant
 
-- **Capability and data owner:** <!-- e.g. auth + db/query/session.sql -->
-- **Actor / action / resource:** <!-- if applicable -->
-- **Must remain true:** <!-- including denial, retry or concurrent behavior -->
-- **Affected routes / tables / configs:** <!-- list only those touched -->
+- **Capability và Data Owner:** <!-- ví dụ: auth + db/query/session.sql -->
+- **Actor / Action / Resource:** <!-- nếu áp dụng -->
+- **Bất biến phải giữ:** <!-- kể cả deny, rollback, retry, concurrency -->
+- **Route / bảng / config bị ảnh hưởng:** <!-- chỉ liệt kê phần thực sự thay đổi -->
 
-## Implementation / scope
+## Implementation / Scope
 
-<!-- Why is this the smallest appropriate change? New interfaces/modules/migrations: why needed? -->
+<!-- Vì sao đây là thay đổi nhỏ nhất hợp lý? Nếu thêm interface/package/migration, lý do cụ thể? -->
 
-## Evidence / acceptance
+## Evidence / Acceptance
 
-- **Tests and checks run:** <!-- commands + observed outcomes; disclose skips -->
-- **CI:** <!-- run URL/status when available -->
-- **Runtime / integration:** <!-- actually checked, not checked, or not applicable -->
-- **Remaining risks / deliberate exclusions:** <!-- especially data/volumes and external providers -->
+- **Test/check đã chạy và kết quả:** <!-- nêu skip nếu có -->
+- **CI:** <!-- link và trạng thái khi có -->
+- **Runtime / integration:** <!-- đã kiểm tra, chưa kiểm tra hoặc không áp dụng -->
+- **Rủi ro còn lại / ngoài phạm vi:** <!-- nhất là data, volume, external providers -->
+- **Người review và quyết định:** <!-- tên reviewer thực tế nếu đã được chỉ định -->
 
-**Review:** See [Core Ownership Matrix](../docs/engineering/core-ownership.md) and [Development Contract](../docs/engineering/development-contract.md). Do not claim WSL, provider E2E or recovery acceptance from CI alone.
+Đối chiếu [Core Ownership Matrix](../docs/engineering/core-ownership.md) và [Development Contract](../docs/engineering/development-contract.md). Không tuyên bố WSL, provider E2E hoặc khả năng recovery đã nghiệm thu chỉ dựa trên CI.
