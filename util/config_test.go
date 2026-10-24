@@ -71,3 +71,22 @@ func TestLoadConfigInvalidKey(t *testing.T) {
 	_, err := LoadConfig(writeAppConfig(t, configFile))
 	require.Error(t, err)
 }
+
+func TestGoogleOAuthConfiguration(t *testing.T) {
+ for _,tc:=range []struct{name,id,secret,redirect string;valid bool}{
+  {name:"disabled",valid:true},
+  {name:"valid localhost",id:"client",secret:"secret",redirect:"http://localhost:8080/users/google/callback",valid:true},
+  {name:"partial",id:"client"},
+  {name:"wrong path",id:"client",secret:"secret",redirect:"http://localhost:8080/other"},
+  {name:"remote http",id:"client",secret:"secret",redirect:"http://example.com/users/google/callback"},
+  {name:"https",id:"client",secret:"secret",redirect:"https://auth.example.com/users/google/callback",valid:true},
+ } {
+  t.Run(tc.name,func(t *testing.T) {
+   t.Setenv("GOOGLE_CLIENT_ID",tc.id)
+   t.Setenv("GOOGLE_CLIENT_SECRET",tc.secret)
+   t.Setenv("GOOGLE_REDIRECT_URI",tc.redirect)
+   config,err:=LoadConfig(writeAppConfig(t,exampleAppConfig()))
+   if tc.valid {require.NoError(t,err);require.Equal(t,tc.id,config.GoogleClientID)} else {require.Error(t,err)}
+  })
+ }
+}
