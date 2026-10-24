@@ -4,6 +4,17 @@ Backend Go/Gin, PostgreSQL, SQLC, JWT và Redis/Asynq. Phiên bản nền tảng
 
 **Runtime hiện tại:** một Gin HTTP server trên cổng 8080, Redis worker xử lý email verification, SMTP Mailpit local; Authentication gồm password/JWT/session, Google OIDC khi cấu hình credentials và Phone OTP development-only. `runGrpcServer`/`runGatewayServer` cùng protobuf/gateway generated source còn trong repository để tham khảo, **không được khởi động**. Chưa cấu hình production deployment.
 
+## Engineering Governance — ENG-GOV-01
+
+Quy chuẩn làm việc trên `dev` được thiết lập theo **Problem → Intent → Responsibility/Owner → Invariant → Implementation → Evidence → Acceptance**, không ép mọi nghiệp vụ phải tạo framework, interface hoặc service layer mới.
+
+- [Core Ownership Matrix](docs/engineering/core-ownership.md): capability/data/execution/change ownership và các bất biến đã hiện diện trong source.
+- [Development & Change Contract](docs/engineering/development-contract.md): quy chuẩn tổ chức code, migration, test, review và nghiệm thu.
+- [ADR-0001 — Bounded Shared Core](docs/engineering/decisions/0001-core-ownership.md): lý do không sao chép toàn bộ DRX Laravel hoặc Java DRWash.
+- [Request Lifecycle](docs/engineering/request-lifecycle.md): middleware thực tế của Gin HTTP. Pull request mới dùng [PR template](.github/PULL_REQUEST_TEMPLATE.md).
+
+ENG-GOV-01 là **quy chuẩn phối hợp developer và review**, không phải triển khai Business Core, không thay đổi runtime và không tự động bổ nhiệm GitHub code owners. CI xanh không đồng nghĩa đã nghiệm thu WSL hoặc production.
+
 ## 1. Clone và chạy lần đầu
 
 Cần Git, Docker Engine/Docker Desktop và Docker Compose V2 trên WSL Ubuntu. Nếu thư mục `~/projects/bdspro` đã tồn tại, kiểm tra và lưu thay đổi cần giữ trước; **không clone đè hoặc xóa dữ liệu/volume cũ**.
