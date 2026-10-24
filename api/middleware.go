@@ -10,7 +10,9 @@ import (
 
 const authorizationPayloadKey = "authorization_payload"
 
-func authMiddleware(maker token.Maker) gin.HandlerFunc {
+// Authenticate verifies BDSPro access tokens. Resource-specific Authorize rules
+// remain in SQL so ownership is checked atomically with the write.
+func Authenticate(maker token.Maker) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		parts := strings.Fields(ctx.GetHeader("Authorization"))
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
