@@ -20,6 +20,12 @@ services:
             - "6379:6379"
         volumes:
             - redis-volume:/data
+    mailpit:
+        image: axllent/mailpit:latest
+        # Local development inbox; do not expose the mailbox on public interfaces.
+        ports:
+            - "127.0.0.1:8025:8025"
+
     api:
         build:
             context: .
@@ -29,9 +35,19 @@ services:
         environment:
             - DB_SOURCE=postgresql://root:secret@postgres:5432/bdspro?sslmode=disable
             - REDIS_ADDRESS=redis:6379
+            - LOG_FORMAT=json
+            - SMTP_ADDRESS=mailpit:1025
+            - SMTP_AUTH=false
+            - EMAIL_SENDER_ADDRESS=no-reply@bdspro.test
         depends_on:
             - postgres
             - redis
+            - mailpit
+        logging:
+            driver: json-file
+            options:
+                max-size: "10m"
+                max-file: "3"
         entrypoint: ["/app/wait-for.sh", "postgres:5432", "--", "/app/start.sh"]
         command: ["/app/main"]
 
