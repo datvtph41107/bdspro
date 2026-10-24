@@ -21,7 +21,7 @@ type createOrganizationRequest struct {
 func (server *Server) createOrganization(ctx *gin.Context) {
 	var req createOrganizationRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		invalidJSON(ctx, err)
 		return
 	}
 	name := strings.TrimSpace(req.Name)
@@ -72,7 +72,7 @@ func (server *Server) addOrganizationMember(ctx *gin.Context) {
 	}
 	var req addOrganizationMemberRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		invalidJSON(ctx, err)
 		return
 	}
 	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
@@ -114,7 +114,11 @@ func (server *Server) updateOrganization(ctx *gin.Context) {
 		return
 	}
 	var req updateOrganizationRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil || req.Name == nil {
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		invalidJSON(ctx, err)
+		return
+	}
+	if req.Name == nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
 		return
 	}
