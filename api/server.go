@@ -104,15 +104,15 @@ func (server *Server) setupRouter() {
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
-	router.POST("/users", PreRegister(),
+	router.POST("/users", server.IPActiveSource("register", 10, time.Hour), PreRegister(),
 		server.IPActive("register", 10, 3, time.Hour, registerIdentity), server.createUser)
-	router.POST("/users/login", SufLogin(), PreLogin(),
+	router.POST("/users/login", SufLogin(), server.IPActiveSource("login", 30, time.Minute), PreLogin(),
 		server.IPActive("login", 30, 10, time.Minute, loginIdentity), server.loginUser)
-	router.GET("/users/verify_email", PreVerifyEmail(),
+	router.GET("/users/verify_email", server.IPActiveSource("verify_email", 60, time.Minute), PreVerifyEmail(),
 		server.IPActive("verify_email", 60, 10, time.Minute, emailVerificationIdentity), server.verifyEmail)
-	router.POST("/tokens/renew_access", PreToken(),
+	router.POST("/tokens/renew_access", server.IPActiveSource("refresh", 60, time.Minute), PreToken(),
 		server.IPActive("refresh", 60, 20, time.Minute, tokenIdentity), server.renewAccessToken)
-	router.POST("/tokens/revoke", PreToken(),
+	router.POST("/tokens/revoke", server.IPActiveSource("revoke", 60, time.Minute), PreToken(),
 		server.IPActive("revoke", 60, 20, time.Minute, tokenIdentity), server.revokeRefreshToken)
 
 	authorized := router.Group("/").Use(Authenticate(server.tokenMaker))
