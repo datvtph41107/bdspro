@@ -420,3 +420,17 @@ func TestRuntimeRefusesMissingIPActiveLimiter(t *testing.T) {
     require.ErrorContains(t,err,"IPActive Redis limiter")
     require.False(t,called)
 }
+
+func TestUnknownRoutePathDoesNotLeakClientSecret(t *testing.T) {
+    var output bytes.Buffer
+    original:=log.Logger
+    log.Logger=zerolog.New(&output)
+    t.Cleanup(func(){log.Logger=original})
+    server:=newTestServer(t,nil)
+    request:=httptest.NewRequest(http.MethodGet,"/unmatched/private-route-secret-123",nil)
+    response:=httptest.NewRecorder()
+    server.Handler().ServeHTTP(response,request)
+    require.Equal(t,http.StatusNotFound,response.Code)
+    require.Contains(t,output.String(),`"path":"<unmatched>"`)
+    require.NotContains(t,output.String(),"private-route-secret-123")
+}
