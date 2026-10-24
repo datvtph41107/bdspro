@@ -26,6 +26,7 @@ type Server struct {
 	tokenMaker      token.Maker
 	router          *gin.Engine
 	authRateRedis   *redis.Client
+	phoneOTP       db.PhoneOTPRepository
 }
 
 func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) (*Server, error) {
