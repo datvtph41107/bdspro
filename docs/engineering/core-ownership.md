@@ -1,69 +1,69 @@
-# ENG-GOV-01 — Core Ownership Matrix
+# ENG-GOV-01 — Ma trận sở hữu Engineering Core
 
-**Status:** Engineering governance contract, adopted when merged to `dev`. This document describes the responsibility boundaries of the **existing** Engineering Core V1; it does not announce Business Core implementation or WSL acceptance.
+**Trạng thái:** Quy chuẩn kỹ thuật có hiệu lực sau khi được merge vào `dev`. Tài liệu mô tả ranh giới trách nhiệm của **Engineering Core V1 đang tồn tại**, không tuyên bố Business Core hoặc môi trường WSL đã nghiệm thu.
 
-**Canonical baseline:** BDSPro Go/Gin + PostgreSQL/sqlc + Redis/Asynq, as implemented on `dev`. Reference ideas: DRX Laravel's action-specific request naming, Java DRWash's shared capabilities, and TechSchool SimpleBank's direct execution/SQL transaction model. **Reference source is not BDSPro's authority.**
+**Nguồn sự thật:** Source Go/Gin, PostgreSQL/sqlc, Redis/Asynq và migrations hiện có trong BDSPro. DRX Laravel cung cấp cách gọi tên middleware theo hành động; Java DRWash cung cấp ý tưởng chia sẻ Core; TechSchool SimpleBank cung cấp cách tổ chức thực thi Go/SQL trực tiếp. **Không repository tham chiếu nào thay thế source BDSPro.**
 
-## 1. Ownership has four meanings
+## 1. Bốn loại ownership phải phân biệt
 
-- **Capability owner:** the code area responsible for a behavior or policy (for example, `auth` owns credential authentication).
-- **Data owner:** the mechanism that enforces durable state and invariants (often PostgreSQL constraints/SQL in `db/migration`, `db/query` and transaction code).
-- **Execution owner:** the actual entry point executing the operation (route middleware, HTTP handler, service, Store or worker).
-- **Change owner:** the developer implementing and a named reviewer evaluating the particular change. A package name is **not** a person, team or GitHub approval rule.
+- **Capability Owner — sở hữu năng lực:** package/thành phần chịu trách nhiệm chính về hành vi hoặc chính sách, chẳng hạn `auth` sở hữu việc kiểm tra thông tin đăng nhập.
+- **Data Owner — sở hữu trạng thái:** nơi bảo vệ dữ liệu bền vững và bất biến; thông thường là constraints, câu lệnh SQL và transaction trong PostgreSQL.
+- **Execution Owner — thực thi:** hàm đang vận hành request hoặc công việc: middleware, handler, service, Store hoặc worker.
+- **Change Owner — chịu trách nhiệm thay đổi:** developer triển khai và người review được xác định cho **từng PR**. Không được coi tên package là tên người, team hoặc quy tắc phê duyệt GitHub.
 
-A request may cross all four, but an invariant needs a **primary place of enforcement**. When source and documentation disagree, inspect runtime and migrations, record the discrepancy, then update the intended contract via review; do not silently assume the document is code.
+Một request có thể đi qua nhiều thành phần, nhưng mỗi bất biến phải có **nơi thực thi chủ đạo**. Khi tài liệu khác source, phải kiểm tra runtime/migration và ghi rõ bất nhất; không tự giả định rằng tài liệu có thể thay thế hành vi hiện hành.
 
-## 2. Current Engineering Core ownership
+## 2. Ma trận Engineering Core hiện tại
 
-| Capability | Primary owner / source | Protected responsibility or invariant | Boundary and evidence |
+| Capability | Source / owner hiện tại | Trách nhiệm, bất biến | Ranh giới và bằng chứng |
 | --- | --- | --- | --- |
-| Bootstrap and runtime | `main.go`; `util/config.go` | Validate configuration, connect Postgres/Redis, run migrations, start worker/HTTP and report readiness | No HTTP/business rules. See startup tests, CI smoke and G0 WSL acceptance |
-| Configuration and deployment | `app.env`, `util/config.go`, `Dockerfile`, `docker-compose.yaml`, `start.sh`, `wait-for.sh` | Explicit process-env override and known container services/volumes | No secrets committed; inspect env precedence, Compose, persistent volume ownership |
-| HTTP routing and ingress | `api/server.go`, `api/request_limits.go` | Register endpoints, CORS, request ID, body cap, HTTP timeouts and direct-peer IP trust | No account ownership/SQL privilege decisions; see HTTP tests |
-| Auth admission | `api/middleware_ipactive.go`, `api/middleware_prelogin.go`, `api/phone_otp.go` | `IPActiveSource` counts malformed attempts, `Pre*` validates input, `IPActive` applies action and identity quotas | Rate admission is **not** Authenticate or Authorize; Redis failure fails closed on active auth routes |
-| Request observation | `api/middleware_request_monitor.go`, `api/middleware_suflogin.go` | Record safe denial/login outcomes without raw secrets; monitoring must not grant/deny business rights | Monitoring failures do not bypass authentication; see log/detection tests |
-| Credential authentication | `auth/auth.go`, `auth/phone_otp.go`, `api/google.go` | Password/Google/OTP evidence before `IssueSession`; all methods resolve to existing account identity | Google routes require complete config, Phone OTP is development-only; email-verification eligibility is **not yet** a settled policy |
-| Tokens and session lifecycle | `token/`, `auth.IssueSession`, `api/token.go`, `db/query/session.sql` | Access and refresh token type/expiry; durable refresh session and server-side renew/revoke checks | Current revoke blocks refresh session; issued access JWT survives until expiry |
-| Identity persistence | `db/migration/`, `db/query/account.sql`, `db/sqlc/store.go` | `accounts.id` is the common account identity; Party/Person/Account registration commits in one PostgreSQL transaction | No duplicate account system per authentication provider; verify unique/foreign-key constraints in DB |
-| Organization membership/authorization | `api/organization.go`, `db/query/organization.sql`, `db/sqlc` transaction helpers | Actor from verified JWT; active membership/owner predicates at SQL mutation time | `Authenticate` does not imply organization ownership; SQL predicates and constraints are enforcement |
-| Email verification processing | `worker/`, `mail/`, `db/sqlc` verify-email transactions | Task lifecycle, retry, active verification record, single-use verification | Redis enqueue in `RegisterTx.AfterCreate` occurs **before** PG COMMIT; no atomic PG–Redis handoff is claimed |
-| Database schema and code generation | `db/migration/*.sql`, `db/query/*.sql`, `sqlc.yaml`; generated `db/sqlc` | Migration history and SQL queries are the editable definitions; constraints own persistence invariants | Do not hand-edit generated sqlc code; existing handwritten Store/transactions in `db/sqlc` remain valid |
-| CI and operational evidence | `.github/workflows/test.yml`, `scripts/`, `docs/operations/` | Produce evidence for build, migration, tests, HTTP smoke and runtime acceptance | A passing GitHub CI run is not a WSL, backup/restore or production certificate |
+| Bootstrap & Runtime | `main.go`; `util/config.go` | Cấu hình, kết nối Postgres/Redis, migrations, khởi động worker/HTTP, readiness | Không xử lý quyền nghiệp vụ; kiểm chứng bằng startup tests, CI smoke, G0 WSL |
+| Configuration & Deployment | `app.env`, `util/config.go`, Dockerfile, Compose, start/wait scripts | Ưu tiên process env, services/volumes xác định | Không commit secret; kiểm tra precedence và dữ liệu volume |
+| HTTP Routing & Ingress | `api/server.go`, `api/request_limits.go` | Đăng ký route, CORS, request ID, giới hạn body, HTTP timeout, direct-peer IP | Không quyết định owner của Organization; HTTP tests |
+| Auth Admission | `api/middleware_ipactive.go`, `api/middleware_prelogin.go`, `api/phone_otp.go` | `IPActiveSource` chặn lạm dụng trước parse, `Pre*` kiểm tra input, `IPActive` giới hạn theo action/identity | Rate limit không phải Authenticate/Authorize; auth route fail-closed nếu Redis limiter lỗi |
+| Request Observation | `api/middleware_request_monitor.go`, `api/middleware_suflogin.go` | Ghi denial/outcome mà không lộ secret | Monitoring không được thay đổi quyền; log/detection tests |
+| Authentication | `auth/auth.go`, `auth/phone_otp.go`, `api/google.go` | Password/Google/OTP phải xác minh trước `IssueSession`; cùng account identity | Google phụ thuộc config; Phone OTP chỉ development; policy email chưa xác minh vẫn chưa chốt |
+| Token & Session | `token/`, `auth.IssueSession`, `api/token.go`, `db/query/session.sql` | Đúng loại và hạn JWT, kiểm tra phiên refresh trong DB, renew/revoke | Revoke hiện chỉ chặn refresh session; access JWT đã phát còn hiệu lực tới expiry |
+| Identity Persistence | `db/migration/`, `db/query/account.sql`, `db/sqlc/store.go` | `accounts.id` là danh tính chung; Party/Person/Account tạo trong một PostgreSQL transaction | Không tạo account riêng cho từng provider; DB constraints/FKs là bằng chứng |
+| Organization Access | `api/organization.go`, `db/query/organization.sql`, transaction DB | Actor lấy từ JWT; predicate owner/membership còn hiệu lực trong thao tác SQL | `Authenticate` không đồng nghĩa có quyền owner; SQL và constraints kiểm soát |
+| Email Verification | `worker/`, `mail/`, verify-email transactions | Task, retry, verification record, verify một lần | Redis enqueue trong `RegisterTx.AfterCreate` **trước** PG COMMIT; chưa có atomic handoff |
+| Schema & SQLC | `db/migration/*.sql`, `db/query/*.sql`, `sqlc.yaml`, generated `db/sqlc` | Migrations/SQL là định nghĩa chỉnh sửa; constraints bảo vệ dữ liệu | Không sửa thủ công code sqlc sinh ra; các tệp Store/transaction viết tay trong `db/sqlc` vẫn hợp lệ |
+| CI & Vận hành | `.github/workflows/test.yml`, `scripts/`, `docs/operations/` | Test, build, migration, HTTP smoke, bằng chứng runtime | CI xanh không đồng nghĩa nghiệm thu WSL, khôi phục dữ liệu hay production |
 
-**Business Core:** Property, Listing, Inquiry and Transaction are **not implemented/accepted** by this matrix. Existing Organization access is an Application/Identity foundation, not proof that BDSPro's business domain has been modeled.
+**Business Core:** Property, Listing, Inquiry, Transaction chưa được triển khai/nghiệm thu theo tài liệu này. Organization hiện là nền tảng Identity/Application Access, chưa phải bằng chứng Business Core đã hình thành.
 
-## 3. Request boundary — do not confuse admission, identity and rights
+## 3. Ranh giới request — phân biệt admission, identity và quyền
 
-Actual password route in `api/server.go` (inside the CORS HTTP wrapper):
+Luồng password login được đăng ký trong `api/server.go` (bên trong CORS HTTP wrapper):
 
 ```text
-Request ID / request log / recovery (global)
-  -> RequestMonitor (global, observes response after ctx.Next)
-  -> RequestIngress (global, body admission)
-  -> SufLogin (observes final login outcome after ctx.Next)
+Request ID / HTTP log / Recovery (global)
+  -> RequestMonitor (quan sát response sau ctx.Next)
+  -> RequestIngress (giới hạn body)
+  -> SufLogin (quan sát kết quả login sau ctx.Next)
   -> IPActiveSource -> PreLogin -> IPActive
   -> loginUser -> auth.Login -> IssueSession -> SQL session
 ```
 
-HTTP transport timeouts are configured in `Server.StartWithReady`, outside the Gin middleware chain. For response unwinding and precise registration order, inspect `api/server.go` and [request-lifecycle.md](request-lifecycle.md).
+HTTP timeout được thiết lập trong `Server.StartWithReady`, **không phải** một Gin middleware. Chi tiết thứ tự, tính chất wrapper và xử lý response xem [Request Lifecycle](request-lifecycle.md) và `api/server.go`.
 
-Protected organization routes use `Authenticate` to obtain account identity and SQL membership/owner conditions to decide authority. Routes for Google/Phone OTP have different middleware orders and conditional registration; **there is no universal `PreLogin`/IPActive chain for every route.**
+Các route Organization dùng `Authenticate` để xác lập account, sau đó SQL kiểm tra owner/membership. Route Google/Phone có thứ tự middleware và điều kiện đăng ký riêng; **không được khẳng định mọi route đều đi qua `PreLogin` hoặc cùng một chuỗi `IPActive`.**
 
-## 4. Ownership review rules
+## 4. Quy tắc ownership khi review
 
-1. State the **actor, action, resource and durable state** before choosing a package.
-2. Keep transport concerns in `api`: bind/validate HTTP input, map errors, handle response and request admission; handlers may call Store directly for a simple use case **as existing code does**.
-3. Put authentication and session issuance in the existing `auth`/`token` contract; do not implement a second token-issuing path in a middleware/controller.
-4. Keep data atomicity, constraints and authorization predicates at the database boundary when consistency with a mutation is required.
-5. Place workers/delivery integrations behind their existing responsibility; do not equate successful Redis enqueue with successful email delivery.
-6. An interface, new package, separate Go module or generic service layer requires a demonstrated second implementation, testing need or genuine responsibility boundary; it is not mandatory for CRUD.
-7. Changes that cross capabilities must identify **one coordinating operation**, every affected owner and the tests that protect each boundary; do not duplicate the same rule in several layers.
+1. Xác định **actor, action, resource, durable state** trước khi đặt tên package.
+2. `api` sở hữu input HTTP, status, response, middleware và admission. Với use case đơn giản, handler được gọi Store trực tiếp **như source hiện tại**; không ép tạo service.
+3. Việc xác minh thông tin đăng nhập và phát session thuộc contract `auth`/`token`; không tự tạo đường cấp token thứ hai trong middleware/controller.
+4. Nếu quyền và cập nhật dữ liệu phải nhất quán, đặt predicate authorization trong SQL/transaction phù hợp.
+5. Worker/adapter sở hữu delivery; enqueue Redis thành công không chứng minh email đã được gửi.
+6. Interface, package, Go module hoặc service layer mới phải có lý do thực tế: nhiều cách hiện thực, test seam, reuse hay ranh giới trách nhiệm rõ ràng.
+7. Khi thay đổi xuyên capability, nêu **operation điều phối**, các owner bị ảnh hưởng và test cần bảo vệ. Không nhân bản một quy tắc thành nhiều phiên bản mâu thuẫn.
 
-## 5. Open decisions are not hidden guarantees
+## 5. Các cổng còn mở
 
-- **G0:** WSL Compose, backup/restore and persistent runtime evidence remain to be confirmed; see [G0 acceptance](../operations/g0-runtime-acceptance.md).
-- **G1:** confirm route-by-route request admission limits, reverse-proxy trust and denial behavior.
-- **G2:** decide PostgreSQL–Redis delivery guarantees after failure-injection evidence; see [Register/Asynq reliability](../operations/register-asynq.md).
-- **G3:** decide policy for unverified-email accounts and session invalidation; real Google browser/SMS provider E2E is outside current CI.
+- **G0:** WSL Compose, backup/restore và runtime thật còn thiếu bằng chứng. Xem [G0](../operations/g0-runtime-acceptance.md).
+- **G1:** nghiệm thu theo từng route, hạn mức, reverse proxy trust và denied events.
+- **G2:** chốt yêu cầu PG–Redis delivery sau kiểm thử lỗi. Xem [Register/Asynq](../operations/register-asynq.md).
+- **G3:** chốt chính sách unverified email, session invalidation; Google browser/SMS provider E2E còn ngoài phạm vi CI hiện tại.
 
-Change process and review requirements: [development-contract.md](development-contract.md). Decision and rejected alternatives: [ADR 0001](decisions/0001-core-ownership.md).
+Quy trình với developer: [Development Contract](development-contract.md). Lý do lựa chọn thiết kế: [ADR-0001](decisions/0001-core-ownership.md).
