@@ -103,7 +103,7 @@ func run() error {
 	}
 	waitGroup.Go(func() error {
 		defer cancel() // Stop the worker if HTTP exits, including on a bind/serve error.
-		return runGinServer(ctx, config, store, taskDistributor, startedAt)
+		return runGinServer(ctx, config, store, taskDistributor, redisClient, startedAt)
 	})
 	return waitGroup.Wait()
 }
@@ -274,11 +274,12 @@ func runGatewayServer(
 	return nil
 }
 
-func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor, startedAt time.Time) error {
+func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor, redisClient *redis.Client, startedAt time.Time) error {
 	server, err := api.NewServer(config, store, taskDistributor)
 	if err != nil {
 		return err
 	}
+	if err := server.EnableAuthRateLimiting(redisClient); err != nil { return err }
 	return server.StartWithReady(ctx, config.HTTPServerAddress, func(net.Addr) {
 		log.Info().Dur("duration", time.Since(startedAt)).Msg("startup.ready")
 	})
