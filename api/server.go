@@ -13,6 +13,7 @@ import (
 	"github.com/datvtph41107/bdspro/util"
 	"github.com/datvtph41107/bdspro/worker"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog/log"
@@ -24,6 +25,8 @@ type Server struct {
 	taskDistributor worker.TaskDistributor
 	tokenMaker      token.Maker
 	router          *gin.Engine
+	authRateRedis   *redis.Client
+	phoneOTP       db.PhoneOTPRepository
 }
 
 func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) (*Server, error) {
@@ -36,8 +39,18 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 	return server, nil
 }
 
+// EnableAuthRateLimiting must be called before Start. Redis outages reject auth requests.
+func (server *Server) EnableAuthRateLimiting(client *redis.Client) error {
+	if client == nil { return errors.New("authentication rate limiter requires Redis") }
+	server.authRateRedis = client
+	return nil
+}
+
 func (server *Server) setupRouter() {
 	router := gin.New()
+	// Direct Gin ingress: do not trust client-controlled forwarding headers.
+	// If deploying behind a proxy, configure its exact trusted addresses explicitly.
+	_ = router.SetTrustedProxies(nil)
 	// Generate a server-owned ID for each request; do not trust a client-supplied ID.
 	router.Use(func(ctx *gin.Context) {
 		requestID := uuid.NewString()
@@ -53,7 +66,8 @@ func (server *Server) setupRouter() {
 
 		path := ctx.FullPath()
 		if path == "" {
-			path = ctx.Request.URL.Path
+			// Unknown request paths can embed secrets; log a fixed label instead.
+			path = "<unmatched>"
 		}
 
 		status := ctx.Writer.Status()
@@ -85,16 +99,25 @@ func (server *Server) setupRouter() {
 			ctx.AbortWithStatus(http.StatusInternalServerError)
 		}))
 
+	// Global request boundary: observability wraps the policy and controller.
+	// Admission and authentication run only on the routes that need them.
+	router.Use(server.RequestMonitor(), RequestIngress())
+
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
-	router.POST("/users", server.createUser)
-	router.POST("/users/login", server.loginUser)
-	router.GET("/users/verify_email", server.verifyEmail)
-	router.POST("/tokens/renew_access", server.renewAccessToken)
-	router.POST("/tokens/revoke", server.revokeRefreshToken)
+	router.POST("/users", server.IPActiveSource("register", 10, time.Hour), PreRegister(),
+		server.IPActive("register", 10, 3, time.Hour, registerIdentity), server.createUser)
+	router.POST("/users/login", SufLogin(), server.IPActiveSource("login", 30, time.Minute), PreLogin(),
+		server.IPActive("login", 30, 10, time.Minute, loginIdentity), server.loginUser)
+	router.GET("/users/verify_email", server.IPActiveSource("verify_email", 60, time.Minute), PreVerifyEmail(),
+		server.IPActive("verify_email", 60, 10, time.Minute, emailVerificationIdentity), server.verifyEmail)
+	router.POST("/tokens/renew_access", server.IPActiveSource("refresh", 60, time.Minute), PreToken(),
+		server.IPActive("refresh", 60, 20, time.Minute, tokenIdentity), server.renewAccessToken)
+	router.POST("/tokens/revoke", server.IPActiveSource("revoke", 60, time.Minute), PreToken(),
+		server.IPActive("revoke", 60, 20, time.Minute, tokenIdentity), server.revokeRefreshToken)
 
-	authorized := router.Group("/").Use(authMiddleware(server.tokenMaker))
+	authorized := router.Group("/").Use(Authenticate(server.tokenMaker))
 	authorized.GET("/users/me", server.me)
 	authorized.POST("/organizations", server.createOrganization)
 	authorized.GET("/organizations", server.listOrganizations)
@@ -129,6 +152,9 @@ func (server *Server) Start(ctx context.Context, address string) error {
 
 // StartWithReady invokes onListening only after the TCP port has been bound.
 func (server *Server) StartWithReady(ctx context.Context, address string, onListening func(net.Addr)) error {
+	if (server.config.Environment == "development" || server.config.Environment == "production") && server.authRateRedis == nil {
+		return errors.New("IPActive Redis limiter must be configured before starting HTTP")
+	}
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("listen HTTP: %w", err)
@@ -138,6 +164,10 @@ func (server *Server) StartWithReady(ctx context.Context, address string, onList
 	httpServer := &http.Server{
 		Handler:           server.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 << 10,
 	}
 	errorsCh := make(chan error, 1)
 	go func() {

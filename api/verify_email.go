@@ -15,11 +15,7 @@ type verifyEmailRequest struct {
 }
 
 func (server *Server) verifyEmail(ctx *gin.Context) {
-	var req verifyEmailRequest
-	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification link"})
-		return
-	}
+	req := verifyEmailInput(ctx)
 	_, err := server.store.VerifyEmailTx(ctx, db.ConsumeVerifyEmailParams{
 		ID: req.EmailID, SecretCode: req.SecretCode,
 	})

@@ -51,11 +51,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("cannot load config: %w", err)
 	}
-	log.Logger = util.NewLogger(os.Stderr, config.Environment)
+	log.Logger = util.NewLogger(os.Stderr, config.LogFormat)
 	if os.Getenv(gin.EnvGinMode) == "" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	if config.Environment == "development" {
+	if config.LogFormat == "console" {
 		fmt.Fprint(os.Stderr, "\nBDS PRO / API\n\n")
 	}
 	log.Info().Str("environment", config.Environment).Msg("startup.begin")
@@ -103,7 +103,7 @@ func run() error {
 	}
 	waitGroup.Go(func() error {
 		defer cancel() // Stop the worker if HTTP exits, including on a bind/serve error.
-		return runGinServer(ctx, config, store, taskDistributor, startedAt)
+		return runGinServer(ctx, config, store, taskDistributor, redisClient, db.NewPhoneOTPStore(connPool), startedAt)
 	})
 	return waitGroup.Wait()
 }
@@ -134,7 +134,7 @@ func runTaskProcessor(
 	redisOpt asynq.RedisClientOpt,
 	store db.Store,
 ) error {
-	mailer := mail.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
+	mailer := mail.NewSMTPSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword, config.SMTPAddress, config.SMTPAuth)
 	taskProcessor := worker.NewRedisTaskProcessor(
 		redisOpt,
 		store,
@@ -274,11 +274,14 @@ func runGatewayServer(
 	return nil
 }
 
-func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor, startedAt time.Time) error {
+func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor, redisClient *redis.Client, phoneOTP db.PhoneOTPRepository, startedAt time.Time) error {
 	server, err := api.NewServer(config, store, taskDistributor)
 	if err != nil {
 		return err
 	}
+	if err := server.EnableAuthRateLimiting(redisClient); err != nil { return err }
+	if err := server.EnableGoogleOAuth(redisClient); err != nil { return fmt.Errorf("enable Google OAuth: %w", err) }
+	if err := server.EnablePhoneOTP(phoneOTP); err != nil { return fmt.Errorf("enable phone OTP: %w", err) }
 	return server.StartWithReady(ctx, config.HTTPServerAddress, func(net.Addr) {
 		log.Info().Dur("duration", time.Since(startedAt)).Msg("startup.ready")
 	})

@@ -24,7 +24,8 @@ func exampleAppConfig() string {
 		"GRPC_SERVER_ADDRESS=127.0.0.1:9090\n" +
 		"ALLOWED_ORIGINS=http://localhost:3000,https://example.com\n" +
 		"TOKEN_SYMMETRIC_KEY=" + strings.Repeat("a", 32) + "\n" +
-		"ACCESS_TOKEN_DURATION=15m\nREFRESH_TOKEN_DURATION=24h\n"
+		"ACCESS_TOKEN_DURATION=15m\nREFRESH_TOKEN_DURATION=24h\n" +
+		"SMTP_ADDRESS=smtp.gmail.com:587\nSMTP_AUTH=true\n"
 }
 
 func TestLoadConfig(t *testing.T) {
@@ -37,6 +38,7 @@ func TestLoadConfig(t *testing.T) {
 	require.Equal(t, "127.0.0.1:8080", config.HTTPServerAddress)
 	require.Equal(t, 15*time.Minute, config.AccessTokenDuration)
 	require.Equal(t, 24*time.Hour, config.RefreshTokenDuration)
+	require.Equal(t, "json", config.LogFormat)
 	require.Equal(t, []string{"http://localhost:3000", "https://example.com"}, config.AllowedOrigins)
 }
 
@@ -70,4 +72,26 @@ func TestLoadConfigInvalidKey(t *testing.T) {
 	configFile := strings.Replace(exampleAppConfig(), strings.Repeat("a", 32), "short", 1)
 	_, err := LoadConfig(writeAppConfig(t, configFile))
 	require.Error(t, err)
+}
+
+func TestLoadConfigSMTPOverride(t *testing.T) {
+	t.Setenv("SMTP_ADDRESS", "mailpit:1025")
+	t.Setenv("SMTP_AUTH", "false")
+	config, err := LoadConfig(writeAppConfig(t, exampleAppConfig()))
+	require.NoError(t, err)
+	require.Equal(t, "mailpit:1025", config.SMTPAddress)
+	require.False(t, config.SMTPAuth)
+}
+
+func TestLoadConfigLogFormatProcessEnvOverride(t *testing.T) {
+	t.Setenv("LOG_FORMAT", "console")
+	config, err := LoadConfig(writeAppConfig(t, exampleAppConfig()+"LOG_FORMAT=json\n"))
+	require.NoError(t, err)
+	require.Equal(t, "console", config.LogFormat)
+}
+
+func TestLoadConfigInvalidLogFormat(t *testing.T) {
+	t.Setenv("LOG_FORMAT", "")
+	_, err := LoadConfig(writeAppConfig(t, exampleAppConfig()+"LOG_FORMAT=yaml\n"))
+	require.ErrorContains(t, err, "LOG_FORMAT")
 }

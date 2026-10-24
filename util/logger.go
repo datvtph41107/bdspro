@@ -7,8 +7,9 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func NewLogger(out io.Writer, environment string) zerolog.Logger {
-	if environment == "development" {
+// NewLogger selects the output format without changing event fields or meaning.
+func NewLogger(out io.Writer, format string) zerolog.Logger {
+	if format == "console" {
 		out = zerolog.ConsoleWriter{
 			Out:        out,
 			TimeFormat: "15:04:05",

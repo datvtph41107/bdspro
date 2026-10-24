@@ -13,6 +13,8 @@ type Store interface {
 	GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	CreateOrganizationTx(ctx context.Context, arg CreateOrganizationTxParams) (Organization, error)
 	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
+	LinkGoogleIdentity(ctx context.Context, arg LinkGoogleIdentityParams) error
+	GetGoogleAccountID(ctx context.Context, googleSub string) (int64, error)
 }
 
 type SQLStore struct {

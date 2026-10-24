@@ -340,3 +340,26 @@ func (mr *MockStoreMockRecorder) VerifyEmailTx(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyEmailTx", reflect.TypeOf((*MockStore)(nil).VerifyEmailTx), ctx, arg)
 }
+
+// LinkGoogleIdentity mocks the Google account link mutation.
+func (m *MockStore) LinkGoogleIdentity(ctx context.Context, arg db.LinkGoogleIdentityParams) error {
+ m.ctrl.T.Helper()
+ ret := m.ctrl.Call(m,"LinkGoogleIdentity",ctx,arg)
+ ret0,_ := ret[0].(error)
+ return ret0
+}
+func (mr *MockStoreMockRecorder) LinkGoogleIdentity(ctx,arg any) *gomock.Call {
+ mr.mock.ctrl.T.Helper()
+ return mr.mock.ctrl.RecordCallWithMethodType(mr.mock,"LinkGoogleIdentity",reflect.TypeOf((*MockStore)(nil).LinkGoogleIdentity),ctx,arg)
+}
+func (m *MockStore) GetGoogleAccountID(ctx context.Context, sub string) (int64,error) {
+ m.ctrl.T.Helper()
+ ret:=m.ctrl.Call(m,"GetGoogleAccountID",ctx,sub)
+ ret0,_:=ret[0].(int64)
+ ret1,_:=ret[1].(error)
+ return ret0,ret1
+}
+func (mr *MockStoreMockRecorder) GetGoogleAccountID(ctx,sub any) *gomock.Call {
+ mr.mock.ctrl.T.Helper()
+ return mr.mock.ctrl.RecordCallWithMethodType(mr.mock,"GetGoogleAccountID",reflect.TypeOf((*MockStore)(nil).GetGoogleAccountID),ctx,sub)
+}

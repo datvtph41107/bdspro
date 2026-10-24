@@ -4,13 +4,18 @@ on:
   push:
     branches: [dev]
   pull_request:
-    branches: [dev]
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     services:
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
+
       redis:
         image: redis:7-alpine
         ports:
@@ -53,7 +58,43 @@ jobs:
       - name: Run tests
         env:
           REDIS_TEST_ADDRESS: 127.0.0.1:6379
+          MAILPIT_API_URL: http://127.0.0.1:8025
+          MAILPIT_SMTP_ADDRESS: 127.0.0.1:1025
         run: make test
+
+      - name: Build and Compose validation
+        run: |
+          go build ./...
+          docker compose config --quiet
+
+      - name: Runtime smoke
+        env:
+          DB_SOURCE: postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
+          REDIS_ADDRESS: 127.0.0.1:6379
+          SMTP_ADDRESS: 127.0.0.1:1025
+          SMTP_AUTH: "false"
+          EMAIL_SENDER_ADDRESS: no-reply@bdspro.test
+          LOG_FORMAT: json
+        run: |
+          go build -o /tmp/bdspro-api .
+          /tmp/bdspro-api > /tmp/bdspro-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:8080/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/bdspro-api.log
+            exit 1
+          fi
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/users/me)" = "401"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/users/google/login/start)" = "404"
+          echo "HTTP runtime smoke passed"
 
       - name: Static analysis
         run: go vet ./...
@@ -61,4 +102,6 @@ jobs:
       - name: Race detector
         env:
           REDIS_TEST_ADDRESS: 127.0.0.1:6379
+          MAILPIT_API_URL: http://127.0.0.1:8025
+          MAILPIT_SMTP_ADDRESS: 127.0.0.1:1025
         run: go test -race -count=1 ./api ./db/sqlc ./worker
