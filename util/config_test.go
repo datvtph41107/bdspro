@@ -37,6 +37,7 @@ func TestLoadConfig(t *testing.T) {
 	require.Equal(t, "127.0.0.1:8080", config.HTTPServerAddress)
 	require.Equal(t, 15*time.Minute, config.AccessTokenDuration)
 	require.Equal(t, 24*time.Hour, config.RefreshTokenDuration)
+	require.Equal(t, "json", config.LogFormat)
 	require.Equal(t, []string{"http://localhost:3000", "https://example.com"}, config.AllowedOrigins)
 }
 
@@ -70,4 +71,17 @@ func TestLoadConfigInvalidKey(t *testing.T) {
 	configFile := strings.Replace(exampleAppConfig(), strings.Repeat("a", 32), "short", 1)
 	_, err := LoadConfig(writeAppConfig(t, configFile))
 	require.Error(t, err)
+}
+
+func TestLoadConfigLogFormatProcessEnvOverride(t *testing.T) {
+	t.Setenv("LOG_FORMAT", "console")
+	config, err := LoadConfig(writeAppConfig(t, exampleAppConfig()+"LOG_FORMAT=json\n"))
+	require.NoError(t, err)
+	require.Equal(t, "console", config.LogFormat)
+}
+
+func TestLoadConfigInvalidLogFormat(t *testing.T) {
+	t.Setenv("LOG_FORMAT", "")
+	_, err := LoadConfig(writeAppConfig(t, exampleAppConfig()+"LOG_FORMAT=yaml\n"))
+	require.ErrorContains(t, err, "LOG_FORMAT")
 }
