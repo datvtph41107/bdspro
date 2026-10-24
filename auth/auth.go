@@ -53,6 +53,12 @@ func Login(ctx context.Context, store db.Store, maker token.Maker, config util.C
 		return result, ErrInvalidCredentials
 	}
 
+	return IssueSession(ctx, store, maker, config, account, userAgent, clientIP)
+}
+
+// IssueSession gives any already-authenticated account the same BDSPro tokens and session.
+func IssueSession(ctx context.Context, store db.Store, maker token.Maker, config util.Config, account db.Account, userAgent, clientIP string) (LoginResult, error) {
+	var result LoginResult
 	accessToken, accessPayload, err := maker.CreateToken(account.ID, config.AccessTokenDuration, token.TokenTypeAccess)
 	if err != nil {
 		return result, err
