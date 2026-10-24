@@ -10,6 +10,7 @@ import (
 // Config stores BDSPro settings from app.env or process environment.
 type Config struct {
 	Environment          string        `mapstructure:"ENVIRONMENT"`
+	LogFormat            string        `mapstructure:"LOG_FORMAT"`
 	AllowedOrigins       []string      `mapstructure:"ALLOWED_ORIGINS"`
 	DBSource             string        `mapstructure:"DB_SOURCE"`
 	MigrationURL         string        `mapstructure:"MIGRATION_URL"`
@@ -31,6 +32,7 @@ func LoadConfig(path string) (config Config, err error) {
 	v.AddConfigPath(path)
 	v.SetConfigName("app")
 	v.SetConfigType("env")
+	v.SetDefault("LOG_FORMAT", "json")
 	v.AutomaticEnv()
 
 	if err = v.ReadInConfig(); err != nil {
@@ -40,6 +42,9 @@ func LoadConfig(path string) (config Config, err error) {
 		return config, err
 	}
 
+	if config.LogFormat != "console" && config.LogFormat != "json" {
+		return config, fmt.Errorf("LOG_FORMAT must be console or json")
+	}
 	if config.DBSource == "" || config.MigrationURL == "" || config.HTTPServerAddress == "" {
 		return config, fmt.Errorf("DB_SOURCE, MIGRATION_URL and HTTP_SERVER_ADDRESS are required")
 	}
