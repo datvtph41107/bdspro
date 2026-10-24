@@ -66,7 +66,8 @@ func (server *Server) setupRouter() {
 
 		path := ctx.FullPath()
 		if path == "" {
-			path = ctx.Request.URL.Path
+			// Unknown request paths can embed secrets; log a fixed label instead.
+			path = "<unmatched>"
 		}
 
 		status := ctx.Writer.Status()
