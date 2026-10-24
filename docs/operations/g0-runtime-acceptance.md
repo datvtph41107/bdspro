@@ -54,7 +54,7 @@ The command checks:
 2. Compose config; running `postgres`, `redis`, `mailpit` and `api` services.
 3. PostgreSQL major version **18**, `schema_migrations = 5, dirty=false`, and a Docker **volume** at `/var/lib/postgresql`.
 4. Redis `PING`, `aof_enabled:1`, and a Docker **volume** mounted at `/data`.
-5. `GET /health = 200`, unauthenticated `GET /users/me = 401`, `X-Request-ID`, and Mailpit API `200`.
+5. `GET /health = 200`, `X-Request-ID`, and Mailpit API `200`. HTTP 401/403/429 behavior is exercised in CI, not by this read-only WSL probe.
 6. A recent `startup.ready` log record, reported as a **warning** if the log tail has rotated past startup.
 
 Optional for a deliberately different localhost HTTP port:
@@ -65,7 +65,7 @@ G0_HTTP_BASE_URL=http://127.0.0.1:8081 sh scripts/accept-g0.sh
 
 The Mailpit API probe remains on loopback port 8025, matching this repository's Compose.
 The script suppresses response bodies and does **not** print SQL credentials, bearer tokens, OTP codes, verification links or email message contents.
-A non-zero exit means one or more machine-verifiable checks failed. A zero exit must **not** be presented as full G0 acceptance.
+A non-zero exit means one or more machine-verifiable checks failed. A zero exit must **not** be presented as full G0 acceptance. Do not add negative-auth probes here: `RequestMonitor` increments Redis counters for denied requests.
 
 ## 4. Manual acceptance after machine checks
 
@@ -100,7 +100,7 @@ For real registration/email: follow [register-email-e2e.md](register-email-e2e.m
 | Container and volume ownership | Compose services, mount paths, old volume inventory | Pending WSL verification |
 | Database schema | PostgreSQL major, version 5, dirty=false | Pending WSL verification |
 | Redis / worker | PING, AOF persistence, queue state reviewed | Pending WSL verification |
-| HTTP ingress | Health 200, unauthenticated Me 401, server-owned request ID | Pending WSL verification |
+| HTTP ingress | Health 200, server-owned request ID, protected Me 401 in CI | Pending WSL verification |
 | Process lifecycle | Startup evidence, shutdown on an isolated test instance | Pending WSL verification |
 | Data recovery | Successful isolated backup/restore exercise | Pending WSL verification |
 | External providers | Google browser OIDC and real SMS explicitly out of G0 scope | Separate gate G3 |
