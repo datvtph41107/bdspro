@@ -23,9 +23,10 @@ type renewAccessTokenResponse struct {
 func (server *Server) renewAccessToken(ctx *gin.Context) {
 	var req refreshTokenRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		invalidJSON(ctx, err)
 		return
 	}
+	if !server.allowAuthRequest(ctx, "refresh", req.RefreshToken, 60, 20, time.Minute) { return }
 	payload, err := server.tokenMaker.VerifyToken(req.RefreshToken, token.TokenTypeRefresh)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid refresh token"})
@@ -61,9 +62,10 @@ func (server *Server) renewAccessToken(ctx *gin.Context) {
 func (server *Server) revokeRefreshToken(ctx *gin.Context) {
 	var req refreshTokenRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		invalidJSON(ctx, err)
 		return
 	}
+	if !server.allowAuthRequest(ctx, "revoke", req.RefreshToken, 60, 20, time.Minute) { return }
 	payload, err := server.tokenMaker.VerifyToken(req.RefreshToken, token.TokenTypeRefresh)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid refresh token"})
