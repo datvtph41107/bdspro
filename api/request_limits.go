@@ -18,7 +18,8 @@ const maxRequestBodyBytes int64 = 1 << 20 // 1 MiB: current APIs only accept sma
 
 // limitRequestBody rejects declared oversized bodies early and enforces the same
 // limit on chunked/streamed requests when handlers decode them.
-func limitRequestBody() gin.HandlerFunc {
+// RequestIngress applies the transport-admission body limit before route handlers.
+func RequestIngress() gin.HandlerFunc {
     return func(ctx *gin.Context) {
         if ctx.Request.ContentLength > maxRequestBodyBytes {
             ctx.AbortWithStatusJSON(http.StatusRequestEntityTooLarge, gin.H{"error":"request body too large"})
