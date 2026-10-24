@@ -99,7 +99,7 @@ func (server *Server) setupRouter() {
 
 	// Global request boundary: observability wraps the policy and controller.
 	// Admission and authentication run only on the routes that need them.
-	router.Use(server.RequestMonitor(), limitRequestBody())
+	router.Use(server.RequestMonitor(), RequestIngress())
 
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
