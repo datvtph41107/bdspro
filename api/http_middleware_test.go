@@ -411,3 +411,12 @@ func TestHTTPRequestID(t *testing.T) {
 		),
 	)
 }
+
+func TestRuntimeRefusesMissingIPActiveLimiter(t *testing.T) {
+    server:=newTestServer(t,nil)
+    server.config.Environment="development"
+    called:=false
+    err:=server.StartWithReady(context.Background(),"127.0.0.1:0",func(net.Addr){called=true})
+    require.ErrorContains(t,err,"IPActive Redis limiter")
+    require.False(t,called)
+}
