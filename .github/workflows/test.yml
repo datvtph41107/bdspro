@@ -60,6 +60,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git diff --check "$BASE_SHA" HEAD
           sh scripts/check-migration-history.sh "$BASE_SHA" HEAD
 
       - name: Run migrations
@@ -77,6 +78,7 @@ jobs:
           go build ./...
           docker compose config --quiet
           sh -n scripts/accept-g0.sh
+          sh -n scripts/check-migration-history.sh
 
       - name: Runtime smoke
         env:
