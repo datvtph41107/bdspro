@@ -26,6 +26,8 @@ func (server *Server) RequestMonitor() gin.HandlerFunc {
         status := ctx.Writer.Status()
         var reason string
         switch status {
+        case http.StatusBadRequest:
+            reason = "invalid_request"
         case http.StatusUnauthorized:
             reason = "authentication"
         case http.StatusForbidden:
