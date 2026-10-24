@@ -21,12 +21,7 @@ type renewAccessTokenResponse struct {
 }
 
 func (server *Server) renewAccessToken(ctx *gin.Context) {
-	var req refreshTokenRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		invalidJSON(ctx, err)
-		return
-	}
-	if !server.allowAuthRequest(ctx, "refresh", req.RefreshToken, 60, 20, time.Minute) { return }
+	req := tokenInput(ctx)
 	payload, err := server.tokenMaker.VerifyToken(req.RefreshToken, token.TokenTypeRefresh)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid refresh token"})
@@ -60,12 +55,7 @@ func (server *Server) renewAccessToken(ctx *gin.Context) {
 
 // revokeRefreshToken blocks a refresh session. Issued access tokens remain valid until expiry.
 func (server *Server) revokeRefreshToken(ctx *gin.Context) {
-	var req refreshTokenRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		invalidJSON(ctx, err)
-		return
-	}
-	if !server.allowAuthRequest(ctx, "revoke", req.RefreshToken, 60, 20, time.Minute) { return }
+	req := tokenInput(ctx)
 	payload, err := server.tokenMaker.VerifyToken(req.RefreshToken, token.TokenTypeRefresh)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid refresh token"})
