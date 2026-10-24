@@ -30,7 +30,7 @@ func (d *RedisTaskDistributor) DistributeTaskSendVerifyEmail(ctx context.Context
 	if err != nil {
 		return err
 	}
-	log.Info().Str("type", task.Type()).Str("queue", info.Queue).Str("task_id", info.ID).Int64("account_id", payload.AccountID).Msg("task enqueued")
+	log.Ctx(ctx).Info().Str("type", task.Type()).Str("queue", info.Queue).Str("task_id", info.ID).Int64("account_id", payload.AccountID).Msg("task enqueued")
 	return nil
 }
 

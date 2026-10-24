@@ -45,18 +45,19 @@ Không dùng `docker compose down -v` trên volume chứa dữ liệu muốn gi�
 |---|---|
 | `app.env` | Các giá trị cấu hình Go mặc định dành cho development |
 | `util/config.go` | Viper đọc `app.env` và nhận giá trị override từ process environment |
-| `docker-compose.yaml` | PostgreSQL, Redis, API; override đúng `DB_SOURCE` và `REDIS_ADDRESS` để dùng Docker DNS |
+| `docker-compose.yaml` | PostgreSQL, Redis, API; override `DB_SOURCE`, `REDIS_ADDRESS`, `LOG_FORMAT` và giới hạn lưu log container |
 | `Dockerfile` | Build Go binary rồi chạy bằng image Alpine tối giản |
 | `start.sh` | `exec` ứng dụng |
 | `wait-for.sh` | Chờ cổng PostgreSQL mở trước khi chạy API |
 | `Makefile` | Các target Go, SQLC, migration, mock và Docker CLI cơ bản đúng tinh thần SimpleBank |
 | `.github/workflows/test.yml` | Một workflow, một job `test`: PostgreSQL 18 → migration → `make test` |
 
-**Không cần `.env` hay `.env.example` để khởi động BDSPro theo Compose hiện tại.** Go đọc `app.env`, Compose override đúng hai biến:
+**Không cần `.env` hay `.env.example` để khởi động BDSPro theo Compose hiện tại.** Go đọc `app.env`, Compose override ba biến:
 
 ```text
 DB_SOURCE=postgresql://root:secret@postgres:5432/bdspro?sslmode=disable
 REDIS_ADDRESS=redis:6379
+LOG_FORMAT=json
 ```
 
 Khi chạy Go trên máy host, `app.env` dùng `127.0.0.1:5432` và `127.0.0.1:6379`. Docker Compose publish Redis `6379:6379` trên các host interfaces. Khi dùng WSL có thể chạy Go trực tiếp với `127.0.0.1:6379`; dừng service `api` trước (`docker compose stop api`) để tránh trùng cổng 8080 và không khởi tạo thêm Redis standalone. **Chỉ dùng cấu hình này trong môi trường development tin cậy**: Redis hiện không có xác thực và cổng 6379 có thể truy cập từ mạng ngoài nếu firewall cho phép. Tránh triển khai cấu hình này trên máy chủ có public IP.
@@ -80,7 +81,7 @@ Compose tự tạo network và PostgreSQL database `bdspro` qua `POSTGRES_DB`; k
 ```bash
 make postgres    # Chỉ áp dụng nếu đã có container standalone tên postgres
 make redis       # Tạo container standalone redis lần đầu, expose :6379
-make server      # go run main.go, bind HTTP :8080
+make server      # Console có màu để debug tương tác, bind HTTP :8080
 ```
 
 Các lệnh `make network`, `make postgres`, `make redis`, `make createdb` là đường làm việc thủ công đúng như Makefile đã chốt. `make postgres` chỉ **start một container đã tồn tại**, không tạo container mới; `make createdb` chỉ dùng khi database chưa tồn tại. Nếu bạn đã chạy Compose, không chạy song song các target này vì dễ trùng tên/cổng và tạo hai bộ dữ liệu khác nhau.
@@ -170,11 +171,17 @@ Một workflow để chứng minh tests hoạt động không đồng nghĩa to�
 
 ## 8. Kiểm soát vòng đời và nhật ký (đợt vận hành đầu tiên)
 
-Development in một dòng tên `BDSPro / api`, sau đó dùng zerolog console dạng `10:31:59 INF startup.begin environment=development`:
-mã mức log `INF` xanh lá, `WRN` vàng, `ERR`/`FTL` đỏ, `DBG` xanh cyan.
-Chỉ mã mức log có màu ANSI khi stderr là terminal và không đặt `NO_COLOR`; khi dùng Docker, redirect hoặc pipe, log tự tắt mã màu. Còn timestamp, event name và các field đơn sắc.
-Đặt `NO_COLOR=1` để tắt ANSI, hoặc dùng `ENVIRONMENT=production` để ghi JSON.
-Không tạo thư mục `logs/` trong source. `docker compose logs -f api` xem stdout/stderr. Compose không cấu hình riêng logging driver/rotation. Gin mặc định release (không in danh sách routes), có thể bật `GIN_MODE=debug make server` khi cần. HTTP access log chỉ ghi route/path không kèm query string, tránh lộ mã xác minh. Redis expose port 6379 ra host đúng mẫu phát triển đã chốt; cần firewall khi làm việc trên mạng không tin cậy.
+BDSPro dùng duy nhất zerolog; `LOG_FORMAT` điều khiển cách xuất log, không đổi sự kiện, field, request ID hoặc task ID. Chỉ hỗ trợ `console` và `json`. File `app.env` mặc định `LOG_FORMAT=json` để tiến trình trực tiếp/đóng gói có dữ liệu phù hợp cho công cụ xử lý. `make server` chủ động chọn console có màu khi debug tương tác:
+
+```bash
+make server                   # console có màu
+make server LOG_FORMAT=json   # JSON để đối chiếu runtime
+docker compose logs -f api    # JSON từ container API
+```
+
+Console hiển thị `[INF]`, `[WRN]`, `[ERR]` có màu ANSI, cùng các trường của event; JSON giữ cấu trúc key-value. `LOG_FORMAT` độc lập với `ENVIRONMENT`: Docker chủ động đặt `LOG_FORMAT=json` kể cả khi `ENVIRONMENT=development`. Banner chỉ xuất hiện trong console để không làm nhiễu JSON. Nếu pipe hoặc redirect console, ANSI có thể vẫn xuất hiện; hãy chọn JSON khi cần máy xử lý.
+
+Không tạo thư mục `logs/` trong source. `docker compose logs -f api` xem stdout/stderr. Compose dùng `json-file` cho API với `max-size=10m`, `max-file=3`; đây là giới hạn theo dung lượng chứ không phải thời gian lưu. Gin mặc định release (không in danh sách routes), có thể bật `GIN_MODE=debug make server` khi cần. HTTP access log chỉ ghi route/path không kèm query string, tránh lộ mã xác minh. Redis expose port 6379 ra host đúng mẫu phát triển đã chốt; cần firewall khi làm việc trên mạng không tin cậy.
 
 Trình tự kỳ vọng khi chạy ứng dụng:
 `startup.begin` → `postgres.connected` → `migration.checked result=applied|no_change`
