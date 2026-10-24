@@ -199,6 +199,8 @@ Trình tự kỳ vọng khi chạy ứng dụng:
 Nếu không bind được HTTP hoặc Redis không trả lời, không được phát `startup.ready`; tiến trình phải trả lỗi và dừng worker. `startup.ready` có `duration` đo từ đầu hàm `run()`.
 SIGINT/SIGTERM chủ động đóng HTTP và worker, log `http.stopped` và `task.processor.stopped`.
 
+**Cổng G0 — nghiệm thu runtime đang chạy trên WSL (chỉ-đọc):** Xem [docs/operations/g0-runtime-acceptance.md](docs/operations/g0-runtime-acceptance.md). Sau khi kiểm tra Git/volume và stack Compose đã chạy, dùng `sh scripts/accept-g0.sh`; script không tự khởi động container, không ghi database và không thay đổi volume. Kết quả PASS không thay thế nghiệm thu backup/restore, lifecycle thật hoặc Google/SMS E2E.
+
 Nghiệm thu local an toàn trên clone mới:
 
 ```bash
