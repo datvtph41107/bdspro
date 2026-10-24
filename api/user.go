@@ -31,12 +31,7 @@ func newUserResponse(account db.Account) userResponse {
 }
 
 func (server *Server) createUser(ctx *gin.Context) {
-	var req createUserRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		invalidJSON(ctx, err)
-		return
-	}
-	if !server.allowAuthRequest(ctx, "register", req.Email, 10, 3, time.Hour) { return }
+	req := registerInput(ctx)
 	account, err := auth.Register(ctx.Request.Context(), server.store, server.taskDistributor, req.Email, req.Password)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -65,12 +60,7 @@ type loginUserResponse struct {
 }
 
 func (server *Server) loginUser(ctx *gin.Context) {
-	var req loginUserRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		invalidJSON(ctx, err)
-		return
-	}
-	if !server.allowAuthRequest(ctx, "login", req.Email, 30, 10, time.Minute) { return }
+	req := loginInput(ctx)
 	result, err := auth.Login(ctx, server.store, server.tokenMaker, server.config,
 		req.Email, req.Password, ctx.Request.UserAgent(), ctx.ClientIP())
 	if errors.Is(err, auth.ErrInvalidCredentials) {
