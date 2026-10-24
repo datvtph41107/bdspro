@@ -51,11 +51,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("cannot load config: %w", err)
 	}
-	log.Logger = util.NewLogger(os.Stderr, config.Environment)
+	log.Logger = util.NewLogger(os.Stderr, config.LogFormat)
 	if os.Getenv(gin.EnvGinMode) == "" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	if config.Environment == "development" {
+	if config.LogFormat == "console" {
 		fmt.Fprint(os.Stderr, "\nBDS PRO / API\n\n")
 	}
 	log.Info().Str("environment", config.Environment).Msg("startup.begin")
