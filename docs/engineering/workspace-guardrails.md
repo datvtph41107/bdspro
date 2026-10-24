@@ -69,7 +69,7 @@ Script trên chỉ đọc các Git tree và exit khác 0 nếu một migration t
 
 `push` vào `dev`: giữ workflow test hiện có; không dùng migration guard PR vì không có PR base để so sánh.
 
-Script không chạy SQL, Docker, network hoặc thao tác ghi trên working tree. Lệnh `git fetch` được gọi **bởi workflow trong GitHub runner**, không phải script; nó không thay đổi repository ở WSL của developer.
+Script không chạy SQL, Docker, network hoặc thao tác ghi trên working tree. Workflow sử dụng `actions/checkout` với full Git history để có commit base khi so sánh; không chạy `git fetch` trên WSL của developer.
 
 ## 4. Cổng nghiệm thu — không được đánh đồng
 
