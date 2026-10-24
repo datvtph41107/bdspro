@@ -24,7 +24,8 @@ func exampleAppConfig() string {
 		"GRPC_SERVER_ADDRESS=127.0.0.1:9090\n" +
 		"ALLOWED_ORIGINS=http://localhost:3000,https://example.com\n" +
 		"TOKEN_SYMMETRIC_KEY=" + strings.Repeat("a", 32) + "\n" +
-		"ACCESS_TOKEN_DURATION=15m\nREFRESH_TOKEN_DURATION=24h\n"
+		"ACCESS_TOKEN_DURATION=15m\nREFRESH_TOKEN_DURATION=24h\n" +
+		"SMTP_ADDRESS=smtp.gmail.com:587\nSMTP_AUTH=true\n"
 }
 
 func TestLoadConfig(t *testing.T) {
@@ -70,4 +71,13 @@ func TestLoadConfigInvalidKey(t *testing.T) {
 	configFile := strings.Replace(exampleAppConfig(), strings.Repeat("a", 32), "short", 1)
 	_, err := LoadConfig(writeAppConfig(t, configFile))
 	require.Error(t, err)
+}
+
+func TestLoadConfigSMTPOverride(t *testing.T) {
+	t.Setenv("SMTP_ADDRESS", "mailpit:1025")
+	t.Setenv("SMTP_AUTH", "false")
+	config, err := LoadConfig(writeAppConfig(t, exampleAppConfig()))
+	require.NoError(t, err)
+	require.Equal(t, "mailpit:1025", config.SMTPAddress)
+	require.False(t, config.SMTPAuth)
 }

@@ -134,7 +134,7 @@ func runTaskProcessor(
 	redisOpt asynq.RedisClientOpt,
 	store db.Store,
 ) error {
-	mailer := mail.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
+	mailer := mail.NewSMTPSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword, config.SMTPAddress, config.SMTPAuth)
 	taskProcessor := worker.NewRedisTaskProcessor(
 		redisOpt,
 		store,

@@ -22,6 +22,8 @@ type Config struct {
 	EmailSenderName      string        `mapstructure:"EMAIL_SENDER_NAME"`
 	EmailSenderAddress   string        `mapstructure:"EMAIL_SENDER_ADDRESS"`
 	EmailSenderPassword  string        `mapstructure:"EMAIL_SENDER_PASSWORD"`
+	SMTPAddress          string        `mapstructure:"SMTP_ADDRESS"`
+	SMTPAuth             bool          `mapstructure:"SMTP_AUTH"`
 	VerifyEmailURL       string        `mapstructure:"VERIFY_EMAIL_URL"`
 }
 
