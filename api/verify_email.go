@@ -2,8 +2,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
-	"time"
 	"net/http"
 
 	db "github.com/datvtph41107/bdspro/db/sqlc"
@@ -17,12 +15,7 @@ type verifyEmailRequest struct {
 }
 
 func (server *Server) verifyEmail(ctx *gin.Context) {
-	var req verifyEmailRequest
-	if err := ctx.ShouldBindQuery(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification link"})
-		return
-	}
-	if !server.allowAuthRequest(ctx, "verify_email", fmt.Sprint(req.EmailID), 60, 10, time.Minute) { return }
+	req := verifyEmailInput(ctx)
 	_, err := server.store.VerifyEmailTx(ctx, db.ConsumeVerifyEmailParams{
 		ID: req.EmailID, SecretCode: req.SecretCode,
 	})
