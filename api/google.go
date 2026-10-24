@@ -51,8 +51,8 @@ func (server *Server) EnableGoogleOAuth(redisClient *redis.Client) error {
  redirect,err := url.Parse(server.config.GoogleRedirectURI)
  if err != nil {return err}
  g := &googleOAuthFlow{server:server,redis:redisClient,httpClient:&http.Client{Timeout:10*time.Second},secureCookie:redirect.Scheme=="https"}
- server.router.POST("/users/me/google/start",Authenticate(server.tokenMaker),g.startLink)
- server.router.GET("/users/google/login/start",g.startLogin)
+ server.router.POST("/users/me/google/start",Authenticate(server.tokenMaker),server.IPActiveSource("google_link_start",10,time.Minute),g.startLink)
+ server.router.GET("/users/google/login/start",server.IPActiveSource("google_login_start",20,time.Minute),g.startLogin)
  server.router.GET("/users/google/callback",g.callback)
  return nil
 }

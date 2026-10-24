@@ -2,7 +2,7 @@
 
 Backend Go/Gin, PostgreSQL, SQLC, JWT và Redis/Asynq. Phiên bản nền tảng được chọn theo bản stable đang hỗ trợ: **PostgreSQL 18**, **Go 1.27.3**, **Alpine 3.24**. Redis 7 được giữ tạm trong giai đoạn này để không thay đổi major version của worker khi chưa kiểm tra tương thích Redis/Asynq. Cách chạy, Dockerfile, Docker Compose, Makefile và GitHub Actions giữ bố cục đơn giản theo [TechSchool SimpleBank](https://github.com/techschool/simplebank), với các giá trị đổi thành `bdspro`.
 
-**Runtime hiện tại:** một Gin HTTP server trên cổng 8080 và Redis worker xử lý email verification. `runGrpcServer`/`runGatewayServer` cùng protobuf/gateway generated source còn trong repository để tham khảo, **không được khởi động**. Chưa cấu hình production deployment.
+**Runtime hiện tại:** một Gin HTTP server trên cổng 8080, Redis worker xử lý email verification, SMTP Mailpit local; Authentication gồm password/JWT/session, Google OIDC khi cấu hình credentials và Phone OTP development-only. `runGrpcServer`/`runGatewayServer` cùng protobuf/gateway generated source còn trong repository để tham khảo, **không được khởi động**. Chưa cấu hình production deployment.
 
 ## 1. Clone và chạy lần đầu
 
@@ -23,7 +23,7 @@ docker compose exec -T postgres psql -U root -d bdspro \
   -c "SELECT version, dirty FROM schema_migrations;"
 ```
 
-Kết quả mong đợi: `/health` trả HTTP 200; database mới có `schema_migrations.version=3`, `dirty=false`. `main.go` tự chạy `migrate.Up()` khi API startup, nên **không cần `make migrateup` lần nữa** khi vừa chạy Compose thành công.
+Kết quả mong đợi: `/health` trả HTTP 200; database mới có `schema_migrations.version=5`, `dirty=false`. `main.go` tự chạy `migrate.Up()` khi API startup, nên **không cần `make migrateup` lần nữa** khi vừa chạy Compose thành công.
 
 Nếu API không lên: `docker compose logs --tail=150 api`, `docker compose logs postgres`, `docker compose ps`.
 
@@ -45,24 +45,27 @@ Không dùng `docker compose down -v` trên volume chứa dữ liệu muốn gi�
 |---|---|
 | `app.env` | Các giá trị cấu hình Go mặc định dành cho development |
 | `util/config.go` | Viper đọc `app.env` và nhận giá trị override từ process environment |
-| `docker-compose.yaml` | PostgreSQL, Redis, API; override `DB_SOURCE`, `REDIS_ADDRESS`, `LOG_FORMAT` và giới hạn lưu log container |
+| `docker-compose.yaml` | PostgreSQL, Redis, Mailpit và API; dùng container DNS, JSON logging và giới hạn log container |
 | `Dockerfile` | Build Go binary rồi chạy bằng image Alpine tối giản |
 | `start.sh` | `exec` ứng dụng |
 | `wait-for.sh` | Chờ cổng PostgreSQL mở trước khi chạy API |
 | `Makefile` | Các target Go, SQLC, migration, mock và Docker CLI cơ bản đúng tinh thần SimpleBank |
-| `.github/workflows/test.yml` | Một workflow, một job `test`: PostgreSQL 18 → migration → `make test` |
+| `.github/workflows/test.yml` | Một workflow, một job `test`: PostgreSQL/Redis/Mailpit → migrations → tests → build/Compose check → HTTP smoke → vet → race |
 
-**Không cần `.env` hay `.env.example` để khởi động BDSPro theo Compose hiện tại.** Go đọc `app.env`, Compose override ba biến:
+**Không cần `.env` hay `.env.example` để khởi động BDSPro theo Compose hiện tại.** Go đọc `app.env`, Compose override các biến cần thiết cho kết nối container:
 
 ```text
 DB_SOURCE=postgresql://root:secret@postgres:5432/bdspro?sslmode=disable
 REDIS_ADDRESS=redis:6379
 LOG_FORMAT=json
+SMTP_ADDRESS=mailpit:1025
+SMTP_AUTH=false
+EMAIL_SENDER_ADDRESS=no-reply@bdspro.test
 ```
 
 Khi chạy Go trên máy host, `app.env` dùng `127.0.0.1:5432` và `127.0.0.1:6379`. Docker Compose publish Redis `6379:6379` trên các host interfaces. Khi dùng WSL có thể chạy Go trực tiếp với `127.0.0.1:6379`; dừng service `api` trước (`docker compose stop api`) để tránh trùng cổng 8080 và không khởi tạo thêm Redis standalone. **Chỉ dùng cấu hình này trong môi trường development tin cậy**: Redis hiện không có xác thực và cổng 6379 có thể truy cập từ mạng ngoài nếu firewall cho phép. Tránh triển khai cấu hình này trên máy chủ có public IP.
 
-Các khóa/mật khẩu trong `app.env` là **giá trị ví dụ cho development, tuyệt đối không sử dụng production**. Nếu cần credential SMTP thật, truyền dưới dạng process environment vào môi trường thực thi phù hợp; không commit vào `app.env` hoặc Dockerfile. Khi không có `EMAIL_SENDER_ADDRESS/PASSWORD`, đăng ký có thể tạo tài khoản nhưng việc gửi email xác minh sẽ không thành công và worker có thể retry.
+Các khóa/mật khẩu trong `app.env` là **giá trị ví dụ cho development, tuyệt đối không sử dụng production**. Nếu cần credential SMTP thật, truyền dưới dạng process environment vào môi trường thực thi phù hợp; không commit vào `app.env` hoặc Dockerfile. Compose sử dụng Mailpit để nhận email thử nghiệm, xem tại `http://127.0.0.1:8025`. Khi chạy trực tiếp trên WSL, hãy cấu hình SMTP phù hợp bằng process environment; không commit SMTP/Google credentials thật.
 
 ## 3. Docker Compose và Makefile: hai cách sử dụng khác nhau
 
@@ -146,6 +149,13 @@ bdspro/
 | GET | `/organizations` | Liệt kê Organization membership |
 | POST | `/organizations/:id/members` | Owner thêm member |
 | PATCH | `/organizations/:id` | Owner cập nhật thông tin Organization |
+| POST | `/users/me/google/start` | JWT + password → bắt đầu liên kết Google, khi có OAuth credentials |
+| GET | `/users/google/login/start` | Bắt đầu OpenID Connect Google, khi có OAuth credentials |
+| GET | `/users/google/callback` | Xác minh Google và liên kết/đăng nhập |
+| POST | `/users/me/phone/start` | JWT + password → bắt đầu gắn số điện thoại, development |
+| POST | `/users/me/phone/verify` | Xác minh mã và gắn số, development |
+| POST | `/users/phone/login/start` | Yêu cầu mã đăng nhập số điện thoại, development |
+| POST | `/users/phone/login/verify` | Tiêu thụ mã OTP và phát JWT/session, development |
 
 Smoke test bằng HTTP:
 
@@ -161,11 +171,11 @@ curl -i -X POST http://127.0.0.1:8080/users/login \
   -d '{"email":"newdev@example.test","password":"strong-password-123"}'
 ```
 
-Không coi HTTPS, secret management, rate limiting hay session security là production-ready ở mốc hiện tại.
+Request restrictions và IPActive/RequestMonitor đã có trên nhánh tích hợp, nhưng Google OAuth browser E2E, gửi SMS OTP thực và production hardening vẫn là các cổng nghiệm thu riêng.
 
 ## 7. GitHub Actions
 
-Chỉ giữ `.github/workflows/test.yml`. Workflow có một job `test`, PostgreSQL 18 (database `bdspro`), setup Go từ `go.mod`, cài migrate CLI, chạy `make migrateup` và `make test`. Không có job Compose smoke hoặc race detector.
+Chỉ giữ `.github/workflows/test.yml`. Workflow có một job `test`, PostgreSQL 18 (database `bdspro`), setup Go từ `go.mod`, cài migrate CLI, chạy `make migrateup` và `make test`. Có các bước build/Compose validation, runtime HTTP smoke, static analysis và race detector.
 
 Một workflow để chứng minh tests hoạt động không đồng nghĩa toàn bộ chức năng ứng dụng hoặc bảo mật production đã được nghiệm thu. Mọi thay đổi source cần được review riêng theo use case và invariant.
 
@@ -203,5 +213,11 @@ docker compose down        # KHÔNG thêm -v
 ```
 
 Không coi HTTP liveness là database readiness liên tục: PostgreSQL/Redis được xác nhận tại khởi động,
-nhưng `/health` hiện chỉ chứng minh HTTP server còn phản hồi. CI giản lược chỉ kiểm tra Go tests;
+nhưng `/health` hiện chỉ chứng minh HTTP server còn phản hồi. CI đã có migrations, Go tests, Compose config, HTTP smoke, vet và race detector;
 nghiệm thu Compose, gửi email thật (thiếu SMTP credential) và bảo mật production là bước riêng.
+
+## 9. Request Lifecycle, Google OIDC và Phone OTP
+
+Nguồn thiết kế RequestIngress, PreLogin, IPActiveSource, IPActive, Authenticate, SQL Authorize, SufLogin và RequestMonitor: [`docs/engineering/request-lifecycle.md`](docs/engineering/request-lifecycle.md). Tham khảo [`docs/operations/request-restrictions.md`](docs/operations/request-restrictions.md), [`docs/operations/google-login.md`](docs/operations/google-login.md) và [`docs/operations/phone-otp-v1.md`](docs/operations/phone-otp-v1.md) để kiểm soát luồng và nghiệm thu riêng.
+
+Phone OTP chỉ chạy trong development với mã lưu trong bảng `phone_otp_challenges.dev_code`; **chưa có kênh gửi SMS thực tế**. Google OAuth yêu cầu Client ID/Secret ngoài source. Không coi những luồng này là production-ready chỉ vì CI chạy thành công.

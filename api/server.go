@@ -26,6 +26,7 @@ type Server struct {
 	tokenMaker      token.Maker
 	router          *gin.Engine
 	authRateRedis   *redis.Client
+	phoneOTP       db.PhoneOTPRepository
 }
 
 func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) (*Server, error) {
@@ -65,7 +66,8 @@ func (server *Server) setupRouter() {
 
 		path := ctx.FullPath()
 		if path == "" {
-			path = ctx.Request.URL.Path
+			// Unknown request paths can embed secrets; log a fixed label instead.
+			path = "<unmatched>"
 		}
 
 		status := ctx.Writer.Status()
@@ -150,6 +152,9 @@ func (server *Server) Start(ctx context.Context, address string) error {
 
 // StartWithReady invokes onListening only after the TCP port has been bound.
 func (server *Server) StartWithReady(ctx context.Context, address string, onListening func(net.Addr)) error {
+	if (server.config.Environment == "development" || server.config.Environment == "production") && server.authRateRedis == nil {
+		return errors.New("IPActive Redis limiter must be configured before starting HTTP")
+	}
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("listen HTTP: %w", err)
