@@ -103,7 +103,7 @@ func run() error {
 	}
 	waitGroup.Go(func() error {
 		defer cancel() // Stop the worker if HTTP exits, including on a bind/serve error.
-		return runGinServer(ctx, config, store, taskDistributor, redisClient, startedAt)
+		return runGinServer(ctx, config, store, taskDistributor, redisClient, db.NewPhoneOTPStore(connPool), startedAt)
 	})
 	return waitGroup.Wait()
 }
@@ -274,13 +274,14 @@ func runGatewayServer(
 	return nil
 }
 
-func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor, redisClient *redis.Client, startedAt time.Time) error {
+func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor, redisClient *redis.Client, phoneOTP db.PhoneOTPRepository, startedAt time.Time) error {
 	server, err := api.NewServer(config, store, taskDistributor)
 	if err != nil {
 		return err
 	}
 	if err := server.EnableAuthRateLimiting(redisClient); err != nil { return err }
 	if err := server.EnableGoogleOAuth(redisClient); err != nil { return fmt.Errorf("enable Google OAuth: %w", err) }
+	if err := server.EnablePhoneOTP(phoneOTP); err != nil { return fmt.Errorf("enable phone OTP: %w", err) }
 	return server.StartWithReady(ctx, config.HTTPServerAddress, func(net.Addr) {
 		log.Info().Dur("duration", time.Since(startedAt)).Msg("startup.ready")
 	})
