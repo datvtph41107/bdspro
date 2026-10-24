@@ -52,6 +52,16 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
+      # Only PRs compare existing migration history against the target branch.
+      # Checkout already contains the PR merge commit; fetch its base tree only.
+      - name: Protect migration history
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          sh scripts/check-migration-history.sh "$BASE_SHA" HEAD
+
       - name: Run migrations
         run: make migrateup
 
