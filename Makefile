@@ -1,6 +1,7 @@
 DB_URL ?= postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
+LOG_FORMAT ?= console
 
 .PHONY: network postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration db_docs db_schema sqlc mock proto fmt test server
 
@@ -48,7 +49,7 @@ test:
 	go test -v -cover ./...
 
 server:
-	go run main.go
+	LOG_FORMAT=$(LOG_FORMAT) go run main.go
 
 proto:
 	protoc -I proto \
