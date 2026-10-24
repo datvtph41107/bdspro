@@ -66,6 +66,7 @@ jobs:
         run: |
           go build ./...
           docker compose config --quiet
+          sh -n scripts/accept-g0.sh
 
       - name: Runtime smoke
         env:
