@@ -10,6 +10,7 @@ Quy chuẩn làm việc trên `dev` được thiết lập theo **Problem → In
 
 - [Core Ownership Matrix](docs/engineering/core-ownership.md): capability/data/execution/change ownership và các bất biến đã hiện diện trong source.
 - [Development & Change Contract](docs/engineering/development-contract.md): quy chuẩn tổ chức code, migration, test, review và nghiệm thu.
+- [ENG-GOV-02 — Workspace Guardrails](docs/engineering/workspace-guardrails.md): vòng làm việc chuẩn và kiểm tra CI chống sửa/xóa migration lịch sử.
 - [ADR-0001 — Bounded Shared Core](docs/engineering/decisions/0001-core-ownership.md): lý do không sao chép toàn bộ DRX Laravel hoặc Java DRWash.
 - [Request Lifecycle](docs/engineering/request-lifecycle.md): middleware thực tế của Gin HTTP. Pull request mới dùng [PR template](.github/PULL_REQUEST_TEMPLATE.md).
 
