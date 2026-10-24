@@ -51,11 +51,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("cannot load config: %w", err)
 	}
-	log.Logger = util.NewLogger(os.Stderr, config.Environment)
+	log.Logger = util.NewLogger(os.Stderr, config.LogFormat)
 	if os.Getenv(gin.EnvGinMode) == "" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	if config.Environment == "development" {
+	if config.LogFormat == "console" {
 		fmt.Fprint(os.Stderr, "\nBDS PRO / API\n\n")
 	}
 	log.Info().Str("environment", config.Environment).Msg("startup.begin")
@@ -134,7 +134,7 @@ func runTaskProcessor(
 	redisOpt asynq.RedisClientOpt,
 	store db.Store,
 ) error {
-	mailer := mail.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
+	mailer := mail.NewSMTPSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword, config.SMTPAddress, config.SMTPAuth)
 	taskProcessor := worker.NewRedisTaskProcessor(
 		redisOpt,
 		store,
@@ -280,6 +280,7 @@ func runGinServer(ctx context.Context, config util.Config, store db.Store, taskD
 		return err
 	}
 	if err := server.EnableAuthRateLimiting(redisClient); err != nil { return err }
+	if err := server.EnableGoogleOAuth(redisClient); err != nil { return fmt.Errorf("enable Google OAuth: %w", err) }
 	return server.StartWithReady(ctx, config.HTTPServerAddress, func(net.Addr) {
 		log.Info().Dur("duration", time.Since(startedAt)).Msg("startup.ready")
 	})
