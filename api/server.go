@@ -50,7 +50,6 @@ func (server *Server) setupRouter() {
 	// Direct Gin ingress: do not trust client-controlled forwarding headers.
 	// If deploying behind a proxy, configure its exact trusted addresses explicitly.
 	_ = router.SetTrustedProxies(nil)
-	router.Use(limitRequestBody())
 	// Generate a server-owned ID for each request; do not trust a client-supplied ID.
 	router.Use(func(ctx *gin.Context) {
 		requestID := uuid.NewString()
@@ -97,6 +96,9 @@ func (server *Server) setupRouter() {
 
 			ctx.AbortWithStatus(http.StatusInternalServerError)
 		}))
+
+	// Keep request correlation and access logs even when an oversized body is rejected.
+	router.Use(limitRequestBody())
 
 	router.GET("/health", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
