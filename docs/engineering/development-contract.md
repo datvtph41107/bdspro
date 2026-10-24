@@ -3,6 +3,7 @@
 **Phạm vi:** Mọi thay đổi mới dự kiến merge vào `dev`. Mục tiêu là ownership rõ, thay đổi tối thiểu, test có thể kiểm chứng; **không phải** thêm framework, interface hay quy trình phê duyệt máy móc.
 
 Đọc [Core Ownership Matrix](core-ownership.md) khi đụng nhiều module; đối chiếu [Request Lifecycle](request-lifecycle.md) khi thay đổi middleware và [G0 Runbook](../operations/g0-runtime-acceptance.md) khi tác động vận hành.
+Các cổng kiểm tra tự động và vòng làm việc với Git/CI được ghi tại [ENG-GOV-02 — Workspace Guardrails](workspace-guardrails.md).
 
 ## 1. Một vòng làm việc thống nhất
 

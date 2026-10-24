@@ -42,6 +42,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # PR guard compares base tree to merge commit
 
       - uses: actions/setup-go@v5
         with:
@@ -51,6 +53,16 @@ jobs:
         run: |
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      # Only PRs compare committed migration history against the PR base.
+      # Full checkout history makes the exact PR base commit available.
+      - name: Protect migration history
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git diff --check "$BASE_SHA" HEAD
+          sh scripts/check-migration-history.sh "$BASE_SHA" HEAD
 
       - name: Run migrations
         run: make migrateup
@@ -67,6 +79,7 @@ jobs:
           go build ./...
           docker compose config --quiet
           sh -n scripts/accept-g0.sh
+          sh -n scripts/check-migration-history.sh
 
       - name: Runtime smoke
         env:
