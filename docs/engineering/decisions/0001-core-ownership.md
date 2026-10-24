@@ -1,46 +1,46 @@
-# ADR-0001 — Own shared capabilities without rebuilding BDSPro as a framework
+# ADR-0001 — Sở hữu Core dùng chung mà không xây dựng thêm framework
 
-- **Decision:** Accepted when ENG-GOV-01 merges into `dev`
-- **Date:** 2026-10-24
-- **Scope:** Engineering governance only; no behavior, DB schema or Business Core change
+- **Quyết định:** Chấp nhận khi ENG-GOV-01 merge vào `dev`
+- **Ngày:** 24/10/2026
+- **Phạm vi:** Quy chuẩn Engineering; không thay đổi hành vi, DB schema hoặc triển khai Business Core
 
-## Context
+## Bối cảnh
 
-BDSPro's active runtime uses Go/Gin, PostgreSQL/sqlc, Redis/Asynq, HTTP handlers, `auth`, `token`, `worker` and `main.go`. The source already has working request admission, password/JWT sessions, organization SQL membership authorization, Google OIDC with configured credentials and development-only Phone OTP.
+BDSPro chạy Go/Gin, PostgreSQL/sqlc và Redis/Asynq. Source hiện có `api`, `auth`, `token`, `db/sqlc`, `worker`, `mail`, `main.go`, các route Authentication và Organization membership authorization.
 
-Two useful references have different strengths:
+Hai repository tham chiếu cung cấp hai hướng tổ chức:
 
-- DRX Laravel exposes `IPActive`, `PreLogin`, `AuthenticateUser` and `SufLogin` in route composition. In its existing code, `PreLogin` also verifies credentials, while `SufLogin` may change security/device/token state after downstream processing. BDSPro must preserve behavior-based names and not inherit those ambiguous boundaries.
-- Java DRWash separates Gradle `core` from `api`, `admin`, `store` and `IoT`. The shared `OrderCoreService` illustrates common domain ownership, but one large Core service can accumulate unrelated responsibilities. BDSPro has no demonstrated need for multiple Go modules or applications yet.
-- TechSchool SimpleBank helps keep Go and SQL execution paths direct and reviewable.
+- **DRX Laravel:** Middleware theo hành động (`IPActive`, `PreLogin`, `AuthenticateUser`, `SufLogin`). Tuy nhiên, trong source tham chiếu, `PreLogin` còn kiểm tra password, `SufLogin` có thể xử lý OTP/device và thay đổi token sau khi handler chạy. BDSPro chỉ kế thừa ngôn ngữ kỹ thuật khi trách nhiệm thực sự khớp tên gọi.
+- **Java DRWash:** Gradle module `core` được `api`, `admin`, `store`, `IoT` dùng chung. `OrderCoreService` minh họa shared domain ownership, nhưng Core quá lớn có thể gom những trách nhiệm không liên quan. BDSPro chưa có lý do chứng minh phải chia nhiều Go module/ứng dụng.
+- **SimpleBank:** Tinh thần viết Go, SQL và transaction trực tiếp, dễ đọc và kiểm chứng.
 
-The missing part was an explicit, team-readable contract for capability ownership, durable invariants and change acceptance. Adding architectural layers before business requirements are known would increase maintenance with no proven benefit.
+BDSPro đang thiếu contract thống nhất để developer xác định ownership, vị trí thực thi bất biến và tiêu chí nghiệm thu. Dựng thêm framework trước Business Core sẽ tăng độ phức tạp mà chưa có giá trị chứng minh được.
 
-## Decision
+## Quyết định
 
-1. **Adopt ownership by behavior and state**, not by a universal layer template. Maintain [Core Ownership Matrix](../core-ownership.md) and [Development Contract](../development-contract.md) against actual source.
-2. **Keep a single Go application/module** for current Gin HTTP + worker execution. No artificial `core`, `service`, `repository`, `adapter` hierarchy is mandated.
-3. Preserve existing explicit responsibilities: `api` handles HTTP/request policy, `auth` and `token` handle identity/session mechanisms, PostgreSQL SQL/constraints enforce persisted invariants and resource ownership, `worker`/`mail` handle async processing.
-4. **Prefer DB authorization predicates on mutations** when permission must be checked atomically with state change, rather than client roles or JWT-only owner flags.
-5. Create abstractions/interfaces only with a demonstrated shared use case, replaceable implementation, testing seam or real responsibility boundary. Existing interfaces are not removed merely to satisfy this guideline.
-6. Use a concise PR template. Do **not** invent personal ownership or add `CODEOWNERS` until concrete maintainers and review responsibilities are agreed.
-7. A passing CI run verifies the tested scope, **not** the user's WSL state, durable recovery, real provider delivery or production hardening.
+1. Ownership dựa trên **hành vi và trạng thái**, không dựa trên bộ khung package cố định. Dùng [Core Ownership Matrix](../core-ownership.md) và [Development Contract](../development-contract.md), cập nhật khi source thay đổi.
+2. **Giữ một Go application/module hiện tại** cho Gin HTTP và worker. Không bắt buộc tạo hierarchy `core/domain/repository/service/adapter`.
+3. `api` sở hữu HTTP và request policy; `auth`/`token` sở hữu danh tính và cơ chế session; SQL/constraints sở hữu bất biến persisted data và authorization trên resource; `worker`/`mail` xử lý async/delivery.
+4. Khi quyền phải nhất quán với mutation, ưu tiên predicate authorization ngay trong SQL/transaction, không mặc định tin role từ client hoặc gắn owner flag vào JWT.
+5. Chỉ bổ sung interface/abstraction khi có reuse thật, nhiều implementation, nhu cầu test hoặc ranh giới trách nhiệm rõ. Không loại bỏ interface hiện có chỉ để chứng minh nguyên tắc tối giản.
+6. Dùng PR template ngắn gọn. Không tự tạo `CODEOWNERS` khi chưa phân công maintainer và trách nhiệm review thực tế.
+7. CI xanh xác minh **phạm vi được test**, không đồng nghĩa WSL runtime, khả năng phục hồi data, provider thật hoặc production đã nghiệm thu.
 
-## Consequences and limits
+## Hệ quả
 
-**Benefits:** newcomers can locate the behavior to change, reviewers can trace invariants, and future business modules can consume common identity and organization capabilities without copying the authentication system.
+**Lợi ích:** developer tìm đúng nơi sửa code, reviewer truy ra invariant, và Business Core tương lai dùng được Identity/Organization chung mà không tạo hệ thống authentication riêng.
 
-**Costs:** the ownership matrix must be maintained when source changes. A current simple operation may legitimately call a Store from an HTTP handler; no forced service layer means discipline comes from review and tests.
+**Chi phí:** ma trận ownership cần được giữ đúng với source, discipline phụ thuộc vào review và test. Một handler đơn giản gọi Store trực tiếp vẫn có thể là đúng; không có service layer cưỡng bức để che giấu độ phức tạp.
 
-**Not resolved by this ADR:** G0 WSL acceptance, PostgreSQL–Redis atomic handoff, email-verified account policy, real Google/SMS production E2E, full Business Core modeling.
+**Chưa giải quyết:** G0 WSL, atomic PG–Redis handoff, chính sách unverified email, Google/SMS production E2E và mô hình Business Core.
 
-## Reconsider when
+## Điều kiện xem xét lại
 
-Revisit only after at least one concrete pressure appears: two independent entrypoints need the same business rules, a package has conflicting owners, repeated code creates observable defects, or deployment/runtime isolation provides measurable benefit. Record the change, its tradeoffs and the migration path before introducing extra modules.
+Chỉ mở quyết định khi xuất hiện nhu cầu cụ thể: hai entrypoint phải dùng chung quy tắc nghiệp vụ, package có owner xung đột, code lặp gây lỗi, hoặc tách deployment có lợi ích đo được. Phải mô tả tác động, phương án chuyển đổi và bằng chứng trước khi tách module.
 
-## Alternatives deliberately not chosen
+## Các phương án không chọn
 
-- **Copy Laravel DRX middleware semantics:** mixes credential checks and post-response token/OTP changes in ways not suited to BDSPro's current trust boundaries.
-- **Copy Java DRWash's multi-module Core:** adds packaging/integration costs without a second BDSPro application.
-- **Introduce a universal Clean Architecture skeleton:** forces interfaces and service layers before they own a real invariant.
-- **Leave ownership implicit:** makes onboarding/review inconsistent and permits unauthorized duplication of identity/session logic.
+- **Sao chép DRX middleware:** có thể trộn xác minh credential với xử lý OTP/token sau controller.
+- **Sao chép multi-module DRWash:** tăng phụ thuộc/build khi BDSPro chưa có ứng dụng thứ hai cần chia sẻ.
+- **Tạo Clean Architecture skeleton cho mọi CRUD:** buộc interface/service trước khi có trách nhiệm thật.
+- **Để ownership ngầm định:** developer dễ định nghĩa lại session, policy hoặc quyền ở những nơi khác nhau.
