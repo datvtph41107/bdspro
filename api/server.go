@@ -13,6 +13,7 @@ import (
 	"github.com/datvtph41107/bdspro/util"
 	"github.com/datvtph41107/bdspro/worker"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog/log"
@@ -24,6 +25,7 @@ type Server struct {
 	taskDistributor worker.TaskDistributor
 	tokenMaker      token.Maker
 	router          *gin.Engine
+	authRateRedis   *redis.Client
 }
 
 func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) (*Server, error) {
@@ -36,8 +38,19 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 	return server, nil
 }
 
+// EnableAuthRateLimiting must be called before Start. Redis outages reject auth requests.
+func (server *Server) EnableAuthRateLimiting(client *redis.Client) error {
+	if client == nil { return errors.New("authentication rate limiter requires Redis") }
+	server.authRateRedis = client
+	return nil
+}
+
 func (server *Server) setupRouter() {
 	router := gin.New()
+	// Direct Gin ingress: do not trust client-controlled forwarding headers.
+	// If deploying behind a proxy, configure its exact trusted addresses explicitly.
+	_ = router.SetTrustedProxies(nil)
+	router.Use(limitRequestBody())
 	// Generate a server-owned ID for each request; do not trust a client-supplied ID.
 	router.Use(func(ctx *gin.Context) {
 		requestID := uuid.NewString()
@@ -138,6 +151,10 @@ func (server *Server) StartWithReady(ctx context.Context, address string, onList
 	httpServer := &http.Server{
 		Handler:           server.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 << 10,
 	}
 	errorsCh := make(chan error, 1)
 	go func() {
