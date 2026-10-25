@@ -110,3 +110,5 @@ Một Developer thêm một hành vi mới áp dụng quy trình **Business Cont
 - Không chạy destructive operation hoặc reset volume development để tạo evidence. Dữ liệu integration được tạo trong CI disposable PostgreSQL.
 
 **Decision:** giữ source hiện hành, dùng business vertical-slice test và contract này làm mẫu thực tế; chưa xây Product/Property/Listing module hoặc "Business Framework" cho đến khi một use case có actor/resource/rule được phê duyệt.
+
+**Chặng nối tiếp:** [BIZ-02 — Actor, Authority, Ownership & Resource Lifecycle](business-ownership-resource-lifecycle.md) phân tích ranh giới Account–Person–Organization, quyền quản trị khác quyền sở hữu pháp lý và DB integrity tests tương ứng.
