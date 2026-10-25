@@ -18,6 +18,7 @@ Quy chuẩn làm việc trên `dev` được thiết lập theo **Problem → In
 - [ARC-03 — Request Admission Evidence](docs/engineering/arc-03-request-admission-evidence.md): kiểm chứng hành vi IPActive theo malformed request, identity quota và concurrency trước khi cân nhắc thư viện mới.
 - [ENG-GOV-03 — Formula Catalog](docs/engineering/capability-formula-catalog.md): 3 context, 18 công thức/mô hình ra quyết định, phạm vi reuse và evidence.
 - [ENG-GOV-03 — Capability Workbook](docs/engineering/capability-workbook.md): mẫu Platform × Domain áp dụng vào Register/Asynq và ví dụ Calculation/Pricing chưa triển khai.
+- [BIZ-01 — Business Capability Lifecycle](docs/engineering/business-capability-lifecycle.md): actor/action/resource, SQL ownership và một Organization vertical-slice test xuyên HTTP/JWT/PostgreSQL.
 
 ENG-GOV-01 là **quy chuẩn phối hợp developer và review**, không phải triển khai Business Core, không thay đổi runtime và không tự động bổ nhiệm GitHub code owners. CI xanh không đồng nghĩa đã nghiệm thu WSL hoặc production.
 
