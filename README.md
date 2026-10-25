@@ -25,6 +25,7 @@ Quy chuẩn làm việc trên `dev` được thiết lập theo **Problem → In
 - [ENG-CORE-06 — Application Operation & Module Boundary](docs/engineering/application-operation-boundary.md): phân định handler, Organization use-case orchestration và PostgreSQL data owner dựa trên source thực tế.
 - [ENG-CORE-07 — Dependency & Module Ownership](docs/engineering/dependency-module-ownership.md): tách verification intent khỏi worker/Asynq, bảo vệ chiều phụ thuộc application → infrastructure bằng test.
 - [ENG-CORE-08 — Session Integrity & Lifecycle](docs/engineering/session-integrity-lifecycle.md): kiểm chứng IssueSession dùng chung, Renew/Revoke, context và thất bại Phone OTP.
+- [ENG-CORE-09 — Feature Delivery Standard](docs/engineering/feature-delivery-standard.md): quy trình viết một API từ business contract đến route/SQL/evidence, kiểm chứng bằng hai API mẫu có thật.
 
 ENG-GOV-01 là **quy chuẩn phối hợp developer và review**, không phải triển khai Business Core, không thay đổi runtime và không tự động bổ nhiệm GitHub code owners. CI xanh không đồng nghĩa đã nghiệm thu WSL hoặc production.
 
