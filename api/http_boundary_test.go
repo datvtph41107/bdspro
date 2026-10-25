@@ -31,7 +31,8 @@ func TestHTTPBoundaryCORSWrapsGin(t *testing.T) {
 		req := httptest.NewRequest(http.MethodOptions, "/users/login", nil)
 		req.Header.Set("Origin", "http://localhost:3000")
 		req.Header.Set("Access-Control-Request-Method", http.MethodPost)
-		req.Header.Set("Access-Control-Request-Headers", "Content-Type")
+		// Fetch-compliant browsers send lowercase names in this header.
+		req.Header.Set("Access-Control-Request-Headers", "content-type")
 		res := httptest.NewRecorder()
 
 		handler.ServeHTTP(res, req)
