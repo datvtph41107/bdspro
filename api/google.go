@@ -153,7 +153,7 @@ func (g *googleOAuthFlow) callback(ctx *gin.Context) {
  accountID,err:=g.server.store.GetGoogleAccountID(ctx.Request.Context(),subject)
  if errors.Is(err,pgx.ErrNoRows) {ctx.JSON(http.StatusUnauthorized,gin.H{"error":"Google identity not linked"});return}
  if err!=nil {ctx.JSON(http.StatusInternalServerError,gin.H{"error":"login failed"});return}
- account,err:=g.server.store.GetAccountByID(ctx,accountID)
+ account,err:=g.server.store.GetAccountByID(ctx.Request.Context(),accountID)
  if err!=nil {ctx.JSON(http.StatusUnauthorized,gin.H{"error":"account unavailable"});return}
  result,err:=auth.IssueSession(ctx.Request.Context(),g.server.store,g.server.tokenMaker,g.server.config,account,ctx.Request.UserAgent(),ctx.ClientIP())
  if err!=nil {ctx.JSON(http.StatusInternalServerError,gin.H{"error":"login failed"});return}
