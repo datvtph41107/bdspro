@@ -75,7 +75,8 @@ func TestRegisterTxRedisTaskPersistsAcrossPostgresRollback(t *testing.T) {
 			})
 			if tc.abort {
 				require.ErrorIs(t, err, abortAfterEnqueue)
-				require.Zero(t, created.ID)
+				require.Equal(t, inserted.ID, created.ID,
+					"RegisterTx can return an uncommitted generated account ID together with an error")
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, inserted.ID, created.ID)
