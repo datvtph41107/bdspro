@@ -16,7 +16,7 @@ type verifyEmailRequest struct {
 
 func (server *Server) verifyEmail(ctx *gin.Context) {
 	req := verifyEmailInput(ctx)
-	_, err := server.store.VerifyEmailTx(ctx, db.ConsumeVerifyEmailParams{
+	_, err := server.store.VerifyEmailTx(ctx.Request.Context(), db.ConsumeVerifyEmailParams{
 		ID: req.EmailID, SecretCode: req.SecretCode,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
