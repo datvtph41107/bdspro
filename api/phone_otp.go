@@ -24,21 +24,15 @@ type phoneStartRequest struct {
 }
 const phoneInputContext="phone.input"
 
-func PrePhoneBind() gin.HandlerFunc {return func(ctx *gin.Context){
-    var input phoneBindRequest
-    if err:=ctx.ShouldBindJSON(&input);err!=nil{invalidJSON(ctx,err);ctx.Abort();return}
-    ctx.Set(phoneInputContext,input);ctx.Next()
-}}
-func PrePhoneVerify() gin.HandlerFunc {return func(ctx *gin.Context){
-    var input phoneVerifyRequest
-    if err:=ctx.ShouldBindJSON(&input);err!=nil{invalidJSON(ctx,err);ctx.Abort();return}
-    ctx.Set(phoneInputContext,input);ctx.Next()
-}}
-func PrePhoneLoginStart() gin.HandlerFunc {return func(ctx *gin.Context){
-    var input phoneStartRequest
-    if err:=ctx.ShouldBindJSON(&input);err!=nil{invalidJSON(ctx,err);ctx.Abort();return}
-    ctx.Set(phoneInputContext,input);ctx.Next()
-}}
+func PrePhoneBind() gin.HandlerFunc {
+    return preJSON[phoneBindRequest](phoneInputContext)
+}
+func PrePhoneVerify() gin.HandlerFunc {
+    return preJSON[phoneVerifyRequest](phoneInputContext)
+}
+func PrePhoneLoginStart() gin.HandlerFunc {
+    return preJSON[phoneStartRequest](phoneInputContext)
+}
 func phoneBindIdentity(ctx *gin.Context)string{return ctx.MustGet(phoneInputContext).(phoneBindRequest).Phone}
 func phoneVerifyIdentity(ctx *gin.Context)string{return ctx.MustGet(phoneInputContext).(phoneVerifyRequest).Phone}
 func phoneStartIdentity(ctx *gin.Context)string{return ctx.MustGet(phoneInputContext).(phoneStartRequest).Phone}
