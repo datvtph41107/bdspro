@@ -14,6 +14,7 @@ Quy chuẩn làm việc trên `dev` được thiết lập theo **Problem → In
 - [ADR-0001 — Bounded Shared Core](docs/engineering/decisions/0001-core-ownership.md): lý do không sao chép toàn bộ DRX Laravel hoặc Java DRWash.
 - [Request Lifecycle](docs/engineering/request-lifecycle.md): middleware thực tế của Gin HTTP. Pull request mới dùng [PR template](.github/PULL_REQUEST_TEMPLATE.md).
 - [ARC-01 — Network, Edge & HTTP Ingress](docs/engineering/arc-01-network-http-ingress.md): phân định TCP/Docker, HTTP Server, CORS, Gin, trusted IP và giới hạn bảo vệ trước IPActive.
+- [ARC-02 — HTTP Runtime & Application Ingress](docs/engineering/arc-02-http-runtime-ingress.md): lifecycle HTTP/Gin, request cancellation, resource budgeting và test ranh giới.
 
 ENG-GOV-01 là **quy chuẩn phối hợp developer và review**, không phải triển khai Business Core, không thay đổi runtime và không tự động bổ nhiệm GitHub code owners. CI xanh không đồng nghĩa đã nghiệm thu WSL hoặc production.
 
