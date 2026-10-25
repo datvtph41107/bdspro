@@ -15,7 +15,7 @@
 | `organization` | db/sqlc | Account → Person → Organization use cases |
 | `worker` | db/sqlc, mail, util, Asynq | Task enqueue/processor và execution policy |
 | `db/sqlc` | PostgreSQL/pgx/sqlc | Queries, transaction, data invariants |
-| `gapi` | db/sqlc, token, worker, protobuf | RPC transport (retained, not refactored here) |
+| `gapi` | auth, db/sqlc, token, worker, protobuf | RPC Register dùng cùng verification scheduling port như HTTP |
 
 **Source-backed issue:** `auth.Register` trực tiếp gọi `worker.TaskDistributor.DistributeTaskSendVerifyEmail` với `worker.PayloadSendVerifyEmail` và Asynq options `MaxRetry(10)`, `ProcessIn(10s)`, `Queue(worker.QueueCritical)`. Đây là chi tiết runtime queue đang nằm trong application auth.
 
@@ -43,7 +43,7 @@ func (s VerificationScheduler) ScheduleVerifyEmail(ctx context.Context, accountI
 }
 ```
 
-**Composition:** `api.NewServer` vẫn nhận `worker.TaskDistributor` như trước, tạo `worker.NewVerificationScheduler(distributor)` **một lần** và truyền nó cho `auth.Register`. `worker.TaskDistributor`, `worker/mock` generated mocks, request/response và SQL không phải thay đổi. `gapi` không bị refactor vì source chưa chứng minh nó cần operation này.
+**Composition:** Cả `api.NewServer` và `gapi.NewServer` vẫn nhận `worker.TaskDistributor` như trước, mỗi transport tạo `worker.NewVerificationScheduler(distributor)` **một lần** rồi truyền port cho `auth.Register`. `gapi/rpc_register_user.go::Register` thực sự gọi `auth.Register`, vì vậy HTTP và gRPC cùng tái sử dụng operation và scheduling intent. Generated mocks, request/response, SQL và migrations không thay đổi.
 
 ### Không thay đổi các bảo đảm hiện hành
 
@@ -75,7 +75,7 @@ Không suy luận rằng mọi use case phải có interface: `organization.Crea
 ## 5. Future decisions / không làm
 
 - Chưa tách `db.Store` thành hàng loạt interfaces vì chưa có bằng chứng giảm coupling; generated SQLC/MockGen Store đang là contract hiện hành.
-- Chưa xóa gRPC/gateway chỉ vì `main.run` đang ưu tiên Gin; đó là một workstream scope riêng.
+- Không xóa gRPC/gateway chỉ vì `main.run` đang ưu tiên Gin; đã kiểm tra composition của gRPC Register nhưng chưa tuyên bố gRPC end-to-end.
 - Chưa đưa `auth` vào vendor-agnostic architecture ngoài scheduling: JWT/PG vẫn là dependency có chủ ý của authentication hiện tại.
 - Khi thêm event/effect mới, yêu cầu xác định **intent owner → execution adapter → transaction/delivery guarantee → failure tests** trước khi tạo contract.
 
