@@ -7,6 +7,7 @@ Các cổng kiểm tra tự động và vòng làm việc với Git/CI được 
 Khi thiết kế một capability có runtime/worker/calculation/reuse, dùng [ENG-GOV-03 — Formula Catalog](capability-formula-catalog.md) để phân biệt cơ chế, contract, policy, failure; [Capability Workbook](capability-workbook.md) có mẫu Platform × Domain và trường hợp Register/Asynq. Các công thức là công cụ phân tích, **không tạo thêm gate bắt buộc cho thay đổi đơn giản**.
 Khi thêm/chỉnh API, tham khảo [ENG-CORE-04 — Application Foundation](application-foundation.md): lấy actor đã xác minh, typed request, response session, request context, SQL ownership và tiêu chí tách package core; không ép mọi route tạo service/repository mới.
 Với route params và lỗi dữ liệu, xem [ENG-CORE-05 — API Contract & Error Semantics](api-contract-error-semantics.md): chỉ dùng chung parser/driver-error recognition, còn HTTP status, bảo mật thông điệp và business conflict do operation sở hữu.
+Khi handler phối hợp nhiều bước nghiệp vụ hoặc lặp Account→Person mapping, xem [ENG-CORE-06 — Application Operation & Module Boundary](application-operation-boundary.md) để quyết định có module application riêng hay giữ handler→Store trực tiếp.
 
 ## 1. Một vòng làm việc thống nhất
 

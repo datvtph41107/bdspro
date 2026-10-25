@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	db "github.com/datvtph41107/bdspro/db/sqlc"
+	orgapp "github.com/datvtph41107/bdspro/organization"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -27,14 +28,7 @@ func (server *Server) createOrganization(ctx *gin.Context) {
 		return
 	}
 	actorAccountID := authenticatedAccountID(ctx)
-	account, err := server.store.GetAccountByID(ctx.Request.Context(), actorAccountID)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "create organization failed"})
-		return
-	}
-	organization, err := server.store.CreateOrganizationTx(ctx.Request.Context(), db.CreateOrganizationTxParams{
-		Name: name, OwnerPersonID: account.PersonID,
-	})
+	organization, err := orgapp.CreateForAccount(ctx.Request.Context(), server.store, actorAccountID, name)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "create organization failed"})
 		return
@@ -44,12 +38,7 @@ func (server *Server) createOrganization(ctx *gin.Context) {
 
 func (server *Server) listOrganizations(ctx *gin.Context) {
 	actorAccountID := authenticatedAccountID(ctx)
-	account, err := server.store.GetAccountByID(ctx.Request.Context(), actorAccountID)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "list organizations failed"})
-		return
-	}
-	organizations, err := server.store.ListOrganizationsForPerson(ctx.Request.Context(), account.PersonID)
+	organizations, err := orgapp.ListForAccount(ctx.Request.Context(), server.store, actorAccountID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "list organizations failed"})
 		return

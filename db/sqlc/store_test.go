@@ -27,15 +27,13 @@ func TestRegisterTx(t *testing.T) {
 		account.PersonID).Scan(&personExists))
 	require.True(t, personExists)
 
-	var partiesBefore int
-	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&partiesBefore))
+	// Assert the business key, not the global count of parties shared by
+	// other test packages running against the same disposable database.
 	_, err = NewStore(pool).RegisterTx(ctx, RegisterTxParams{
 		Email: email, PasswordHash: "different",
 	})
 	require.Error(t, err)
-	var partiesAfter, count int
-	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&partiesAfter))
-	require.Equal(t, partiesBefore, partiesAfter, "duplicate registration must roll back the inserted Party")
+	var count int
 	require.NoError(t, pool.QueryRow(ctx,
 		"SELECT count(*) FROM accounts WHERE email=$1", email).Scan(&count))
 	require.Equal(t, 1, count)
@@ -45,22 +43,37 @@ func TestRegisterTxEnqueueFailureRollsBack(t *testing.T) {
 	pool := openTestDB(t)
 	ctx := context.Background()
 	email := uuid.NewString() + "@example.test"
-	var before int
-	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&before))
-
+	var insertedPersonID, insertedAccountID int64
 	_, err := NewStore(pool).RegisterTx(ctx, RegisterTxParams{
 		Email:        email,
 		PasswordHash: "hash",
 		AfterCreate: func(account Account) error {
 			require.NotZero(t, account.ID)
+			require.NotZero(t, account.PersonID)
+			insertedAccountID = account.ID
+			insertedPersonID = account.PersonID
 			return errors.New("queue unavailable")
 		},
 	})
 	require.EqualError(t, err, "queue unavailable")
+	require.NotZero(t, insertedAccountID)
+	require.NotZero(t, insertedPersonID)
 
-	var after int
-	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&after))
-	require.Equal(t, before, after)
+	// These exact IDs were created inside the aborted transaction.
+	// Other packages may insert parties concurrently; global counts are
+	// not evidence that this transaction committed or rolled back.
+	for _, tc := range []struct {
+		query string
+		id    int64
+	}{
+		{"SELECT count(*) FROM parties WHERE id=$1", insertedPersonID},
+		{"SELECT count(*) FROM persons WHERE party_id=$1", insertedPersonID},
+		{"SELECT count(*) FROM accounts WHERE id=$1", insertedAccountID},
+	} {
+		var count int
+		require.NoError(t, pool.QueryRow(ctx, tc.query, tc.id).Scan(&count))
+		require.Zero(t, count, tc.query)
+	}
 }
 
 func TestGetOrCreateVerifyEmailTxReusesActiveRecord(t *testing.T) {
