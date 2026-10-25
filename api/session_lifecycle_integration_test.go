@@ -54,7 +54,7 @@ func TestSessionIssueRenewRevokeLifecycleWithPostgres(t *testing.T) {
 	require.False(t, stored.IsBlocked)
 	require.Equal(t, account.ID, stored.AccountID)
 	require.Equal(t, result.RefreshToken, stored.RefreshToken)
-	require.Equal(t, result.RefreshExpiresAt, stored.ExpiresAt)
+	require.WithinDuration(t, result.RefreshExpiresAt, stored.ExpiresAt, time.Microsecond, "PostgreSQL stores timestamps at microsecond precision")
 	refreshPayload, err := server.tokenMaker.VerifyToken(result.RefreshToken, token.TokenTypeRefresh)
 	require.NoError(t, err)
 	require.Equal(t, stored.ID, refreshPayload.ID)
