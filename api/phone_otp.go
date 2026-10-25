@@ -8,7 +8,6 @@ import (
     "github.com/datvtph41107/bdspro/auth"
     db "github.com/datvtph41107/bdspro/db/sqlc"
     "github.com/gin-gonic/gin"
-    "github.com/jackc/pgx/v5/pgconn"
 )
 
 type phoneBindRequest struct {
@@ -95,8 +94,7 @@ func (server *Server) verifyPhoneBind(ctx *gin.Context) {
     case err==nil:ctx.Status(http.StatusNoContent)
     case errors.Is(err,db.ErrOTPInvalid):ctx.JSON(http.StatusUnauthorized,gin.H{"error":"invalid or expired code"})
     default:
-        var pgErr *pgconn.PgError
-        if errors.As(err,&pgErr)&&pgErr.Code=="23505" {ctx.JSON(http.StatusConflict,gin.H{"error":"phone unavailable"});return}
+        if pgErr := postgresError(err); pgErr != nil && pgErr.Code=="23505" {ctx.JSON(http.StatusConflict,gin.H{"error":"phone unavailable"});return}
         ctx.JSON(http.StatusInternalServerError,gin.H{"error":"phone verification failed"})
     }
 }

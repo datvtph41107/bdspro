@@ -3,13 +3,11 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -64,8 +62,8 @@ type addOrganizationMemberRequest struct {
 }
 
 func (server *Server) addOrganizationMember(ctx *gin.Context) {
-	organizationID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
-	if err != nil || organizationID <= 0 {
+	organizationID, validID := positiveInt64Param(ctx, "id")
+	if !validID {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization"})
 		return
 	}
@@ -85,8 +83,7 @@ func (server *Server) addOrganizationMember(ctx *gin.Context) {
 		return
 	}
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
+		if pgErr := postgresError(err); pgErr != nil {
 			if pgErr.Code == "23505" {
 				ctx.JSON(http.StatusConflict, gin.H{"error": "membership already exists"})
 				return
@@ -107,8 +104,8 @@ type updateOrganizationRequest struct {
 }
 
 func (server *Server) updateOrganization(ctx *gin.Context) {
-	organizationID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
-	if err != nil || organizationID <= 0 {
+	organizationID, validID := positiveInt64Param(ctx, "id")
+	if !validID {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid organization"})
 		return
 	}

@@ -21,6 +21,7 @@ Quy chuẩn làm việc trên `dev` được thiết lập theo **Problem → In
 - [BIZ-01 — Business Capability Lifecycle](docs/engineering/business-capability-lifecycle.md): actor/action/resource, SQL ownership và một Organization vertical-slice test xuyên HTTP/JWT/PostgreSQL.
 - [BIZ-02 — Ownership & Resource Lifecycle](docs/engineering/business-ownership-resource-lifecycle.md): phân biệt Account/Person/Organization/membership authority với quyền sở hữu tài sản; DB tests về rollback và concurrency.
 - [ENG-CORE-04 — Application Foundation](docs/engineering/application-foundation.md): hợp đồng viết API lặp lại, authenticated actor, session response dùng chung và request context lifecycle.
+- [ENG-CORE-05 — API Contract & Error Semantics](docs/engineering/api-contract-error-semantics.md): resource ID parser, PostgreSQL error recognition và giữ nguyên business-specific HTTP mapping.
 
 ENG-GOV-01 là **quy chuẩn phối hợp developer và review**, không phải triển khai Business Core, không thay đổi runtime và không tự động bổ nhiệm GitHub code owners. CI xanh không đồng nghĩa đã nghiệm thu WSL hoặc production.
 
