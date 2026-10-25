@@ -22,4 +22,4 @@
 - **Rủi ro còn lại / ngoài phạm vi:** <!-- nhất là data, volume, external providers -->
 - **Người review và quyết định:** <!-- tên reviewer thực tế nếu đã được chỉ định -->
 
-Đối chiếu [Core Ownership Matrix](../docs/engineering/core-ownership.md) và [Development Contract](../docs/engineering/development-contract.md). Không tuyên bố WSL, provider E2E hoặc khả năng recovery đã nghiệm thu chỉ dựa trên CI.
+Đối chiếu [Core Ownership Matrix](../docs/engineering/core-ownership.md) và [Development Contract](../docs/engineering/development-contract.md). Với thay đổi API, tham khảo [ENG-CORE-09 — Feature Delivery Standard](../docs/engineering/feature-delivery-standard.md) để đối chiếu route, actor, SQL owner và evidence; không phải checklist bắt buộc cho PR nhỏ. Không tuyên bố WSL, provider E2E hoặc khả năng recovery đã nghiệm thu chỉ dựa trên CI.
