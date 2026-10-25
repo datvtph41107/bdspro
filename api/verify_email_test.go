@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -44,4 +45,31 @@ func TestVerifyEmailBadRequest(t *testing.T) {
 	w := httptest.NewRecorder()
 	server.router.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+type verifyEmailRequestScopeKey struct{}
+
+// The HTTP request's cancellation and values must reach the PG transaction.
+// Passing Gin *Context directly instead of ctx.Request.Context() loses this
+// contract even though Gin may satisfy context.Context structurally.
+func TestVerifyEmailForwardsHTTPRequestContext(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := mockdb.NewMockStore(ctrl)
+	ctx, cancel := context.WithCancel(context.WithValue(
+		context.Background(), verifyEmailRequestScopeKey{}, "verification-request",
+	))
+	defer cancel()
+	store.EXPECT().VerifyEmailTx(gomock.Any(), db.ConsumeVerifyEmailParams{
+		ID: 15, SecretCode: "secret",
+	}).DoAndReturn(func(actual context.Context, _ db.ConsumeVerifyEmailParams) (db.Account, error) {
+		require.Equal(t, "verification-request", actual.Value(verifyEmailRequestScopeKey{}))
+		require.Equal(t, ctx.Done(), actual.Done())
+		return db.Account{IsEmailVerified: true}, nil
+	})
+	server := newTestServer(t, store)
+	req := httptest.NewRequest(http.MethodGet,
+		"/users/verify_email?email_id=15&secret_code=secret", nil).WithContext(ctx)
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 }
