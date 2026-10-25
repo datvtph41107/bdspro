@@ -1,14 +1,12 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type createUserRequest struct {
@@ -34,8 +32,7 @@ func (server *Server) createUser(ctx *gin.Context) {
 	req := registerInput(ctx)
 	account, err := auth.Register(ctx.Request.Context(), server.store, server.taskDistributor, req.Email, req.Password)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
+		if pgErr := postgresError(err); pgErr != nil && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "email already registered"})
 			return
 		}
