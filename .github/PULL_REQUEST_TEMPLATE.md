@@ -12,6 +12,7 @@
 ## Implementation / Scope
 
 <!-- Vì sao đây là thay đổi nhỏ nhất hợp lý? Nếu thêm interface/package/migration, lý do cụ thể? -->
+<!-- Nếu tạo capability/abstraction: contract, runtime owner, domain invariant, reuse boundary, retry/rollback; xem docs/engineering/capability-workbook.md. Không bắt buộc cho thay đổi nhỏ. -->
 
 ## Evidence / Acceptance
 
