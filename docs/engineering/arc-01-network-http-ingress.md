@@ -103,6 +103,7 @@ Khi đó nếu giữ `SetTrustedProxies(nil)`, mọi client phía sau một prox
 - Request browser cross-origin cần CORS hợp lệ để JS đọc response.
 - HTTP client không bị xác thực hoặc phân quyền chỉ nhờ CORS; non-browser có thể tự gửi `Origin`.
 - Preflight `OPTIONS` được thư viện CORS xử lý **trước** Gin. Những request như vậy có thể không đi qua `RequestMonitor` hoặc nhận server-generated `X-Request-ID` như các Gin request bình thường.
+- Khi kiểm thử preflight có `Access-Control-Request-Headers`, sử dụng tên header **chữ thường** như trình duyệt tuân thủ Fetch gửi (ví dụ `content-type`). Thư viện `rs/cors` hiện đối chiếu danh sách header dạng lowercase; việc mô phỏng `Content-Type` bằng chữ hoa có thể tạo phản hồi không chứa CORS allow headers, dù status là `204`.
 - Không dùng CORS như cơ chế thay thế `Authenticate`, `Authorize` hoặc `IPActive`.
 
 ## 6. Security & failure boundary
