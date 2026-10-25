@@ -69,6 +69,7 @@ jobs:
 
       - name: Run tests
         env:
+          ARC02_CANCEL_TEST_DB_URL: postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
           REDIS_TEST_ADDRESS: 127.0.0.1:6379
           MAILPIT_API_URL: http://127.0.0.1:8025
           MAILPIT_SMTP_ADDRESS: 127.0.0.1:1025
@@ -115,6 +116,7 @@ jobs:
 
       - name: Race detector
         env:
+          ARC02_CANCEL_TEST_DB_URL: postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
           REDIS_TEST_ADDRESS: 127.0.0.1:6379
           MAILPIT_API_URL: http://127.0.0.1:8025
           MAILPIT_SMTP_ADDRESS: 127.0.0.1:1025

@@ -156,6 +156,28 @@ Không dựng `httpcore`, `BaseHandler`, `RequestPipeline` hoặc interface mớ
 - **ARC-04:** Authentication & Authorization (identity ≠ quyền tài nguyên).
 - **ARC-05+:** Application/Transaction, Async, Observability và Operations; Business Core chưa triển khai.
 
+## 11. Integration gate — Hủy HTTP khi PostgreSQL đang chạy
+
+**Problem / failure mode:** Trước PR ARC-02, một số Organization/Token handler truyền `*gin.Context` trực tiếp cho Store. Gin chưa bật `ContextWithFallback`, vì vậy cancellation của HTTP request không được bảo đảm tới `pgx`. Spy test chứng minh đường truyền context, nhưng không chứng minh hủy *I/O PostgreSQL đang chạy*.
+
+**Biện pháp nhỏ nhất:** Không thêm service/middleware/deadline mới. Bổ sung `api/postgres_cancellation_integration_test.go` để quan sát luồng hiện có: một TCP HTTP request thật → `POST /organizations` → `Authenticate` → Organization handler → Store spy → `pgxpool` → PostgreSQL thật. Store spy chỉ thay thế lần gọi `GetAccountByID` bằng `SELECT 1 FROM pg_sleep(8)`, không thay đổi các handler production, không tạo Party/Account/Organization.
+
+**Điều kiện an toàn:** Bài test **chỉ chạy trong GitHub Actions** khi có `ARC02_CANCEL_TEST_DB_URL`. DSN phải chỉ tới `127.0.0.1:5432/bdspro` của service PostgreSQL disposable CI. Thiếu điều kiện thì skip; không dùng DB/volume WSL. Workflow cấp DSN riêng cho `Run tests` và `Race detector`. Truy vấn test chỉ SELECT, không thay dữ liệu.
+
+**Các bằng chứng độc lập cần cùng đạt:**
+
+1. TCP request đến handler đã xác thực và làm Store thực sự gửi `pg_sleep(8)`.
+2. Query đang chạy được xác nhận trong `pg_stat_activity` tại backend PID của connection, **trước lúc hủy HTTP**.
+3. Client hủy `context` của HTTP request.
+4. Truy vấn pgx kết thúc bằng error dưới 3 giây sau hủy, không đợi đủ 8 giây.
+5. Client trả về cancellation error và query đó không còn active tại backend PID quan sát được.
+
+**Counterfactual:** Nếu Store nhận `*gin.Context` không chuyển request cancellation, phép thử sẽ không kết thúc truy vấn trong giới hạn 3 giây (hoặc thất bại ở một invariant khác). Điều đó giúp test bắt regression đúng ranh giới HTTP → DB thay vì chỉ kiểm tra getter/context value.
+
+**Giới hạn của bằng chứng:** Store spy chạy **truy vấn SELECT thử nghiệm**, không phải một lệnh SQLC nghiệp vụ thật; không đo throughput, connection-reuse, isolation/rollback cho giao dịch có ghi, hoặc tác động WSL production. `pgx` có thể đóng connection hỏng/hủy thay vì giữ lại để reuse. Từ một test cancellation không được suy ra mọi PostgreSQL operation của toàn hệ thống đều có budget hợp lệ.
+
+**Acceptance:** PR phải có Go tests, test integration, build/Compose validation, smoke, `go vet`, race detector đều thành công. Lưu link CI run khi chốt nghiệm thu; không tuyên bố đã nghiệm thu trước khi CI hoàn tất.
+
 ## Tài liệu tham chiếu
 
 - Go `http.Server`, `Request.Context`, `MaxBytesReader`: https://pkg.go.dev/net/http
