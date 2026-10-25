@@ -15,6 +15,7 @@ import (
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
 	"github.com/google/uuid"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -106,4 +107,37 @@ func TestPasswordLoginPropagatesHTTPRequestContext(t *testing.T) {
 	rec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+}
+
+func TestSharedPreJSONBindingKeepsTypedInputAndAbortsBadRequests(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	reached := 0
+	router.POST("/test/login", PreLogin(), func(ctx *gin.Context) {
+		reached++
+		req := loginInput(ctx)
+		require.Equal(t, "one@example.test", req.Email)
+		require.Equal(t, "strong-password", req.Password)
+		ctx.Status(http.StatusNoContent)
+	})
+
+	for _, body := range []string{
+		"{bad",
+		`{"email":"one@example.test"}`,
+	} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/test/login", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(w, req)
+		require.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
+		require.Zero(t, reached, "an invalid body must not reach the next handler")
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/test/login",
+		strings.NewReader(`{"email":"one@example.test","password":"strong-password"}`))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
+	require.Equal(t, 1, reached)
 }
