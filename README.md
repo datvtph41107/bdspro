@@ -26,7 +26,7 @@ Quy chuẩn làm việc trên `dev` được thiết lập theo **Problem → In
 - [ENG-CORE-07 — Dependency & Module Ownership](docs/engineering/dependency-module-ownership.md): tách verification intent khỏi worker/Asynq, bảo vệ chiều phụ thuộc application → infrastructure bằng test.
 - [ENG-CORE-08 — Session Integrity & Lifecycle](docs/engineering/session-integrity-lifecycle.md): kiểm chứng IssueSession dùng chung, Renew/Revoke, context và thất bại Phone OTP.
 - [ENG-CORE-09 — Feature Delivery Standard](docs/engineering/feature-delivery-standard.md): quy trình viết một API từ business contract đến route/SQL/evidence, kiểm chứng bằng hai API mẫu có thật.
-- [ENG-CORE — Full Source Proof](docs/engineering/core-source-proof.md): baseline 180 tệp có Git blob hash, ma trận owner → runtime → invariant → tests → CI → gaps; đối chiếu lại được bằng script đọc Git tree.
+- [ENG-CORE — Full Source Proof](docs/engineering/core-source-proof.md): baseline bất biến 180 file, kiểm kê 183 file tại `dev@98cb96e`, ma trận owner → runtime → tests → gaps; xác minh **mọi tracked file của HEAD** bằng [source ownership registry](docs/engineering/source-ownership.tsv) và `sh scripts/check-core-current-source.sh --summary`.
 
 ENG-GOV-01 là **quy chuẩn phối hợp developer và review**, không phải triển khai Business Core, không thay đổi runtime và không tự động bổ nhiệm GitHub code owners. CI xanh không đồng nghĩa đã nghiệm thu WSL hoặc production.
 

@@ -18,6 +18,31 @@
 
 **CI evidence nuance:** push CI #119 on exact baseline passed migrations, Go tests, build + Docker Compose validation, HTTP smoke, go vet, and race detector. “Protect migration history” is skipped on the *push event* by design; PR #59's CI #118 exercised that PR-only check and passed. A green `go test ./...` may include skipped integration tests when their environment is unavailable; specific guarded tests require checking logs for `RUN/PASS`.
 
+## 1A. Live HEAD evidence — kiểm chứng toàn bộ source đang có
+
+**Current verified commit before this change:** `dev@98cb96e9d5a9133168ad97c0188a094358715647` (25/10/2026); Git tree `8a94ed25e4e60e262bf687ce7fdc9649cf98e937`. GitHub recursive tree API: **211 entries (28 directories + 183 blobs), truncated=false**. Phân loại: **116 Go, 52 Go tests, 15 SQL**. [Push CI #121](https://github.com/datvtph41107/bdspro/actions/runs/40200045464) thành công (baseline verification, migrations, tests, build/Compose, HTTP smoke, vet, race).
+
+**Đối chiếu hai Git tree độc lập:** `6f47f49` có 180 blobs; `98cb96e` có 183 blobs. **Thêm:** `docs/engineering/core-source-proof.md`, `docs/engineering/source-baseline-6f47f49.tree`, `scripts/check-core-source-baseline.sh`. **Thay đổi:** `.github/workflows/test.yml`, `README.md`, `api/verify_email.go`, `api/verify_email_test.go`, `docs/engineering/development-contract.md`. **Không xóa file** trong chênh lệch này. Manifest baseline 180/180 dòng được đối chiếu với REST Git tree theo `mode + blob SHA + path` và khớp tất cả.
+
+**Bằng chứng luôn theo kịp HEAD:** `docs/engineering/source-ownership.tsv` định nghĩa một owner cho từng nhánh thư mục; `scripts/check-core-current-source.sh` đọc **chính Git tree của HEAD**, map mỗi tracked blob vào owner dài nhất, in `mode + blob SHA + path` và **fail nếu có source mới không được gán owner**. CI chạy song song với baseline check. Khác snapshot 180-file bất biến, kết quả của lệnh này **tự thay đổi khi có commit mới**, không tuyên bố rằng một HEAD chưa từng được kiểm tra bằng CI đã được nghiệm thu.
+
+```sh
+sh scripts/check-core-source-baseline.sh
+
+# Mọi file đang được Git commit trên HEAD đều phải có owner
+sh scripts/check-core-current-source.sh --summary
+
+# Trích xuất bảng kê per-file của chính HEAD ra file local (chỉ đọc)
+sh scripts/check-core-current-source.sh --list > /tmp/bdspro-head-source.tsv
+
+# Nguồn định danh nhất quán với Git tree ở bất kỳ commit nào
+git rev-parse HEAD
+git rev-parse 'HEAD^{tree}'
+git ls-tree -r --full-tree HEAD
+```
+
+**Giới hạn hợp đồng:** owner registry là **phân loại đường dẫn**, không phải bằng chứng đã manual-review mọi dòng code hoặc ownership nghiệp vụ của mọi function. Kiểm tra HEAD bao phủ **tracked files only**, không đếm `.env` chưa commit, ignored files, local builds hoặc database volume. E0 chứng minh file/blob tồn tại; `go build`/test/CI chứng minh phạm vi E1–E3 riêng; gRPC/Gateway chưa active, WSL/G0 và external providers chưa được nghiệm thu ở đây.
+
 ## 2. Coverage of every source area (all 180 tracked files)
 
 The mapping below partitions **every tracked path by top-level folder/root**. Counts come from the pinned Git tree, not hand-estimated LOC.
