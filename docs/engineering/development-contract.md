@@ -11,7 +11,7 @@ Khi handler phối hợp nhiều bước nghiệp vụ hoặc lặp Account→Pe
 Khi application code import trực tiếp vendor runtime như Asynq, kiểm tra [ENG-CORE-07 — Dependency & Module Ownership](dependency-module-ownership.md): chỉ tách một consumer-owned port nếu có phụ thuộc sai chiều thực sự và contract có thể kiểm chứng.
 Với authentication methods và session lifecycle, xem [ENG-CORE-08 — Session Integrity](session-integrity-lifecycle.md): giữ chung Issuing owner, bảo vệ refresh/revoke qua DB, nêu rõ OTP consumption và failure semantics.
 Để triển khai một API mới từ yêu cầu đến CI, xem [ENG-CORE-09 — Feature Delivery Standard](feature-delivery-standard.md): quy trình 7 bước và hai mẫu handler→operation→transaction hoặc handler→SQL trực tiếp. Chọn đường đi dựa trên invariant; không tạo layer bắt buộc.
-Để phân biệt code tồn tại với capability đã được kiểm chứng, dùng [ENG-CORE — Full Source Proof](core-source-proof.md): snapshot Git hash đầy đủ, ma trận ownership, execution, evidence E0–E4 và gap. File inventory không thay thế runtime acceptance.
+Để phân biệt code tồn tại với capability đã được kiểm chứng, dùng [ENG-CORE — Full Source Proof](core-source-proof.md): snapshot Git hash bất biến, ma trận ownership, execution, evidence E0–E4 và gap. Mỗi thay đổi phải giữ coverage của HEAD bằng `sh scripts/check-core-current-source.sh`; [owner registry](source-ownership.tsv) buộc mọi thư mục source mới có nơi chịu trách nhiệm. File inventory không thay thế runtime acceptance.
 
 ## 1. Một vòng làm việc thống nhất
 
