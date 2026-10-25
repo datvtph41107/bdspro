@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	db "github.com/datvtph41107/bdspro/db/sqlc"
-	"github.com/datvtph41107/bdspro/token"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -29,8 +28,8 @@ func (server *Server) createOrganization(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
 		return
 	}
-	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-	account, err := server.store.GetAccountByID(ctx.Request.Context(), payload.AccountID)
+	actorAccountID := authenticatedAccountID(ctx)
+	account, err := server.store.GetAccountByID(ctx.Request.Context(), actorAccountID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "create organization failed"})
 		return
@@ -46,8 +45,8 @@ func (server *Server) createOrganization(ctx *gin.Context) {
 }
 
 func (server *Server) listOrganizations(ctx *gin.Context) {
-	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-	account, err := server.store.GetAccountByID(ctx.Request.Context(), payload.AccountID)
+	actorAccountID := authenticatedAccountID(ctx)
+	account, err := server.store.GetAccountByID(ctx.Request.Context(), actorAccountID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "list organizations failed"})
 		return
@@ -75,11 +74,11 @@ func (server *Server) addOrganizationMember(ctx *gin.Context) {
 		invalidJSON(ctx, err)
 		return
 	}
-	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+	actorAccountID := authenticatedAccountID(ctx)
 	member, err := server.store.AddOrganizationMember(ctx.Request.Context(), db.AddOrganizationMemberParams{
 		OrganizationID: organizationID,
 		PersonID:       req.PersonID,
-		ActorAccountID: payload.AccountID,
+		ActorAccountID: actorAccountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "organization owner required"})
@@ -127,10 +126,10 @@ func (server *Server) updateOrganization(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
 		return
 	}
-	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+	actorAccountID := authenticatedAccountID(ctx)
 	organization, err := server.store.UpdateOrganization(ctx.Request.Context(), db.UpdateOrganizationParams{
 		OrganizationID: organizationID,
-		ActorAccountID: payload.AccountID,
+		ActorAccountID: actorAccountID,
 		Name:           pgtype.Text{String: name, Valid: true},
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
