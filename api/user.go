@@ -31,7 +31,7 @@ func newUserResponse(account db.Account) userResponse {
 
 func (server *Server) createUser(ctx *gin.Context) {
 	req := registerInput(ctx)
-	account, err := auth.Register(ctx.Request.Context(), server.store, server.taskDistributor, req.Email, req.Password)
+	account, err := auth.Register(ctx.Request.Context(), server.store, server.verificationScheduler, req.Email, req.Password)
 	if err != nil {
 		if pgErr := postgresError(err); pgErr != nil && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "email already registered"})
