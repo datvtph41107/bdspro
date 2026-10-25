@@ -127,8 +127,7 @@ func (server *Server) setupRouter() {
 }
 
 func (server *Server) me(ctx *gin.Context) {
-	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-	ctx.JSON(http.StatusOK, gin.H{"account_id": payload.AccountID})
+	ctx.JSON(http.StatusOK, gin.H{"account_id": authenticatedAccountID(ctx)})
 }
 
 // Handler exposes Gin routes with the same CORS policy as the previous HTTP ingress.
