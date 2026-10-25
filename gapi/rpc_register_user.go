@@ -17,7 +17,7 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 	if err != nil || address.Address != req.GetEmail() || len(req.GetPassword()) < 8 || len(req.GetPassword()) > 72 {
 		return nil, status.Error(codes.InvalidArgument, "invalid email or password")
 	}
-	account, err := auth.Register(ctx, s.store, s.taskDistributor, req.Email, req.Password)
+	account, err := auth.Register(ctx, s.store, s.verificationScheduler, req.Email, req.Password)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {

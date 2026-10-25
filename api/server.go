@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/datvtph41107/bdspro/auth"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
@@ -22,7 +23,7 @@ import (
 type Server struct {
 	config          util.Config
 	store           db.Store
-	taskDistributor worker.TaskDistributor
+	verificationScheduler auth.VerificationTaskScheduler
 	tokenMaker      token.Maker
 	router          *gin.Engine
 	authRateRedis   *redis.Client
@@ -34,7 +35,12 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 	if err != nil {
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}
-	server := &Server{config: config, store: store, tokenMaker: maker, taskDistributor: taskDistributor}
+	server := &Server{
+		config: config,
+		store: store,
+		tokenMaker: maker,
+		verificationScheduler: worker.NewVerificationScheduler(taskDistributor),
+	}
 	server.setupRouter()
 	return server, nil
 }
