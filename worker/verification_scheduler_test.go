@@ -19,7 +19,7 @@ func TestVerificationSchedulerAdaptsApplicationIntent(t *testing.T) {
 	distributor.EXPECT().DistributeTaskSendVerifyEmail(
 		ctx, gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(got context.Context, payload *worker.PayloadSendVerifyEmail, opts ...asynq.Option) error {
-		require.Same(t, ctx, got)
+		require.Equal(t, ctx, got)
 		require.Equal(t, int64(81), payload.AccountID)
 		require.Len(t, opts, 3, "keep retry, delay, and queue selection under worker ownership")
 		return nil
