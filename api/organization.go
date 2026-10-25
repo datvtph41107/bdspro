@@ -30,12 +30,12 @@ func (server *Server) createOrganization(ctx *gin.Context) {
 		return
 	}
 	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-	account, err := server.store.GetAccountByID(ctx, payload.AccountID)
+	account, err := server.store.GetAccountByID(ctx.Request.Context(), payload.AccountID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "create organization failed"})
 		return
 	}
-	organization, err := server.store.CreateOrganizationTx(ctx, db.CreateOrganizationTxParams{
+	organization, err := server.store.CreateOrganizationTx(ctx.Request.Context(), db.CreateOrganizationTxParams{
 		Name: name, OwnerPersonID: account.PersonID,
 	})
 	if err != nil {
@@ -47,12 +47,12 @@ func (server *Server) createOrganization(ctx *gin.Context) {
 
 func (server *Server) listOrganizations(ctx *gin.Context) {
 	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-	account, err := server.store.GetAccountByID(ctx, payload.AccountID)
+	account, err := server.store.GetAccountByID(ctx.Request.Context(), payload.AccountID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "list organizations failed"})
 		return
 	}
-	organizations, err := server.store.ListOrganizationsForPerson(ctx, account.PersonID)
+	organizations, err := server.store.ListOrganizationsForPerson(ctx.Request.Context(), account.PersonID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "list organizations failed"})
 		return
@@ -76,7 +76,7 @@ func (server *Server) addOrganizationMember(ctx *gin.Context) {
 		return
 	}
 	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-	member, err := server.store.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
+	member, err := server.store.AddOrganizationMember(ctx.Request.Context(), db.AddOrganizationMemberParams{
 		OrganizationID: organizationID,
 		PersonID:       req.PersonID,
 		ActorAccountID: payload.AccountID,
@@ -128,7 +128,7 @@ func (server *Server) updateOrganization(ctx *gin.Context) {
 		return
 	}
 	payload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-	organization, err := server.store.UpdateOrganization(ctx, db.UpdateOrganizationParams{
+	organization, err := server.store.UpdateOrganization(ctx.Request.Context(), db.UpdateOrganizationParams{
 		OrganizationID: organizationID,
 		ActorAccountID: payload.AccountID,
 		Name:           pgtype.Text{String: name, Valid: true},

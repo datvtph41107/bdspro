@@ -27,7 +27,7 @@ func (server *Server) renewAccessToken(ctx *gin.Context) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid refresh token"})
 		return
 	}
-	session, err := server.store.GetSession(ctx, payload.ID)
+	session, err := server.store.GetSession(ctx.Request.Context(), payload.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "session unavailable"})
 		return
@@ -61,7 +61,7 @@ func (server *Server) revokeRefreshToken(ctx *gin.Context) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid refresh token"})
 		return
 	}
-	_, err = server.store.BlockSession(ctx, db.BlockSessionParams{
+	_, err = server.store.BlockSession(ctx.Request.Context(), db.BlockSessionParams{
 		ID:           payload.ID,
 		AccountID:    payload.AccountID,
 		RefreshToken: req.RefreshToken,
