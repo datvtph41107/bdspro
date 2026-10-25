@@ -4,19 +4,16 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"time"
 
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
-	"github.com/datvtph41107/bdspro/worker"
-	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 )
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
-func Register(ctx context.Context, store db.Store, distributor worker.TaskDistributor, email, password string) (db.Account, error) {
+func Register(ctx context.Context, store db.Store, scheduler VerificationTaskScheduler, email, password string) (db.Account, error) {
 	hash, err := util.HashPassword(password)
 	if err != nil {
 		return db.Account{}, err
@@ -24,9 +21,7 @@ func Register(ctx context.Context, store db.Store, distributor worker.TaskDistri
 	return store.RegisterTx(ctx, db.RegisterTxParams{
 		Email: strings.ToLower(strings.TrimSpace(email)), PasswordHash: hash,
 		AfterCreate: func(account db.Account) error {
-			return distributor.DistributeTaskSendVerifyEmail(ctx,
-				&worker.PayloadSendVerifyEmail{AccountID: account.ID},
-				asynq.MaxRetry(10), asynq.ProcessIn(10*time.Second), asynq.Queue(worker.QueueCritical))
+			return scheduler.ScheduleVerifyEmail(ctx, account.ID)
 		},
 	})
 }
