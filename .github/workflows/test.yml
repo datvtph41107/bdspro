@@ -67,6 +67,9 @@ jobs:
       - name: Run migrations
         run: make migrateup
 
+      - name: Verify core source baseline
+        run: sh scripts/check-core-source-baseline.sh
+
       - name: Run tests
         env:
           ARC02_CANCEL_TEST_DB_URL: postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
