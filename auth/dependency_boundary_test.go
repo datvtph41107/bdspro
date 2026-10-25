@@ -2,6 +2,7 @@ package auth
 
 import (
 	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,7 +21,7 @@ func TestAuthSourceDoesNotDependOnWorkerRuntime(t *testing.T) {
 		if f.IsDir() || !strings.HasSuffix(f.Name(), ".go") || strings.HasSuffix(f.Name(), "_test.go") {
 			continue
 		}
-		source, err := parser.ParseFile(nil, filepath.Join(".", f.Name()), nil, parser.ImportsOnly)
+		source, err := parser.ParseFile(token.NewFileSet(), filepath.Join(".", f.Name()), nil, parser.ImportsOnly)
 		require.NoError(t, err)
 		for _, spec := range source.Imports {
 			path, err := strconv.Unquote(spec.Path.Value)
