@@ -3,6 +3,7 @@ package gapi
 import (
 	"fmt"
 
+	"github.com/datvtph41107/bdspro/auth"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/pb"
 	"github.com/datvtph41107/bdspro/token"
@@ -16,7 +17,7 @@ type Server struct {
 	config          util.Config
 	store           db.Store
 	tokenMaker      token.Maker
-	taskDistributor worker.TaskDistributor
+	verificationScheduler auth.VerificationTaskScheduler
 }
 
 func NewServer(config util.Config, store db.Store, distributor worker.TaskDistributor) (*Server, error) {
@@ -24,5 +25,10 @@ func NewServer(config util.Config, store db.Store, distributor worker.TaskDistri
 	if err != nil {
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}
-	return &Server{config: config, store: store, tokenMaker: maker, taskDistributor: distributor}, nil
+	return &Server{
+		config: config,
+		store: store,
+		tokenMaker: maker,
+		verificationScheduler: worker.NewVerificationScheduler(distributor),
+	}, nil
 }
