@@ -20,7 +20,6 @@ import (
  "github.com/gin-gonic/gin"
  "github.com/go-redis/redis/v8"
  "github.com/jackc/pgx/v5"
- "github.com/jackc/pgx/v5/pgconn"
 )
 
 const (
@@ -144,8 +143,7 @@ func (g *googleOAuthFlow) callback(ctx *gin.Context) {
  if pending.Purpose=="link" && pending.AccountID>0 {
     err=g.server.store.LinkGoogleIdentity(ctx.Request.Context(),db.LinkGoogleIdentityParams{AccountID:pending.AccountID,GoogleSub:subject})
     if errors.Is(err,pgx.ErrNoRows) {ctx.JSON(http.StatusConflict,gin.H{"error":"Google identity already linked"});return}
-    var pgErr *pgconn.PgError
-    if errors.As(err,&pgErr) && pgErr.Code=="23505" {ctx.JSON(http.StatusConflict,gin.H{"error":"account already linked"});return}
+    if pgErr := postgresError(err); pgErr != nil && pgErr.Code=="23505" {ctx.JSON(http.StatusConflict,gin.H{"error":"account already linked"});return}
     if err!=nil {ctx.JSON(http.StatusInternalServerError,gin.H{"error":"linking failed"});return}
     ctx.JSON(http.StatusOK,gin.H{"linked":true});return
  }
