@@ -9,6 +9,7 @@ import (
 	mockdb "github.com/datvtph41107/bdspro/db/mock"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -96,4 +97,26 @@ func TestProcessTaskSkipsAlreadyVerifiedAccount(t *testing.T) {
 	require.NoError(t, processor.ProcessTaskSendVerifyEmail(
 		context.Background(), asynq.NewTask(TaskSendVerifyEmail, body),
 	))
+}
+
+func TestProcessTaskMissingAccountReturnsRetryableError(t *testing.T) {
+	// An enqueue made before a rolled-back PostgreSQL transaction can leave
+	// a task whose account does not exist. The worker must return an error,
+	// not claim a successful email delivery or suppress retries.
+	ctrl := gomock.NewController(t)
+	store := mockdb.NewMockStore(ctrl)
+	const missingAccountID int64 = 918281
+	store.EXPECT().GetAccountByID(gomock.Any(), missingAccountID).
+		Return(db.Account{}, pgx.ErrNoRows)
+
+	mailer := &mailRecorder{}
+	processor := &RedisTaskProcessor{store: store, mailer: mailer}
+	body, err := json.Marshal(PayloadSendVerifyEmail{AccountID: missingAccountID})
+	require.NoError(t, err)
+	err = processor.ProcessTaskSendVerifyEmail(
+		context.Background(), asynq.NewTask(TaskSendVerifyEmail, body),
+	)
+	require.ErrorIs(t, err, pgx.ErrNoRows)
+	require.NotErrorIs(t, err, asynq.SkipRetry)
+	require.Empty(t, mailer.recipient)
 }
