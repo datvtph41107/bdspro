@@ -23,6 +23,24 @@ Từ "core" ở đây chỉ những **hợp đồng và capability có một nơ
 
 ## 2. Những thay đổi production đầu tiên (source evidence)
 
+### 2.0. Typed JSON admission — cơ chế lõi cho một route
+
+**Trước:** `PreLogin`, `PreRegister`, `PreToken`, `PrePhoneBind`, `PrePhoneVerify` và `PrePhoneLoginStart` sao chép cùng chu trình bind JSON, lỗi/abort, `ctx.Set`, `ctx.Next`.
+
+**Sau:** `api/request_binding.go` sở hữu `preJSON[T](contextKey)`, còn các middleware `Pre*` vẫn giữ nguyên tên, vị trí route và typed input key:
+
+~~~go
+func PreLogin() gin.HandlerFunc {
+    return preJSON[loginUserRequest](loginRequestContextKey)
+}
+~~~
+
+- Bad JSON hoặc validation sai tiếp tục trả 400, abort và không chạy handler sau; input hợp lệ được lưu với kiểu đã bind.
+- BDSPro không dùng `PreJSON` để xác thực người dùng, phân quyền, giới hạn lượt truy cập hoặc đổi response nghiệp vụ.
+- `PreVerifyEmail` đọc query parameters nên **không** dùng chung JSON binder; Google callback cũng có hợp đồng khác.
+- Nếu API không cần typed admission trước rate limiting, handler có thể bind trực tiếp; không áp `Pre*` máy móc cho mọi route.
+- Không cần phản chiếu type, registry middleware hoặc code generator.
+
 ### 2.1. Authenticated actor
 
 **Trước:** các handler Organization, Phone và Google tự đọc \`ctx.MustGet(authorizationPayloadKey).(*token.Payload).AccountID\` riêng rẽ.
