@@ -10,6 +10,7 @@ Với route params và lỗi dữ liệu, xem [ENG-CORE-05 — API Contract & Er
 Khi handler phối hợp nhiều bước nghiệp vụ hoặc lặp Account→Person mapping, xem [ENG-CORE-06 — Application Operation & Module Boundary](application-operation-boundary.md) để quyết định có module application riêng hay giữ handler→Store trực tiếp.
 Khi application code import trực tiếp vendor runtime như Asynq, kiểm tra [ENG-CORE-07 — Dependency & Module Ownership](dependency-module-ownership.md): chỉ tách một consumer-owned port nếu có phụ thuộc sai chiều thực sự và contract có thể kiểm chứng.
 Với authentication methods và session lifecycle, xem [ENG-CORE-08 — Session Integrity](session-integrity-lifecycle.md): giữ chung Issuing owner, bảo vệ refresh/revoke qua DB, nêu rõ OTP consumption và failure semantics.
+Để triển khai một API mới từ yêu cầu đến CI, xem [ENG-CORE-09 — Feature Delivery Standard](feature-delivery-standard.md): quy trình 7 bước và hai mẫu handler→operation→transaction hoặc handler→SQL trực tiếp. Chọn đường đi dựa trên invariant; không tạo layer bắt buộc.
 
 ## 1. Một vòng làm việc thống nhất
 
