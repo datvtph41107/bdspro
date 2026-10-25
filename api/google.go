@@ -16,7 +16,6 @@ import (
 
  "github.com/datvtph41107/bdspro/auth"
  db "github.com/datvtph41107/bdspro/db/sqlc"
- "github.com/datvtph41107/bdspro/token"
  "github.com/datvtph41107/bdspro/util"
  "github.com/gin-gonic/gin"
  "github.com/go-redis/redis/v8"
@@ -64,8 +63,8 @@ type googleLinkStartRequest struct {
 func (g *googleOAuthFlow) startLink(ctx *gin.Context) {
  var req googleLinkStartRequest
  if ctx.ShouldBindJSON(&req)!=nil {ctx.JSON(http.StatusBadRequest,gin.H{"error":"invalid request"});return}
- accountID := ctx.MustGet(authorizationPayloadKey).(*token.Payload).AccountID
- account,err := g.server.store.GetAccountByID(ctx,accountID)
+ accountID := authenticatedAccountID(ctx)
+ account,err := g.server.store.GetAccountByID(ctx.Request.Context(),accountID)
  if err!=nil || util.CheckPassword(req.Password,account.PasswordHash)!=nil {
     ctx.JSON(http.StatusUnauthorized,gin.H{"error":"invalid credentials"});return
  }
@@ -99,7 +98,7 @@ func (g *googleOAuthFlow) begin(ctx *gin.Context,purpose string,accountID int64)
  nonce,err:=googleRandom();if err!=nil{return "",err}
  record,err:=json.Marshal(googlePending{Purpose:purpose,AccountID:accountID,Verifier:verifier,Nonce:nonce})
  if err!=nil{return "",err}
- if err=g.redis.Set(ctx,"google:oauth:state:"+state,record,googleOAuthTTL).Err();err!=nil{return "",err}
+ if err=g.redis.Set(ctx.Request.Context(),"google:oauth:state:"+state,record,googleOAuthTTL).Err();err!=nil{return "",err}
  hash:=sha256.Sum256([]byte(verifier))
  params:=url.Values{
     "client_id":{g.server.config.GoogleClientID},
@@ -125,7 +124,7 @@ func (g *googleOAuthFlow) callback(ctx *gin.Context) {
     ctx.JSON(http.StatusBadRequest,gin.H{"error":"invalid Google authorization state"});return
  }
  g.stateCookie(ctx,"",-1)
- data,err:=g.redis.GetDel(ctx,"google:oauth:state:"+state).Bytes()
+ data,err:=g.redis.GetDel(ctx.Request.Context(),"google:oauth:state:"+state).Bytes()
  if errors.Is(err,redis.Nil) {
     ctx.JSON(http.StatusBadRequest,gin.H{"error":"expired Google authorization state"});return
  }
@@ -137,13 +136,13 @@ func (g *googleOAuthFlow) callback(ctx *gin.Context) {
  if ctx.Query("error")!="" || ctx.Query("code")=="" {
     ctx.JSON(http.StatusUnauthorized,gin.H{"error":"Google authorization declined"});return
  }
- idToken,err:=g.exchange(ctx,ctx.Query("code"),pending.Verifier)
+ idToken,err:=g.exchange(ctx.Request.Context(),ctx.Query("code"),pending.Verifier)
  if err!=nil {ctx.JSON(http.StatusUnauthorized,gin.H{"error":"Google authorization failed"});return}
- subject,err:=auth.VerifyGoogleIDToken(ctx,idToken,g.server.config.GoogleClientID,pending.Nonce)
+ subject,err:=auth.VerifyGoogleIDToken(ctx.Request.Context(),idToken,g.server.config.GoogleClientID,pending.Nonce)
  if err!=nil {ctx.JSON(http.StatusUnauthorized,gin.H{"error":"invalid Google identity"});return}
 
  if pending.Purpose=="link" && pending.AccountID>0 {
-    err=g.server.store.LinkGoogleIdentity(ctx,db.LinkGoogleIdentityParams{AccountID:pending.AccountID,GoogleSub:subject})
+    err=g.server.store.LinkGoogleIdentity(ctx.Request.Context(),db.LinkGoogleIdentityParams{AccountID:pending.AccountID,GoogleSub:subject})
     if errors.Is(err,pgx.ErrNoRows) {ctx.JSON(http.StatusConflict,gin.H{"error":"Google identity already linked"});return}
     var pgErr *pgconn.PgError
     if errors.As(err,&pgErr) && pgErr.Code=="23505" {ctx.JSON(http.StatusConflict,gin.H{"error":"account already linked"});return}
@@ -153,19 +152,14 @@ func (g *googleOAuthFlow) callback(ctx *gin.Context) {
  if pending.Purpose!="login" || pending.AccountID!=0 {
     ctx.JSON(http.StatusBadRequest,gin.H{"error":"invalid Google authorization state"});return
  }
- accountID,err:=g.server.store.GetGoogleAccountID(ctx,subject)
+ accountID,err:=g.server.store.GetGoogleAccountID(ctx.Request.Context(),subject)
  if errors.Is(err,pgx.ErrNoRows) {ctx.JSON(http.StatusUnauthorized,gin.H{"error":"Google identity not linked"});return}
  if err!=nil {ctx.JSON(http.StatusInternalServerError,gin.H{"error":"login failed"});return}
  account,err:=g.server.store.GetAccountByID(ctx,accountID)
  if err!=nil {ctx.JSON(http.StatusUnauthorized,gin.H{"error":"account unavailable"});return}
- result,err:=auth.IssueSession(ctx,g.server.store,g.server.tokenMaker,g.server.config,account,ctx.Request.UserAgent(),ctx.ClientIP())
+ result,err:=auth.IssueSession(ctx.Request.Context(),g.server.store,g.server.tokenMaker,g.server.config,account,ctx.Request.UserAgent(),ctx.ClientIP())
  if err!=nil {ctx.JSON(http.StatusInternalServerError,gin.H{"error":"login failed"});return}
- ctx.JSON(http.StatusOK,loginUserResponse{
-    SessionID:result.Session.ID.String(),
-    AccessToken:result.AccessToken,AccessTokenExpiresAt:result.AccessExpiresAt,
-    RefreshToken:result.RefreshToken,RefreshTokenExpiresAt:result.RefreshExpiresAt,
-    User:newUserResponse(result.Account),
- })
+ ctx.JSON(http.StatusOK,newLoginUserResponse(result))
 }
 
 func (g *googleOAuthFlow) exchange(ctx context.Context,code,verifier string) (string,error) {

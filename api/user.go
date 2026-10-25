@@ -59,9 +59,22 @@ type loginUserResponse struct {
 	User                  userResponse `json:"user"`
 }
 
+// newLoginUserResponse is the common public session representation for
+// password, Google and phone OTP sign-in. Authentication stays provider-specific.
+func newLoginUserResponse(result auth.LoginResult) loginUserResponse {
+	return loginUserResponse{
+		SessionID:             result.Session.ID.String(),
+		AccessToken:           result.AccessToken,
+		AccessTokenExpiresAt:  result.AccessExpiresAt,
+		RefreshToken:          result.RefreshToken,
+		RefreshTokenExpiresAt: result.RefreshExpiresAt,
+		User:                  newUserResponse(result.Account),
+	}
+}
+
 func (server *Server) loginUser(ctx *gin.Context) {
 	req := loginInput(ctx)
-	result, err := auth.Login(ctx, server.store, server.tokenMaker, server.config,
+	result, err := auth.Login(ctx.Request.Context(), server.store, server.tokenMaker, server.config,
 		req.Email, req.Password, ctx.Request.UserAgent(), ctx.ClientIP())
 	if errors.Is(err, auth.ErrInvalidCredentials) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
@@ -71,10 +84,5 @@ func (server *Server) loginUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
 		return
 	}
-	ctx.JSON(http.StatusOK, loginUserResponse{
-		SessionID:   result.Session.ID.String(),
-		AccessToken: result.AccessToken, AccessTokenExpiresAt: result.AccessExpiresAt,
-		RefreshToken: result.RefreshToken, RefreshTokenExpiresAt: result.RefreshExpiresAt,
-		User: newUserResponse(result.Account),
-	})
+	ctx.JSON(http.StatusOK, newLoginUserResponse(result))
 }
