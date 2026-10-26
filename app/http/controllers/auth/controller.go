@@ -68,7 +68,7 @@ func (c *Controller) VerifyEmail(ctx *gin.Context) {
 func (c *Controller) Renew(ctx *gin.Context) {
     var input authrequest.TokenBody
  if !request.JSON(ctx,&input){return}
- if !c.limiter.Identity(ctx,"revoke",input.RefreshToken,60,20,time.Minute){return}
+ if !c.limiter.Identity(ctx,"refresh",input.RefreshToken,60,20,time.Minute){return}
     payload, err := c.maker.VerifyToken(input.RefreshToken, token.TokenTypeRefresh)
     if err != nil {
         responses.Error(ctx, apperrors.InvalidRefreshToken, "")
@@ -101,7 +101,9 @@ func (c *Controller) Renew(ctx *gin.Context) {
 }
 
 func (c *Controller) Revoke(ctx *gin.Context) {
-    input := binding.Input[authrequest.TokenBody](ctx, authrequest.TokenKey)
+    var input authrequest.TokenBody
+ if !request.JSON(ctx,&input){return}
+ if !c.limiter.Identity(ctx,"revoke",input.RefreshToken,60,20,time.Minute){return}
     payload, err := c.maker.VerifyToken(input.RefreshToken, token.TokenTypeRefresh)
     if err != nil {
         responses.Error(ctx, apperrors.InvalidRefreshToken, "")
