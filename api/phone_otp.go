@@ -1,6 +1,7 @@
 package api
 
 import (
+    "github.com/datvtph41107/bdspro/routes"
     authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
     "errors"
     "net/http"
@@ -34,32 +35,15 @@ func (server *Server) EnablePhoneOTP(repository db.PhoneOTPRepository) error {
     if repository==nil {return errors.New("development phone OTP requires repository")}
     server.phoneOTP = repository
 
-    server.router.POST("/users/phone/login/start",
-        server.IPActiveSource("phone_login_start",10,time.Hour),
-        PrePhoneLoginStart(),
-        server.IPActive("phone_login_start",10,3,time.Hour,phoneStartIdentity),
-        server.startPhoneLogin,
-    )
-    server.router.POST("/users/phone/login/verify",
-        SufLogin(),
-        server.IPActiveSource("phone_login_verify",40,10*time.Minute),
-        PrePhoneVerify(),
-        server.IPActive("phone_login_verify",40,5,10*time.Minute,phoneVerifyIdentity),
-        server.verifyPhoneLogin,
-    )
-    protected := server.router.Group("/users/me/phone").Use(Authenticate(server.tokenMaker))
-    protected.POST("/start",
-        server.IPActiveSource("phone_bind_start",10,time.Hour),
-        PrePhoneBind(),
-        server.IPActive("phone_bind_start",10,3,time.Hour,phoneBindIdentity),
-        server.startPhoneBind,
-    )
-    protected.POST("/verify",
-        server.IPActiveSource("phone_bind_verify",40,10*time.Minute),
-        PrePhoneVerify(),
-        server.IPActive("phone_bind_verify",40,5,10*time.Minute,phoneVerifyIdentity),
-        server.verifyPhoneBind,
-    )
+    routes.MountPhone(server.router, routes.PhoneHandlers{
+        StartLogin:server.startPhoneLogin, VerifyLogin:server.verifyPhoneLogin,
+        StartBind:server.startPhoneBind, VerifyBind:server.verifyPhoneBind,
+        PreStart:PrePhoneLoginStart(), PreVerify:PrePhoneVerify(), PreBind:PrePhoneBind(),
+        SufLogin:SufLogin(), Authenticate:Authenticate(server.tokenMaker),
+        Source:server.IPActiveSource, Identity:server.IPActive,
+        StartIdentity:phoneStartIdentity, VerifyIdentity:phoneVerifyIdentity,
+        BindIdentity:phoneBindIdentity,
+    })
     return nil
 }
 

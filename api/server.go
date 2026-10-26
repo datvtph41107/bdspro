@@ -1,6 +1,7 @@
 package api
 
 import (
+    "github.com/datvtph41107/bdspro/routes"
 	"context"
 	"errors"
 	"fmt"
@@ -109,26 +110,19 @@ func (server *Server) setupRouter() {
 	// Admission and authentication run only on the routes that need them.
 	router.Use(server.RequestMonitor(), RequestIngress())
 
-	router.GET("/health", func(ctx *gin.Context) {
-		ctx.Status(http.StatusOK)
-	})
-	router.POST("/users", server.IPActiveSource("register", 10, time.Hour), PreRegister(),
-		server.IPActive("register", 10, 3, time.Hour, registerIdentity), server.createUser)
-	router.POST("/users/login", SufLogin(), server.IPActiveSource("login", 30, time.Minute), PreLogin(),
-		server.IPActive("login", 30, 10, time.Minute, loginIdentity), server.loginUser)
-	router.GET("/users/verify_email", server.IPActiveSource("verify_email", 60, time.Minute), PreVerifyEmail(),
-		server.IPActive("verify_email", 60, 10, time.Minute, emailVerificationIdentity), server.verifyEmail)
-	router.POST("/tokens/renew_access", server.IPActiveSource("refresh", 60, time.Minute), PreToken(),
-		server.IPActive("refresh", 60, 20, time.Minute, tokenIdentity), server.renewAccessToken)
-	router.POST("/tokens/revoke", server.IPActiveSource("revoke", 60, time.Minute), PreToken(),
-		server.IPActive("revoke", 60, 20, time.Minute, tokenIdentity), server.revokeRefreshToken)
-
-	authorized := router.Group("/").Use(Authenticate(server.tokenMaker))
-	authorized.GET("/users/me", server.me)
-	authorized.POST("/organizations", server.createOrganization)
-	authorized.GET("/organizations", server.listOrganizations)
-	authorized.POST("/organizations/:id/members", server.addOrganizationMember)
-	authorized.PATCH("/organizations/:id", server.updateOrganization)
+	routes.Mount(router, routes.Handlers{
+        Register: server.createUser, Login: server.loginUser, VerifyEmail: server.verifyEmail,
+        Renew: server.renewAccessToken, Revoke: server.revokeRefreshToken, Me: server.me,
+        CreateOrganization: server.createOrganization,
+        ListOrganizations: server.listOrganizations,
+        AddOrganizationMember: server.addOrganizationMember,
+        UpdateOrganization: server.updateOrganization,
+        PreRegister: PreRegister(), PreLogin: PreLogin(), PreVerifyEmail: PreVerifyEmail(),
+        PreToken: PreToken(), SufLogin: SufLogin(), Authenticate: Authenticate(server.tokenMaker),
+        RegisterIdentity: registerIdentity, LoginIdentity: loginIdentity,
+        VerifyEmailIdentity: emailVerificationIdentity, TokenIdentity: tokenIdentity,
+        Source: server.IPActiveSource, Identity: server.IPActive,
+    })
 	server.router = router
 }
 
