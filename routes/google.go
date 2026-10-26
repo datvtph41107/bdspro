@@ -1,24 +1,14 @@
 package routes
-
 import (
-    "github.com/datvtph41107/bdspro/app/http/binding"
-    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
     "time"
-
+    authcontroller "github.com/datvtph41107/bdspro/app/http/controllers/auth"
+    "github.com/datvtph41107/bdspro/app/http/middleware"
+    "github.com/datvtph41107/bdspro/token"
     "github.com/gin-gonic/gin"
 )
-
-type GoogleHandlers struct {
-    StartLink, StartLogin, Callback gin.HandlerFunc
-    Authenticate gin.HandlerFunc
-    Source func(string, int64, time.Duration) gin.HandlerFunc
-}
-
-func MountGoogle(route *gin.Engine, h GoogleHandlers) {
-    route.POST("/users/me/google/start", h.Authenticate,
-        h.Source("google_link_start", 10, time.Minute),
-        binding.JSON[authrequest.GoogleLinkBody]("google.link"), h.StartLink)
-    route.GET("/users/google/login/start",
-        h.Source("google_login_start", 20, time.Minute), h.StartLogin)
-    route.GET("/users/google/callback", h.Callback)
+func mountGoogle(router *gin.Engine,c *authcontroller.GoogleController,maker token.Maker,limit *middleware.RateLimiter){
+    router.POST("/users/me/google/start",middleware.Authenticate(maker),
+        limit.Source("google_link_start",10,time.Minute),c.StartLink)
+    router.GET("/users/google/login/start",limit.Source("google_login_start",20,time.Minute),c.StartLogin)
+    router.GET("/users/google/callback",c.Callback)
 }
