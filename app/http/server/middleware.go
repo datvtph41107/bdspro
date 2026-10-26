@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
     middleware "github.com/datvtph41107/bdspro/app/http/middleware"
