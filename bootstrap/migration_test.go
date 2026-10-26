@@ -1,4 +1,4 @@
-package main
+package bootstrap
 
 import (
 	"context"
@@ -18,7 +18,7 @@ func TestRunDBMigrationNoChange(t *testing.T) {
 		t.Skip("migration integration test requires CI or make test-integration")
 	}
 
-	config, err := util.LoadConfig(".")
+	config, err := util.LoadConfig("..")
 	require.NoError(t, err)
 	if !inCI {
 		target, err := url.Parse(config.DBSource)
@@ -35,5 +35,5 @@ func TestRunDBMigrationNoChange(t *testing.T) {
 		require.Equal(t, "bdspro-disposable", cluster, "refusing to migrate non-disposable PostgreSQL")
 	}
 
-	require.NoError(t, runDBMigration(config.MigrationURL, config.DBSource))
+	require.NoError(t, RunDBMigration(config.MigrationURL, config.DBSource))
 }

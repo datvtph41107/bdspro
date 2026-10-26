@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"bytes"
@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datvtph41107/bdspro/api"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/mail"
 	"github.com/datvtph41107/bdspro/util"
@@ -37,7 +36,7 @@ func TestRegisterEmailEndToEnd(t *testing.T) {
 	if mailpitAPI == "" || smtpAddress == "" {
 		t.Skip("Mailpit SMTP and HTTP endpoints not configured")
 	}
-	config, err := util.LoadConfig(".")
+	config, err := util.LoadConfig("../../..")
 	require.NoError(t, err)
 	config.EmailSenderAddress = "no-reply@bdspro.test"
 
@@ -55,7 +54,7 @@ func TestRegisterEmailEndToEnd(t *testing.T) {
 	defer processor.Shutdown()
 	distributor := worker.NewRedisTaskDistributor(redisOpt)
 	defer distributor.Close()
-	server, err := api.NewServer(config, store, distributor)
+	server, err := NewServer(config, store, distributor)
 	require.NoError(t, err)
 
 	emailAddress := uuid.NewString() + "@example.test"

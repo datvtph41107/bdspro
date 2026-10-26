@@ -6,7 +6,7 @@ import (
     "net"
     "time"
 
-    "github.com/datvtph41107/bdspro/api"
+    httpserver "github.com/datvtph41107/bdspro/app/http/server"
     db "github.com/datvtph41107/bdspro/db/sqlc"
     "github.com/datvtph41107/bdspro/mail"
     "github.com/datvtph41107/bdspro/util"
@@ -46,7 +46,7 @@ func runTaskProcessor(
 
 
 func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor, redisClient *redis.Client, phoneOTP db.PhoneOTPRepository, startedAt time.Time) error {
-	server, err := api.NewServer(config, store, taskDistributor)
+	server, err := httpserver.NewServer(config, store, taskDistributor)
 	if err != nil {
 		return err
 	}

@@ -4,9 +4,7 @@ import (
     "context"
     "fmt"
     "os"
-    "os/signal"
-    "syscall"
-    "time"
+            "time"
 
     db "github.com/datvtph41107/bdspro/db/sqlc"
     "github.com/datvtph41107/bdspro/util"
@@ -19,9 +17,7 @@ import (
     "golang.org/x/sync/errgroup"
 )
 
-var interruptSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
-
-func Run() error {
+func Run(parent context.Context) error {
 	startedAt := time.Now()
 	config, err := util.LoadConfig(".")
 	if err != nil {
@@ -36,9 +32,7 @@ func Run() error {
 	}
 	log.Info().Str("environment", config.Environment).Msg("startup.begin")
 
-	ctx, stop := signal.NotifyContext(context.Background(), interruptSignals...)
-	defer stop()
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 
 	connPool, err := pgxpool.New(ctx, config.DBSource)

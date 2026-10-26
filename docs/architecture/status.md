@@ -4,10 +4,10 @@
 
 | Work area | Current architecture branch | Completion caveat |
 |---|---|---|
-| `main.go` | Delegates to `bootstrap.Run` | Some startup composition still uses legacy package interfaces |
-| `bootstrap/` | Startup, migration, active runtime and legacy transport code separated | Legacy gRPC/gateway not active in the default run |
+| `cmd/bdspro/main.go` | Owns process cancellation and calls `bootstrap.Run(ctx)` | Some startup composition still uses legacy package interfaces |
+| `bootstrap/` | Owns connection, migrations and runtime construction; unused transport startup code removed | Legacy gRPC/gateway not active in the default run |
 | `routes/` | Gin auth/API/Google/Phone declarations centralized | Explicit handlers are assembled once; no Laravel-style `init()` magic |
-| `app/http/requests/` | Body/Query DTOs extracted from former `api/` types | Some old handlers still in `api/` |
+| `app/http/requests/` | Body/Query DTOs extracted from former `app/http/server/` types | Some old handlers still in `api/` |
 | `app/http/binding/` | Single JSON/Query/Path bind mechanism | Feature-by-feature rollout needed |
 | `app/http/controllers/api/` | Organization actions extracted | Register/Login/Verify Email/Token actions are now under controllers/auth; Google and Phone actions are now under controllers/auth; api retains transitional HTTP composition |
 | `app/http/middleware/` | Authenticate/AccountID moved | IPActive and monitoring remain in `api/` |

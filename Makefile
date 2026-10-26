@@ -49,7 +49,7 @@ test:
 	go test -v -cover ./...
 
 server:
-	LOG_FORMAT=$(LOG_FORMAT) go run main.go
+	LOG_FORMAT=$(LOG_FORMAT) go run ./cmd/bdspro
 
 proto:
 	protoc -I proto \
