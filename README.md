@@ -24,7 +24,7 @@ Backend bằng **Go, Gin, PostgreSQL, SQLC, Redis/Asynq**. Đường đọc sour
 | `docs/architecture/` | Quy chuẩn thiết kế hiện hành, cách làm việc và giới hạn nghiệm thu |
 
 **Cách đọc ví dụ:**
-`routes/auth.go` → `controllers/auth/controller.go` → `app/http/requests/auth/login.go` → `auth/auth.go` → `db/query/account.sql`.
+`routes/auth.go` → `controllers/auth/controller.go` → `app/http/requests/auth/login.go` → `auth/login.go` → `db/query/account.sql`.
 
 Không có `routes.Handlers` map, registry, tự động tìm Controller, `ctx.Set` để tiêm Body hoặc `BaseController`. Controller dùng `request.JSON(ctx, &body)` hoặc `request.Query(ctx,&query,...)` một lần sau khi qua giới hạn request. Bộ giới hạn theo identity được gọi tường minh với dữ liệu đã parse.
 
