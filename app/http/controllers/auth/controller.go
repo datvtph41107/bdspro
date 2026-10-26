@@ -80,9 +80,13 @@ func (c *Controller) Renew(ctx *gin.Context) {
     access, tokenPayload, err := c.maker.CreateToken(
         payload.AccountID, c.config.AccessTokenDuration, token.TokenTypeAccess,
     )
+    if err != nil {
+        responses.Error(ctx, err, "renew failed")
+        return
+    }
     responses.Send(ctx, http.StatusOK, resources.RenewAccessToken{
         AccessToken:access, AccessTokenExpiresAt:tokenPayload.ExpiredAt,
-    }, err, "renew failed")
+    }, nil, "renew failed")
 }
 
 func (c *Controller) Revoke(ctx *gin.Context) {
