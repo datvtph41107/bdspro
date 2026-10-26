@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
     apperrors "github.com/datvtph41107/bdspro/app/errors"

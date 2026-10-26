@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
     "github.com/datvtph41107/bdspro/auth"

@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
     authcontrollers "github.com/datvtph41107/bdspro/app/http/controllers/auth"
