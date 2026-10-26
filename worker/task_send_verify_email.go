@@ -1,17 +1,14 @@
 package worker
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"html"
-	"net/url"
+    "context"
+    "encoding/json"
+    "errors"
+    "fmt"
 
-	db "github.com/datvtph41107/bdspro/db/sqlc"
-	"github.com/datvtph41107/bdspro/util"
-	"github.com/hibiken/asynq"
-	"github.com/rs/zerolog/log"
+    "github.com/datvtph41107/bdspro/jobs"
+    "github.com/hibiken/asynq"
+    "github.com/rs/zerolog/log"
 )
 
 const TaskSendVerifyEmail = "task:send_verify_email"
@@ -35,43 +32,15 @@ func (d *RedisTaskDistributor) DistributeTaskSendVerifyEmail(ctx context.Context
 }
 
 func (p *RedisTaskProcessor) ProcessTaskSendVerifyEmail(ctx context.Context, task *asynq.Task) error {
-	var payload PayloadSendVerifyEmail
-	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
-		return fmt.Errorf("decode verification task: %w", errors.Join(err, asynq.SkipRetry))
-	}
-	account, err := p.store.GetAccountByID(ctx, payload.AccountID)
-	if err != nil {
-		return err
-	}
-	if account.IsEmailVerified {
-		return nil // Verification completed before this task was processed.
-	}
-	secret, err := util.RandomSecret()
-	if err != nil {
-		return err
-	}
-	record, err := p.store.GetOrCreateVerifyEmailTx(ctx, db.CreateVerifyEmailParams{
-		AccountID: account.ID, Email: account.Email, SecretCode: secret,
-	})
-	if errors.Is(err, db.ErrEmailAlreadyVerified) {
-		return nil // The user verified their email while the worker was running.
-	}
-	if err != nil {
-		return err
-	}
-	link, err := url.Parse(p.verifyEmailURL)
-	if err != nil {
-		return fmt.Errorf("invalid verification URL: %w", err)
-	}
-	query := link.Query()
-	query.Set("email_id", fmt.Sprint(record.ID))
-	query.Set("secret_code", record.SecretCode)
-	link.RawQuery = query.Encode()
-	content := fmt.Sprintf("Welcome to BDSPro. Please verify your email: <a href=%q>Verify email</a>", html.EscapeString(link.String()))
-	if err := p.mailer.SendEmail("Verify your BDSPro email", content, []string{account.Email}, nil, nil, nil); err != nil {
-		return err
-	}
-	taskID, _ := asynq.GetTaskID(ctx)
-	log.Info().Str("type", task.Type()).Str("task_id", taskID).Int64("account_id", account.ID).Msg("verification_email.completed")
-	return nil
+    var payload PayloadSendVerifyEmail
+    if err := json.Unmarshal(task.Payload(), &payload); err != nil {
+        return fmt.Errorf("decode verification task: %w", errors.Join(err, asynq.SkipRetry))
+    }
+    if err := jobs.SendVerificationEmail(ctx, p.store, p.mailer, p.verifyEmailURL, payload.AccountID); err != nil {
+        return err
+    }
+    taskID, _ := asynq.GetTaskID(ctx)
+    log.Info().Str("type", task.Type()).Str("task_id", taskID).
+        Int64("account_id", payload.AccountID).Msg("verification_email.completed")
+    return nil
 }
