@@ -1,18 +1,18 @@
 package auth
 
 import (
-    "errors"
-    "net/http"
-    "strconv"
-    "time"
+	"errors"
+	"net/http"
+	"strconv"
+	"time"
 
-    apperrors "github.com/datvtph41107/bdspro/app/errors"
-    "github.com/datvtph41107/bdspro/app/http/request"
-    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
-    "github.com/datvtph41107/bdspro/app/http/responses"
-    db "github.com/datvtph41107/bdspro/db/sqlc"
-    "github.com/gin-gonic/gin"
-    "github.com/jackc/pgx/v5"
+	apperrors "github.com/datvtph41107/bdspro/app/errors"
+	"github.com/datvtph41107/bdspro/app/http/request"
+	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
+	"github.com/datvtph41107/bdspro/app/http/responses"
+	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 )
 
 func (c *Controller) VerifyEmail(ctx *gin.Context) {

@@ -1,23 +1,23 @@
 package auth
 
 import (
-    "crypto/subtle"
-    "encoding/json"
-    "errors"
-    "net/http"
+	"crypto/subtle"
+	"encoding/json"
+	"errors"
+	"net/http"
 
-    apperrors "github.com/datvtph41107/bdspro/app/errors"
-    "github.com/datvtph41107/bdspro/app/http/request"
-    middleware "github.com/datvtph41107/bdspro/app/http/middleware"
-    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
-    "github.com/datvtph41107/bdspro/app/http/resources"
-    "github.com/datvtph41107/bdspro/auth"
-    db "github.com/datvtph41107/bdspro/db/sqlc"
-    "github.com/datvtph41107/bdspro/token"
-    "github.com/datvtph41107/bdspro/util"
-    "github.com/gin-gonic/gin"
-    "github.com/go-redis/redis/v8"
-    "github.com/jackc/pgx/v5"
+	apperrors "github.com/datvtph41107/bdspro/app/errors"
+	middleware "github.com/datvtph41107/bdspro/app/http/middleware"
+	"github.com/datvtph41107/bdspro/app/http/request"
+	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
+	"github.com/datvtph41107/bdspro/app/http/resources"
+	"github.com/datvtph41107/bdspro/auth"
+	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/datvtph41107/bdspro/token"
+	"github.com/datvtph41107/bdspro/util"
+	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"github.com/jackc/pgx/v5"
 )
 
 type GoogleController struct {

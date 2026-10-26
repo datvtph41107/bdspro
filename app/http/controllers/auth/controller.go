@@ -1,11 +1,11 @@
 package auth
 
 import (
-    "github.com/datvtph41107/bdspro/app/http/middleware"
-    "github.com/datvtph41107/bdspro/auth"
-    db "github.com/datvtph41107/bdspro/db/sqlc"
-    "github.com/datvtph41107/bdspro/token"
-    "github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/app/http/middleware"
+	"github.com/datvtph41107/bdspro/auth"
+	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/datvtph41107/bdspro/token"
+	"github.com/datvtph41107/bdspro/util"
 )
 
 // Controller is the HTTP entrypoint. It owns no database connection,

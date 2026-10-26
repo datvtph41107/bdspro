@@ -2,7 +2,7 @@ package routes
 
 import (
 	apicontroller "github.com/datvtph41107/bdspro/app/http/controllers/api"
-    authcontroller "github.com/datvtph41107/bdspro/app/http/controllers/auth"
+	authcontroller "github.com/datvtph41107/bdspro/app/http/controllers/auth"
 	"github.com/datvtph41107/bdspro/app/http/middleware"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/gin-gonic/gin"

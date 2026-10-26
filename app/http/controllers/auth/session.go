@@ -1,19 +1,19 @@
 package auth
 
 import (
-    "errors"
-    "net/http"
-    "time"
+	"errors"
+	"net/http"
+	"time"
 
-    apperrors "github.com/datvtph41107/bdspro/app/errors"
-    "github.com/datvtph41107/bdspro/app/http/request"
-    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
-    "github.com/datvtph41107/bdspro/app/http/resources"
-    "github.com/datvtph41107/bdspro/app/http/responses"
-    db "github.com/datvtph41107/bdspro/db/sqlc"
-    "github.com/datvtph41107/bdspro/token"
-    "github.com/gin-gonic/gin"
-    "github.com/jackc/pgx/v5"
+	apperrors "github.com/datvtph41107/bdspro/app/errors"
+	"github.com/datvtph41107/bdspro/app/http/request"
+	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
+	"github.com/datvtph41107/bdspro/app/http/resources"
+	"github.com/datvtph41107/bdspro/app/http/responses"
+	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/datvtph41107/bdspro/token"
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 )
 
 func (c *Controller) Renew(ctx *gin.Context) {

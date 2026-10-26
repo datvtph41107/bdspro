@@ -1,12 +1,12 @@
 package auth
 
 import (
-    "context"
-    "time"
+	"context"
+	"time"
 
-    db "github.com/datvtph41107/bdspro/db/sqlc"
-    "github.com/datvtph41107/bdspro/token"
-    "github.com/datvtph41107/bdspro/util"
+	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/datvtph41107/bdspro/token"
+	"github.com/datvtph41107/bdspro/util"
 )
 
 type LoginResult struct {

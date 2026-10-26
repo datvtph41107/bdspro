@@ -1,15 +1,15 @@
 package auth
 
 import (
-    "context"
-    "errors"
-    "strings"
+	"context"
+	"errors"
+	"strings"
 
-    apperrors "github.com/datvtph41107/bdspro/app/errors"
-    db "github.com/datvtph41107/bdspro/db/sqlc"
-    "github.com/datvtph41107/bdspro/token"
-    "github.com/datvtph41107/bdspro/util"
-    "github.com/jackc/pgx/v5"
+	apperrors "github.com/datvtph41107/bdspro/app/errors"
+	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/datvtph41107/bdspro/token"
+	"github.com/datvtph41107/bdspro/util"
+	"github.com/jackc/pgx/v5"
 )
 
 var ErrInvalidCredentials = apperrors.InvalidCredentials

@@ -1,15 +1,15 @@
 package auth
 
 import (
-    "net/http"
-    "time"
+	"net/http"
+	"time"
 
-    "github.com/datvtph41107/bdspro/app/http/request"
-    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
-    "github.com/datvtph41107/bdspro/app/http/resources"
-    "github.com/datvtph41107/bdspro/app/http/responses"
-    "github.com/datvtph41107/bdspro/auth"
-    "github.com/gin-gonic/gin"
+	"github.com/datvtph41107/bdspro/app/http/request"
+	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
+	"github.com/datvtph41107/bdspro/app/http/resources"
+	"github.com/datvtph41107/bdspro/app/http/responses"
+	"github.com/datvtph41107/bdspro/auth"
+	"github.com/gin-gonic/gin"
 )
 
 func (c *Controller) Register(ctx *gin.Context) {

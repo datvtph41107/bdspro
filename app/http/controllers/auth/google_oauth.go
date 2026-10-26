@@ -1,19 +1,19 @@
 package auth
 
 import (
-    "context"
-    "crypto/rand"
-    "crypto/sha256"
-    "encoding/base64"
-    "encoding/json"
-    "errors"
-    "io"
-    "net/http"
-    "net/url"
-    "strings"
-    "time"
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
-    "github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 )
 
 const (
