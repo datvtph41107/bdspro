@@ -21,7 +21,7 @@ func TestCreateOrganizationTxMissingOwnerRollsBackAllEntities(t *testing.T) {
 	store := NewStore(pool)
 
 	org, err := store.CreateOrganizationTx(ctx, CreateOrganizationTxParams{
-		Name: "BIZ-02 invalid owner " + uuid.NewString(),
+		Name:          "BIZ-02 invalid owner " + uuid.NewString(),
 		OwnerPersonID: math.MaxInt64,
 	})
 	require.Error(t, err)
@@ -52,7 +52,7 @@ func TestConcurrentOrganizationMemberAdditionEnforcesOneActiveMembership(t *test
 	register := func() Account {
 		t.Helper()
 		account, err := store.RegisterTx(ctx, RegisterTxParams{
-			Email: uuid.NewString() + "@example.test",
+			Email:        uuid.NewString() + "@example.test",
 			PasswordHash: "test-hash",
 		})
 		require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestConcurrentOrganizationMemberAdditionEnforcesOneActiveMembership(t *test
 	owner := register()
 	member := register()
 	organization, err := store.CreateOrganizationTx(ctx, CreateOrganizationTxParams{
-		Name: "BIZ-02 concurrent membership " + uuid.NewString(),
+		Name:          "BIZ-02 concurrent membership " + uuid.NewString(),
 		OwnerPersonID: owner.PersonID,
 	})
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestConcurrentOrganizationMemberAdditionEnforcesOneActiveMembership(t *test
 			<-start
 			membership, err := store.AddOrganizationMember(ctx, AddOrganizationMemberParams{
 				OrganizationID: organization.PartyID,
-				PersonID: member.PersonID,
+				PersonID:       member.PersonID,
 				ActorAccountID: owner.ID,
 			})
 			results <- result{membership: membership, err: err}

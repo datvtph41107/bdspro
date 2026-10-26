@@ -29,8 +29,8 @@ func TestAsynqRedisScheduleAndRetry(t *testing.T) {
 	defer inspector.Close()
 
 	server := asynq.NewServer(redisOpt, asynq.Config{
-		Concurrency: 1,
-		Queues: map[string]int{queueName: 1},
+		Concurrency:              1,
+		Queues:                   map[string]int{queueName: 1},
 		DelayedTaskCheckInterval: 100 * time.Millisecond,
 		RetryDelayFunc: func(int, error, *asynq.Task) time.Duration {
 			return 100 * time.Millisecond

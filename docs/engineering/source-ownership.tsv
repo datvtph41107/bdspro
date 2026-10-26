@@ -1,9 +1,7 @@
 prefix	owner	responsibility
-(root)	repository-bootstrap	composition-config-runtime-build
+(root)	repository-files	make-docker-tooling-metadata
 .github	change-governance	pull-request-workflow-ci
-api	http-boundary	route-middleware-input-actor-response
 auth	authentication-application	credential-proof-session-verification-intent
-organization	organization-application	account-person-organization-usecase
 db/migration	database-schema	migration-history-constraints
 db/query	database-query	sql-source-of-truth
 db/sqlc	database-execution	store-transactions-sqlc-generated-code
@@ -19,3 +17,16 @@ proto	protobuf-source	protobuf-contracts
 doc	generated-doc-assets	statik-swagger-dbml
 docs	engineering-knowledge	contracts-adrs-runbooks-history
 scripts	operations	validation-integration-shell-runbooks
+bootstrap	application-bootstrap	startup-dependency-composition-lifecycle
+app/errors	application-failures	canonical-public-error-definitions
+app/http/binding	http-binding	json-query-path-validation-and-input
+app/http/requests	http-contracts	transport-input-dtos
+app/http/responses	http-output	public-json-success-error-writer
+app/http/resources	http-resource	public-output-projections
+app/services	application-operations	multi-step-domain-orchestration-without-http
+jobs	asynchronous-job-actions	payload-specific-business-execution
+app/http/controllers	http-controllers	transport-actions-and-public-outcomes
+app/http/middleware	http-security	validated-identity-and-ingress
+routes	http-route-declarations	gin-route-declarations-and-middleware-order
+cmd	program-entrypoint	runnable-executables-and-process-signals
+app/http/server	http-runtime	gin-server-composition-and-http-lifecycle

@@ -17,7 +17,7 @@ import (
 
 type issueSessionTestMaker struct {
 	token.Maker
-	failOn token.TokenType
+	failOn  token.TokenType
 	failure error
 }
 

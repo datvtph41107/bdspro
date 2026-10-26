@@ -17,8 +17,8 @@ import (
 
 type oneUseLoginChallenge struct {
 	accountID int64
-	consumed bool
-	calls int
+	consumed  bool
+	calls     int
 }
 
 func (c *oneUseLoginChallenge) AccountIDForPhone(_ context.Context, _ string) (int64, error) {
@@ -45,9 +45,9 @@ func TestPhoneOTPLoginPersistenceFailureDoesNotRestoreConsumedCode(t *testing.T)
 	store := mockdb.NewMockStore(ctrl)
 	challenge := &oneUseLoginChallenge{accountID: 31}
 	cfg := util.Config{
-		Environment: "development",
-		TokenSymmetricKey: strings.Repeat("s", 32),
-		AccessTokenDuration: 15 * time.Minute,
+		Environment:          "development",
+		TokenSymmetricKey:    strings.Repeat("s", 32),
+		AccessTokenDuration:  15 * time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}
 	maker, err := token.NewJWTMaker(cfg.TokenSymmetricKey)

@@ -3,7 +3,7 @@ DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 LOG_FORMAT ?= console
 
-.PHONY: network postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration db_docs db_schema sqlc mock proto fmt test server
+.PHONY: network postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration db_docs db_schema sqlc mock fmt test server
 
 network:
 	docker network create bdspro-network
@@ -49,15 +49,7 @@ test:
 	go test -v -cover ./...
 
 server:
-	LOG_FORMAT=$(LOG_FORMAT) go run main.go
-
-proto:
-	protoc -I proto \
-		--go_out=. --go_opt=module=github.com/datvtph41107/bdspro \
-		--go-grpc_out=. --go-grpc_opt=module=github.com/datvtph41107/bdspro \
-		--grpc-gateway_out=. --grpc-gateway_opt=module=github.com/datvtph41107/bdspro \
-		--openapiv2_out=doc/swagger proto/bdspro.proto
-	statik -src=./doc/swagger -dest=./doc
+	LOG_FORMAT=$(LOG_FORMAT) go run ./cmd/bdspro
 
 fmt:
 	find . -type f -name '*.go' -not -path './.git/*' -print0 | xargs -0 gofmt -w

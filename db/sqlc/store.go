@@ -9,6 +9,7 @@ import (
 // Store collects the generated queries and the domain transaction.
 type Store interface {
 	Querier
+	PhoneOTPRepository
 	RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
 	GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	CreateOrganizationTx(ctx context.Context, arg CreateOrganizationTxParams) (Organization, error)

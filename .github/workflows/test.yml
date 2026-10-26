@@ -73,6 +73,14 @@ jobs:
       - name: Verify current source ownership
         run: sh scripts/check-core-current-source.sh --summary
 
+      - name: Verify Go formatting
+        run: |
+          unformatted="$(git ls-files '*.go' | xargs -r gofmt -l)"
+          if [ -n "$unformatted" ]; then
+            printf 'Unformatted Go files:\n%s\n' "$unformatted"
+            exit 1
+          fi
+
       - name: Run tests
         env:
           ARC02_CANCEL_TEST_DB_URL: postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
@@ -98,7 +106,7 @@ jobs:
           EMAIL_SENDER_ADDRESS: no-reply@bdspro.test
           LOG_FORMAT: json
         run: |
-          go build -o /tmp/bdspro-api .
+          go build -o /tmp/bdspro-api ./cmd/bdspro
           /tmp/bdspro-api > /tmp/bdspro-api.log 2>&1 &
           api_pid=$!
           trap 'kill "$api_pid" 2>/dev/null || true' EXIT
@@ -128,4 +136,4 @@ jobs:
           REDIS_TEST_ADDRESS: 127.0.0.1:6379
           MAILPIT_API_URL: http://127.0.0.1:8025
           MAILPIT_SMTP_ADDRESS: 127.0.0.1:1025
-        run: go test -race -count=1 ./api ./db/sqlc ./worker
+        run: go test -race -count=1 ./app/http/server ./app/services ./auth ./db/sqlc ./worker

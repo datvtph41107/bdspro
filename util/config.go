@@ -42,7 +42,9 @@ func LoadConfig(path string) (config Config, err error) {
 	v.SetDefault("LOG_FORMAT", "json")
 	v.AutomaticEnv()
 	for _, name := range []string{"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"} {
-		if err = v.BindEnv(name); err != nil { return config, err }
+		if err = v.BindEnv(name); err != nil {
+			return config, err
+		}
 	}
 
 	if err = v.ReadInConfig(); err != nil {
@@ -65,16 +67,16 @@ func LoadConfig(path string) (config Config, err error) {
 		return config, fmt.Errorf("token durations must be positive")
 	}
 	if config.GoogleClientID != "" || config.GoogleClientSecret != "" || config.GoogleRedirectURI != "" {
-        if config.GoogleClientID == "" || config.GoogleClientSecret == "" || config.GoogleRedirectURI == "" {
-            return config, fmt.Errorf("Google OAuth requires GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI together")
-        }
-        u, e := url.Parse(config.GoogleRedirectURI)
-        if e != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "/users/google/callback" {
-            return config, fmt.Errorf("GOOGLE_REDIRECT_URI must be the absolute /users/google/callback URL")
-        }
-        if u.Scheme != "https" && !(u.Scheme == "http" && (strings.EqualFold(u.Hostname(), "localhost") || u.Hostname() == "127.0.0.1")) {
-            return config, fmt.Errorf("GOOGLE_REDIRECT_URI requires https outside localhost")
-        }
-    }
+		if config.GoogleClientID == "" || config.GoogleClientSecret == "" || config.GoogleRedirectURI == "" {
+			return config, fmt.Errorf("Google OAuth requires GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI together")
+		}
+		u, e := url.Parse(config.GoogleRedirectURI)
+		if e != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "/users/google/callback" {
+			return config, fmt.Errorf("GOOGLE_REDIRECT_URI must be the absolute /users/google/callback URL")
+		}
+		if u.Scheme != "https" && !(u.Scheme == "http" && (strings.EqualFold(u.Hostname(), "localhost") || u.Hostname() == "127.0.0.1")) {
+			return config, fmt.Errorf("GOOGLE_REDIRECT_URI requires https outside localhost")
+		}
+	}
 	return config, nil
 }
