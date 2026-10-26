@@ -1,6 +1,7 @@
 package api
 
 import (
+    apicontrollers "github.com/datvtph41107/bdspro/app/http/controllers/api"
     "github.com/datvtph41107/bdspro/routes"
 	"context"
 	"errors"
@@ -22,6 +23,7 @@ import (
 )
 
 type Server struct {
+    organizationController *apicontrollers.OrganizationController
 	config          util.Config
 	store           db.Store
 	verificationScheduler auth.VerificationTaskScheduler
@@ -37,6 +39,7 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}
 	server := &Server{
+        organizationController:apicontrollers.NewOrganizationController(store),
 		config: config,
 		store: store,
 		tokenMaker: maker,
@@ -113,10 +116,10 @@ func (server *Server) setupRouter() {
 	routes.Mount(router, routes.Handlers{
         Register: server.createUser, Login: server.loginUser, VerifyEmail: server.verifyEmail,
         Renew: server.renewAccessToken, Revoke: server.revokeRefreshToken, Me: server.me,
-        CreateOrganization: server.createOrganization,
-        ListOrganizations: server.listOrganizations,
-        AddOrganizationMember: server.addOrganizationMember,
-        UpdateOrganization: server.updateOrganization,
+        CreateOrganization: server.organizationController.Create,
+        ListOrganizations: server.organizationController.Index,
+        AddOrganizationMember: server.organizationController.AddMember,
+        UpdateOrganization: server.organizationController.Update,
         PreRegister: PreRegister(), PreLogin: PreLogin(), PreVerifyEmail: PreVerifyEmail(),
         PreToken: PreToken(), SufLogin: SufLogin(), Authenticate: Authenticate(server.tokenMaker),
         RegisterIdentity: registerIdentity, LoginIdentity: loginIdentity,

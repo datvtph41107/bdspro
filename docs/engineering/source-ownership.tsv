@@ -26,3 +26,5 @@ app/http/responses	http-output	public-json-success-error-writer
 app/http/resources	http-resource	public-output-projections
 app/services	application-operations	multi-step-domain-orchestration-without-http
 jobs	asynchronous-job-actions	payload-specific-business-execution
+app/http/controllers	http-controllers	transport-actions-and-public-outcomes
+app/http/middleware	http-security	validated-identity-and-ingress
