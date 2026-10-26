@@ -16,12 +16,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install SQLC
-        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
-      - name: Print generated SQLC Go sources
+      - name: Install sqlc and mockgen
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          go install go.uber.org/mock/mockgen@v0.6.0
+      - name: Print generated Go sources for connector commit
         run: |
           "$(go env GOPATH)/bin/sqlc" generate
-          for f in db/sqlc/google_identity.sql.go db/sqlc/querier.go; do
+          "$(go env GOPATH)/bin/mockgen" -package mockdb -destination db/mock/store.go github.com/datvtph41107/bdspro/db/sqlc Store
+          for f in db/sqlc/google_identity.sql.go db/sqlc/phone_otp.sql.go db/sqlc/verify_email_extra.sql.go db/sqlc/querier.go db/mock/store.go; do
             printf '__SQLC_BEGIN__%s\n' "$f"
             cat "$f"
             printf '__SQLC_END__%s\n' "$f"
