@@ -6,7 +6,7 @@ import (
     "strings"
 
     apperrors "github.com/datvtph41107/bdspro/app/errors"
-    "github.com/datvtph41107/bdspro/app/http/binding"
+    "github.com/datvtph41107/bdspro/app/http/request"
     middleware "github.com/datvtph41107/bdspro/app/http/middleware"
     apirequest "github.com/datvtph41107/bdspro/app/http/requests/api"
     "github.com/datvtph41107/bdspro/app/http/responses"
@@ -25,7 +25,8 @@ func NewOrganizationController(store db.Store) *OrganizationController {
 }
 
 func (c *OrganizationController) Create(ctx *gin.Context) {
-    input := binding.Input[apirequest.CreateOrganizationBody](ctx, "organization.create")
+    var input apirequest.CreateOrganizationBody
+ if !request.JSON(ctx,&input){return}
     name := strings.TrimSpace(input.Name)
     if name == "" {
         responses.Error(ctx, apperrors.NameRequired, "")
@@ -41,12 +42,13 @@ func (c *OrganizationController) Index(ctx *gin.Context) {
 }
 
 func (c *OrganizationController) AddMember(ctx *gin.Context) {
-    id, ok := binding.PositiveInt64Param(ctx, "id")
+    id, ok := request.PositiveID(ctx, "id")
     if !ok {
         responses.Error(ctx, apperrors.InvalidOrganization, "")
         return
     }
-    req := binding.Input[apirequest.AddOrganizationMemberBody](ctx, "organization.member")
+    var req apirequest.AddOrganizationMemberBody
+ if !request.JSON(ctx,&req){return}
     member, err := c.store.AddOrganizationMember(ctx.Request.Context(), db.AddOrganizationMemberParams{
         OrganizationID:id, PersonID:req.PersonID, ActorAccountID:middleware.AccountID(ctx),
     })
@@ -60,12 +62,13 @@ func (c *OrganizationController) AddMember(ctx *gin.Context) {
 }
 
 func (c *OrganizationController) Update(ctx *gin.Context) {
-    id, ok := binding.PositiveInt64Param(ctx, "id")
+    id, ok := request.PositiveID(ctx, "id")
     if !ok {
         responses.Error(ctx, apperrors.InvalidOrganization, "")
         return
     }
-    req := binding.Input[apirequest.UpdateOrganizationBody](ctx, "organization.update")
+    var req apirequest.UpdateOrganizationBody
+ if !request.JSON(ctx,&req){return}
     if req.Name == nil {
         responses.Error(ctx, apperrors.NameRequired, "")
         return

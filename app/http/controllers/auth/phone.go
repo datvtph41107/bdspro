@@ -3,9 +3,10 @@ package auth
 import (
     "errors"
     "net/http"
+ "time"
 
     apperrors "github.com/datvtph41107/bdspro/app/errors"
-    "github.com/datvtph41107/bdspro/app/http/binding"
+    "github.com/datvtph41107/bdspro/app/http/request"
     middleware "github.com/datvtph41107/bdspro/app/http/middleware"
     authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
     "github.com/datvtph41107/bdspro/app/http/resources"
@@ -22,10 +23,11 @@ type PhoneController struct {
     challenges db.PhoneOTPRepository
     maker token.Maker
     config util.Config
+    limiter *middleware.RateLimiter
 }
 
-func NewPhoneController(store db.Store, challenges db.PhoneOTPRepository, maker token.Maker, config util.Config) *PhoneController {
-    return &PhoneController{store:store,challenges:challenges,maker:maker,config:config}
+func NewPhoneController(store db.Store, challenges db.PhoneOTPRepository, maker token.Maker, config util.Config, limiter *middleware.RateLimiter) *PhoneController {
+    return &PhoneController{store:store,challenges:challenges,maker:maker,config:config,limiter:limiter}
 }
 
 func (c *PhoneController) phoneOTP() authservice.PhoneOTP {
@@ -33,7 +35,9 @@ func (c *PhoneController) phoneOTP() authservice.PhoneOTP {
 }
 
 func (c *PhoneController) StartBind(ctx *gin.Context) {
-    input := binding.Input[authrequest.PhoneBindBody](ctx, authrequest.PhoneKey)
+    var input authrequest.PhoneBindBody
+ if !request.JSON(ctx,&input){return}
+ if !c.limiter.Identity(ctx,"phone_bind_start",input.Phone,10,3,time.Hour){return}
     err := c.phoneOTP().StartBind(ctx.Request.Context(), middleware.AccountID(ctx), input.Password, input.Phone)
     if err == nil { ctx.Status(http.StatusAccepted); return }
     if errors.Is(err, authservice.ErrPhoneInvalid) { err = apperrors.InvalidPhone }
@@ -44,7 +48,9 @@ func (c *PhoneController) StartBind(ctx *gin.Context) {
 }
 
 func (c *PhoneController) VerifyBind(ctx *gin.Context) {
-    input := binding.Input[authrequest.PhoneVerifyBody](ctx, authrequest.PhoneKey)
+    var input authrequest.PhoneVerifyBody
+ if !request.JSON(ctx,&input){return}
+ if !c.limiter.Identity(ctx,"phone_bind_verify",input.Phone,40,5,10*time.Minute){return}
     err := c.phoneOTP().VerifyBind(ctx.Request.Context(), middleware.AccountID(ctx), input.Phone, input.Code)
     if err == nil { ctx.Status(http.StatusNoContent); return }
     if errors.Is(err, db.ErrOTPInvalid) { err = apperrors.OTPInvalid }
@@ -55,7 +61,9 @@ func (c *PhoneController) VerifyBind(ctx *gin.Context) {
 }
 
 func (c *PhoneController) StartLogin(ctx *gin.Context) {
-    input := binding.Input[authrequest.PhoneStartBody](ctx, authrequest.PhoneKey)
+    var input authrequest.PhoneStartBody
+ if !request.JSON(ctx,&input){return}
+ if !c.limiter.Identity(ctx,"phone_login_start",input.Phone,10,3,time.Hour){return}
     err := c.phoneOTP().StartLogin(ctx.Request.Context(), input.Phone)
     if err == nil { ctx.Status(http.StatusAccepted); return }
     if errors.Is(err, authservice.ErrPhoneInvalid) { err = apperrors.InvalidPhone }
@@ -63,7 +71,9 @@ func (c *PhoneController) StartLogin(ctx *gin.Context) {
 }
 
 func (c *PhoneController) VerifyLogin(ctx *gin.Context) {
-    input := binding.Input[authrequest.PhoneVerifyBody](ctx, authrequest.PhoneKey)
+    var input authrequest.PhoneVerifyBody
+ if !request.JSON(ctx,&input){return}
+ if !c.limiter.Identity(ctx,"phone_login_verify",input.Phone,40,5,10*time.Minute){return}
     result, err := c.phoneOTP().VerifyLogin(
         ctx.Request.Context(), input.Phone, input.Code, ctx.Request.UserAgent(), ctx.ClientIP(),
     )
