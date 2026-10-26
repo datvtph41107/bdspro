@@ -1,6 +1,7 @@
 package api
 
 import (
+    apirequest "github.com/datvtph41107/bdspro/app/http/requests/api"
 	"errors"
 	"net/http"
 	"strings"
@@ -12,9 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type createOrganizationRequest struct {
-	Name string `json:"name" binding:"required"`
-}
+type createOrganizationRequest = apirequest.CreateOrganizationBody
 
 func (server *Server) createOrganization(ctx *gin.Context) {
 	var req createOrganizationRequest
@@ -46,9 +45,7 @@ func (server *Server) listOrganizations(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, organizations)
 }
 
-type addOrganizationMemberRequest struct {
-	PersonID int64 `json:"person_id" binding:"required,min=1"`
-}
+type addOrganizationMemberRequest = apirequest.AddOrganizationMemberBody
 
 func (server *Server) addOrganizationMember(ctx *gin.Context) {
 	organizationID, validID := positiveInt64Param(ctx, "id")
@@ -88,9 +85,7 @@ func (server *Server) addOrganizationMember(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, member)
 }
 
-type updateOrganizationRequest struct {
-	Name *string `json:"name"`
-}
+type updateOrganizationRequest = apirequest.UpdateOrganizationBody
 
 func (server *Server) updateOrganization(ctx *gin.Context) {
 	organizationID, validID := positiveInt64Param(ctx, "id")

@@ -1,6 +1,7 @@
 package api
 
 import (
+    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"errors"
 	"net/http"
 	"time"
@@ -11,9 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type refreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
+type refreshTokenRequest = authrequest.TokenBody
 
 type renewAccessTokenResponse struct {
 	AccessToken          string    `json:"access_token"`

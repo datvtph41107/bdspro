@@ -19,3 +19,9 @@ proto	protobuf-source	protobuf-contracts
 doc	generated-doc-assets	statik-swagger-dbml
 docs	engineering-knowledge	contracts-adrs-runbooks-history
 scripts	operations	validation-integration-shell-runbooks
+bootstrap	application-bootstrap	startup-dependency-composition-lifecycle
+app/errors	application-failures	canonical-public-error-definitions
+app/http/binding	http-binding	json-query-path-validation-and-input
+app/http/requests	http-contracts	transport-input-dtos
+app/http/responses	http-output	public-json-success-error-writer
+app/http/resources	http-resource	public-output-projections

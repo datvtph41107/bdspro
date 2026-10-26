@@ -1,6 +1,7 @@
 package api
 
 import (
+    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
     "errors"
     "net/http"
     "time"
@@ -10,17 +11,9 @@ import (
     "github.com/gin-gonic/gin"
 )
 
-type phoneBindRequest struct {
-    Phone string `json:"phone" binding:"required"`
-    Password string `json:"password" binding:"required"`
-}
-type phoneVerifyRequest struct {
-    Phone string `json:"phone" binding:"required"`
-    Code string `json:"code" binding:"required"`
-}
-type phoneStartRequest struct {
-    Phone string `json:"phone" binding:"required"`
-}
+type phoneBindRequest = authrequest.PhoneBindBody
+type phoneVerifyRequest = authrequest.PhoneVerifyBody
+type phoneStartRequest = authrequest.PhoneStartBody
 const phoneInputContext="phone.input"
 
 func PrePhoneBind() gin.HandlerFunc {

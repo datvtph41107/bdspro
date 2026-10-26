@@ -1,6 +1,7 @@
 package api
 
 import (
+    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"errors"
 	"net/http"
 
@@ -9,10 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type verifyEmailRequest struct {
-	EmailID    int64  `form:"email_id" binding:"required,min=1"`
-	SecretCode string `form:"secret_code" binding:"required"`
-}
+type verifyEmailRequest = authrequest.VerifyEmailQuery
 
 func (server *Server) verifyEmail(ctx *gin.Context) {
 	req := verifyEmailInput(ctx)

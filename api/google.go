@@ -1,6 +1,7 @@
 package api
 
 import (
+    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
  "context"
  "crypto/rand"
  "crypto/sha256"
@@ -55,9 +56,7 @@ func (server *Server) EnableGoogleOAuth(redisClient *redis.Client) error {
  return nil
 }
 
-type googleLinkStartRequest struct {
- Password string `json:"password" binding:"required"`
-}
+type googleLinkStartRequest = authrequest.GoogleLinkBody
 
 func (g *googleOAuthFlow) startLink(ctx *gin.Context) {
  var req googleLinkStartRequest
