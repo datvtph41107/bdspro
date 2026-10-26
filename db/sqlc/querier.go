@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMembership, error)
+	BindPhoneCredentialQuery(ctx context.Context, arg BindPhoneCredentialQueryParams) error
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
@@ -21,12 +22,22 @@ type Querier interface {
 	CreatePerson(ctx context.Context, partyID int64) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
+	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
+	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
 	GetAccountByEmail(ctx context.Context, btrim string) (Account, error)
 	GetAccountByID(ctx context.Context, id int64) (Account, error)
+	GetGoogleAccountIDQuery(ctx context.Context, googleSub string) (int64, error)
+	GetPhoneAccountIDQuery(ctx context.Context, phoneE164 string) (int64, error)
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
+	LinkGoogleIdentityQuery(ctx context.Context, arg LinkGoogleIdentityQueryParams) (int64, error)
 	ListOrganizationsForPerson(ctx context.Context, personID int64) ([]Organization, error)
+	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
+	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
+	LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
+	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+	UpsertPhoneChallengeQuery(ctx context.Context, arg UpsertPhoneChallengeQueryParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

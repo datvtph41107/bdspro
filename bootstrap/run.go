@@ -79,7 +79,7 @@ func Run() error {
 	}
 	waitGroup.Go(func() error {
 		defer cancel() // Stop the worker if HTTP exits, including on a bind/serve error.
-		return runGinServer(ctx, config, store, taskDistributor, redisClient, db.NewPhoneOTPStore(connPool), startedAt)
+		return runGinServer(ctx, config, store, taskDistributor, redisClient, store, startedAt)
 	})
 	return waitGroup.Wait()
 }
