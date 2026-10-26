@@ -28,4 +28,3 @@ func RunDBMigration(migrationURL, dbSource string) error {
 	log.Info().Str("result", result).Msg("migration.checked")
 	return nil
 }
-

@@ -3,7 +3,6 @@ prefix	owner	responsibility
 .github	change-governance	pull-request-workflow-ci
 api	http-boundary	route-middleware-input-actor-response
 auth	authentication-application	credential-proof-session-verification-intent
-organization	organization-application	account-person-organization-usecase
 db/migration	database-schema	migration-history-constraints
 db/query	database-query	sql-source-of-truth
 db/sqlc	database-execution	store-transactions-sqlc-generated-code
@@ -25,3 +24,5 @@ app/http/binding	http-binding	json-query-path-validation-and-input
 app/http/requests	http-contracts	transport-input-dtos
 app/http/responses	http-output	public-json-success-error-writer
 app/http/resources	http-resource	public-output-projections
+app/services	application-operations	multi-step-domain-orchestration-without-http
+jobs	asynchronous-job-actions	payload-specific-business-execution

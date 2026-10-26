@@ -27,5 +27,5 @@ type PhoneStartBody struct {
     Phone string `json:"phone" binding:"required"`
 }
 type GoogleLinkBody struct {
-    RedirectURI string `json:"redirect_uri"`
+    Password string `json:"password" binding:"required"`
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	db "github.com/datvtph41107/bdspro/db/sqlc"
-	orgapp "github.com/datvtph41107/bdspro/organization"
+	orgapp "github.com/datvtph41107/bdspro/app/services"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
