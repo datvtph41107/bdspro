@@ -1,0 +1,28 @@
+name: SQLC temporary source extraction
+
+on:
+  push:
+    branches:
+      - refactor/canonical-architecture-20261026
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install SQLC
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+      - name: Print generated SQLC Go sources
+        run: |
+          "$(go env GOPATH)/bin/sqlc" generate
+          for f in db/sqlc/google_identity.sql.go db/sqlc/querier.go; do
+            printf '__SQLC_BEGIN__%s\n' "$f"
+            cat "$f"
+            printf '__SQLC_END__%s\n' "$f"
+          done
