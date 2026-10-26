@@ -5,7 +5,6 @@ auth	authentication-application	credential-proof-session-verification-intent
 db/migration	database-schema	migration-history-constraints
 db/query	database-query	sql-source-of-truth
 db/sqlc	database-execution	store-transactions-sqlc-generated-code
-db/mock	database-test-contract	mock-store
 db	database	other-database-assets
 token	token-security	jwt-payload-maker
 worker	async-execution	asynq-task-retries-distribution

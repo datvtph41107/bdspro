@@ -59,7 +59,7 @@ func NewServer(config util.Config, store db.Store, tasks worker.TaskDistributor,
 		middleware.RequestIngress(),
 	)
 	routes.RegisterAuth(router, auth, limiter)
-    routes.RegisterAPI(router, organization, maker)
+    routes.RegisterAPI(router, auth, organization, maker)
     if google != nil {
         routes.RegisterGoogle(router, google, maker, limiter)
     }
