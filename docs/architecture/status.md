@@ -9,7 +9,7 @@
 | `routes/` | Gin auth/API/Google/Phone declarations centralized | Explicit handlers are assembled once; no Laravel-style `init()` magic |
 | `app/http/requests/` | Body/Query DTOs extracted from former `api/` types | Some old handlers still in `api/` |
 | `app/http/binding/` | Single JSON/Query/Path bind mechanism | Feature-by-feature rollout needed |
-| `app/http/controllers/api/` | Organization actions extracted | Auth/Google/OTP actions still need migration |
+| `app/http/controllers/api/` | Organization actions extracted | Register/Login/Verify Email/Token actions are now under controllers/auth; Google/Phone actions remain in api |
 | `app/http/middleware/` | Authenticate/AccountID moved | IPActive and monitoring remain in `api/` |
 | `app/http/responses/` | JSON success/error writer created | Not all handlers converted |
 | `app/http/resources/` | Session/user public DTOs | Only current DTOs moved |

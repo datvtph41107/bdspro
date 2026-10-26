@@ -34,6 +34,9 @@ func (e *Error) Is(target error) bool {
 var (
     NameRequired = &Error{Code:"http.name_required",Message:"name required",Status:http.StatusBadRequest}
     InvalidOrganization = &Error{Code:"http.invalid_organization",Message:"invalid organization",Status:http.StatusBadRequest}
+    InvalidVerificationLink = &Error{Code:"auth.invalid_verification_link",Message:"invalid or expired verification link",Status:http.StatusBadRequest}
+    InvalidRefreshToken = &Error{Code:"auth.invalid_refresh_token",Message:"invalid refresh token",Status:http.StatusUnauthorized}
+    SessionUnavailable = &Error{Code:"auth.session_unavailable",Message:"session unavailable",Status:http.StatusUnauthorized}
     InvalidCredentials = &Error{Code:"auth.invalid_credentials",Message:"invalid credentials",Status:http.StatusUnauthorized}
     EmailRegistered = &Error{Code:"auth.email_registered",Message:"email already registered",Status:http.StatusConflict}
     OrganizationOwnerRequired = &Error{Code:"organization.owner_required",Message:"organization owner required",Status:http.StatusForbidden}

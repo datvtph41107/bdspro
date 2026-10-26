@@ -1,16 +1,17 @@
 package api
 
 import (
+    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 const (
-	loginRequestContextKey       = "request.login"
-	registerRequestContextKey    = "request.register"
-	tokenRequestContextKey       = "request.token"
-	verifyEmailRequestContextKey = "request.verify_email"
+	loginRequestContextKey       = authrequest.LoginKey
+	registerRequestContextKey    = authrequest.RegisterKey
+	tokenRequestContextKey       = authrequest.TokenKey
+	verifyEmailRequestContextKey = authrequest.VerifyEmailKey
 )
 
 // PreLogin validates credentials syntax before the handler. Authentication

@@ -1,6 +1,7 @@
 package api
 
 import (
+    authcontrollers "github.com/datvtph41107/bdspro/app/http/controllers/auth"
     apicontrollers "github.com/datvtph41107/bdspro/app/http/controllers/api"
     "github.com/datvtph41107/bdspro/routes"
 	"context"
@@ -23,6 +24,7 @@ import (
 )
 
 type Server struct {
+    authController *authcontrollers.Controller
     organizationController *apicontrollers.OrganizationController
 	config          util.Config
 	store           db.Store
@@ -45,6 +47,7 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 		tokenMaker: maker,
 		verificationScheduler: worker.NewVerificationScheduler(taskDistributor),
 	}
+	server.authController = authcontrollers.NewController(store, server.verificationScheduler, maker, config)
 	server.setupRouter()
 	return server, nil
 }
@@ -114,8 +117,8 @@ func (server *Server) setupRouter() {
 	router.Use(server.RequestMonitor(), RequestIngress())
 
 	routes.Mount(router, routes.Handlers{
-        Register: server.createUser, Login: server.loginUser, VerifyEmail: server.verifyEmail,
-        Renew: server.renewAccessToken, Revoke: server.revokeRefreshToken, Me: server.me,
+        Register: server.authController.Register, Login: server.authController.Login, VerifyEmail: server.authController.VerifyEmail,
+        Renew: server.authController.Renew, Revoke: server.authController.Revoke, Me: server.me,
         CreateOrganization: server.organizationController.Create,
         ListOrganizations: server.organizationController.Index,
         AddOrganizationMember: server.organizationController.AddMember,
