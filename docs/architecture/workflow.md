@@ -2,7 +2,7 @@
 
 ## Start at the route
 
-Open `routes/` and locate the endpoint by HTTP method/path. Confirm public/authenticated/protected scope and exact middleware order. Then open the named controller, input Body/Query/Path, service operation when needed, SQL query and output Resource. The *route* is the navigation index, not a backend policy engine.
+Open `routes/` and locate the endpoint by HTTP method/path. Confirm public/authenticated/protected scope and exact middleware order. Then open the named controller, input Body/Query/Path, service operation when needed, SQL query and output Resource. The *route* is the navigation index, not a backend business authority.
 
 ## Repeatable feature sequence
 
@@ -24,7 +24,7 @@ Open `routes/` and locate the endpoint by HTTP method/path. Confirm public/authe
 - **No request struct inside controller** for new endpoints.
 - **No hidden actor fallback**; missing Authenticate is a route contract failure.
 - **No claim of complete acceptance** when integration environment/tests were skipped.
-- **Tests:** current files are evidence, not automatic proof or design authority. Requalify rather than deleting coverage by name; a future test plan should target contracts/negative/concurrency cases and keep build/vet/smoke gates explicit.
+- **Tests:** current files are evidence, not automatic proof or design authority. The old tests were removed by explicit request. There is now no regression test coverage. A future test plan should cover negative/concurrency behavior and retain build/vet/smoke checks.
 
 ## Evidence vs desire
 

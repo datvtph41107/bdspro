@@ -1,27 +1,21 @@
-# INFRA-01 — Bootstrap, errors, worker/jobs and cache
+# Runtime — Entrypoint, Database, HTTP Server, Queue và Error
 
-## Bootstrap / main
+## Điểm chạy rõ trách nhiệm
 
-`main.go` is the OS entrypoint only. `bootstrap/` owns construction and shutdown ordering: config/logging → PostgreSQL/pool ping/migrations → Redis ping → Store/queue adapters → HTTP + worker runtime → graceful shutdown. It must not contain request/controller business decisions. Do not replace a God main file with one God `bootstrap/run.go`; split connection/migration, active runtime and legacy transports according to actual ownership.
+`cmd/bdspro/main.go` trực tiếp trình bày thứ tự nạp config/logger, PostgreSQL, migrations, Redis, SQLStore, Asynq worker, HTTP server và cleanup. Không có package `bootstrap/` hay một file `run.go` khổng lồ mang nguyên logic từ main sang.
 
-Existing HTTP+worker co-location is preserved; don't force separate microservices until independent deployment/scale warrants it. Legacy gRPC/Gateway code must be identifiable as not part of active `Run`, not silently removed or advertised as running.
+`db/open.go` sở hữu kết nối/ping/migrations; `app/http/server/` sở hữu Gin engine/CORS/listener; `app/http/middleware/` sở hữu HTTP ingress, rate limits và giám sát request; `worker/` sở hữu Asynq server, queue và retry. `jobs/` chứa hành động gửi verification email.
 
-## Error language
+Các thành phần được tạo **một lần khi chương trình bắt đầu**. Không tự lắp ghép qua `init()`, biến global service locator, reflection hoặc một DI container giả.
 
-The catalog in `app/errors` names known application failures and stores safe public messages/statuses. Public error definitions are not SQL errors. `app/http/responses` writes a safe envelope and logs unknown internal failures; new HTTP controllers should not copy `if err -> ctx.JSON` branches. Underlying error causes are retained via wrapping so internal diagnosis is possible, but they must not be emitted to users. Avoid a universal `switch` mapping `pgx.ErrNoRows` to 404 — missing rows may express forbidden mutation, invalid credential, stale verification or missing resource depending on the use case.
+## Lỗi
 
-`panic` is not a business error channel. Framework recovery is reserved for unexpected panics; expected failures return Go `error`.
+`app/errors/` định nghĩa lỗi có tên, mã và thông điệp công khai. `app/http/responses/` ghi HTTP status/body và không xuất thẳng thông điệp từ PostgreSQL. Một lỗi không tìm thấy row không có nghĩa lúc nào cũng là 404; tình huống sai mật khẩu hay quyền owner có nghĩa khác. Không xây một mapper switch bao trùm toàn bộ nghiệp vụ.
 
-## Queue / jobs / scheduling
+## Job và Redis
 
-`worker/` owns Asynq server/client, queue names, retry/delay, task registration and operational logging. `jobs/` owns a task's actual work (currently verification email) so new image, notification, search-index, report and other jobs need not duplicate queue machinery. Service exposes intent through a small interface (e.g. `auth.VerificationTaskScheduler`) when it actually prevents importing Asynq into application code.
+`worker/` xử lý queue mechanics; `jobs/` xử lý task cụ thể. App chỉ yêu cầu task thông qua interface có giá trị thật (`auth.VerificationTaskScheduler`). Redis dùng cho rate-limit, Google OAuth state và Asynq; không tự gọi tất cả những dữ liệu này là cache.
 
-A task must identify its payload/version, retryability, idempotency boundary, execution owner and error handling. Do not assume exactly-once execution or a PG+Redis atomic commit.
+## Nghiệm thu
 
-## Redis state is not automatically Cache
-
-Redis currently supports rate limits and OAuth state as security infrastructure plus Asynq broker. Those are not disposable read caches. A `cache/` component is warranted when there is a real key space, TTL, invalidation and failure policy for derived data. A catch-all `CacheManager`/Facade creates hidden dependencies and security errors.
-
-## Operational contract
-
-Maintain request context and cancellation into SQL, queue and external calls. Deny protected routes before DB operations; do not leak token, OTP, raw URL verification secrets in logs. Actual verification requires disposable integration environments, HTTP smoke, CI and WSL runtime acceptance separately.
+Bản refactor chưa có test suite mới. Build và HTTP smoke không chứng minh correctness của OTP concurrency, rollback hay enqueue trước PostgreSQL commit. Những bất biến này phải được kiểm tra lại trên môi trường riêng trước khi triển khai production.

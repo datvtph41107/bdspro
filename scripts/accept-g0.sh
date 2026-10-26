@@ -127,12 +127,12 @@ fi
 if docker compose logs --tail=250 api 2>/dev/null | grep -Fq 'startup.ready'; then
     pass "startup.ready observed in recent API logs"
 else
-    warn "startup.ready not in last 250 API log lines; inspect full lifecycle manually"
+    warn "startup.ready not in last 250 API log lines; inspect startup and shutdown logs"
 fi
 
 printf '\n'
 if [ "$failures" -eq 0 ]; then
-    printf 'G0 READ-ONLY CHECKS PASSED; WSL lifecycle, backup/restore and provider E2E still require separate evidence.\n'
+    printf 'G0 READ-ONLY CHECKS PASSED; WSL startup/shutdown, backup/restore and provider E2E still require separate evidence.\n'
 else
     printf 'G0 FAILED: %s check(s). No services or data were changed.\n' "$failures"
     exit 1
