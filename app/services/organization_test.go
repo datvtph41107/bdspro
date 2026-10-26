@@ -7,6 +7,7 @@ import (
 
 	mockdb "github.com/datvtph41107/bdspro/db/mock"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
+    "github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -28,7 +29,7 @@ func TestCreateForAccountResolvesPersonAndPreservesContext(t *testing.T) {
 			OwnerPersonID: 42, Name: "Organization A",
 		}).Return(expected, nil),
 	)
-	got, err := CreateForAccount(ctx, store, 17, "Organization A")
+	got, err := NewOrganizationService(store).Create(ctx, 17, "Organization A")
 	require.NoError(t, err)
 	require.Equal(t, expected, got)
 }
@@ -41,7 +42,7 @@ func TestCreateForAccountStopsWhenActorResolutionFails(t *testing.T) {
 	store.EXPECT().GetAccountByID(ctx, int64(17)).
 		Return(db.Account{}, unavailable)
 	// gomock treats any unexpected transaction call as a test failure.
-	organization, err := CreateForAccount(ctx, store, 17, "Name")
+	organization, err := NewOrganizationService(store).Create(ctx, 17, "Name")
 	require.ErrorIs(t, err, unavailable)
 	require.Equal(t, db.Organization{}, organization)
 }
@@ -58,7 +59,7 @@ func TestCreateForAccountPreservesTransactionFailure(t *testing.T) {
 			OwnerPersonID: 42, Name: "Organization A",
 		}).Return(db.Organization{}, failure),
 	)
-	_, err := CreateForAccount(ctx, store, 17, "Organization A")
+	_, err := NewOrganizationService(store).Create(ctx, 17, "Organization A")
 	require.ErrorIs(t, err, failure)
 }
 
@@ -73,7 +74,7 @@ func TestListForAccountResolvesPersonAndPreservesContext(t *testing.T) {
 		store.EXPECT().ListOrganizationsForPerson(ctx, int64(42)).
 			Return(expected, nil),
 	)
-	got, err := ListForAccount(ctx, store, 17)
+	got, err := NewOrganizationService(store).List(ctx, 17)
 	require.NoError(t, err)
 	require.Equal(t, expected, got)
 }
@@ -85,7 +86,7 @@ func TestListForAccountStopsWhenActorResolutionFails(t *testing.T) {
 	unavailable := errors.New("account query failed")
 	store.EXPECT().GetAccountByID(ctx, int64(17)).
 		Return(db.Account{}, unavailable)
-	organizations, err := ListForAccount(ctx, store, 17)
+	organizations, err := NewOrganizationService(store).List(ctx, 17)
 	require.ErrorIs(t, err, unavailable)
 	require.Nil(t, organizations)
 }
@@ -101,7 +102,26 @@ func TestListForAccountPreservesQueryFailure(t *testing.T) {
 		store.EXPECT().ListOrganizationsForPerson(ctx, int64(42)).
 			Return(nil, failure),
 	)
-	organizations, err := ListForAccount(ctx, store, 17)
+	organizations, err := NewOrganizationService(store).List(ctx, 17)
 	require.ErrorIs(t, err, failure)
 	require.Nil(t, organizations)
+}
+
+
+func TestOrganizationServiceAddMemberAndUpdate(t *testing.T) {
+	store := mockdb.NewMockStore(gomock.NewController(t))
+	ctx := context.Background()
+	store.EXPECT().AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
+		OrganizationID: 22, PersonID: 45, ActorAccountID: 11,
+	}).Return(db.OrganizationMembership{OrganizationID: 22, PersonID: 45}, nil)
+	store.EXPECT().UpdateOrganization(ctx, db.UpdateOrganizationParams{
+		OrganizationID: 22, ActorAccountID: 11,
+		Name: pgtype.Text{String: "Updated", Valid: true},
+	}).Return(db.Organization{PartyID: 22, Name: "Updated"}, nil)
+	service := NewOrganizationService(store)
+	_, err := service.AddMember(ctx, 11, 22, 45)
+	require.NoError(t, err)
+	org, err := service.Update(ctx, 11, 22, "Updated")
+	require.NoError(t, err)
+	require.Equal(t, "Updated", org.Name)
 }

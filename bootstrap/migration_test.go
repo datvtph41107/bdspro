@@ -35,5 +35,5 @@ func TestRunDBMigrationNoChange(t *testing.T) {
 		require.Equal(t, "bdspro-disposable", cluster, "refusing to migrate non-disposable PostgreSQL")
 	}
 
-	require.NoError(t, RunDBMigration(config.MigrationURL, config.DBSource))
+	require.NoError(t, RunDBMigration("file://../db/migration", config.DBSource))
 }

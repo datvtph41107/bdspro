@@ -4,6 +4,7 @@ import (
     authcontrollers "github.com/datvtph41107/bdspro/app/http/controllers/auth"
     apicontrollers "github.com/datvtph41107/bdspro/app/http/controllers/api"
     "github.com/datvtph41107/bdspro/routes"
+    "github.com/datvtph41107/bdspro/app/services"
 	"context"
 	"errors"
 	"fmt"
@@ -41,7 +42,7 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}
 	server := &Server{
-        organizationController:apicontrollers.NewOrganizationController(store),
+        organizationController:apicontrollers.NewOrganizationController(services.NewOrganizationService(store)),
 		config: config,
 		store: store,
 		tokenMaker: maker,

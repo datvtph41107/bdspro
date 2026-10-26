@@ -4,38 +4,57 @@ import (
 	"context"
 
 	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// personIDForAccount resolves the actor used by Organization operations.
-// Authentication has already established the AccountID; it does not establish
-// Organization membership or legal ownership of any Property.
-func personIDForAccount(ctx context.Context, store db.Store, accountID int64) (int64, error) {
-	account, err := store.GetAccountByID(ctx, accountID)
+// OrganizationService is the single business entrypoint for Organization HTTP operations.
+// It owns operation sequencing; SQLC enforces atomic owner predicates and transactions.
+type OrganizationService struct {
+	store db.Store
+}
+
+func NewOrganizationService(store db.Store) *OrganizationService {
+	return &OrganizationService{store: store}
+}
+
+func (s *OrganizationService) personIDForAccount(ctx context.Context, accountID int64) (int64, error) {
+	account, err := s.store.GetAccountByID(ctx, accountID)
 	if err != nil {
 		return 0, err
 	}
 	return account.PersonID, nil
 }
 
-// CreateForAccount creates an Organization and its initial owner membership.
-// CreateOrganizationTx owns the PostgreSQL transaction; this operation only
-// maps the authenticated account to its Person.
-func CreateForAccount(ctx context.Context, store db.Store, accountID int64, name string) (db.Organization, error) {
-	personID, err := personIDForAccount(ctx, store, accountID)
+func (s *OrganizationService) Create(ctx context.Context, actorAccountID int64, name string) (db.Organization, error) {
+	personID, err := s.personIDForAccount(ctx, actorAccountID)
 	if err != nil {
 		return db.Organization{}, err
 	}
-	return store.CreateOrganizationTx(ctx, db.CreateOrganizationTxParams{
+	return s.store.CreateOrganizationTx(ctx, db.CreateOrganizationTxParams{
 		Name: name, OwnerPersonID: personID,
 	})
 }
 
-// ListForAccount returns only Organizations where the actor's Person has an
-// active membership. The SQL query owns the active-membership predicate.
-func ListForAccount(ctx context.Context, store db.Store, accountID int64) ([]db.Organization, error) {
-	personID, err := personIDForAccount(ctx, store, accountID)
+func (s *OrganizationService) List(ctx context.Context, actorAccountID int64) ([]db.Organization, error) {
+	personID, err := s.personIDForAccount(ctx, actorAccountID)
 	if err != nil {
 		return nil, err
 	}
-	return store.ListOrganizationsForPerson(ctx, personID)
+	return s.store.ListOrganizationsForPerson(ctx, personID)
+}
+
+func (s *OrganizationService) AddMember(ctx context.Context, actorAccountID, organizationID, personID int64) (db.OrganizationMembership, error) {
+	return s.store.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
+		OrganizationID: organizationID,
+		PersonID: personID,
+		ActorAccountID: actorAccountID,
+	})
+}
+
+func (s *OrganizationService) Update(ctx context.Context, actorAccountID, organizationID int64, name string) (db.Organization, error) {
+	return s.store.UpdateOrganization(ctx, db.UpdateOrganizationParams{
+		OrganizationID: organizationID,
+		ActorAccountID: actorAccountID,
+		Name: pgtype.Text{String: name, Valid: true},
+	})
 }

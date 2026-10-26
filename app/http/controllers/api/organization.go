@@ -11,17 +11,15 @@ import (
     apirequest "github.com/datvtph41107/bdspro/app/http/requests/api"
     "github.com/datvtph41107/bdspro/app/http/responses"
     "github.com/datvtph41107/bdspro/app/services"
-    db "github.com/datvtph41107/bdspro/db/sqlc"
     "github.com/gin-gonic/gin"
     "github.com/jackc/pgx/v5"
-    "github.com/jackc/pgx/v5/pgtype"
 )
 
 // OrganizationController owns HTTP actions, not SQL/transactions.
-type OrganizationController struct { store db.Store }
+type OrganizationController struct { organizations *services.OrganizationService }
 
-func NewOrganizationController(store db.Store) *OrganizationController {
-    return &OrganizationController{store:store}
+func NewOrganizationController(organizations *services.OrganizationService) *OrganizationController {
+    return &OrganizationController{organizations: organizations}
 }
 
 func (c *OrganizationController) Create(ctx *gin.Context) {
@@ -31,12 +29,12 @@ func (c *OrganizationController) Create(ctx *gin.Context) {
         responses.Error(ctx, apperrors.NameRequired, "")
         return
     }
-    organization, err := services.CreateForAccount(ctx.Request.Context(), c.store, middleware.AccountID(ctx), name)
+    organization, err := c.organizations.Create(ctx.Request.Context(), middleware.AccountID(ctx), name)
     responses.Send(ctx, http.StatusCreated, organization, err, "create organization failed")
 }
 
 func (c *OrganizationController) Index(ctx *gin.Context) {
-    organizations, err := services.ListForAccount(ctx.Request.Context(), c.store, middleware.AccountID(ctx))
+    organizations, err := c.organizations.List(ctx.Request.Context(), middleware.AccountID(ctx))
     responses.Send(ctx, http.StatusOK, organizations, err, "list organizations failed")
 }
 
@@ -47,9 +45,7 @@ func (c *OrganizationController) AddMember(ctx *gin.Context) {
         return
     }
     req := binding.Input[apirequest.AddOrganizationMemberBody](ctx, "organization.member")
-    member, err := c.store.AddOrganizationMember(ctx.Request.Context(), db.AddOrganizationMemberParams{
-        OrganizationID:id, PersonID:req.PersonID, ActorAccountID:middleware.AccountID(ctx),
-    })
+    member, err := c.organizations.AddMember(ctx.Request.Context(), middleware.AccountID(ctx), id, req.PersonID)
     if errors.Is(err, pgx.ErrNoRows) {
         err = apperrors.OrganizationOwnerRequired
     } else if pgErr := apperrors.Postgres(err); pgErr != nil {
@@ -75,10 +71,7 @@ func (c *OrganizationController) Update(ctx *gin.Context) {
         responses.Error(ctx, apperrors.NameRequired, "")
         return
     }
-    organization, err := c.store.UpdateOrganization(ctx.Request.Context(), db.UpdateOrganizationParams{
-        OrganizationID:id, ActorAccountID:middleware.AccountID(ctx),
-        Name:pgtype.Text{String:name, Valid:true},
-    })
+    organization, err := c.organizations.Update(ctx.Request.Context(), middleware.AccountID(ctx), id, name)
     if errors.Is(err, pgx.ErrNoRows) { err = apperrors.OrganizationOwnerRequired }
     responses.Send(ctx, http.StatusOK, organization, err, "update organization failed")
 }
