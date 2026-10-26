@@ -6,7 +6,7 @@
 
 Both raw `pool.QueryRow(...,sql)` and SQLC execute SQL, but allowing both as equal default patterns produces two sources of truth. **Raw Go SQL requires an explicit, source-backed exception** (unsupported SQLC capability, dynamic SQL impossible to express reasonably with typed parameters, COPY/streaming-specific API). Even then, its executor stays inside the database owner, not inside controller or service.
 
-**Open exceptions today:** `db/sqlc/phone_otp.go`, `db/sqlc/google_identity.go`, and `db/sqlc/tx_verify_email_send.go` have handwritten statements. They must be migrated with SQLC generation and parity checks; publishing this document alone does not remove them.
+**Migration in this branch:** Google Identity, Phone OTP and verification-reuse SQL statements have moved to `db/query/*.sql`; generated queries were produced with sqlc v1.30.0. The former standalone `phoneOTPStore` pool owner has been removed. The OTP consumption transaction stays at the database owner while its behavior and concurrency invariants are verified. New raw SQL still requires review.
 
 ## Store and repository
 

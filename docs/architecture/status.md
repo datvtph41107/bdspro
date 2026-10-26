@@ -17,7 +17,7 @@
 | `app/services/` | Organization Create/List operation relocated from root package | `CreateOrganizationTx` business flow remains in Store |
 | `jobs/` | Verification-email job action separated from Asynq runtime | Other jobs do not exist yet |
 | `worker/` | Owns Asynq scheduling/execution mechanics | Existing retry semantics preserved |
-| `db/query/` and `db/sqlc/` | Existing SQLC implementation still in place | Google/Phone/verification raw SQL remains; duplicate PhoneOTP pool owner remains |
+| `db/query/` and `db/sqlc/` | Existing SQLC implementation still in place | Google/Phone/verification now use generated SQLC queries; Store has one pool owner; transaction/workflow layers still require review |
 | `tests/` | Existing tests retained for compatibility gates | User requested requalification/removal of legacy tests; do not claim deletion or replacement |
 
 ### Explicit not-yet-accepted work

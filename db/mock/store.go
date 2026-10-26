@@ -42,6 +42,21 @@ func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 	return m.recorder
 }
 
+// AccountIDForPhone mocks base method.
+func (m *MockStore) AccountIDForPhone(ctx context.Context, phone string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AccountIDForPhone", ctx, phone)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AccountIDForPhone indicates an expected call of AccountIDForPhone.
+func (mr *MockStoreMockRecorder) AccountIDForPhone(ctx, phone any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountIDForPhone", reflect.TypeOf((*MockStore)(nil).AccountIDForPhone), ctx, phone)
+}
+
 // AddOrganizationMember mocks base method.
 func (m *MockStore) AddOrganizationMember(ctx context.Context, arg db.AddOrganizationMemberParams) (db.OrganizationMembership, error) {
 	m.ctrl.T.Helper()
@@ -57,6 +72,20 @@ func (mr *MockStoreMockRecorder) AddOrganizationMember(ctx, arg any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOrganizationMember", reflect.TypeOf((*MockStore)(nil).AddOrganizationMember), ctx, arg)
 }
 
+// BindPhoneCredentialQuery mocks base method.
+func (m *MockStore) BindPhoneCredentialQuery(ctx context.Context, arg db.BindPhoneCredentialQueryParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BindPhoneCredentialQuery", ctx, arg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BindPhoneCredentialQuery indicates an expected call of BindPhoneCredentialQuery.
+func (mr *MockStoreMockRecorder) BindPhoneCredentialQuery(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BindPhoneCredentialQuery", reflect.TypeOf((*MockStore)(nil).BindPhoneCredentialQuery), ctx, arg)
+}
+
 // BlockSession mocks base method.
 func (m *MockStore) BlockSession(ctx context.Context, arg db.BlockSessionParams) (db.Session, error) {
 	m.ctrl.T.Helper()
@@ -70,6 +99,20 @@ func (m *MockStore) BlockSession(ctx context.Context, arg db.BlockSessionParams)
 func (mr *MockStoreMockRecorder) BlockSession(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockSession", reflect.TypeOf((*MockStore)(nil).BlockSession), ctx, arg)
+}
+
+// ConsumeChallenge mocks base method.
+func (m *MockStore) ConsumeChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConsumeChallenge", ctx, phone, purpose, accountID, mac)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ConsumeChallenge indicates an expected call of ConsumeChallenge.
+func (mr *MockStoreMockRecorder) ConsumeChallenge(ctx, phone, purpose, accountID, mac any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsumeChallenge", reflect.TypeOf((*MockStore)(nil).ConsumeChallenge), ctx, phone, purpose, accountID, mac)
 }
 
 // ConsumeVerifyEmail mocks base method.
@@ -206,19 +249,33 @@ func (mr *MockStoreMockRecorder) CreateVerifyEmail(ctx, arg any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVerifyEmail", reflect.TypeOf((*MockStore)(nil).CreateVerifyEmail), ctx, arg)
 }
 
-// GetOrCreateVerifyEmailTx mocks base method.
-func (m *MockStore) GetOrCreateVerifyEmailTx(ctx context.Context, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error) {
+// DeletePhoneChallengeQuery mocks base method.
+func (m *MockStore) DeletePhoneChallengeQuery(ctx context.Context, arg db.DeletePhoneChallengeQueryParams) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOrCreateVerifyEmailTx", ctx, arg)
+	ret := m.ctrl.Call(m, "DeletePhoneChallengeQuery", ctx, arg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeletePhoneChallengeQuery indicates an expected call of DeletePhoneChallengeQuery.
+func (mr *MockStoreMockRecorder) DeletePhoneChallengeQuery(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePhoneChallengeQuery", reflect.TypeOf((*MockStore)(nil).DeletePhoneChallengeQuery), ctx, arg)
+}
+
+// FindReusableVerifyEmailQuery mocks base method.
+func (m *MockStore) FindReusableVerifyEmailQuery(ctx context.Context, arg db.FindReusableVerifyEmailQueryParams) (db.VerifyEmail, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindReusableVerifyEmailQuery", ctx, arg)
 	ret0, _ := ret[0].(db.VerifyEmail)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetOrCreateVerifyEmailTx indicates an expected call of GetOrCreateVerifyEmailTx.
-func (mr *MockStoreMockRecorder) GetOrCreateVerifyEmailTx(ctx, arg any) *gomock.Call {
+// FindReusableVerifyEmailQuery indicates an expected call of FindReusableVerifyEmailQuery.
+func (mr *MockStoreMockRecorder) FindReusableVerifyEmailQuery(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrCreateVerifyEmailTx", reflect.TypeOf((*MockStore)(nil).GetOrCreateVerifyEmailTx), ctx, arg)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindReusableVerifyEmailQuery", reflect.TypeOf((*MockStore)(nil).FindReusableVerifyEmailQuery), ctx, arg)
 }
 
 // GetAccountByEmail mocks base method.
@@ -251,6 +308,66 @@ func (mr *MockStoreMockRecorder) GetAccountByID(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountByID", reflect.TypeOf((*MockStore)(nil).GetAccountByID), ctx, id)
 }
 
+// GetGoogleAccountID mocks base method.
+func (m *MockStore) GetGoogleAccountID(ctx context.Context, googleSub string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGoogleAccountID", ctx, googleSub)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGoogleAccountID indicates an expected call of GetGoogleAccountID.
+func (mr *MockStoreMockRecorder) GetGoogleAccountID(ctx, googleSub any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGoogleAccountID", reflect.TypeOf((*MockStore)(nil).GetGoogleAccountID), ctx, googleSub)
+}
+
+// GetGoogleAccountIDQuery mocks base method.
+func (m *MockStore) GetGoogleAccountIDQuery(ctx context.Context, googleSub string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGoogleAccountIDQuery", ctx, googleSub)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGoogleAccountIDQuery indicates an expected call of GetGoogleAccountIDQuery.
+func (mr *MockStoreMockRecorder) GetGoogleAccountIDQuery(ctx, googleSub any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGoogleAccountIDQuery", reflect.TypeOf((*MockStore)(nil).GetGoogleAccountIDQuery), ctx, googleSub)
+}
+
+// GetOrCreateVerifyEmailTx mocks base method.
+func (m *MockStore) GetOrCreateVerifyEmailTx(ctx context.Context, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOrCreateVerifyEmailTx", ctx, arg)
+	ret0, _ := ret[0].(db.VerifyEmail)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOrCreateVerifyEmailTx indicates an expected call of GetOrCreateVerifyEmailTx.
+func (mr *MockStoreMockRecorder) GetOrCreateVerifyEmailTx(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrCreateVerifyEmailTx", reflect.TypeOf((*MockStore)(nil).GetOrCreateVerifyEmailTx), ctx, arg)
+}
+
+// GetPhoneAccountIDQuery mocks base method.
+func (m *MockStore) GetPhoneAccountIDQuery(ctx context.Context, phoneE164 string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPhoneAccountIDQuery", ctx, phoneE164)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPhoneAccountIDQuery indicates an expected call of GetPhoneAccountIDQuery.
+func (mr *MockStoreMockRecorder) GetPhoneAccountIDQuery(ctx, phoneE164 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPhoneAccountIDQuery", reflect.TypeOf((*MockStore)(nil).GetPhoneAccountIDQuery), ctx, phoneE164)
+}
+
 // GetSession mocks base method.
 func (m *MockStore) GetSession(ctx context.Context, id uuid.UUID) (db.Session, error) {
 	m.ctrl.T.Helper()
@@ -264,6 +381,35 @@ func (m *MockStore) GetSession(ctx context.Context, id uuid.UUID) (db.Session, e
 func (mr *MockStoreMockRecorder) GetSession(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSession", reflect.TypeOf((*MockStore)(nil).GetSession), ctx, id)
+}
+
+// LinkGoogleIdentity mocks base method.
+func (m *MockStore) LinkGoogleIdentity(ctx context.Context, arg db.LinkGoogleIdentityParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LinkGoogleIdentity", ctx, arg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LinkGoogleIdentity indicates an expected call of LinkGoogleIdentity.
+func (mr *MockStoreMockRecorder) LinkGoogleIdentity(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkGoogleIdentity", reflect.TypeOf((*MockStore)(nil).LinkGoogleIdentity), ctx, arg)
+}
+
+// LinkGoogleIdentityQuery mocks base method.
+func (m *MockStore) LinkGoogleIdentityQuery(ctx context.Context, arg db.LinkGoogleIdentityQueryParams) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LinkGoogleIdentityQuery", ctx, arg)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LinkGoogleIdentityQuery indicates an expected call of LinkGoogleIdentityQuery.
+func (mr *MockStoreMockRecorder) LinkGoogleIdentityQuery(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkGoogleIdentityQuery", reflect.TypeOf((*MockStore)(nil).LinkGoogleIdentityQuery), ctx, arg)
 }
 
 // ListOrganizationsForPerson mocks base method.
@@ -281,6 +427,51 @@ func (mr *MockStoreMockRecorder) ListOrganizationsForPerson(ctx, personID any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListOrganizationsForPerson", reflect.TypeOf((*MockStore)(nil).ListOrganizationsForPerson), ctx, personID)
 }
 
+// LockPhoneChallengeQuery mocks base method.
+func (m *MockStore) LockPhoneChallengeQuery(ctx context.Context, arg db.LockPhoneChallengeQueryParams) (db.LockPhoneChallengeQueryRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LockPhoneChallengeQuery", ctx, arg)
+	ret0, _ := ret[0].(db.LockPhoneChallengeQueryRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LockPhoneChallengeQuery indicates an expected call of LockPhoneChallengeQuery.
+func (mr *MockStoreMockRecorder) LockPhoneChallengeQuery(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LockPhoneChallengeQuery", reflect.TypeOf((*MockStore)(nil).LockPhoneChallengeQuery), ctx, arg)
+}
+
+// LockPhoneCredentialQuery mocks base method.
+func (m *MockStore) LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LockPhoneCredentialQuery", ctx, phoneE164)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LockPhoneCredentialQuery indicates an expected call of LockPhoneCredentialQuery.
+func (mr *MockStoreMockRecorder) LockPhoneCredentialQuery(ctx, phoneE164 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LockPhoneCredentialQuery", reflect.TypeOf((*MockStore)(nil).LockPhoneCredentialQuery), ctx, phoneE164)
+}
+
+// LockVerifyEmailAccountQuery mocks base method.
+func (m *MockStore) LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LockVerifyEmailAccountQuery", ctx, id)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LockVerifyEmailAccountQuery indicates an expected call of LockVerifyEmailAccountQuery.
+func (mr *MockStoreMockRecorder) LockVerifyEmailAccountQuery(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LockVerifyEmailAccountQuery", reflect.TypeOf((*MockStore)(nil).LockVerifyEmailAccountQuery), ctx, id)
+}
+
 // MarkEmailVerified mocks base method.
 func (m *MockStore) MarkEmailVerified(ctx context.Context, arg db.MarkEmailVerifiedParams) (db.Account, error) {
 	m.ctrl.T.Helper()
@@ -294,6 +485,20 @@ func (m *MockStore) MarkEmailVerified(ctx context.Context, arg db.MarkEmailVerif
 func (mr *MockStoreMockRecorder) MarkEmailVerified(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkEmailVerified", reflect.TypeOf((*MockStore)(nil).MarkEmailVerified), ctx, arg)
+}
+
+// RecordPhoneChallengeFailureQuery mocks base method.
+func (m *MockStore) RecordPhoneChallengeFailureQuery(ctx context.Context, arg db.RecordPhoneChallengeFailureQueryParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordPhoneChallengeFailureQuery", ctx, arg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecordPhoneChallengeFailureQuery indicates an expected call of RecordPhoneChallengeFailureQuery.
+func (mr *MockStoreMockRecorder) RecordPhoneChallengeFailureQuery(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordPhoneChallengeFailureQuery", reflect.TypeOf((*MockStore)(nil).RecordPhoneChallengeFailureQuery), ctx, arg)
 }
 
 // RegisterTx mocks base method.
@@ -311,6 +516,20 @@ func (mr *MockStoreMockRecorder) RegisterTx(ctx, arg any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterTx", reflect.TypeOf((*MockStore)(nil).RegisterTx), ctx, arg)
 }
 
+// StartChallenge mocks base method.
+func (m *MockStore) StartChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte, devCode string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartChallenge", ctx, phone, purpose, accountID, mac, devCode)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StartChallenge indicates an expected call of StartChallenge.
+func (mr *MockStoreMockRecorder) StartChallenge(ctx, phone, purpose, accountID, mac, devCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartChallenge", reflect.TypeOf((*MockStore)(nil).StartChallenge), ctx, phone, purpose, accountID, mac, devCode)
+}
+
 // UpdateOrganization mocks base method.
 func (m *MockStore) UpdateOrganization(ctx context.Context, arg db.UpdateOrganizationParams) (db.Organization, error) {
 	m.ctrl.T.Helper()
@@ -326,6 +545,21 @@ func (mr *MockStoreMockRecorder) UpdateOrganization(ctx, arg any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOrganization", reflect.TypeOf((*MockStore)(nil).UpdateOrganization), ctx, arg)
 }
 
+// UpsertPhoneChallengeQuery mocks base method.
+func (m *MockStore) UpsertPhoneChallengeQuery(ctx context.Context, arg db.UpsertPhoneChallengeQueryParams) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertPhoneChallengeQuery", ctx, arg)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpsertPhoneChallengeQuery indicates an expected call of UpsertPhoneChallengeQuery.
+func (mr *MockStoreMockRecorder) UpsertPhoneChallengeQuery(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertPhoneChallengeQuery", reflect.TypeOf((*MockStore)(nil).UpsertPhoneChallengeQuery), ctx, arg)
+}
+
 // VerifyEmailTx mocks base method.
 func (m *MockStore) VerifyEmailTx(ctx context.Context, arg db.ConsumeVerifyEmailParams) (db.Account, error) {
 	m.ctrl.T.Helper()
@@ -339,27 +573,4 @@ func (m *MockStore) VerifyEmailTx(ctx context.Context, arg db.ConsumeVerifyEmail
 func (mr *MockStoreMockRecorder) VerifyEmailTx(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyEmailTx", reflect.TypeOf((*MockStore)(nil).VerifyEmailTx), ctx, arg)
-}
-
-// LinkGoogleIdentity mocks the Google account link mutation.
-func (m *MockStore) LinkGoogleIdentity(ctx context.Context, arg db.LinkGoogleIdentityParams) error {
- m.ctrl.T.Helper()
- ret := m.ctrl.Call(m,"LinkGoogleIdentity",ctx,arg)
- ret0,_ := ret[0].(error)
- return ret0
-}
-func (mr *MockStoreMockRecorder) LinkGoogleIdentity(ctx,arg any) *gomock.Call {
- mr.mock.ctrl.T.Helper()
- return mr.mock.ctrl.RecordCallWithMethodType(mr.mock,"LinkGoogleIdentity",reflect.TypeOf((*MockStore)(nil).LinkGoogleIdentity),ctx,arg)
-}
-func (m *MockStore) GetGoogleAccountID(ctx context.Context, sub string) (int64,error) {
- m.ctrl.T.Helper()
- ret:=m.ctrl.Call(m,"GetGoogleAccountID",ctx,sub)
- ret0,_:=ret[0].(int64)
- ret1,_:=ret[1].(error)
- return ret0,ret1
-}
-func (mr *MockStoreMockRecorder) GetGoogleAccountID(ctx,sub any) *gomock.Call {
- mr.mock.ctrl.T.Helper()
- return mr.mock.ctrl.RecordCallWithMethodType(mr.mock,"GetGoogleAccountID",reflect.TypeOf((*MockStore)(nil).GetGoogleAccountID),ctx,sub)
 }
