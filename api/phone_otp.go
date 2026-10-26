@@ -5,7 +5,6 @@ import (
     authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
     "errors"
     "net/http"
-    "time"
 
     "github.com/datvtph41107/bdspro/auth"
     db "github.com/datvtph41107/bdspro/db/sqlc"
