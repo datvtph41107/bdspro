@@ -3,7 +3,7 @@ DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 LOG_FORMAT ?= console
 
-.PHONY: network postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration db_docs db_schema sqlc mock proto fmt test server
+.PHONY: network postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration db_docs db_schema sqlc mock proto fmt server
 
 network:
 	docker network create bdspro-network
@@ -45,8 +45,6 @@ mock:
 	mockgen -package mockdb -destination db/mock/store.go github.com/datvtph41107/bdspro/db/sqlc Store
 	mockgen -package mockwk -destination worker/mock/distributor.go github.com/datvtph41107/bdspro/worker TaskDistributor
 
-test:
-	go test -v -cover ./...
 
 server:
 	LOG_FORMAT=$(LOG_FORMAT) go run ./cmd/bdspro

@@ -1,40 +1,37 @@
-# HTTP: route, admission, request, controller, response
+# BDSPro HTTP — explicit routes and controller inputs
 
-## Canonical reading path
+## Why the DRX working pattern is useful
 
-`routes/auth.go` / `routes/api.go` → `app/http/middleware/` and `app/http/binding/` → `app/http/controllers/{auth,api,admin}/` → operation/Store → `app/http/resources/` → `app/http/responses/`.
+A developer can open `routes/auth.go` or `routes/api.go`, find an HTTP method and URL, follow the named controller method, examine the request type, and read a service/SQL query. This is the useful discipline from Laravel DRX — not PHP facades, hidden model binding, or a runtime that resolves controller methods by magic.
 
-`routes/` contains **native Gin calls** and must not know how PostgreSQL is connected, how a token is issued or how a job is executed. `routes.Mount` receives already-bound Gin handlers once at construction. Feature route files may use a private Go function to group declarations. There is no global mutable router or dynamic `route.To` resolver. New controllers should be added to the route composition at bootstrap, not looked up per request.
+## HTTP responsibilities
 
-## Request vocabulary and source owner
+| Place | Owner |
+|---|---|
+| `routes/*.go` | Native Gin route declarations: actual named controller methods and ordered middleware |
+| `app/http/requests/` | Typed `LoginBody`, `VerifyEmailQuery`, `CreateOrganizationBody` |
+| `app/http/request/` | `JSON(ctx,&body)`, `Query(ctx,&query)`, `PositiveID(ctx,...)` |
+| `app/http/controllers/auth/` | Register, login, session, Phone OTP and Google HTTP actions |
+| `app/http/controllers/api/` | Organization HTTP actions |
+| `app/http/middleware/` | Authentication, source/identity rate limits, logging, request monitor, ingress |
+| `app/http/resources/` | Public output fields only |
+| `app/http/responses/` | Safe JSON errors and success writer |
+| `app/http/server/` | Gin engine, CORS, socket, HTTP shutdown |
 
-| Input/source | Owner | Responsibility |
-|---|---|---|
-| Body | `app/http/requests/<area>/*Body` | JSON/form fields, tags, shape |
-| Query | `app/http/requests/<area>/*Query` | Search, flags, paging input |
-| Path | `app/http/requests/<area>/*Path` | Resource ID/slug |
-| Header/actor | Middleware/admission | Token, source, identity; no caller-controlled actor |
-| Binding | `app/http/binding` | Exactly one decode/validate pass per source, abort before controller |
-| Controller | `app/http/controllers` | HTTP-specific action and projection |
-| Resource | `app/http/resources` | Public fields, never expose a credential hash |
-| Response | `app/http/responses` | JSON serialization, public error safety, HTTP codes |
+Controller code explicitly declares its input:
 
-**Input validation is not authorization.** A valid `organization_id` does not grant update permission. Authentication establishes account identity, while owner membership checks are performed in the data operation that mutates Organization.
+```go
+var body authrequest.LoginBody
+if !request.JSON(ctx, &body) { return }
+if !c.limiter.Identity(ctx, "login", body.Email, 30, 10, time.Minute) { return }
+result, err := auth.Login(/* ... */)
+responses.Send(ctx, http.StatusOK, resources.NewLogin(result), err, "login failed")
+```
 
-## One bind/validation pass
+The route uses direct methods, e.g. `router.POST("/users/login", middleware.SufLogin(), limiter.Source("login",30,time.Minute),authController.Login)`. There is no `routes.Handlers`, generic binding registry, `ctx.MustGet("request.login")`, auto controller resolver or `BaseController`.
 
-Prefer the route middleware `binding.JSON[T](key)`, `binding.Query[T](key)`, `binding.Path[T](key)`; use `binding.Input[T](ctx,key)` in controller. This reuses Gin's decoders and validators, not a second parser. For login the invariants are deliberate: `SufLogin` wraps the request, source limiter is before JSON binding, identity limiter uses parsed input, then action runs. No mandatory universal chain fits Google OAuth callback, query verification link and JSON registration simultaneously.
+Source rate-limiting happens before parse; the identity limiter runs explicitly **after** successful parse and before business processing. HTTP errors are written at the HTTP boundary, not inferred from arbitrary internal database messages. Database authority for Organization mutations remains enforced in the SQL predicate, not replaced by an HTTP permission guess.
 
-Input contracts must have explicit names (`LoginBody`, `VerifyEmailQuery`, `OrganizationPath`). Business state checks stay in services/SQL.
+Neither a pagination mechanism nor a filter builder is created without a real query consumer. For such a feature, name its request contract and add typed SQL parameters in `db/query/*.sql`; do not create a generic ORM or SQL string generator.
 
-## Response and error
-
-Use the shared writer for JSON results. It emits the existing `{"error":"..."}` shape today; do not silently migrate to DRX's `{"success":true,"data":...}` envelope. It distinguishes known, safe business failures from unexpected backend errors. HTTP 204, redirects, file/download streaming and other non-JSON outcomes remain explicit actions.
-
-In Go, `error` is returned, not thrown like a PHP exception. A named application error can be mapped once at the HTTP writer, but this conversion **is necessary**: the same business failure needs a different representation for HTTP and gRPC. There is no giant `switch` mapper and no automatic exposure of raw `err.Error()`. The catalog currently uses HTTP statuses as a practical API-facing definition; evaluate protocol-neutrality when RPC error handling is refactored.
-
-## Reuse without magic
-
-Pagination/filter are first **request contracts**, typed and validated, not strings appended to SQL. When multiple live consumers need the same default/max-limit or cursor behavior, extract the shared primitive. Do not manufacture `BaseController`, a universal builder, a `Route` facade or application-wide service locator before concrete use cases justify it.
-
-**Current transitional seam:** several old actions still reside under `api/`, and their request/response helpers delegate to new owner packages. Move them by verified behavior, not by mass renaming.
+Legacy documents under `docs/engineering/` are historical artifacts, not instructions to reinstate a second input or route mechanism.

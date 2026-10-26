@@ -17,9 +17,7 @@ proto	protobuf-source	protobuf-contracts
 doc	generated-doc-assets	statik-swagger-dbml
 docs	engineering-knowledge	contracts-adrs-runbooks-history
 scripts	operations	validation-integration-shell-runbooks
-bootstrap	application-bootstrap	startup-dependency-composition-lifecycle
 app/errors	application-failures	canonical-public-error-definitions
-app/http/binding	http-binding	json-query-path-validation-and-input
 app/http/requests	http-contracts	transport-input-dtos
 app/http/responses	http-output	public-json-success-error-writer
 app/http/resources	http-resource	public-output-projections
@@ -29,4 +27,5 @@ app/http/controllers	http-controllers	transport-actions-and-public-outcomes
 app/http/middleware	http-security	validated-identity-and-ingress
 routes	http-route-declarations	gin-route-declarations-and-middleware-order
 cmd	program-entrypoint	runnable-executables-and-process-signals
-app/http/server	http-runtime	gin-server-composition-and-http-lifecycle
+app/http/server	http-server	engine-listener-cors-and-shutdown
+app/http/request	http-request-parsing	explicit-controller-json-query-and-path-input

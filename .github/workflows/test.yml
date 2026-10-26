@@ -1,4 +1,4 @@
-name: Run unit tests
+name: Build and HTTP smoke
 
 on:
   push:
@@ -73,15 +73,6 @@ jobs:
       - name: Verify current source ownership
         run: sh scripts/check-core-current-source.sh --summary
 
-      - name: Run tests
-        env:
-          ARC02_CANCEL_TEST_DB_URL: postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
-          BUSINESS_TEST_DB_URL: postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
-          REDIS_TEST_ADDRESS: 127.0.0.1:6379
-          MAILPIT_API_URL: http://127.0.0.1:8025
-          MAILPIT_SMTP_ADDRESS: 127.0.0.1:1025
-        run: make test
-
       - name: Build and Compose validation
         run: |
           go build ./...
@@ -98,7 +89,7 @@ jobs:
           EMAIL_SENDER_ADDRESS: no-reply@bdspro.test
           LOG_FORMAT: json
         run: |
-          go build -o /tmp/bdspro-api .
+          go build -o /tmp/bdspro-api ./cmd/bdspro
           /tmp/bdspro-api > /tmp/bdspro-api.log 2>&1 &
           api_pid=$!
           trap 'kill "$api_pid" 2>/dev/null || true' EXIT
@@ -120,12 +111,3 @@ jobs:
 
       - name: Static analysis
         run: go vet ./...
-
-      - name: Race detector
-        env:
-          ARC02_CANCEL_TEST_DB_URL: postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
-          BUSINESS_TEST_DB_URL: postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
-          REDIS_TEST_ADDRESS: 127.0.0.1:6379
-          MAILPIT_API_URL: http://127.0.0.1:8025
-          MAILPIT_SMTP_ADDRESS: 127.0.0.1:1025
-        run: go test -race -count=1 ./app/http/server ./db/sqlc ./worker

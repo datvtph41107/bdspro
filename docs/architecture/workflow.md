@@ -7,7 +7,7 @@ Open `routes/` and locate the endpoint by HTTP method/path. Confirm public/authe
 ## Repeatable feature sequence
 
 1. Identify the current behavior and source SHA. Define actor, command, input, response and one allowed/denied case.
-2. Put input structure and format/range validation in `app/http/requests/<area>`. Use existing Gin binding through `app/http/binding`; do not parse the same body twice.
+2. Put input structure and format/range validation in `app/http/requests/<area>`. Use `app/http/request.JSON(ctx,&body)` or `Query(ctx,&query)` explicitly in the Controller; never hide values in Gin context keys.
 3. Declare the method/path in `routes/`; insert only the middleware needed for that endpoint; preserve source-rate-limit-before-bind where required.
 4. Use a named controller method that receives validated input and verified actor. Keep it HTTP-specific.
 5. For meaningful multi-step workflows or cross-transport reuse, implement an application service. For one atomic SQL statement, avoid ceremonial forwarding services.
