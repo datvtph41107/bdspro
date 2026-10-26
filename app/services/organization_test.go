@@ -7,7 +7,7 @@ import (
 
 	mockdb "github.com/datvtph41107/bdspro/db/mock"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
-    "github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -106,7 +106,6 @@ func TestListForAccountPreservesQueryFailure(t *testing.T) {
 	require.ErrorIs(t, err, failure)
 	require.Nil(t, organizations)
 }
-
 
 func TestOrganizationServiceAddMemberAndUpdate(t *testing.T) {
 	store := mockdb.NewMockStore(gomock.NewController(t))

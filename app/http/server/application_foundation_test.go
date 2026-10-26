@@ -14,8 +14,8 @@ import (
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
-	"github.com/google/uuid"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -54,7 +54,7 @@ func TestLoginResponseProjectionContract(t *testing.T) {
 			ID: 23, PersonID: 45, Email: "person@example.test",
 			PasswordHash: "should-never-be-exposed", IsEmailVerified: true,
 		},
-		Session: db.Session{ID: id, AccountID: 23},
+		Session:     db.Session{ID: id, AccountID: 23},
 		AccessToken: "signed-access", AccessExpiresAt: expiredAccess,
 		RefreshToken: "signed-refresh", RefreshExpiresAt: expiredRefresh,
 	}

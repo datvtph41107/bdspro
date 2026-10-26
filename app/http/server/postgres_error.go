@@ -1,10 +1,10 @@
 package server
 
 import (
-    apperrors "github.com/datvtph41107/bdspro/app/errors"
-    "github.com/jackc/pgx/v5/pgconn"
+	apperrors "github.com/datvtph41107/bdspro/app/errors"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func postgresError(err error) *pgconn.PgError {
-    return apperrors.Postgres(err)
+	return apperrors.Postgres(err)
 }

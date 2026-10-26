@@ -1,8 +1,8 @@
 package server
 
 import (
-    "github.com/datvtph41107/bdspro/app/http/binding"
-    "github.com/gin-gonic/gin"
+	"github.com/datvtph41107/bdspro/app/http/binding"
+	"github.com/gin-gonic/gin"
 )
 
 // Compatibility entrypoint; the canonical binding mechanism lives in app/http/binding.

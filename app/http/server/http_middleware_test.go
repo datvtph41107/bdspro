@@ -413,24 +413,24 @@ func TestHTTPRequestID(t *testing.T) {
 }
 
 func TestRuntimeRefusesMissingIPActiveLimiter(t *testing.T) {
-    server:=newTestServer(t,nil)
-    server.config.Environment="development"
-    called:=false
-    err:=server.StartWithReady(context.Background(),"127.0.0.1:0",func(net.Addr){called=true})
-    require.ErrorContains(t,err,"IPActive Redis limiter")
-    require.False(t,called)
+	server := newTestServer(t, nil)
+	server.config.Environment = "development"
+	called := false
+	err := server.StartWithReady(context.Background(), "127.0.0.1:0", func(net.Addr) { called = true })
+	require.ErrorContains(t, err, "IPActive Redis limiter")
+	require.False(t, called)
 }
 
 func TestUnknownRoutePathDoesNotLeakClientSecret(t *testing.T) {
-    var output bytes.Buffer
-    original:=log.Logger
-    log.Logger=zerolog.New(&output)
-    t.Cleanup(func(){log.Logger=original})
-    server:=newTestServer(t,nil)
-    request:=httptest.NewRequest(http.MethodGet,"/unmatched/private-route-secret-123",nil)
-    response:=httptest.NewRecorder()
-    server.Handler().ServeHTTP(response,request)
-    require.Equal(t,http.StatusNotFound,response.Code)
-    require.Contains(t,output.String(),`"path":"<unmatched>"`)
-    require.NotContains(t,output.String(),"private-route-secret-123")
+	var output bytes.Buffer
+	original := log.Logger
+	log.Logger = zerolog.New(&output)
+	t.Cleanup(func() { log.Logger = original })
+	server := newTestServer(t, nil)
+	request := httptest.NewRequest(http.MethodGet, "/unmatched/private-route-secret-123", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	require.Equal(t, http.StatusNotFound, response.Code)
+	require.Contains(t, output.String(), `"path":"<unmatched>"`)
+	require.NotContains(t, output.String(), "private-route-secret-123")
 }

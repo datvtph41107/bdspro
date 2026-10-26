@@ -129,7 +129,7 @@ func TestFeatureDeliveryCreateUsesOperationWithVerifiedActorAndContext(t *testin
 func TestFeatureDeliveryMemberWriteKeepsAuthorityAtSQLBoundary(t *testing.T) {
 	for _, tc := range []struct {
 		name string
-		err error
+		err  error
 		want int
 	}{
 		{"Owner", nil, http.StatusCreated},

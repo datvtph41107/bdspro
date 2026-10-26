@@ -1,10 +1,10 @@
 package auth
 
 import (
-    apperrors "github.com/datvtph41107/bdspro/app/errors"
-    "github.com/jackc/pgx/v5/pgconn"
 	"context"
 	"errors"
+	apperrors "github.com/datvtph41107/bdspro/app/errors"
+	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 	"time"
 
@@ -27,14 +27,14 @@ func Register(ctx context.Context, store db.Store, scheduler VerificationTaskSch
 			return scheduler.ScheduleVerifyEmail(ctx, account.ID)
 		},
 	})
-    if err != nil {
-        var pgErr *pgconn.PgError
-        if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
-            return db.Account{}, apperrors.Wrap(apperrors.EmailRegistered, err)
-        }
-        return db.Account{}, err
-    }
-    return account, nil
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
+			return db.Account{}, apperrors.Wrap(apperrors.EmailRegistered, err)
+		}
+		return db.Account{}, err
+	}
+	return account, nil
 }
 
 type LoginResult struct {

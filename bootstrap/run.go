@@ -1,20 +1,20 @@
 package bootstrap
 
 import (
-    "context"
-    "fmt"
-    "os"
-            "time"
+	"context"
+	"fmt"
+	"os"
+	"time"
 
-    db "github.com/datvtph41107/bdspro/db/sqlc"
-    "github.com/datvtph41107/bdspro/util"
-    "github.com/datvtph41107/bdspro/worker"
-    "github.com/gin-gonic/gin"
-    "github.com/go-redis/redis/v8"
-    "github.com/hibiken/asynq"
-    "github.com/jackc/pgx/v5/pgxpool"
-    "github.com/rs/zerolog/log"
-    "golang.org/x/sync/errgroup"
+	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/worker"
+	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 )
 
 func Run(parent context.Context) error {

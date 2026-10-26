@@ -22,7 +22,7 @@ type revokeRequestKey struct{}
 
 func TestRevokeRefreshTokenErrorAndPersistenceContracts(t *testing.T) {
 	for _, tc := range []struct {
-		name string
+		name     string
 		storeErr error
 		wantCode int
 		wantBody string

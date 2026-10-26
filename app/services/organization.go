@@ -46,7 +46,7 @@ func (s *OrganizationService) List(ctx context.Context, actorAccountID int64) ([
 func (s *OrganizationService) AddMember(ctx context.Context, actorAccountID, organizationID, personID int64) (db.OrganizationMembership, error) {
 	return s.store.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
 		OrganizationID: organizationID,
-		PersonID: personID,
+		PersonID:       personID,
 		ActorAccountID: actorAccountID,
 	})
 }
@@ -55,6 +55,6 @@ func (s *OrganizationService) Update(ctx context.Context, actorAccountID, organi
 	return s.store.UpdateOrganization(ctx, db.UpdateOrganizationParams{
 		OrganizationID: organizationID,
 		ActorAccountID: actorAccountID,
-		Name: pgtype.Text{String: name, Valid: true},
+		Name:           pgtype.Text{String: name, Valid: true},
 	})
 }

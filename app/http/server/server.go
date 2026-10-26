@@ -1,13 +1,13 @@
 package server
 
 import (
-    authcontrollers "github.com/datvtph41107/bdspro/app/http/controllers/auth"
-    apicontrollers "github.com/datvtph41107/bdspro/app/http/controllers/api"
-    "github.com/datvtph41107/bdspro/routes"
-    "github.com/datvtph41107/bdspro/app/services"
 	"context"
 	"errors"
 	"fmt"
+	apicontrollers "github.com/datvtph41107/bdspro/app/http/controllers/api"
+	authcontrollers "github.com/datvtph41107/bdspro/app/http/controllers/auth"
+	"github.com/datvtph41107/bdspro/app/services"
+	"github.com/datvtph41107/bdspro/routes"
 	"net"
 	"net/http"
 	"time"
@@ -25,15 +25,15 @@ import (
 )
 
 type Server struct {
-    authController *authcontrollers.Controller
-    organizationController *apicontrollers.OrganizationController
-	config          util.Config
-	store           db.Store
-	verificationScheduler auth.VerificationTaskScheduler
-	tokenMaker      token.Maker
-	router          *gin.Engine
-	authRateRedis   *redis.Client
-	phoneOTP       db.PhoneOTPRepository
+	authController         *authcontrollers.Controller
+	organizationController *apicontrollers.OrganizationController
+	config                 util.Config
+	store                  db.Store
+	verificationScheduler  auth.VerificationTaskScheduler
+	tokenMaker             token.Maker
+	router                 *gin.Engine
+	authRateRedis          *redis.Client
+	phoneOTP               db.PhoneOTPRepository
 }
 
 func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) (*Server, error) {
@@ -42,11 +42,11 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}
 	server := &Server{
-        organizationController:apicontrollers.NewOrganizationController(services.NewOrganizationService(store)),
-		config: config,
-		store: store,
-		tokenMaker: maker,
-		verificationScheduler: worker.NewVerificationScheduler(taskDistributor),
+		organizationController: apicontrollers.NewOrganizationController(services.NewOrganizationService(store)),
+		config:                 config,
+		store:                  store,
+		tokenMaker:             maker,
+		verificationScheduler:  worker.NewVerificationScheduler(taskDistributor),
 	}
 	server.authController = authcontrollers.NewController(store, server.verificationScheduler, maker, config)
 	server.setupRouter()
@@ -55,7 +55,9 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 
 // EnableAuthRateLimiting must be called before Start. Redis outages reject auth requests.
 func (server *Server) EnableAuthRateLimiting(client *redis.Client) error {
-	if client == nil { return errors.New("authentication rate limiter requires Redis") }
+	if client == nil {
+		return errors.New("authentication rate limiter requires Redis")
+	}
 	server.authRateRedis = client
 	return nil
 }
@@ -118,18 +120,18 @@ func (server *Server) setupRouter() {
 	router.Use(server.RequestMonitor(), RequestIngress())
 
 	routes.Mount(router, routes.Handlers{
-        Register: server.authController.Register, Login: server.authController.Login, VerifyEmail: server.authController.VerifyEmail,
-        Renew: server.authController.Renew, Revoke: server.authController.Revoke, Me: server.me,
-        CreateOrganization: server.organizationController.Create,
-        ListOrganizations: server.organizationController.Index,
-        AddOrganizationMember: server.organizationController.AddMember,
-        UpdateOrganization: server.organizationController.Update,
-        PreRegister: PreRegister(), PreLogin: PreLogin(), PreVerifyEmail: PreVerifyEmail(),
-        PreToken: PreToken(), SufLogin: SufLogin(), Authenticate: Authenticate(server.tokenMaker),
-        RegisterIdentity: registerIdentity, LoginIdentity: loginIdentity,
-        VerifyEmailIdentity: emailVerificationIdentity, TokenIdentity: tokenIdentity,
-        Source: server.IPActiveSource, Identity: server.IPActive,
-    })
+		Register: server.authController.Register, Login: server.authController.Login, VerifyEmail: server.authController.VerifyEmail,
+		Renew: server.authController.Renew, Revoke: server.authController.Revoke, Me: server.me,
+		CreateOrganization:    server.organizationController.Create,
+		ListOrganizations:     server.organizationController.Index,
+		AddOrganizationMember: server.organizationController.AddMember,
+		UpdateOrganization:    server.organizationController.Update,
+		PreRegister:           PreRegister(), PreLogin: PreLogin(), PreVerifyEmail: PreVerifyEmail(),
+		PreToken: PreToken(), SufLogin: SufLogin(), Authenticate: Authenticate(server.tokenMaker),
+		RegisterIdentity: registerIdentity, LoginIdentity: loginIdentity,
+		VerifyEmailIdentity: emailVerificationIdentity, TokenIdentity: tokenIdentity,
+		Source: server.IPActiveSource, Identity: server.IPActive,
+	})
 	server.router = router
 }
 

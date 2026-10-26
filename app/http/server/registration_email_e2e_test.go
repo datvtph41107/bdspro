@@ -59,7 +59,7 @@ func TestRegisterEmailEndToEnd(t *testing.T) {
 
 	emailAddress := uuid.NewString() + "@example.test"
 	body, err := json.Marshal(map[string]string{
-		"email": emailAddress,
+		"email":    emailAddress,
 		"password": "integration-password-123",
 	})
 	require.NoError(t, err)
@@ -69,7 +69,9 @@ func TestRegisterEmailEndToEnd(t *testing.T) {
 	server.Handler().ServeHTTP(response, request)
 	require.Equal(t, http.StatusCreated, response.Code)
 	require.NotEmpty(t, response.Header().Get("X-Request-ID"))
-	var result struct{ AccountID int64 `json:"account_id"` }
+	var result struct {
+		AccountID int64 `json:"account_id"`
+	}
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
 	require.Positive(t, result.AccountID)
 
@@ -91,7 +93,9 @@ func TestRegisterEmailEndToEnd(t *testing.T) {
 			var inbox struct {
 				Messages []struct {
 					ID string `json:"ID"`
-					To []struct{ Address string `json:"Address"` } `json:"To"`
+					To []struct {
+						Address string `json:"Address"`
+					} `json:"To"`
 				} `json:"messages"`
 			}
 			decodeErr := json.NewDecoder(resp.Body).Decode(&inbox)
@@ -101,12 +105,14 @@ func TestRegisterEmailEndToEnd(t *testing.T) {
 					for _, recipient := range message.To {
 						if strings.EqualFold(recipient.Address, emailAddress) {
 							messageID = message.ID
-							}
+						}
 					}
 				}
 			}
 		}
-		if messageID != "" { break }
+		if messageID != "" {
+			break
+		}
 		time.Sleep(500 * time.Millisecond)
 	}
 	require.NotEmpty(t, messageID, "Mailpit did not receive verification email")
@@ -116,7 +122,7 @@ func TestRegisterEmailEndToEnd(t *testing.T) {
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var message struct {
-		HTML string `json:"HTML"`
+		HTML    string `json:"HTML"`
 		Subject string `json:"Subject"`
 	}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&message))

@@ -1,20 +1,20 @@
 package bootstrap
 
 import (
-    "context"
-    "fmt"
-    "net"
-    "time"
+	"context"
+	"fmt"
+	"net"
+	"time"
 
-    httpserver "github.com/datvtph41107/bdspro/app/http/server"
-    db "github.com/datvtph41107/bdspro/db/sqlc"
-    "github.com/datvtph41107/bdspro/mail"
-    "github.com/datvtph41107/bdspro/util"
-    "github.com/datvtph41107/bdspro/worker"
-    "github.com/go-redis/redis/v8"
-    "github.com/hibiken/asynq"
-    "github.com/rs/zerolog/log"
-    "golang.org/x/sync/errgroup"
+	httpserver "github.com/datvtph41107/bdspro/app/http/server"
+	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/datvtph41107/bdspro/mail"
+	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/worker"
+	"github.com/go-redis/redis/v8"
+	"github.com/hibiken/asynq"
+	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 )
 
 func runTaskProcessor(
@@ -44,15 +44,20 @@ func runTaskProcessor(
 	return nil
 }
 
-
 func runGinServer(ctx context.Context, config util.Config, store db.Store, taskDistributor worker.TaskDistributor, redisClient *redis.Client, phoneOTP db.PhoneOTPRepository, startedAt time.Time) error {
 	server, err := httpserver.NewServer(config, store, taskDistributor)
 	if err != nil {
 		return err
 	}
-	if err := server.EnableAuthRateLimiting(redisClient); err != nil { return err }
-	if err := server.EnableGoogleOAuth(redisClient); err != nil { return fmt.Errorf("enable Google OAuth: %w", err) }
-	if err := server.EnablePhoneOTP(phoneOTP); err != nil { return fmt.Errorf("enable phone OTP: %w", err) }
+	if err := server.EnableAuthRateLimiting(redisClient); err != nil {
+		return err
+	}
+	if err := server.EnableGoogleOAuth(redisClient); err != nil {
+		return fmt.Errorf("enable Google OAuth: %w", err)
+	}
+	if err := server.EnablePhoneOTP(phoneOTP); err != nil {
+		return fmt.Errorf("enable phone OTP: %w", err)
+	}
 	return server.StartWithReady(ctx, config.HTTPServerAddress, func(net.Addr) {
 		log.Info().Dur("duration", time.Since(startedAt)).Msg("startup.ready")
 	})

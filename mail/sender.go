@@ -16,11 +16,11 @@ type EmailSender interface {
 // SMTPSender sends the same message to a configured SMTP endpoint.
 // Authentication is opt-in so local Mailpit can receive without credentials.
 type SMTPSender struct {
-	name       string
-	address    string
-	password   string
-	smtpAddr   string
-	auth       bool
+	name     string
+	address  string
+	password string
+	smtpAddr string
+	auth     bool
 }
 
 func NewSMTPSender(name, address, password, smtpAddress string, auth bool) EmailSender {

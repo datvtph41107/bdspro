@@ -1,7 +1,7 @@
 package server
 
 import (
-    authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
+	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
