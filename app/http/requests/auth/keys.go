@@ -7,4 +7,5 @@ const (
     RegisterKey = "request.register"
     TokenKey = "request.token"
     VerifyEmailKey = "request.verify_email"
+    PhoneKey = "phone.input"
 )
