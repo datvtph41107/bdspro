@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func mountGoogle(router *gin.Engine, c *authcontroller.GoogleController, maker token.Maker, limit *middleware.RateLimiter) {
+func RegisterGoogle(router *gin.Engine, c *authcontroller.GoogleController, maker token.Maker, limit *middleware.RateLimiter) {
 	router.POST("/users/me/google/start", middleware.Authenticate(maker),
 		limit.Source("google_link_start", 10, time.Minute), c.StartLink)
 	router.GET("/users/google/login/start", limit.Source("google_login_start", 20, time.Minute), c.StartLogin)

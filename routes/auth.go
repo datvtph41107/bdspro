@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func mountAuth(router *gin.Engine, c *authcontroller.Controller, limit *middleware.RateLimiter) {
+func RegisterAuth(router *gin.Engine, c *authcontroller.Controller, limit *middleware.RateLimiter) {
 	router.GET("/health", func(ctx *gin.Context) { ctx.Status(http.StatusOK) })
 	router.POST("/users", limit.Source("register", 10, time.Hour), c.Register)
 	router.POST("/users/login", middleware.SufLogin(), limit.Source("login", 30, time.Minute), c.Login)

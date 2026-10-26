@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func mountAPI(router *gin.Engine, c *apicontroller.OrganizationController, maker token.Maker) {
+func RegisterAPI(router *gin.Engine, c *apicontroller.OrganizationController, maker token.Maker) {
 	authenticated := router.Group("/").Use(middleware.Authenticate(maker))
 	authenticated.GET("/users/me", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{"account_id": middleware.AccountID(ctx)})

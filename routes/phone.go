@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func mountPhone(router *gin.Engine, c *authcontroller.PhoneController, maker token.Maker, limit *middleware.RateLimiter) {
+func RegisterPhone(router *gin.Engine, c *authcontroller.PhoneController, maker token.Maker, limit *middleware.RateLimiter) {
 	router.POST("/users/phone/login/start", limit.Source("phone_login_start", 10, time.Hour), c.StartLogin)
 	router.POST("/users/phone/login/verify", middleware.SufLogin(),
 		limit.Source("phone_login_verify", 40, 10*time.Minute), c.VerifyLogin)
