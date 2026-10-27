@@ -1,4 +1,4 @@
-package server
+package middleware
 
 import (
 	"net/http"
@@ -7,9 +7,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// SufLogin records the final result of the login operation.
-// No credentials are verified and no sessions are issued here.
-func SufLogin() gin.HandlerFunc {
+// LoginAudit logs the completed response; it never issues credentials.
+func LoginAudit() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ctx.Next()
 		status := ctx.Writer.Status()

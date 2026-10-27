@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/datvtph41107/bdspro/app/http/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,7 @@ func TestARC03SourceAdmissionPrecedesJSONParsing(t *testing.T) {
 	operation := "arc03-malformed-" + uuid.NewString()
 	reachedHandler := false
 	server.router.POST("/test/arc03/source", server.IPActiveSource(operation, 2, time.Minute),
-		PreLogin(), func(ctx *gin.Context) {
+		middleware.PreLogin(), func(ctx *gin.Context) {
 			reachedHandler = true
 			ctx.Status(http.StatusNoContent)
 		})
@@ -51,8 +52,8 @@ func TestARC03IdentityAdmissionAcrossClientIPs(t *testing.T) {
 	operation := "arc03-identity-" + uuid.NewString()
 	server.router.POST("/test/arc03/identity",
 		server.IPActiveSource(operation, 30, time.Minute),
-		PreLogin(),
-		server.IPActive(operation, 30, 2, time.Minute, loginIdentity),
+		middleware.PreLogin(),
+		server.IPActive(operation, 30, 2, time.Minute, middleware.LoginIdentity),
 		func(ctx *gin.Context) { ctx.Status(http.StatusNoContent) },
 	)
 	send := func(remote, email string) int {

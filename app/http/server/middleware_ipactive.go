@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/rs/zerolog/log"
@@ -22,13 +21,6 @@ func (server *Server) IPActive(operation string, perIP, perIdentity int64, windo
 		}
 		ctx.Next()
 	}
-}
-
-func loginIdentity(ctx *gin.Context) string    { return loginInput(ctx).Email }
-func registerIdentity(ctx *gin.Context) string { return registerInput(ctx).Email }
-func tokenIdentity(ctx *gin.Context) string    { return tokenInput(ctx).RefreshToken }
-func emailVerificationIdentity(ctx *gin.Context) string {
-	return strconv.FormatInt(verifyEmailInput(ctx).EmailID, 10)
 }
 
 var ipActiveSourceScript = redis.NewScript(`

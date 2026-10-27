@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	apicontrollers "github.com/datvtph41107/bdspro/app/http/controllers/api"
-	authcontrollers "github.com/datvtph41107/bdspro/app/http/controllers/auth"
-	"github.com/datvtph41107/bdspro/app/services"
-	"github.com/datvtph41107/bdspro/routes"
 	"net"
 	"net/http"
 	"time"
 
+	apicontrollers "github.com/datvtph41107/bdspro/app/http/controllers/api"
+	authcontrollers "github.com/datvtph41107/bdspro/app/http/controllers/auth"
+	"github.com/datvtph41107/bdspro/app/services"
 	"github.com/datvtph41107/bdspro/auth"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
+	"github.com/datvtph41107/bdspro/routes"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
 	"github.com/datvtph41107/bdspro/worker"
@@ -119,24 +119,9 @@ func (server *Server) setupRouter() {
 	// Admission and authentication run only on the routes that need them.
 	router.Use(server.RequestMonitor(), RequestIngress())
 
-	routes.Mount(router, routes.Handlers{
-		Register: server.authController.Register, Login: server.authController.Login, VerifyEmail: server.authController.VerifyEmail,
-		Renew: server.authController.Renew, Revoke: server.authController.Revoke, Me: server.me,
-		CreateOrganization:    server.organizationController.Create,
-		ListOrganizations:     server.organizationController.Index,
-		AddOrganizationMember: server.organizationController.AddMember,
-		UpdateOrganization:    server.organizationController.Update,
-		PreRegister:           PreRegister(), PreLogin: PreLogin(), PreVerifyEmail: PreVerifyEmail(),
-		PreToken: PreToken(), SufLogin: SufLogin(), Authenticate: Authenticate(server.tokenMaker),
-		RegisterIdentity: registerIdentity, LoginIdentity: loginIdentity,
-		VerifyEmailIdentity: emailVerificationIdentity, TokenIdentity: tokenIdentity,
-		Source: server.IPActiveSource, Identity: server.IPActive,
-	})
+	routes.RegisterAuth(router, server.authController, server)
+	routes.RegisterAPI(router, server.authController, server.organizationController, server.tokenMaker)
 	server.router = router
-}
-
-func (server *Server) me(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, gin.H{"account_id": authenticatedAccountID(ctx)})
 }
 
 // Handler exposes Gin routes with the same CORS policy as the previous HTTP ingress.

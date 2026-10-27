@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/auth"
+	"github.com/datvtph41107/bdspro/app/http/binding"
+	"github.com/datvtph41107/bdspro/app/http/middleware"
+	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	mockdb "github.com/datvtph41107/bdspro/db/mock"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
@@ -113,9 +116,9 @@ func TestSharedPreJSONBindingKeepsTypedInputAndAbortsBadRequests(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	reached := 0
-	router.POST("/test/login", PreLogin(), func(ctx *gin.Context) {
+	router.POST("/test/login", middleware.PreLogin(), func(ctx *gin.Context) {
 		reached++
-		req := loginInput(ctx)
+		req := binding.Input[authrequest.LoginBody](ctx, authrequest.LoginKey)
 		require.Equal(t, "one@example.test", req.Email)
 		require.Equal(t, "strong-password", req.Password)
 		ctx.Status(http.StatusNoContent)

@@ -7,6 +7,7 @@ import (
 
 	apperrors "github.com/datvtph41107/bdspro/app/errors"
 	"github.com/datvtph41107/bdspro/app/http/binding"
+	"github.com/datvtph41107/bdspro/app/http/middleware"
 	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"github.com/datvtph41107/bdspro/app/http/resources"
 	"github.com/datvtph41107/bdspro/app/http/responses"
@@ -108,4 +109,9 @@ func (c *Controller) Revoke(ctx *gin.Context) {
 		return
 	}
 	ctx.Status(http.StatusNoContent)
+}
+
+// Me returns the verified account identity from the route authentication middleware.
+func (c *Controller) Me(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, gin.H{"account_id": middleware.AccountID(ctx)})
 }

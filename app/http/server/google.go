@@ -28,9 +28,6 @@ func (server *Server) EnableGoogleOAuth(redisClient *redis.Client) error {
 		server.store, server.tokenMaker, server.config, redisClient,
 		&http.Client{Timeout: 10 * time.Second}, redirect.Scheme == "https",
 	)
-	routes.MountGoogle(server.router, routes.GoogleHandlers{
-		StartLink: controller.StartLink, StartLogin: controller.StartLogin, Callback: controller.Callback,
-		Authenticate: Authenticate(server.tokenMaker), Source: server.IPActiveSource,
-	})
+	routes.RegisterGoogle(server.router, controller, server.tokenMaker, server)
 	return nil
 }

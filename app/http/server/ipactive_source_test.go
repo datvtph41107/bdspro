@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/datvtph41107/bdspro/app/http/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,7 @@ func TestIPActiveSourceRunsBeforePreLogin(t *testing.T) {
 	require.NoError(t, server.EnableAuthRateLimiting(client))
 	action := "early-" + uuid.NewString()
 	server.router.POST("/test/prelogin", server.IPActiveSource(action, 2, time.Minute),
-		PreLogin(), func(ctx *gin.Context) { ctx.Status(http.StatusNoContent) })
+		middleware.PreLogin(), func(ctx *gin.Context) { ctx.Status(http.StatusNoContent) })
 	for i := 0; i < 3; i++ {
 		req := httptest.NewRequest(http.MethodPost, "/test/prelogin",
 			strings.NewReader(`{"email":"not-valid","password":"test"}`))
