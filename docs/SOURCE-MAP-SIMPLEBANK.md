@@ -1,3 +1,5 @@
+> **Historical reference, not a source inventory.** This table describes an earlier gRPC/Gateway-era plan. See [architecture/README.md](architecture/README.md) and [../README.md](../README.md) for the Go REST-only application and current paths. Do not recreate the removed packages based on this record.
+
 # BDSPro source contract — đối chiếu TechSchool SimpleBank
 
 Nguồn tham chiếu: `techschool/simplebank` trên `master` tại commit `97f000fe58ad01a0774179ffa8884ac7784cf263`. BDSPro chủ động giữ đúng mô hình Party/Person/Account/Organization của mình.

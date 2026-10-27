@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"time"
 
-	authrequest "github.com/datvtph41107/bdspro/api/handler/request/auth"
-	"github.com/datvtph41107/bdspro/api/handler/resource"
-	"github.com/datvtph41107/bdspro/api/service"
-	"github.com/datvtph41107/bdspro/core/middleware"
-	"github.com/datvtph41107/bdspro/core/response"
+	authrequest "github.com/datvtph41107/bdspro/internal/api/handler/request/auth"
+	"github.com/datvtph41107/bdspro/internal/api/handler/resource"
+	"github.com/datvtph41107/bdspro/internal/api/service"
+	"github.com/datvtph41107/bdspro/internal/core/middleware"
+	"github.com/datvtph41107/bdspro/internal/core/response"
 	"github.com/gin-gonic/gin"
 )
 

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	apperrors "github.com/datvtph41107/bdspro/core/errors"
-	db "github.com/datvtph41107/bdspro/db/sqlc"
+	apperrors "github.com/datvtph41107/bdspro/internal/core/errors"
+	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )

@@ -1,7 +1,7 @@
 package resources
 
 import (
-	db "github.com/datvtph41107/bdspro/db/sqlc"
+	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
 	"time"
 )
 

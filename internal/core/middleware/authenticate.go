@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/datvtph41107/bdspro/token"
+	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
 )
 

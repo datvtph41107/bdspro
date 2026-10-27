@@ -10,10 +10,10 @@ import (
 	"math/big"
 	"regexp"
 
-	"github.com/datvtph41107/bdspro/config"
-	db "github.com/datvtph41107/bdspro/db/sqlc"
-	"github.com/datvtph41107/bdspro/token"
-	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/internal/config"
+	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
+	"github.com/datvtph41107/bdspro/internal/token"
+	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
 )
 

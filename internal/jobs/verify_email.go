@@ -7,9 +7,9 @@ import (
 	"html"
 	"net/url"
 
-	db "github.com/datvtph41107/bdspro/db/sqlc"
-	"github.com/datvtph41107/bdspro/mail"
-	"github.com/datvtph41107/bdspro/util"
+	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
+	"github.com/datvtph41107/bdspro/internal/mail"
+	"github.com/datvtph41107/bdspro/internal/util"
 )
 
 // SendVerificationEmail is the job action. Transport scheduling and retry

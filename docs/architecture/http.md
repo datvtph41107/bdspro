@@ -2,17 +2,17 @@
 
 ## Canonical source path
 
-`core/router/server.go` creates the one Gin engine and global middleware,
+`internal/core/router/server.go` creates the one Gin engine and global middleware,
 then calls `routes.API(root, root.Group(apiPrefix), handlers, policies)`.
-`routes/api.go` is the **only file that declares HTTP endpoints**, including
+`internal/routes/api.go` is the **only file that declares HTTP endpoints**, including
 public, authenticated and conditionally enabled Google/Phone routes. Root
 `/health` remains outside the API prefix.
 
-`api/handler/` owns HTTP binding, admission using validated identities,
+`internal/api/handler/` owns HTTP binding, admission using validated identities,
 extracting the authenticated AccountID and presenting public responses.
-Typed input contracts live in `api/handler/request/` and public output
-resources in `api/handler/resource/`. `api/service/` owns business operations
-and must not import Gin. `db/query/` and `db/sqlc/` own query execution.
+Typed input contracts live in `internal/api/handler/request/` and public output
+resources in `internal/api/handler/resource/`. `internal/api/service/` owns business operations
+and must not import Gin. `db/query/` and `internal/db/sqlc/` own query execution.
 
 ## Middleware ownership and order
 
@@ -32,10 +32,10 @@ to the operation and SQL predicates, not merely to JWT verification.
 ## Request, service and response
 
 Handlers use Gin `ShouldBindJSON` / `ShouldBindQuery` once, return early
-on invalid input and use `core/response.Send` for ordinary JSON responses.
+on invalid input and use `internal/core/response.Send` for ordinary JSON responses.
 Services return Go values and errors, not `gin.Context`, HTTP statuses or JSON.
-`core/errors` maps known safe application failures; unknown database errors
-remain internal. `core/response.Send` preserves the existing successful JSON
+`internal/core/errors` maps known safe application failures; unknown database errors
+remain internal. `internal/core/response.Send` preserves the existing successful JSON
 resources and error shape `{"error":"..."}`; `204` writes no body.
 OAuth redirects/cookies and other protocol-specific responses are explicit
 HTTP operations; do not force them into a JSON-only writer.
@@ -48,7 +48,7 @@ name validation and SQL error classification while HTTP handlers bind input.
 ## No second router or framework
 
 Routes are Gin `GET`, `POST`, `PATCH` and `Group` calls. No custom
-`Route::post` Facade, `core/route.Group` DSL, deferred mount, middleware
+`Route::post` Facade, `internal/core/route.Group` DSL, deferred mount, middleware
 registry or per-request group lookup exists. The base prefix is composed
 once at startup. Existing unversioned URLs must remain stable unless a
 separate compatibility migration is approved.

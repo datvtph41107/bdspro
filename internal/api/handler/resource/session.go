@@ -1,7 +1,7 @@
 package resources
 
 import (
-	"github.com/datvtph41107/bdspro/api/service"
+	"github.com/datvtph41107/bdspro/internal/api/service"
 	"time"
 )
 

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/datvtph41107/bdspro/api/handler"
+	"github.com/datvtph41107/bdspro/internal/api/handler"
 	"github.com/gin-gonic/gin"
 )
 
