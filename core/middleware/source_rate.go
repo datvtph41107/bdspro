@@ -1,4 +1,4 @@
-package server
+package middleware
 
 import (
 	"fmt"
@@ -17,15 +17,15 @@ return n
 `)
 
 // IPActiveSource is the source admission check that runs before controller binding.
-func (server *Server) IPActiveSource(operation string, maxAttempts int64, window time.Duration) gin.HandlerFunc {
+func IPActiveSource(redisClient *redis.Client, operation string, maxAttempts int64, window time.Duration) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if server.authRateRedis == nil {
+		if redisClient == nil {
 			ctx.Next()
 			return
 		}
 		key := "bdspro:source_limit:v1:" + operation + ":" + hashedRateKey(ctx.ClientIP())
 		count, err := ipActiveSourceScript.Run(
-			ctx.Request.Context(), server.authRateRedis,
+			ctx.Request.Context(), redisClient,
 			[]string{key}, int64(window.Seconds()),
 		).Int64()
 		if err != nil {

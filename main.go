@@ -10,7 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	httpserver "github.com/datvtph41107/bdspro/app/http/server"
+	"github.com/datvtph41107/bdspro/core/router"
+	"github.com/datvtph41107/bdspro/config"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/mail"
 	"github.com/datvtph41107/bdspro/util"
@@ -37,20 +38,20 @@ func main() {
 func run(ctx context.Context) error {
 	startedAt := time.Now()
 
-	config, err := util.LoadConfig(".")
+	cfg, err := config.LoadConfig(".")
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	log.Logger = util.NewLogger(os.Stderr, config.LogFormat)
+	log.Logger = util.NewLogger(os.Stderr, cfg.LogFormat)
 	if os.Getenv(gin.EnvGinMode) == "" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	if config.LogFormat == "console" {
+	if cfg.LogFormat == "console" {
 		fmt.Fprint(os.Stderr, "\nBDS PRO / API\n\n")
 	}
-	log.Info().Str("environment", config.Environment).Msg("startup.begin")
+	log.Info().Str("environment", cfg.Environment).Msg("startup.begin")
 
-	pool, err := pgxpool.New(ctx, config.DBSource)
+	pool, err := pgxpool.New(ctx, cfg.DBSource)
 	if err != nil {
 		return fmt.Errorf("connect PostgreSQL: %w", err)
 	}
@@ -61,15 +62,15 @@ func run(ctx context.Context) error {
 	}
 	log.Info().Msg("postgres.connected")
 
-	if err := runDBMigration(config.MigrationURL, config.DBSource); err != nil {
+	if err := runDBMigration(cfg.MigrationURL, cfg.DBSource); err != nil {
 		return err
 	}
 	store := db.NewStore(pool)
 
-	if config.RedisAddress == "" {
+	if cfg.RedisAddress == "" {
 		return errors.New("REDIS_ADDRESS is required")
 	}
-	redisClient := redis.NewClient(&redis.Options{Addr: config.RedisAddress})
+	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddress})
 	defer redisClient.Close()
 
 	redisCtx, cancelRedis := context.WithTimeout(ctx, 5*time.Second)
@@ -80,36 +81,30 @@ func run(ctx context.Context) error {
 	}
 	log.Info().Msg("redis.connected")
 
-	redisOptions := asynq.RedisClientOpt{Addr: config.RedisAddress}
+	redisOptions := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
 	distributor := worker.NewRedisTaskDistributor(redisOptions)
 	defer distributor.Close()
 
 	mailer := mail.NewSMTPSender(
-		config.EmailSenderName,
-		config.EmailSenderAddress,
-		config.EmailSenderPassword,
-		config.SMTPAddress,
-		config.SMTPAuth,
+		cfg.EmailSenderName,
+		cfg.EmailSenderAddress,
+		cfg.EmailSenderPassword,
+		cfg.SMTPAddress,
+		cfg.SMTPAuth,
 	)
-	processor := worker.NewRedisTaskProcessor(redisOptions, store, mailer, config.VerifyEmailURL)
+	processor := worker.NewRedisTaskProcessor(redisOptions, store, mailer, cfg.VerifyEmailURL)
 	if err := processor.Start(); err != nil {
 		return fmt.Errorf("start worker: %w", err)
 	}
 	defer processor.Shutdown()
 	log.Info().Msg("task.processor.started")
 
-	server, err := httpserver.NewServer(config, store, distributor, redisClient)
+	server, err := router.NewServer(config, store, distributor, redisClient)
 	if err != nil {
 		return fmt.Errorf("create HTTP server: %w", err)
 	}
-	if err := server.EnableGoogleOAuth(redisClient); err != nil {
-		return fmt.Errorf("enable Google OAuth: %w", err)
-	}
-	if err := server.EnablePhoneOTP(store); err != nil {
-		return fmt.Errorf("enable phone OTP: %w", err)
-	}
 
-	return server.StartWithReady(ctx, config.HTTPServerAddress, func(net.Addr) {
+	return server.StartWithReady(ctx, cfg.HTTPServerAddress, func(net.Addr) {
 		log.Info().Dur("duration", time.Since(startedAt)).Msg("startup.ready")
 	})
 }

@@ -1,42 +1,43 @@
-package auth
+package handler
 
 import (
 	"errors"
 	"net/http"
 	"time"
 
-	apperrors "github.com/datvtph41107/bdspro/app/errors"
-	middleware "github.com/datvtph41107/bdspro/app/http/middleware"
-	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
-	"github.com/datvtph41107/bdspro/app/http/resources"
-	"github.com/datvtph41107/bdspro/app/http/responses"
-	authservice "github.com/datvtph41107/bdspro/auth"
+	apperrors "github.com/datvtph41107/bdspro/core/errors"
+	middleware "github.com/datvtph41107/bdspro/core/middleware"
+	authrequest "github.com/datvtph41107/bdspro/api/handler/request/auth"
+	"github.com/datvtph41107/bdspro/api/handler/resource"
+	"github.com/datvtph41107/bdspro/core/response"
+	authservice "github.com/datvtph41107/bdspro/api/service"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/config"
 	"github.com/gin-gonic/gin"
 )
 
-type PhoneController struct {
+type PhoneHandler struct {
 	store      db.Store
 	challenges db.PhoneOTPRepository
 	maker      token.Maker
-	config     util.Config
+	config     config.Config
 	limiter    *middleware.IdentityLimiter
 }
 
-func NewPhoneController(store db.Store, challenges db.PhoneOTPRepository, maker token.Maker, config util.Config, limiter *middleware.IdentityLimiter) *PhoneController {
-	return &PhoneController{store: store, challenges: challenges, maker: maker, config: config, limiter: limiter}
+func NewPhoneHandler(store db.Store, challenges db.PhoneOTPRepository, maker token.Maker, config config.Config, limiter *middleware.IdentityLimiter) *PhoneHandler {
+	return &PhoneHandler{store: store, challenges: challenges, maker: maker, config: config, limiter: limiter}
 }
 
-func (c *PhoneController) phoneOTP() authservice.PhoneOTP {
+func (c *PhoneHandler) phoneOTP() authservice.PhoneOTP {
 	return authservice.PhoneOTP{Store: c.store, Challenges: c.challenges, Maker: c.maker, Config: c.config}
 }
 
-func (c *PhoneController) StartBind(ctx *gin.Context) {
+func (c *PhoneHandler) StartBind(ctx *gin.Context) {
 	var input authrequest.PhoneBindBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		responses.InvalidInput(ctx, err, "invalid request")
+		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
 		return
 	}
 	if !c.limiter.Allow(ctx, "phone_bind_start", input.Phone, 10, 3, time.Hour) {
@@ -59,13 +60,13 @@ func (c *PhoneController) StartBind(ctx *gin.Context) {
 	if errors.Is(err, db.ErrOTPCooldown) {
 		err = apperrors.OTPCooldown
 	}
-	responses.Error(ctx, err, "phone bind failed")
+	response.Send(ctx, 0, nil, err, "phone bind failed")
 }
 
-func (c *PhoneController) VerifyBind(ctx *gin.Context) {
+func (c *PhoneHandler) VerifyBind(ctx *gin.Context) {
 	var input authrequest.PhoneVerifyBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		responses.InvalidInput(ctx, err, "invalid request")
+		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
 		return
 	}
 	if !c.limiter.Allow(ctx, "phone_bind_verify", input.Phone, 40, 5, 10*time.Minute) {
@@ -82,13 +83,13 @@ func (c *PhoneController) VerifyBind(ctx *gin.Context) {
 	if pgErr := apperrors.Postgres(err); pgErr != nil && pgErr.Code == "23505" {
 		err = apperrors.PhoneUnavailable
 	}
-	responses.Error(ctx, err, "phone verification failed")
+	response.Send(ctx, 0, nil, err, "phone verification failed")
 }
 
-func (c *PhoneController) StartLogin(ctx *gin.Context) {
+func (c *PhoneHandler) StartLogin(ctx *gin.Context) {
 	var input authrequest.PhoneStartBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		responses.InvalidInput(ctx, err, "invalid request")
+		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
 		return
 	}
 	if !c.limiter.Allow(ctx, "phone_login_start", input.Phone, 10, 3, time.Hour) {
@@ -102,13 +103,13 @@ func (c *PhoneController) StartLogin(ctx *gin.Context) {
 	if errors.Is(err, authservice.ErrPhoneInvalid) {
 		err = apperrors.InvalidPhone
 	}
-	responses.Error(ctx, err, "phone login unavailable")
+	response.Send(ctx, 0, nil, err, "phone login unavailable")
 }
 
-func (c *PhoneController) VerifyLogin(ctx *gin.Context) {
+func (c *PhoneHandler) VerifyLogin(ctx *gin.Context) {
 	var input authrequest.PhoneVerifyBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		responses.InvalidInput(ctx, err, "invalid request")
+		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
 		return
 	}
 	if !c.limiter.Allow(ctx, "phone_login_verify", input.Phone, 40, 5, 10*time.Minute) {
@@ -120,5 +121,5 @@ func (c *PhoneController) VerifyLogin(ctx *gin.Context) {
 	if errors.Is(err, db.ErrOTPInvalid) {
 		err = apperrors.OTPInvalid
 	}
-	responses.Send(ctx, http.StatusOK, resources.NewLogin(result), err, "phone login failed")
+	response.Send(ctx, http.StatusOK, resources.NewLogin(result), err, "phone login failed")
 }

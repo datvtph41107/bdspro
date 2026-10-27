@@ -1,4 +1,4 @@
-package server
+package middleware
 
 import (
 	"net/http"
@@ -20,7 +20,7 @@ return v
 
 // RequestMonitor records policy denials and one threshold alert per fixed
 // observation window. It does not automatically ban a client.
-func (server *Server) RequestMonitor() gin.HandlerFunc {
+func RequestMonitor(redisClient *redis.Client) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ctx.Next()
 		status := ctx.Writer.Status()
@@ -52,11 +52,11 @@ func (server *Server) RequestMonitor() gin.HandlerFunc {
 			Int("status", status).
 			Msg("security.request_denied")
 
-		if server.authRateRedis == nil {
+		if redisClient == nil {
 			return
 		}
 		key := "bdspro:security:denied:v1:" + ipHash
-		count, err := securityCountScript.Run(ctx.Request.Context(), server.authRateRedis,
+		count, err := securityCountScript.Run(ctx.Request.Context(), redisClient,
 			[]string{key}, int64(securityDetectionWindow.Seconds())).Int64()
 		if err != nil {
 			log.Ctx(ctx.Request.Context()).Warn().

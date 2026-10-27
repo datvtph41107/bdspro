@@ -1,9 +1,9 @@
-package auth
+package service
 
 import (
 	"context"
 	"errors"
-	apperrors "github.com/datvtph41107/bdspro/app/errors"
+	apperrors "github.com/datvtph41107/bdspro/core/errors"
 	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 	"time"
@@ -11,6 +11,7 @@ import (
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/config"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -46,7 +47,7 @@ type LoginResult struct {
 	RefreshExpiresAt time.Time
 }
 
-func Login(ctx context.Context, store db.Store, maker token.Maker, config util.Config, email, password, userAgent, clientIP string) (LoginResult, error) {
+func Login(ctx context.Context, store db.Store, maker token.Maker, config config.Config, email, password, userAgent, clientIP string) (LoginResult, error) {
 	var result LoginResult
 	account, err := store.GetAccountByEmail(ctx, strings.TrimSpace(email))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -63,7 +64,7 @@ func Login(ctx context.Context, store db.Store, maker token.Maker, config util.C
 }
 
 // IssueSession gives any already-authenticated account the same BDSPro tokens and session.
-func IssueSession(ctx context.Context, store db.Store, maker token.Maker, config util.Config, account db.Account, userAgent, clientIP string) (LoginResult, error) {
+func IssueSession(ctx context.Context, store db.Store, maker token.Maker, config config.Config, account db.Account, userAgent, clientIP string) (LoginResult, error) {
 	var result LoginResult
 	accessToken, accessPayload, err := maker.CreateToken(account.ID, config.AccessTokenDuration, token.TokenTypeAccess)
 	if err != nil {

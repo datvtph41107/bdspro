@@ -1,7 +1,7 @@
 package resources
 
 import (
-	"github.com/datvtph41107/bdspro/auth"
+	"github.com/datvtph41107/bdspro/api/service"
 	"time"
 )
 
@@ -14,7 +14,7 @@ type Login struct {
 	User                  User      `json:"user"`
 }
 
-func NewLogin(result auth.LoginResult) Login {
+func NewLogin(result service.LoginResult) Login {
 	return Login{
 		SessionID:   result.Session.ID.String(),
 		AccessToken: result.AccessToken, AccessTokenExpiresAt: result.AccessExpiresAt,

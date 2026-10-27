@@ -1,4 +1,4 @@
-package auth
+package service
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/config"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -29,7 +30,7 @@ type PhoneOTP struct {
 	Store      db.Store
 	Challenges db.PhoneOTPRepository
 	Maker      token.Maker
-	Config     util.Config
+	Config     config.Config
 }
 
 func (s PhoneOTP) allowed() error {

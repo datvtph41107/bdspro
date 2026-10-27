@@ -1,4 +1,4 @@
-package auth
+package handler
 
 import (
 	"context"
@@ -14,15 +14,16 @@ import (
 	"strings"
 	"time"
 
-	apperrors "github.com/datvtph41107/bdspro/app/errors"
-	middleware "github.com/datvtph41107/bdspro/app/http/middleware"
-	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
-	"github.com/datvtph41107/bdspro/app/http/resources"
-	"github.com/datvtph41107/bdspro/app/http/responses"
-	"github.com/datvtph41107/bdspro/auth"
+	apperrors "github.com/datvtph41107/bdspro/core/errors"
+	middleware "github.com/datvtph41107/bdspro/core/middleware"
+	authrequest "github.com/datvtph41107/bdspro/api/handler/request/auth"
+	"github.com/datvtph41107/bdspro/api/handler/resource"
+	"github.com/datvtph41107/bdspro/core/response"
+	"github.com/datvtph41107/bdspro/api/service"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/config"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/jackc/pgx/v5"
@@ -35,10 +36,10 @@ const (
 	googleOAuthTTL         = 5 * time.Minute
 )
 
-type GoogleController struct {
+type GoogleHandler struct {
 	store        db.Store
 	maker        token.Maker
-	config       util.Config
+	config       config.Config
 	redis        *redis.Client
 	httpClient   *http.Client
 	secureCookie bool
@@ -50,11 +51,11 @@ type googlePending struct {
 	Nonce     string `json:"nonce"`
 }
 
-func NewGoogleController(
-	store db.Store, maker token.Maker, config util.Config,
+func NewGoogleHandler(
+	store db.Store, maker token.Maker, config config.Config,
 	client *redis.Client, httpClient *http.Client, secureCookie bool,
-) *GoogleController {
-	return &GoogleController{
+) *GoogleHandler {
+	return &GoogleHandler{
 		store: store, maker: maker, config: config,
 		redis: client, httpClient: httpClient, secureCookie: secureCookie,
 	}
@@ -62,10 +63,10 @@ func NewGoogleController(
 
 type googleLinkStartRequest = authrequest.GoogleLinkBody
 
-func (g *GoogleController) StartLink(ctx *gin.Context) {
+func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 	var req googleLinkStartRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		responses.InvalidInput(ctx, err, "invalid request")
+		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
 		return
 	}
 	accountID := middleware.AccountID(ctx)
@@ -82,7 +83,7 @@ func (g *GoogleController) StartLink(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"authorization_url": authURL})
 }
 
-func (g *GoogleController) StartLogin(ctx *gin.Context) {
+func (g *GoogleHandler) StartLogin(ctx *gin.Context) {
 	authURL, err := g.begin(ctx, "login", 0)
 	if err != nil {
 		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google sign-in unavailable"})
@@ -99,14 +100,14 @@ func googleRandom() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
-func (g *GoogleController) stateCookie(ctx *gin.Context, state string, age int) {
+func (g *GoogleHandler) stateCookie(ctx *gin.Context, state string, age int) {
 	http.SetCookie(ctx.Writer, &http.Cookie{
 		Name: googleOAuthCookie, Value: state, Path: "/users/google/callback", MaxAge: age,
 		HttpOnly: true, Secure: g.secureCookie, SameSite: http.SameSiteLaxMode,
 	})
 }
 
-func (g *GoogleController) begin(ctx *gin.Context, purpose string, accountID int64) (string, error) {
+func (g *GoogleHandler) begin(ctx *gin.Context, purpose string, accountID int64) (string, error) {
 	state, err := googleRandom()
 	if err != nil {
 		return "", err
@@ -142,7 +143,7 @@ func (g *GoogleController) begin(ctx *gin.Context, purpose string, accountID int
 	return googleAuthorizationURL + "?" + params.Encode(), nil
 }
 
-func (g *GoogleController) Callback(ctx *gin.Context) {
+func (g *GoogleHandler) Callback(ctx *gin.Context) {
 	ctx.Header("Cache-Control", "no-store")
 	ctx.Header("Referrer-Policy", "no-referrer")
 	state := ctx.Query("state")
@@ -175,7 +176,7 @@ func (g *GoogleController) Callback(ctx *gin.Context) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Google authorization failed"})
 		return
 	}
-	subject, err := auth.VerifyGoogleIDToken(ctx.Request.Context(), idToken, g.config.GoogleClientID, pending.Nonce)
+	subject, err := service.VerifyGoogleIDToken(ctx.Request.Context(), idToken, g.config.GoogleClientID, pending.Nonce)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid Google identity"})
 		return
@@ -216,7 +217,7 @@ func (g *GoogleController) Callback(ctx *gin.Context) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "account unavailable"})
 		return
 	}
-	result, err := auth.IssueSession(ctx.Request.Context(), g.store, g.maker, g.config, account, ctx.Request.UserAgent(), ctx.ClientIP())
+	result, err := service.IssueSession(ctx.Request.Context(), g.store, g.maker, g.config, account, ctx.Request.UserAgent(), ctx.ClientIP())
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
 		return
@@ -224,7 +225,7 @@ func (g *GoogleController) Callback(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, resources.NewLogin(result))
 }
 
-func (g *GoogleController) exchange(ctx context.Context, code, verifier string) (string, error) {
+func (g *GoogleHandler) exchange(ctx context.Context, code, verifier string) (string, error) {
 	form := url.Values{
 		"code":          {code},
 		"client_id":     {g.config.GoogleClientID},
