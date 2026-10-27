@@ -99,7 +99,7 @@ func run(ctx context.Context) error {
 	defer processor.Shutdown()
 	log.Info().Msg("task.processor.started")
 
-	server, err := router.NewServer(config, store, distributor, redisClient)
+	server, err := router.NewServer(cfg, store, distributor, redisClient)
 	if err != nil {
 		return fmt.Errorf("create HTTP server: %w", err)
 	}
