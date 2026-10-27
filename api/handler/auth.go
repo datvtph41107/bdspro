@@ -14,7 +14,6 @@ import (
 	"github.com/datvtph41107/bdspro/api/service"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
-	"github.com/datvtph41107/bdspro/util"
 	"github.com/datvtph41107/bdspro/config"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
