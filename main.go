@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/datvtph41107/bdspro/core/router"
 	"github.com/datvtph41107/bdspro/config"
+	"github.com/datvtph41107/bdspro/core/router"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/mail"
 	"github.com/datvtph41107/bdspro/util"

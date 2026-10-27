@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"time"
 
-	apperrors "github.com/datvtph41107/bdspro/core/errors"
-	middleware "github.com/datvtph41107/bdspro/core/middleware"
 	authrequest "github.com/datvtph41107/bdspro/api/handler/request/auth"
 	"github.com/datvtph41107/bdspro/api/handler/resource"
-	"github.com/datvtph41107/bdspro/core/response"
 	authservice "github.com/datvtph41107/bdspro/api/service"
+	"github.com/datvtph41107/bdspro/config"
+	apperrors "github.com/datvtph41107/bdspro/core/errors"
+	middleware "github.com/datvtph41107/bdspro/core/middleware"
+	"github.com/datvtph41107/bdspro/core/response"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
-	"github.com/datvtph41107/bdspro/config"
 	"github.com/gin-gonic/gin"
 )
 

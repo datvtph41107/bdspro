@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
+	apirequest "github.com/datvtph41107/bdspro/api/handler/request/organization"
+	"github.com/datvtph41107/bdspro/api/service"
 	apperrors "github.com/datvtph41107/bdspro/core/errors"
 	middleware "github.com/datvtph41107/bdspro/core/middleware"
-	apirequest "github.com/datvtph41107/bdspro/api/handler/request/organization"
 	"github.com/datvtph41107/bdspro/core/response"
-	"github.com/datvtph41107/bdspro/api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 )
