@@ -38,4 +38,4 @@ server:
 	go run .
 
 fmt:
-	gofmt -w main.go
+	gofmt -w .
