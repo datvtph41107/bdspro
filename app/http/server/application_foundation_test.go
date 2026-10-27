@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datvtph41107/bdspro/auth"
 	"github.com/datvtph41107/bdspro/app/http/binding"
 	"github.com/datvtph41107/bdspro/app/http/middleware"
 	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
+	"github.com/datvtph41107/bdspro/auth"
 	mockdb "github.com/datvtph41107/bdspro/db/mock"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"

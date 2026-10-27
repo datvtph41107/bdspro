@@ -1,9 +1,9 @@
 package routes
 
 import (
+	"github.com/datvtph41107/bdspro/app/http/binding"
 	apicontroller "github.com/datvtph41107/bdspro/app/http/controllers/api"
 	authcontroller "github.com/datvtph41107/bdspro/app/http/controllers/auth"
-	"github.com/datvtph41107/bdspro/app/http/binding"
 	"github.com/datvtph41107/bdspro/app/http/middleware"
 	apirequest "github.com/datvtph41107/bdspro/app/http/requests/api"
 	"github.com/datvtph41107/bdspro/token"

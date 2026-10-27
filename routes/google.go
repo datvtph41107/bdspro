@@ -3,8 +3,8 @@ package routes
 import (
 	"time"
 
-	authcontroller "github.com/datvtph41107/bdspro/app/http/controllers/auth"
 	"github.com/datvtph41107/bdspro/app/http/binding"
+	authcontroller "github.com/datvtph41107/bdspro/app/http/controllers/auth"
 	"github.com/datvtph41107/bdspro/app/http/middleware"
 	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"github.com/datvtph41107/bdspro/token"
