@@ -56,7 +56,7 @@ func NewServer(cfg config.Config, store db.Store, taskDistributor worker.TaskDis
 		identityLimiter: middleware.NewIdentityLimiter(redisClient),
 	}
 	scheduler := worker.NewVerificationScheduler(taskDistributor)
-	server.authHandler = handler.NewAuthHandler(store, scheduler, maker, cfg, server.identityLimiter)
+	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, scheduler, maker, cfg), server.identityLimiter)
 	server.organizationHandler = handler.NewOrganizationHandler(service.NewOrganizationService(store))
 
 	if cfg.GoogleClientID != "" {

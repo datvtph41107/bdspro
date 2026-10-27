@@ -11,7 +11,7 @@
 - `api/handler` owns Gin request and response interaction. Per-endpoint input
   structures are under `api/handler/request`; public wire resources are under
   `api/handler/resource`.
-- `api/service` owns application and business operations and cannot import Gin.
+- `api/service` owns application and business operations and cannot import Gin.\n  AuthService owns registration, email verification, token renewal and revocation;\n  OrganizationService owns resource validation and PostgreSQL error classification.
 - `core/middleware` implements HTTP request policies. `core/response`
   provides one shared JSON/error writer. `core/errors` owns the public error
   catalog and internal causes. SQL and transactions remain in `db/sqlc`.
@@ -89,3 +89,18 @@ business repositories.
 - Validate conditional Google/phone routes and external callback paths.
 - No route registration in other files, no old `app/http` or root `auth`
   packages, and no redundant Response Core implementation.
+
+## Service boundary verification (2026-10-27)
+
+- Auth handlers bind validated body/query inputs, perform identity-based request
+  admission, call AuthService and send one response via Core Response.
+- AuthService owns database/session workflows and canonical authentication
+  errors. Password, Google and phone login reuse the same IssueSession action.
+- Organization handlers contain no SQL error classification; operations
+  validate names, enforce actor-related SQL predicates and map expected
+  constraint failures in OrganizationService.
+- `config/auth.go` is typed JWT settings for the **existing** Account principal,
+  not an implementation of Laravel's container-resolved guard registry.
+  No inactive web/admin guard or provider is created until a real requirement.
+- All endpoints retain their preexisting URLs, HTTP statuses, callback
+  contracts and security middleware; `/api/v1` is not silently introduced.
