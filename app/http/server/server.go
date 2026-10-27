@@ -10,8 +10,8 @@ import (
 
 	apicontrollers "github.com/datvtph41107/bdspro/app/http/controllers/api"
 	authcontrollers "github.com/datvtph41107/bdspro/app/http/controllers/auth"
-	"github.com/datvtph41107/bdspro/app/services"
 	"github.com/datvtph41107/bdspro/app/http/middleware"
+	"github.com/datvtph41107/bdspro/app/services"
 	"github.com/datvtph41107/bdspro/auth"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/routes"
@@ -52,8 +52,8 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 		store:                  store,
 		tokenMaker:             maker,
 		verificationScheduler:  worker.NewVerificationScheduler(taskDistributor),
-		authRateRedis: redisClient,
-		identityLimiter: middleware.NewIdentityLimiter(redisClient),
+		authRateRedis:          redisClient,
+		identityLimiter:        middleware.NewIdentityLimiter(redisClient),
 	}
 	server.authController = authcontrollers.NewController(store, server.verificationScheduler, maker, config, server.identityLimiter)
 	server.setupRouter()
