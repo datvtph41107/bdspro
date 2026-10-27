@@ -7,6 +7,7 @@ import (
 
 	apperrors "github.com/datvtph41107/bdspro/app/errors"
 	"github.com/datvtph41107/bdspro/app/http/middleware"
+	"strconv"
 	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"github.com/datvtph41107/bdspro/app/http/resources"
 	"github.com/datvtph41107/bdspro/app/http/responses"
@@ -25,16 +26,20 @@ type Controller struct {
 	scheduler auth.VerificationTaskScheduler
 	maker     token.Maker
 	config    util.Config
+	limiter   *middleware.IdentityLimiter
 }
 
-func NewController(store db.Store, scheduler auth.VerificationTaskScheduler, maker token.Maker, config util.Config) *Controller {
-	return &Controller{store: store, scheduler: scheduler, maker: maker, config: config}
+func NewController(store db.Store, scheduler auth.VerificationTaskScheduler, maker token.Maker, config util.Config, limiter *middleware.IdentityLimiter) *Controller {
+	return &Controller{store: store, scheduler: scheduler, maker: maker, config: config, limiter: limiter}
 }
 
 func (c *Controller) Register(ctx *gin.Context) {
 	var input authrequest.RegisterBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
+	if !c.limiter.Allow(ctx, "register", input.Email, 10, 3, time.Hour) {
 		return
 	}
 	account, err := auth.Register(ctx.Request.Context(), c.store, c.scheduler, input.Email, input.Password)
@@ -47,6 +52,9 @@ func (c *Controller) Login(ctx *gin.Context) {
 		responses.InvalidInput(ctx, err, "invalid request")
 		return
 	}
+	if !c.limiter.Allow(ctx, "login", input.Email, 30, 10, time.Minute) {
+		return
+	}
 	result, err := auth.Login(ctx.Request.Context(), c.store, c.maker, c.config,
 		input.Email, input.Password, ctx.Request.UserAgent(), ctx.ClientIP())
 	responses.Send(ctx, http.StatusOK, resources.NewLogin(result), err, "login failed")
@@ -56,6 +64,9 @@ func (c *Controller) VerifyEmail(ctx *gin.Context) {
 	var input authrequest.VerifyEmailQuery
 	if err := ctx.ShouldBindQuery(&input); err != nil {
 		responses.InvalidInput(ctx, err, "invalid verification link")
+		return
+	}
+	if !c.limiter.Allow(ctx, "verify_email", strconv.FormatInt(input.EmailID, 10), 60, 10, time.Minute) {
 		return
 	}
 	_, err := c.store.VerifyEmailTx(ctx.Request.Context(), db.ConsumeVerifyEmailParams{
@@ -72,6 +83,9 @@ func (c *Controller) Renew(ctx *gin.Context) {
 	var input authrequest.TokenBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
+	if !c.limiter.Allow(ctx, "refresh", input.RefreshToken, 60, 20, time.Minute) {
 		return
 	}
 	payload, err := c.maker.VerifyToken(input.RefreshToken, token.TokenTypeRefresh)
@@ -109,6 +123,9 @@ func (c *Controller) Revoke(ctx *gin.Context) {
 	var input authrequest.TokenBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
+	if !c.limiter.Allow(ctx, "revoke", input.RefreshToken, 60, 20, time.Minute) {
 		return
 	}
 	payload, err := c.maker.VerifyToken(input.RefreshToken, token.TokenTypeRefresh)

@@ -11,6 +11,7 @@ import (
 	apicontrollers "github.com/datvtph41107/bdspro/app/http/controllers/api"
 	authcontrollers "github.com/datvtph41107/bdspro/app/http/controllers/auth"
 	"github.com/datvtph41107/bdspro/app/services"
+	"github.com/datvtph41107/bdspro/app/http/middleware"
 	"github.com/datvtph41107/bdspro/auth"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/routes"
@@ -33,10 +34,14 @@ type Server struct {
 	tokenMaker             token.Maker
 	router                 *gin.Engine
 	authRateRedis          *redis.Client
+	identityLimiter        *middleware.IdentityLimiter
 	phoneOTP               db.PhoneOTPRepository
 }
 
-func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) (*Server, error) {
+func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor, redisClient *redis.Client) (*Server, error) {
+	if redisClient == nil {
+		return nil, errors.New("authentication requires Redis")
+	}
 	maker, err := token.NewJWTMaker(config.TokenSymmetricKey)
 	if err != nil {
 		return nil, fmt.Errorf("create token maker: %w", err)
@@ -47,19 +52,12 @@ func NewServer(config util.Config, store db.Store, taskDistributor worker.TaskDi
 		store:                  store,
 		tokenMaker:             maker,
 		verificationScheduler:  worker.NewVerificationScheduler(taskDistributor),
+		authRateRedis: redisClient,
+		identityLimiter: middleware.NewIdentityLimiter(redisClient),
 	}
-	server.authController = authcontrollers.NewController(store, server.verificationScheduler, maker, config)
+	server.authController = authcontrollers.NewController(store, server.verificationScheduler, maker, config, server.identityLimiter)
 	server.setupRouter()
 	return server, nil
-}
-
-// EnableAuthRateLimiting must be called before Start. Redis outages reject auth requests.
-func (server *Server) EnableAuthRateLimiting(client *redis.Client) error {
-	if client == nil {
-		return errors.New("authentication rate limiter requires Redis")
-	}
-	server.authRateRedis = client
-	return nil
 }
 
 func (server *Server) setupRouter() {
@@ -145,9 +143,6 @@ func (server *Server) Start(ctx context.Context, address string) error {
 
 // StartWithReady invokes onListening only after the TCP port has been bound.
 func (server *Server) StartWithReady(ctx context.Context, address string, onListening func(net.Addr)) error {
-	if (server.config.Environment == "development" || server.config.Environment == "production") && server.authRateRedis == nil {
-		return errors.New("IPActive Redis limiter must be configured before starting HTTP")
-	}
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("listen HTTP: %w", err)

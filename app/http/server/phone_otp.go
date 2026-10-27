@@ -19,7 +19,7 @@ func (server *Server) EnablePhoneOTP(repository db.PhoneOTPRepository) error {
 	}
 	server.phoneOTP = repository
 	controller := authcontrollers.NewPhoneController(
-		server.store, repository, server.tokenMaker, server.config,
+		server.store, repository, server.tokenMaker, server.config, server.identityLimiter,
 	)
 	routes.RegisterPhone(server.router, controller, server.tokenMaker, server)
 	return nil

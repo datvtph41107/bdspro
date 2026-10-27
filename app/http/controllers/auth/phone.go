@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	apperrors "github.com/datvtph41107/bdspro/app/errors"
 	middleware "github.com/datvtph41107/bdspro/app/http/middleware"
@@ -21,10 +22,11 @@ type PhoneController struct {
 	challenges db.PhoneOTPRepository
 	maker      token.Maker
 	config     util.Config
+	limiter    *middleware.IdentityLimiter
 }
 
-func NewPhoneController(store db.Store, challenges db.PhoneOTPRepository, maker token.Maker, config util.Config) *PhoneController {
-	return &PhoneController{store: store, challenges: challenges, maker: maker, config: config}
+func NewPhoneController(store db.Store, challenges db.PhoneOTPRepository, maker token.Maker, config util.Config, limiter *middleware.IdentityLimiter) *PhoneController {
+	return &PhoneController{store: store, challenges: challenges, maker: maker, config: config, limiter: limiter}
 }
 
 func (c *PhoneController) phoneOTP() authservice.PhoneOTP {
@@ -35,6 +37,9 @@ func (c *PhoneController) StartBind(ctx *gin.Context) {
 	var input authrequest.PhoneBindBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
+	if !c.limiter.Allow(ctx, "phone_bind_start", input.Phone, 10, 3, time.Hour) {
 		return
 	}
 	err := c.phoneOTP().StartBind(ctx.Request.Context(), middleware.AccountID(ctx), input.Password, input.Phone)
@@ -63,6 +68,9 @@ func (c *PhoneController) VerifyBind(ctx *gin.Context) {
 		responses.InvalidInput(ctx, err, "invalid request")
 		return
 	}
+	if !c.limiter.Allow(ctx, "phone_bind_verify", input.Phone, 40, 5, 10*time.Minute) {
+		return
+	}
 	err := c.phoneOTP().VerifyBind(ctx.Request.Context(), middleware.AccountID(ctx), input.Phone, input.Code)
 	if err == nil {
 		ctx.Status(http.StatusNoContent)
@@ -83,6 +91,9 @@ func (c *PhoneController) StartLogin(ctx *gin.Context) {
 		responses.InvalidInput(ctx, err, "invalid request")
 		return
 	}
+	if !c.limiter.Allow(ctx, "phone_login_start", input.Phone, 10, 3, time.Hour) {
+		return
+	}
 	err := c.phoneOTP().StartLogin(ctx.Request.Context(), input.Phone)
 	if err == nil {
 		ctx.Status(http.StatusAccepted)
@@ -98,6 +109,9 @@ func (c *PhoneController) VerifyLogin(ctx *gin.Context) {
 	var input authrequest.PhoneVerifyBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
+	if !c.limiter.Allow(ctx, "phone_login_verify", input.Phone, 40, 5, 10*time.Minute) {
 		return
 	}
 	result, err := c.phoneOTP().VerifyLogin(

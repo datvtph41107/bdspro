@@ -98,12 +98,9 @@ func run(ctx context.Context) error {
 	defer processor.Shutdown()
 	log.Info().Msg("task.processor.started")
 
-	server, err := httpserver.NewServer(config, store, distributor)
+	server, err := httpserver.NewServer(config, store, distributor, redisClient)
 	if err != nil {
 		return fmt.Errorf("create HTTP server: %w", err)
-	}
-	if err := server.EnableAuthRateLimiting(redisClient); err != nil {
-		return err
 	}
 	if err := server.EnableGoogleOAuth(redisClient); err != nil {
 		return fmt.Errorf("enable Google OAuth: %w", err)
