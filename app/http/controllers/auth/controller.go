@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	apperrors "github.com/datvtph41107/bdspro/app/errors"
@@ -16,7 +17,6 @@ import (
 	"github.com/datvtph41107/bdspro/util"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"strconv"
 )
 
 // Controller is the HTTP entrypoint. It owns no database connection,
