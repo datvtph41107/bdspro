@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	apperrors "github.com/datvtph41107/bdspro/core/errors"
+	apperrors "github.com/datvtph41107/bdspro/internal/core/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )

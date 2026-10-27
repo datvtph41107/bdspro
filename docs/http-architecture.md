@@ -2,32 +2,32 @@
 
 ## Ownership and entrypoints
 
-- `core/router/server.go` constructs the one Gin engine, global middleware, HTTP
+- `internal/core/router/server.go` constructs the one Gin engine, global middleware, HTTP
   server and route group. `apiPrefix` is deliberately empty to preserve existing
   URLs; versioning requires a separate public API migration.
-- `routes/api.go` is the one authoritative HTTP route inventory. Its function
+- `internal/routes/api.go` is the one authoritative HTTP route inventory. Its function
   receives the already-configured Gin group, concrete handlers and middleware.
   Paths are relative to the supplied group; `/health` remains a root system route.
-- `api/handler` owns Gin request and response interaction. Per-endpoint input
-  structures are under `api/handler/request`; public wire resources are under
-  `api/handler/resource`.
-- `api/service` owns application and business operations and cannot import Gin.
+- `internal/api/handler` owns Gin request and response interaction. Per-endpoint input
+  structures are under `internal/api/handler/request`; public wire resources are under
+  `internal/api/handler/resource`.
+- `internal/api/service` owns application and business operations and cannot import Gin.
   AuthService owns registration, email verification, token renewal and revocation;
   OrganizationService owns resource validation and PostgreSQL error classification.
-- `core/middleware` implements HTTP request policies. `core/response`
-  provides one shared JSON/error writer. `core/errors` owns the public error
+- `internal/core/middleware` implements HTTP request policies. `internal/core/response`
+  provides one shared JSON/error writer. `internal/core/errors` owns the public error
   catalog and internal causes. SQL and transactions remain in `db/sqlc`.
 
 ## Authentication: Laravel guard vs Go
 
 Laravel DRX resolves `auth:api` through the `auth` middleware alias and the
-`config/auth.php` guard's driver and provider. Its `web`, `api`, and
+`internal/config/auth.php` guard's driver and provider. Its `web`, `api`, and
 `admin` guards have different identity/session implementations.
 
 BDSPro currently has one principal type for HTTP authentication: Account,
 authenticated by signed access JWTs, with refresh sessions in PostgreSQL.
-`config/auth.go` exposes the actual JWT configuration used by the one
-token maker. `core/middleware.Authenticate` validates access tokens and sets
+`internal/config/auth.go` exposes the actual JWT configuration used by the one
+token maker. `internal/core/middleware.Authenticate` validates access tokens and sets
 the verified AccountID on the Gin request context. Resource ownership is
 enforced by business operations and SQL predicates. No fictional `web` or
 `admin` guard, generic alias lookup, runtime driver registry, or duplicate
@@ -43,7 +43,7 @@ routes are exposed.
    to alter formatting or URL presentation.
 3. Authenticated group: verifies JWT exactly once before protected handlers.
 4. Endpoint policies: admission rate limits and audit middleware where
-   explicitly declared in `routes/api.go`.
+   explicitly declared in `internal/routes/api.go`.
 5. Identity-based throttling remains after request binding in auth handlers,
    because the limiter requires validated identifiers. It is not equivalent
    to source/IP admission limiting.
@@ -74,10 +74,10 @@ and explicit compatibility tests.
 
 ## Adding an API
 
-Declare a relative method/path/handler in `routes/api.go`; place public
+Declare a relative method/path/handler in `internal/routes/api.go`; place public
 request data types and response resources with the relevant handler; put
-business rules in `api/service`; use the existing SQLC-generated queries and
-transaction helpers. Reuse `core/response.Send` and classified core errors.
+business rules in `internal/api/service`; use the existing SQLC-generated queries and
+transaction helpers. Reuse `internal/core/response.Send` and classified core errors.
 Do not create new middleware dispatchers, route registries or redundant
 business repositories.
 
@@ -101,7 +101,7 @@ business repositories.
 - Organization handlers contain no SQL error classification; operations
   validate names, enforce actor-related SQL predicates and map expected
   constraint failures in OrganizationService.
-- `config/auth.go` is typed JWT settings for the **existing** Account principal,
+- `internal/config/auth.go` is typed JWT settings for the **existing** Account principal,
   not an implementation of Laravel's container-resolved guard registry.
   No inactive web/admin guard or provider is created until a real requirement.
 - All endpoints retain their preexisting URLs, HTTP statuses, callback

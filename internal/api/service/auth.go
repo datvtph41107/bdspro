@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datvtph41107/bdspro/config"
-	apperrors "github.com/datvtph41107/bdspro/core/errors"
-	db "github.com/datvtph41107/bdspro/db/sqlc"
-	"github.com/datvtph41107/bdspro/token"
-	"github.com/datvtph41107/bdspro/util"
+	"github.com/datvtph41107/bdspro/internal/config"
+	apperrors "github.com/datvtph41107/bdspro/internal/core/errors"
+	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
+	"github.com/datvtph41107/bdspro/internal/token"
+	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )

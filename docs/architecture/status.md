@@ -7,14 +7,14 @@ infer production acceptance from a source tree or green compile alone.
 | Ownership | Current source | What exists |
 |---|---|---|
 | Startup and shutdown | `main.go` | One Go process with HTTP and Asynq |
-| HTTP runtime | `core/router/server.go` | Gin, ingress, CORS, timeouts |
-| HTTP contract | `routes/api.go` | One route file with conditional endpoints |
-| Auth settings | `config/auth.go` | One JWT Account principal; no unused guards |
-| Handlers | `api/handler/` | Binding, admission, HTTP outputs |
-| Operations | `api/service/` | Auth/session, Organization, Google token, Phone OTP |
-| Error/response | `core/errors`, `core/response` | Safe known errors and one JSON writer |
+| HTTP runtime | `internal/core/router/server.go` | Gin, ingress, CORS, timeouts |
+| HTTP contract | `internal/routes/api.go` | One route file with conditional endpoints |
+| Auth settings | `internal/config/auth.go` | One JWT Account principal; no unused guards |
+| Handlers | `internal/api/handler/` | Binding, admission, HTTP outputs |
+| Operations | `internal/api/service/` | Auth/session, Organization, Google token, Phone OTP |
+| Error/response | `internal/core/errors`, `internal/core/response` | Safe known errors and one JSON writer |
 | Database | `db/query`, `db/sqlc`, `db/migration` | SQLC, PostgreSQL transactions |
-| Async | `worker/`, `jobs/`, `mail/` | Email verification worker |
+| Async | `internal/worker/`, `internal/jobs/`, `internal/mail/` | Email verification worker |
 | CI | `.github/workflows/test.yml` | PostgreSQL migrations and `make test` |
 
 ## Verified scope and remaining limits
@@ -27,12 +27,9 @@ infer production acceptance from a source tree or green compile alone.
   classification. HTTP handlers remain responsible for parsing requests.
 - Google OAuth callback includes browser redirects and cookies and does
   not fit a generic JSON-only response writer.
-- No `admin` principal, guard, password/session backend or `routes/admin.go`
+- No `admin` principal, guard, password/session backend or `internal/routes/admin.go`
   should be invented before real authorization requirements.
-- There are currently no `*_test.go` source files in this checkout;
-  `go test ./...` can prove compilation without providing behavioral
-  coverage. A green CI run is not proof of auth, OTP, concurrency or
-  end-to-end contract correctness.
+- Focused JWT middleware, session lifecycle and Organization authorization tests now exist under `internal/`. PostgreSQL authorization integration runs only with the dedicated disposable test database in CI. These tests do not replace provider E2E or production acceptance.
 - Registration's PostgreSQL/Asynq handoff remains non-atomic.
   Phone-OTP replay, lockout and OAuth callback need explicit runtime
   verification in disposable environments before production acceptance.

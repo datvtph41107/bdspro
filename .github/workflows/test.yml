@@ -37,8 +37,18 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Run migrations
-        run: make migrateup
+      - name: Migrate disposable test database
+        env:
+          PGPASSWORD: secret
+        run: |
+          psql -h 127.0.0.1 -U root -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE bdspro_test'
+          DB_URL='postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable' make migrateup
 
-      - name: Run tests
-        run: make test
+      - name: Test and compile
+        env:
+          BDS_TEST_MODE: disposable
+          BDS_TEST_DB_URL: postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable
+        run: |
+          make test
+          go vet ./...
+          go build ./...

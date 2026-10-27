@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/datvtph41107/bdspro/jobs"
+	"github.com/datvtph41107/bdspro/internal/jobs"
 	"github.com/hibiken/asynq"
 	"github.com/rs/zerolog/log"
 )

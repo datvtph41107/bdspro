@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
-	apirequest "github.com/datvtph41107/bdspro/api/handler/request/organization"
-	"github.com/datvtph41107/bdspro/api/service"
-	apperrors "github.com/datvtph41107/bdspro/core/errors"
-	"github.com/datvtph41107/bdspro/core/middleware"
-	"github.com/datvtph41107/bdspro/core/response"
+	apirequest "github.com/datvtph41107/bdspro/internal/api/handler/request/organization"
+	"github.com/datvtph41107/bdspro/internal/api/service"
+	apperrors "github.com/datvtph41107/bdspro/internal/core/errors"
+	"github.com/datvtph41107/bdspro/internal/core/middleware"
+	"github.com/datvtph41107/bdspro/internal/core/response"
 	"github.com/gin-gonic/gin"
 )
 

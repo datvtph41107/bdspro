@@ -1,22 +1,22 @@
 # BDSPro — Current Application Architecture
 
-**Current source of truth:** `main.go`, `core/router/server.go`,
-`routes/api.go`, `api/handler/`, `api/service/`, `core/`,
-`db/query/` and `db/sqlc/` on the `dev` branch.
+**Current source of truth (Go packages under `internal/`):** `main.go`, `internal/core/router/server.go`,
+`internal/routes/api.go`, `internal/api/handler/`, `internal/api/service/`, `internal/core/`,
+`db/query/` and `internal/db/sqlc/` on the `dev` branch.
 
 This document describes the implementation, not the former
-`bootstrap/`, `app/http/`, `routes/auth.go` or business `modules/` layouts.
+`bootstrap/`, `app/http/`, `internal/routes/auth.go` or business `modules/` layouts.
 
 ## Developer navigation
 
-1. Open `routes/api.go` to find the HTTP method, relative URL, scope,
+1. Open `internal/routes/api.go` to find the HTTP method, relative URL, scope,
    applicable middleware and handler method.
-2. Open `api/handler/<area>.go` to inspect body/query binding, verified actor,
+2. Open `internal/api/handler/<area>.go` to inspect body/query binding, verified actor,
    input admission, public resource and HTTP response.
-3. Follow the called `api/service/` operation to see business rules, session
+3. Follow the called `internal/api/service/` operation to see business rules, session
    operations, transaction boundaries and database error classification.
-4. Review `db/query/*.sql`, `db/sqlc/` and migrations for durable behavior.
-5. Read `core/router/server.go` for application-wide ingress, base-prefix
+4. Review `db/query/*.sql`, `internal/db/sqlc/` and migrations for durable behavior.
+5. Read `internal/core/router/server.go` for application-wide ingress, base-prefix
    policy and explicit dependency composition.
 
 ## Laravel DRX inspiration, Go execution

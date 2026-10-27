@@ -1,21 +1,50 @@
 # BDSPro
 
-BDSPro is a Go REST API using Gin, PostgreSQL/sqlc and Redis/Asynq. This source follows the direct startup approach of TechSchool SimpleBank, without starting gRPC or API Gateway.
+Go REST monolith: Gin, PostgreSQL/SQLC, Redis/Asynq. There is one executable (`main.go`), no gRPC/Gateway, and no custom routing framework.
 
-## Read the program from the first line
+## Read the program from main.go
 
-Open **[main.go](main.go)**. The execution order is visible directly:
+`main → run → config → PostgreSQL/migrations → SQLC Store → Redis/Asynq → HTTP server`.
 
-`main → run → LoadConfig → PostgreSQL → migrations → SQLC Store → Redis → worker → HTTP server`.
+Application Go packages live under `internal/`:
 
-To trace a request, follow `routes/auth.go` or `routes/api.go` into the controller, then `app/services/` or `auth/` and `db/query/` (generated in `db/sqlc/`).
+```text
+main.go
+internal/
+  config/                  # process and JWT configuration
+  core/router/             # Gin engine, startup wiring and HTTP lifecycle
+  core/middleware/         # authentication and request admission
+  core/errors/             # public application errors
+  core/response/           # HTTP response mapping
+  routes/api.go            # one authoritative endpoint inventory
+  api/handler/             # HTTP request binding and responses
+  api/handler/request/     # typed inputs
+  api/handler/resource/    # public output projections
+  api/service/             # auth/session and organization operations
+  db/sqlc/                # SQLC generated queries and handwritten Store/Tx
+  token/                  # JWT signing and verification
+  worker/ jobs/ mail/     # asynchronous email verification
+  util/                   # passwords, logging, randomness
+db/
+  migration/               # append-only schema history
+  query/                   # canonical editable SQL
+```
+
+`internal/` is Go's import boundary; it does **not** grant or deny resource access. There is no `pkg/` because this app currently exposes no reusable public library.
+
+## Work on an API
+
+Follow `internal/routes/api.go → internal/api/handler → internal/api/service → db/query/*.sql → internal/db/sqlc`. JWT middleware establishes the verified AccountID; resource authorization is checked in the resource query/transaction. Do not change routes, statuses, rate limit semantics or database invariants as part of a package relocation. See [current architecture](docs/architecture/README.md) and [developer workflow](docs/architecture/workflow.md).
 
 ```sh
 go run .
+make sqlc
 make test
-docker compose up -d --build
+go vet ./...
+go build ./...
+docker compose config --quiet
 ```
 
-The config loader reads `app.env` with process-environment overrides. PostgreSQL migrations live in `db/migration/`. Do not rewrite applied migrations or hand-edit SQLC-generated files.
+`make test` runs focused Go unit tests. PostgreSQL authorization integration requires `BDS_TEST_MODE=disposable` and `BDS_TEST_DB_URL` pointing to an isolated `bdspro_test` database with migrations applied; CI provisions that database. Never run write tests on production or existing local application databases.
 
-The repository deliberately has no `bootstrap/`, `cmd/`, `scripts/`, or standalone `*_test.go` files for this code-reading phase. `make test` remains a Go compilation/package check until tests are introduced again.
+The current architecture documents are authoritative; older `docs/engineering/` notes and the SimpleBank source map are historical records, and may describe removed packages. A green CI run is not proof of Google/SMS provider E2E or production readiness.
