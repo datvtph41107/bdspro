@@ -6,7 +6,6 @@ import (
 	"time"
 
 	apperrors "github.com/datvtph41107/bdspro/app/errors"
-	"github.com/datvtph41107/bdspro/app/http/binding"
 	"github.com/datvtph41107/bdspro/app/http/middleware"
 	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"github.com/datvtph41107/bdspro/app/http/resources"
@@ -33,20 +32,32 @@ func NewController(store db.Store, scheduler auth.VerificationTaskScheduler, mak
 }
 
 func (c *Controller) Register(ctx *gin.Context) {
-	input := binding.Input[authrequest.RegisterBody](ctx, authrequest.RegisterKey)
+	var input authrequest.RegisterBody
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	account, err := auth.Register(ctx.Request.Context(), c.store, c.scheduler, input.Email, input.Password)
 	responses.Send(ctx, http.StatusCreated, resources.NewUser(account), err, "registration failed")
 }
 
 func (c *Controller) Login(ctx *gin.Context) {
-	input := binding.Input[authrequest.LoginBody](ctx, authrequest.LoginKey)
+	var input authrequest.LoginBody
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	result, err := auth.Login(ctx.Request.Context(), c.store, c.maker, c.config,
 		input.Email, input.Password, ctx.Request.UserAgent(), ctx.ClientIP())
 	responses.Send(ctx, http.StatusOK, resources.NewLogin(result), err, "login failed")
 }
 
 func (c *Controller) VerifyEmail(ctx *gin.Context) {
-	input := binding.Input[authrequest.VerifyEmailQuery](ctx, authrequest.VerifyEmailKey)
+	var input authrequest.VerifyEmailQuery
+	if err := ctx.ShouldBindQuery(&input); err != nil {
+		responses.InvalidInput(ctx, err, "invalid verification link")
+		return
+	}
 	_, err := c.store.VerifyEmailTx(ctx.Request.Context(), db.ConsumeVerifyEmailParams{
 		ID: input.EmailID, SecretCode: input.SecretCode,
 	})
@@ -58,7 +69,11 @@ func (c *Controller) VerifyEmail(ctx *gin.Context) {
 }
 
 func (c *Controller) Renew(ctx *gin.Context) {
-	input := binding.Input[authrequest.TokenBody](ctx, authrequest.TokenKey)
+	var input authrequest.TokenBody
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	payload, err := c.maker.VerifyToken(input.RefreshToken, token.TokenTypeRefresh)
 	if err != nil {
 		responses.Error(ctx, apperrors.InvalidRefreshToken, "")
@@ -91,7 +106,11 @@ func (c *Controller) Renew(ctx *gin.Context) {
 }
 
 func (c *Controller) Revoke(ctx *gin.Context) {
-	input := binding.Input[authrequest.TokenBody](ctx, authrequest.TokenKey)
+	var input authrequest.TokenBody
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	payload, err := c.maker.VerifyToken(input.RefreshToken, token.TokenTypeRefresh)
 	if err != nil {
 		responses.Error(ctx, apperrors.InvalidRefreshToken, "")

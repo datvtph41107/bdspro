@@ -15,10 +15,10 @@ import (
 	"time"
 
 	apperrors "github.com/datvtph41107/bdspro/app/errors"
-	"github.com/datvtph41107/bdspro/app/http/binding"
 	middleware "github.com/datvtph41107/bdspro/app/http/middleware"
 	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"github.com/datvtph41107/bdspro/app/http/resources"
+	"github.com/datvtph41107/bdspro/app/http/responses"
 	"github.com/datvtph41107/bdspro/auth"
 	db "github.com/datvtph41107/bdspro/db/sqlc"
 	"github.com/datvtph41107/bdspro/token"
@@ -63,7 +63,11 @@ func NewGoogleController(
 type googleLinkStartRequest = authrequest.GoogleLinkBody
 
 func (g *GoogleController) StartLink(ctx *gin.Context) {
-	req := binding.Input[googleLinkStartRequest](ctx, "google.link")
+	var req googleLinkStartRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	accountID := middleware.AccountID(ctx)
 	account, err := g.store.GetAccountByID(ctx.Request.Context(), accountID)
 	if err != nil || util.CheckPassword(req.Password, account.PasswordHash) != nil {

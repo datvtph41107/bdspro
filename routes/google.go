@@ -3,10 +3,8 @@ package routes
 import (
 	"time"
 
-	"github.com/datvtph41107/bdspro/app/http/binding"
 	authcontroller "github.com/datvtph41107/bdspro/app/http/controllers/auth"
 	"github.com/datvtph41107/bdspro/app/http/middleware"
-	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"github.com/datvtph41107/bdspro/token"
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +14,6 @@ func RegisterGoogle(router *gin.Engine, google *authcontroller.GoogleController,
 	router.POST("/users/me/google/start",
 		middleware.Authenticate(maker),
 		guard.IPActiveSource("google_link_start", 10, time.Minute),
-		binding.JSON[authrequest.GoogleLinkBody]("google.link"),
 		google.StartLink,
 	)
 	router.GET("/users/google/login/start",

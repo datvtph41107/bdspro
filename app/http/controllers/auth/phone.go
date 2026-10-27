@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	apperrors "github.com/datvtph41107/bdspro/app/errors"
-	"github.com/datvtph41107/bdspro/app/http/binding"
 	middleware "github.com/datvtph41107/bdspro/app/http/middleware"
 	authrequest "github.com/datvtph41107/bdspro/app/http/requests/auth"
 	"github.com/datvtph41107/bdspro/app/http/resources"
@@ -33,7 +32,11 @@ func (c *PhoneController) phoneOTP() authservice.PhoneOTP {
 }
 
 func (c *PhoneController) StartBind(ctx *gin.Context) {
-	input := binding.Input[authrequest.PhoneBindBody](ctx, authrequest.PhoneKey)
+	var input authrequest.PhoneBindBody
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	err := c.phoneOTP().StartBind(ctx.Request.Context(), middleware.AccountID(ctx), input.Password, input.Phone)
 	if err == nil {
 		ctx.Status(http.StatusAccepted)
@@ -55,7 +58,11 @@ func (c *PhoneController) StartBind(ctx *gin.Context) {
 }
 
 func (c *PhoneController) VerifyBind(ctx *gin.Context) {
-	input := binding.Input[authrequest.PhoneVerifyBody](ctx, authrequest.PhoneKey)
+	var input authrequest.PhoneVerifyBody
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	err := c.phoneOTP().VerifyBind(ctx.Request.Context(), middleware.AccountID(ctx), input.Phone, input.Code)
 	if err == nil {
 		ctx.Status(http.StatusNoContent)
@@ -71,7 +78,11 @@ func (c *PhoneController) VerifyBind(ctx *gin.Context) {
 }
 
 func (c *PhoneController) StartLogin(ctx *gin.Context) {
-	input := binding.Input[authrequest.PhoneStartBody](ctx, authrequest.PhoneKey)
+	var input authrequest.PhoneStartBody
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	err := c.phoneOTP().StartLogin(ctx.Request.Context(), input.Phone)
 	if err == nil {
 		ctx.Status(http.StatusAccepted)
@@ -84,7 +95,11 @@ func (c *PhoneController) StartLogin(ctx *gin.Context) {
 }
 
 func (c *PhoneController) VerifyLogin(ctx *gin.Context) {
-	input := binding.Input[authrequest.PhoneVerifyBody](ctx, authrequest.PhoneKey)
+	var input authrequest.PhoneVerifyBody
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	result, err := c.phoneOTP().VerifyLogin(
 		ctx.Request.Context(), input.Phone, input.Code, ctx.Request.UserAgent(), ctx.ClientIP(),
 	)

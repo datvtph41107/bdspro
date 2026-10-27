@@ -3,10 +3,10 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	apperrors "github.com/datvtph41107/bdspro/app/errors"
-	"github.com/datvtph41107/bdspro/app/http/binding"
 	middleware "github.com/datvtph41107/bdspro/app/http/middleware"
 	apirequest "github.com/datvtph41107/bdspro/app/http/requests/api"
 	"github.com/datvtph41107/bdspro/app/http/responses"
@@ -23,7 +23,11 @@ func NewOrganizationController(organizations *services.OrganizationService) *Org
 }
 
 func (c *OrganizationController) Create(ctx *gin.Context) {
-	input := binding.Input[apirequest.CreateOrganizationBody](ctx, "organization.create")
+	var input apirequest.CreateOrganizationBody
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
 		responses.Error(ctx, apperrors.NameRequired, "")
@@ -39,12 +43,16 @@ func (c *OrganizationController) Index(ctx *gin.Context) {
 }
 
 func (c *OrganizationController) AddMember(ctx *gin.Context) {
-	id, ok := binding.PositiveInt64Param(ctx, "id")
-	if !ok {
+	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
 		responses.Error(ctx, apperrors.InvalidOrganization, "")
 		return
 	}
-	req := binding.Input[apirequest.AddOrganizationMemberBody](ctx, "organization.member")
+	var req apirequest.AddOrganizationMemberBody
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	member, err := c.organizations.AddMember(ctx.Request.Context(), middleware.AccountID(ctx), id, req.PersonID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = apperrors.OrganizationOwnerRequired
@@ -60,12 +68,16 @@ func (c *OrganizationController) AddMember(ctx *gin.Context) {
 }
 
 func (c *OrganizationController) Update(ctx *gin.Context) {
-	id, ok := binding.PositiveInt64Param(ctx, "id")
-	if !ok {
+	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
 		responses.Error(ctx, apperrors.InvalidOrganization, "")
 		return
 	}
-	req := binding.Input[apirequest.UpdateOrganizationBody](ctx, "organization.update")
+	var req apirequest.UpdateOrganizationBody
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		responses.InvalidInput(ctx, err, "invalid request")
+		return
+	}
 	if req.Name == nil {
 		responses.Error(ctx, apperrors.NameRequired, "")
 		return
