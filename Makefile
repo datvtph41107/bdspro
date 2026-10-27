@@ -1,18 +1,14 @@
 DB_URL ?= postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
-LOG_FORMAT ?= console
 
-.PHONY: network postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration db_docs db_schema sqlc mock fmt test server
-
-network:
-	docker network create bdspro-network
-
-redis:
-	docker run --name redis -p 6379:6379 -d redis:7-alpine
+.PHONY: postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration sqlc test server fmt
 
 postgres:
 	docker start $(POSTGRES_CONTAINER)
+
+redis:
+	docker start redis
 
 createdb:
 	docker exec $(POSTGRES_CONTAINER) createdb --username=root --owner=root $(DB_NAME)
@@ -32,24 +28,14 @@ migratedown1:
 new_migration:
 	migrate create -ext sql -dir db/migration -seq $(name)
 
-db_docs:
-	dbdocs build doc/db.dbml
-
-db_schema:
-	dbml2sql --postgres -o doc/schema.sql doc/db.dbml
-
 sqlc:
 	sqlc generate
 
-mock:
-	mockgen -package mockdb -destination db/mock/store.go github.com/datvtph41107/bdspro/db/sqlc Store
-	mockgen -package mockwk -destination worker/mock/distributor.go github.com/datvtph41107/bdspro/worker TaskDistributor
-
 test:
-	go test -v -cover ./...
+	go test -v ./...
 
 server:
-	LOG_FORMAT=$(LOG_FORMAT) go run ./cmd/bdspro
+	go run .
 
 fmt:
-	find . -type f -name '*.go' -not -path './.git/*' -print0 | xargs -0 gofmt -w
+	gofmt -w main.go

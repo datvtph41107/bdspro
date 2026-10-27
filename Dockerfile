@@ -2,7 +2,7 @@
 FROM golang:1.27.3-alpine3.24 AS builder
 WORKDIR /app
 COPY . .
-RUN go build -o main ./cmd/bdspro
+RUN go build -o main .
 
 # Run stage
 FROM alpine:3.24
