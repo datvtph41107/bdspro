@@ -1,40 +1,54 @@
-# HTTP: route, admission, request, controller, response
+# HTTP — Gin routing, handlers, middleware and response
 
-## Canonical reading path
+## Canonical source path
 
-`routes/auth.go` / `routes/api.go` → `app/http/middleware/` and `app/http/binding/` → `app/http/controllers/{auth,api,admin}/` → operation/Store → `app/http/resources/` → `app/http/responses/`.
+`core/router/server.go` creates the one Gin engine and global middleware,
+then calls `routes.API(root, root.Group(apiPrefix), handlers, policies)`.
+`routes/api.go` is the **only file that declares HTTP endpoints**, including
+public, authenticated and conditionally enabled Google/Phone routes. Root
+`/health` remains outside the API prefix.
 
-`routes/` contains **native Gin calls** and must not know how PostgreSQL is connected, how a token is issued or how a job is executed. `routes.Mount` receives already-bound Gin handlers once at construction. Feature route files may use a private Go function to group declarations. There is no global mutable router or dynamic `route.To` resolver. New controllers should be added to the route composition at bootstrap, not looked up per request.
+`api/handler/` owns HTTP binding, admission using validated identities,
+extracting the authenticated AccountID and presenting public responses.
+Typed input contracts live in `api/handler/request/` and public output
+resources in `api/handler/resource/`. `api/service/` owns business operations
+and must not import Gin. `db/query/` and `db/sqlc/` own query execution.
 
-## Request vocabulary and source owner
+## Middleware ownership and order
 
-| Input/source | Owner | Responsibility |
-|---|---|---|
-| Body | `app/http/requests/<area>/*Body` | JSON/form fields, tags, shape |
-| Query | `app/http/requests/<area>/*Query` | Search, flags, paging input |
-| Path | `app/http/requests/<area>/*Path` | Resource ID/slug |
-| Header/actor | Middleware/admission | Token, source, identity; no caller-controlled actor |
-| Binding | `app/http/binding` | Exactly one decode/validate pass per source, abort before controller |
-| Controller | `app/http/controllers` | HTTP-specific action and projection |
-| Resource | `app/http/resources` | Public fields, never expose a credential hash |
-| Response | `app/http/responses` | JSON serialization, public error safety, HTTP codes |
+- Engine global: request ID, safe access logging, panic recovery, denial
+  monitoring, body limits.
+- API group: prefix and optional API-wide policy (none added just for style).
+- Authenticated group: JWT verification once for its descendants.
+- Per route: source limiter, login audit or other route-specific middleware.
+- After binding in AuthHandler: identity-based limiter requiring input values.
 
-**Input validation is not authorization.** A valid `organization_id` does not grant update permission. Authentication establishes account identity, while owner membership checks are performed in the data operation that mutates Organization.
+Source-based and identity-based limits are **different policies**; moving a
+limiter before parsing its identity or deleting it changes security behavior.
+Keep `AbortWithStatusJSON` for middleware denials and propagate verified
+AccountID through the established context key. Resource authorization belongs
+to the operation and SQL predicates, not merely to JWT verification.
 
-## One bind/validation pass
+## Request, service and response
 
-Prefer the route middleware `binding.JSON[T](key)`, `binding.Query[T](key)`, `binding.Path[T](key)`; use `binding.Input[T](ctx,key)` in controller. This reuses Gin's decoders and validators, not a second parser. For login the invariants are deliberate: `SufLogin` wraps the request, source limiter is before JSON binding, identity limiter uses parsed input, then action runs. No mandatory universal chain fits Google OAuth callback, query verification link and JSON registration simultaneously.
+Handlers use Gin `ShouldBindJSON` / `ShouldBindQuery` once, return early
+on invalid input and use `core/response.Send` for ordinary JSON responses.
+Services return Go values and errors, not `gin.Context`, HTTP statuses or JSON.
+`core/errors` maps known safe application failures; unknown database errors
+remain internal. `core/response.Send` preserves the existing successful JSON
+resources and error shape `{"error":"..."}`; `204` writes no body.
+OAuth redirects/cookies and other protocol-specific responses are explicit
+HTTP operations; do not force them into a JSON-only writer.
 
-Input contracts must have explicit names (`LoginBody`, `VerifyEmailQuery`, `OrganizationPath`). Business state checks stay in services/SQL.
+`AuthService` owns account registration, login, verification, session
+renewal and revocation. Password, Google and Phone login share the
+`service.IssueSession` implementation. `OrganizationService` owns
+name validation and SQL error classification while HTTP handlers bind input.
 
-## Response and error
+## No second router or framework
 
-Use the shared writer for JSON results. It emits the existing `{"error":"..."}` shape today; do not silently migrate to DRX's `{"success":true,"data":...}` envelope. It distinguishes known, safe business failures from unexpected backend errors. HTTP 204, redirects, file/download streaming and other non-JSON outcomes remain explicit actions.
-
-In Go, `error` is returned, not thrown like a PHP exception. A named application error can be mapped once at the HTTP writer, but this conversion **is necessary**: the same business failure needs a different representation for HTTP and gRPC. There is no giant `switch` mapper and no automatic exposure of raw `err.Error()`. The catalog currently uses HTTP statuses as a practical API-facing definition; evaluate protocol-neutrality when RPC error handling is refactored.
-
-## Reuse without magic
-
-Pagination/filter are first **request contracts**, typed and validated, not strings appended to SQL. When multiple live consumers need the same default/max-limit or cursor behavior, extract the shared primitive. Do not manufacture `BaseController`, a universal builder, a `Route` facade or application-wide service locator before concrete use cases justify it.
-
-**Current transitional seam:** several old actions still reside under `api/`, and their request/response helpers delegate to new owner packages. Move them by verified behavior, not by mass renaming.
+Routes are Gin `GET`, `POST`, `PATCH` and `Group` calls. No custom
+`Route::post` Facade, `core/route.Group` DSL, deferred mount, middleware
+registry or per-request group lookup exists. The base prefix is composed
+once at startup. Existing unversioned URLs must remain stable unless a
+separate compatibility migration is approved.

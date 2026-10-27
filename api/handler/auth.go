@@ -57,7 +57,7 @@ func (h *AuthHandler) VerifyEmail(ctx *gin.Context) {
 		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid verification link")
 		return
 	}
-	if !h.limiter.Allow(ctx, "verify_email", strconv.FormatInt(input.EmailID, 10), 60, 10*time.Minute) {
+	if !h.limiter.Allow(ctx, "verify_email", strconv.FormatInt(input.EmailID, 10), 60, 10, time.Minute) {
 		return
 	}
 	err := h.auth.VerifyEmail(ctx.Request.Context(), input.EmailID, input.SecretCode)
@@ -70,7 +70,7 @@ func (h *AuthHandler) Renew(ctx *gin.Context) {
 		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
 		return
 	}
-	if !h.limiter.Allow(ctx, "refresh", input.RefreshToken, 60, 20*time.Minute) {
+	if !h.limiter.Allow(ctx, "refresh", input.RefreshToken, 60, 20, time.Minute) {
 		return
 	}
 	result, err := h.auth.Renew(ctx.Request.Context(), input.RefreshToken)
@@ -85,7 +85,7 @@ func (h *AuthHandler) Revoke(ctx *gin.Context) {
 		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
 		return
 	}
-	if !h.limiter.Allow(ctx, "revoke", input.RefreshToken, 60, 20*time.Minute) {
+	if !h.limiter.Allow(ctx, "revoke", input.RefreshToken, 60, 20, time.Minute) {
 		return
 	}
 	err := h.auth.Revoke(ctx.Request.Context(), input.RefreshToken)

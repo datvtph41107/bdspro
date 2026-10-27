@@ -1,36 +1,44 @@
-# Implementation state and unresolved decisions
+# Implementation and acceptance status — 2026-10-27
 
-**Base:** `dev@0cb3d050`, 2026-10-26. This ledger must be updated with actual merge/CI outcomes, not simply a desired directory picture.
+**Source baseline:** `dev` after the Gin-native routing and service-boundary
+refactors. Determine the precise HEAD and CI result at review time; do not
+infer production acceptance from a source tree or green compile alone.
 
-| Work area | Current architecture branch | Completion caveat |
+| Ownership | Current source | What exists |
 |---|---|---|
-| `cmd/bdspro/main.go` | Owns process cancellation and calls `bootstrap.Run(ctx)` | Some startup composition still uses legacy package interfaces |
-| `bootstrap/` | Owns connection, migrations and runtime construction; unused transport startup code removed | Legacy gRPC/gateway not active in the default run |
-| `routes/` | Gin auth/API/Google/Phone declarations centralized | Explicit handlers are assembled once; no Laravel-style `init()` magic |
-| `app/http/requests/` | Body/Query DTOs extracted from former `app/http/server/` types | Some old handlers still in `api/` |
-| `app/http/binding/` | Single JSON/Query/Path bind mechanism | Feature-by-feature rollout needed |
-| `app/http/controllers/api/` | Organization actions extracted | Register/Login/Verify Email/Token actions are now under controllers/auth; Google and Phone actions are now under controllers/auth; api retains transitional HTTP composition |
-| `app/http/middleware/` | Authenticate/AccountID moved | IPActive and monitoring remain in `api/` |
-| `app/http/responses/` | JSON success/error writer created | Not all handlers converted |
-| `app/http/resources/` | Session/user public DTOs | Only current DTOs moved |
-| `app/errors/` | Single public error catalog + PostgreSQL classifier | Domain-specific errors still live elsewhere; catalog not yet comprehensive |
-| `app/services/` | Organization Create/List operation relocated from root package | `CreateOrganizationTx` business flow remains in Store |
-| `jobs/` | Verification-email job action separated from Asynq runtime | Other jobs do not exist yet |
-| `worker/` | Owns Asynq scheduling/execution mechanics | Existing retry semantics preserved |
-| `db/query/` and `db/sqlc/` | Existing SQLC implementation still in place | Google/Phone/verification now use generated SQLC queries; Store has one pool owner; transaction/workflow layers still require review |
-| `tests/` | Existing tests retained for compatibility gates | User requested requalification/removal of legacy tests; do not claim deletion or replacement |
+| Startup and shutdown | `main.go` | One Go process with HTTP and Asynq |
+| HTTP runtime | `core/router/server.go` | Gin, ingress, CORS, timeouts |
+| HTTP contract | `routes/api.go` | One route file with conditional endpoints |
+| Auth settings | `config/auth.go` | One JWT Account principal; no unused guards |
+| Handlers | `api/handler/` | Binding, admission, HTTP outputs |
+| Operations | `api/service/` | Auth/session, Organization, Google token, Phone OTP |
+| Error/response | `core/errors`, `core/response` | Safe known errors and one JSON writer |
+| Database | `db/query`, `db/sqlc`, `db/migration` | SQLC, PostgreSQL transactions |
+| Async | `worker/`, `jobs/`, `mail/` | Email verification worker |
+| CI | `.github/workflows/test.yml` | PostgreSQL migrations and `make test` |
 
-### Explicit not-yet-accepted work
+## Verified scope and remaining limits
 
-- Complete `db/query` SQLC migrations, generate code, remove duplicate PhoneOTPStore and verify OTP replay/cooldown/lock/atomicity.
-- Move service-level Create Organization/Register/Email/OTP transaction workflow carefully, preserving security semantics.
-- Finish controller migration for auth/session/Google/Phone; group admin controllers only when admin routes exist.
-- Move remaining middleware/ingress out of `api/` without changing order/fail-closed behavior.
-- Finish consistent response/error catalog integration and project-level request/response contracts.
-- Review filter/pagination only when a real endpoint needs them; do not create a speculative builder.
-- Audit and redesign test suite **before** deleting tests that currently prove critical invariants.
-- Update CI evidence and merge acceptance only after all gates are green.
+- The architecture does not introduce `/api/v1`. Existing URLs,
+  OAuth redirect URI, rate-limit windows and middleware scopes remain
+  compatibility constraints.
+- AuthService owns email verification, session renewal and revocation;
+  OrganizationService owns input business validation and database error
+  classification. HTTP handlers remain responsible for parsing requests.
+- Google OAuth callback includes browser redirects and cookies and does
+  not fit a generic JSON-only response writer.
+- No `admin` principal, guard, password/session backend or `routes/admin.go`
+  should be invented before real authorization requirements.
+- There are currently no `*_test.go` source files in this checkout;
+  `go test ./...` can prove compilation without providing behavioral
+  coverage. A green CI run is not proof of auth, OTP, concurrency or
+  end-to-end contract correctness.
+- Registration's PostgreSQL/Asynq handoff remains non-atomic.
+  Phone-OTP replay, lockout and OAuth callback need explicit runtime
+  verification in disposable environments before production acceptance.
 
-### Non-goals
+## Gates
 
-No Laravel Facade emulation; no reflection controller lookup; no hidden DI container; no generalized repository per table; no new ORM; no auto-created admin/realtime endpoints; no forced microservice split; no schema rewrites or automatic removal of migrations.
+`gofmt`, `go vet ./...`, `go build ./...`, `go test ./...` and
+behavioral HTTP/security tests are separate pieces of evidence. Do not
+claim WSL or production smoke acceptance until executed.

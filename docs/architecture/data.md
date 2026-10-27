@@ -10,7 +10,7 @@ Both raw `pool.QueryRow(...,sql)` and SQLC execute SQL, but allowing both as equ
 
 ## Store and repository
 
-The `pgxpool.Pool` is constructed once at bootstrap and is owned by the database execution layer. SQLC uses pgx internally. A separate `phoneOTPStore{pool *pgxpool.Pool}` is a contradictory execution owner and should be folded into the canonical store.
+The `pgxpool.Pool` is constructed once in the application startup and is owned by the database execution layer. SQLC uses pgx internally. A separate `phoneOTPStore{pool *pgxpool.Pool}` is a contradictory execution owner and should be folded into the canonical store.
 
 Do not build `OrganizationRepository -> BaseRepository -> SQLStore -> SQLC` if these layers only forward calls. Add a consumer-owned interface only when it has a real substitution/dependency-test value, not as a naming convention.
 

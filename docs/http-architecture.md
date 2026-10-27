@@ -11,7 +11,9 @@
 - `api/handler` owns Gin request and response interaction. Per-endpoint input
   structures are under `api/handler/request`; public wire resources are under
   `api/handler/resource`.
-- `api/service` owns application and business operations and cannot import Gin.\n  AuthService owns registration, email verification, token renewal and revocation;\n  OrganizationService owns resource validation and PostgreSQL error classification.
+- `api/service` owns application and business operations and cannot import Gin.
+  AuthService owns registration, email verification, token renewal and revocation;
+  OrganizationService owns resource validation and PostgreSQL error classification.
 - `core/middleware` implements HTTP request policies. `core/response`
   provides one shared JSON/error writer. `core/errors` owns the public error
   catalog and internal causes. SQL and transactions remain in `db/sqlc`.

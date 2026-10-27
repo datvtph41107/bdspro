@@ -1,31 +1,35 @@
-# DEV-01 — Developer work formula and review ownership
+# Developer contract — adding an HTTP API
 
-## Start at the route
+The source is organized by **technical responsibility**, not forced
+business-module packages:
 
-Open `routes/` and locate the endpoint by HTTP method/path. Confirm public/authenticated/protected scope and exact middleware order. Then open the named controller, input Body/Query/Path, service operation when needed, SQL query and output Resource. The *route* is the navigation index, not a backend policy engine.
+`routes/api.go` → `api/handler` → `api/service` → `db/sqlc`.
 
-## Repeatable feature sequence
+1. Read the current endpoint inventory and preserve existing methods,
+   paths, policies and JSON unless the public contract change is approved.
+2. Declare the new endpoint **once** in `routes/api.go` under the
+   appropriate public/authenticated group. The application prefix comes
+   from `core/router/server.go`. Do not start another Gin engine.
+3. Place body/query/path input types in `api/handler/request/`.
+   Use native Gin binding once; malformed or oversized input must not
+   reach the business operation.
+4. Implement a discoverable `api/handler` method. Read verified actor
+   identity from middleware; choose HTTP success status and output resource.
+   Use `core/response.Send` for ordinary JSON responses.
+5. Put business validation, orchestration, expected SQL errors and
+   transaction intent in `api/service`. Do not import Gin or pass
+   `*gin.Context` into the service.
+6. Put ordinary SQL in `db/query/*.sql` and use generated SQLC.
+   Treat database constraints and atomic authorization predicates as
+   durable rules; do not invent per-table repositories.
+7. Keep source-based and identity-based throttles distinct. Preserve
+   middleware order and fail-closed behavior when appropriate.
+8. Check `gofmt`, `go vet ./...`, `go build ./...`, `go test ./...`
+   and HTTP denial/behavioral outcomes. Green compilation without tests
+   does **not** prove response or authorization correctness.
+9. Record changed contract, migrations, feature flags and rollback
+   implications. Do not push outside a user-authorized task.
 
-1. Identify the current behavior and source SHA. Define actor, command, input, response and one allowed/denied case.
-2. Put input structure and format/range validation in `app/http/requests/<area>`. Use existing Gin binding through `app/http/binding`; do not parse the same body twice.
-3. Declare the method/path in `routes/`; insert only the middleware needed for that endpoint; preserve source-rate-limit-before-bind where required.
-4. Use a named controller method that receives validated input and verified actor. Keep it HTTP-specific.
-5. For meaningful multi-step workflows or cross-transport reuse, implement an application service. For one atomic SQL statement, avoid ceremonial forwarding services.
-6. Put all ordinary SQL in `db/query` and regenerate SQLC. Service owns operation order; database owns transactions, statement predicates and durable constraints.
-7. Represent known business failures with canonical named errors; don't send raw errors. Return public Resource via one response writer.
-8. If async work is required, service expresses scheduling intent; `worker` chooses transport policy and `jobs` executes.
-9. Document changed behavior, environment, migrations, rollback, integration/CI limitations and code ownership; review git diff against the protected base.
-
-## Source review gates
-
-- **No added raw SQL in services/controllers**; no second `pgxpool.Pool` owner.
-- **No error mapper switch per controller**; no exposure of backend error text to client.
-- **No generic facade** unless it consolidates a demonstrated repeated mechanism.
-- **No request struct inside controller** for new endpoints.
-- **No hidden actor fallback**; missing Authenticate is a route contract failure.
-- **No claim of complete acceptance** when integration environment/tests were skipped.
-- **Tests:** current files are evidence, not automatic proof or design authority. Requalify rather than deleting coverage by name; a future test plan should target contracts/negative/concurrency cases and keep build/vet/smoke gates explicit.
-
-## Evidence vs desire
-
-Mark each architectural change as PROPOSED, IMPLEMENTED, CI-CHECKED or RUNTIME-ACCEPTED. A diagram or document does not establish runtime behavior. Use `docs/engineering/` for historical controls and `docs/architecture/` for the current target and migration ledger.
+Use `CamelCase` method names that reveal the action. Follow Go package
+conventions rather than reproducing Laravel Facades, hidden providers,
+reflection-based dispatch or a duplicate response framework.

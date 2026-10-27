@@ -1,33 +1,45 @@
-# BDSPro Architecture — Canonical Source Organization
+# BDSPro — Current Application Architecture
 
-**Working ref:** `refactor/canonical-architecture-20261026` from `dev@0cb3d050` (2026-10-26).
-**Status:** evolving implementation; distinguish *implemented* from *approved design* and *open work*. Do not label this branch production-accepted until its CI, PostgreSQL, worker and HTTP contracts pass.
+**Current source of truth:** `main.go`, `core/router/server.go`,
+`routes/api.go`, `api/handler/`, `api/service/`, `core/`,
+`db/query/` and `db/sqlc/` on the `dev` branch.
 
-## Why the Laravel DRX working model matters
+This document describes the implementation, not the former
+`bootstrap/`, `app/http/`, `routes/auth.go` or business `modules/` layouts.
 
-The useful property of DRX is **developer navigation**: begin with `routes/api.php` → a named controller/action → request contract → service/use case → persistence and infrastructure. Developers do not need to rediscover where the input, response, error and query should live for each endpoint.
+## Developer navigation
 
-BDSPro inherits this **mental model and source responsibility**, not Laravel's runtime or its implicit facades. PHP executes route files; Go cannot run package-level route calls. Gin already supports routing, grouping, admission and middleware. We therefore use a small **explicit one-time route composition** rather than a registry, reflection-based method resolution, `init()` hooks or simulated DI container.
+1. Open `routes/api.go` to find the HTTP method, relative URL, scope,
+   applicable middleware and handler method.
+2. Open `api/handler/<area>.go` to inspect body/query binding, verified actor,
+   input admission, public resource and HTTP response.
+3. Follow the called `api/service/` operation to see business rules, session
+   operations, transaction boundaries and database error classification.
+4. Review `db/query/*.sql`, `db/sqlc/` and migrations for durable behavior.
+5. Read `core/router/server.go` for application-wide ingress, base-prefix
+   policy and explicit dependency composition.
 
-Do not copy DRX's weaker mechanisms: `AppBaseController::sendError($exception->getMessage())` can leak internal faults, and defaulting every caught exception to HTTP 404 is not a valid backend error policy. Similarly, controller-side Eloquent operations are not a reason to implement an ORM over SQLC.
+## Laravel DRX inspiration, Go execution
 
-## What is canonical
+Laravel's `RouteServiceProvider` combines prefix/middleware and loads route
+files; Laravel `Route` is a Facade for a container-resolved router. BDSPro
+passes a `*gin.RouterGroup` directly to `routes.API`. There is one Gin
+engine, no Facade, implicit service container, route registry, or custom
+request dispatcher. Gin computes full paths and the middleware chain at
+startup. Go lexical blocks organize the file without per-request work.
 
-1. **Developer entrypoint:** `routes/` (method/path/admission chain), then a controller action.
-2. **HTTP contracts:** `app/http/requests/`, `binding/`, `responses/`, `resources/`; each has a different owner.
-3. **Application operations:** `app/services/` when an operation coordinates meaningful steps; `auth/` is a legitimate existing reusable capability.
-4. **Persistence:** `db/query/*.sql` source → SQLC-generated methods → one PostgreSQL Store/pool; business workflow decides transaction scope.
-5. **Failure contracts:** `app/errors/` defines known public failures; unknown infrastructure errors are logged internally and sanitized at the HTTP boundary.
-6. **Async execution:** `worker/` owns Asynq/Redis transport and retry decisions; `jobs/` owns job action; services state intent.
-7. **Process start:** `main.go` delegates to `bootstrap/` for lifecycle and explicit dependency construction.
-8. **Engineering rules:** review SQL, permissions, transaction semantics, request context, failure/retry and public response compatibility; do not replace code with style-only wrappers.
+The HTTP prefix is intentionally `""` to preserve current clients, OAuth
+callback and verification URLs. Introducing `/api/v1` is a **public API
+migration**, not a cosmetic refactor.
 
-## Read next
+## Contracts and operational boundaries
 
-- [HTTP / request / response ownership](http.md)
-- [Database and transaction contract](data.md)
-- [Runtime, worker, cache and error ownership](runtime.md)
-- [Source map, implementation status and remaining gaps](status.md)
-- [Developer recipe and change acceptance](workflow.md)
+- HTTP: [http.md](http.md) and [HTTP architecture](../http-architecture.md).
+- Database: [data.md](data.md).
+- Runtime, logging, queue and shutdown: [runtime.md](runtime.md).
+- Current implementation and acceptance caveats: [status.md](status.md).
+- Adding an endpoint: [workflow.md](workflow.md).
 
-Prior decisions under `docs/engineering/` remain historical and must not be rewritten to imply that incomplete target architecture is already implemented.
+Historical planning and incident records under `docs/engineering/` preserve
+their original decisions and commit context; they are **not** instructions
+to resurrect removed source packages.
