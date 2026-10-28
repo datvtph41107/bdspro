@@ -136,3 +136,42 @@ Git push or Go compile alone is not acceptance.
 
 See [architecture-evidence.md](architecture-evidence.md) for the 50 verified
 repository inventory and explicitly distinguished source-level reviews.
+
+## Shared naming and ownership
+
+Use a technical name that describes what the component **does**, not the first
+business feature that happens to use it:
+
+- A **job** is one business operation; use the `jobs` package when it has
+  substantial execution behavior.
+- A **task** is its Asynq wire type and payload. Adding a task introduces a
+  new task type, payload and native `asynq.Handler`, registered at startup.
+- A **worker** owns Asynq runtime, logging, retries and handler registration.
+  Never add one new method per job to its transport interface.
+- An **enqueuer** performs queue transport. A **job outbox** records one
+  durable enqueue intent for a committed database transaction; a generic
+  **dispatcher** moves intents to Asynq.
+- Account identity is `accounts.id`; a **credential** proves an authentication
+  method, and need not exist for every account. **External identity** maps a
+  verified provider subject to an account. **Session** belongs to the account,
+  regardless of login method.
+- Use the established names and Go identifiers in a package. Do not introduce
+  facades, registries, import aliases or convenience wrappers that only rename
+  existing Gin, SQLC or Asynq calls.
+- Comments explain invariant, security reason, lifetime or non-obvious
+  behavior. Tutorial references belong in archival documentation, not active
+  implementation commentary.
+
+**Compatibility:** existing Redis key prefixes, Asynq task types, OAuth state
+cookie and OTP HMAC domain string are stored or security-sensitive identifiers.
+Do not remove `bdspro:` from Redis keys merely for aesthetics; these prefixes
+also prevent collisions in a shared Redis instance. Do not edit applied SQL
+migrations (including old tutorial comments): add a new migration instead.
+
+## Google authentication
+
+Option C uses the current Google callback for both sign-up and sign-in. New
+Google subjects require a verified email; existing email is never enough to
+auto-link another account. Password and Google accounts share AccountID,
+sessions and authorization. The existing account-linking flow still requires
+password reauthentication. See docs/operations/google-login.md.

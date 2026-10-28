@@ -2,9 +2,9 @@
 
 ## Scope and ownership
 
-Google is an **authentication provider**. Google `sub` links to one existing BDSPro `accounts.id`. The existing BDSPro JWT access token, refresh token, session table and organization-membership authorization remain authoritative.
+Google is an **authentication provider**. Google `sub` uniquely identifies an external Google identity linked to one internal AccountID. All sign-in methods share the same JWT, session and organization authorization model.
 
-The first version **does not create a BDSPro account from Google email** or merge accounts by email. It intentionally requires an email/password account to exist before linking. This avoids a placeholder password and accidental email-based account takeover.
+A new Google subject can create a passwordless BDSPro account when its signed ID token contains a verified email. Existing accounts are **never linked automatically by email**. Password credentials, if present, live in `password_credentials`. Google sign-up does not enqueue a verification-email job because the identity provider has already verified the email.
 
 ## Google Cloud OAuth client
 
@@ -35,11 +35,12 @@ For Compose, inject credentials securely into the `api` service at deployment; t
 3. The response supplies `authorization_url`; browser receives a short-lived HttpOnly state cookie. Navigate that same browser to the URL.
 4. After Google consent, Google redirects to `/users/google/callback`. Callback returns `{"linked":true}` only when the Google `sub` belongs to that same BDSPro account.
 
-**Sign in** — previously linked Google account:
+**Sign up or sign in** — Google account:
 
 1. Open `GET /users/google/login/start` in a browser.
 2. The server redirects to Google; Google redirects back to `/users/google/callback`.
-3. Callback returns the same BDSPro JWT/session JSON shape as `POST /users/login` (never raw Google token). Unlinked subjects are rejected.
+3. The callback validates the Google ID token. A linked subject signs in; a new subject with a verified email creates a Party, Person, Account and Google identity atomically, then creates the session. A new subject whose email already belongs to an account is rejected with HTTP 409 and must link after signing in. A new subject without verified email cannot register.
+4. The callback returns BDSPro JWT/session JSON, never raw Google tokens.
 
 This backend-only version returns session JSON to the browser; a production web frontend must arrange a safe completion UX and token storage policy (e.g. HttpOnly secure first-party cookies), rather than copying tokens to URLs, browser history or external redirects.
 
@@ -63,6 +64,6 @@ go build ./...
 git diff --check
 ```
 
-On a disposable test database, apply migration `000004_google_identities.up.sql`. Exercise one-to-one linkage and replay rejection. Test the end-to-end browser flow only after configuring a real Google OAuth client, authorized redirect URI and test Google account; unit tests do not impersonate Google's identity service.
+On a disposable test database, apply migrations through 000008. Exercise passwordless Google creation, identity collisions, existing-email conflicts, linking and replay rejection. Test the end-to-end browser flow only after configuring a real Google OAuth client, authorized redirect URI and test Google account; unit tests do not impersonate Google's identity service.
 
 Do not run SQL migrations/tests against an irreplaceable database. No production deployment is asserted by this document.

@@ -1,41 +1,44 @@
-# Implementation and acceptance status — 2026-10-27
+# Implementation and acceptance status
 
-**Source baseline:** `dev` after the Gin-native routing and service-boundary
-refactors. Determine the precise HEAD and CI result at review time; do not
-infer production acceptance from a source tree or green compile alone.
+This page describes current source responsibilities, not a claim of production
+deployment. Use the latest GitHub Actions run for the exact revision and result.
 
-| Ownership | Current source | What exists |
-|---|---|---|
-| Startup and shutdown | `main.go` | One Go process with HTTP and Asynq |
-| HTTP runtime | `internal/core/router/server.go` | Gin, ingress, CORS, timeouts |
-| HTTP contract | `internal/routes/api.go` | One route file with conditional endpoints |
-| Auth settings | `internal/config/auth.go` | One JWT Account principal; no unused guards |
-| Handlers | `internal/api/handler/` | Binding, admission, HTTP outputs |
-| Operations | `internal/api/service/` | Auth/session, Organization, Google token, Phone OTP |
-| Error/response | `internal/core/errors`, `internal/core/response` | Safe known errors and one JSON writer |
-| Database | `db/query`, `db/sqlc`, `db/migration` | SQLC, PostgreSQL transactions |
-| Async | `internal/worker/`, `internal/jobs/`, `internal/mail/` | Email verification worker |
-| CI | `.github/workflows/test.yml` | PostgreSQL migrations and `make test` |
+| Responsibility | Current implementation |
+| --- | --- |
+| Process entrypoint | main.go |
+| HTTP registration | internal/core/router/routes.go |
+| HTTP middleware | internal/core/middleware |
+| HTTP input and output | internal/api/handler and internal/core/response |
+| Application operations | internal/api/service |
+| Database schema and SQL | db/migration, db/query, internal/db/sqlc |
+| Password sign-in | password_credentials and AuthService |
+| Google sign-up / sign-in / linking | google_identities and GoogleAuthService |
+| Queue execution | internal/worker and native asynq.Handler |
+| Durable job dispatch | job_outbox and OutboxDispatcher |
+| E-mail business operation | internal/jobs/verify_email.go |
 
-## Verified scope and remaining limits
+## Important behavior
 
-- The architecture does not introduce `/api/v1`. Existing URLs,
-  OAuth redirect URI, rate-limit windows and middleware scopes remain
-  compatibility constraints.
-- AuthService owns email verification, session renewal and revocation;
-  OrganizationService owns input business validation and database error
-  classification. HTTP handlers remain responsible for parsing requests.
-- Google OAuth callback includes browser redirects and cookies and does
-  not fit a generic JSON-only response writer.
-- No `admin` principal, guard, password/session backend or `internal/routes/admin.go`
-  should be invented before real authorization requirements.
-- Focused JWT middleware, session lifecycle and Organization authorization tests now exist under `internal/`. PostgreSQL authorization integration runs only with the dedicated disposable test database in CI. These tests do not replace provider E2E or production acceptance.
-- Registration's PostgreSQL/Asynq handoff remains non-atomic.
-  Phone-OTP replay, lockout and OAuth callback need explicit runtime
-  verification in disposable environments before production acceptance.
+- Authentication uses one AccountID principal, independent of the credential
+  used to sign in. A Google ID token with a new verified email can create a
+  passwordless Account + GoogleIdentity in one transaction.
+- Google subject, not email, identifies a linked Google account. Existing emails
+  are never automatically linked; the user must authenticate and link explicitly.
+- Password login queries password_credentials. A Google-only account does not
+  have a synthetic password hash.
+- The original Google linking flow still requires current-password confirmation.
+  Additional credential-management methods need their own reauthentication rules.
+- Registration writes a job_outbox row in the same PostgreSQL transaction as
+  account creation; Asynq handles retry and task processing. Exactly-once SMTP
+  delivery is not guaranteed.
+- Redis key prefixes, OTP HMAC domain values and Asynq task types are protocol
+  identifiers: do not rename them without a compatibility rollout.
+- PostgreSQL authorization predicates remain in SQL; do not replace them with
+  only preflight handler checks.
 
-## Gates
+## Verification
 
-`gofmt`, `go vet ./...`, `go build ./...`, `go test ./...` and
-behavioral HTTP/security tests are separate pieces of evidence. Do not
-claim WSL or production smoke acceptance until executed.
+GitHub CI checks SQLC code generation, migrations on disposable PostgreSQL,
+unit/integration tests, Go race detection, go vet and go build. A successful
+CI run is not evidence of a live Google OAuth browser flow, SMTP provider
+delivery or production Docker startup.

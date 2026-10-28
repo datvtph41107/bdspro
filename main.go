@@ -31,7 +31,7 @@ func main() {
 	defer stop()
 
 	if err := run(ctx); err != nil {
-		log.Fatal().Err(err).Msg("BDSPro stopped")
+		log.Fatal().Err(err).Msg("startup.failed")
 	}
 }
 

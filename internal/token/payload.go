@@ -42,7 +42,7 @@ func NewPayload(accountID int64, duration time.Duration, kind TokenType) (*Paylo
 	}, nil
 }
 
-// Valid enforces BDSPro's identity, token purpose and expiration rules.
+// Valid enforces the account identity, token purpose and expiration rules.
 // jwt/v5 also validates the standard time claims during ParseWithClaims.
 func (payload *Payload) Valid(kind TokenType) error {
 	if payload == nil || payload.ID == uuid.Nil || payload.AccountID <= 0 ||

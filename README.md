@@ -12,18 +12,19 @@ Application Go packages live under `internal/`:
 main.go
 internal/
   config/                  # process and JWT configuration
-  core/router/             # Gin engine, startup wiring and HTTP lifecycle
+  core/router/             # Gin engine, routes and HTTP lifecycle
   core/middleware/         # authentication and request admission
   core/errors/             # public application errors
   core/response/           # HTTP response mapping
-  core/router/routes.go    # HTTP methods, paths and middleware
   api/handler/             # HTTP request binding and responses
   api/handler/request/     # typed inputs
   api/handler/resource/    # public output projections
-  api/service/             # auth/session and organization operations
+  api/service/             # auth, Google, phone and organization operations
   db/sqlc/                # SQLC generated queries and handwritten Store/Tx
   token/                  # JWT signing and verification
-  worker/ jobs/ mail/     # asynchronous email verification
+  worker/                  # Asynq runtime, task registration, outbox dispatch
+  jobs/                    # task business operations
+  mail/                    # email delivery
   util/                   # passwords, logging, randomness
 db/
   migration/               # append-only schema history

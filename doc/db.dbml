@@ -13,7 +13,6 @@ Table accounts {
   id bigint [pk, increment]
   person_id bigint [not null, unique, ref: > persons.party_id]
   email text [not null, note: 'Unique index on lower(btrim(email))']
-  password_hash text [not null]
   created_at timestamptz [not null, default: `now()`]
   is_email_verified boolean [not null, default: false]
 }
@@ -51,4 +50,35 @@ Table organization_memberships {
   role text [not null, note: 'owner or member']
   joined_at timestamptz [not null, default: `now()`]
   ended_at timestamptz [note: 'At most one open membership per organization/person']
+}
+
+Table password_credentials {
+  account_id bigint [pk, ref: > accounts.id]
+  password_hash text [not null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table google_identities {
+  google_sub text [pk]
+  account_id bigint [not null, unique, ref: > accounts.id]
+  linked_at timestamptz [not null, default: `now()`]
+}
+
+Table phone_credentials {
+  account_id bigint [pk, ref: > accounts.id]
+  phone_e164 text [not null, unique]
+  verified_at timestamptz [not null, default: `now()`]
+}
+
+Table job_outbox {
+  id bigint [pk, increment]
+  task_type text [not null]
+  payload jsonb [not null]
+  queue_name text [not null, default: 'default']
+  max_retry integer [not null, default: 10]
+  run_at timestamptz [not null]
+  task_id text
+  created_at timestamptz [not null, default: `now()`]
+  queued_at timestamptz
 }

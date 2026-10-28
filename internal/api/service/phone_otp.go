@@ -56,7 +56,7 @@ func (s PhoneOTP) start(ctx context.Context, phone, purpose string, accountID in
 	return s.Store.StartChallenge(ctx, phone, purpose, accountID, s.mac(phone, purpose, accountID, code), code)
 }
 
-// StartBind requires an already-authenticated BDSPro account plus its current
+// StartBind requires an authenticated account and its current
 // password before adding a new login method.
 func (s PhoneOTP) StartBind(ctx context.Context, accountID int64, password, phone string) error {
 	if err := s.allowed(); err != nil {

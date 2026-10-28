@@ -9,7 +9,7 @@ is captured by **Mailpit**, not forwarded to Gmail or the public Internet.
 | --- | --- | --- |
 | HTTP | Gin `POST /users` | HTTP 201, `X-Request-ID`, `account_id` |
 | PostgreSQL | `RegisterTx`, `GetOrCreateVerifyEmailTx` | Account and verification rows |
-| Redis | Asynq producer / scheduler | `scheduled`, `pending`, `active`, `retry` |
+| Redis | Outbox dispatcher / Asynq | `scheduled`, `pending`, `active`, `retry` |
 | Go worker | Asynq processor | `task_id`, `account_id`, `verification_email.completed` |
 | SMTP | Mailpit listening on `mailpit:1025` | Accepted message shown at http://127.0.0.1:8025 |
 | HTTP Verify | `GET /users/verify_email` | HTTP 200 and `accounts.is_email_verified=true` |
@@ -56,11 +56,11 @@ curl -sS -i -X POST http://127.0.0.1:8080/users \
   --data "{\"email\":\"$EMAIL\",\"password\":\"example-password-123\"}"
 
 docker compose logs --since=3m api | grep -E \
-  'task enqueued|verification_email.completed|task failed|http.request'
+  'task.enqueued|verification_email.completed|task.failed|http.request'
 ```
 
-HTTP 201 means registration committed, **not** SMTP delivered. Asynq uses
-`ProcessIn(10s)`, so email appears later. Open http://127.0.0.1:8025 and
+HTTP 201 means registration committed, **not** SMTP delivered. The outbox records the durable handoff intent and enqueues an Asynq task
+with a scheduled run time. The email may appear later. Open http://127.0.0.1:8025 and
 find the recipient address. Click the email verification link. It requests
 `GET /users/verify_email` and should respond with `{"verified":true}`.
 
@@ -102,11 +102,10 @@ checked in the actual recipient mailbox/provider.
 
 ## Automated proof
 
-CI runs `TestRegisterEmailEndToEnd` against disposable PostgreSQL, Redis and
-Mailpit containers. It verifies Register HTTP 201, PostgreSQL account creation,
-SMTP receipt at Mailpit, the actual emailed verification link, and the final
-`is_email_verified=true` database state.
+CI runs disposable PostgreSQL integration tests of account creation, password
+credentials, durable outbox records and transaction rollback. Real SMTP/Mailpit
+delivery and link redemption must be checked separately using these steps.
 
-Limitations: the PostgreSQL-Redis handoff is not atomic, SMTP can accept mail
-before a transport error is returned, and no provider delivery/bounce tracking
-is implemented.
+Limitations: PostgreSQL registration and outbox insertion are atomic, but
+Redis enqueue and SMTP delivery are not atomic with PostgreSQL. Duplicate
+delivery is possible; no provider delivery/bounce tracking is implemented.

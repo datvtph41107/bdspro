@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config stores BDSPro settings from app.env or process environment.
+// Config stores application settings from app.env and process environment.
 type Config struct {
 	Environment          string        `mapstructure:"ENVIRONMENT"`
 	LogFormat            string        `mapstructure:"LOG_FORMAT"`
