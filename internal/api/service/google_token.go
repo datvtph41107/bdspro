@@ -16,20 +16,30 @@ import (
 
 const googleJWKSURL = "https://www.googleapis.com/oauth2/v3/certs"
 
+// VerifiedGoogleIdentity contains claims from a validated Google ID token.
+type VerifiedGoogleIdentity struct {
+	Subject string
+	Email string
+	EmailVerified bool
+}
+
 type googleIDClaims struct {
 	jwt.RegisteredClaims
 	Nonce string `json:"nonce"`
+	Email string `json:"email"`
+	EmailVerified bool `json:"email_verified"`
 }
 
 // VerifyGoogleIDToken checks Google's RSA signature, audience, expiry, issuer
 // and the nonce bound to the user's one-time browser authorization flow.
-func VerifyGoogleIDToken(ctx context.Context, raw, clientID, nonce string) (string, error) {
+func VerifyGoogleIDToken(ctx context.Context, raw, clientID, nonce string) (VerifiedGoogleIdentity, error) {
 	return verifyGoogleIDToken(ctx, http.DefaultClient, googleJWKSURL, raw, clientID, nonce)
 }
 
-func verifyGoogleIDToken(ctx context.Context, client *http.Client, jwksURL, raw, clientID, nonce string) (string, error) {
+func verifyGoogleIDToken(ctx context.Context, client *http.Client, jwksURL, raw, clientID, nonce string) (VerifiedGoogleIdentity, error) {
+	var empty VerifiedGoogleIdentity
 	if raw == "" || clientID == "" || nonce == "" {
-		return "", errors.New("invalid Google identity assertion")
+		return empty, errors.New("invalid Google identity assertion")
 	}
 	claims := &googleIDClaims{}
 	tok, err := jwt.NewParser(
@@ -46,13 +56,17 @@ func verifyGoogleIDToken(ctx context.Context, client *http.Client, jwksURL, raw,
 		return fetchGoogleRSAKey(ctx, client, jwksURL, kid)
 	})
 	if err != nil || !tok.Valid {
-		return "", errors.New("invalid Google ID token")
+		return empty, errors.New("invalid Google ID token")
 	}
 	if (claims.Issuer != "https://accounts.google.com" && claims.Issuer != "accounts.google.com") ||
 		claims.Subject == "" || claims.Nonce != nonce {
-		return "", errors.New("invalid Google identity claims")
+		return empty, errors.New("invalid Google identity claims")
 	}
-	return claims.Subject, nil
+	return VerifiedGoogleIdentity{
+		Subject: claims.Subject,
+		Email: claims.Email,
+		EmailVerified: claims.EmailVerified,
+	}, nil
 }
 
 type googleJWKSet struct {

@@ -49,6 +49,8 @@ var (
 	GoogleIdentityAlreadyLinked = &Error{Code: "auth.google_identity_already_linked", Message: "Google identity already linked", Status: http.StatusConflict}
 	GoogleAccountAlreadyLinked  = &Error{Code: "auth.google_account_already_linked", Message: "account already linked", Status: http.StatusConflict}
 	GoogleIdentityUnlinked      = &Error{Code: "auth.google_identity_unlinked", Message: "Google identity not linked", Status: http.StatusUnauthorized}
+	GoogleEmailUnverified = &Error{Code: "auth.google_email_unverified", Message: "Google email is not verified", Status: http.StatusUnauthorized}
+	GoogleEmailAlreadyRegistered = &Error{Code: "auth.google_email_registered", Message: "email already registered; sign in and link Google", Status: http.StatusConflict}
 	InvalidPhone              = &Error{Code: "auth.invalid_phone", Message: "invalid phone", Status: http.StatusBadRequest}
 	PhoneUnavailable          = &Error{Code: "auth.phone_unavailable", Message: "phone unavailable", Status: http.StatusConflict}
 	OTPInvalid                = &Error{Code: "auth.otp_invalid", Message: "invalid or expired code", Status: http.StatusUnauthorized}

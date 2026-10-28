@@ -169,14 +169,14 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Google authorization failed"})
 		return
 	}
-	subject, err := service.VerifyGoogleIDToken(ctx.Request.Context(), idToken, g.config.GoogleClientID, pending.Nonce)
+	identity, err := service.VerifyGoogleIDToken(ctx.Request.Context(), idToken, g.config.GoogleClientID, pending.Nonce)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid Google identity"})
 		return
 	}
 
 	if pending.Purpose == "link" && pending.AccountID > 0 {
-		if err := g.auth.Link(ctx.Request.Context(), pending.AccountID, subject); err != nil {
+		if err := g.auth.Link(ctx.Request.Context(), pending.AccountID, identity.Subject); err != nil {
 			response.Error(ctx, err)
 			return
 		}
@@ -187,7 +187,7 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid Google authorization state"})
 		return
 	}
-	result, err := g.auth.Login(ctx.Request.Context(), subject, ctx.Request.UserAgent(), ctx.ClientIP())
+	result, err := g.auth.Login(ctx.Request.Context(), identity, ctx.Request.UserAgent(), ctx.ClientIP())
 	if err != nil {
 		response.Error(ctx, err)
 		return
