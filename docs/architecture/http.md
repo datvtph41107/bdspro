@@ -58,7 +58,7 @@ separate compatibility migration is approved.
 
 ## Registration and task delivery
 
-Registration writes Party, Person, Account and a verification_outbox row in one
+Registration writes Party, Person, Account and a job_outbox row in one
 PostgreSQL transaction. A worker dispatcher polls committed rows, selects them
 with FOR UPDATE SKIP LOCKED, enqueues to Redis Asynq with a stable task ID, and
 marks queued_at. Failed Redis enqueue leaves the row pending. Duplicate email

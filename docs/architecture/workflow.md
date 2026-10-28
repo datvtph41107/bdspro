@@ -3,11 +3,11 @@
 The source is organized by **technical responsibility**, not forced
 business-module packages:
 
-`internal/routes/api.go` → `internal/api/handler` → `internal/api/service` → `db/sqlc`.
+`internal/core/router/routes.go` → `internal/api/handler` → `internal/api/service` → `db/sqlc`.
 
 1. Read the current endpoint inventory and preserve existing methods,
    paths, policies and JSON unless the public contract change is approved.
-2. Declare the new endpoint **once** in `internal/routes/api.go` under the
+2. Declare the new endpoint **once** in `internal/core/router/routes.go` under the
    appropriate public/authenticated group. The application prefix comes
    from `internal/core/router/server.go`. Do not start another Gin engine.
 3. Place body/query/path input types in `internal/api/handler/request/`.

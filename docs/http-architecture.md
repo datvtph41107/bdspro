@@ -5,7 +5,7 @@
 - `internal/core/router/server.go` constructs the one Gin engine, global middleware, HTTP
   server and route group. `apiPrefix` is deliberately empty to preserve existing
   URLs; versioning requires a separate public API migration.
-- `internal/routes/api.go` is the one authoritative HTTP route inventory. Its function
+- `internal/core/router/routes.go` is the one authoritative HTTP route inventory. Its function
   receives the already-configured Gin group, concrete handlers and middleware.
   Paths are relative to the supplied group; `/health` remains a root system route.
 - `internal/api/handler` owns Gin request and response interaction. Per-endpoint input
@@ -43,7 +43,7 @@ routes are exposed.
    to alter formatting or URL presentation.
 3. Authenticated group: verifies JWT exactly once before protected handlers.
 4. Endpoint policies: admission rate limits and audit middleware where
-   explicitly declared in `internal/routes/api.go`.
+   explicitly declared in `internal/core/router/routes.go`.
 5. Identity-based throttling remains after request binding in auth handlers,
    because the limiter requires validated identifiers. It is not equivalent
    to source/IP admission limiting.
@@ -74,7 +74,7 @@ and explicit compatibility tests.
 
 ## Adding an API
 
-Declare a relative method/path/handler in `internal/routes/api.go`; place public
+Declare a relative method/path/handler in `internal/core/router/routes.go`; place public
 request data types and response resources with the relevant handler; put
 business rules in `internal/api/service`; use the existing SQLC-generated queries and
 transaction helpers. Reuse `internal/core/response.Send` and classified core errors.

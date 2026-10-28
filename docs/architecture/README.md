@@ -19,13 +19,12 @@ This document describes the implementation, not the former
 5. Read `internal/core/router/server.go` for application-wide ingress, base-prefix
    policy and explicit dependency composition.
 
-## Laravel DRX inspiration, Go execution
+## Routing conventions
 
-Laravel's `RouteServiceProvider` combines prefix/middleware and loads route
-files; Laravel `Route` is a Facade for a container-resolved router. BDSPro registers Gin routes directly in `Server.registerRoutes`. There is one Gin
-engine, no Facade, implicit service container, route registry, or custom
-request dispatcher. Gin computes full paths and the middleware chain at
-startup. Go lexical blocks organize the file without per-request work.
+`Server.registerRoutes` calls native Gin GET/POST/PATCH and Group methods.
+There is one Gin engine and no Facade, implicit service container, route
+registry or custom request dispatcher. Gin resolves middleware order and
+matched paths. Avoid a second routing convention.
 
 The HTTP prefix is intentionally `""` to preserve current clients, OAuth
 callback and verification URLs. Introducing `/api/v1` is a **public API
