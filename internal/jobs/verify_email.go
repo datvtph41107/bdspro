@@ -7,7 +7,7 @@ import (
 	"html"
 	"net/url"
 
-	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
+	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/datvtph41107/bdspro/internal/mail"
 	"github.com/datvtph41107/bdspro/internal/util"
 )

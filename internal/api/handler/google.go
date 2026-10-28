@@ -14,12 +14,10 @@ import (
 	"strings"
 	"time"
 
-	authrequest "github.com/datvtph41107/bdspro/internal/api/handler/request/auth"
-	"github.com/datvtph41107/bdspro/internal/api/handler/resource"
-	"github.com/datvtph41107/bdspro/internal/api/service"
+	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/datvtph41107/bdspro/internal/config"
-	middleware "github.com/datvtph41107/bdspro/internal/core/middleware"
-	"github.com/datvtph41107/bdspro/internal/core/response"
+	middleware "github.com/datvtph41107/bdspro/internal/api/middleware"
+	"github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
@@ -57,7 +55,7 @@ func NewGoogleHandler(
 	}
 }
 
-type googleLinkStartRequest = authrequest.GoogleLinkBody
+type googleLinkStartRequest = GoogleLinkRequest
 
 func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 	var req googleLinkStartRequest
@@ -232,7 +230,7 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		response.Error(ctx, err)
 		return
 	}
-	ctx.JSON(http.StatusOK, resources.NewLogin(result))
+	ctx.JSON(http.StatusOK, newLoginResponse(result))
 }
 
 func (g *GoogleHandler) exchange(ctx context.Context, code, verifier string) (string, error) {

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datvtph41107/bdspro/internal/api/service"
-	"github.com/datvtph41107/bdspro/internal/core/middleware"
-	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
+	"github.com/datvtph41107/bdspro/internal/service"
+	"github.com/datvtph41107/bdspro/internal/api/middleware"
+	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"

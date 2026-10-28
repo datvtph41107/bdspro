@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
+	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"

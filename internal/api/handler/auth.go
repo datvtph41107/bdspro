@@ -6,11 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	authrequest "github.com/datvtph41107/bdspro/internal/api/handler/request/auth"
-	"github.com/datvtph41107/bdspro/internal/api/handler/resource"
-	"github.com/datvtph41107/bdspro/internal/api/service"
-	"github.com/datvtph41107/bdspro/internal/core/middleware"
-	"github.com/datvtph41107/bdspro/internal/core/response"
+	"github.com/datvtph41107/bdspro/internal/service"
+	"github.com/datvtph41107/bdspro/internal/api/middleware"
+	"github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,7 +23,7 @@ func NewAuthHandler(auth *service.AuthService, limiter *middleware.IdentityLimit
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
-	var req authrequest.RegisterBody
+	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -38,7 +36,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, resources.NewUser(account))
+	c.JSON(http.StatusCreated, newUserResponse(account))
 }
 
 func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
@@ -60,7 +58,7 @@ func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-	var req authrequest.LoginBody
+	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -74,12 +72,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, resources.NewLogin(result))
+	c.JSON(http.StatusOK, newLoginResponse(result))
 }
 
 // VerifyEmailPage is safe for mail scanners: GET never consumes a token.
 func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
-	var req authrequest.VerifyEmailQuery
+	var req VerifyEmailQuery
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification link"})
 		return
@@ -94,7 +92,7 @@ func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
 }
 
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
-	var req authrequest.VerifyEmailQuery
+	var req VerifyEmailQuery
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification link"})
 		return
@@ -110,7 +108,7 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 }
 
 func (h *AuthHandler) Renew(c *gin.Context) {
-	var req authrequest.TokenBody
+	var req TokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -123,14 +121,14 @@ func (h *AuthHandler) Renew(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, resources.RenewAccessToken{
+	c.JSON(http.StatusOK, RenewAccessTokenResponse{
 		AccessToken: result.AccessToken,
 		AccessTokenExpiresAt: result.AccessTokenExpiresAt,
 	})
 }
 
 func (h *AuthHandler) Revoke(c *gin.Context) {
-	var req authrequest.TokenBody
+	var req TokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return

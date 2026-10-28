@@ -41,7 +41,7 @@ jobs:
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
           "$(go env GOPATH)/bin/sqlc" generate
-          git diff --exit-code -- internal/db/sqlc
+          git diff --exit-code -- internal/database
 
       - name: Migrate disposable test database
         env:

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
+	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/hibiken/asynq"
 	"github.com/rs/zerolog/log"
 )
