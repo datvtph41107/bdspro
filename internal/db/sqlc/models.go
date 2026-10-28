@@ -26,6 +26,18 @@ type GoogleIdentity struct {
 	LinkedAt  time.Time `json:"linked_at"`
 }
 
+type JobOutbox struct {
+	ID int64 `json:"id"`
+	TaskType string `json:"task_type"`
+	Payload []byte `json:"payload"`
+	QueueName string `json:"queue_name"`
+	MaxRetry int32 `json:"max_retry"`
+	RunAt time.Time `json:"run_at"`
+	TaskID pgtype.Text `json:"task_id"`
+	CreatedAt time.Time `json:"created_at"`
+	QueuedAt pgtype.Timestamptz `json:"queued_at"`
+}
+
 type Organization struct {
 	PartyID   int64     `json:"party_id"`
 	Name      string    `json:"name"`
@@ -77,13 +89,6 @@ type Session struct {
 	IsBlocked    bool      `json:"is_blocked"`
 	CreatedAt    time.Time `json:"created_at"`
 	ExpiresAt    time.Time `json:"expires_at"`
-}
-
-type VerificationOutbox struct {
-	ID        int64              `json:"id"`
-	AccountID int64              `json:"account_id"`
-	CreatedAt time.Time          `json:"created_at"`
-	QueuedAt  pgtype.Timestamptz `json:"queued_at"`
 }
 
 type VerifyEmail struct {

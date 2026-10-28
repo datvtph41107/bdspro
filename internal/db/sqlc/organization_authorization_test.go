@@ -119,7 +119,7 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 	var pending int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM verification_outbox WHERE account_id = $1 AND queued_at IS NULL", registered.ID).Scan(&pending); err != nil {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM job_outbox WHERE (payload->>'account_id')::bigint = $1 AND queued_at IS NULL", registered.ID).Scan(&pending); err != nil {
 		t.Fatal(err)
 	}
 	if pending != 1 {

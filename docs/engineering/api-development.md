@@ -47,7 +47,7 @@ be guarded atomically. Do not create a repository that only forwards SQLC.
 **Transaction**: use the existing `ExecTx` when a logical operation changes
 multiple records atomically; do not start transactions from handlers.
 External Redis/SMTP side effects cannot participate in PostgreSQL commit.
-Registration records a verification_outbox row in the same transaction and
+Registration records a job_outbox row in the same transaction and
 an asynchronous worker enqueues it only after commit; do not queue from
 within RegisterTx.
 

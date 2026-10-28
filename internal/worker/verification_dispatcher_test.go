@@ -36,7 +36,7 @@ func (f *verificationDistributorFake) Enqueue(
 	return nil
 }
 
-func TestVerificationOutboxRetriesRedisFailures(t *testing.T) {
+func TestJobOutboxRetriesRedisFailures(t *testing.T) {
 	source := os.Getenv("BDS_TEST_DB_URL")
 	if source == "" {
 		t.Skip("requires disposable bdspro_test database")
@@ -75,7 +75,7 @@ func TestVerificationOutboxRetriesRedisFailures(t *testing.T) {
 		t.Helper()
 		var completed bool
 		if err := pool.QueryRow(ctx,
-			"SELECT queued_at IS NOT NULL FROM verification_outbox WHERE account_id = $1",
+			"SELECT queued_at IS NOT NULL FROM job_outbox WHERE (payload->>'account_id')::bigint = $1",
 			account.ID,
 		).Scan(&completed); err != nil {
 			t.Fatal(err)
@@ -84,7 +84,7 @@ func TestVerificationOutboxRetriesRedisFailures(t *testing.T) {
 	}
 
 	fake := &verificationDistributorFake{err: errors.New("Redis unavailable")}
-	dispatcher := NewVerificationDispatcher(store, fake)
+	dispatcher := NewOutboxDispatcher(store, fake)
 	if _, err := dispatcher.Dispatch(ctx); err == nil {
 		t.Fatal("Redis failure must be returned so outbox stays pending")
 	}
@@ -128,7 +128,7 @@ func TestVerificationOutboxRetriesRedisFailures(t *testing.T) {
 		}
 		var completed bool
 		if err := pool.QueryRow(ctx,
-			"SELECT queued_at IS NOT NULL FROM verification_outbox WHERE account_id = $1",
+			"SELECT queued_at IS NOT NULL FROM job_outbox WHERE (payload->>'account_id')::bigint = $1",
 			second.ID,
 		).Scan(&completed); err != nil {
 			t.Fatal(err)

@@ -102,7 +102,7 @@ func run(ctx context.Context) error {
 
 	// Persisted registration intents are queued only after the account commits.
 	dispatchCtx, stopDispatch := context.WithCancel(ctx)
-	dispatcher := worker.NewVerificationDispatcher(store, distributor)
+	dispatcher := worker.NewOutboxDispatcher(store, distributor)
 	dispatcher.Start(dispatchCtx)
 	defer func() {
 		stopDispatch()

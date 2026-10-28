@@ -21,7 +21,6 @@ type Querier interface {
 	CreateParty(ctx context.Context) (int64, error)
 	CreatePerson(ctx context.Context, partyID int64) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
-	CreateVerificationOutbox(ctx context.Context, accountID int64) error
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
@@ -31,13 +30,14 @@ type Querier interface {
 	GetPhoneAccountIDQuery(ctx context.Context, phoneE164 string) (int64, error)
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
 	LinkGoogleIdentityQuery(ctx context.Context, arg LinkGoogleIdentityQueryParams) (int64, error)
+	ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error)
 	ListOrganizationsForPerson(ctx context.Context, personID int64) ([]Organization, error)
-	ListPendingVerificationOutbox(ctx context.Context, limit int32) ([]ListPendingVerificationOutboxRow, error)
 	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
 	LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error)
+	MarkJobOutboxQueued(ctx context.Context, id int64) error
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
-	MarkVerificationOutboxQueued(ctx context.Context, id int64) error
+	RecordEmailVerificationJob(ctx context.Context, accountID int64) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 	UpsertPhoneChallengeQuery(ctx context.Context, arg UpsertPhoneChallengeQueryParams) (int64, error)

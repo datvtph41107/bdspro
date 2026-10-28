@@ -64,7 +64,7 @@ func (s *SQLStore) RegisterTx(ctx context.Context, arg RegisterTxParams) (Accoun
 		if err != nil {
 			return err
 		}
-		return q.CreateVerificationOutbox(ctx, account.ID)
+		return q.RecordEmailVerificationJob(ctx, account.ID)
 	})
 	return account, err
 }
