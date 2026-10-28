@@ -100,3 +100,35 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
         t.Fatalf("revocation must not silently change current JWT semantics: %v", err)
     }
 }
+
+type registrationStoreFake struct {
+	db.Store
+	calls int
+}
+
+func (s *registrationStoreFake) RegisterTx(_ context.Context, _ db.RegisterTxParams) (db.Account, error) {
+	s.calls++
+	return db.Account{ID: 7}, nil
+}
+
+func TestRegisterPasswordByteLimit(t *testing.T) {
+	store := &registrationStoreFake{}
+	svc := NewAuthService(store, nil, nil, config.Config{})
+	for _, password := range []string{
+		"short",
+		strings.Repeat("a", 73),
+		strings.Repeat("😀", 19), // 19 runes, 76 bytes; Gin's max=72 alone would accept it.
+	} {
+		_, err := svc.Register(context.Background(), "test@example.test", password)
+		if !errors.Is(err, apperrors.InvalidPassword) {
+			t.Fatalf("password %q: expected invalid password, got %v", password, err)
+		}
+	}
+	if store.calls != 0 {
+		t.Fatalf("invalid passwords reached RegisterTx %d times", store.calls)
+	}
+	_, err := svc.Register(context.Background(), "test@example.test", strings.Repeat("a", 72))
+	if err != nil || store.calls != 1 {
+		t.Fatalf("72-byte password should be accepted: calls=%d err=%v", store.calls, err)
+	}
+}

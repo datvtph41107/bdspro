@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"unicode/utf8"
 	"time"
 
 	"github.com/datvtph41107/bdspro/internal/config"
@@ -33,6 +34,11 @@ func NewAuthService(store db.Store, scheduler VerificationTaskScheduler, maker t
 }
 
 func (s *AuthService) Register(ctx context.Context, email, password string) (db.Account, error) {
+	// Gin validates rune length; bcrypt limits passwords to 72 bytes.
+	// Enforce this again for non-HTTP callers before hashing or DB writes.
+	if utf8.RuneCountInString(password) < 8 || len(password) > 72 {
+		return db.Account{}, apperrors.InvalidPassword
+	}
 	hash, err := util.HashPassword(password)
 	if err != nil {
 		return db.Account{}, err

@@ -22,6 +22,9 @@ func NewOrganizationService(store db.Store) *OrganizationService {
 
 func (s *OrganizationService) personIDForAccount(ctx context.Context, accountID int64) (int64, error) {
 	account, err := s.store.GetAccountByID(ctx, accountID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, apperrors.AccountUnavailable
+	}
 	if err != nil {
 		return 0, err
 	}
