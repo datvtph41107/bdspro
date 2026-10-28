@@ -28,7 +28,8 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 		sourceLimit("login", 30, time.Minute),
 		server.authHandler.Login,
 	)
-	api.GET("/users/verify_email",
+	api.GET("/users/verify_email", server.authHandler.VerifyEmailPage)
+	api.POST("/users/verify_email",
 		sourceLimit("verify_email", 60, time.Minute),
 		server.authHandler.VerifyEmail,
 	)
@@ -46,7 +47,7 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 	{
 		authenticated.GET("/users/me", server.authHandler.Me)
 
-		organizations := authenticated.Group("/organizations")
+		organizations := authenticated.Group("/organizations", middleware.VerifiedEmail(server.store))
 		{
 			organizations.POST("", server.organizationHandler.Create)
 			organizations.GET("", server.organizationHandler.Index)
@@ -72,6 +73,7 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 	// to this account before the phone verification challenge can be issued.
 	if server.googleHandler != nil && server.phoneHandler != nil {
 		authenticated.POST("/users/me/phone/google/start",
+			middleware.VerifiedEmail(server.store),
 			sourceLimit("phone_google_bind_start", 10, time.Hour),
 			server.googleHandler.StartPhoneBind,
 		)
@@ -80,7 +82,7 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 	// Phone OTP is explicitly limited to development in application startup.
 	if server.phoneHandler != nil {
 
-		phone := authenticated.Group("/users/me/phone")
+		phone := authenticated.Group("/users/me/phone", middleware.VerifiedEmail(server.store))
 		{
 			phone.POST("/start",
 				sourceLimit("phone_bind_start", 10, time.Hour),
