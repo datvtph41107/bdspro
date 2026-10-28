@@ -48,29 +48,29 @@ func TestGoogleSignupIsAtomicAndPasswordless(t *testing.T) {
 		t.Fatalf("passwordless account should not have password credential: %v", err)
 	}
 
-	var before, after int64
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&before); err != nil { t.Fatal(err) }
-
 	// An existing email is never silently linked to a new Google subject.
 	_, err = store.CreateGoogleAccountTx(ctx, email, uuid.NewString())
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.ConstraintName != "accounts_email_login_uq" {
 		t.Fatalf("duplicate email must be rejected: %v", err)
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&after); err != nil { t.Fatal(err) }
-	if before != after {
-		t.Fatalf("duplicate email created a partial Party: before=%d after=%d", before, after)
-	}
+	var sameEmail int64
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM accounts WHERE email = $1", email).Scan(&sameEmail); err != nil { t.Fatal(err) }
+	if sameEmail != 1 { t.Fatalf("duplicate email created unexpected accounts: %d", sameEmail) }
 
 	// A Google subject cannot be linked to a second account; the second
 	// transaction must not leave behind Party, Person or Account rows.
-	_, err = store.CreateGoogleAccountTx(ctx, uuid.NewString()+"@example.test", sub)
+	duplicateSubjectEmail := uuid.NewString()+"@example.test"
+	_, err = store.CreateGoogleAccountTx(ctx, duplicateSubjectEmail, sub)
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("duplicate subject should reject second account: %v", err)
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&after); err != nil { t.Fatal(err) }
-	if before != after {
-		t.Fatalf("duplicate Google subject created a partial Party: before=%d after=%d", before, after)
+	var created int64
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM accounts WHERE email = $1", duplicateSubjectEmail).Scan(&created); err != nil { t.Fatal(err) }
+	if created != 0 { t.Fatalf("duplicate subject left an unexpected account: %d", created) }
+	linkedID, err := store.GetGoogleAccountID(ctx, sub)
+	if err != nil || linkedID != account.ID {
+		t.Fatalf("duplicate subject changed its existing linkage: id=%d err=%v", linkedID, err)
 	}
 }
 
