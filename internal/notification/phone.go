@@ -3,6 +3,8 @@ package notification
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,11 +58,15 @@ func (s ZaloZBS) SendCode(ctx context.Context, phone, code string) error {
 	if s.AccessToken == "" || s.TemplateID == "" || s.CodeField == "" || s.Client == nil {
 		return errors.New("Zalo ZBS delivery is not configured")
 	}
+	trackingBytes := make([]byte, 16)
+	if _, err := rand.Read(trackingBytes); err != nil { return err }
 	data, err := json.Marshal(struct {
+		TrackingID string            `json:"tracking_id"`
 		Phone        string            `json:"phone"`
 		TemplateID   string            `json:"template_id"`
 		TemplateData map[string]string `json:"template_data"`
 	}{
+		TrackingID: hex.EncodeToString(trackingBytes),
 		Phone: strings.TrimPrefix(phone, "+"),
 		TemplateID: s.TemplateID,
 		TemplateData: map[string]string{s.CodeField: code},
@@ -82,13 +88,13 @@ func postJSON(ctx context.Context, client *http.Client, endpoint, authHeader, au
 	}
 	if zalo {
 		var result struct {
-			Error int `json:"error"`
+			Error *int `json:"error"`
 		}
 		if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&result); err != nil {
 			return fmt.Errorf("invalid Zalo delivery response: %w", err)
 		}
-		if result.Error != 0 {
-			return fmt.Errorf("Zalo provider returned error code %d", result.Error)
+		if result.Error == nil || *result.Error != 0 {
+			return errors.New("Zalo provider did not accept the message")
 		}
 	}
 	return nil
