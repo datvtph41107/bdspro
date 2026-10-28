@@ -2,16 +2,16 @@
 
 ## Canonical source path
 
-`internal/core/router/server.go` creates the one Gin engine, application handlers, and global middleware.
-`internal/core/router/routes.go` declares HTTP endpoints directly through Gin, including
+`internal/api/server.go` creates the one Gin engine, application handlers, and global middleware.
+`internal/api/routes.go` declares HTTP endpoints directly through Gin, including
 public, authenticated and conditionally enabled Google/Phone routes. Root
 `/health` remains outside the API prefix.
 
 `internal/api/handler/` owns HTTP binding, admission using validated identities,
 extracting the authenticated AccountID and presenting public responses.
-Typed input contracts live in `internal/api/handler/request/` and public output
-resources in `internal/api/handler/resource/`. `internal/api/service/` owns business operations
-and must not import Gin. `db/query/` and `internal/db/sqlc/` own query execution.
+Typed input contracts live in `internal/api/handler/` and public output
+resources in `internal/api/handler/representations.go`. `internal/service/` owns business operations
+and must not import Gin. `db/query/` and `internal/database/` own query execution.
 
 ## Middleware ownership and order
 
@@ -33,7 +33,7 @@ to the operation and SQL predicates, not merely to JWT verification.
 Handlers use Gin `ShouldBindJSON` / `ShouldBindQuery` once, return early
 on invalid input and use Gin `c.JSON` / `c.Status` for success, and `response.Invalid` or `response.Error` for errors.
 Services return Go values and errors, not `gin.Context`, HTTP statuses or JSON.
-`internal/core/errors` maps known safe application failures; unknown database errors
+`internal/errors` maps known safe application failures; unknown database errors
 remain internal. `response.Invalid` handles malformed JSON (400) and oversized bodies (413).
 `response.Error` maps known public application errors to their HTTP statuses, logs
 unknown errors without exposing internal details, and returns generic HTTP 500.

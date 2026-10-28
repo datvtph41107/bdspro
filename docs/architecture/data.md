@@ -2,7 +2,7 @@
 
 ## One editable SQL source
 
-**Rule:** application SQL statements live under `db/query/*.sql` and are compiled by `sqlc generate` into `internal/db/sqlc/*.sql.go`. Services must never embed routine `SELECT`, `INSERT`, `UPDATE` or `DELETE` strings. Generated code is not edited manually. Schema evolves only through new migrations; applied migration history is immutable.
+**Rule:** application SQL statements live under `db/query/*.sql` and are compiled by `sqlc generate` into `internal/database/*.sql.go`. Services must never embed routine `SELECT`, `INSERT`, `UPDATE` or `DELETE` strings. Generated code is not edited manually. Schema evolves only through new migrations; applied migration history is immutable.
 
 Both raw `pool.QueryRow(...,sql)` and SQLC execute SQL, but allowing both as equal default patterns produces two sources of truth. **Raw Go SQL requires an explicit, source-backed exception** (unsupported SQLC capability, dynamic SQL impossible to express reasonably with typed parameters, COPY/streaming-specific API). Even then, its executor stays inside the database owner, not inside controller or service.
 
