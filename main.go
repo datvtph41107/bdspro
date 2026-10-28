@@ -82,7 +82,7 @@ func run(ctx context.Context) error {
 	log.Info().Msg("redis.connected")
 
 	redisOptions := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
-	distributor := worker.NewRedisTaskDistributor(redisOptions)
+	distributor := worker.NewRedisEnqueuer(redisOptions)
 	defer distributor.Close()
 
 	mailer := mail.NewSMTPSender(
@@ -92,7 +92,8 @@ func run(ctx context.Context) error {
 		cfg.SMTPAddress,
 		cfg.SMTPAuth,
 	)
-	processor := worker.NewRedisTaskProcessor(redisOptions, store, mailer, cfg.VerifyEmailURL)
+	processor := worker.NewRedisTaskProcessor(redisOptions)
+	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, cfg.VerifyEmailURL))
 	if err := processor.Start(); err != nil {
 		return fmt.Errorf("start worker: %w", err)
 	}

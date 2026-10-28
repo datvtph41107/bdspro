@@ -8,8 +8,8 @@ type LinkGoogleIdentityParams struct {
 	GoogleSub string
 }
 
-// LinkGoogleIdentity keeps the old public Store operation, with its SQL
-// defined only in db/query/google_identity.sql.
+// LinkGoogleIdentity links a verified Google subject to an account.
+// The SQL is owned by db/query/google_identity.sql.
 func (s *SQLStore) LinkGoogleIdentity(ctx context.Context, arg LinkGoogleIdentityParams) error {
 	_, err := s.Queries.LinkGoogleIdentityQuery(ctx, LinkGoogleIdentityQueryParams{
 		AccountID: arg.AccountID, GoogleSub: arg.GoogleSub,

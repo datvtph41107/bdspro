@@ -23,7 +23,7 @@ func IPActiveSource(redisClient *redis.Client, operation string, maxAttempts int
 			ctx.Next()
 			return
 		}
-		key := "bdspro:source_limit:v1:" + operation + ":" + hashedRateKey(ctx.ClientIP())
+		key := sourceLimitKeyPrefix + operation + ":" + hashedRateKey(ctx.ClientIP())
 		count, err := ipActiveSourceScript.Run(
 			ctx.Request.Context(), redisClient,
 			[]string{key}, int64(window.Seconds()),

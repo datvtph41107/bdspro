@@ -16,11 +16,11 @@ import (
 // the same intent. Redis failures leave the intent pending for another try.
 type VerificationDispatcher struct {
 	store db.Store
-	distributor TaskDistributor
+	distributor TaskEnqueuer
 	done chan struct{}
 }
 
-func NewVerificationDispatcher(store db.Store, distributor TaskDistributor) *VerificationDispatcher {
+func NewVerificationDispatcher(store db.Store, distributor TaskEnqueuer) *VerificationDispatcher {
 	return &VerificationDispatcher{
 		store: store,
 		distributor: distributor,
@@ -68,9 +68,12 @@ func (d *VerificationDispatcher) Dispatch(ctx context.Context) (int, error) {
 		}
 		for _, record := range pending {
 			taskID := fmt.Sprintf("verify-email-outbox-%d", record.ID)
-			err := d.distributor.DistributeTaskSendVerifyEmail(
-				ctx,
-				&PayloadSendVerifyEmail{AccountID: record.AccountID},
+			task, err := NewSendVerifyEmailTask(record.AccountID)
+			if err != nil {
+				return err
+			}
+			err = d.distributor.Enqueue(
+				ctx, task,
 				asynq.TaskID(taskID),
 				asynq.MaxRetry(10),
 				asynq.ProcessIn(10*time.Second),

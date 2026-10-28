@@ -55,7 +55,7 @@ func RequestMonitor(redisClient *redis.Client) gin.HandlerFunc {
 		if redisClient == nil {
 			return
 		}
-		key := "bdspro:security:denied:v1:" + ipHash
+		key := securityDeniedKeyPrefix + ipHash
 		count, err := securityCountScript.Run(ctx.Request.Context(), redisClient,
 			[]string{key}, int64(securityDetectionWindow.Seconds())).Int64()
 		if err != nil {

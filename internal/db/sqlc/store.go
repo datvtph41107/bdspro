@@ -28,7 +28,7 @@ func NewStore(pool *pgxpool.Pool) Store {
 	return &SQLStore{pool: pool, Queries: New(pool)}
 }
 
-// execTx owns transaction creation, commit and rollback, like SimpleBank.
+// ExecTx owns transaction creation, commit and rollback.
 func (s *SQLStore) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

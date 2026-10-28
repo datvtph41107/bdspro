@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"testing"
@@ -18,11 +19,18 @@ type verificationDistributorFake struct {
 	accounts []int64
 }
 
-func (f *verificationDistributorFake) DistributeTaskSendVerifyEmail(
-	_ context.Context, payload *PayloadSendVerifyEmail, _ ...asynq.Option,
+func (f *verificationDistributorFake) Enqueue(
+	_ context.Context, task *asynq.Task, _ ...asynq.Option,
 ) error {
 	if f.err != nil {
 		return f.err
+	}
+	if task.Type() != TaskSendVerifyEmail {
+		return errors.New("unexpected task type")
+	}
+	var payload PayloadSendVerifyEmail
+	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
+		return err
 	}
 	f.accounts = append(f.accounts, payload.AccountID)
 	return nil

@@ -24,7 +24,9 @@ Service chooses what the workflow does and the atomic boundary. The database own
 
 Resource authorization for Organization member/update is part of the SQL predicate (`WHERE EXISTS (active owner)`). Moving that authority into a preflight controller check can introduce time-of-check/time-of-use races.
 
-PostgreSQL transaction cannot atomically commit Redis/Asynq enqueue. The current registration callback schedules verification before PG commit; retry delay does not guarantee consistency. Address delivery semantics in a separate business decision, not as a silent refactor.
+PostgreSQL cannot atomically commit a Redis/Asynq enqueue. Registration stores a
+durable outbox row in the same transaction as the account, and a dispatcher
+enqueues committed rows after commit. Redis and SMTP delivery is at-least-once.
 
 ## SQLC scale
 

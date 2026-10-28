@@ -33,7 +33,7 @@ return 1
 `)
 
 func (l *IdentityLimiter) Allow(ctx *gin.Context, operation, identity string, perIP, perIdentity int64, window time.Duration) bool {
-	namespace := "bdspro:auth_limit:v1:" + operation + ":"
+	namespace := identityLimitKeyPrefix + operation + ":"
 	ipKey := namespace + "ip:" + rateHash(ctx.ClientIP())
 	identityKey := namespace + "identity:" + rateHash(strings.ToLower(strings.TrimSpace(identity)))
 	allowed, err := identityRateScript.Run(ctx.Request.Context(), l.client,

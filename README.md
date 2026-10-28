@@ -16,7 +16,7 @@ internal/
   core/middleware/         # authentication and request admission
   core/errors/             # public application errors
   core/response/           # HTTP response mapping
-  routes/api.go            # one authoritative endpoint inventory
+  core/router/routes.go    # HTTP methods, paths and middleware
   api/handler/             # HTTP request binding and responses
   api/handler/request/     # typed inputs
   api/handler/resource/    # public output projections
@@ -34,7 +34,7 @@ db/
 
 ## Work on an API
 
-Follow `internal/routes/api.go → internal/api/handler → internal/api/service → db/query/*.sql → internal/db/sqlc`. JWT middleware establishes the verified AccountID; resource authorization is checked in the resource query/transaction. Do not change routes, statuses, rate limit semantics or database invariants as part of a package relocation. See [current architecture](docs/architecture/README.md) and [developer workflow](docs/architecture/workflow.md).
+Follow `internal/core/router/routes.go → internal/api/handler → internal/api/service (when needed) → db/query/*.sql → internal/db/sqlc`. JWT middleware establishes the verified AccountID; resource authorization is checked in the resource query/transaction. Do not change routes, statuses, rate limit semantics or database invariants as part of a package relocation. See [current architecture](docs/architecture/README.md) and [developer workflow](docs/architecture/workflow.md).
 
 ```sh
 go run .

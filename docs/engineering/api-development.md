@@ -44,7 +44,7 @@ inputs. A one-query read does not automatically need a service.
 Use SQL conditions for resource-specific authorization where the write must
 be guarded atomically. Do not create a repository that only forwards SQLC.
 
-**Transaction**: use the existing `execTx` when a logical operation changes
+**Transaction**: use the existing `ExecTx` when a logical operation changes
 multiple records atomically; do not start transactions from handlers.
 External Redis/SMTP side effects cannot participate in PostgreSQL commit.
 Registration records a verification_outbox row in the same transaction and

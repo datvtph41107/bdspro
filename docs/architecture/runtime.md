@@ -17,12 +17,11 @@ use the matched route pattern, never a raw URL containing verification
 secrets. Security denial monitoring may use Redis independently from rate
 limiting; monitoring failures cannot grant a request previously denied.
 
-`internal/worker/` owns Asynq Redis transport, retries and queue lifecycle;
-`internal/jobs/` owns verification-email execution. `internal/api/service` expresses the
-scheduling intent through the narrow VerificationTaskScheduler interface.
-A PostgreSQL transaction does **not** atomically commit an Asynq enqueue.
-The current register flow schedules during `RegisterTx` before PG commit;
-that risk requires a separate consistency decision, not a style refactor.
+`internal/worker/` owns Asynq transport, task handler registration and queue lifecycle.
+`internal/jobs/` owns the email verification business operation. `main.go` registers
+each task type with its handler. Registration persists a durable outbox row in
+the account transaction. The dispatcher enqueues committed rows to Redis.
+Delivery is at-least-once and does not guarantee exactly-once SMTP delivery.
 
 Redis state for OAuth, admission policies and queues is security/operational
 state, not automatically a disposable cache. No cache Facade or driver

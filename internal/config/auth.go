@@ -2,10 +2,7 @@ package config
 
 import "time"
 
-// Authentication selects the one account JWT configuration used by the API.
-// Laravel guards resolve a driver and provider by name. BDSPro currently has
-// only one account identity and JWT bearer authentication; no runtime guard
-// registry or unused web/admin providers are necessary.
+// Authentication contains JWT settings for account access and refresh tokens.
 type Authentication struct {
 	JWTSecret       string
 	AccessTokenTTL  time.Duration

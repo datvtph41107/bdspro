@@ -1,4 +1,9 @@
-# BDSPro Register / Asynq reliability checkpoint
+# Historical register / Asynq reliability checkpoint
+
+> **Historical, pre-outbox behavior.** This document no longer describes the
+> active registration process. Current implementation is in
+> `internal/db/sqlc/store.go` and `internal/worker/verification_dispatcher.go`.
+> Do not copy the pre-commit enqueue implementation below.
 
 Baseline: dev@928f029. This change deliberately retains Asynq and the existing
 RegisterTx enqueue callback; it does **not** implement a PostgreSQL outbox.
