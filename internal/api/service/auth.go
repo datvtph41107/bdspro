@@ -16,9 +16,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// ErrInvalidCredentials is shared by password and phone authentication.
-var ErrInvalidCredentials = apperrors.InvalidCredentials
-
 // AuthService owns registration, credential authentication, email verification,
 // access renewal and session revocation. No Gin or HTTP response types enter
 // these operations.
@@ -69,13 +66,13 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	var result LoginResult
 	account, err := s.store.GetAccountByEmail(ctx, strings.TrimSpace(email))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return result, ErrInvalidCredentials
+		return result, apperrors.InvalidCredentials
 	}
 	if err != nil {
 		return result, err
 	}
 	if err := util.CheckPassword(password, account.PasswordHash); err != nil {
-		return result, ErrInvalidCredentials
+		return result, apperrors.InvalidCredentials
 	}
 	return IssueSession(ctx, s.store, s.maker, s.config, account, userAgent, clientIP)
 }

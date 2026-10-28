@@ -104,4 +104,31 @@ func TestVerificationOutboxRetriesRedisFailures(t *testing.T) {
 	if sent != 1 {
 		t.Fatalf("expected one enqueue for account %d, got %d", account.ID, sent)
 	}
+	// If Redis reports an existing stable TaskID (for example after a
+	// crash between enqueue and PostgreSQL commit), treat it as enqueued.
+	second, err := store.RegisterTx(ctx, db.RegisterTxParams{
+		Email: uuid.NewString()+"@example.test",
+		PasswordHash: "test-only",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake.err = asynq.ErrTaskIDConflict
+	for i := 0; i < 20; i++ {
+		if _, err := dispatcher.Dispatch(ctx); err != nil {
+			t.Fatalf("task ID conflict should not cause retry loop: %v", err)
+		}
+		var completed bool
+		if err := pool.QueryRow(ctx,
+			"SELECT queued_at IS NOT NULL FROM verification_outbox WHERE account_id = $1",
+			second.ID,
+		).Scan(&completed); err != nil {
+			t.Fatal(err)
+		}
+		if completed {
+			return
+		}
+	}
+	t.Fatal("stable task ID conflict did not mark the outbox row queued")
+
 }
