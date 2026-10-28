@@ -9,7 +9,3 @@ type PhoneVerifyBody struct {
 	Phone string `json:"phone" binding:"required"`
 	Code  string `json:"code" binding:"required"`
 }
-
-type PhoneStartBody struct {
-	Phone string `json:"phone" binding:"required"`
-}
