@@ -68,8 +68,11 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client) (*S
 	}
 	if cfg.Environment == "development" {
 		server.phoneHandler = handler.NewPhoneHandler(
-			store, maker, cfg, server.identityLimiter,
+			store, cfg, server.identityLimiter,
 		)
+		if server.googleHandler != nil {
+			server.googleHandler.SetPhoneBinding(service.PhoneOTP{Store: store, Config: cfg})
+		}
 	}
 
 	server.setupRouter()
