@@ -16,6 +16,12 @@ type Config struct {
 	GoogleClientID       string        `mapstructure:"GOOGLE_CLIENT_ID"`
 	GoogleClientSecret   string        `mapstructure:"GOOGLE_CLIENT_SECRET"`
 	GoogleRedirectURI    string        `mapstructure:"GOOGLE_REDIRECT_URI"`
+	PhoneDelivery        string        `mapstructure:"PHONE_DELIVERY"`
+	SMSGatewayURL        string        `mapstructure:"SMS_GATEWAY_URL"`
+	SMSGatewayToken      string        `mapstructure:"SMS_GATEWAY_TOKEN"`
+	ZaloAccessToken      string        `mapstructure:"ZALO_ACCESS_TOKEN"`
+	ZaloTemplateID       string        `mapstructure:"ZALO_TEMPLATE_ID"`
+	ZaloCodeField        string        `mapstructure:"ZALO_CODE_FIELD"`
 	AllowedOrigins       []string      `mapstructure:"ALLOWED_ORIGINS"`
 	DBSource             string        `mapstructure:"DB_SOURCE"`
 	MigrationURL         string        `mapstructure:"MIGRATION_URL"`
@@ -39,8 +45,11 @@ func LoadConfig(path string) (config Config, err error) {
 	v.SetConfigName("app")
 	v.SetConfigType("env")
 	v.SetDefault("LOG_FORMAT", "json")
+	v.SetDefault("ZALO_CODE_FIELD", "otp")
 	v.AutomaticEnv()
-	for _, name := range []string{"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"} {
+	for _, name := range []string{"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
+		"PHONE_DELIVERY", "SMS_GATEWAY_URL", "SMS_GATEWAY_TOKEN",
+		"ZALO_ACCESS_TOKEN", "ZALO_TEMPLATE_ID", "ZALO_CODE_FIELD"} {
 		if err = v.BindEnv(name); err != nil {
 			return config, err
 		}

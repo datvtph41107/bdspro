@@ -30,7 +30,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 			s.googleHandler = handler.NewGoogleHandler(nil, config.Config{}, nil, nil, false)
 		}
 		if phone {
-			s.phoneHandler = handler.NewPhoneHandler(nil, nil, config.Config{}, nil)
+			s.phoneHandler = handler.NewPhoneHandler(nil, config.Config{}, nil, nil)
 		}
 		s.setupRouter()
 		return s
@@ -39,7 +39,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	base := newServer(false, false)
 	want := []string{
 		"GET /health", "POST /users", "POST /users/login",
-		"GET /users/verify_email", "POST /tokens/renew_access",
+		"GET /users/verify_email", "POST /users/verify_email", "POST /users/verify_email/resend", "POST /tokens/renew_access",
 		"POST /tokens/revoke", "GET /users/me",
 		"POST /organizations", "GET /organizations",
 		"POST /organizations/:id/members", "PATCH /organizations/:id",
@@ -58,13 +58,13 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	withOptional := newServer(true, true)
-	if n := len(withOptional.router.Routes()); n != 18 {
-		t.Errorf("enabled route count = %d, want 18", n)
+	if n := len(withOptional.router.Routes()); n != 19 {
+		t.Errorf("enabled route count = %d, want 19", n)
 	}
 	for _, route := range []string{
 		"POST /users/me/google/start", "GET /users/google/login/start",
-		"GET /users/google/callback", "POST /users/phone/login/start",
-		"POST /users/phone/login/verify", "POST /users/me/phone/start",
+		"GET /users/google/callback", "POST /users/me/phone/google/start",
+		"POST /users/me/phone/start",
 		"POST /users/me/phone/verify",
 	} {
 		found := false
@@ -75,6 +75,14 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("missing optional route %s", route)
+		}
+	}
+
+	for _, removed := range []string{"POST /users/phone/login/start", "POST /users/phone/login/verify"} {
+		for _, current := range withOptional.router.Routes() {
+			if current.Method+" "+current.Path == removed {
+				t.Errorf("phone-only login must not be exposed: %s", removed)
+			}
 		}
 	}
 

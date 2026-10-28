@@ -13,6 +13,7 @@ import (
 	"github.com/datvtph41107/bdspro/internal/api/service"
 	"github.com/datvtph41107/bdspro/internal/config"
 	"github.com/datvtph41107/bdspro/internal/core/middleware"
+	"github.com/datvtph41107/bdspro/internal/notification"
 	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
@@ -66,10 +67,39 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client) (*S
 			&http.Client{Timeout: 10 * time.Second}, redirect.Scheme == "https",
 		)
 	}
+	// Local delivery is only enabled in development. Production phone binding
+	// is unavailable until an explicitly configured real provider is supplied.
+	var phoneSender notification.PhoneCodeSender
 	if cfg.Environment == "development" {
+		phoneSender = notification.Local{}
+	} else if cfg.PhoneDelivery == "sms" {
+		endpoint, parseErr := url.Parse(cfg.SMSGatewayURL)
+		if parseErr != nil || endpoint == nil || endpoint.Scheme != "https" || endpoint.Host == "" || cfg.SMSGatewayToken == "" {
+			return nil, errors.New("SMS_GATEWAY_URL must use HTTPS and SMS_GATEWAY_TOKEN is required")
+		}
+		phoneSender = notification.SMSGateway{
+			URL: cfg.SMSGatewayURL, Token: cfg.SMSGatewayToken,
+			Client: &http.Client{Timeout: 8 * time.Second},
+		}
+	} else if cfg.PhoneDelivery == "zalo" {
+		if cfg.ZaloAccessToken == "" || cfg.ZaloTemplateID == "" || cfg.ZaloCodeField == "" {
+			return nil, errors.New("Zalo ZBS delivery requires access token, template ID and code field")
+		}
+		phoneSender = notification.ZaloZBS{
+			AccessToken: cfg.ZaloAccessToken, TemplateID: cfg.ZaloTemplateID,
+			CodeField: cfg.ZaloCodeField, Client: &http.Client{Timeout: 8 * time.Second},
+		}
+	} else if cfg.PhoneDelivery != "" && cfg.PhoneDelivery != "disabled" {
+		return nil, fmt.Errorf("unsupported PHONE_DELIVERY: %s", cfg.PhoneDelivery)
+	}
+	if phoneSender != nil {
+		phone := service.PhoneOTP{Store: store, Config: cfg, Sender: phoneSender}
 		server.phoneHandler = handler.NewPhoneHandler(
-			store, maker, cfg, server.identityLimiter,
+			store, cfg, phoneSender, server.identityLimiter,
 		)
+		if server.googleHandler != nil {
+			server.googleHandler.SetPhoneBinding(phone)
+		}
 	}
 
 	server.setupRouter()

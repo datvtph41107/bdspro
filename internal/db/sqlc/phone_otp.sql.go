@@ -13,9 +13,6 @@ import (
 const bindPhoneCredentialQuery = `-- name: BindPhoneCredentialQuery :exec
 INSERT INTO phone_credentials (account_id, phone_e164, verified_at)
 VALUES ($1, $2, now())
-ON CONFLICT (account_id) DO UPDATE
-SET phone_e164 = EXCLUDED.phone_e164,
-    verified_at = EXCLUDED.verified_at
 `
 
 type BindPhoneCredentialQueryParams struct {

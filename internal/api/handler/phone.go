@@ -5,13 +5,12 @@ import (
 	"time"
 
 	authrequest "github.com/datvtph41107/bdspro/internal/api/handler/request/auth"
-	"github.com/datvtph41107/bdspro/internal/api/handler/resource"
 	"github.com/datvtph41107/bdspro/internal/api/service"
 	"github.com/datvtph41107/bdspro/internal/config"
+	"github.com/datvtph41107/bdspro/internal/notification"
 	"github.com/datvtph41107/bdspro/internal/core/middleware"
 	"github.com/datvtph41107/bdspro/internal/core/response"
 	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
-	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,13 +22,13 @@ type PhoneHandler struct {
 
 func NewPhoneHandler(
 	store db.Store,
-	maker token.Maker,
 	cfg config.Config,
+	sender notification.PhoneCodeSender,
 	limiter *middleware.IdentityLimiter,
 ) *PhoneHandler {
 	return &PhoneHandler{
 		phone: service.PhoneOTP{
-			Store: store, Maker: maker, Config: cfg,
+			Store: store, Config: cfg, Sender: sender,
 		},
 		limiter: limiter,
 	}
@@ -67,37 +66,3 @@ func (h *PhoneHandler) VerifyBind(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func (h *PhoneHandler) StartLogin(c *gin.Context) {
-	var req authrequest.PhoneStartBody
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
-		return
-	}
-	if !h.limiter.Allow(c, "phone_login_start", req.Phone, 10, 3, time.Hour) {
-		return
-	}
-	if err := h.phone.StartLogin(c.Request.Context(), req.Phone); err != nil {
-		response.Error(c, err)
-		return
-	}
-	c.Status(http.StatusAccepted)
-}
-
-func (h *PhoneHandler) VerifyLogin(c *gin.Context) {
-	var req authrequest.PhoneVerifyBody
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
-		return
-	}
-	if !h.limiter.Allow(c, "phone_login_verify", req.Phone, 40, 5, 10*time.Minute) {
-		return
-	}
-	result, err := h.phone.VerifyLogin(
-		c.Request.Context(), req.Phone, req.Code, c.Request.UserAgent(), c.ClientIP(),
-	)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, resources.NewLogin(result))
-}

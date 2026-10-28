@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"html/template"
 	"strconv"
 	"time"
 
@@ -40,6 +41,24 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, resources.NewUser(account))
 }
 
+func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
+		return
+	}
+	if !h.limiter.Allow(c, "verify_email_resend", req.Email, 10, 2, time.Hour) {
+		return
+	}
+	if err := h.auth.ResendVerificationEmail(c.Request.Context(), req.Email); err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.Status(http.StatusAccepted)
+}
+
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req authrequest.LoginBody
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -58,9 +77,25 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, resources.NewLogin(result))
 }
 
-func (h *AuthHandler) VerifyEmail(c *gin.Context) {
+// VerifyEmailPage is safe for mail scanners: GET never consumes a token.
+func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
 	var req authrequest.VerifyEmailQuery
 	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification link"})
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	const confirmation = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Verify email</title></head><body><h1>Verify your email</h1><form method="post" action="/users/verify_email"><input type="hidden" name="email_id" value="{{.EmailID}}"><input type="hidden" name="secret_code" value="{{.SecretCode}}"><button type="submit">Confirm email</button></form></body></html>`
+	page := template.Must(template.New("verify").Parse(confirmation))
+	_ = page.Execute(c.Writer, req)
+}
+
+func (h *AuthHandler) VerifyEmail(c *gin.Context) {
+	var req authrequest.VerifyEmailQuery
+	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification link"})
 		return
 	}

@@ -37,12 +37,14 @@ type GoogleHandler struct {
 	redis        *redis.Client
 	httpClient   *http.Client
 	secureCookie bool
+	phone        *service.PhoneOTP
 }
 type googlePending struct {
 	Purpose   string `json:"purpose"`
 	AccountID int64  `json:"account_id"`
 	Verifier  string `json:"verifier"`
 	Nonce     string `json:"nonce"`
+	Phone     string `json:"phone,omitempty"`
 }
 
 func NewGoogleHandler(
@@ -68,7 +70,7 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 		response.Error(ctx, err)
 		return
 	}
-	authURL, err := g.begin(ctx, "link", accountID)
+	authURL, err := g.begin(ctx, "link", accountID, "")
 	if err != nil {
 		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google sign-in unavailable"})
 		return
@@ -77,12 +79,40 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 }
 
 func (g *GoogleHandler) StartLogin(ctx *gin.Context) {
-	authURL, err := g.begin(ctx, "login", 0)
+	authURL, err := g.begin(ctx, "login", 0, "")
 	if err != nil {
 		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google sign-in unavailable"})
 		return
 	}
 	ctx.Redirect(http.StatusFound, authURL)
+}
+
+// SetPhoneBinding enables the Google reauthentication path in environments
+// where phone verification has an actual delivery implementation.
+func (g *GoogleHandler) SetPhoneBinding(phone service.PhoneOTP) {
+	g.phone = &phone
+}
+
+// StartPhoneBind starts an OAuth reauthentication, not a Google account link.
+// Only the linked Google subject can authorize a phone-binding challenge.
+func (g *GoogleHandler) StartPhoneBind(ctx *gin.Context) {
+	if g.phone == nil {
+		ctx.Status(http.StatusNotFound)
+		return
+	}
+	var req struct {
+		Phone string `json:"phone" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.Invalid(ctx, err)
+		return
+	}
+	authURL, err := g.begin(ctx, "phone_bind", middleware.AccountID(ctx), req.Phone)
+	if err != nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google sign-in unavailable"})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"authorization_url": authURL})
 }
 
 func googleRandom() (string, error) {
@@ -100,7 +130,7 @@ func (g *GoogleHandler) stateCookie(ctx *gin.Context, state string, age int) {
 	})
 }
 
-func (g *GoogleHandler) begin(ctx *gin.Context, purpose string, accountID int64) (string, error) {
+func (g *GoogleHandler) begin(ctx *gin.Context, purpose string, accountID int64, phone string) (string, error) {
 	state, err := googleRandom()
 	if err != nil {
 		return "", err
@@ -113,7 +143,7 @@ func (g *GoogleHandler) begin(ctx *gin.Context, purpose string, accountID int64)
 	if err != nil {
 		return "", err
 	}
-	record, err := json.Marshal(googlePending{Purpose: purpose, AccountID: accountID, Verifier: verifier, Nonce: nonce})
+	record, err := json.Marshal(googlePending{Purpose: purpose, AccountID: accountID, Verifier: verifier, Nonce: nonce, Phone: phone})
 	if err != nil {
 		return "", err
 	}
@@ -175,6 +205,16 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		return
 	}
 
+	if pending.Purpose == "phone_bind" && pending.AccountID > 0 && g.phone != nil {
+		if err := g.phone.StartGoogleBind(
+			ctx.Request.Context(), pending.AccountID, identity.Subject, pending.Phone,
+		); err != nil {
+			response.Error(ctx, err)
+			return
+		}
+		ctx.JSON(http.StatusAccepted, gin.H{"phone_verification_started": true})
+		return
+	}
 	if pending.Purpose == "link" && pending.AccountID > 0 {
 		if err := g.auth.Link(ctx.Request.Context(), pending.AccountID, identity.Subject); err != nil {
 			response.Error(ctx, err)
