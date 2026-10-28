@@ -21,8 +21,8 @@ type Querier interface {
 	CreateParty(ctx context.Context) (int64, error)
 	CreatePerson(ctx context.Context, partyID int64) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
-	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	CreateVerificationOutbox(ctx context.Context, accountID int64) error
+	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
 	GetAccountByEmail(ctx context.Context, btrim string) (Account, error)

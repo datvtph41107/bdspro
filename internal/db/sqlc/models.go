@@ -20,6 +20,12 @@ type Account struct {
 	IsEmailVerified bool      `json:"is_email_verified"`
 }
 
+type GoogleIdentity struct {
+	GoogleSub string    `json:"google_sub"`
+	AccountID int64     `json:"account_id"`
+	LinkedAt  time.Time `json:"linked_at"`
+}
+
 type Organization struct {
 	PartyID   int64     `json:"party_id"`
 	Name      string    `json:"name"`
@@ -43,6 +49,25 @@ type Person struct {
 	PartyID int64 `json:"party_id"`
 }
 
+type PhoneCredential struct {
+	AccountID  int64     `json:"account_id"`
+	PhoneE164  string    `json:"phone_e164"`
+	VerifiedAt time.Time `json:"verified_at"`
+}
+
+type PhoneOtpChallenge struct {
+	PhoneE164              string      `json:"phone_e164"`
+	Purpose                string      `json:"purpose"`
+	AccountID              int64       `json:"account_id"`
+	CodeMac                []byte      `json:"code_mac"`
+	DevCode                pgtype.Text `json:"dev_code"`
+	ExpiresAt              time.Time   `json:"expires_at"`
+	NextSendAt             time.Time   `json:"next_send_at"`
+	FailedAttempts         int32       `json:"failed_attempts"`
+	AttemptWindowStartedAt time.Time   `json:"attempt_window_started_at"`
+	LockedUntil            time.Time   `json:"locked_until"`
+}
+
 type Session struct {
 	ID           uuid.UUID `json:"id"`
 	AccountID    int64     `json:"account_id"`
@@ -55,10 +80,10 @@ type Session struct {
 }
 
 type VerificationOutbox struct {
-	ID int64 `json:"id"`
-	AccountID int64 `json:"account_id"`
-	CreatedAt time.Time `json:"created_at"`
-	QueuedAt pgtype.Timestamptz `json:"queued_at"`
+	ID        int64              `json:"id"`
+	AccountID int64              `json:"account_id"`
+	CreatedAt time.Time          `json:"created_at"`
+	QueuedAt  pgtype.Timestamptz `json:"queued_at"`
 }
 
 type VerifyEmail struct {

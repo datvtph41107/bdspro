@@ -5,7 +5,9 @@
 
 package db
 
-import "context"
+import (
+	"context"
+)
 
 const createVerificationOutbox = `-- name: CreateVerificationOutbox :exec
 INSERT INTO verification_outbox (account_id) VALUES ($1)
@@ -26,7 +28,7 @@ FOR UPDATE SKIP LOCKED
 `
 
 type ListPendingVerificationOutboxRow struct {
-	ID int64 `json:"id"`
+	ID        int64 `json:"id"`
 	AccountID int64 `json:"account_id"`
 }
 
