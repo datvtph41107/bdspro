@@ -2,9 +2,8 @@
 
 ## Canonical source path
 
-`internal/core/router/server.go` creates the one Gin engine and global middleware,
-then calls `routes.API(root, root.Group(apiPrefix), handlers, policies)`.
-`internal/routes/api.go` is the **only file that declares HTTP endpoints**, including
+`internal/core/router/server.go` creates the one Gin engine, application handlers, and global middleware.
+`internal/core/router/routes.go` declares HTTP endpoints directly through Gin, including
 public, authenticated and conditionally enabled Google/Phone routes. Root
 `/health` remains outside the API prefix.
 
@@ -23,7 +22,7 @@ and must not import Gin. `db/query/` and `internal/db/sqlc/` own query execution
 - Per route: source limiter, login audit or other route-specific middleware.
 - After binding in AuthHandler: identity-based limiter requiring input values.
 
-Source-based and identity-based limits are **different policies**; moving a
+Source-based and identity-based limits are **different rate limits**; moving a
 limiter before parsing its identity or deleting it changes security behavior.
 Keep `AbortWithStatusJSON` for middleware denials and propagate verified
 AccountID through the established context key. Resource authorization belongs

@@ -14,7 +14,6 @@ import (
 	"github.com/datvtph41107/bdspro/internal/config"
 	"github.com/datvtph41107/bdspro/internal/core/middleware"
 	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
-	"github.com/datvtph41107/bdspro/internal/routes"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/datvtph41107/bdspro/internal/worker"
 	"github.com/gin-gonic/gin"
@@ -128,18 +127,7 @@ func (server *Server) setupRouter() {
 		middleware.RequestIngress(),
 	)
 
-	routes.API(router, router.Group(apiPrefix), routes.Handlers{
-		Auth:         server.authHandler,
-		Organization: server.organizationHandler,
-		Google:       server.googleHandler,
-		Phone:        server.phoneHandler,
-	}, routes.Policies{
-		Authenticate: middleware.Authenticate(server.tokenMaker),
-		LoginAudit:   middleware.LoginAudit(),
-		SourceLimit: func(operation string, attempts int64, window time.Duration) gin.HandlerFunc {
-			return middleware.IPActiveSource(server.authRateRedis, operation, attempts, window)
-		},
-	})
+	server.registerRoutes(router)
 
 	server.router = router
 }
