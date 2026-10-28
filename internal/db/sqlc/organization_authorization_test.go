@@ -93,4 +93,22 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
     if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
         t.Fatalf("duplicate active membership must be rejected by unique constraint: %v", err)
     }
+	// A failed third insert must roll back the Party and Organization as well.
+	var before, after int64
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	_, err = store.CreateOrganizationTx(ctx, CreateOrganizationTxParams{
+		Name: "Rollback probe", OwnerPersonID: -1,
+	})
+	if err == nil {
+		t.Fatal("expected foreign key failure for nonexistent owner person")
+	}
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if before != after {
+		t.Fatalf("failed transaction created a Party: before=%d after=%d", before, after)
+	}
+
 }
