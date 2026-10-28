@@ -7,6 +7,7 @@ import (
 	authrequest "github.com/datvtph41107/bdspro/internal/api/handler/request/auth"
 	"github.com/datvtph41107/bdspro/internal/api/service"
 	"github.com/datvtph41107/bdspro/internal/config"
+	"github.com/datvtph41107/bdspro/internal/notification"
 	"github.com/datvtph41107/bdspro/internal/core/middleware"
 	"github.com/datvtph41107/bdspro/internal/core/response"
 	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
@@ -22,11 +23,12 @@ type PhoneHandler struct {
 func NewPhoneHandler(
 	store db.Store,
 	cfg config.Config,
+	sender notification.PhoneCodeSender,
 	limiter *middleware.IdentityLimiter,
 ) *PhoneHandler {
 	return &PhoneHandler{
 		phone: service.PhoneOTP{
-			Store: store, Config: cfg,
+			Store: store, Config: cfg, Sender: sender,
 		},
 		limiter: limiter,
 	}
