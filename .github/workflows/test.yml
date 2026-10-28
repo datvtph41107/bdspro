@@ -37,6 +37,12 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
+      - name: Verify SQLC output
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          "$(go env GOPATH)/bin/sqlc" generate
+          git diff --exit-code -- internal/db/sqlc
+
       - name: Migrate disposable test database
         env:
           PGPASSWORD: secret
