@@ -11,6 +11,7 @@ import (
 	"regexp"
 
 	"github.com/datvtph41107/bdspro/internal/config"
+	"github.com/datvtph41107/bdspro/internal/notification"
 	apperrors "github.com/datvtph41107/bdspro/internal/core/errors"
 	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
 	"github.com/datvtph41107/bdspro/internal/util"
@@ -26,10 +27,11 @@ var phoneCode = regexp.MustCompile(`^[0-9]{6}$`)
 type PhoneOTP struct {
 	Store      db.Store
 	Config     config.Config
+	Sender     notification.PhoneCodeSender
 }
 
 func (s PhoneOTP) allowed() error {
-	if s.Config.Environment != "development" {
+	if s.Config.Environment != "development" && s.Sender == nil {
 		return errors.New("phone OTP delivery unavailable")
 	}
 	return nil
@@ -51,7 +53,17 @@ func (s PhoneOTP) start(ctx context.Context, phone, purpose string, accountID in
 	if err != nil {
 		return err
 	}
-	return s.Store.StartChallenge(ctx, phone, purpose, accountID, s.mac(phone, purpose, accountID, code), code)
+	devCode := ""
+	if s.Config.Environment == "development" {
+		devCode = code
+	}
+	if err := s.Store.StartChallenge(ctx, phone, purpose, accountID, s.mac(phone, purpose, accountID, code), devCode); err != nil {
+		return err
+	}
+	if s.Sender == nil {
+		return nil // Only a disposable development database permits this.
+	}
+	return s.Sender.SendCode(ctx, phone, code)
 }
 
 // StartBind authenticates an account with its existing BDSPro password.
