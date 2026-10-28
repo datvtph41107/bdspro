@@ -101,6 +101,12 @@ jobs:
           END $audit$;
           SQL
 
+      - name: Produce Go formatting evidence
+        run: |
+          gofmt -w .
+          python3 -c 'import subprocess,base64,pathlib; paths=subprocess.check_output(["git","diff","--name-only","--","*.go"],text=True).splitlines(); [print("FORMATTED_FILE|"+p+"|"+base64.b64encode(pathlib.Path(p).read_bytes()).decode()) for p in paths]'
+          git diff --exit-code -- '*.go'
+
       - name: Test and compile
         env:
           BDS_TEST_MODE: disposable
