@@ -17,6 +17,7 @@ import (
 	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
+ "github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/rs/cors"
@@ -147,7 +148,7 @@ func (server *Server) setupRouter() {
 			Str("path", path).
 			Str("panic_type", fmt.Sprintf("%T", recovered)).
 			Msg("http.panic")
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		response.Reject(ctx, http.StatusInternalServerError, "internal_error", "internal server error")
 	}))
 
 	router.Use(
@@ -156,6 +157,7 @@ func (server *Server) setupRouter() {
 	)
 
 	server.registerRoutes(router)
+ server.registerSwagger(router)
 
 	server.router = router
 }

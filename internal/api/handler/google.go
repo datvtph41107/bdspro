@@ -70,7 +70,7 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 	}
 	authURL, err := g.begin(ctx, "link", accountID, "")
 	if err != nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google sign-in unavailable"})
+		response.Reject(ctx, http.StatusServiceUnavailable, "google_unavailable", "Google sign-in unavailable")
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"authorization_url": authURL})
@@ -79,7 +79,7 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 func (g *GoogleHandler) StartLogin(ctx *gin.Context) {
 	authURL, err := g.begin(ctx, "login", 0, "")
 	if err != nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google sign-in unavailable"})
+		response.Reject(ctx, http.StatusServiceUnavailable, "google_unavailable", "Google sign-in unavailable")
 		return
 	}
 	ctx.Redirect(http.StatusFound, authURL)
@@ -107,7 +107,7 @@ func (g *GoogleHandler) StartPhoneBind(ctx *gin.Context) {
 	}
 	authURL, err := g.begin(ctx, "phone_bind", middleware.AccountID(ctx), req.Phone)
 	if err != nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google sign-in unavailable"})
+		response.Reject(ctx, http.StatusServiceUnavailable, "google_unavailable", "Google sign-in unavailable")
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"authorization_url": authURL})
@@ -170,36 +170,36 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 	state := ctx.Query("state")
 	cookie, err := ctx.Request.Cookie(googleOAuthCookie)
 	if err != nil || state == "" || len(state) != 43 || subtle.ConstantTimeCompare([]byte(state), []byte(cookie.Value)) != 1 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid Google authorization state"})
+		response.Reject(ctx, http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
 		return
 	}
 	g.stateCookie(ctx, "", -1)
 	data, err := g.redis.GetDel(ctx.Request.Context(), "google:oauth:state:"+state).Bytes()
 	if errors.Is(err, redis.Nil) {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "expired Google authorization state"})
+		response.Reject(ctx, http.StatusBadRequest, "google_state_expired", "expired Google authorization state")
 		return
 	}
 	if err != nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google sign-in unavailable"})
+		response.Reject(ctx, http.StatusServiceUnavailable, "google_unavailable", "Google sign-in unavailable")
 		return
 	}
 	var pending googlePending
 	if json.Unmarshal(data, &pending) != nil || pending.Verifier == "" || pending.Nonce == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid Google authorization state"})
+		response.Reject(ctx, http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
 		return
 	}
 	if ctx.Query("error") != "" || ctx.Query("code") == "" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Google authorization declined"})
+		response.Reject(ctx, http.StatusUnauthorized, "google_authorization_declined", "Google authorization declined")
 		return
 	}
 	idToken, err := g.exchange(ctx.Request.Context(), ctx.Query("code"), pending.Verifier)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Google authorization failed"})
+		response.Reject(ctx, http.StatusUnauthorized, "google_authorization_failed", "Google authorization failed")
 		return
 	}
 	identity, err := service.VerifyGoogleIDToken(ctx.Request.Context(), idToken, g.config.GoogleClientID, pending.Nonce)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid Google identity"})
+		response.Reject(ctx, http.StatusUnauthorized, "google_invalid_identity", "invalid Google identity")
 		return
 	}
 
@@ -222,7 +222,7 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		return
 	}
 	if pending.Purpose != "login" || pending.AccountID != 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid Google authorization state"})
+		response.Reject(ctx, http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
 		return
 	}
 	result, err := g.auth.Login(ctx.Request.Context(), identity, ctx.Request.UserAgent(), ctx.ClientIP())

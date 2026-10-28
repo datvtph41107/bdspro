@@ -79,7 +79,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
 	var req VerifyEmailQuery
 	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification link"})
+		response.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
 	}
 	c.Header("Cache-Control", "no-store")
@@ -94,7 +94,7 @@ func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	var req VerifyEmailQuery
 	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification link"})
+		response.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
 	}
 	if !h.limiter.Allow(c, "verify_email", strconv.FormatInt(req.EmailID, 10), 60, 10, time.Minute) {
