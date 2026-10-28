@@ -22,8 +22,8 @@ import (
 var phoneE164 = regexp.MustCompile(`^\+[1-9][0-9]{7,14}$`)
 var phoneCode = regexp.MustCompile(`^[0-9]{6}$`)
 
-// PhoneOTP is a development-only delivery mode. Codes are saved only in a
-// disposable dev PostgreSQL database, never in responses or application logs.
+// PhoneOTP owns phone verification regardless of delivery channel. Plaintext
+// codes are saved only in disposable development PostgreSQL, never in logs.
 type PhoneOTP struct {
 	Store      db.Store
 	Config     config.Config
