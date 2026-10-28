@@ -27,15 +27,15 @@ type GoogleIdentity struct {
 }
 
 type JobOutbox struct {
-	ID int64 `json:"id"`
-	TaskType string `json:"task_type"`
-	Payload []byte `json:"payload"`
-	QueueName string `json:"queue_name"`
-	MaxRetry int32 `json:"max_retry"`
-	RunAt time.Time `json:"run_at"`
-	TaskID pgtype.Text `json:"task_id"`
-	CreatedAt time.Time `json:"created_at"`
-	QueuedAt pgtype.Timestamptz `json:"queued_at"`
+	ID        int64              `json:"id"`
+	TaskType  string             `json:"task_type"`
+	Payload   []byte             `json:"payload"`
+	QueueName string             `json:"queue_name"`
+	MaxRetry  int32              `json:"max_retry"`
+	RunAt     time.Time          `json:"run_at"`
+	TaskID    pgtype.Text        `json:"task_id"`
+	CreatedAt time.Time          `json:"created_at"`
+	QueuedAt  pgtype.Timestamptz `json:"queued_at"`
 }
 
 type Organization struct {

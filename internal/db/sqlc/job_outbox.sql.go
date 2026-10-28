@@ -22,28 +22,40 @@ FOR UPDATE SKIP LOCKED
 `
 
 type ListPendingJobOutboxRow struct {
-	ID int64 `json:"id"`
-	TaskType string `json:"task_type"`
-	Payload []byte `json:"payload"`
-	QueueName string `json:"queue_name"`
-	MaxRetry int32 `json:"max_retry"`
-	RunAt time.Time `json:"run_at"`
-	TaskID pgtype.Text `json:"task_id"`
+	ID        int64       `json:"id"`
+	TaskType  string      `json:"task_type"`
+	Payload   []byte      `json:"payload"`
+	QueueName string      `json:"queue_name"`
+	MaxRetry  int32       `json:"max_retry"`
+	RunAt     time.Time   `json:"run_at"`
+	TaskID    pgtype.Text `json:"task_id"`
 }
 
 func (q *Queries) ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error) {
 	rows, err := q.db.Query(ctx, listPendingJobOutbox, limit)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 	var items []ListPendingJobOutboxRow
 	for rows.Next() {
-		var item ListPendingJobOutboxRow
-		if err := rows.Scan(&item.ID, &item.TaskType, &item.Payload, &item.QueueName, &item.MaxRetry, &item.RunAt, &item.TaskID); err != nil {
+		var i ListPendingJobOutboxRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskType,
+			&i.Payload,
+			&i.QueueName,
+			&i.MaxRetry,
+			&i.RunAt,
+			&i.TaskID,
+		); err != nil {
 			return nil, err
 		}
-		items = append(items, item)
+		items = append(items, i)
 	}
-	if err := rows.Err(); err != nil { return nil, err }
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return items, nil
 }
 
