@@ -57,10 +57,10 @@ type Party struct {
 }
 
 type PasswordCredential struct {
-	AccountID int64 `json:"account_id"`
-	PasswordHash string `json:"password_hash"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	AccountID    int64     `json:"account_id"`
+	PasswordHash string    `json:"password_hash"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type Person struct {

@@ -15,7 +15,7 @@ VALUES ($1, $2)
 `
 
 type CreatePasswordCredentialParams struct {
-	AccountID int64 `json:"account_id"`
+	AccountID    int64  `json:"account_id"`
 	PasswordHash string `json:"password_hash"`
 }
 
@@ -31,7 +31,7 @@ FROM password_credentials WHERE account_id = $1
 
 func (q *Queries) GetPasswordHash(ctx context.Context, accountID int64) (string, error) {
 	row := q.db.QueryRow(ctx, getPasswordHash, accountID)
-	var passwordHash string
-	err := row.Scan(&passwordHash)
-	return passwordHash, err
+	var password_hash string
+	err := row.Scan(&password_hash)
+	return password_hash, err
 }

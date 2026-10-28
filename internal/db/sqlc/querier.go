@@ -16,21 +16,21 @@ type Querier interface {
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
-	CreatePasswordCredential(ctx context.Context, arg CreatePasswordCredentialParams) error
-	CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVerifiedGoogleAccountParams) (Account, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	CreateOrganizationMembership(ctx context.Context, arg CreateOrganizationMembershipParams) (OrganizationMembership, error)
 	CreateParty(ctx context.Context) (int64, error)
+	CreatePasswordCredential(ctx context.Context, arg CreatePasswordCredentialParams) error
 	CreatePerson(ctx context.Context, partyID int64) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVerifiedGoogleAccountParams) (Account, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
 	GetAccountByEmail(ctx context.Context, btrim string) (Account, error)
 	GetAccountByID(ctx context.Context, id int64) (Account, error)
 	GetGoogleAccountIDQuery(ctx context.Context, googleSub string) (int64, error)
-	GetPhoneAccountIDQuery(ctx context.Context, phoneE164 string) (int64, error)
 	GetPasswordHash(ctx context.Context, accountID int64) (string, error)
+	GetPhoneAccountIDQuery(ctx context.Context, phoneE164 string) (int64, error)
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
 	LinkGoogleIdentityQuery(ctx context.Context, arg LinkGoogleIdentityQueryParams) (int64, error)
 	ListOrganizationsForPerson(ctx context.Context, personID int64) ([]Organization, error)

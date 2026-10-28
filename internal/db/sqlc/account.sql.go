@@ -16,8 +16,8 @@ RETURNING id, person_id, email, created_at, is_email_verified
 `
 
 type CreateAccountParams struct {
-	PersonID int64 `json:"person_id"`
-	Email string `json:"email"`
+	PersonID int64  `json:"person_id"`
+	Email    string `json:"email"`
 }
 
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
@@ -40,8 +40,8 @@ RETURNING id, person_id, email, created_at, is_email_verified
 `
 
 type CreateVerifiedGoogleAccountParams struct {
-	PersonID int64 `json:"person_id"`
-	Email string `json:"email"`
+	PersonID int64  `json:"person_id"`
+	Email    string `json:"email"`
 }
 
 func (q *Queries) CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVerifiedGoogleAccountParams) (Account, error) {
