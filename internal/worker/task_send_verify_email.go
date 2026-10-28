@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
 	"github.com/datvtph41107/bdspro/internal/jobs"
 	"github.com/datvtph41107/bdspro/internal/mail"
 	"github.com/hibiken/asynq"
@@ -33,7 +32,7 @@ func NewSendVerifyEmailTask(accountID int64) (*asynq.Task, error) {
 }
 
 // NewVerifyEmailHandler adapts the email verification job to native Asynq.
-func NewVerifyEmailHandler(store db.Store, sender mail.EmailSender, url string) asynq.Handler {
+func NewVerifyEmailHandler(store jobs.VerificationStore, sender mail.EmailSender, url string) asynq.Handler {
 	return asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
 		var payload PayloadSendVerifyEmail
 		if err := json.Unmarshal(task.Payload(), &payload); err != nil {

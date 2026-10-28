@@ -12,11 +12,18 @@ import (
 	"github.com/datvtph41107/bdspro/internal/util"
 )
 
-// SendVerificationEmail is the job action. Transport scheduling and retry
-// decisions remain in worker, while the job can reuse existing DB/mail behavior.
+// VerificationStore is the data contract required by email verification.
+// A job does not depend on the application's complete database Store.
+type VerificationStore interface {
+	GetAccountByID(ctx context.Context, id int64) (db.Account, error)
+	GetOrCreateVerifyEmailTx(ctx context.Context, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error)
+}
+
+// SendVerificationEmail performs the business operation. Retry and transport
+// policy belong to Asynq; this function can be exercised without Redis.
 func SendVerificationEmail(
 	ctx context.Context,
-	store db.Store,
+	store VerificationStore,
 	mailer mail.EmailSender,
 	verifyEmailURL string,
 	accountID int64,
