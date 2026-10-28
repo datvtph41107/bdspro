@@ -44,7 +44,6 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
         account, err := store.CreateAccount(ctx, CreateAccountParams{
             PersonID: id,
             Email: uuid.NewString()+"@example.test",
-            PasswordHash: "integration-only",
         })
         if err != nil { t.Fatal(err) }
         return account

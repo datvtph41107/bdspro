@@ -69,7 +69,12 @@ func (s PhoneOTP) StartBind(ctx context.Context, accountID int64, password, phon
 	if err != nil {
 		return err
 	}
-	if util.CheckPassword(password, account.PasswordHash) != nil {
+	hash, err := s.Store.GetPasswordHash(ctx, account.ID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return apperrors.InvalidCredentials
+	}
+	if err != nil { return err }
+	if util.CheckPassword(password, hash) != nil {
 		return apperrors.InvalidCredentials
 	}
 	existing, err := s.Store.AccountIDForPhone(ctx, phone)

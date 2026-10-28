@@ -71,7 +71,12 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	if err != nil {
 		return result, err
 	}
-	if err := util.CheckPassword(password, account.PasswordHash); err != nil {
+	hash, err := s.store.GetPasswordHash(ctx, account.ID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return result, apperrors.InvalidCredentials
+	}
+	if err != nil { return result, err }
+	if err := util.CheckPassword(password, hash); err != nil {
 		return result, apperrors.InvalidCredentials
 	}
 	return IssueSession(ctx, s.store, s.maker, s.config, account, userAgent, clientIP)

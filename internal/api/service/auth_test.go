@@ -19,6 +19,7 @@ import (
 type sessionMemoryStore struct {
     db.Store
     account db.Account
+    passwordHash string
     session db.Session
 }
 
@@ -27,6 +28,13 @@ func (s *sessionMemoryStore) GetAccountByEmail(_ context.Context, email string) 
         return db.Account{}, pgx.ErrNoRows
     }
     return s.account, nil
+}
+
+func (s *sessionMemoryStore) GetPasswordHash(_ context.Context, id int64) (string, error) {
+    if id != s.account.ID || s.passwordHash == "" {
+        return "", pgx.ErrNoRows
+    }
+    return s.passwordHash, nil
 }
 
 func (s *sessionMemoryStore) CreateSession(_ context.Context, p db.CreateSessionParams) (db.Session, error) {
@@ -67,7 +75,7 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
     if err != nil {
         t.Fatal(err)
     }
-    store := &sessionMemoryStore{account: db.Account{ID: 7, PersonID: 11, Email: "a@example.test", PasswordHash: hash}}
+    store := &sessionMemoryStore{account: db.Account{ID: 7, PersonID: 11, Email: "a@example.test"}, passwordHash: hash}
     svc := NewAuthService(store, maker, cfg)
     ctx := context.Background()
 
