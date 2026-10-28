@@ -41,9 +41,11 @@ Successful JSON uses Gin directly; `204` writes no body.
 OAuth redirects/cookies and other protocol-specific responses are explicit
 HTTP operations; do not force them into a JSON-only writer.
 
-`AuthService` owns account registration, login, verification, session
-renewal and revocation. Password, Google and Phone login share the
-`service.IssueSession` implementation. `OrganizationService` owns
+`AuthService` owns password registration, login, verification, session
+renewal and revocation. `GoogleAuthService` owns Google account linking and login;
+`PhoneOTP` owns phone validation and database error classification. Password,
+Google and Phone login share `service.IssueSession`. OAuth state, PKCE,
+redirects and cookies remain HTTP operations. `OrganizationService` owns
 name validation and SQL error classification while HTTP handlers bind input.
 
 ## No second router or framework
