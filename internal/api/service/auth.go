@@ -53,6 +53,23 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 	return account, nil
 }
 
+// ResendVerificationEmail is deliberately non-enumerating: unknown or
+// already-verified addresses get the same response as a queued message.
+// Delivery uses the existing durable outbox and email verification job.
+func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string) error {
+	account, err := s.store.GetAccountByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if account.IsEmailVerified {
+		return nil
+	}
+	return s.store.RecordEmailVerificationJob(ctx, account.ID)
+}
+
 type LoginResult struct {
 	Account          db.Account
 	Session          db.Session
