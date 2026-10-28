@@ -15,7 +15,6 @@ import (
 	"github.com/datvtph41107/bdspro/internal/core/middleware"
 	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
 	"github.com/datvtph41107/bdspro/internal/token"
-	"github.com/datvtph41107/bdspro/internal/worker"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
@@ -39,7 +38,7 @@ type Server struct {
 }
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
-func NewServer(cfg config.Config, store db.Store, taskDistributor worker.TaskDistributor, redisClient *redis.Client) (*Server, error) {
+func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client) (*Server, error) {
 	if redisClient == nil {
 		return nil, errors.New("authentication requires Redis")
 	}
@@ -54,8 +53,7 @@ func NewServer(cfg config.Config, store db.Store, taskDistributor worker.TaskDis
 		authRateRedis:   redisClient,
 		identityLimiter: middleware.NewIdentityLimiter(redisClient),
 	}
-	scheduler := worker.NewVerificationScheduler(taskDistributor)
-	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, scheduler, maker, cfg), server.identityLimiter)
+	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, maker, cfg), server.identityLimiter)
 	server.organizationHandler = handler.NewOrganizationHandler(service.NewOrganizationService(store))
 
 	if cfg.GoogleClientID != "" {

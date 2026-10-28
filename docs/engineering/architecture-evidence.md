@@ -119,10 +119,8 @@ a concrete repository URL and revision.
 
 ## Remaining evidence gap
 
-Queue dispatch from registration currently runs inside a PostgreSQL transaction
-but targets Redis. This can enqueue a job before its account is committed.
-Laravel offers after-commit dispatch semantics; a robust BDSPro implementation
-requires an explicit durability decision. Moving enqueue after commit eliminates
-the early-worker race, but creates a committed-account / failed-enqueue window.
-For guaranteed delivery, evaluate a PostgreSQL outbox and idempotent dispatch;
-do not claim simple after-commit execution provides exactly-once delivery.
+Registration now records a durable outbox row in the same PostgreSQL
+transaction as the account and dispatches it after commit. This resolves the
+early-worker race and provides retry after a Redis outage. Asynq TaskID limits
+duplicate *queued* tasks; the Redis/SMTP boundary still has at-least-once
+semantics and does not guarantee exactly-once email delivery.

@@ -13,7 +13,7 @@ var ErrEmailAlreadyVerified = errors.New("email already verified")
 // All SQL originates from db/query/*.sql.
 func (s *SQLStore) GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error) {
 	var record VerifyEmail
-	err := s.execTx(ctx, func(q *Queries) error {
+	err := s.ExecTx(ctx, func(q *Queries) error {
 		verified, err := q.LockVerifyEmailAccountQuery(ctx, arg.AccountID)
 		if err != nil {
 			return err

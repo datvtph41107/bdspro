@@ -99,7 +99,16 @@ func run(ctx context.Context) error {
 	defer processor.Shutdown()
 	log.Info().Msg("task.processor.started")
 
-	server, err := router.NewServer(cfg, store, distributor, redisClient)
+	// Persisted registration intents are queued only after the account commits.
+	dispatchCtx, stopDispatch := context.WithCancel(ctx)
+	dispatcher := worker.NewVerificationDispatcher(store, distributor)
+	dispatcher.Start(dispatchCtx)
+	defer func() {
+		stopDispatch()
+		dispatcher.Wait()
+	}()
+
+	server, err := router.NewServer(cfg, store, redisClient)
 	if err != nil {
 		return fmt.Errorf("create HTTP server: %w", err)
 	}

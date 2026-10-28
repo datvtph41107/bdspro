@@ -68,7 +68,7 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
         t.Fatal(err)
     }
     store := &sessionMemoryStore{account: db.Account{ID: 7, PersonID: 11, Email: "a@example.test", PasswordHash: hash}}
-    svc := NewAuthService(store, nil, maker, cfg)
+    svc := NewAuthService(store, maker, cfg)
     ctx := context.Background()
 
     if _, err := svc.Login(ctx, store.account.Email, "wrong", "", ""); !errors.Is(err, apperrors.InvalidCredentials) {
@@ -113,7 +113,7 @@ func (s *registrationStoreFake) RegisterTx(_ context.Context, _ db.RegisterTxPar
 
 func TestRegisterPasswordByteLimit(t *testing.T) {
 	store := &registrationStoreFake{}
-	svc := NewAuthService(store, nil, nil, config.Config{})
+	svc := NewAuthService(store, nil, config.Config{})
 	for _, password := range []string{
 		"short",
 		strings.Repeat("a", 73),

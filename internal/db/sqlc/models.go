@@ -54,6 +54,13 @@ type Session struct {
 	ExpiresAt    time.Time `json:"expires_at"`
 }
 
+type VerificationOutbox struct {
+	ID int64 `json:"id"`
+	AccountID int64 `json:"account_id"`
+	CreatedAt time.Time `json:"created_at"`
+	QueuedAt pgtype.Timestamptz `json:"queued_at"`
+}
+
 type VerifyEmail struct {
 	ID         int64     `json:"id"`
 	AccountID  int64     `json:"account_id"`

@@ -24,13 +24,12 @@ var ErrInvalidCredentials = apperrors.InvalidCredentials
 // these operations.
 type AuthService struct {
 	store     db.Store
-	scheduler VerificationTaskScheduler
 	maker     token.Maker
 	config    config.Config
 }
 
-func NewAuthService(store db.Store, scheduler VerificationTaskScheduler, maker token.Maker, cfg config.Config) *AuthService {
-	return &AuthService{store: store, scheduler: scheduler, maker: maker, config: cfg}
+func NewAuthService(store db.Store, maker token.Maker, cfg config.Config) *AuthService {
+	return &AuthService{store: store, maker: maker, config: cfg}
 }
 
 func (s *AuthService) Register(ctx context.Context, email, password string) (db.Account, error) {
@@ -44,10 +43,8 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 		return db.Account{}, err
 	}
 	account, err := s.store.RegisterTx(ctx, db.RegisterTxParams{
-		Email: strings.ToLower(strings.TrimSpace(email)), PasswordHash: hash,
-		AfterCreate: func(account db.Account) error {
-			return s.scheduler.ScheduleVerifyEmail(ctx, account.ID)
-		},
+		Email: strings.ToLower(strings.TrimSpace(email)),
+		PasswordHash: hash,
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError

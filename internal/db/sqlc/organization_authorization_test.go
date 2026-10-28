@@ -111,4 +111,19 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 		t.Fatalf("failed transaction created a Party: before=%d after=%d", before, after)
 	}
 
+	// Registration and the Redis delivery intent must commit in one database transaction.
+	registered, err := store.RegisterTx(ctx, RegisterTxParams{
+		Email: uuid.NewString()+"@example.test", PasswordHash: "test-only",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pending int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM verification_outbox WHERE account_id = $1 AND queued_at IS NULL", registered.ID).Scan(&pending); err != nil {
+		t.Fatal(err)
+	}
+	if pending != 1 {
+		t.Fatalf("expected one durable verification intent, got %d", pending)
+	}
+
 }

@@ -55,3 +55,12 @@ Routes are Gin `GET`, `POST`, `PATCH` and `Group` calls. No custom
 registry or per-request group lookup exists. The base prefix is composed
 once at startup. Existing unversioned URLs must remain stable unless a
 separate compatibility migration is approved.
+
+## Registration and task delivery
+
+Registration writes Party, Person, Account and a verification_outbox row in one
+PostgreSQL transaction. A worker dispatcher polls committed rows, selects them
+with FOR UPDATE SKIP LOCKED, enqueues to Redis Asynq with a stable task ID, and
+marks queued_at. Failed Redis enqueue leaves the row pending. Duplicate email
+messages can still occur after a crash/retry; delivery is **at least once** and
+not an exactly-once SMTP guarantee.

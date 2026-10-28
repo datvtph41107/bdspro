@@ -9,7 +9,7 @@ type CreateOrganizationTxParams struct {
 
 func (s *SQLStore) CreateOrganizationTx(ctx context.Context, arg CreateOrganizationTxParams) (Organization, error) {
 	var organization Organization
-	err := s.execTx(ctx, func(q *Queries) error {
+	err := s.ExecTx(ctx, func(q *Queries) error {
 		partyID, err := q.CreateParty(ctx)
 		if err != nil {
 			return err

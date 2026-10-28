@@ -11,6 +11,7 @@ type Store interface {
 	Querier
 	PhoneOTPRepository
 	RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
+	ExecTx(ctx context.Context, fn func(*Queries) error) error
 	GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	CreateOrganizationTx(ctx context.Context, arg CreateOrganizationTxParams) (Organization, error)
 	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
@@ -28,7 +29,7 @@ func NewStore(pool *pgxpool.Pool) Store {
 }
 
 // execTx owns transaction creation, commit and rollback, like SimpleBank.
-func (s *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error {
+func (s *SQLStore) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -44,13 +45,12 @@ func (s *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error {
 type RegisterTxParams struct {
 	Email        string
 	PasswordHash string
-	AfterCreate  func(account Account) error
 }
 
 // RegisterTx creates Party, Person and Account atomically.
 func (s *SQLStore) RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error) {
 	var account Account
-	err := s.execTx(ctx, func(q *Queries) error {
+	err := s.ExecTx(ctx, func(q *Queries) error {
 		partyID, err := q.CreateParty(ctx)
 		if err != nil {
 			return err
@@ -64,10 +64,7 @@ func (s *SQLStore) RegisterTx(ctx context.Context, arg RegisterTxParams) (Accoun
 		if err != nil {
 			return err
 		}
-		if arg.AfterCreate != nil {
-			return arg.AfterCreate(account)
-		}
-		return nil
+		return q.CreateVerificationOutbox(ctx, account.ID)
 	})
 	return account, err
 }
