@@ -36,7 +36,7 @@ func (c *PhoneHandler) phoneOTP() authservice.PhoneOTP {
 func (c *PhoneHandler) StartBind(ctx *gin.Context) {
 	var input authrequest.PhoneBindBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+		response.Invalid(ctx, err)
 		return
 	}
 	if !c.limiter.Allow(ctx, "phone_bind_start", input.Phone, 10, 3, time.Hour) {
@@ -59,13 +59,13 @@ func (c *PhoneHandler) StartBind(ctx *gin.Context) {
 	if errors.Is(err, db.ErrOTPCooldown) {
 		err = apperrors.OTPCooldown
 	}
-	response.Send(ctx, 0, nil, err, "phone bind failed")
+	response.Error(ctx, err)
 }
 
 func (c *PhoneHandler) VerifyBind(ctx *gin.Context) {
 	var input authrequest.PhoneVerifyBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+		response.Invalid(ctx, err)
 		return
 	}
 	if !c.limiter.Allow(ctx, "phone_bind_verify", input.Phone, 40, 5, 10*time.Minute) {
@@ -82,13 +82,13 @@ func (c *PhoneHandler) VerifyBind(ctx *gin.Context) {
 	if pgErr := apperrors.Postgres(err); pgErr != nil && pgErr.Code == "23505" {
 		err = apperrors.PhoneUnavailable
 	}
-	response.Send(ctx, 0, nil, err, "phone verification failed")
+	response.Error(ctx, err)
 }
 
 func (c *PhoneHandler) StartLogin(ctx *gin.Context) {
 	var input authrequest.PhoneStartBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+		response.Invalid(ctx, err)
 		return
 	}
 	if !c.limiter.Allow(ctx, "phone_login_start", input.Phone, 10, 3, time.Hour) {
@@ -102,13 +102,13 @@ func (c *PhoneHandler) StartLogin(ctx *gin.Context) {
 	if errors.Is(err, authservice.ErrPhoneInvalid) {
 		err = apperrors.InvalidPhone
 	}
-	response.Send(ctx, 0, nil, err, "phone login unavailable")
+	response.Error(ctx, err)
 }
 
 func (c *PhoneHandler) VerifyLogin(ctx *gin.Context) {
 	var input authrequest.PhoneVerifyBody
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+		response.Invalid(ctx, err)
 		return
 	}
 	if !c.limiter.Allow(ctx, "phone_login_verify", input.Phone, 40, 5, 10*time.Minute) {
@@ -120,5 +120,9 @@ func (c *PhoneHandler) VerifyLogin(ctx *gin.Context) {
 	if errors.Is(err, db.ErrOTPInvalid) {
 		err = apperrors.OTPInvalid
 	}
-	response.Send(ctx, http.StatusOK, resources.NewLogin(result), err, "phone login failed")
+	if err != nil {
+		response.Error(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, resources.NewLogin(result))
 }

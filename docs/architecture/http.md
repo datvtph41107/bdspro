@@ -31,11 +31,13 @@ to the operation and SQL predicates, not merely to JWT verification.
 ## Request, service and response
 
 Handlers use Gin `ShouldBindJSON` / `ShouldBindQuery` once, return early
-on invalid input and use `internal/core/response.Send` for ordinary JSON responses.
+on invalid input and use Gin `c.JSON` / `c.Status` for success, and `response.Invalid` or `response.Error` for errors.
 Services return Go values and errors, not `gin.Context`, HTTP statuses or JSON.
 `internal/core/errors` maps known safe application failures; unknown database errors
-remain internal. `internal/core/response.Send` preserves the existing successful JSON
-resources and error shape `{"error":"..."}`; `204` writes no body.
+remain internal. `response.Invalid` handles malformed JSON (400) and oversized bodies (413).
+`response.Error` maps known public application errors to their HTTP statuses, logs
+unknown errors without exposing internal details, and returns generic HTTP 500.
+Successful JSON uses Gin directly; `204` writes no body.
 OAuth redirects/cookies and other protocol-specific responses are explicit
 HTTP operations; do not force them into a JSON-only writer.
 

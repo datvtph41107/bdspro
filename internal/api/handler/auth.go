@@ -13,8 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// AuthHandler owns HTTP binding, identity-based admission and response
-// projection. Authentication and session operations belong to AuthService.
+// AuthHandler handles HTTP input and output; authentication operations belong to AuthService.
 type AuthHandler struct {
 	auth    *service.AuthService
 	limiter *middleware.IdentityLimiter
@@ -24,75 +23,94 @@ func NewAuthHandler(auth *service.AuthService, limiter *middleware.IdentityLimit
 	return &AuthHandler{auth: auth, limiter: limiter}
 }
 
-func (h *AuthHandler) Register(ctx *gin.Context) {
-	var input authrequest.RegisterBody
-	if err := ctx.ShouldBindJSON(&input); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+func (h *AuthHandler) Register(c *gin.Context) {
+	var req authrequest.RegisterBody
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
 		return
 	}
-	if !h.limiter.Allow(ctx, "register", input.Email, 10, 3, time.Hour) {
+	if !h.limiter.Allow(c, "register", req.Email, 10, 3, time.Hour) {
 		return
 	}
-	account, err := h.auth.Register(ctx.Request.Context(), input.Email, input.Password)
-	response.Send(ctx, http.StatusCreated, resources.NewUser(account), err, "registration failed")
+	account, err := h.auth.Register(c.Request.Context(), req.Email, req.Password)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, resources.NewUser(account))
 }
 
-func (h *AuthHandler) Login(ctx *gin.Context) {
-	var input authrequest.LoginBody
-	if err := ctx.ShouldBindJSON(&input); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+func (h *AuthHandler) Login(c *gin.Context) {
+	var req authrequest.LoginBody
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
 		return
 	}
-	if !h.limiter.Allow(ctx, "login", input.Email, 30, 10, time.Minute) {
+	if !h.limiter.Allow(c, "login", req.Email, 30, 10, time.Minute) {
 		return
 	}
-	result, err := h.auth.Login(ctx.Request.Context(),
-		input.Email, input.Password, ctx.Request.UserAgent(), ctx.ClientIP())
-	response.Send(ctx, http.StatusOK, resources.NewLogin(result), err, "login failed")
+	result, err := h.auth.Login(c.Request.Context(),
+		req.Email, req.Password, c.Request.UserAgent(), c.ClientIP())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, resources.NewLogin(result))
 }
 
-func (h *AuthHandler) VerifyEmail(ctx *gin.Context) {
-	var input authrequest.VerifyEmailQuery
-	if err := ctx.ShouldBindQuery(&input); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid verification link")
+func (h *AuthHandler) VerifyEmail(c *gin.Context) {
+	var req authrequest.VerifyEmailQuery
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid verification link"})
 		return
 	}
-	if !h.limiter.Allow(ctx, "verify_email", strconv.FormatInt(input.EmailID, 10), 60, 10, time.Minute) {
+	if !h.limiter.Allow(c, "verify_email", strconv.FormatInt(req.EmailID, 10), 60, 10, time.Minute) {
 		return
 	}
-	err := h.auth.VerifyEmail(ctx.Request.Context(), input.EmailID, input.SecretCode)
-	response.Send(ctx, http.StatusOK, gin.H{"verified": true}, err, "verification failed")
+	if err := h.auth.VerifyEmail(c.Request.Context(), req.EmailID, req.SecretCode); err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"verified": true})
 }
 
-func (h *AuthHandler) Renew(ctx *gin.Context) {
-	var input authrequest.TokenBody
-	if err := ctx.ShouldBindJSON(&input); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+func (h *AuthHandler) Renew(c *gin.Context) {
+	var req authrequest.TokenBody
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
 		return
 	}
-	if !h.limiter.Allow(ctx, "refresh", input.RefreshToken, 60, 20, time.Minute) {
+	if !h.limiter.Allow(c, "refresh", req.RefreshToken, 60, 20, time.Minute) {
 		return
 	}
-	result, err := h.auth.Renew(ctx.Request.Context(), input.RefreshToken)
-	response.Send(ctx, http.StatusOK, resources.RenewAccessToken{
-		AccessToken: result.AccessToken, AccessTokenExpiresAt: result.AccessTokenExpiresAt,
-	}, err, "renew failed")
+	result, err := h.auth.Renew(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, resources.RenewAccessToken{
+		AccessToken: result.AccessToken,
+		AccessTokenExpiresAt: result.AccessTokenExpiresAt,
+	})
 }
 
-func (h *AuthHandler) Revoke(ctx *gin.Context) {
-	var input authrequest.TokenBody
-	if err := ctx.ShouldBindJSON(&input); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+func (h *AuthHandler) Revoke(c *gin.Context) {
+	var req authrequest.TokenBody
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
 		return
 	}
-	if !h.limiter.Allow(ctx, "revoke", input.RefreshToken, 60, 20, time.Minute) {
+	if !h.limiter.Allow(c, "revoke", req.RefreshToken, 60, 20, time.Minute) {
 		return
 	}
-	err := h.auth.Revoke(ctx.Request.Context(), input.RefreshToken)
-	response.Send(ctx, http.StatusNoContent, nil, err, "revoke failed")
+	if err := h.auth.Revoke(c.Request.Context(), req.RefreshToken); err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
-// Me uses the account identity established by the route's JWT middleware.
-func (h *AuthHandler) Me(ctx *gin.Context) {
-	response.Send(ctx, http.StatusOK, gin.H{"account_id": middleware.AccountID(ctx)}, nil, "")
+// Me uses the verified account identity provided by authentication middleware.
+func (h *AuthHandler) Me(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"account_id": middleware.AccountID(c)})
 }

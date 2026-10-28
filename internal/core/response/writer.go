@@ -9,40 +9,23 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// Send is the single JSON response boundary used by ordinary API handlers.
-// status is the successful HTTP status; a status of 400 with err indicates a
-// request-binding failure. A status of 0 with err indicates an application
-// failure. Existing public wire format {"error":"..."} is preserved.
-func Send(ctx *gin.Context, status int, data any, err error, internalMessage string) {
-	if err == nil {
-		if status == http.StatusNoContent {
-			ctx.Status(status)
-			return
-		}
-		ctx.JSON(status, data)
+// Invalid writes an invalid HTTP input response. Body-size errors retain 413.
+func Invalid(c *gin.Context, err error) {
+	var size *http.MaxBytesError
+	if errors.As(err, &size) {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "request body too large"})
 		return
 	}
+	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+}
 
-	if status == http.StatusBadRequest {
-		var size *http.MaxBytesError
-		if errors.As(err, &size) {
-			ctx.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "request body too large"})
-			return
-		}
-		if internalMessage == "" {
-			internalMessage = "invalid request"
-		}
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": internalMessage})
-		return
-	}
-
+// Error translates an application error into a public HTTP error response.
+// Unknown errors are logged and never exposed to the client.
+func Error(c *gin.Context, err error) {
 	if public, ok := apperrors.Public(err); ok {
-		ctx.JSON(public.Status, gin.H{"error": public.Message})
+		c.JSON(public.Status, gin.H{"error": public.Message})
 		return
 	}
-	log.Ctx(ctx.Request.Context()).Error().Err(err).Msg("http.application_error")
-	if internalMessage == "" {
-		internalMessage = "internal server error"
-	}
-	ctx.JSON(http.StatusInternalServerError, gin.H{"error": internalMessage})
+	log.Ctx(c.Request.Context()).Error().Err(err).Msg("http.application_error")
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 }

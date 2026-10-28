@@ -66,7 +66,7 @@ type googleLinkStartRequest = authrequest.GoogleLinkBody
 func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 	var req googleLinkStartRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+		response.Invalid(ctx, err)
 		return
 	}
 	accountID := middleware.AccountID(ctx)

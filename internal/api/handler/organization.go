@@ -12,58 +12,75 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// OrganizationHandler binds HTTP input and projects service outcomes.
-type OrganizationHandler struct{ organizations *service.OrganizationService }
+type OrganizationHandler struct {
+	organizations *service.OrganizationService
+}
 
 func NewOrganizationHandler(organizations *service.OrganizationService) *OrganizationHandler {
 	return &OrganizationHandler{organizations: organizations}
 }
 
-func (h *OrganizationHandler) Create(ctx *gin.Context) {
-	var input apirequest.CreateOrganizationBody
-	if err := ctx.ShouldBindJSON(&input); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+func (h *OrganizationHandler) Create(c *gin.Context) {
+	var req apirequest.CreateOrganizationBody
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
 		return
 	}
-	organization, err := h.organizations.Create(ctx.Request.Context(), middleware.AccountID(ctx), input.Name)
-	response.Send(ctx, http.StatusCreated, organization, err, "create organization failed")
+	organization, err := h.organizations.Create(c.Request.Context(), middleware.AccountID(c), req.Name)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, organization)
 }
 
-func (h *OrganizationHandler) Index(ctx *gin.Context) {
-	organizations, err := h.organizations.List(ctx.Request.Context(), middleware.AccountID(ctx))
-	response.Send(ctx, http.StatusOK, organizations, err, "list organizations failed")
+func (h *OrganizationHandler) Index(c *gin.Context) {
+	organizations, err := h.organizations.List(c.Request.Context(), middleware.AccountID(c))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, organizations)
 }
 
-func (h *OrganizationHandler) AddMember(ctx *gin.Context) {
-	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+func (h *OrganizationHandler) AddMember(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
-		response.Send(ctx, 0, nil, apperrors.InvalidOrganization, "")
+		response.Error(c, apperrors.InvalidOrganization)
 		return
 	}
 	var req apirequest.AddOrganizationMemberBody
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
 		return
 	}
-	member, err := h.organizations.AddMember(ctx.Request.Context(), middleware.AccountID(ctx), id, req.PersonID)
-	response.Send(ctx, http.StatusCreated, member, err, "add member failed")
+	member, err := h.organizations.AddMember(c.Request.Context(), middleware.AccountID(c), id, req.PersonID)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, member)
 }
 
-func (h *OrganizationHandler) Update(ctx *gin.Context) {
-	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+func (h *OrganizationHandler) Update(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
-		response.Send(ctx, 0, nil, apperrors.InvalidOrganization, "")
+		response.Error(c, apperrors.InvalidOrganization)
 		return
 	}
 	var req apirequest.UpdateOrganizationBody
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.Send(ctx, http.StatusBadRequest, nil, err, "invalid request")
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
 		return
 	}
 	if req.Name == nil {
-		response.Send(ctx, 0, nil, apperrors.NameRequired, "")
+		response.Error(c, apperrors.NameRequired)
 		return
 	}
-	organization, err := h.organizations.Update(ctx.Request.Context(), middleware.AccountID(ctx), id, *req.Name)
-	response.Send(ctx, http.StatusOK, organization, err, "update organization failed")
+	organization, err := h.organizations.Update(c.Request.Context(), middleware.AccountID(c), id, *req.Name)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, organization)
 }
