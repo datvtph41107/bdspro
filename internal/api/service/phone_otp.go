@@ -13,7 +13,6 @@ import (
 	"github.com/datvtph41107/bdspro/internal/config"
 	apperrors "github.com/datvtph41107/bdspro/internal/core/errors"
 	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
-	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -26,7 +25,6 @@ var phoneCode = regexp.MustCompile(`^[0-9]{6}$`)
 // disposable dev PostgreSQL database, never in responses or application logs.
 type PhoneOTP struct {
 	Store      db.Store
-	Maker      token.Maker
 	Config     config.Config
 }
 
@@ -56,8 +54,8 @@ func (s PhoneOTP) start(ctx context.Context, phone, purpose string, accountID in
 	return s.Store.StartChallenge(ctx, phone, purpose, accountID, s.mac(phone, purpose, accountID, code), code)
 }
 
-// StartBind requires an authenticated account and its current
-// password before adding a new login method.
+// StartBind authenticates an account with its existing BDSPro password.
+// The challenge can only be created after fresh proof of account control.
 func (s PhoneOTP) StartBind(ctx context.Context, accountID int64, password, phone string) error {
 	if err := s.allowed(); err != nil {
 		return err
@@ -65,23 +63,49 @@ func (s PhoneOTP) StartBind(ctx context.Context, accountID int64, password, phon
 	if !phoneE164.MatchString(phone) {
 		return apperrors.InvalidPhone
 	}
-	account, err := s.Store.GetAccountByID(ctx, accountID)
-	if err != nil {
-		return err
-	}
-	hash, err := s.Store.GetPasswordHash(ctx, account.ID)
+	hash, err := s.Store.GetPasswordHash(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return apperrors.InvalidCredentials
 	}
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	if util.CheckPassword(password, hash) != nil {
 		return apperrors.InvalidCredentials
+	}
+	return s.startBind(ctx, accountID, phone)
+}
+
+// StartGoogleBind is called only after an OAuth callback verified Google's ID
+// token, state, nonce and PKCE. The linked subject must own this account.
+func (s PhoneOTP) StartGoogleBind(ctx context.Context, accountID int64, googleSubject, phone string) error {
+	if err := s.allowed(); err != nil {
+		return err
+	}
+	if !phoneE164.MatchString(phone) {
+		return apperrors.InvalidPhone
+	}
+	linkedID, err := s.Store.GetGoogleAccountID(ctx, googleSubject)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && linkedID != accountID) {
+		return apperrors.InvalidCredentials
+	}
+	if err != nil {
+		return err
+	}
+	return s.startBind(ctx, accountID, phone)
+}
+
+func (s PhoneOTP) startBind(ctx context.Context, accountID int64, phone string) error {
+	if _, err := s.Store.GetAccountByID(ctx, accountID); err != nil {
+		return err
 	}
 	existing, err := s.Store.AccountIDForPhone(ctx, phone)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	if err == nil && existing != accountID {
+	// Bind is for the first verified number only. Do not reuse it for a
+	// phone-change workflow, even when the number already belongs to us.
+	if err == nil || existing != 0 {
 		return apperrors.PhoneUnavailable
 	}
 	err = s.start(ctx, phone, "bind", accountID)
@@ -108,54 +132,3 @@ func (s PhoneOTP) VerifyBind(ctx context.Context, accountID int64, phone, code s
 	return err
 }
 
-// Unknown phone and resend cooldown return the same success response.
-func (s PhoneOTP) StartLogin(ctx context.Context, phone string) error {
-	if err := s.allowed(); err != nil {
-		return err
-	}
-	if !phoneE164.MatchString(phone) {
-		return apperrors.InvalidPhone
-	}
-	accountID, err := s.Store.AccountIDForPhone(ctx, phone)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	err = s.start(ctx, phone, "login", accountID)
-	if errors.Is(err, db.ErrOTPCooldown) {
-		return nil
-	}
-	return err
-}
-func (s PhoneOTP) VerifyLogin(ctx context.Context, phone, code, userAgent, clientIP string) (LoginResult, error) {
-	var empty LoginResult
-	if err := s.allowed(); err != nil {
-		return empty, err
-	}
-	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
-		return empty, apperrors.OTPInvalid
-	}
-	accountID, err := s.Store.AccountIDForPhone(ctx, phone)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return empty, apperrors.OTPInvalid
-	}
-	if err != nil {
-		return empty, err
-	}
-	if err = s.Store.ConsumeChallenge(ctx, phone, "login", accountID, s.mac(phone, "login", accountID, code)); err != nil {
-		if errors.Is(err, db.ErrOTPInvalid) {
-			return empty, apperrors.OTPInvalid
-		}
-		return empty, err
-	}
-	account, err := s.Store.GetAccountByID(ctx, accountID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return empty, apperrors.OTPInvalid
-	}
-	if err != nil {
-		return empty, err
-	}
-	return IssueSession(ctx, s.Store, s.Maker, s.Config, account, userAgent, clientIP)
-}
