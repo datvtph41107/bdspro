@@ -27,7 +27,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 			organizationHandler: handler.NewOrganizationHandler(nil),
 		}
 		if google {
-			s.googleHandler = handler.NewGoogleHandler(nil, nil, config.Config{}, nil, nil, false)
+			s.googleHandler = handler.NewGoogleHandler(nil, config.Config{}, nil, nil, false)
 		}
 		if phone {
 			s.phoneHandler = handler.NewPhoneHandler(nil, nil, nil, config.Config{}, nil)

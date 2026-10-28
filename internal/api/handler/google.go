@@ -18,15 +18,10 @@ import (
 	"github.com/datvtph41107/bdspro/internal/api/handler/resource"
 	"github.com/datvtph41107/bdspro/internal/api/service"
 	"github.com/datvtph41107/bdspro/internal/config"
-	apperrors "github.com/datvtph41107/bdspro/internal/core/errors"
 	middleware "github.com/datvtph41107/bdspro/internal/core/middleware"
 	"github.com/datvtph41107/bdspro/internal/core/response"
-	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
-	"github.com/datvtph41107/bdspro/internal/token"
-	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
-	"github.com/jackc/pgx/v5"
 )
 
 const (
@@ -37,8 +32,7 @@ const (
 )
 
 type GoogleHandler struct {
-	store        db.Store
-	maker        token.Maker
+	auth         *service.GoogleAuthService
 	config       config.Config
 	redis        *redis.Client
 	httpClient   *http.Client
@@ -52,11 +46,11 @@ type googlePending struct {
 }
 
 func NewGoogleHandler(
-	store db.Store, maker token.Maker, config config.Config,
+	auth *service.GoogleAuthService, config config.Config,
 	client *redis.Client, httpClient *http.Client, secureCookie bool,
 ) *GoogleHandler {
 	return &GoogleHandler{
-		store: store, maker: maker, config: config,
+		auth: auth, config: config,
 		redis: client, httpClient: httpClient, secureCookie: secureCookie,
 	}
 }
@@ -70,9 +64,8 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 		return
 	}
 	accountID := middleware.AccountID(ctx)
-	account, err := g.store.GetAccountByID(ctx.Request.Context(), accountID)
-	if err != nil || util.CheckPassword(req.Password, account.PasswordHash) != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+	if err := g.auth.CheckPassword(ctx.Request.Context(), accountID, req.Password); err != nil {
+		response.Error(ctx, err)
 		return
 	}
 	authURL, err := g.begin(ctx, "link", accountID)
@@ -183,17 +176,8 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 	}
 
 	if pending.Purpose == "link" && pending.AccountID > 0 {
-		err = g.store.LinkGoogleIdentity(ctx.Request.Context(), db.LinkGoogleIdentityParams{AccountID: pending.AccountID, GoogleSub: subject})
-		if errors.Is(err, pgx.ErrNoRows) {
-			ctx.JSON(http.StatusConflict, gin.H{"error": "Google identity already linked"})
-			return
-		}
-		if pgErr := apperrors.Postgres(err); pgErr != nil && pgErr.Code == "23505" {
-			ctx.JSON(http.StatusConflict, gin.H{"error": "account already linked"})
-			return
-		}
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "linking failed"})
+		if err := g.auth.Link(ctx.Request.Context(), pending.AccountID, subject); err != nil {
+			response.Error(ctx, err)
 			return
 		}
 		ctx.JSON(http.StatusOK, gin.H{"linked": true})
@@ -203,23 +187,9 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid Google authorization state"})
 		return
 	}
-	accountID, err := g.store.GetGoogleAccountID(ctx.Request.Context(), subject)
-	if errors.Is(err, pgx.ErrNoRows) {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Google identity not linked"})
-		return
-	}
+	result, err := g.auth.Login(ctx.Request.Context(), subject, ctx.Request.UserAgent(), ctx.ClientIP())
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
-		return
-	}
-	account, err := g.store.GetAccountByID(ctx.Request.Context(), accountID)
-	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "account unavailable"})
-		return
-	}
-	result, err := service.IssueSession(ctx.Request.Context(), g.store, g.maker, g.config, account, ctx.Request.UserAgent(), ctx.ClientIP())
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
+		response.Error(ctx, err)
 		return
 	}
 	ctx.JSON(http.StatusOK, resources.NewLogin(result))

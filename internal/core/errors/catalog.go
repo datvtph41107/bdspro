@@ -46,6 +46,9 @@ var (
 	OrganizationOwnerRequired = &Error{Code: "organization.owner_required", Message: "organization owner required", Status: http.StatusForbidden}
 	MembershipExists          = &Error{Code: "organization.membership_exists", Message: "membership already exists", Status: http.StatusConflict}
 	PersonUnavailable         = &Error{Code: "organization.person_unavailable", Message: "person unavailable", Status: http.StatusNotFound}
+	GoogleIdentityAlreadyLinked = &Error{Code: "auth.google_identity_already_linked", Message: "Google identity already linked", Status: http.StatusConflict}
+	GoogleAccountAlreadyLinked  = &Error{Code: "auth.google_account_already_linked", Message: "account already linked", Status: http.StatusConflict}
+	GoogleIdentityUnlinked      = &Error{Code: "auth.google_identity_unlinked", Message: "Google identity not linked", Status: http.StatusUnauthorized}
 	InvalidPhone              = &Error{Code: "auth.invalid_phone", Message: "invalid phone", Status: http.StatusBadRequest}
 	PhoneUnavailable          = &Error{Code: "auth.phone_unavailable", Message: "phone unavailable", Status: http.StatusConflict}
 	OTPInvalid                = &Error{Code: "auth.otp_invalid", Message: "invalid or expired code", Status: http.StatusUnauthorized}

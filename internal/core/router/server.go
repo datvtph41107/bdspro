@@ -64,7 +64,7 @@ func NewServer(cfg config.Config, store db.Store, taskDistributor worker.TaskDis
 			return nil, fmt.Errorf("parse Google callback URL: %w", err)
 		}
 		server.googleHandler = handler.NewGoogleHandler(
-			store, maker, cfg, redisClient,
+			service.NewGoogleAuthService(store, maker, cfg), cfg, redisClient,
 			&http.Client{Timeout: 10 * time.Second}, redirect.Scheme == "https",
 		)
 	}

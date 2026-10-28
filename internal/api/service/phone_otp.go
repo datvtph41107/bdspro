@@ -11,16 +11,14 @@ import (
 	"regexp"
 
 	"github.com/datvtph41107/bdspro/internal/config"
+	apperrors "github.com/datvtph41107/bdspro/internal/core/errors"
 	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
-var (
-	ErrPhoneInvalid     = errors.New("invalid E.164 phone number")
-	ErrPhoneUnavailable = errors.New("phone number unavailable")
-)
 var phoneE164 = regexp.MustCompile(`^\+[1-9][0-9]{7,14}$`)
 var phoneCode = regexp.MustCompile(`^[0-9]{6}$`)
 
@@ -66,32 +64,44 @@ func (s PhoneOTP) StartBind(ctx context.Context, accountID int64, password, phon
 		return err
 	}
 	if !phoneE164.MatchString(phone) {
-		return ErrPhoneInvalid
+		return apperrors.InvalidPhone
 	}
 	account, err := s.Store.GetAccountByID(ctx, accountID)
 	if err != nil {
 		return err
 	}
 	if util.CheckPassword(password, account.PasswordHash) != nil {
-		return ErrInvalidCredentials
+		return apperrors.InvalidCredentials
 	}
 	existing, err := s.Challenges.AccountIDForPhone(ctx, phone)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
 	if err == nil && existing != accountID {
-		return ErrPhoneUnavailable
+		return apperrors.PhoneUnavailable
 	}
-	return s.start(ctx, phone, "bind", accountID)
+	err = s.start(ctx, phone, "bind", accountID)
+	if errors.Is(err, db.ErrOTPCooldown) {
+		return apperrors.OTPCooldown
+	}
+	return err
 }
 func (s PhoneOTP) VerifyBind(ctx context.Context, accountID int64, phone, code string) error {
 	if err := s.allowed(); err != nil {
 		return err
 	}
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
-		return db.ErrOTPInvalid
+		return apperrors.OTPInvalid
 	}
-	return s.Challenges.ConsumeChallenge(ctx, phone, "bind", accountID, s.mac(phone, "bind", accountID, code))
+	err := s.Challenges.ConsumeChallenge(ctx, phone, "bind", accountID, s.mac(phone, "bind", accountID, code))
+	if errors.Is(err, db.ErrOTPInvalid) {
+		return apperrors.OTPInvalid
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return apperrors.PhoneUnavailable
+	}
+	return err
 }
 
 // Unknown phone and resend cooldown return the same success response.
@@ -100,7 +110,7 @@ func (s PhoneOTP) StartLogin(ctx context.Context, phone string) error {
 		return err
 	}
 	if !phoneE164.MatchString(phone) {
-		return ErrPhoneInvalid
+		return apperrors.InvalidPhone
 	}
 	accountID, err := s.Challenges.AccountIDForPhone(ctx, phone)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -121,19 +131,25 @@ func (s PhoneOTP) VerifyLogin(ctx context.Context, phone, code, userAgent, clien
 		return empty, err
 	}
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
-		return empty, db.ErrOTPInvalid
+		return empty, apperrors.OTPInvalid
 	}
 	accountID, err := s.Challenges.AccountIDForPhone(ctx, phone)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return empty, db.ErrOTPInvalid
+		return empty, apperrors.OTPInvalid
 	}
 	if err != nil {
 		return empty, err
 	}
 	if err = s.Challenges.ConsumeChallenge(ctx, phone, "login", accountID, s.mac(phone, "login", accountID, code)); err != nil {
+		if errors.Is(err, db.ErrOTPInvalid) {
+			return empty, apperrors.OTPInvalid
+		}
 		return empty, err
 	}
 	account, err := s.Store.GetAccountByID(ctx, accountID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return empty, apperrors.OTPInvalid
+	}
 	if err != nil {
 		return empty, err
 	}
