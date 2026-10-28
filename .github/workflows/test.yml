@@ -67,7 +67,7 @@ jobs:
           SQL
           migrate -path db/migration -database "$UPGRADE_URL" up 1
           psql -h 127.0.0.1 -U root -d bdspro_upgrade_test -v ON_ERROR_STOP=1 <<'SQL'
-          DO $
+          DO $audit$
           BEGIN
             IF (SELECT count(*) FROM job_outbox) <> 2
                 OR (SELECT count(*) FROM job_outbox WHERE queued_at IS NULL) <> 1
@@ -79,11 +79,11 @@ jobs:
                 OR nextval(pg_get_serial_sequence('job_outbox','id')) <= 21 THEN
               RAISE EXCEPTION 'outbox migration did not preserve pending task state';
             END IF;
-          END $;
+          END $audit$;
           SQL
           migrate -path db/migration -database "$UPGRADE_URL" up 1
           psql -h 127.0.0.1 -U root -d bdspro_upgrade_test -v ON_ERROR_STOP=1 <<'SQL'
-          DO $
+          DO $audit$
           BEGIN
             IF (SELECT count(*) FROM password_credentials) <> 2
                 OR (SELECT password_hash FROM password_credentials WHERE account_id = 1) <> 'legacy-hash-1'
@@ -93,7 +93,7 @@ jobs:
                 ) THEN
               RAISE EXCEPTION 'password credential migration lost an existing hash';
             END IF;
-          END $;
+          END $audit$;
           SQL
 
       - name: Test and compile
