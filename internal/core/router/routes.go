@@ -83,7 +83,7 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 		)
 	}
 
-	// Phone OTP is explicitly limited to development in application startup.
+	// Phone verification is enabled only when a safe delivery channel is configured.
 	if server.phoneHandler != nil {
 
 		phone := authenticated.Group("/users/me/phone", middleware.VerifiedEmail(server.store))
