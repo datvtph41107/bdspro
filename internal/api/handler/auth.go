@@ -41,6 +41,24 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, resources.NewUser(account))
 }
 
+func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
+		return
+	}
+	if !h.limiter.Allow(c, "verify_email_resend", req.Email, 10, 2, time.Hour) {
+		return
+	}
+	if err := h.auth.ResendVerificationEmail(c.Request.Context(), req.Email); err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.Status(http.StatusAccepted)
+}
+
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req authrequest.LoginBody
 	if err := c.ShouldBindJSON(&req); err != nil {
