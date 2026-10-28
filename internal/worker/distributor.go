@@ -4,20 +4,35 @@ import (
 	"context"
 
 	"github.com/hibiken/asynq"
+	"github.com/rs/zerolog/log"
 )
 
-type TaskDistributor interface {
-	DistributeTaskSendVerifyEmail(ctx context.Context, payload *PayloadSendVerifyEmail, opts ...asynq.Option) error
+// TaskEnqueuer is the queue transport contract; task type and payload belong
+// to the job, not to the queue transport.
+type TaskEnqueuer interface {
+	Enqueue(ctx context.Context, task *asynq.Task, opts ...asynq.Option) error
 }
 
-type RedisTaskDistributor struct {
+type RedisEnqueuer struct {
 	client *asynq.Client
 }
 
-func NewRedisTaskDistributor(options asynq.RedisClientOpt) *RedisTaskDistributor {
-	return &RedisTaskDistributor{client: asynq.NewClient(options)}
+func NewRedisEnqueuer(options asynq.RedisClientOpt) *RedisEnqueuer {
+	return &RedisEnqueuer{client: asynq.NewClient(options)}
 }
 
-func (d *RedisTaskDistributor) Close() error {
-	return d.client.Close()
+func (e *RedisEnqueuer) Enqueue(ctx context.Context, task *asynq.Task, opts ...asynq.Option) error {
+	info, err := e.client.EnqueueContext(ctx, task, opts...)
+	if err != nil {
+		return err
+	}
+	log.Ctx(ctx).Info().Str("type", task.Type()).Str("queue", info.Queue).
+		Str("task_id", info.ID).Msg("task.enqueued")
+	return nil
 }
+
+func (e *RedisEnqueuer) Close() error {
+	return e.client.Close()
+}
+
+var _ TaskEnqueuer = (*RedisEnqueuer)(nil)
