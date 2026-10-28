@@ -68,17 +68,17 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 		api.GET("/users/google/callback", server.googleHandler.Callback)
 	}
 
+	// OAuth confirmation proves control of the Google identity already linked
+	// to this account before the phone verification challenge can be issued.
+	if server.googleHandler != nil && server.phoneHandler != nil {
+		authenticated.POST("/users/me/phone/google/start",
+			sourceLimit("phone_google_bind_start", 10, time.Hour),
+			server.googleHandler.StartPhoneBind,
+		)
+	}
+
 	// Phone OTP is explicitly limited to development in application startup.
 	if server.phoneHandler != nil {
-		api.POST("/users/phone/login/start",
-			sourceLimit("phone_login_start", 10, time.Hour),
-			server.phoneHandler.StartLogin,
-		)
-		api.POST("/users/phone/login/verify",
-			middleware.LoginAudit(),
-			sourceLimit("phone_login_verify", 40, 10*time.Minute),
-			server.phoneHandler.VerifyLogin,
-		)
 
 		phone := authenticated.Group("/users/me/phone")
 		{
