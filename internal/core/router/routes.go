@@ -28,6 +28,10 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 		sourceLimit("login", 30, time.Minute),
 		server.authHandler.Login,
 	)
+	api.POST("/users/verify_email/resend",
+		sourceLimit("verify_email_resend", 10, time.Hour),
+		server.authHandler.ResendVerificationEmail,
+	)
 	api.GET("/users/verify_email", server.authHandler.VerifyEmailPage)
 	api.POST("/users/verify_email",
 		sourceLimit("verify_email", 60, time.Minute),
