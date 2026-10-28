@@ -111,7 +111,14 @@ func (s PhoneOTP) startBind(ctx context.Context, accountID int64, phone string) 
 	if _, err := s.Store.GetAccountByID(ctx, accountID); err != nil {
 		return err
 	}
-	existing, err := s.Store.AccountIDForPhone(ctx, phone)
+	// A previously verified account cannot start binding another number.
+ // The unique account_id constraint remains the concurrency safeguard.
+ if _, lookupErr := s.Store.GetPhoneForAccount(ctx, accountID); lookupErr == nil {
+  return apperrors.PhoneUnavailable
+ } else if !errors.Is(lookupErr, pgx.ErrNoRows) {
+  return lookupErr
+ }
+ existing, err := s.Store.AccountIDForPhone(ctx, phone)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}

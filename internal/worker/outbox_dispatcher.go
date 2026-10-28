@@ -68,7 +68,9 @@ func (d *OutboxDispatcher) Dispatch(ctx context.Context) (int, error) {
 				asynq.ProcessAt(record.RunAt),
 				asynq.Retention(24 * time.Hour),
 			}
-			err := d.enqueuer.Enqueue(ctx, task, opts...)
+			enqueueCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+   err := d.enqueuer.Enqueue(enqueueCtx, task, opts...)
+   cancel()
 			if err != nil && !errors.Is(err, asynq.ErrTaskIDConflict) {
 				return fmt.Errorf("enqueue outbox record %d: %w", record.ID, err)
 			}

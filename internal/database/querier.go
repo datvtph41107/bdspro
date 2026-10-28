@@ -31,6 +31,7 @@ type Querier interface {
 	GetGoogleAccountIDQuery(ctx context.Context, googleSub string) (int64, error)
 	GetPasswordHash(ctx context.Context, accountID int64) (string, error)
 	GetPhoneAccountIDQuery(ctx context.Context, phoneE164 string) (int64, error)
+	GetPhoneForAccount(ctx context.Context, accountID int64) (string, error)
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
 	LinkGoogleIdentityQuery(ctx context.Context, arg LinkGoogleIdentityQueryParams) (int64, error)
 	ListOrganizationsForPerson(ctx context.Context, personID int64) ([]Organization, error)

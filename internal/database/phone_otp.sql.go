@@ -52,6 +52,17 @@ func (q *Queries) GetPhoneAccountIDQuery(ctx context.Context, phoneE164 string) 
 	return account_id, err
 }
 
+const getPhoneForAccount = `-- name: GetPhoneForAccount :one
+SELECT phone_e164 FROM phone_credentials WHERE account_id = $1
+`
+
+func (q *Queries) GetPhoneForAccount(ctx context.Context, accountID int64) (string, error) {
+ row := q.db.QueryRow(ctx, getPhoneForAccount, accountID)
+ var phone_e164 string
+ err := row.Scan(&phone_e164)
+ return phone_e164, err
+}
+
 const lockPhoneChallengeQuery = `-- name: LockPhoneChallengeQuery :one
 SELECT account_id, code_mac, expires_at, failed_attempts, locked_until
 FROM phone_otp_challenges

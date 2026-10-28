@@ -17,6 +17,7 @@ type phoneBindingStore struct {
 	linkedSub string
 	accountID int64
 	existingPhone int64
+ alreadyBound bool
 	issued int
 	lastCode string
 }
@@ -29,6 +30,11 @@ func (s *phoneBindingStore) GetGoogleAccountID(_ context.Context, sub string) (i
 func (s *phoneBindingStore) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
 	if id != s.accountID { return db.Account{}, pgx.ErrNoRows }
 	return db.Account{ID: id, IsEmailVerified: true}, nil
+}
+
+func (s *phoneBindingStore) GetPhoneForAccount(_ context.Context, _ int64) (string, error) {
+ if s.alreadyBound {return "+84988887777", nil}
+ return "", pgx.ErrNoRows
 }
 
 func (s *phoneBindingStore) AccountIDForPhone(_ context.Context, _ string) (int64, error) {
@@ -74,4 +80,8 @@ func TestGoogleSubjectMustOwnPhoneBindingAccount(t *testing.T) {
 		t.Fatalf("already bound number should be unavailable: %v", err)
 	}
 	if store.issued != 1 { t.Fatal("already bound number caused OTP delivery") }
+ store.existingPhone = 0
+ store.alreadyBound = true
+ if err := phone.StartGoogleBind(ctx, 3, "google-sub-3", "+84912345679"); !errors.Is(err, apperrors.PhoneUnavailable) {t.Fatalf("already-bound account issued OTP: %v",err)}
+ if store.issued != 1 {t.Fatal("already-bound account caused OTP delivery")}
 }
