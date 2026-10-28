@@ -4,11 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	apirequest "github.com/datvtph41107/bdspro/internal/api/handler/request/organization"
-	"github.com/datvtph41107/bdspro/internal/api/service"
-	apperrors "github.com/datvtph41107/bdspro/internal/core/errors"
-	"github.com/datvtph41107/bdspro/internal/core/middleware"
-	"github.com/datvtph41107/bdspro/internal/core/response"
+	"github.com/datvtph41107/bdspro/internal/api/middleware"
+	"github.com/datvtph41107/bdspro/internal/api/response"
+	apperrors "github.com/datvtph41107/bdspro/internal/errors"
+	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,7 +20,7 @@ func NewOrganizationHandler(organizations *service.OrganizationService) *Organiz
 }
 
 func (h *OrganizationHandler) Create(c *gin.Context) {
-	var req apirequest.CreateOrganizationBody
+	var req CreateOrganizationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -31,7 +30,7 @@ func (h *OrganizationHandler) Create(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, organization)
+	c.JSON(http.StatusCreated, newOrganizationResponse(organization))
 }
 
 func (h *OrganizationHandler) Index(c *gin.Context) {
@@ -40,7 +39,7 @@ func (h *OrganizationHandler) Index(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, organizations)
+	c.JSON(http.StatusOK, newOrganizationListResponse(organizations))
 }
 
 func (h *OrganizationHandler) AddMember(c *gin.Context) {
@@ -49,7 +48,7 @@ func (h *OrganizationHandler) AddMember(c *gin.Context) {
 		response.Error(c, apperrors.InvalidOrganization)
 		return
 	}
-	var req apirequest.AddOrganizationMemberBody
+	var req AddOrganizationMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -59,7 +58,7 @@ func (h *OrganizationHandler) AddMember(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, member)
+	c.JSON(http.StatusCreated, newOrganizationMemberResponse(member))
 }
 
 func (h *OrganizationHandler) Update(c *gin.Context) {
@@ -68,7 +67,7 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 		response.Error(c, apperrors.InvalidOrganization)
 		return
 	}
-	var req apirequest.UpdateOrganizationBody
+	var req UpdateOrganizationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -82,5 +81,5 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, organization)
+	c.JSON(http.StatusOK, newOrganizationResponse(organization))
 }

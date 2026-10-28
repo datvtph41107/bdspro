@@ -58,3 +58,6 @@ SELECT account_id FROM phone_credentials WHERE phone_e164 = $1 FOR SHARE;
 DELETE FROM phone_otp_challenges
 WHERE phone_e164 = sqlc.arg(phone_e164)
   AND purpose = sqlc.arg(purpose);
+
+-- name: GetPhoneForAccount :one
+SELECT phone_e164 FROM phone_credentials WHERE account_id = $1;

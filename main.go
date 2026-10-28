@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/datvtph41107/bdspro/internal/api"
 	"github.com/datvtph41107/bdspro/internal/config"
-	"github.com/datvtph41107/bdspro/internal/core/router"
-	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
+	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/datvtph41107/bdspro/internal/mail"
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/datvtph41107/bdspro/internal/worker"
@@ -62,8 +62,12 @@ func run(ctx context.Context) error {
 	}
 	log.Info().Msg("postgres.connected")
 
-	if err := runDBMigration(cfg.MigrationURL, cfg.DBSource); err != nil {
-		return err
+	if cfg.Environment == "development" {
+		if err := runDBMigration(cfg.MigrationURL, cfg.DBSource); err != nil {
+			return err
+		}
+	} else {
+		log.Info().Msg("migration.external")
 	}
 	store := db.NewStore(pool)
 
@@ -109,7 +113,7 @@ func run(ctx context.Context) error {
 		dispatcher.Wait()
 	}()
 
-	server, err := router.NewServer(cfg, store, redisClient)
+	server, err := api.NewServer(cfg, store, redisClient)
 	if err != nil {
 		return fmt.Errorf("create HTTP server: %w", err)
 	}

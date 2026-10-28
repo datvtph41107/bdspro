@@ -24,7 +24,9 @@ func TestVerificationGETOnlyShowsConfirmation(t *testing.T) {
 			c.Request = httptest.NewRequest(http.MethodGet, tc.path, nil)
 			// No AuthService or store exists: GET must not attempt consumption.
 			(&AuthHandler{}).VerifyEmailPage(c)
-			if recorder.Code != tc.want { t.Fatalf("status=%d want=%d", recorder.Code, tc.want) }
+			if recorder.Code != tc.want {
+				t.Fatalf("status=%d want=%d", recorder.Code, tc.want)
+			}
 			if tc.want == http.StatusOK {
 				if !strings.Contains(recorder.Body.String(), `method="post"`) ||
 					!strings.Contains(recorder.Body.String(), `name="secret_code"`) {

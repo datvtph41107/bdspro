@@ -6,17 +6,17 @@ deployment. Use the latest GitHub Actions run for the exact revision and result.
 | Responsibility | Current implementation |
 | --- | --- |
 | Process entrypoint | main.go |
-| HTTP registration | internal/core/router/routes.go |
-| HTTP middleware | internal/core/middleware |
-| HTTP input and output | internal/api/handler and internal/core/response |
-| Application operations | internal/api/service |
-| Database schema and SQL | db/migration, db/query, internal/db/sqlc |
+| HTTP registration | internal/api/routes.go |
+| HTTP middleware | internal/api/middleware |
+| HTTP input and output | internal/api/handler and internal/api/response |
+| Application operations | internal/service |
+| Database schema and SQL | db/migration, db/query, internal/database |
 | Password sign-in | password_credentials and AuthService |
 | Google sign-up / sign-in / linking | google_identities and GoogleAuthService |
 | Queue execution | internal/worker and native asynq.Handler |
 | Durable job dispatch | job_outbox and OutboxDispatcher |
 | E-mail business operation | internal/jobs/verify_email.go |
-| Phone verification | internal/api/service/phone_otp.go and internal/notification |
+| Phone verification | internal/service/phone_otp.go and internal/notification |
 | Primary phone ownership | phone_credentials, bound only after OTP; change is separate |
 
 ## Important behavior

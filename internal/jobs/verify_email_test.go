@@ -6,36 +6,42 @@ import (
 	"strings"
 	"testing"
 
-	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
+	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/jackc/pgx/v5"
 )
 
 type verificationStoreFake struct {
-	account db.Account
-	record db.VerifyEmail
+	account    db.Account
+	record     db.VerifyEmail
 	accountErr error
-	tokenErr error
-	tokens int
+	tokenErr   error
+	tokens     int
 }
 
 func (s *verificationStoreFake) GetAccountByID(_ context.Context, _ int64) (db.Account, error) {
-	if s.accountErr != nil { return db.Account{}, s.accountErr }
+	if s.accountErr != nil {
+		return db.Account{}, s.accountErr
+	}
 	return s.account, nil
 }
 
 func (s *verificationStoreFake) GetOrCreateVerifyEmailTx(_ context.Context, _ db.CreateVerifyEmailParams) (db.VerifyEmail, error) {
 	s.tokens++
-	if s.tokenErr != nil { return db.VerifyEmail{}, s.tokenErr }
+	if s.tokenErr != nil {
+		return db.VerifyEmail{}, s.tokenErr
+	}
 	return s.record, nil
 }
 
 type fakeMailSender struct {
-	fail error
+	fail    error
 	content []string
 }
 
 func (m *fakeMailSender) SendEmail(_, content string, _, _, _, _ []string) error {
-	if m.fail != nil { return m.fail }
+	if m.fail != nil {
+		return m.fail
+	}
 	m.content = append(m.content, content)
 	return nil
 }
@@ -54,7 +60,7 @@ func TestVerificationJobSkipsAlreadyVerifiedAccount(t *testing.T) {
 func TestVerificationJobRetriesWithReusableCode(t *testing.T) {
 	store := &verificationStoreFake{
 		account: db.Account{ID: 8, Email: "example@example.test"},
-		record: db.VerifyEmail{ID: 20, AccountID: 8, SecretCode: "reused-secret"},
+		record:  db.VerifyEmail{ID: 20, AccountID: 8, SecretCode: "reused-secret"},
 	}
 	sender := &fakeMailSender{fail: errors.New("SMTP unavailable")}
 	ctx := context.Background()

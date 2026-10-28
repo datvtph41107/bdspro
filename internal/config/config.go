@@ -68,6 +68,9 @@ func LoadConfig(path string) (config Config, err error) {
 	if config.DBSource == "" || config.MigrationURL == "" || config.HTTPServerAddress == "" {
 		return config, fmt.Errorf("DB_SOURCE, MIGRATION_URL and HTTP_SERVER_ADDRESS are required")
 	}
+	if config.Environment != "development" && config.TokenSymmetricKey == "01234567890123456789012345678901" {
+		return config, fmt.Errorf("production signing key must differ from documented development example")
+	}
 	if len(config.TokenSymmetricKey) < 32 {
 		return config, fmt.Errorf("TOKEN_SYMMETRIC_KEY must contain at least 32 bytes")
 	}

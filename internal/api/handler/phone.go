@@ -4,13 +4,12 @@ import (
 	"net/http"
 	"time"
 
-	authrequest "github.com/datvtph41107/bdspro/internal/api/handler/request/auth"
-	"github.com/datvtph41107/bdspro/internal/api/service"
+	"github.com/datvtph41107/bdspro/internal/api/middleware"
+	"github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/datvtph41107/bdspro/internal/config"
+	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/datvtph41107/bdspro/internal/notification"
-	"github.com/datvtph41107/bdspro/internal/core/middleware"
-	"github.com/datvtph41107/bdspro/internal/core/response"
-	db "github.com/datvtph41107/bdspro/internal/db/sqlc"
+	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,7 +34,7 @@ func NewPhoneHandler(
 }
 
 func (h *PhoneHandler) StartBind(c *gin.Context) {
-	var req authrequest.PhoneBindBody
+	var req PhoneBindRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -51,7 +50,7 @@ func (h *PhoneHandler) StartBind(c *gin.Context) {
 }
 
 func (h *PhoneHandler) VerifyBind(c *gin.Context) {
-	var req authrequest.PhoneVerifyBody
+	var req PhoneVerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -65,4 +64,3 @@ func (h *PhoneHandler) VerifyBind(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-

@@ -39,3 +39,10 @@ server:
 
 fmt:
 	gofmt -w .
+
+.PHONY: swagger verify-api-contract
+swagger:
+	python3 doc/sync_swagger.py
+
+verify-api-contract:
+	go test ./internal/api -run 'TestOpenAPICoversAllRegisteredRoutes|TestSwaggerServedInDevelopmentOnly' -count=1
