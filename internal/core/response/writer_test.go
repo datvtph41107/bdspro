@@ -23,7 +23,8 @@ func TestInvalidResponse(t *testing.T) {
 		{"too large", &http.MaxBytesError{Limit: 1024}, http.StatusRequestEntityTooLarge, "request body too large"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			c, w := gin.CreateTestContext(httptest.NewRecorder())
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
 			Invalid(c, tc.err)
 			if w.Code != tc.status || strings.TrimSpace(w.Body.String()) != `{"error":"`+tc.message+`"}` {
 				t.Fatalf("status=%d response=%s", w.Code, w.Body.String())
@@ -45,7 +46,8 @@ func TestApplicationErrorResponse(t *testing.T) {
 		{"unknown", errors.New("database password is private"), http.StatusInternalServerError, "internal server error"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			c, w := gin.CreateTestContext(httptest.NewRecorder())
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
 			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 			Error(c, tc.err)
 			if w.Code != tc.status || strings.TrimSpace(w.Body.String()) != `{"error":"`+tc.message+`"}` {
