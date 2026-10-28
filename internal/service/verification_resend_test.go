@@ -12,10 +12,13 @@ import (
 type resendEmailStore struct {
 	db.Store
 	account db.Account
-	calls int
+	calls   int
 }
+
 func (s *resendEmailStore) GetAccountByEmail(_ context.Context, email string) (db.Account, error) {
-	if email != s.account.Email { return db.Account{}, pgx.ErrNoRows }
+	if email != s.account.Email {
+		return db.Account{}, pgx.ErrNoRows
+	}
 	return s.account, nil
 }
 func (s *resendEmailStore) RecordEmailVerificationJob(_ context.Context, _ int64) error {
@@ -29,11 +32,23 @@ func TestResendEmailVerificationDoesNotEnumerateAccounts(t *testing.T) {
 		ID: 3, Email: "pending@example.test",
 	}}
 	svc := NewAuthService(store, nil, config.Config{})
-	if err := svc.ResendVerificationEmail(ctx, "missing@example.test"); err != nil { t.Fatal(err) }
-	if store.calls != 0 { t.Fatal("unknown email enqueued a job") }
-	if err := svc.ResendVerificationEmail(ctx, "  PENDING@example.test  "); err != nil { t.Fatal(err) }
-	if store.calls != 1 { t.Fatal("pending email did not enqueue verification") }
+	if err := svc.ResendVerificationEmail(ctx, "missing@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	if store.calls != 0 {
+		t.Fatal("unknown email enqueued a job")
+	}
+	if err := svc.ResendVerificationEmail(ctx, "  PENDING@example.test  "); err != nil {
+		t.Fatal(err)
+	}
+	if store.calls != 1 {
+		t.Fatal("pending email did not enqueue verification")
+	}
 	store.account.IsEmailVerified = true
-	if err := svc.ResendVerificationEmail(ctx, "pending@example.test"); err != nil { t.Fatal(err) }
-	if store.calls != 1 { t.Fatal("already verified email enqueued a job") }
+	if err := svc.ResendVerificationEmail(ctx, "pending@example.test"); err != nil {
+		t.Fatal(err)
+	}
+	if store.calls != 1 {
+		t.Fatal("already verified email enqueued a job")
+	}
 }

@@ -19,7 +19,7 @@ func TestSMSGatewaySendsCodeToConfiguredGateway(t *testing.T) {
 			return
 		}
 		var body struct {
-			Phone string `json:"phone"`
+			Phone   string `json:"phone"`
 			Message string `json:"message"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -37,14 +37,16 @@ func TestSMSGatewaySendsCodeToConfiguredGateway(t *testing.T) {
 	if err := gateway.SendCode(context.Background(), "+84912345678", "123456"); err != nil {
 		t.Fatal(err)
 	}
-	if !received { t.Fatal("gateway did not receive OTP") }
+	if !received {
+		t.Fatal("gateway did not receive OTP")
+	}
 }
 
 func TestZaloZBSProviderAcknowledgement(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		status int
-		response string
+		name      string
+		status    int
+		response  string
 		wantError bool
 	}{
 		{"accepted", http.StatusOK, `{"error":0}`, false},

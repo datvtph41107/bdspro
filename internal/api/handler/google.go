@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datvtph41107/bdspro/internal/service"
-	"github.com/datvtph41107/bdspro/internal/config"
 	middleware "github.com/datvtph41107/bdspro/internal/api/middleware"
 	"github.com/datvtph41107/bdspro/internal/api/response"
+	"github.com/datvtph41107/bdspro/internal/config"
+	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )

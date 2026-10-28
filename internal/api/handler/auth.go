@@ -1,14 +1,14 @@
 package handler
 
 import (
-	"net/http"
 	"html/template"
+	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/datvtph41107/bdspro/internal/api/middleware"
 	"github.com/datvtph41107/bdspro/internal/api/response"
+	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -122,7 +122,7 @@ func (h *AuthHandler) Renew(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, RenewAccessTokenResponse{
-		AccessToken: result.AccessToken,
+		AccessToken:          result.AccessToken,
 		AccessTokenExpiresAt: result.AccessTokenExpiresAt,
 	})
 }

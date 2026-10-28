@@ -22,8 +22,8 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 
 	newServer := func(google, phone bool) *Server {
 		s := &Server{
-			tokenMaker: maker,
-			authHandler: handler.NewAuthHandler(nil, nil),
+			tokenMaker:          maker,
+			authHandler:         handler.NewAuthHandler(nil, nil),
 			organizationHandler: handler.NewOrganizationHandler(nil),
 		}
 		if google {
@@ -95,7 +95,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
-		name string
+		name   string
 		header string
 		status int
 	}{

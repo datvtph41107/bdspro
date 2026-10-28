@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/datvtph41107/bdspro/internal/api/middleware"
 	db "github.com/datvtph41107/bdspro/internal/database"
+	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -19,10 +19,10 @@ import (
 
 type organizationHTTPStoreFake struct {
 	db.Store
-	creates int
-	lastName string
+	creates    int
+	lastName   string
 	accountErr error
-	createErr error
+	createErr  error
 }
 
 func (s *organizationHTTPStoreFake) GetAccountByID(_ context.Context, id int64) (db.Account, error) {

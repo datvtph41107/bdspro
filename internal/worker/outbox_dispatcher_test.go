@@ -15,7 +15,7 @@ import (
 )
 
 type verificationDistributorFake struct {
-	err error
+	err      error
 	accounts []int64
 }
 
@@ -64,7 +64,7 @@ func TestJobOutboxRetriesRedisFailures(t *testing.T) {
 
 	store := db.NewStore(pool)
 	account, err := store.RegisterTx(ctx, db.RegisterTxParams{
-		Email: uuid.NewString()+"@example.test",
+		Email:        uuid.NewString() + "@example.test",
 		PasswordHash: "test-only",
 	})
 	if err != nil {
@@ -115,7 +115,7 @@ func TestJobOutboxRetriesRedisFailures(t *testing.T) {
 	// If Redis reports an existing stable TaskID (for example after a
 	// crash between enqueue and PostgreSQL commit), treat it as enqueued.
 	second, err := store.RegisterTx(ctx, db.RegisterTxParams{
-		Email: uuid.NewString()+"@example.test",
+		Email:        uuid.NewString() + "@example.test",
 		PasswordHash: "test-only",
 	})
 	if err != nil {
@@ -141,7 +141,6 @@ func TestJobOutboxRetriesRedisFailures(t *testing.T) {
 
 }
 
-
 // taskRecorder accepts arbitrary task types. The dispatcher must not depend
 // on email-specific payloads or add a new transport method for each job.
 type taskRecorder struct {
@@ -149,26 +148,34 @@ type taskRecorder struct {
 }
 
 func (r *taskRecorder) Enqueue(_ context.Context, task *asynq.Task, _ ...asynq.Option) error {
-	if r.types == nil { r.types = make(map[string]int) }
+	if r.types == nil {
+		r.types = make(map[string]int)
+	}
 	r.types[task.Type()]++
 	return nil
 }
 
 func TestJobOutboxDispatchesIndependentTaskTypes(t *testing.T) {
 	source := os.Getenv("BDS_TEST_DB_URL")
-	if source == "" { t.Skip("requires disposable test database") }
+	if source == "" {
+		t.Skip("requires disposable test database")
+	}
 	if os.Getenv("BDS_TEST_MODE") != "disposable" {
 		t.Fatal("refusing writes without disposable test mode")
 	}
 	cfg, err := pgxpool.ParseConfig(source)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	if cfg.ConnConfig.Database != "bdspro_test" {
 		t.Fatal("refusing writes outside bdspro_test")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer pool.Close()
 
 	var id int64
@@ -176,13 +183,19 @@ func TestJobOutboxDispatchesIndependentTaskTypes(t *testing.T) {
 	if err := pool.QueryRow(ctx,
 		"INSERT INTO job_outbox(task_type,payload,queue_name,run_at) VALUES($1,$2::jsonb,'default',now()) RETURNING id",
 		taskType, `{"report_id":42}`,
-	).Scan(&id); err != nil { t.Fatal(err) }
+	).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
 	recorder := &taskRecorder{}
 	dispatcher := NewOutboxDispatcher(db.NewStore(pool), recorder)
 	queued := false
 	for i := 0; i < 30 && !queued; i++ {
-		if _, err := dispatcher.Dispatch(ctx); err != nil { t.Fatal(err) }
-		if err := pool.QueryRow(ctx, "SELECT queued_at IS NOT NULL FROM job_outbox WHERE id = $1", id).Scan(&queued); err != nil { t.Fatal(err) }
+		if _, err := dispatcher.Dispatch(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(ctx, "SELECT queued_at IS NOT NULL FROM job_outbox WHERE id = $1", id).Scan(&queued); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if !queued || recorder.types[taskType] != 1 {
 		t.Fatalf("non-verification task was not handed off exactly once in test: queued=%t types=%v", queued, recorder.types)

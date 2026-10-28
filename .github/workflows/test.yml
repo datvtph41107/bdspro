@@ -25,6 +25,16 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -101,11 +111,13 @@ jobs:
           END $audit$;
           SQL
 
-      - name: Produce Go formatting evidence
+      - name: Verify Go formatting
         run: |
-          gofmt -w .
-          python3 -c 'import subprocess,base64,pathlib; paths=subprocess.check_output(["git","diff","--name-only","--","*.go"],text=True).splitlines(); [print("FORMATTED_FILE|"+p+"|"+base64.b64encode(pathlib.Path(p).read_bytes()).decode()) for p in paths]'
-          git diff --exit-code -- '*.go'
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
 
       - name: Test and compile
         env:
@@ -116,3 +128,22 @@ jobs:
           go test -race ./...
           go vet ./...
           go build ./...
+
+      - name: HTTP runtime smoke test
+        run: |
+          docker compose config --quiet
+          go build -o /tmp/bdspro-smoke .
+          /tmp/bdspro-smoke > /tmp/bdspro-smoke.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/health >/dev/null; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then cat /tmp/bdspro-smoke.log; exit 1; fi
+          curl -fsS http://127.0.0.1:8080/swagger/openapi.json > /tmp/bdspro-swagger.json
+          python3 -c 'import json; x=json.load(open("/tmp/bdspro-swagger.json")); assert x["openapi"] == "3.0.3"'
+          status=$(curl -s -o /tmp/noauth.json -w "%{http_code}" http://127.0.0.1:8080/users/me)
+          test "$status" = 401
+          python3 -c 'import json; e=json.load(open("/tmp/noauth.json")); assert e["code"] == "unauthenticated"'

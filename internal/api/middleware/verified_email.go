@@ -2,9 +2,9 @@ package middleware
 
 import (
 	"context"
-"errors"
-"github.com/jackc/pgx/v5"
-"github.com/datvtph41107/bdspro/internal/api/response"
+	"errors"
+	"github.com/datvtph41107/bdspro/internal/api/response"
+	"github.com/jackc/pgx/v5"
 	"net/http"
 
 	db "github.com/datvtph41107/bdspro/internal/database"
@@ -23,13 +23,13 @@ func VerifiedEmail(store interface {
 		}
 		account, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
 		if errors.Is(err, pgx.ErrNoRows) {
-            response.Reject(c, http.StatusUnauthorized, "unauthenticated", "authentication required")
-            return
-        }
-        if err != nil {
-            response.Reject(c, http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
-            return
-        }
+			response.Reject(c, http.StatusUnauthorized, "unauthenticated", "authentication required")
+			return
+		}
+		if err != nil {
+			response.Reject(c, http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
+			return
+		}
 		if !account.IsEmailVerified {
 			response.Reject(c, http.StatusForbidden, "email_verification_required", "email verification required")
 			return

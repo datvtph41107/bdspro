@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	apperrors "github.com/datvtph41107/bdspro/internal/errors"
 	db "github.com/datvtph41107/bdspro/internal/database"
+	apperrors "github.com/datvtph41107/bdspro/internal/errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -64,7 +64,7 @@ func (s *OrganizationService) List(ctx context.Context, actorAccountID int64) ([
 func (s *OrganizationService) AddMember(ctx context.Context, actorAccountID, organizationID, personID int64) (db.OrganizationMembership, error) {
 	member, err := s.store.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
 		OrganizationID: organizationID,
-		PersonID: personID,
+		PersonID:       personID,
 		ActorAccountID: actorAccountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -89,7 +89,7 @@ func (s *OrganizationService) Update(ctx context.Context, actorAccountID, organi
 	organization, err := s.store.UpdateOrganization(ctx, db.UpdateOrganizationParams{
 		OrganizationID: organizationID,
 		ActorAccountID: actorAccountID,
-		Name: pgtype.Text{String: name, Valid: true},
+		Name:           pgtype.Text{String: name, Valid: true},
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return db.Organization{}, apperrors.OrganizationOwnerRequired

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	apperrors "github.com/datvtph41107/bdspro/internal/errors"
 	"github.com/datvtph41107/bdspro/internal/config"
+	apperrors "github.com/datvtph41107/bdspro/internal/errors"
 )
 
 func TestPhoneInputErrorsAreApplicationErrors(t *testing.T) {

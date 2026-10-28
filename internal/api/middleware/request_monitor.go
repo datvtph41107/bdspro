@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/gin-gonic/gin"
-"github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/go-redis/redis/v8"
 	"github.com/rs/zerolog/log"
 )
@@ -25,24 +25,30 @@ func RequestMonitor(redisClient *redis.Client) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ctx.Next()
 		status := ctx.Writer.Status()
-        code := ctx.GetString(response.ErrorCodeKey)
+		code := ctx.GetString(response.ErrorCodeKey)
 		var reason string
-        if code == "auth.otp_invalid" || code == "auth.otp_cooldown" { reason = "otp_verification" }
-        if code == "rate_limited" { reason = "rate_limit" }
-		if reason == "" { switch status {
-		case http.StatusBadRequest:
-			reason = "invalid_request"
-		case http.StatusUnauthorized:
-			reason = "authentication"
-		case http.StatusForbidden:
-			reason = "authorization"
-		case http.StatusTooManyRequests:
+		if code == "auth.otp_invalid" || code == "auth.otp_cooldown" {
+			reason = "otp_verification"
+		}
+		if code == "rate_limited" {
 			reason = "rate_limit"
-		case http.StatusRequestEntityTooLarge:
-			reason = "request_size"
-		default:
-			return
-		} }
+		}
+		if reason == "" {
+			switch status {
+			case http.StatusBadRequest:
+				reason = "invalid_request"
+			case http.StatusUnauthorized:
+				reason = "authentication"
+			case http.StatusForbidden:
+				reason = "authorization"
+			case http.StatusTooManyRequests:
+				reason = "rate_limit"
+			case http.StatusRequestEntityTooLarge:
+				reason = "request_size"
+			default:
+				return
+			}
+		}
 		route := ctx.FullPath()
 		if route == "" {
 			route = "<unmatched>"

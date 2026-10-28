@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
- "github.com/datvtph41107/bdspro/internal/api/response"
 )
 
 const AuthorizationPayloadKey = "authorization_payload"

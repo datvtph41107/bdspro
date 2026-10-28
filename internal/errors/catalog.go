@@ -34,27 +34,27 @@ func (e *Error) Is(target error) bool {
 // Business errors and infrastructure errors are distinct.
 // Internal errors deliberately have no client-facing status/message.
 var (
-	InvalidPassword           = &Error{Code: "auth.invalid_password", Message: "invalid request", Status: http.StatusBadRequest}
-	AccountUnavailable        = &Error{Code: "auth.account_unavailable", Message: "account unavailable", Status: http.StatusUnauthorized}
-	NameRequired              = &Error{Code: "http.name_required", Message: "name required", Status: http.StatusBadRequest}
-	InvalidOrganization       = &Error{Code: "http.invalid_organization", Message: "invalid organization", Status: http.StatusBadRequest}
-	InvalidVerificationLink   = &Error{Code: "auth.invalid_verification_link", Message: "invalid or expired verification link", Status: http.StatusBadRequest}
-	InvalidRefreshToken       = &Error{Code: "auth.invalid_refresh_token", Message: "invalid refresh token", Status: http.StatusUnauthorized}
-	SessionUnavailable        = &Error{Code: "auth.session_unavailable", Message: "session unavailable", Status: http.StatusUnauthorized}
-	InvalidCredentials        = &Error{Code: "auth.invalid_credentials", Message: "invalid credentials", Status: http.StatusUnauthorized}
-	EmailRegistered           = &Error{Code: "auth.email_registered", Message: "email already registered", Status: http.StatusConflict}
-	OrganizationOwnerRequired = &Error{Code: "organization.owner_required", Message: "organization owner required", Status: http.StatusForbidden}
-	MembershipExists          = &Error{Code: "organization.membership_exists", Message: "membership already exists", Status: http.StatusConflict}
-	PersonUnavailable         = &Error{Code: "organization.person_unavailable", Message: "person unavailable", Status: http.StatusNotFound}
-	GoogleIdentityAlreadyLinked = &Error{Code: "auth.google_identity_already_linked", Message: "Google identity already linked", Status: http.StatusConflict}
-	GoogleAccountAlreadyLinked  = &Error{Code: "auth.google_account_already_linked", Message: "account already linked", Status: http.StatusConflict}
-	GoogleIdentityUnlinked      = &Error{Code: "auth.google_identity_unlinked", Message: "Google identity not linked", Status: http.StatusUnauthorized}
-	GoogleEmailUnverified = &Error{Code: "auth.google_email_unverified", Message: "Google email is not verified", Status: http.StatusUnauthorized}
+	InvalidPassword              = &Error{Code: "auth.invalid_password", Message: "invalid request", Status: http.StatusBadRequest}
+	AccountUnavailable           = &Error{Code: "auth.account_unavailable", Message: "account unavailable", Status: http.StatusUnauthorized}
+	NameRequired                 = &Error{Code: "http.name_required", Message: "name required", Status: http.StatusBadRequest}
+	InvalidOrganization          = &Error{Code: "http.invalid_organization", Message: "invalid organization", Status: http.StatusBadRequest}
+	InvalidVerificationLink      = &Error{Code: "auth.invalid_verification_link", Message: "invalid or expired verification link", Status: http.StatusBadRequest}
+	InvalidRefreshToken          = &Error{Code: "auth.invalid_refresh_token", Message: "invalid refresh token", Status: http.StatusUnauthorized}
+	SessionUnavailable           = &Error{Code: "auth.session_unavailable", Message: "session unavailable", Status: http.StatusUnauthorized}
+	InvalidCredentials           = &Error{Code: "auth.invalid_credentials", Message: "invalid credentials", Status: http.StatusUnauthorized}
+	EmailRegistered              = &Error{Code: "auth.email_registered", Message: "email already registered", Status: http.StatusConflict}
+	OrganizationOwnerRequired    = &Error{Code: "organization.owner_required", Message: "organization owner required", Status: http.StatusForbidden}
+	MembershipExists             = &Error{Code: "organization.membership_exists", Message: "membership already exists", Status: http.StatusConflict}
+	PersonUnavailable            = &Error{Code: "organization.person_unavailable", Message: "person unavailable", Status: http.StatusNotFound}
+	GoogleIdentityAlreadyLinked  = &Error{Code: "auth.google_identity_already_linked", Message: "Google identity already linked", Status: http.StatusConflict}
+	GoogleAccountAlreadyLinked   = &Error{Code: "auth.google_account_already_linked", Message: "account already linked", Status: http.StatusConflict}
+	GoogleIdentityUnlinked       = &Error{Code: "auth.google_identity_unlinked", Message: "Google identity not linked", Status: http.StatusUnauthorized}
+	GoogleEmailUnverified        = &Error{Code: "auth.google_email_unverified", Message: "Google email is not verified", Status: http.StatusUnauthorized}
 	GoogleEmailAlreadyRegistered = &Error{Code: "auth.google_email_registered", Message: "email already registered; sign in and link Google", Status: http.StatusConflict}
-	InvalidPhone              = &Error{Code: "auth.invalid_phone", Message: "invalid phone", Status: http.StatusBadRequest}
-	PhoneUnavailable          = &Error{Code: "auth.phone_unavailable", Message: "phone unavailable", Status: http.StatusConflict}
-	OTPInvalid                = &Error{Code: "auth.otp_invalid", Message: "invalid or expired code", Status: http.StatusUnauthorized}
-	OTPCooldown               = &Error{Code: "auth.otp_cooldown", Message: "code temporarily unavailable", Status: http.StatusTooManyRequests}
+	InvalidPhone                 = &Error{Code: "auth.invalid_phone", Message: "invalid phone", Status: http.StatusBadRequest}
+	PhoneUnavailable             = &Error{Code: "auth.phone_unavailable", Message: "phone unavailable", Status: http.StatusConflict}
+	OTPInvalid                   = &Error{Code: "auth.otp_invalid", Message: "invalid or expired code", Status: http.StatusUnauthorized}
+	OTPCooldown                  = &Error{Code: "auth.otp_cooldown", Message: "code temporarily unavailable", Status: http.StatusTooManyRequests}
 )
 
 func Public(err error) (*Error, bool) {

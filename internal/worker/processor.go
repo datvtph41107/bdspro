@@ -10,14 +10,14 @@ import (
 
 const (
 	QueueCritical = "critical"
-	QueueDefault = "default"
+	QueueDefault  = "default"
 )
 
 // RedisTaskProcessor owns queue lifecycle and handler registration.
 // Jobs implement the native asynq.Handler contract.
 type RedisTaskProcessor struct {
 	server *asynq.Server
-	mux *asynq.ServeMux
+	mux    *asynq.ServeMux
 }
 
 func NewRedisTaskProcessor(options asynq.RedisClientOpt) *RedisTaskProcessor {
@@ -26,9 +26,9 @@ func NewRedisTaskProcessor(options asynq.RedisClientOpt) *RedisTaskProcessor {
 	server := asynq.NewServer(options, asynq.Config{
 		Queues: map[string]int{
 			QueueCritical: 10,
-			QueueDefault: 5,
+			QueueDefault:  5,
 		},
-		Logger: logger,
+		Logger:   logger,
 		LogLevel: asynq.WarnLevel,
 		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
 			taskID, _ := asynq.GetTaskID(ctx)

@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/datvtph41107/bdspro/internal/service"
-	"github.com/datvtph41107/bdspro/internal/config"
-	"github.com/datvtph41107/bdspro/internal/notification"
 	"github.com/datvtph41107/bdspro/internal/api/middleware"
 	"github.com/datvtph41107/bdspro/internal/api/response"
+	"github.com/datvtph41107/bdspro/internal/config"
 	db "github.com/datvtph41107/bdspro/internal/database"
+	"github.com/datvtph41107/bdspro/internal/notification"
+	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -64,4 +64,3 @@ func (h *PhoneHandler) VerifyBind(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-

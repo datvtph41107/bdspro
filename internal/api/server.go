@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/internal/api/handler"
-	"github.com/datvtph41107/bdspro/internal/service"
-	"github.com/datvtph41107/bdspro/internal/config"
 	"github.com/datvtph41107/bdspro/internal/api/middleware"
-	"github.com/datvtph41107/bdspro/internal/notification"
+	"github.com/datvtph41107/bdspro/internal/api/response"
+	"github.com/datvtph41107/bdspro/internal/config"
 	db "github.com/datvtph41107/bdspro/internal/database"
+	"github.com/datvtph41107/bdspro/internal/notification"
+	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
- "github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/rs/cors"
@@ -157,7 +157,7 @@ func (server *Server) setupRouter() {
 	)
 
 	server.registerRoutes(router)
- server.registerSwagger(router)
+	server.registerSwagger(router)
 
 	server.router = router
 }

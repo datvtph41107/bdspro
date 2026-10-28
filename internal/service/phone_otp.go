@@ -11,9 +11,9 @@ import (
 	"regexp"
 
 	"github.com/datvtph41107/bdspro/internal/config"
-	"github.com/datvtph41107/bdspro/internal/notification"
-	apperrors "github.com/datvtph41107/bdspro/internal/errors"
 	db "github.com/datvtph41107/bdspro/internal/database"
+	apperrors "github.com/datvtph41107/bdspro/internal/errors"
+	"github.com/datvtph41107/bdspro/internal/notification"
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -25,9 +25,9 @@ var phoneCode = regexp.MustCompile(`^[0-9]{6}$`)
 // PhoneOTP owns phone verification regardless of delivery channel. Plaintext
 // codes are saved only in disposable development PostgreSQL, never in logs.
 type PhoneOTP struct {
-	Store      db.Store
-	Config     config.Config
-	Sender     notification.PhoneCodeSender
+	Store  db.Store
+	Config config.Config
+	Sender notification.PhoneCodeSender
 }
 
 func (s PhoneOTP) allowed() error {
@@ -112,13 +112,13 @@ func (s PhoneOTP) startBind(ctx context.Context, accountID int64, phone string) 
 		return err
 	}
 	// A previously verified account cannot start binding another number.
- // The unique account_id constraint remains the concurrency safeguard.
- if _, lookupErr := s.Store.GetPhoneForAccount(ctx, accountID); lookupErr == nil {
-  return apperrors.PhoneUnavailable
- } else if !errors.Is(lookupErr, pgx.ErrNoRows) {
-  return lookupErr
- }
- existing, err := s.Store.AccountIDForPhone(ctx, phone)
+	// The unique account_id constraint remains the concurrency safeguard.
+	if _, lookupErr := s.Store.GetPhoneForAccount(ctx, accountID); lookupErr == nil {
+		return apperrors.PhoneUnavailable
+	} else if !errors.Is(lookupErr, pgx.ErrNoRows) {
+		return lookupErr
+	}
+	existing, err := s.Store.AccountIDForPhone(ctx, phone)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -150,4 +150,3 @@ func (s PhoneOTP) VerifyBind(ctx context.Context, accountID int64, phone, code s
 	}
 	return err
 }
-

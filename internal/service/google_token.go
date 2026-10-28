@@ -18,16 +18,16 @@ const googleJWKSURL = "https://www.googleapis.com/oauth2/v3/certs"
 
 // VerifiedGoogleIdentity contains claims from a validated Google ID token.
 type VerifiedGoogleIdentity struct {
-	Subject string
-	Email string
+	Subject       string
+	Email         string
 	EmailVerified bool
 }
 
 type googleIDClaims struct {
 	jwt.RegisteredClaims
-	Nonce string `json:"nonce"`
-	Email string `json:"email"`
-	EmailVerified bool `json:"email_verified"`
+	Nonce         string `json:"nonce"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
 }
 
 // VerifyGoogleIDToken checks Google's RSA signature, audience, expiry, issuer
@@ -63,8 +63,8 @@ func verifyGoogleIDToken(ctx context.Context, client *http.Client, jwksURL, raw,
 		return empty, errors.New("invalid Google identity claims")
 	}
 	return VerifiedGoogleIdentity{
-		Subject: claims.Subject,
-		Email: claims.Email,
+		Subject:       claims.Subject,
+		Email:         claims.Email,
 		EmailVerified: claims.EmailVerified,
 	}, nil
 }

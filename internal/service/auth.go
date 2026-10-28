@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"unicode/utf8"
 	"time"
+	"unicode/utf8"
 
 	"github.com/datvtph41107/bdspro/internal/config"
-	apperrors "github.com/datvtph41107/bdspro/internal/errors"
 	db "github.com/datvtph41107/bdspro/internal/database"
+	apperrors "github.com/datvtph41107/bdspro/internal/errors"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
@@ -20,9 +20,9 @@ import (
 // access renewal and session revocation. No Gin or HTTP response types enter
 // these operations.
 type AuthService struct {
-	store     db.Store
-	maker     token.Maker
-	config    config.Config
+	store  db.Store
+	maker  token.Maker
+	config config.Config
 }
 
 func NewAuthService(store db.Store, maker token.Maker, cfg config.Config) *AuthService {
@@ -40,7 +40,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 		return db.Account{}, err
 	}
 	account, err := s.store.RegisterTx(ctx, db.RegisterTxParams{
-		Email: strings.ToLower(strings.TrimSpace(email)),
+		Email:        strings.ToLower(strings.TrimSpace(email)),
 		PasswordHash: hash,
 	})
 	if err != nil {
@@ -92,7 +92,9 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	if errors.Is(err, pgx.ErrNoRows) {
 		return result, apperrors.InvalidCredentials
 	}
-	if err != nil { return result, err }
+	if err != nil {
+		return result, err
+	}
 	if err := util.CheckPassword(password, hash); err != nil {
 		return result, apperrors.InvalidCredentials
 	}

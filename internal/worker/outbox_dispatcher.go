@@ -16,9 +16,9 @@ const outboxBatchSize int32 = 10
 // OutboxDispatcher delivers committed job intents to Asynq.
 // It does not know which business operation a task represents.
 type OutboxDispatcher struct {
-	store db.Store
+	store    db.Store
 	enqueuer TaskEnqueuer
-	done chan struct{}
+	done     chan struct{}
 }
 
 func NewOutboxDispatcher(store db.Store, enqueuer TaskEnqueuer) *OutboxDispatcher {
@@ -56,10 +56,14 @@ func (d *OutboxDispatcher) Dispatch(ctx context.Context) (int, error) {
 	count := 0
 	err := d.store.ExecTx(ctx, func(q *db.Queries) error {
 		pending, err := q.ListPendingJobOutbox(ctx, outboxBatchSize)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		for _, record := range pending {
 			id := fmt.Sprintf("job-outbox-%d", record.ID)
-			if record.TaskID.Valid { id = record.TaskID.String }
+			if record.TaskID.Valid {
+				id = record.TaskID.String
+			}
 			task := asynq.NewTask(record.TaskType, record.Payload)
 			opts := []asynq.Option{
 				asynq.TaskID(id),
@@ -69,8 +73,8 @@ func (d *OutboxDispatcher) Dispatch(ctx context.Context) (int, error) {
 				asynq.Retention(24 * time.Hour),
 			}
 			enqueueCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-   err := d.enqueuer.Enqueue(enqueueCtx, task, opts...)
-   cancel()
+			err := d.enqueuer.Enqueue(enqueueCtx, task, opts...)
+			cancel()
 			if err != nil && !errors.Is(err, asynq.ErrTaskIDConflict) {
 				return fmt.Errorf("enqueue outbox record %d: %w", record.ID, err)
 			}
@@ -81,6 +85,8 @@ func (d *OutboxDispatcher) Dispatch(ctx context.Context) (int, error) {
 		}
 		return nil
 	})
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 	return count, nil
 }
