@@ -26,7 +26,6 @@ var phoneCode = regexp.MustCompile(`^[0-9]{6}$`)
 // disposable dev PostgreSQL database, never in responses or application logs.
 type PhoneOTP struct {
 	Store      db.Store
-	Challenges db.PhoneOTPRepository
 	Maker      token.Maker
 	Config     config.Config
 }
@@ -54,7 +53,7 @@ func (s PhoneOTP) start(ctx context.Context, phone, purpose string, accountID in
 	if err != nil {
 		return err
 	}
-	return s.Challenges.StartChallenge(ctx, phone, purpose, accountID, s.mac(phone, purpose, accountID, code), code)
+	return s.Store.StartChallenge(ctx, phone, purpose, accountID, s.mac(phone, purpose, accountID, code), code)
 }
 
 // StartBind requires an already-authenticated BDSPro account plus its current
@@ -73,7 +72,7 @@ func (s PhoneOTP) StartBind(ctx context.Context, accountID int64, password, phon
 	if util.CheckPassword(password, account.PasswordHash) != nil {
 		return apperrors.InvalidCredentials
 	}
-	existing, err := s.Challenges.AccountIDForPhone(ctx, phone)
+	existing, err := s.Store.AccountIDForPhone(ctx, phone)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -93,7 +92,7 @@ func (s PhoneOTP) VerifyBind(ctx context.Context, accountID int64, phone, code s
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
 		return apperrors.OTPInvalid
 	}
-	err := s.Challenges.ConsumeChallenge(ctx, phone, "bind", accountID, s.mac(phone, "bind", accountID, code))
+	err := s.Store.ConsumeChallenge(ctx, phone, "bind", accountID, s.mac(phone, "bind", accountID, code))
 	if errors.Is(err, db.ErrOTPInvalid) {
 		return apperrors.OTPInvalid
 	}
@@ -112,7 +111,7 @@ func (s PhoneOTP) StartLogin(ctx context.Context, phone string) error {
 	if !phoneE164.MatchString(phone) {
 		return apperrors.InvalidPhone
 	}
-	accountID, err := s.Challenges.AccountIDForPhone(ctx, phone)
+	accountID, err := s.Store.AccountIDForPhone(ctx, phone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -133,14 +132,14 @@ func (s PhoneOTP) VerifyLogin(ctx context.Context, phone, code, userAgent, clien
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
 		return empty, apperrors.OTPInvalid
 	}
-	accountID, err := s.Challenges.AccountIDForPhone(ctx, phone)
+	accountID, err := s.Store.AccountIDForPhone(ctx, phone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return empty, apperrors.OTPInvalid
 	}
 	if err != nil {
 		return empty, err
 	}
-	if err = s.Challenges.ConsumeChallenge(ctx, phone, "login", accountID, s.mac(phone, "login", accountID, code)); err != nil {
+	if err = s.Store.ConsumeChallenge(ctx, phone, "login", accountID, s.mac(phone, "login", accountID, code)); err != nil {
 		if errors.Is(err, db.ErrOTPInvalid) {
 			return empty, apperrors.OTPInvalid
 		}

@@ -68,7 +68,7 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client) (*S
 	}
 	if cfg.Environment == "development" {
 		server.phoneHandler = handler.NewPhoneHandler(
-			store, store, maker, cfg, server.identityLimiter,
+			store, maker, cfg, server.identityLimiter,
 		)
 	}
 

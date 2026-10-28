@@ -30,7 +30,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 			s.googleHandler = handler.NewGoogleHandler(nil, config.Config{}, nil, nil, false)
 		}
 		if phone {
-			s.phoneHandler = handler.NewPhoneHandler(nil, nil, nil, config.Config{}, nil)
+			s.phoneHandler = handler.NewPhoneHandler(nil, nil, config.Config{}, nil)
 		}
 		s.setupRouter()
 		return s

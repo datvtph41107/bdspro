@@ -23,14 +23,13 @@ type PhoneHandler struct {
 
 func NewPhoneHandler(
 	store db.Store,
-	challenges db.PhoneOTPRepository,
 	maker token.Maker,
 	cfg config.Config,
 	limiter *middleware.IdentityLimiter,
 ) *PhoneHandler {
 	return &PhoneHandler{
 		phone: service.PhoneOTP{
-			Store: store, Challenges: challenges, Maker: maker, Config: cfg,
+			Store: store, Maker: maker, Config: cfg,
 		},
 		limiter: limiter,
 	}

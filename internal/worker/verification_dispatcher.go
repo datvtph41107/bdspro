@@ -34,8 +34,14 @@ func (d *VerificationDispatcher) Start(ctx context.Context) {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for {
-			if _, err := d.Dispatch(ctx); err != nil && ctx.Err() == nil {
+			count, err := d.Dispatch(ctx)
+			if err != nil && ctx.Err() == nil {
 				log.Ctx(ctx).Error().Err(err).Msg("verification.outbox_dispatch_failed")
+			}
+			// Drain full batches immediately; sleep only when the backlog is
+			// caught up or Redis is unavailable.
+			if err == nil && count == 10 {
+				continue
 			}
 			select {
 			case <-ctx.Done():
@@ -81,5 +87,8 @@ func (d *VerificationDispatcher) Dispatch(ctx context.Context) (int, error) {
 		}
 		return nil
 	})
-	return count, err
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }
