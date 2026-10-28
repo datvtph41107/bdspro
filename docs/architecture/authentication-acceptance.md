@@ -27,6 +27,9 @@ stack. Open Mailpit at `http://localhost:8025` for email verification.
 2. Open the Mailpit verification URL in a browser. GET must present a confirmation
    form **without** setting `is_email_verified=true`. Submit the POST form;
    then the account must be marked verified. Submitting again must fail.
+   To resend for a still-pending account, POST /users/verify_email/resend
+   with JSON {"email":"pending@example.test"}; unknown and verified emails
+   receive the same accepted response, subject to rate limits.
 3. Sign in using `POST /users/login`. Confirm that the returned access token
    can read `GET /users/me`. Before email verification the account must not
    access `/organizations`; after verification it can proceed subject to
