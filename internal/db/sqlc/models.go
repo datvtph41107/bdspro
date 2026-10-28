@@ -15,7 +15,6 @@ type Account struct {
 	ID              int64     `json:"id"`
 	PersonID        int64     `json:"person_id"`
 	Email           string    `json:"email"`
-	PasswordHash    string    `json:"password_hash"`
 	CreatedAt       time.Time `json:"created_at"`
 	IsEmailVerified bool      `json:"is_email_verified"`
 }
@@ -55,6 +54,13 @@ type OrganizationMembership struct {
 
 type Party struct {
 	ID int64 `json:"id"`
+}
+
+type PasswordCredential struct {
+	AccountID int64 `json:"account_id"`
+	PasswordHash string `json:"password_hash"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Person struct {

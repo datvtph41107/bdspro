@@ -17,6 +17,7 @@ type Store interface {
 	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
 	LinkGoogleIdentity(ctx context.Context, arg LinkGoogleIdentityParams) error
 	GetGoogleAccountID(ctx context.Context, googleSub string) (int64, error)
+	CreateGoogleAccountTx(ctx context.Context, email, googleSub string) (Account, error)
 }
 
 type SQLStore struct {
@@ -59,9 +60,14 @@ func (s *SQLStore) RegisterTx(ctx context.Context, arg RegisterTxParams) (Accoun
 			return err
 		}
 		account, err = q.CreateAccount(ctx, CreateAccountParams{
-			PersonID: partyID, Email: arg.Email, PasswordHash: arg.PasswordHash,
+			PersonID: partyID, Email: arg.Email,
 		})
 		if err != nil {
+			return err
+		}
+		if err := q.CreatePasswordCredential(ctx, CreatePasswordCredentialParams{
+			AccountID: account.ID, PasswordHash: arg.PasswordHash,
+		}); err != nil {
 			return err
 		}
 		return q.RecordEmailVerificationJob(ctx, account.ID)
