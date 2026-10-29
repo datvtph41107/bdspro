@@ -85,26 +85,36 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 }
 
 func organizationID(c *gin.Context) (int64, bool) {
-    id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-    if err != nil || id <= 0 {
-        response.Error(c, apperrors.InvalidOrganization)
-        return 0, false
-    }
-    return id, true
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.Error(c, apperrors.InvalidOrganization)
+		return 0, false
+	}
+	return id, true
 }
 
 func (h *OrganizationHandler) Show(c *gin.Context) {
-    id, ok := organizationID(c)
-    if !ok { return }
-    organization, err := h.organizations.Get(c.Request.Context(), middleware.AccountID(c), id)
-    if err != nil { response.Error(c, err); return }
-    c.JSON(http.StatusOK, newOrganizationAccessResponse(organization))
+	id, ok := organizationID(c)
+	if !ok {
+		return
+	}
+	organization, err := h.organizations.Get(c.Request.Context(), middleware.AccountID(c), id)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, newOrganizationAccessResponse(organization))
 }
 
 func (h *OrganizationHandler) Members(c *gin.Context) {
-    id, ok := organizationID(c)
-    if !ok { return }
-    members, err := h.organizations.Members(c.Request.Context(), middleware.AccountID(c), id)
-    if err != nil { response.Error(c, err); return }
-    c.JSON(http.StatusOK, newActiveOrganizationMembersResponse(members))
+	id, ok := organizationID(c)
+	if !ok {
+		return
+	}
+	members, err := h.organizations.Members(c.Request.Context(), middleware.AccountID(c), id)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, newActiveOrganizationMembersResponse(members))
 }
