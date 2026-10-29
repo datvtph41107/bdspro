@@ -1,32 +1,23 @@
 package api
 
 import (
-	"net/http"
+    "io/fs"
+    "net/http"
 
-	_ "github.com/datvtph41107/bdspro/doc/statik"
-
-	"github.com/gin-gonic/gin"
-	"github.com/rakyll/statik/fs"
-	"github.com/rs/zerolog/log"
+    assets "github.com/datvtph41107/bdspro/doc"
+    "github.com/gin-gonic/gin"
 )
 
+// Swagger is local documentation; public runtime routes are owned by Gin.
 func (server *Server) registerSwagger(router *gin.Engine) {
-	if server.config.Environment != "development" {
-		return
-	}
-
-	statikFS, err := fs.New()
-	if err != nil {
-		log.Fatal().Err(err).Msg("cannot create statik fs")
-	}
-
-	swaggerHandler := http.StripPrefix(
-		"/swagger/",
-		http.FileServer(statikFS),
-	)
-
-	router.GET(
-		"/swagger/*filepath",
-		gin.WrapH(swaggerHandler),
-	)
+    if server.config.Environment != "development" {
+        return
+    }
+    swaggerFS, err := fs.Sub(assets.Swagger, "swagger")
+    if err != nil {
+        panic(err)
+    }
+    router.GET("/swagger/*filepath", gin.WrapH(
+        http.StripPrefix("/swagger/", http.FileServer(http.FS(swaggerFS))),
+    ))
 }

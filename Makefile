@@ -38,5 +38,4 @@ server:
 	go run .
 
 swagger:
-	swag init -g main.go --parseInternal -o doc/swagger --outputTypes json
-	statik -src=./doc/swagger -dest=./doc
+	go test ./internal/api -run '^TestOpenAPICoverage -count=1

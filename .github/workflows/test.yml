@@ -53,10 +53,8 @@ jobs:
           "$(go env GOPATH)/bin/sqlc" generate
           git diff --exit-code -- internal/database
 
-      - name: Verify embedded Swagger assets
-        run: |
-          make swagger
-          git diff --exit-code -- doc/statik
+      - name: Verify OpenAPI contract
+        run: make swagger
 
       - name: Migrate disposable test database
         env:
