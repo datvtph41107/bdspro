@@ -14,13 +14,13 @@ import (
 
 type linkPhoneProofStore struct {
 	db.Store
-	phone string
-	err error
-	callCount int
+	phone      string
+	err        error
+	callCount  int
 	gotAccount int64
-	gotPhone string
+	gotPhone   string
 	gotPurpose string
-	gotMAC []byte
+	gotMAC     []byte
 }
 
 func (s *linkPhoneProofStore) GetPhoneForAccount(_ context.Context, accountID int64) (string, error) {
