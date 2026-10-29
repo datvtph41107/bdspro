@@ -87,10 +87,14 @@ func (s *GoogleAuthService) Login(
 			if lookupErr != nil {
 				return empty, err
 			}
-			account, err = s.store.GetAccountByID(ctx, linkedID)
+			var row db.GetAccountByIDRow
+			row, err = s.store.GetAccountByID(ctx, linkedID)
+			account = db.AccountFromIDRow(row)
 		}
 	} else if err == nil {
-		account, err = s.store.GetAccountByID(ctx, accountID)
+		var row db.GetAccountByIDRow
+		row, err = s.store.GetAccountByID(ctx, accountID)
+		account = db.AccountFromIDRow(row)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return empty, apperrors.AccountUnavailable
