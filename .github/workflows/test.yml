@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [dev]
 
-permissions:
-  contents: write
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -40,8 +37,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/setup-go@v5
         with:
@@ -52,18 +47,12 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Regenerate SQLC for A1 branch (temporary)
+      - name: Verify SQLC generated output
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
           "$(go env GOPATH)/bin/sqlc" generate
-          gofmt -w internal/database/tx_email_link.go internal/database/store.go internal/service/auth.go internal/service/phone_otp.go internal/api/handler/auth.go internal/api/handler/contracts.go internal/api/routes.go internal/api/routes_test.go internal/api/auth_channels_e2e_test.go
-          git add internal/database internal/service/auth.go internal/service/phone_otp.go internal/api/handler/auth.go internal/api/handler/contracts.go internal/api/routes.go internal/api/routes_test.go internal/api/auth_channels_e2e_test.go
-          if ! git diff --cached --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "chore(a1): regenerate SQLC and format email-link flow"
-            git push origin HEAD:refs/heads/feat/account-credential-lifecycle-a1
-          fi
+          git diff --exit-code -- internal/database
+          test -z "$(git ls-files --others --exclude-standard internal/database)"
 
       - name: Verify OpenAPI contract
         run: make swagger
