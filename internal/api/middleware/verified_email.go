@@ -37,3 +37,31 @@ func VerifiedEmail(store interface {
 		c.Next()
 	}
 }
+
+ 
+// VerifiedContact requires at least one verified contact channel. A phone-only
+// account must not be excluded from business routes merely for lacking email.
+func VerifiedContact(store interface {
+ GetAccountByID(context.Context, int64) (db.Account, error)
+ GetPhoneForAccount(context.Context, int64) (string, error)
+}) gin.HandlerFunc {
+ return func(c *gin.Context) {
+  a, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
+  if errors.Is(err, pgx.ErrNoRows) {
+   response.Reject(c, http.StatusUnauthorized, "unauthenticated", "authentication required")
+   return
+  }
+  if err != nil {
+   response.Reject(c, http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
+   return
+  }
+  if a.IsEmailVerified { c.Next(); return }
+  _, err = store.GetPhoneForAccount(c.Request.Context(), a.ID)
+  if err == nil { c.Next(); return }
+  if errors.Is(err, pgx.ErrNoRows) {
+   response.Reject(c, http.StatusForbidden, "contact_verification_required", "verified contact required")
+   return
+  }
+  response.Reject(c, http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
+ }
+}

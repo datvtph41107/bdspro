@@ -51,7 +51,7 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 	{
 		authenticated.GET("/users/me", server.authHandler.Me)
 
-		organizations := authenticated.Group("/organizations", middleware.VerifiedEmail(server.store))
+		organizations := authenticated.Group("/organizations", middleware.VerifiedContact(server.store))
 		{
 			organizations.POST("", server.organizationHandler.Create)
 			organizations.GET("", server.organizationHandler.Index)
