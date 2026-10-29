@@ -1575,13 +1575,29 @@
       },
       "GoogleLinkRequest": {
         "type": "object",
+        "description": "Exactly one fresh proof: current password or a phone login OTP for the phone already bound to the account.",
         "properties": {
           "password": {
-            "type": "string"
+            "type": "string",
+            "description": "Current BDSPro password"
+          },
+          "phone_code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$",
+            "description": "Fresh OTP from /users/phone/login/start"
           }
         },
-        "required": [
-          "password"
+        "oneOf": [
+          {
+            "required": [
+              "password"
+            ]
+          },
+          {
+            "required": [
+              "phone_code"
+            ]
+          }
         ]
       },
       "PhoneBindRequest": {

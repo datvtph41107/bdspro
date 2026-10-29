@@ -263,3 +263,27 @@ func (s PhoneOTP) VerifyLogin(ctx context.Context, phone, code, userAgent, clien
 	}
 	return IssueSession(ctx, s.Store, s.Maker, s.Config, account, userAgent, clientIP)
 }
+
+// AuthorizeGoogleLink proves fresh possession of the *already bound* phone.
+// The login OTP is single-use, so it cannot be replayed for OAuth linking.
+// A linked Google identity is not inferred from a matching email address.
+func (s PhoneOTP) AuthorizeGoogleLink(ctx context.Context, accountID int64, code string) error {
+	if err := s.allowed(); err != nil {
+		return err
+	}
+	if !phoneCode.MatchString(code) {
+		return apperrors.OTPInvalid
+	}
+	phone, err := s.Store.GetPhoneForAccount(ctx, accountID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return apperrors.InvalidCredentials
+	}
+	if err != nil {
+		return err
+	}
+	err = s.Store.ConsumeChallenge(ctx, phone, "login", accountID, s.mac(phone, "login", accountID, code))
+	if errors.Is(err, db.ErrOTPInvalid) {
+		return apperrors.OTPInvalid
+	}
+	return err
+}

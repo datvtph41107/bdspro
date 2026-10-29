@@ -16,7 +16,8 @@ type VerifyEmailQuery struct {
 	SecretCode string `form:"secret_code" binding:"required"`
 }
 type GoogleLinkRequest struct {
-	Password string `json:"password" binding:"required"`
+	Password  string `json:"password"`
+	PhoneCode string `json:"phone_code"`
 }
 type PhoneBindRequest struct {
 	Phone    string `json:"phone" binding:"required"`

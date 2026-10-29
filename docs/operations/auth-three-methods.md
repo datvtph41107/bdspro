@@ -118,3 +118,21 @@ Integration tests require `BDS_TEST_MODE=disposable` and `BDS_TEST_DB_URL` expli
 - Google linking for passwordless phone-only accounts requires an explicit reauthentication design; it must not auto-link by email.
 - SMTP password-reset delivery is currently synchronous and is not yet fully outbox-backed; provider failure behavior must be audited for account enumeration and retries.
 - The OpenAPI contract lists optional Google/phone routes even in environments where the matching provider is disabled.
+
+## E. Link Google to an existing phone-only account
+
+A phone-only account has no BDSPro password. To link Google **to that same AccountID**, first sign in with phone OTP, then request a fresh OTP for its registered phone using `POST /users/phone/login/start`.
+
+With the authenticated access token from phone login and the *fresh* OTP, call:
+
+```http
+POST /users/me/google/start
+Authorization: Bearer ACCESS_TOKEN
+Content-Type: application/json
+
+{"phone_code":"123456"}
+```
+
+A successful response contains a Google authorization URL. Complete that flow in a browser. The callback verifies Google's subject and links it to the **authenticated account**, not to an email-address match. The OTP cannot be replayed. Accounts already having a password may instead send `{"password":"CURRENT_PASSWORD"}`. Providing neither or both proofs fails validation.
+
+**Limitation:** Linking Google to a phone-only account does not yet attach a verified email address to the phone-only Account record. Email/password login for that account requires a separate verified-email linking flow. Do not turn Google subject ownership into an implicit email-based account merge.
