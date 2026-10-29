@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/internal/config"
+    "github.com/datvtph41107/bdspro/internal/jobs"
 	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -160,9 +161,13 @@ func TestPasswordResetAndGoogleCreatedAccountHTTPAcceptance(t *testing.T) {
 	}
 	status, _ := authAcceptanceCall(t, server, "/users/password/reset/request", http.MethodPost, map[string]string{"email": email}, "")
 	if status != http.StatusAccepted {
-		t.Fatalf("reset request status=%d", status)
-	}
-	match := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)
+        t.Fatalf("reset request status=%d", status)
+    }
+    assertPasswordResetIntent(t, ctx, pool, account.ID)
+    if err := jobs.SendPasswordResetEmail(ctx, store, mailer, "http://localhost:8080/users/verify_email", account.ID); err != nil {
+        t.Fatal(err)
+    }
+    match := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)
 	if len(match) != 2 {
 		t.Fatal("reset email did not contain one-time token")
 	}
@@ -261,9 +266,13 @@ func TestPhoneOnlyAccountAttachesEmailAndPasswordOnSameAccount(t *testing.T) {
 
 	status, _ = authAcceptanceCall(t, server, "/users/password/reset/request", http.MethodPost, map[string]string{"email": email}, "")
 	if status != http.StatusAccepted {
-		t.Fatalf("password setup request: %d", status)
-	}
-	reset := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)
+        t.Fatalf("password setup request: %d", status)
+    }
+    assertPasswordResetIntent(t, ctx, pool, int64(id.(float64)))
+    if err := jobs.SendPasswordResetEmail(ctx, db.NewStore(pool), mailer, "http://localhost:8080/users/verify_email", int64(id.(float64))); err != nil {
+        t.Fatal(err)
+    }
+    reset := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)
 	if len(reset) != 2 {
 		t.Fatal("password setup token not mailed")
 	}
@@ -326,4 +335,22 @@ func TestSessionOwnershipRevocationAndRefreshDenial(t *testing.T) {
 	if status != http.StatusOK || len(list["sessions"].([]any)) != 0 {
 		t.Fatalf("revoke all failed: %d %v", status, list)
 	}
+}
+
+// assertPasswordResetIntent confirms HTTP persists the request but does not
+// persist the plaintext token or invoke SMTP synchronously.
+func assertPasswordResetIntent(t *testing.T, ctx context.Context, pool *pgxpool.Pool, accountID int64) {
+    t.Helper()
+    var taskType string
+    var payload []byte
+    err := pool.QueryRow(ctx, `SELECT task_type, payload FROM job_outbox
+        WHERE (payload->>'account_id')::bigint=$1 AND task_type='task:send_password_reset'
+        ORDER BY id DESC LIMIT 1`, accountID).Scan(&taskType, &payload)
+    if err != nil { t.Fatal(err) }
+    if taskType != "task:send_password_reset" { t.Fatalf("unexpected job type: %s", taskType) }
+    var data map[string]any
+    if err := json.Unmarshal(payload, &data); err != nil { t.Fatal(err) }
+    if len(data) != 1 || data["account_id"] != float64(accountID) {
+        t.Fatalf("reset intent must carry only AccountID: %v", data)
+    }
 }
