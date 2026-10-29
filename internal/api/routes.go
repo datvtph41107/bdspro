@@ -76,6 +76,8 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 		{
 			organizations.POST("", server.organizationHandler.Create)
 			organizations.GET("", server.organizationHandler.Index)
+			organizations.GET("/:id", server.organizationHandler.Show)
+			organizations.GET("/:id/members", server.organizationHandler.Members)
 			organizations.POST("/:id/members", server.organizationHandler.AddMember)
 			organizations.PATCH("/:id", server.organizationHandler.Update)
 		}

@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -90,24 +91,137 @@ func (q *Queries) CreateOrganizationMembership(ctx context.Context, arg CreateOr
 	return i, err
 }
 
-const listOrganizationsForPerson = `-- name: ListOrganizationsForPerson :many
-SELECT o.party_id, o.name, o.created_at
-FROM organizations o
-JOIN organization_memberships m ON m.organization_id = o.party_id
-WHERE m.person_id = $1 AND m.ended_at IS NULL
-ORDER BY o.party_id
+const getOrganizationForAccount = `-- name: GetOrganizationForAccount :one
+SELECT o.party_id, o.name, o.created_at,
+       m.id AS membership_id, m.role, m.joined_at
+FROM accounts a
+JOIN organization_memberships m ON m.person_id = a.person_id
+JOIN organizations o ON o.party_id = m.organization_id
+WHERE a.id = $1
+  AND o.party_id = $2
+  AND m.ended_at IS NULL
 `
 
-func (q *Queries) ListOrganizationsForPerson(ctx context.Context, personID int64) ([]Organization, error) {
-	rows, err := q.db.Query(ctx, listOrganizationsForPerson, personID)
+type GetOrganizationForAccountParams struct {
+	AccountID      int64 `json:"account_id"`
+	OrganizationID int64 `json:"organization_id"`
+}
+
+type GetOrganizationForAccountRow struct {
+	PartyID      int64     `json:"party_id"`
+	Name         string    `json:"name"`
+	CreatedAt    time.Time `json:"created_at"`
+	MembershipID int64     `json:"membership_id"`
+	Role         string    `json:"role"`
+	JoinedAt     time.Time `json:"joined_at"`
+}
+
+func (q *Queries) GetOrganizationForAccount(ctx context.Context, arg GetOrganizationForAccountParams) (GetOrganizationForAccountRow, error) {
+	row := q.db.QueryRow(ctx, getOrganizationForAccount, arg.AccountID, arg.OrganizationID)
+	var i GetOrganizationForAccountRow
+	err := row.Scan(
+		&i.PartyID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.MembershipID,
+		&i.Role,
+		&i.JoinedAt,
+	)
+	return i, err
+}
+
+const listOrganizationMembersForOwner = `-- name: ListOrganizationMembersForOwner :many
+SELECT m.id, m.organization_id, m.person_id, m.role, m.joined_at
+FROM organization_memberships m
+WHERE m.organization_id = $1
+  AND m.ended_at IS NULL
+  AND EXISTS (
+    SELECT 1
+    FROM organization_memberships owner
+    JOIN accounts a ON a.person_id = owner.person_id
+    WHERE a.id = $2
+      AND owner.organization_id = m.organization_id
+      AND owner.role = 'owner'
+      AND owner.ended_at IS NULL
+  )
+ORDER BY m.joined_at, m.id
+`
+
+type ListOrganizationMembersForOwnerParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ActorAccountID int64 `json:"actor_account_id"`
+}
+
+type ListOrganizationMembersForOwnerRow struct {
+	ID             int64     `json:"id"`
+	OrganizationID int64     `json:"organization_id"`
+	PersonID       int64     `json:"person_id"`
+	Role           string    `json:"role"`
+	JoinedAt       time.Time `json:"joined_at"`
+}
+
+func (q *Queries) ListOrganizationMembersForOwner(ctx context.Context, arg ListOrganizationMembersForOwnerParams) ([]ListOrganizationMembersForOwnerRow, error) {
+	rows, err := q.db.Query(ctx, listOrganizationMembersForOwner, arg.OrganizationID, arg.ActorAccountID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Organization
+	var items []ListOrganizationMembersForOwnerRow
 	for rows.Next() {
-		var i Organization
-		if err := rows.Scan(&i.PartyID, &i.Name, &i.CreatedAt); err != nil {
+		var i ListOrganizationMembersForOwnerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.PersonID,
+			&i.Role,
+			&i.JoinedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrganizationsForAccount = `-- name: ListOrganizationsForAccount :many
+SELECT o.party_id, o.name, o.created_at,
+       m.id AS membership_id, m.role, m.joined_at
+FROM accounts a
+JOIN organization_memberships m ON m.person_id = a.person_id
+JOIN organizations o ON o.party_id = m.organization_id
+WHERE a.id = $1 AND m.ended_at IS NULL
+ORDER BY o.party_id
+`
+
+type ListOrganizationsForAccountRow struct {
+	PartyID      int64     `json:"party_id"`
+	Name         string    `json:"name"`
+	CreatedAt    time.Time `json:"created_at"`
+	MembershipID int64     `json:"membership_id"`
+	Role         string    `json:"role"`
+	JoinedAt     time.Time `json:"joined_at"`
+}
+
+func (q *Queries) ListOrganizationsForAccount(ctx context.Context, accountID int64) ([]ListOrganizationsForAccountRow, error) {
+	rows, err := q.db.Query(ctx, listOrganizationsForAccount, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOrganizationsForAccountRow
+	for rows.Next() {
+		var i ListOrganizationsForAccountRow
+		if err := rows.Scan(
+			&i.PartyID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.MembershipID,
+			&i.Role,
+			&i.JoinedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

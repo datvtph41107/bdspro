@@ -77,7 +77,7 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("non-owner update: expected no rows; got %+v %v", denied, err)
 	}
-	fromOwner, err := store.ListOrganizationsForPerson(ctx, owner.PersonID)
+	fromOwner, err := store.ListOrganizationsForAccount(ctx, owner.ID)
 	if err != nil || len(fromOwner) != 1 || fromOwner[0].Name != org.Name {
 		t.Fatalf("unauthorized update changed resource: %+v %v", fromOwner, err)
 	}
@@ -88,7 +88,7 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("outsider added member: %v", err)
 	}
-	unseen, err := store.ListOrganizationsForPerson(ctx, member.PersonID)
+	unseen, err := store.ListOrganizationsForAccount(ctx, member.ID)
 	if err != nil || len(unseen) != 0 {
 		t.Fatalf("denied membership mutated data: %+v %v", unseen, err)
 	}

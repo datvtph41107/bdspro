@@ -49,6 +49,7 @@ var (
 	InvalidEmailLink             = &Error{Code: "auth.invalid_email_link", Message: "invalid or expired email link", Status: http.StatusBadRequest}
 	EmailLinkCooldown            = &Error{Code: "auth.email_link_cooldown", Message: "email verification temporarily unavailable", Status: http.StatusTooManyRequests}
 	EmailRegistered              = &Error{Code: "auth.email_registered", Message: "email already registered", Status: http.StatusConflict}
+	OrganizationNotFound         = &Error{Code: "organization.not_found", Message: "organization not found", Status: http.StatusNotFound}
 	OrganizationOwnerRequired    = &Error{Code: "organization.owner_required", Message: "organization owner required", Status: http.StatusForbidden}
 	MembershipExists             = &Error{Code: "organization.membership_exists", Message: "membership already exists", Status: http.StatusConflict}
 	PersonUnavailable            = &Error{Code: "organization.person_unavailable", Message: "person unavailable", Status: http.StatusNotFound}

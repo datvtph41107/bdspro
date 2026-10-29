@@ -67,3 +67,55 @@ type OrganizationMemberResponse struct {
 func newOrganizationMemberResponse(a db.OrganizationMembership) OrganizationMemberResponse {
 	return OrganizationMemberResponse{ID: a.ID, OrganizationID: a.OrganizationID, PersonID: a.PersonID, Role: a.Role, JoinedAt: a.JoinedAt, EndedAt: a.EndedAt}
 }
+
+type OrganizationAccessMembershipResponse struct {
+	ID       int64     `json:"id"`
+	Role     string    `json:"role"`
+	JoinedAt time.Time `json:"joined_at"`
+}
+
+type OrganizationAccessResponse struct {
+	PartyID     int64                                `json:"party_id"`
+	Name        string                               `json:"name"`
+	CreatedAt   time.Time                            `json:"created_at"`
+	Membership  OrganizationAccessMembershipResponse `json:"membership"`
+	Permissions []string                             `json:"permissions"`
+}
+
+func newOrganizationAccessResponse(access service.OrganizationAccess) OrganizationAccessResponse {
+	return OrganizationAccessResponse{
+		PartyID: access.Organization.PartyID, Name: access.Organization.Name,
+		CreatedAt: access.Organization.CreatedAt,
+		Membership: OrganizationAccessMembershipResponse{
+			ID: access.MembershipID, Role: access.Role, JoinedAt: access.JoinedAt,
+		},
+		Permissions: access.Permissions,
+	}
+}
+
+func newOrganizationAccessListResponse(accesses []service.OrganizationAccess) []OrganizationAccessResponse {
+	out := make([]OrganizationAccessResponse, 0, len(accesses))
+	for _, access := range accesses {
+		out = append(out, newOrganizationAccessResponse(access))
+	}
+	return out
+}
+
+type ActiveOrganizationMemberResponse struct {
+	ID             int64     `json:"id"`
+	OrganizationID int64     `json:"organization_id"`
+	PersonID       int64     `json:"person_id"`
+	Role           string    `json:"role"`
+	JoinedAt       time.Time `json:"joined_at"`
+}
+
+func newActiveOrganizationMembersResponse(members []db.ListOrganizationMembersForOwnerRow) []ActiveOrganizationMemberResponse {
+	out := make([]ActiveOrganizationMemberResponse, 0, len(members))
+	for _, member := range members {
+		out = append(out, ActiveOrganizationMemberResponse{
+			ID: member.ID, OrganizationID: member.OrganizationID, PersonID: member.PersonID,
+			Role: member.Role, JoinedAt: member.JoinedAt,
+		})
+	}
+	return out
+}
