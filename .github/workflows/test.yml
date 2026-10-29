@@ -47,6 +47,28 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
+      - name: Print canonical organization SQLC and gofmt (temporary)
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          "$(go env GOPATH)/bin/sqlc" generate
+          gofmt -w internal/service/organization.go internal/api/handler/organization.go internal/api/handler/representations.go internal/api/routes.go internal/api/routes_test.go internal/errors/catalog.go internal/database/organization_authorization_test.go internal/api/organization_access_e2e_test.go
+          python3 - <<'PY'
+          import json, base64
+          paths = [
+            "internal/database/organization.sql.go",
+            "internal/database/querier.go",
+            "internal/service/organization.go",
+            "internal/api/handler/organization.go",
+            "internal/api/handler/representations.go",
+            "internal/api/routes.go",
+            "internal/api/routes_test.go",
+            "internal/errors/catalog.go",
+            "internal/database/organization_authorization_test.go",
+            "internal/api/organization_access_e2e_test.go"
+          ]
+          print("ORG_CANONICAL_BASE64_JSON=" + json.dumps({p: base64.b64encode(open(p, "rb").read()).decode("ascii") for p in paths}))
+          PY
+
       - name: Verify SQLC generated output
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
