@@ -47,14 +47,14 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Inspect canonical password-reset SQLC output (temporary)
+      - name: Inspect gofmt for asynchronous reset flow (temporary)
         run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
-          "$(go env GOPATH)/bin/sqlc" generate
+          gofmt -w main.go internal/service/auth.go internal/api/handler/auth.go internal/jobs/password_reset.go internal/worker/task_send_password_reset.go internal/jobs/password_reset_test.go internal/api/auth_channels_e2e_test.go
           python3 - <<'PY'
           import json
-          paths = ["internal/database/job_outbox.sql.go", "internal/database/querier.go"]
-          print("A2_GENERATED_JSON=" + json.dumps({p: open(p).read() for p in paths}))
+          paths = ["main.go", "internal/service/auth.go", "internal/api/handler/auth.go", "internal/jobs/password_reset.go", "internal/worker/task_send_password_reset.go", "internal/jobs/password_reset_test.go", "internal/api/auth_channels_e2e_test.go"]
+          for p in paths:
+              print("A2_FMT_FILE=" + json.dumps({"path": p, "content": open(p).read()}))
           PY
 
       - name: Verify SQLC generated output
