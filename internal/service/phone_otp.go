@@ -159,7 +159,7 @@ func (s PhoneOTP) StartRegister(ctx context.Context, phone string) error {
  if err:=s.allowed(); err!=nil { return err }
  if !phoneE164.MatchString(phone) { return apperrors.InvalidPhone }
  _,err:=s.Store.AccountIDForPhone(ctx, phone)
- if err==nil { return apperrors.PhoneUnavailable }
+ if err==nil { return apperrors.PhoneRegistered }
  if !errors.Is(err, pgx.ErrNoRows) { return err }
  code,err:=s.generateCode()
  if err!=nil { return err }

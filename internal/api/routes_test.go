@@ -59,14 +59,16 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	withOptional := newServer(true, true)
-	if n := len(withOptional.router.Routes()); n != 23 {
-		t.Errorf("enabled route count = %d, want 23", n)
+	if n := len(withOptional.router.Routes()); n != 26 {
+		t.Errorf("enabled route count = %d, want 26", n)
 	}
 	for _, route := range []string{
 		"POST /users/me/google/start", "GET /users/google/login/start",
 		"GET /users/google/callback", "POST /users/me/phone/google/start",
 		"POST /users/me/phone/start",
 		"POST /users/me/phone/verify",
+ "POST /users/phone/register/start", "POST /users/phone/register/verify",
+ "POST /users/phone/login/start", "POST /users/phone/login/verify",
 	} {
 		found := false
 		for _, current := range withOptional.router.Routes() {
@@ -82,7 +84,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	for _, removed := range []string{"POST /users/phone/password/login"} {
 		for _, current := range withOptional.router.Routes() {
 			if current.Method+" "+current.Path == removed {
-				t.Errorf("phone-only login must not be exposed: %s", removed)
+				t.Errorf("unsupported phone/password route exposed: %s", removed)
 			}
 		}
 	}

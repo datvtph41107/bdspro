@@ -53,6 +53,7 @@ var (
 	GoogleEmailUnverified        = &Error{Code: "auth.google_email_unverified", Message: "Google email is not verified", Status: http.StatusUnauthorized}
 	GoogleEmailAlreadyRegistered = &Error{Code: "auth.google_email_registered", Message: "email already registered; sign in and link Google", Status: http.StatusConflict}
 	InvalidPhone                 = &Error{Code: "auth.invalid_phone", Message: "invalid phone", Status: http.StatusBadRequest}
+	PhoneRegistered              = &Error{Code: "auth.phone_already_registered", Message: "phone number already registered", Status: http.StatusConflict}
 	PhoneUnavailable             = &Error{Code: "auth.phone_unavailable", Message: "phone unavailable", Status: http.StatusConflict}
 	OTPInvalid                   = &Error{Code: "auth.otp_invalid", Message: "invalid or expired code", Status: http.StatusUnauthorized}
 	OTPCooldown                  = &Error{Code: "auth.otp_cooldown", Message: "code temporarily unavailable", Status: http.StatusTooManyRequests}

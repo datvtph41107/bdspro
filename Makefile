@@ -38,4 +38,4 @@ server:
 	go run .
 
 swagger:
-	go test ./internal/api -run '^TestOpenAPICoverage -count=1
+	go test ./internal/api -run TestOpenAPICoverage -count=1
