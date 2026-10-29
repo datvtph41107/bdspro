@@ -63,6 +63,13 @@ type PasswordCredential struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+type PasswordResetToken struct {
+	TokenHash []byte    `json:"token_hash"`
+	AccountID int64     `json:"account_id"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Person struct {
 	PartyID int64 `json:"party_id"`
 }
@@ -84,6 +91,16 @@ type PhoneOtpChallenge struct {
 	FailedAttempts         int32       `json:"failed_attempts"`
 	AttemptWindowStartedAt time.Time   `json:"attempt_window_started_at"`
 	LockedUntil            time.Time   `json:"locked_until"`
+}
+
+type PhoneSignupChallenge struct {
+	PhoneE164      string      `json:"phone_e164"`
+	CodeMac        []byte      `json:"code_mac"`
+	DevCode        pgtype.Text `json:"dev_code"`
+	ExpiresAt      time.Time   `json:"expires_at"`
+	NextSendAt     time.Time   `json:"next_send_at"`
+	FailedAttempts int32       `json:"failed_attempts"`
+	LockedUntil    time.Time   `json:"locked_until"`
 }
 
 type Session struct {

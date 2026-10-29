@@ -64,7 +64,20 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 		return
 	}
 	accountID := middleware.AccountID(ctx)
-	if err := g.auth.CheckPassword(ctx.Request.Context(), accountID, req.Password); err != nil {
+	if (req.Password == "") == (req.PhoneCode == "") {
+		response.Reject(ctx, http.StatusBadRequest, "invalid_link_proof", "provide exactly one reauthentication method")
+		return
+	}
+	if req.PhoneCode != "" {
+		if g.phone == nil {
+			response.Reject(ctx, http.StatusForbidden, "phone_reauthentication_unavailable", "phone reauthentication unavailable")
+			return
+		}
+		if err := g.phone.AuthorizeGoogleLink(ctx.Request.Context(), accountID, req.PhoneCode); err != nil {
+			response.Error(ctx, err)
+			return
+		}
+	} else if err := g.auth.CheckPassword(ctx.Request.Context(), accountID, req.Password); err != nil {
 		response.Error(ctx, err)
 		return
 	}

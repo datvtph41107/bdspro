@@ -2,7 +2,13 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
+	"fmt"
+	"html"
+	"net/url"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -10,10 +16,12 @@ import (
 	"github.com/datvtph41107/bdspro/internal/config"
 	db "github.com/datvtph41107/bdspro/internal/database"
 	apperrors "github.com/datvtph41107/bdspro/internal/errors"
+	"github.com/datvtph41107/bdspro/internal/mail"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/rs/zerolog/log"
 )
 
 // AuthService owns registration, credential authentication, email verification,
@@ -181,4 +189,72 @@ func IssueSession(ctx context.Context, store db.Store, maker token.Maker, cfg co
 		AccessToken: accessToken, AccessExpiresAt: accessPayload.ExpiredAt,
 		RefreshToken: refreshToken, RefreshExpiresAt: refreshPayload.ExpiredAt,
 	}, nil
+}
+
+// RequestPasswordReset also lets a Google OAuth account establish its first
+// local password, but only after proving control of its verified email.
+// No password is silently generated during OAuth login.
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string, sender mail.EmailSender) error {
+	if sender == nil {
+		return fmt.Errorf("password reset mailer unavailable")
+	}
+	account, err := s.store.GetAccountByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !account.IsEmailVerified {
+		return nil
+	}
+
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return err
+	}
+	secret := base64.RawURLEncoding.EncodeToString(raw)
+	digest := sha256.Sum256([]byte(secret))
+	if err := s.store.CreatePasswordResetToken(ctx, db.CreatePasswordResetTokenParams{
+		TokenHash: digest[:], AccountID: account.ID,
+	}); err != nil {
+		return err
+	}
+
+	link, err := url.Parse(s.config.VerifyEmailURL)
+	if err != nil {
+		return err
+	}
+	link.Path = "/users/password/reset"
+	link.RawQuery = url.Values{"token": {secret}}.Encode()
+	content := fmt.Sprintf(
+		"Set or reset your BDSPro password within 15 minutes: <a href=%q>Set password</a>",
+		html.EscapeString(link.String()),
+	)
+	if err := sender.SendEmail("Reset your BDSPro password", content, []string{account.Email}, nil, nil, nil); err != nil {
+		// Do not turn a provider outage into an account-enumeration oracle.
+		log.Ctx(ctx).Error().Err(err).Msg("auth.password_reset_mail_failed")
+	}
+	return nil
+}
+
+// ResetPassword consumes its token transactionally and revokes refresh sessions.
+// Issued access JWTs remain valid until their normal expiry.
+func (s *AuthService) ResetPassword(ctx context.Context, secret, password string) error {
+	if utf8.RuneCountInString(password) < 8 || len(password) > 72 {
+		return apperrors.InvalidPassword
+	}
+	if len(secret) != 43 {
+		return apperrors.InvalidResetToken
+	}
+	digest := sha256.Sum256([]byte(secret))
+	hash, err := util.HashPassword(password)
+	if err != nil {
+		return err
+	}
+	err = s.store.ResetPasswordTx(ctx, digest[:], hash)
+	if errors.Is(err, db.ErrPasswordResetInvalid) {
+		return apperrors.InvalidResetToken
+	}
+	return err
 }

@@ -46,12 +46,22 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 		server.authHandler.Revoke,
 	)
 
+	api.POST("/users/password/reset/request",
+		sourceLimit("password_reset", 10, time.Hour),
+		server.authHandler.RequestPasswordReset,
+	)
+	api.GET("/users/password/reset", server.authHandler.PasswordResetPage)
+	api.POST("/users/password/reset",
+		sourceLimit("password_reset_confirm", 20, time.Hour),
+		server.authHandler.ResetPassword,
+	)
+
 	// Account authentication is inherited by every nested route group.
 	authenticated := api.Group("", middleware.Authenticate(server.tokenMaker))
 	{
 		authenticated.GET("/users/me", server.authHandler.Me)
 
-		organizations := authenticated.Group("/organizations", middleware.VerifiedEmail(server.store))
+		organizations := authenticated.Group("/organizations", middleware.VerifiedContact(server.store))
 		{
 			organizations.POST("", server.organizationHandler.Create)
 			organizations.GET("", server.organizationHandler.Index)
@@ -85,7 +95,22 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 
 	// Phone verification is enabled only when a safe delivery channel is configured.
 	if server.phoneHandler != nil {
-
+		api.POST("/users/phone/register/start",
+			sourceLimit("phone_register_start", 10, time.Hour),
+			server.phoneHandler.StartRegister,
+		)
+		api.POST("/users/phone/register/verify",
+			sourceLimit("phone_register_verify", 40, 10*time.Minute),
+			server.phoneHandler.VerifyRegister,
+		)
+		api.POST("/users/phone/login/start",
+			sourceLimit("phone_login_start", 30, time.Minute),
+			server.phoneHandler.StartLogin,
+		)
+		api.POST("/users/phone/login/verify",
+			sourceLimit("phone_login_verify", 40, 10*time.Minute),
+			server.phoneHandler.VerifyLogin,
+		)
 		phone := authenticated.Group("/users/me/phone", middleware.VerifiedEmail(server.store))
 		{
 			phone.POST("/start",

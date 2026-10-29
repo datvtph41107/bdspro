@@ -10,11 +10,16 @@ import (
 type Store interface {
 	Querier
 	PhoneOTPRepository
+	GetAccountByID(ctx context.Context, id int64) (Account, error)
+	GetAccountByEmail(ctx context.Context, email string) (Account, error)
 	RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
 	ExecTx(ctx context.Context, fn func(*Queries) error) error
 	GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	CreateOrganizationTx(ctx context.Context, arg CreateOrganizationTxParams) (Organization, error)
 	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
+	StartPhoneSignup(ctx context.Context, phone string, mac []byte, devCode string) error
+	CompletePhoneSignup(ctx context.Context, phone string, mac []byte) (Account, error)
+	ResetPasswordTx(ctx context.Context, tokenHash []byte, passwordHash string) error
 	LinkGoogleIdentity(ctx context.Context, arg LinkGoogleIdentityParams) error
 	GetGoogleAccountID(ctx context.Context, googleSub string) (int64, error)
 	CreateGoogleAccountTx(ctx context.Context, email, googleSub string) (Account, error)

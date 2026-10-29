@@ -47,16 +47,15 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Verify SQLC output
+      - name: Verify SQLC generated output
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
           "$(go env GOPATH)/bin/sqlc" generate
           git diff --exit-code -- internal/database
+          test -z "$(git ls-files --others --exclude-standard internal/database)"
 
-      - name: Verify embedded Swagger assets
-        run: |
-          make swagger
-          git diff --exit-code -- doc/statik
+      - name: Verify OpenAPI contract
+        run: make swagger
 
       - name: Migrate disposable test database
         env:
