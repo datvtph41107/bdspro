@@ -47,14 +47,13 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Inspect generated session SQLC code (temporary)
+      - name: Inspect canonical gofmt for A3 (temporary)
         run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
-          "$(go env GOPATH)/bin/sqlc" generate
+          gofmt -w internal/service/sessions.go internal/api/handler/auth.go internal/errors/catalog.go internal/api/routes.go internal/api/routes_test.go internal/api/auth_channels_e2e_test.go
           python3 - <<'PY'
           import json
-          paths = ["internal/database/session_management.sql.go", "internal/database/querier.go"]
-          print("A3_GENERATED_JSON=" + json.dumps({p: open(p).read() for p in paths}))
+          paths = ["internal/service/sessions.go", "internal/api/handler/auth.go", "internal/errors/catalog.go", "internal/api/routes.go", "internal/api/routes_test.go", "internal/api/auth_channels_e2e_test.go"]
+          print("A3_FMT_JSON=" + json.dumps({p: open(p).read() for p in paths}))
           PY
 
       - name: Verify SQLC generated output
