@@ -133,4 +133,3 @@ func (q *Queries) ReadAccountByID(ctx context.Context, id int64) (ReadAccountByI
 	)
 	return i, err
 }
-
