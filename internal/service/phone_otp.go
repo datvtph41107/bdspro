@@ -205,7 +205,7 @@ func (s PhoneOTP) VerifyRegister(ctx context.Context, phone, code, userAgent, cl
 		return empty, apperrors.OTPInvalid
 	}
 	if pgErr := apperrors.Postgres(err); pgErr != nil && pgErr.Code == "23505" {
-		return empty, apperrors.PhoneUnavailable
+		return empty, apperrors.PhoneRegistered
 	}
 	if err != nil {
 		return empty, err
@@ -231,7 +231,8 @@ func (s PhoneOTP) StartLogin(ctx context.Context, phone string) error {
 	}
 	err = s.start(ctx, phone, "login", accountID)
 	if errors.Is(err, db.ErrOTPCooldown) {
-		return apperrors.OTPCooldown
+		// An existing number and an unknown number must not be distinguishable.
+		return nil
 	}
 	return err
 }
