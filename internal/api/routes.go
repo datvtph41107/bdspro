@@ -60,6 +60,9 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 	authenticated := api.Group("", middleware.Authenticate(server.tokenMaker))
 	{
 		authenticated.GET("/users/me", server.authHandler.Me)
+		authenticated.GET("/users/me/sessions", server.authHandler.ListSessions)
+		authenticated.DELETE("/users/me/sessions/:id", server.authHandler.RevokeOwnSession)
+		authenticated.POST("/users/me/sessions/revoke_all", server.authHandler.RevokeAllSessions)
 		authenticated.POST("/users/me/email/start",
 			sourceLimit("email_link_start", 10, time.Hour),
 			server.authHandler.StartEmailLink,

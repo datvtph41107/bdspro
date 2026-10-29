@@ -154,3 +154,15 @@ password for the **same** AccountID. No account auto-merge takes place.
 
 Email-link delivery remains synchronous in this first A1 implementation;
 durable retry and live provider acceptance belong to A2/A4.
+
+## G. Sessions and logout
+
+After login, access JWTs authorize `GET /users/me/sessions` to list
+unexpired, non-revoked refresh sessions. This response includes session IDs,
+user agent, IP and timestamps but **never refresh tokens**.
+`DELETE /users/me/sessions/{id}` revokes only an ID owned by the current
+AccountID (unowned IDs return 404). Authenticated
+`POST /users/me/sessions/revoke_all` blocks every active refresh session.
+The already-issued stateless access JWTs **remain usable until expiry**.
+A device that needs immediate deactivation requires a separate access-token
+revocation contract; do not imply immediate device logout here.
