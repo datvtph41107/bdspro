@@ -116,7 +116,7 @@ Integration tests require `BDS_TEST_MODE=disposable` and `BDS_TEST_DB_URL` expli
 
 - Phone-only accounts cannot yet add an email/password through an authenticated email-link flow.
 - Google linking for passwordless phone-only accounts requires an explicit reauthentication design; it must not auto-link by email.
-- SMTP password-reset delivery is currently synchronous and is not yet fully outbox-backed; provider failure behavior must be audited for account enumeration and retries.
+- Password-reset delivery is queued durably through the existing PostgreSQL outbox and Asynq. Provider outage retries and duplicate task handling must be verified before production.
 - The OpenAPI contract lists optional Google/phone routes even in environments where the matching provider is disabled.
 
 ## E. Link Google to an existing phone-only account
