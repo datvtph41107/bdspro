@@ -166,3 +166,22 @@ AccountID (unowned IDs return 404). Authenticated
 The already-issued stateless access JWTs **remain usable until expiry**.
 A device that needs immediate deactivation requires a separate access-token
 revocation contract; do not imply immediate device logout here.
+
+## A2: Durable password reset
+
+`POST /users/password/reset/request` now persists a generic
+`job_outbox` entry (type `task:send_password_reset`) and returns
+HTTP 202. The HTTP handler does **not** contact SMTP or create reset tokens.
+The task payload carries only the AccountID. The worker creates a random
+single-use token, stores its SHA-256 hash and then sends its plaintext only
+inside the email link. SMTP failures propagate to Asynq and are retried.
+A retry generates a new proof, so SMTP ambiguous delivery can result in
+multiple valid 15-minute links; only one use of each proof is allowed,
+and a successful reset deletes all account reset proofs. This is
+at-least-once delivery, not exactly-once delivery.
+
+The existing `POST /users/password/reset` behavior (atomic password update,
+refresh session revocation and replay protection) is unchanged. Email
+enumeration is avoided on the request endpoint, including when SMTP is
+unavailable. For development, inspect Mailpit after the worker runs, rather
+than assuming email is sent before the HTTP response.

@@ -18,3 +18,13 @@ FOR UPDATE SKIP LOCKED;
 UPDATE job_outbox
 SET queued_at = now()
 WHERE id = $1 AND queued_at IS NULL;
+
+-- name: RecordPasswordResetJob :exec
+-- The payload identifies the account, never a reset token or password.
+-- The worker generates the one-time proof only when the job is executed.
+INSERT INTO job_outbox (task_type, payload, queue_name, max_retry, run_at)
+VALUES (
+    'task:send_password_reset',
+    jsonb_build_object('account_id', sqlc.arg(account_id)::bigint),
+    'critical', 10, now()
+);

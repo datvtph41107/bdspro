@@ -164,7 +164,7 @@ func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 	if !h.limiter.Allow(c, "password_reset", req.Email, 10, 3, time.Hour) {
 		return
 	}
-	if err := h.auth.RequestPasswordReset(c.Request.Context(), req.Email, h.resetSender); err != nil {
+	if err := h.auth.RequestPasswordReset(c.Request.Context(), req.Email); err != nil {
 		response.Error(c, err)
 		return
 	}
