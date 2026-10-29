@@ -41,6 +41,7 @@ var (
 	InvalidOrganization          = &Error{Code: "http.invalid_organization", Message: "invalid organization", Status: http.StatusBadRequest}
 	InvalidVerificationLink      = &Error{Code: "auth.invalid_verification_link", Message: "invalid or expired verification link", Status: http.StatusBadRequest}
 	InvalidRefreshToken          = &Error{Code: "auth.invalid_refresh_token", Message: "invalid refresh token", Status: http.StatusUnauthorized}
+	SessionNotFound              = &Error{Code: "auth.session_not_found", Message: "session not found", Status: http.StatusNotFound}
 	SessionUnavailable           = &Error{Code: "auth.session_unavailable", Message: "session unavailable", Status: http.StatusUnauthorized}
 	InvalidCredentials           = &Error{Code: "auth.invalid_credentials", Message: "invalid credentials", Status: http.StatusUnauthorized}
 	InvalidEmail                 = &Error{Code: "auth.invalid_email", Message: "invalid email", Status: http.StatusBadRequest}

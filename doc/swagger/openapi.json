@@ -1554,6 +1554,95 @@
           }
         }
       }
+    },
+    "/users/me/sessions": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "List active refresh sessions for current account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active sessions without refresh token secrets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SessionSummary"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/users/me/sessions/{id}": {
+      "delete": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Revoke owned refresh session",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked"
+          },
+          "400": {
+            "description": "Invalid ID"
+          },
+          "404": {
+            "description": "Not found or not owned"
+          }
+        }
+      }
+    },
+    "/users/me/sessions/revoke_all": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Revoke all refresh sessions including current one",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "All refresh sessions revoked; access tokens expire normally"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1894,6 +1983,29 @@
             "type": "string",
             "minLength": 43,
             "maxLength": 43
+          }
+        }
+      },
+      "SessionSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_agent": {
+            "type": "string"
+          },
+          "client_ip": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }
