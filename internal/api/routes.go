@@ -15,8 +15,8 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 	sourceLimit := func(operation string, attempts int64, window time.Duration) gin.HandlerFunc {
 		return middleware.IPActiveSource(server.authRateRedis, operation, attempts, window)
 	}
-	// System endpoint (outside any future API version prefix).
-	root.GET("/health", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	root.GET("/health", Health)
 
 	// Public account and session endpoints.
 	api.POST("/users",
@@ -98,4 +98,12 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 			)
 		}
 	}
+}
+
+// @Summary Check API health
+// @Tags System
+// @Success 200 "Service is healthy"
+// @Router /health [get]
+func Health(c *gin.Context) {
+	c.Status(http.StatusOK)
 }

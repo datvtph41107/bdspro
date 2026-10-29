@@ -2,7 +2,7 @@ DB_URL ?= postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
-.PHONY: postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration sqlc test server fmt
+.PHONY: postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration sqlc test server swagger
 
 postgres:
 	docker start $(POSTGRES_CONTAINER)
@@ -37,12 +37,6 @@ test:
 server:
 	go run .
 
-fmt:
-	gofmt -w .
-
-.PHONY: swagger verify-api-contract
 swagger:
-	python3 doc/sync_swagger.py
-
-verify-api-contract:
-	go test ./internal/api -run 'TestOpenAPICoversAllRegisteredRoutes|TestSwaggerServedInDevelopmentOnly' -count=1
+	swag init -g main.go --parseInternal -o doc/swagger --outputTypes json
+	statik -src=./doc/swagger -dest=./doc

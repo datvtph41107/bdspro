@@ -1,15 +1,32 @@
 package api
 
 import (
-	"github.com/datvtph41107/bdspro/doc/statik"
-	"github.com/gin-gonic/gin"
 	"net/http"
+
+	_ "github.com/datvtph41107/bdspro/doc/statik"
+
+	"github.com/gin-gonic/gin"
+	"github.com/rakyll/statik/fs"
+	"github.com/rs/zerolog/log"
 )
 
-// Swagger UI is a development-only endpoint. The OpenAPI JSON is embedded.
 func (server *Server) registerSwagger(router *gin.Engine) {
 	if server.config.Environment != "development" {
 		return
 	}
-	router.GET("/swagger/*filepath", gin.WrapH(http.StripPrefix("/swagger/", http.FileServer(http.FS(statik.Files())))))
+
+	statikFS, err := fs.New()
+	if err != nil {
+		log.Fatal().Err(err).Msg("cannot create statik fs")
+	}
+
+	swaggerHandler := http.StripPrefix(
+		"/swagger/",
+		http.FileServer(statikFS),
+	)
+
+	router.GET(
+		"/swagger/*filepath",
+		gin.WrapH(swaggerHandler),
+	)
 }

@@ -26,6 +26,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// @title BDSPro API
+// @version 1.0
+// @description BDSPro REST API.
+// @BasePath /
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
