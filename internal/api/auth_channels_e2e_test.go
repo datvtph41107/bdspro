@@ -63,7 +63,7 @@ func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *Server
 	}
 	cfg := config.Config{
 		Environment:          "development",
-		TokenSymmetricKey:     strings.Repeat("x", 32),
+		TokenSymmetricKey:    strings.Repeat("x", 32),
 		AccessTokenDuration:  15 * time.Minute,
 		RefreshTokenDuration: 24 * time.Hour,
 		VerifyEmailURL:       "http://localhost:8080/users/verify_email",
