@@ -47,14 +47,6 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Inspect formatted outbox test (temporary)
-        run: |
-          gofmt -w internal/worker/outbox_dispatcher_test.go
-          python3 - <<'PY'
-          import base64
-          print("A2_OUTBOX_TEST_BASE64=" + base64.b64encode(open("internal/worker/outbox_dispatcher_test.go","rb").read()).decode("ascii"))
-          PY
-
       - name: Verify SQLC generated output
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
