@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/internal/config"
+	"github.com/datvtph41107/bdspro/internal/jobs"
 	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -162,6 +163,8 @@ func TestPasswordResetAndGoogleCreatedAccountHTTPAcceptance(t *testing.T) {
 	if status != http.StatusAccepted {
 		t.Fatalf("reset request status=%d", status)
 	}
+	// HTTP records a durable outbox intent; the worker creates and sends the secret.
+	if err := jobs.SendPasswordReset(ctx, store, mailer, "http://localhost:8080/users/verify_email", account.ID); err != nil { t.Fatal(err) }
 	match := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)
 	if len(match) != 2 {
 		t.Fatal("reset email did not contain one-time token")
@@ -263,6 +266,7 @@ func TestPhoneOnlyAccountAttachesEmailAndPasswordOnSameAccount(t *testing.T) {
 	if status != http.StatusAccepted {
 		t.Fatalf("password setup request: %d", status)
 	}
+	if err := jobs.SendPasswordReset(ctx, db.NewStore(pool), mailer, "http://localhost:8080/users/verify_email", int64(id.(float64))); err != nil { t.Fatal(err) }
 	reset := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)
 	if len(reset) != 2 {
 		t.Fatal("password setup token not mailed")

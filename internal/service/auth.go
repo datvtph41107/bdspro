@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"html"
 	netmail "net/mail"
-	"net/url"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -22,7 +21,6 @@ import (
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/rs/zerolog/log"
 )
 
 // AuthService owns registration, credential authentication, email verification,
@@ -192,51 +190,15 @@ func IssueSession(ctx context.Context, store db.Store, maker token.Maker, cfg co
 	}, nil
 }
 
-// RequestPasswordReset also lets a Google OAuth account establish its first
-// local password, but only after proving control of its verified email.
-// No password is silently generated during OAuth login.
-func (s *AuthService) RequestPasswordReset(ctx context.Context, email string, sender mail.EmailSender) error {
-	if sender == nil {
-		return fmt.Errorf("password reset mailer unavailable")
-	}
-	account, err := s.store.GetAccountByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if !account.IsEmailVerified {
-		return nil
-	}
-
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return err
-	}
-	secret := base64.RawURLEncoding.EncodeToString(raw)
-	digest := sha256.Sum256([]byte(secret))
-	if err := s.store.CreatePasswordResetToken(ctx, db.CreatePasswordResetTokenParams{
-		TokenHash: digest[:], AccountID: account.ID,
-	}); err != nil {
-		return err
-	}
-
-	link, err := url.Parse(s.config.VerifyEmailURL)
-	if err != nil {
-		return err
-	}
-	link.Path = "/users/password/reset"
-	link.RawQuery = url.Values{"token": {secret}}.Encode()
-	content := fmt.Sprintf(
-		"Set or reset your BDSPro password within 15 minutes: <a href=%q>Set password</a>",
-		html.EscapeString(link.String()),
-	)
-	if err := sender.SendEmail("Reset your BDSPro password", content, []string{account.Email}, nil, nil, nil); err != nil {
-		// Do not turn a provider outage into an account-enumeration oracle.
-		log.Ctx(ctx).Error().Err(err).Msg("auth.password_reset_mail_failed")
-	}
-	return nil
+// RequestPasswordReset is non-enumerating and records a durable delivery intent.
+// Only the worker generates the actual one-time secret; neither the task nor
+// the PostgreSQL outbox carries plaintext reset tokens.
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
+    account, err := s.store.GetAccountByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+    if errors.Is(err, pgx.ErrNoRows) { return nil }
+    if err != nil { return err }
+    if !account.IsEmailVerified { return nil }
+    return s.store.RecordPasswordResetJob(ctx, account.ID)
 }
 
 // ResetPassword consumes its token transactionally and revokes refresh sessions.

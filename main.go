@@ -102,6 +102,7 @@ func run(ctx context.Context) error {
 	)
 	processor := worker.NewRedisTaskProcessor(redisOptions)
 	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, cfg.VerifyEmailURL))
+	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(store, mailer, cfg.VerifyEmailURL))
 	if err := processor.Start(); err != nil {
 		return fmt.Errorf("start worker: %w", err)
 	}
