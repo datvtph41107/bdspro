@@ -4,7 +4,7 @@ ALTER TABLE accounts ALTER COLUMN email DROP NOT NULL;
 -- A registration challenge precedes account creation: no orphan Account is made
 -- until possession of the phone has been proved by a valid one-time code.
 CREATE TABLE phone_signup_challenges (
-  phone_e164 text PRIMARY KEY CHECK (phone_e164 ~ '^\\+[1-9][0-9]{7,14}$'),
+  phone_e164 text PRIMARY KEY CHECK (phone_e164 ~ '^\+[1-9][0-9]{7,14}$'),
   code_mac bytea NOT NULL CHECK (octet_length(code_mac)=32),
   dev_code text,
   expires_at timestamptz NOT NULL,
