@@ -19,6 +19,14 @@ type Account struct {
 	IsEmailVerified bool      `json:"is_email_verified"`
 }
 
+type EmailLinkChallenge struct {
+	AccountID  int64     `json:"account_id"`
+	Email      string    `json:"email"`
+	TokenHash  []byte    `json:"token_hash"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	NextSendAt time.Time `json:"next_send_at"`
+}
+
 type GoogleIdentity struct {
 	GoogleSub string    `json:"google_sub"`
 	AccountID int64     `json:"account_id"`

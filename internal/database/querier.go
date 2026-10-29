@@ -12,8 +12,10 @@ import (
 
 type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMembership, error)
+	AttachVerifiedEmail(ctx context.Context, arg AttachVerifiedEmailParams) (int64, error)
 	BindPhoneCredentialQuery(ctx context.Context, arg BindPhoneCredentialQueryParams) error
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
+	ConsumeEmailLinkChallenge(ctx context.Context, arg ConsumeEmailLinkChallengeParams) (string, error)
 	ConsumePasswordResetToken(ctx context.Context, tokenHash []byte) (int64, error)
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
@@ -31,6 +33,7 @@ type Querier interface {
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
 	DeletePhoneSignup(ctx context.Context, phoneE164 string) error
 	DeleteSessionsForAccount(ctx context.Context, accountID int64) error
+	EmailLinkAddressTaken(ctx context.Context, btrim string) (bool, error)
 	FailPhoneSignup(ctx context.Context, phoneE164 string) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
 	GetGoogleAccountIDQuery(ctx context.Context, googleSub string) (int64, error)
@@ -43,6 +46,7 @@ type Querier interface {
 	ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error)
 	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
+	LockPhoneOnlyEmailAccount(ctx context.Context, id int64) (int64, error)
 	LockPhoneSignup(ctx context.Context, phoneE164 string) (LockPhoneSignupRow, error)
 	LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
@@ -52,6 +56,7 @@ type Querier interface {
 	RecordEmailVerificationJob(ctx context.Context, accountID int64) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+	UpsertEmailLinkChallenge(ctx context.Context, arg UpsertEmailLinkChallengeParams) (int64, error)
 	UpsertPasswordCredential(ctx context.Context, arg UpsertPasswordCredentialParams) error
 	UpsertPhoneChallengeQuery(ctx context.Context, arg UpsertPhoneChallengeQueryParams) (int64, error)
 	UpsertPhoneSignup(ctx context.Context, arg UpsertPhoneSignupParams) (int64, error)

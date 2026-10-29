@@ -60,6 +60,14 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 	authenticated := api.Group("", middleware.Authenticate(server.tokenMaker))
 	{
 		authenticated.GET("/users/me", server.authHandler.Me)
+		authenticated.POST("/users/me/email/start",
+			sourceLimit("email_link_start", 10, time.Hour),
+			server.authHandler.StartEmailLink,
+		)
+		authenticated.POST("/users/me/email/verify",
+			sourceLimit("email_link_verify", 20, time.Hour),
+			server.authHandler.ConfirmEmailLink,
+		)
 
 		organizations := authenticated.Group("/organizations", middleware.VerifiedContact(server.store))
 		{
