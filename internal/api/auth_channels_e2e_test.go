@@ -209,3 +209,43 @@ func TestEmailPasswordRegistrationAndDuplicateHTTPAcceptance(t *testing.T) {
 		t.Fatalf("email login did not preserve AccountID: status=%d response=%v", status, login)
 	}
 }
+
+
+func TestPhoneOnlyAccountAttachesEmailAndPasswordOnSameAccount(t *testing.T) {
+    ctx, pool, server, mailer := authAcceptanceServer(t)
+    phone := fmt.Sprintf("+84%09d", time.Now().UnixNano()%1000000000)
+    email := uuid.NewString() + "@example.test"
+
+    status, _ := authAcceptanceCall(t, server, "/users/phone/register/start", http.MethodPost, map[string]string{"phone": phone}, "")
+    if status != http.StatusAccepted { t.Fatalf("phone signup start: %d", status) }
+    var code string
+    if err := pool.QueryRow(ctx, "SELECT dev_code FROM phone_signup_challenges WHERE phone_e164=$1", phone).Scan(&code); err != nil { t.Fatal(err) }
+    status, registered := authAcceptanceCall(t, server, "/users/phone/register/verify", http.MethodPost, map[string]string{"phone": phone, "code": code}, "")
+    if status != http.StatusCreated { t.Fatalf("phone signup: %d %v", status, registered) }
+    id := registered["user"].(map[string]any)["account_id"]
+    access := registered["access_token"].(string)
+
+    status, _ = authAcceptanceCall(t, server, "/users/phone/login/start", http.MethodPost, map[string]string{"phone": phone}, "")
+    if status != http.StatusAccepted { t.Fatalf("fresh OTP: %d", status) }
+    if err := pool.QueryRow(ctx, "SELECT dev_code FROM phone_otp_challenges WHERE phone_e164=$1 AND purpose='login'", phone).Scan(&code); err != nil { t.Fatal(err) }
+    status, result := authAcceptanceCall(t, server, "/users/me/email/start", http.MethodPost, map[string]string{"email": email, "phone_code": code}, access)
+    if status != http.StatusAccepted { t.Fatalf("email link start: %d %v", status, result) }
+
+    token := regexp.MustCompile(`<code>([A-Za-z0-9_-]{43})</code>`).FindStringSubmatch(mailer.body)
+    if len(token) != 2 { t.Fatalf("email link token not mailed") }
+    status, result = authAcceptanceCall(t, server, "/users/me/email/verify", http.MethodPost, map[string]string{"token": token[1]}, access)
+    if status != http.StatusNoContent { t.Fatalf("email confirm: %d %v", status, result) }
+    current, err := db.NewStore(pool).GetAccountByID(ctx, int64(id.(float64)))
+    if err != nil || current.Email != email || !current.IsEmailVerified { t.Fatalf("email link mutated identity: %+v err=%v", current, err) }
+    status, _ = authAcceptanceCall(t, server, "/users/me/email/verify", http.MethodPost, map[string]string{"token": token[1]}, access)
+    if status != http.StatusBadRequest { t.Fatalf("email link replay status=%d", status) }
+
+    status, _ = authAcceptanceCall(t, server, "/users/password/reset/request", http.MethodPost, map[string]string{"email": email}, "")
+    if status != http.StatusAccepted { t.Fatalf("password setup request: %d", status) }
+    reset := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)
+    if len(reset) != 2 { t.Fatal("password setup token not mailed") }
+    status, result = authAcceptanceCall(t, server, "/users/password/reset", http.MethodPost, map[string]string{"token": reset[1], "password": "NewPhoneAccountPassword123"}, "")
+    if status != http.StatusNoContent { t.Fatalf("password setup: %d %v", status, result) }
+    status, result = authAcceptanceCall(t, server, "/users/login", http.MethodPost, map[string]string{"email": email, "password": "NewPhoneAccountPassword123"}, "")
+    if status != http.StatusOK || result["user"].(map[string]any)["account_id"] != id { t.Fatalf("email login changed AccountID: %d %v", status, result) }
+}
