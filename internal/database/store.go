@@ -10,8 +10,8 @@ import (
 type Store interface {
 	Querier
 	PhoneOTPRepository
- GetAccountByID(ctx context.Context, id int64) (Account, error)
- GetAccountByEmail(ctx context.Context, email string) (Account, error)
+	GetAccountByID(ctx context.Context, id int64) (Account, error)
+	GetAccountByEmail(ctx context.Context, email string) (Account, error)
 	RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
 	ExecTx(ctx context.Context, fn func(*Queries) error) error
 	GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
