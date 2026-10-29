@@ -185,3 +185,27 @@ func TestPasswordResetAndGoogleCreatedAccountHTTPAcceptance(t *testing.T) {
 		t.Fatalf("used reset token was accepted: status=%d", status)
 	}
 }
+
+func TestEmailPasswordRegistrationAndDuplicateHTTPAcceptance(t *testing.T) {
+	_, _, server, _ := authAcceptanceServer(t)
+	email := uuid.NewString() + "@example.test"
+	status, created := authAcceptanceCall(t, server, "/users", http.MethodPost, map[string]string{
+		"email": email, "password": "InitialPassword123",
+	}, "")
+	if status != http.StatusCreated {
+		t.Fatalf("email signup status=%d response=%v", status, created)
+	}
+	accountID := created["account_id"]
+	status, rejected := authAcceptanceCall(t, server, "/users", http.MethodPost, map[string]string{
+		"email": strings.ToUpper(email), "password": "InitialPassword123",
+	}, "")
+	if status != http.StatusConflict || rejected["code"] != "auth.email_registered" {
+		t.Fatalf("duplicate email must conflict: status=%d response=%v", status, rejected)
+	}
+	status, login := authAcceptanceCall(t, server, "/users/login", http.MethodPost, map[string]string{
+		"email": email, "password": "InitialPassword123",
+	}, "")
+	if status != http.StatusOK || login["user"].(map[string]any)["account_id"] != accountID {
+		t.Fatalf("email login did not preserve AccountID: status=%d response=%v", status, login)
+	}
+}
