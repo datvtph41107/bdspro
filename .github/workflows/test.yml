@@ -47,6 +47,27 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
+      - name: Inspect A2 canonical SQLC and gofmt (temporary)
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          "$(go env GOPATH)/bin/sqlc" generate
+          gofmt -w main.go internal/service/auth.go internal/api/handler/auth.go internal/api/auth_channels_e2e_test.go internal/jobs/password_reset.go internal/jobs/password_reset_test.go internal/worker/task_send_password_reset.go
+          python3 - <<'PY'
+          import json,base64
+          paths = [
+            "internal/database/job_outbox.sql.go",
+            "internal/database/querier.go",
+            "main.go",
+            "internal/service/auth.go",
+            "internal/api/handler/auth.go",
+            "internal/api/auth_channels_e2e_test.go",
+            "internal/jobs/password_reset.go",
+            "internal/jobs/password_reset_test.go",
+            "internal/worker/task_send_password_reset.go"
+          ]
+          print("A2_CANONICAL_BASE64_JSON=" + json.dumps({p: base64.b64encode(open(p,"rb").read()).decode("ascii") for p in paths}))
+          PY
+
       - name: Verify SQLC generated output
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
