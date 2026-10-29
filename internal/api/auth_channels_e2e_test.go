@@ -278,34 +278,52 @@ func TestPhoneOnlyAccountAttachesEmailAndPasswordOnSameAccount(t *testing.T) {
 }
 
 func TestSessionOwnershipRevocationAndRefreshDenial(t *testing.T) {
-    _, _, server, _ := authAcceptanceServer(t)
-    email := uuid.NewString() + "@example.test"
-    _, _ = authAcceptanceCall(t, server, "/users", http.MethodPost, map[string]string{"email":email,"password":"AReallyStrongPassword123"}, "")
-    status, login := authAcceptanceCall(t, server, "/users/login", http.MethodPost, map[string]string{"email":email,"password":"AReallyStrongPassword123"}, "")
-    if status != http.StatusOK { t.Fatalf("first login: %d %v", status, login) }
-    firstToken := login["access_token"].(string)
-    firstSession := login["session_id"].(string)
-    refresh := login["refresh_token"].(string)
-    status, secondLogin := authAcceptanceCall(t, server, "/users/login", http.MethodPost, map[string]string{"email":email,"password":"AReallyStrongPassword123"}, "")
-    if status != http.StatusOK { t.Fatalf("second login: %d %v",status,secondLogin) }
-    status, list := authAcceptanceCall(t, server, "/users/me/sessions", http.MethodGet, nil, firstToken)
-    if status != http.StatusOK || len(list["sessions"].([]any)) < 2 { t.Fatalf("list sessions status=%d result=%v",status,list) }
-    for _, item := range list["sessions"].([]any) {
-        session := item.(map[string]any)
-        if _, ok := session["refresh_token"]; ok { t.Fatal("session listing leaked refresh token") }
-    }
-    otherEmail := uuid.NewString()+"@example.test"
-    _, _ = authAcceptanceCall(t, server, "/users", http.MethodPost, map[string]string{"email":otherEmail,"password":"AReallyStrongPassword123"}, "")
-    _, otherLogin := authAcceptanceCall(t, server, "/users/login", http.MethodPost, map[string]string{"email":otherEmail,"password":"AReallyStrongPassword123"}, "")
-    otherToken := otherLogin["access_token"].(string)
-    status, _ = authAcceptanceCall(t, server, "/users/me/sessions/"+firstSession, http.MethodDelete, nil, otherToken)
-    if status != http.StatusNotFound { t.Fatalf("other account revoked session: %d",status) }
-    status, _ = authAcceptanceCall(t, server, "/users/me/sessions/"+firstSession, http.MethodDelete, nil, firstToken)
-    if status != http.StatusNoContent { t.Fatalf("own revoke: %d",status) }
-    status, _ = authAcceptanceCall(t, server, "/tokens/renew_access", http.MethodPost, map[string]string{"refresh_token":refresh}, "")
-    if status != http.StatusUnauthorized { t.Fatalf("revoked refresh still renewed: %d", status) }
-    status, _ = authAcceptanceCall(t, server, "/users/me/sessions/revoke_all", http.MethodPost, nil, firstToken)
-    if status != http.StatusNoContent { t.Fatalf("revoke all: %d",status) }
-    status, list = authAcceptanceCall(t, server, "/users/me/sessions", http.MethodGet, nil, firstToken)
-    if status != http.StatusOK || len(list["sessions"].([]any)) != 0 { t.Fatalf("revoke all failed: %d %v",status,list) }
+	_, _, server, _ := authAcceptanceServer(t)
+	email := uuid.NewString() + "@example.test"
+	_, _ = authAcceptanceCall(t, server, "/users", http.MethodPost, map[string]string{"email": email, "password": "AReallyStrongPassword123"}, "")
+	status, login := authAcceptanceCall(t, server, "/users/login", http.MethodPost, map[string]string{"email": email, "password": "AReallyStrongPassword123"}, "")
+	if status != http.StatusOK {
+		t.Fatalf("first login: %d %v", status, login)
+	}
+	firstToken := login["access_token"].(string)
+	firstSession := login["session_id"].(string)
+	refresh := login["refresh_token"].(string)
+	status, secondLogin := authAcceptanceCall(t, server, "/users/login", http.MethodPost, map[string]string{"email": email, "password": "AReallyStrongPassword123"}, "")
+	if status != http.StatusOK {
+		t.Fatalf("second login: %d %v", status, secondLogin)
+	}
+	status, list := authAcceptanceCall(t, server, "/users/me/sessions", http.MethodGet, nil, firstToken)
+	if status != http.StatusOK || len(list["sessions"].([]any)) < 2 {
+		t.Fatalf("list sessions status=%d result=%v", status, list)
+	}
+	for _, item := range list["sessions"].([]any) {
+		session := item.(map[string]any)
+		if _, ok := session["refresh_token"]; ok {
+			t.Fatal("session listing leaked refresh token")
+		}
+	}
+	otherEmail := uuid.NewString() + "@example.test"
+	_, _ = authAcceptanceCall(t, server, "/users", http.MethodPost, map[string]string{"email": otherEmail, "password": "AReallyStrongPassword123"}, "")
+	_, otherLogin := authAcceptanceCall(t, server, "/users/login", http.MethodPost, map[string]string{"email": otherEmail, "password": "AReallyStrongPassword123"}, "")
+	otherToken := otherLogin["access_token"].(string)
+	status, _ = authAcceptanceCall(t, server, "/users/me/sessions/"+firstSession, http.MethodDelete, nil, otherToken)
+	if status != http.StatusNotFound {
+		t.Fatalf("other account revoked session: %d", status)
+	}
+	status, _ = authAcceptanceCall(t, server, "/users/me/sessions/"+firstSession, http.MethodDelete, nil, firstToken)
+	if status != http.StatusNoContent {
+		t.Fatalf("own revoke: %d", status)
+	}
+	status, _ = authAcceptanceCall(t, server, "/tokens/renew_access", http.MethodPost, map[string]string{"refresh_token": refresh}, "")
+	if status != http.StatusUnauthorized {
+		t.Fatalf("revoked refresh still renewed: %d", status)
+	}
+	status, _ = authAcceptanceCall(t, server, "/users/me/sessions/revoke_all", http.MethodPost, nil, firstToken)
+	if status != http.StatusNoContent {
+		t.Fatalf("revoke all: %d", status)
+	}
+	status, list = authAcceptanceCall(t, server, "/users/me/sessions", http.MethodGet, nil, firstToken)
+	if status != http.StatusOK || len(list["sessions"].([]any)) != 0 {
+		t.Fatalf("revoke all failed: %d %v", status, list)
+	}
 }

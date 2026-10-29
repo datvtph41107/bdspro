@@ -242,22 +242,32 @@ func (h *AuthHandler) ConfirmEmailLink(c *gin.Context) {
 }
 
 func (h *AuthHandler) ListSessions(c *gin.Context) {
-    sessions, err := h.auth.ListSessions(c.Request.Context(), middleware.AccountID(c))
-    if err != nil { response.Error(c, err); return }
-    if sessions == nil { sessions = []db.ListActiveSessionsRow{} }
-    c.JSON(http.StatusOK, gin.H{"sessions": sessions})
+	sessions, err := h.auth.ListSessions(c.Request.Context(), middleware.AccountID(c))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	if sessions == nil {
+		sessions = []db.ListActiveSessionsRow{}
+	}
+	c.JSON(http.StatusOK, gin.H{"sessions": sessions})
 }
 func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {
-    id, err := uuid.Parse(c.Param("id"))
-    if err != nil { response.Reject(c, http.StatusBadRequest, "invalid_session_id", "invalid session id"); return }
-    if err := h.auth.RevokeOwnSession(c.Request.Context(), middleware.AccountID(c), id); err != nil {
-        response.Error(c, err); return
-    }
-    c.Status(http.StatusNoContent)
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Reject(c, http.StatusBadRequest, "invalid_session_id", "invalid session id")
+		return
+	}
+	if err := h.auth.RevokeOwnSession(c.Request.Context(), middleware.AccountID(c), id); err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
-    if err := h.auth.RevokeAllSessions(c.Request.Context(), middleware.AccountID(c)); err != nil {
-        response.Error(c, err); return
-    }
-    c.Status(http.StatusNoContent)
+	if err := h.auth.RevokeAllSessions(c.Request.Context(), middleware.AccountID(c)); err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
