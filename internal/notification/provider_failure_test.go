@@ -42,7 +42,10 @@ func TestSMSGatewayTransientFailureThenRecovery(t *testing.T) {
 
 func TestSMSGatewayHonorsContextDeadline(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		<-r.Context().Done()
+		select {
+		case <-r.Context().Done():
+		case <-time.After(200 * time.Millisecond):
+		}
 	}))
 	defer server.Close()
 	sender := SMSGateway{URL: server.URL, Token: "test-token", Client: server.Client()}
