@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 )
 
 const createAccount = `-- name: CreateAccount :one
@@ -58,13 +59,21 @@ func (q *Queries) CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVer
 }
 
 const getAccountByEmail = `-- name: GetAccountByEmail :one
-SELECT id, person_id, email, created_at, is_email_verified
+SELECT id, person_id, COALESCE(email, '')::text AS email, created_at, is_email_verified
 FROM accounts WHERE lower(btrim(email)) = lower(btrim($1)) LIMIT 1
 `
 
-func (q *Queries) GetAccountByEmail(ctx context.Context, btrim string) (Account, error) {
+type GetAccountByEmailRow struct {
+	ID              int64     `json:"id"`
+	PersonID        int64     `json:"person_id"`
+	Email           string    `json:"email"`
+	CreatedAt       time.Time `json:"created_at"`
+	IsEmailVerified bool      `json:"is_email_verified"`
+}
+
+func (q *Queries) GetAccountByEmail(ctx context.Context, btrim string) (GetAccountByEmailRow, error) {
 	row := q.db.QueryRow(ctx, getAccountByEmail, btrim)
-	var i Account
+	var i GetAccountByEmailRow
 	err := row.Scan(
 		&i.ID,
 		&i.PersonID,
@@ -76,13 +85,21 @@ func (q *Queries) GetAccountByEmail(ctx context.Context, btrim string) (Account,
 }
 
 const getAccountByID = `-- name: GetAccountByID :one
-SELECT id, person_id, email, created_at, is_email_verified
+SELECT id, person_id, COALESCE(email, '')::text AS email, created_at, is_email_verified
 FROM accounts WHERE id = $1 LIMIT 1
 `
 
-func (q *Queries) GetAccountByID(ctx context.Context, id int64) (Account, error) {
+type GetAccountByIDRow struct {
+	ID              int64     `json:"id"`
+	PersonID        int64     `json:"person_id"`
+	Email           string    `json:"email"`
+	CreatedAt       time.Time `json:"created_at"`
+	IsEmailVerified bool      `json:"is_email_verified"`
+}
+
+func (q *Queries) GetAccountByID(ctx context.Context, id int64) (GetAccountByIDRow, error) {
 	row := q.db.QueryRow(ctx, getAccountByID, id)
-	var i Account
+	var i GetAccountByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.PersonID,

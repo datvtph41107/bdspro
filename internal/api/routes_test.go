@@ -41,7 +41,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		"GET /health", "POST /users", "POST /users/login",
 		"GET /users/verify_email", "POST /users/verify_email", "POST /users/verify_email/resend", "POST /tokens/renew_access",
 		"POST /tokens/revoke", "GET /users/me",
- "POST /users/password/reset/request", "GET /users/password/reset", "POST /users/password/reset",
+		"POST /users/password/reset/request", "GET /users/password/reset", "POST /users/password/reset",
 		"POST /organizations", "GET /organizations",
 		"POST /organizations/:id/members", "PATCH /organizations/:id",
 	}
@@ -67,8 +67,8 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		"GET /users/google/callback", "POST /users/me/phone/google/start",
 		"POST /users/me/phone/start",
 		"POST /users/me/phone/verify",
- "POST /users/phone/register/start", "POST /users/phone/register/verify",
- "POST /users/phone/login/start", "POST /users/phone/login/verify",
+		"POST /users/phone/register/start", "POST /users/phone/register/verify",
+		"POST /users/phone/login/start", "POST /users/phone/login/verify",
 	} {
 		found := false
 		for _, current := range withOptional.router.Routes() {

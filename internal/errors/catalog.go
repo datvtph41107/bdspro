@@ -34,7 +34,7 @@ func (e *Error) Is(target error) bool {
 // Business errors and infrastructure errors are distinct.
 // Internal errors deliberately have no client-facing status/message.
 var (
-	InvalidResetToken             = &Error{Code: "auth.invalid_reset_token", Message: "invalid or expired reset token", Status: http.StatusBadRequest}
+	InvalidResetToken            = &Error{Code: "auth.invalid_reset_token", Message: "invalid or expired reset token", Status: http.StatusBadRequest}
 	InvalidPassword              = &Error{Code: "auth.invalid_password", Message: "invalid request", Status: http.StatusBadRequest}
 	AccountUnavailable           = &Error{Code: "auth.account_unavailable", Message: "account unavailable", Status: http.StatusUnauthorized}
 	NameRequired                 = &Error{Code: "http.name_required", Message: "name required", Status: http.StatusBadRequest}

@@ -14,20 +14,27 @@ type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMembership, error)
 	BindPhoneCredentialQuery(ctx context.Context, arg BindPhoneCredentialQueryParams) error
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
+	ConsumePasswordResetToken(ctx context.Context, tokenHash []byte) (int64, error)
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	CreateOrganizationMembership(ctx context.Context, arg CreateOrganizationMembershipParams) (OrganizationMembership, error)
 	CreateParty(ctx context.Context) (int64, error)
 	CreatePasswordCredential(ctx context.Context, arg CreatePasswordCredentialParams) error
+	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) error
 	CreatePerson(ctx context.Context, partyID int64) error
+	CreatePhoneOnlyAccount(ctx context.Context, personID int64) (CreatePhoneOnlyAccountRow, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVerifiedGoogleAccountParams) (Account, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
+	DeletePasswordResetTokensForAccount(ctx context.Context, accountID int64) error
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
+	DeletePhoneSignup(ctx context.Context, phoneE164 string) error
+	DeleteSessionsForAccount(ctx context.Context, accountID int64) error
+	FailPhoneSignup(ctx context.Context, phoneE164 string) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
-	GetAccountByEmail(ctx context.Context, btrim string) (Account, error)
-	GetAccountByID(ctx context.Context, id int64) (Account, error)
+	GetAccountByEmail(ctx context.Context, btrim string) (GetAccountByEmailRow, error)
+	GetAccountByID(ctx context.Context, id int64) (GetAccountByIDRow, error)
 	GetGoogleAccountIDQuery(ctx context.Context, googleSub string) (int64, error)
 	GetPasswordHash(ctx context.Context, accountID int64) (string, error)
 	GetPhoneAccountIDQuery(ctx context.Context, phoneE164 string) (int64, error)
@@ -38,13 +45,16 @@ type Querier interface {
 	ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error)
 	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
+	LockPhoneSignup(ctx context.Context, phoneE164 string) (LockPhoneSignupRow, error)
 	LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
 	MarkJobOutboxQueued(ctx context.Context, id int64) error
 	RecordEmailVerificationJob(ctx context.Context, accountID int64) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+	UpsertPasswordCredential(ctx context.Context, arg UpsertPasswordCredentialParams) error
 	UpsertPhoneChallengeQuery(ctx context.Context, arg UpsertPhoneChallengeQueryParams) (int64, error)
+	UpsertPhoneSignup(ctx context.Context, arg UpsertPhoneSignupParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

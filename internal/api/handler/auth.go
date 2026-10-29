@@ -8,17 +8,17 @@ import (
 
 	"github.com/datvtph41107/bdspro/internal/api/middleware"
 	"github.com/datvtph41107/bdspro/internal/api/response"
+	"github.com/datvtph41107/bdspro/internal/mail"
 	"github.com/datvtph41107/bdspro/internal/service"
- "github.com/datvtph41107/bdspro/internal/mail"
- "strings"
 	"github.com/gin-gonic/gin"
+	"strings"
 )
 
 // AuthHandler handles HTTP input and output; authentication operations belong to AuthService.
 type AuthHandler struct {
-	auth    *service.AuthService
-	limiter *middleware.IdentityLimiter
- resetSender mail.EmailSender
+	auth        *service.AuthService
+	limiter     *middleware.IdentityLimiter
+	resetSender mail.EmailSender
 }
 
 func NewAuthHandler(auth *service.AuthService, limiter *middleware.IdentityLimiter) *AuthHandler {
@@ -154,43 +154,55 @@ func (h *AuthHandler) Me(c *gin.Context) {
 func (h *AuthHandler) SetPasswordResetSender(sender mail.EmailSender) { h.resetSender = sender }
 
 func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
-    var req PasswordResetRequest
-    if err := c.ShouldBindJSON(&req); err != nil { response.Invalid(c, err); return }
-    if !h.limiter.Allow(c, "password_reset", req.Email, 10, 3, time.Hour) { return }
-    if err := h.auth.RequestPasswordReset(c.Request.Context(), req.Email, h.resetSender); err != nil {
-        response.Error(c, err); return
-    }
-    c.Status(http.StatusAccepted)
+	var req PasswordResetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
+		return
+	}
+	if !h.limiter.Allow(c, "password_reset", req.Email, 10, 3, time.Hour) {
+		return
+	}
+	if err := h.auth.RequestPasswordReset(c.Request.Context(), req.Email, h.resetSender); err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.Status(http.StatusAccepted)
 }
 
 // GET is a non-consuming preview; passwords are submitted only with POST.
 func (h *AuthHandler) PasswordResetPage(c *gin.Context) {
-    token := c.Query("token")
-    if len(token) != 43 {
-        response.Reject(c, http.StatusBadRequest, "invalid_reset_token", "invalid or expired reset token")
-        return
-    }
-    const page = `<!doctype html><html><head><meta charset="utf-8"><title>Reset password</title></head><body><form method="post" action="/users/password/reset"><input type="hidden" name="token" value="{{.}}"><input type="password" name="password" minlength="8" required><button type="submit">Set password</button></form></body></html>`
-    c.Header("Cache-Control", "no-store")
-    c.Header("Referrer-Policy", "no-referrer")
-    c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
-    c.Header("Content-Type", "text/html; charset=utf-8")
-    tmpl := template.Must(template.New("reset").Parse(page))
-    _ = tmpl.Execute(c.Writer, token)
+	token := c.Query("token")
+	if len(token) != 43 {
+		response.Reject(c, http.StatusBadRequest, "invalid_reset_token", "invalid or expired reset token")
+		return
+	}
+	const page = `<!doctype html><html><head><meta charset="utf-8"><title>Reset password</title></head><body><form method="post" action="/users/password/reset"><input type="hidden" name="token" value="{{.}}"><input type="password" name="password" minlength="8" required><button type="submit">Set password</button></form></body></html>`
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	tmpl := template.Must(template.New("reset").Parse(page))
+	_ = tmpl.Execute(c.Writer, token)
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
-    var req PasswordResetConfirmRequest
-    var err error
-    if strings.HasPrefix(c.ContentType(), "application/json") {
-        err = c.ShouldBindJSON(&req)
-    } else {
-        err = c.ShouldBind(&req)
-    }
-    if err != nil { response.Invalid(c, err); return }
-    if !h.limiter.Allow(c, "password_reset_confirm", req.Token, 20, 6, time.Hour) { return }
-    if err := h.auth.ResetPassword(c.Request.Context(), req.Token, req.Password); err != nil {
-        response.Error(c, err); return
-    }
-    c.Status(http.StatusNoContent)
+	var req PasswordResetConfirmRequest
+	var err error
+	if strings.HasPrefix(c.ContentType(), "application/json") {
+		err = c.ShouldBindJSON(&req)
+	} else {
+		err = c.ShouldBind(&req)
+	}
+	if err != nil {
+		response.Invalid(c, err)
+		return
+	}
+	if !h.limiter.Allow(c, "password_reset_confirm", req.Token, 20, 6, time.Hour) {
+		return
+	}
+	if err := h.auth.ResetPassword(c.Request.Context(), req.Token, req.Password); err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

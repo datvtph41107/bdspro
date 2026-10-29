@@ -14,8 +14,8 @@ import (
 	"github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/datvtph41107/bdspro/internal/config"
 	db "github.com/datvtph41107/bdspro/internal/database"
+	"github.com/datvtph41107/bdspro/internal/mail"
 	"github.com/datvtph41107/bdspro/internal/notification"
- "github.com/datvtph41107/bdspro/internal/mail"
 	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
@@ -57,7 +57,9 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client, res
 		identityLimiter: middleware.NewIdentityLimiter(redisClient),
 	}
 	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, maker, cfg), server.identityLimiter)
- if len(resetMailers) > 0 { server.authHandler.SetPasswordResetSender(resetMailers[0]) }
+	if len(resetMailers) > 0 {
+		server.authHandler.SetPasswordResetSender(resetMailers[0])
+	}
 	server.organizationHandler = handler.NewOrganizationHandler(service.NewOrganizationService(store))
 
 	if cfg.GoogleClientID != "" {
@@ -100,7 +102,7 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client, res
 		server.phoneHandler = handler.NewPhoneHandler(
 			store, cfg, phoneSender, server.identityLimiter,
 		)
-  server.phoneHandler.SetTokenMaker(maker)
+		server.phoneHandler.SetTokenMaker(maker)
 		if server.googleHandler != nil {
 			server.googleHandler.SetPhoneBinding(phone)
 		}

@@ -14,7 +14,7 @@ import (
 	db "github.com/datvtph41107/bdspro/internal/database"
 	apperrors "github.com/datvtph41107/bdspro/internal/errors"
 	"github.com/datvtph41107/bdspro/internal/notification"
- "github.com/datvtph41107/bdspro/internal/token"
+	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -29,7 +29,7 @@ type PhoneOTP struct {
 	Store  db.Store
 	Config config.Config
 	Sender notification.PhoneCodeSender
- Maker token.Maker
+	Maker  token.Maker
 }
 
 func (s PhoneOTP) allowed() error {
@@ -156,61 +156,109 @@ func (s PhoneOTP) VerifyBind(ctx context.Context, accountID int64, phone, code s
 // StartRegister sends an OTP before any account is created. A registered
 // phone returns a distinct conflict, while signup remains unique in PostgreSQL.
 func (s PhoneOTP) StartRegister(ctx context.Context, phone string) error {
- if err:=s.allowed(); err!=nil { return err }
- if !phoneE164.MatchString(phone) { return apperrors.InvalidPhone }
- _,err:=s.Store.AccountIDForPhone(ctx, phone)
- if err==nil { return apperrors.PhoneRegistered }
- if !errors.Is(err, pgx.ErrNoRows) { return err }
- code,err:=s.generateCode()
- if err!=nil { return err }
- devCode:=""
- if s.Config.Environment=="development" { devCode=code }
- if err=s.Store.StartPhoneSignup(ctx,phone,s.mac(phone,"register",0,code),devCode); err!=nil {
-  if errors.Is(err,db.ErrOTPCooldown) { return apperrors.OTPCooldown }
-  return err
- }
- if s.Sender==nil { return nil }
- return s.Sender.SendCode(ctx,phone,code)
+	if err := s.allowed(); err != nil {
+		return err
+	}
+	if !phoneE164.MatchString(phone) {
+		return apperrors.InvalidPhone
+	}
+	_, err := s.Store.AccountIDForPhone(ctx, phone)
+	if err == nil {
+		return apperrors.PhoneRegistered
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	code, err := s.generateCode()
+	if err != nil {
+		return err
+	}
+	devCode := ""
+	if s.Config.Environment == "development" {
+		devCode = code
+	}
+	if err = s.Store.StartPhoneSignup(ctx, phone, s.mac(phone, "register", 0, code), devCode); err != nil {
+		if errors.Is(err, db.ErrOTPCooldown) {
+			return apperrors.OTPCooldown
+		}
+		return err
+	}
+	if s.Sender == nil {
+		return nil
+	}
+	return s.Sender.SendCode(ctx, phone, code)
 }
 
 // VerifyRegister creates a phone-only Account and issues the same session
 // contract used by password and Google sign-in. A failed session issuance
 // leaves the verified account accessible through OTP login.
-func (s PhoneOTP) VerifyRegister(ctx context.Context, phone,code,userAgent,clientIP string) (LoginResult,error) {
- var empty LoginResult
- if err:=s.allowed(); err!=nil { return empty,err }
- if !phoneE164.MatchString(phone)||!phoneCode.MatchString(code) { return empty,apperrors.OTPInvalid }
- a,err:=s.Store.CompletePhoneSignup(ctx,phone,s.mac(phone,"register",0,code))
- if errors.Is(err,db.ErrOTPInvalid) { return empty,apperrors.OTPInvalid }
- if pgErr:=apperrors.Postgres(err); pgErr!=nil && pgErr.Code=="23505" { return empty,apperrors.PhoneUnavailable }
- if err!=nil { return empty,err }
- return IssueSession(ctx,s.Store,s.Maker,s.Config,a,userAgent,clientIP)
+func (s PhoneOTP) VerifyRegister(ctx context.Context, phone, code, userAgent, clientIP string) (LoginResult, error) {
+	var empty LoginResult
+	if err := s.allowed(); err != nil {
+		return empty, err
+	}
+	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
+		return empty, apperrors.OTPInvalid
+	}
+	a, err := s.Store.CompletePhoneSignup(ctx, phone, s.mac(phone, "register", 0, code))
+	if errors.Is(err, db.ErrOTPInvalid) {
+		return empty, apperrors.OTPInvalid
+	}
+	if pgErr := apperrors.Postgres(err); pgErr != nil && pgErr.Code == "23505" {
+		return empty, apperrors.PhoneUnavailable
+	}
+	if err != nil {
+		return empty, err
+	}
+	return IssueSession(ctx, s.Store, s.Maker, s.Config, a, userAgent, clientIP)
 }
 
 // StartLogin does not reveal whether a number exists. Unknown numbers
 // receive the same accepted response, but no OTP is delivered.
 func (s PhoneOTP) StartLogin(ctx context.Context, phone string) error {
- if err:=s.allowed(); err!=nil { return err }
- if !phoneE164.MatchString(phone) { return apperrors.InvalidPhone }
- accountID,err:=s.Store.AccountIDForPhone(ctx,phone)
- if errors.Is(err,pgx.ErrNoRows) { return nil }
- if err!=nil { return err }
- err=s.start(ctx,phone,"login",accountID)
- if errors.Is(err,db.ErrOTPCooldown) { return apperrors.OTPCooldown }
- return err
+	if err := s.allowed(); err != nil {
+		return err
+	}
+	if !phoneE164.MatchString(phone) {
+		return apperrors.InvalidPhone
+	}
+	accountID, err := s.Store.AccountIDForPhone(ctx, phone)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	err = s.start(ctx, phone, "login", accountID)
+	if errors.Is(err, db.ErrOTPCooldown) {
+		return apperrors.OTPCooldown
+	}
+	return err
 }
-func (s PhoneOTP) VerifyLogin(ctx context.Context,phone,code,userAgent,clientIP string) (LoginResult,error) {
- var empty LoginResult
- if err:=s.allowed();err!=nil { return empty,err }
- if !phoneE164.MatchString(phone)||!phoneCode.MatchString(code) { return empty,apperrors.OTPInvalid }
- accountID,err:=s.Store.AccountIDForPhone(ctx,phone)
- if errors.Is(err,pgx.ErrNoRows) { return empty,apperrors.OTPInvalid }
- if err!=nil { return empty,err }
- if err:=s.Store.ConsumeChallenge(ctx,phone,"login",accountID,s.mac(phone,"login",accountID,code)); err!=nil {
-  if errors.Is(err,db.ErrOTPInvalid) { return empty,apperrors.OTPInvalid }
-  return empty,err
- }
- account,err:=s.Store.GetAccountByID(ctx,accountID)
- if err!=nil { return empty,err }
- return IssueSession(ctx,s.Store,s.Maker,s.Config,account,userAgent,clientIP)
+func (s PhoneOTP) VerifyLogin(ctx context.Context, phone, code, userAgent, clientIP string) (LoginResult, error) {
+	var empty LoginResult
+	if err := s.allowed(); err != nil {
+		return empty, err
+	}
+	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
+		return empty, apperrors.OTPInvalid
+	}
+	accountID, err := s.Store.AccountIDForPhone(ctx, phone)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return empty, apperrors.OTPInvalid
+	}
+	if err != nil {
+		return empty, err
+	}
+	if err := s.Store.ConsumeChallenge(ctx, phone, "login", accountID, s.mac(phone, "login", accountID, code)); err != nil {
+		if errors.Is(err, db.ErrOTPInvalid) {
+			return empty, apperrors.OTPInvalid
+		}
+		return empty, err
+	}
+	account, err := s.Store.GetAccountByID(ctx, accountID)
+	if err != nil {
+		return empty, err
+	}
+	return IssueSession(ctx, s.Store, s.Maker, s.Config, account, userAgent, clientIP)
 }
