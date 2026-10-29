@@ -18,11 +18,11 @@ type verificationStoreFake struct {
 	tokens     int
 }
 
-func (s *verificationStoreFake) GetAccountByID(_ context.Context, _ int64) (db.Account, error) {
+func (s *verificationStoreFake) GetAccountByID(_ context.Context, _ int64) (db.GetAccountByIDRow, error) {
 	if s.accountErr != nil {
-		return db.Account{}, s.accountErr
+		return db.GetAccountByIDRow{}, s.accountErr
 	}
-	return s.account, nil
+	return db.GetAccountByIDRow{ID: s.account.ID, PersonID: s.account.PersonID, Email: s.account.Email, CreatedAt: s.account.CreatedAt, IsEmailVerified: s.account.IsEmailVerified}, nil
 }
 
 func (s *verificationStoreFake) GetOrCreateVerifyEmailTx(_ context.Context, _ db.CreateVerifyEmailParams) (db.VerifyEmail, error) {

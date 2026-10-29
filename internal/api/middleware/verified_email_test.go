@@ -18,14 +18,14 @@ type emailVerificationStore struct {
 	err     error
 }
 
-func (s emailVerificationStore) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
+func (s emailVerificationStore) GetAccountByID(_ context.Context, id int64) (db.GetAccountByIDRow, error) {
 	if s.err != nil {
-		return db.Account{}, s.err
+		return db.GetAccountByIDRow{}, s.err
 	}
 	if id != s.account.ID {
-		return db.Account{}, errors.New("missing account")
+		return db.GetAccountByIDRow{}, errors.New("missing account")
 	}
-	return s.account, nil
+	return db.GetAccountByIDRow{ID: s.account.ID, PersonID: s.account.PersonID, Email: s.account.Email, CreatedAt: s.account.CreatedAt, IsEmailVerified: s.account.IsEmailVerified}, nil
 }
 
 func TestVerifiedEmailGuardsBusinessRoutes(t *testing.T) {

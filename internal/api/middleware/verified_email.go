@@ -14,7 +14,7 @@ import (
 // VerifiedEmail guards business operations, while still allowing unverified
 // users to authenticate, inspect their own account and verify their email.
 func VerifiedEmail(store interface {
-	GetAccountByID(context.Context, int64) (db.Account, error)
+	GetAccountByID(context.Context, int64) (db.GetAccountByIDRow, error)
 }) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if store == nil {
@@ -41,7 +41,7 @@ func VerifiedEmail(store interface {
 // VerifiedContact requires at least one verified contact channel. A phone-only
 // account must not be excluded from business routes merely for lacking email.
 func VerifiedContact(store interface {
-	GetAccountByID(context.Context, int64) (db.Account, error)
+	GetAccountByID(context.Context, int64) (db.GetAccountByIDRow, error)
 	GetPhoneForAccount(context.Context, int64) (string, error)
 }) gin.HandlerFunc {
 	return func(c *gin.Context) {

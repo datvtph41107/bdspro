@@ -15,7 +15,7 @@ import (
 // VerificationStore is the data contract required by email verification.
 // A job does not depend on the application's complete database Store.
 type VerificationStore interface {
-	GetAccountByID(ctx context.Context, id int64) (db.Account, error)
+	GetAccountByID(ctx context.Context, id int64) (db.GetAccountByIDRow, error)
 	GetOrCreateVerifyEmailTx(ctx context.Context, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error)
 }
 

@@ -23,11 +23,11 @@ type sessionMemoryStore struct {
 	session      db.Session
 }
 
-func (s *sessionMemoryStore) GetAccountByEmail(_ context.Context, email string) (db.Account, error) {
+func (s *sessionMemoryStore) GetAccountByEmail(_ context.Context, email string) (db.GetAccountByEmailRow, error) {
 	if !strings.EqualFold(email, s.account.Email) {
-		return db.Account{}, pgx.ErrNoRows
+		return db.GetAccountByEmailRow{}, pgx.ErrNoRows
 	}
-	return s.account, nil
+	return db.GetAccountByEmailRow{ID: s.account.ID, PersonID: s.account.PersonID, Email: s.account.Email, CreatedAt: s.account.CreatedAt, IsEmailVerified: s.account.IsEmailVerified}, nil
 }
 
 func (s *sessionMemoryStore) GetPasswordHash(_ context.Context, id int64) (string, error) {

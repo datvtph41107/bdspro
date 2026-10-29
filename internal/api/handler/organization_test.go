@@ -25,11 +25,11 @@ type organizationHTTPStoreFake struct {
 	createErr  error
 }
 
-func (s *organizationHTTPStoreFake) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
+func (s *organizationHTTPStoreFake) GetAccountByID(_ context.Context, id int64) (db.GetAccountByIDRow, error) {
 	if s.accountErr != nil {
-		return db.Account{}, s.accountErr
+		return db.GetAccountByIDRow{}, s.accountErr
 	}
-	return db.Account{ID: id, PersonID: 99}, nil
+	return db.GetAccountByIDRow{ID: id, PersonID: 99}, nil
 }
 
 func (s *organizationHTTPStoreFake) CreateOrganizationTx(_ context.Context, p db.CreateOrganizationTxParams) (db.Organization, error) {

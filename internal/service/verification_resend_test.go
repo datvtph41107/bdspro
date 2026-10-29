@@ -15,11 +15,11 @@ type resendEmailStore struct {
 	calls   int
 }
 
-func (s *resendEmailStore) GetAccountByEmail(_ context.Context, email string) (db.Account, error) {
+func (s *resendEmailStore) GetAccountByEmail(_ context.Context, email string) (db.GetAccountByEmailRow, error) {
 	if email != s.account.Email {
-		return db.Account{}, pgx.ErrNoRows
+		return db.GetAccountByEmailRow{}, pgx.ErrNoRows
 	}
-	return s.account, nil
+	return db.GetAccountByEmailRow{ID: s.account.ID, PersonID: s.account.PersonID, Email: s.account.Email, CreatedAt: s.account.CreatedAt, IsEmailVerified: s.account.IsEmailVerified}, nil
 }
 func (s *resendEmailStore) RecordEmailVerificationJob(_ context.Context, _ int64) error {
 	s.calls++

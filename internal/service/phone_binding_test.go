@@ -29,11 +29,11 @@ func (s *phoneBindingStore) GetGoogleAccountID(_ context.Context, sub string) (i
 	return s.linkedID, nil
 }
 
-func (s *phoneBindingStore) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
+func (s *phoneBindingStore) GetAccountByID(_ context.Context, id int64) (db.GetAccountByIDRow, error) {
 	if id != s.accountID {
-		return db.Account{}, pgx.ErrNoRows
+		return db.GetAccountByIDRow{}, pgx.ErrNoRows
 	}
-	return db.Account{ID: id, IsEmailVerified: true}, nil
+	return db.GetAccountByIDRow{ID: id, IsEmailVerified: true}, nil
 }
 
 func (s *phoneBindingStore) GetPhoneForAccount(_ context.Context, _ int64) (string, error) {
