@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"net/url"
 	netmail "net/mail"
+	"net/url"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -261,41 +261,68 @@ func (s *AuthService) ResetPassword(ctx context.Context, secret, password string
 }
 
 func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email, phoneCode string, sender mail.EmailSender) error {
-    if sender == nil { return fmt.Errorf("email link mailer unavailable") }
-    email = strings.ToLower(strings.TrimSpace(email))
-    address, err := netmail.ParseAddress(email)
-    if err != nil || address.Address != email || len(email) > 254 { return apperrors.InvalidEmail }
-    account, err := s.store.GetAccountByID(ctx, accountID)
-    if err != nil { return err }
-    if account.Email != "" { return apperrors.EmailAlreadyLinked }
-    _, err = s.store.GetAccountByEmail(ctx, email)
-    if err == nil { return apperrors.EmailRegistered }
-    if !errors.Is(err, pgx.ErrNoRows) { return err }
-    proof := PhoneOTP{Store: s.store, Config: s.config}
-    if err := proof.AuthorizePhoneProof(ctx, accountID, phoneCode); err != nil { return err }
-    raw := make([]byte, 32)
-    if _, err := rand.Read(raw); err != nil { return err }
-    secret := base64.RawURLEncoding.EncodeToString(raw)
-    hash := sha256.Sum256([]byte(secret))
-    if err := s.store.BeginEmailLinkTx(ctx, accountID, email, hash[:]); err != nil {
-        switch {
-        case errors.Is(err, db.ErrEmailLinkTaken): return apperrors.EmailRegistered
-        case errors.Is(err, db.ErrEmailLinkUnavailable): return apperrors.EmailAlreadyLinked
-        case errors.Is(err, db.ErrEmailLinkCooldown): return apperrors.EmailLinkCooldown
-        }
-        return err
-    }
-    content := fmt.Sprintf("To link this email to your BDSPro account, sign in and submit this one-time token to POST /users/me/email/verify within 15 minutes: <code>%s</code>", html.EscapeString(secret))
-    return sender.SendEmail("Verify your BDSPro email link", content, []string{email}, nil, nil, nil)
+	if sender == nil {
+		return fmt.Errorf("email link mailer unavailable")
+	}
+	email = strings.ToLower(strings.TrimSpace(email))
+	address, err := netmail.ParseAddress(email)
+	if err != nil || address.Address != email || len(email) > 254 {
+		return apperrors.InvalidEmail
+	}
+	account, err := s.store.GetAccountByID(ctx, accountID)
+	if err != nil {
+		return err
+	}
+	if account.Email != "" {
+		return apperrors.EmailAlreadyLinked
+	}
+	_, err = s.store.GetAccountByEmail(ctx, email)
+	if err == nil {
+		return apperrors.EmailRegistered
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	proof := PhoneOTP{Store: s.store, Config: s.config}
+	if err := proof.AuthorizePhoneProof(ctx, accountID, phoneCode); err != nil {
+		return err
+	}
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return err
+	}
+	secret := base64.RawURLEncoding.EncodeToString(raw)
+	hash := sha256.Sum256([]byte(secret))
+	if err := s.store.BeginEmailLinkTx(ctx, accountID, email, hash[:]); err != nil {
+		switch {
+		case errors.Is(err, db.ErrEmailLinkTaken):
+			return apperrors.EmailRegistered
+		case errors.Is(err, db.ErrEmailLinkUnavailable):
+			return apperrors.EmailAlreadyLinked
+		case errors.Is(err, db.ErrEmailLinkCooldown):
+			return apperrors.EmailLinkCooldown
+		}
+		return err
+	}
+	content := fmt.Sprintf("To link this email to your BDSPro account, sign in and submit this one-time token to POST /users/me/email/verify within 15 minutes: <code>%s</code>", html.EscapeString(secret))
+	return sender.SendEmail("Verify your BDSPro email link", content, []string{email}, nil, nil, nil)
 }
 
 func (s *AuthService) ConfirmEmailLink(ctx context.Context, accountID int64, secret string) error {
-    if len(secret) != 43 { return apperrors.InvalidEmailLink }
-    hash := sha256.Sum256([]byte(secret))
-    err := s.store.ConfirmEmailLinkTx(ctx, accountID, hash[:])
-    if errors.Is(err, db.ErrEmailLinkInvalid) { return apperrors.InvalidEmailLink }
-    if errors.Is(err, db.ErrEmailLinkUnavailable) { return apperrors.EmailAlreadyLinked }
-    var pgErr *pgconn.PgError
-    if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" { return apperrors.EmailRegistered }
-    return err
+	if len(secret) != 43 {
+		return apperrors.InvalidEmailLink
+	}
+	hash := sha256.Sum256([]byte(secret))
+	err := s.store.ConfirmEmailLinkTx(ctx, accountID, hash[:])
+	if errors.Is(err, db.ErrEmailLinkInvalid) {
+		return apperrors.InvalidEmailLink
+	}
+	if errors.Is(err, db.ErrEmailLinkUnavailable) {
+		return apperrors.EmailAlreadyLinked
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
+		return apperrors.EmailRegistered
+	}
+	return err
 }

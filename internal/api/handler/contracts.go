@@ -50,9 +50,9 @@ type PasswordResetConfirmRequest struct {
 }
 
 type EmailLinkStartRequest struct {
-    Email string `json:"email" binding:"required,email"`
-    PhoneCode string `json:"phone_code" binding:"required,len=6,numeric"`
+	Email     string `json:"email" binding:"required,email"`
+	PhoneCode string `json:"phone_code" binding:"required,len=6,numeric"`
 }
 type EmailLinkConfirmRequest struct {
-    Token string `json:"token" binding:"required,len=43"`
+	Token string `json:"token" binding:"required,len=43"`
 }

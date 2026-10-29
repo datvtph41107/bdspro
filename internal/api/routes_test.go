@@ -42,7 +42,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		"GET /users/verify_email", "POST /users/verify_email", "POST /users/verify_email/resend", "POST /tokens/renew_access",
 		"POST /tokens/revoke", "GET /users/me",
 		"POST /users/password/reset/request", "GET /users/password/reset", "POST /users/password/reset",
-        "POST /users/me/email/start", "POST /users/me/email/verify",
+		"POST /users/me/email/start", "POST /users/me/email/verify",
 		"POST /organizations", "GET /organizations",
 		"POST /organizations/:id/members", "PATCH /organizations/:id",
 	}
