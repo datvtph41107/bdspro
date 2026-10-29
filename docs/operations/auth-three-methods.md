@@ -93,7 +93,7 @@ Content-Type: application/json
 {"email":"developer@example.test"}
 ```
 
-For a verified email, a one-time 15-minute link is sent through the configured SMTP provider. Use Mailpit locally. Google-only accounts may use this flow to set their **first** local password. The request normally returns HTTP 202 without confirming whether an email belongs to an account.
+For a verified email, HTTP 202 records a durable job; the worker creates a one-time 15-minute link and sends it through the configured SMTP provider. Use Mailpit locally. Google-only accounts may use this flow to set their **first** local password. The request normally returns HTTP 202 without confirming whether an email belongs to an account.
 
 Open the reset link in the browser or use Postman:
 
@@ -116,7 +116,7 @@ Integration tests require `BDS_TEST_MODE=disposable` and `BDS_TEST_DB_URL` expli
 
 - Phone-only accounts cannot yet add an email/password through an authenticated email-link flow.
 - Google linking for passwordless phone-only accounts requires an explicit reauthentication design; it must not auto-link by email.
-- SMTP password-reset delivery is currently synchronous and is not yet fully outbox-backed; provider failure behavior must be audited for account enumeration and retries.
+- Password reset email is dispatched via durable Outbox/Asynq; SMTP retries can generate multiple valid 15-minute proofs after ambiguous delivery. Other emails, including email-link proof delivery, are still synchronous.
 - The OpenAPI contract lists optional Google/phone routes even in environments where the matching provider is disabled.
 
 ## E. Link Google to an existing phone-only account
@@ -166,3 +166,22 @@ AccountID (unowned IDs return 404). Authenticated
 The already-issued stateless access JWTs **remain usable until expiry**.
 A device that needs immediate deactivation requires a separate access-token
 revocation contract; do not imply immediate device logout here.
+
+## A2: Durable password reset
+
+`POST /users/password/reset/request` now persists a generic
+`job_outbox` entry (type `task:send_password_reset`) and returns
+HTTP 202. The HTTP handler does **not** contact SMTP or create reset tokens.
+The task payload carries only the AccountID. The worker creates a random
+single-use token, stores its SHA-256 hash and then sends its plaintext only
+inside the email link. SMTP failures propagate to Asynq and are retried.
+A retry generates a new proof, so SMTP ambiguous delivery can result in
+multiple valid 15-minute links; only one use of each proof is allowed,
+and a successful reset deletes all account reset proofs. This is
+at-least-once delivery, not exactly-once delivery.
+
+The existing `POST /users/password/reset` behavior (atomic password update,
+refresh session revocation and replay protection) is unchanged. Email
+enumeration is avoided on the request endpoint, including when SMTP is
+unavailable. For development, inspect Mailpit after the worker runs, rather
+than assuming email is sent before the HTTP response.

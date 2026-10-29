@@ -25,6 +25,18 @@ func (f *verificationDistributorFake) Enqueue(
 	if f.err != nil {
 		return f.err
 	}
+	if task.Type() == TaskSendPasswordReset {
+		// Another test package may have queued a reset intent in the shared
+		// disposable database. The dispatcher itself is type-agnostic.
+		var payload PayloadSendPasswordReset
+		if err := json.Unmarshal(task.Payload(), &payload); err != nil {
+			return err
+		}
+		if payload.AccountID <= 0 {
+			return errors.New("invalid reset account")
+		}
+		return nil
+	}
 	if task.Type() != TaskSendVerifyEmail {
 		return errors.New("unexpected task type")
 	}

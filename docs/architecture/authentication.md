@@ -15,7 +15,7 @@ for protected organization operations.
 
 First sign in using phone OTP, then request another OTP for that same bound number with `POST /users/phone/login/start`. Call authenticated `POST /users/me/google/start` with `{"phone_code":"<fresh code>"}`, then complete the Google browser flow. The OTP is consumed, bound to the AccountID and cannot be replayed. Existing password accounts may instead use `{"password":"<current password>"}`. Linking Google subject never merges accounts solely by email.
 
-Linking Google to a phone-only account currently **does not add its verified Google email** to `accounts.email`. Adding an email to that account needs a separate explicit, verified linking operation.
+Linking Google to a phone-only account does **not** automatically attach the Google email. The verified-email attachment process is separate: an authenticated phone-only account proves a fresh bound-phone OTP, then proves ownership of the target email with a single-use link at `/users/me/email/start` and `/users/me/email/verify`.
 
 ## Establishing a password after Google sign-up
 
@@ -35,8 +35,7 @@ Access JWTs already issued remain valid until their natural expiry.
 
 ## Local test sequence
 
-Run PostgreSQL 18, Redis 7 and Mailpit. Apply migrations 1–9 using `make
-migrateup`, then start `go run .`.
+Run PostgreSQL 18, Redis 7 and Mailpit. Apply migrations through the latest version using `make migrateup`, then start `go run .`.
 
 1. Phone registration start: POST `/users/phone/register/start`,
    `{"phone":"+84912345678"}` → 202.
@@ -52,13 +51,11 @@ migrateup`, then start `go run .`.
 
 Local SMS uses `notification.Local` and is never an actual carrier delivery.
 For production, supply a tested SMS or Zalo delivery provider and HTTPS secrets.
-The current email reset dispatch is synchronous SMTP; failure handling and
-durability must be measured before a production readiness claim.
+Password reset requests persist a `job_outbox` row; Asynq workers generate reset proofs and deliver email. SMTP errors are retryable. Live provider delivery remains unverified. Other mail flows such as email-link delivery may still be synchronous.
 
 ## Not yet included
 
-- Linking a verified email to a phone-only account; auto-merging existing
-  accounts is prohibited without proving control of both.
+- Automatic account merging; explicit verified credential linking is required.
 - Immediate invalidation of already-issued access JWTs.
 - Live Google/SMS-provider end-to-end acceptance and backup/restore drills.
-- Password reset email durable queueing / provider failure retry.
+- External SMTP provider delivery, retry exhaustion policies and disaster-recovery drills.
