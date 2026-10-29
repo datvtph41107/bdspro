@@ -4,12 +4,18 @@
 
 - **Email + password:** `POST /users` then email verification and `POST /users/login`. A duplicate normalized email returns `409 auth.email_registered`.
 - **Continue with Google:** `GET /users/google/login/start` and callback. The verified Google subject is unique. Existing matching email is **not silently linked**. A new Google account has no password credential.
-- **Phone OTP:** `POST /users/phone/register/start` then `/verify` returns access/refresh tokens. Login uses `POST /users/phone/login/start` and `/verify`. All phone numbers are E.164, and `phone_credentials.phone_e164` is `UNIQUE`. Registration conflicts return `409 auth.phone_unavailable`. Unknown phone login starts return 202 without revealing account existence.
+- **Phone OTP:** `POST /users/phone/register/start` then `/verify` returns access/refresh tokens. Login uses `POST /users/phone/login/start` and `/verify`. All phone numbers are E.164, and `phone_credentials.phone_e164` is `UNIQUE`. Registration conflicts return `409 auth.phone_already_registered`. Unknown phone login starts return 202 without revealing account existence.
 
 All three methods issue the same AccountID-based JWT and PostgreSQL refresh session.
 Phone-only accounts deliberately have NULL email; no fake address or password
 is invented. VerifiedContact permits either verified email or verified phone
 for protected organization operations.
+
+## Linking Google to an existing phone-only account
+
+First sign in using phone OTP, then request another OTP for that same bound number with `POST /users/phone/login/start`. Call authenticated `POST /users/me/google/start` with `{"phone_code":"<fresh code>"}`, then complete the Google browser flow. The OTP is consumed, bound to the AccountID and cannot be replayed. Existing password accounts may instead use `{"password":"<current password>"}`. Linking Google subject never merges accounts solely by email.
+
+Linking Google to a phone-only account currently **does not add its verified Google email** to `accounts.email`. Adding an email to that account needs a separate explicit, verified linking operation.
 
 ## Establishing a password after Google sign-up
 

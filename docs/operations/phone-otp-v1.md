@@ -1,3 +1,5 @@
+> **Historical V1 design — not the current authentication contract.** Phone-only registration and OTP login are now implemented. Use [the current authentication guide](auth-three-methods.md) and [architecture contract](../architecture/authentication.md). This document is retained only to explain the earlier bind-first design.
+
 # Phone OTP V1 — development-only authentication
 
 ## Identity contract

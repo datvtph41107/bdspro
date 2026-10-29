@@ -30,8 +30,7 @@ deployment. Use the latest GitHub Actions run for the exact revision and result.
   have a synthetic password hash.
 - Phone-only registration and login are available when phone delivery is configured. Phone binding on an existing account still requires password confirmation or linked-Google reauthentication.
 - Email verification is confirmed by POST after a non-consuming GET preview; resend uses the shared job_outbox. Verified email users, including Google accounts, may set/reset a password through a single-use email proof.
-- The original Google linking flow still requires current-password confirmation.
-  Additional credential-management methods need their own reauthentication rules.
+- Google linking requires a fresh proof: current password or a single-use OTP from the phone already bound to the authenticated AccountID. Google subject is linked explicitly; it is never inferred from matching email.
 - Registration writes a job_outbox row in the same PostgreSQL transaction as
   account creation; Asynq handles retry and task processing. Exactly-once SMTP
   delivery is not guaranteed.

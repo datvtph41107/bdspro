@@ -10,7 +10,7 @@ main.go
 internal/
   api/
     server.go                   Gin engine and HTTP lifecycle
-    routes.go                   One route-first registry using Gin
+    routes.go                   Native Gin route registration
     handler/                    HTTP input and explicitly public output contracts
     middleware/                 Authentication, admission and rate limits
     response/                   Public errors and status mapping
@@ -29,7 +29,6 @@ db/
   query/                        Editable canonical SQL queries
 doc/
   swagger/                      Versioned OpenAPI JSON + Swagger UI page
-  statik/                       Generated embedded snapshot of static files
 docs/                            Engineering, operation and historical decisions
 ```
 
@@ -84,9 +83,9 @@ are registered.
 
 OpenAPI 3.0.3 is versioned at `doc/swagger/openapi.json`, with route coverage verified against native Gin registration. Swagger UI is available **only in development** at `/swagger/`
 and `/swagger/openapi.json`. The UI files are embedded using Go `embed`; no external CDN or Statik generator is needed.
-`doc/statik` is an embedded snapshot implemented with Go standard-library
-`embed` (rather than an external Statik generator). `make swagger`
-synchronizes the snapshot; CI checks route coverage and asset consistency.
+`make swagger` runs the OpenAPI-to-Gin route coverage test. API schemas remain
+versioned in `doc/swagger/openapi.json`; CI checks path/method coverage and
+runtime asset serving, not automatic generation of every response schema.
 Swagger does not imply an endpoint is enabled in every environment.
 
 ## Data, sessions and workers

@@ -1,7 +1,7 @@
 # BDSPro — Current Application Architecture
 
 **Current source of truth (Go packages under `internal/`):** `main.go`, `internal/api/server.go`,
-`internal/api/routes.go`, `internal/api/handler/`, `internal/service/`, `internal/core/`,
+`internal/api/routes.go`, `internal/api/handler/`, `internal/service/`,
 `db/query/` and `internal/database/` on the `dev` branch.
 
 This document describes the implementation, not the former
