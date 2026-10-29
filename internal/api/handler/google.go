@@ -73,7 +73,7 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 			response.Reject(ctx, http.StatusForbidden, "phone_reauthentication_unavailable", "phone reauthentication unavailable")
 			return
 		}
-		if err := g.phone.AuthorizeGoogleLink(ctx.Request.Context(), accountID, req.PhoneCode); err != nil {
+		if err := g.phone.AuthorizePhoneProof(ctx.Request.Context(), accountID, req.PhoneCode); err != nil {
 			response.Error(ctx, err)
 			return
 		}

@@ -267,10 +267,7 @@ func (s PhoneOTP) VerifyLogin(ctx context.Context, phone, code, userAgent, clien
 // AuthorizeGoogleLink proves fresh possession of the *already bound* phone.
 // The login OTP is single-use, so it cannot be replayed for OAuth linking.
 // A linked Google identity is not inferred from a matching email address.
-func (s PhoneOTP) AuthorizeGoogleLink(ctx context.Context, accountID int64, code string) error {
-	if err := s.allowed(); err != nil {
-		return err
-	}
+func (s PhoneOTP) AuthorizePhoneProof(ctx context.Context, accountID int64, code string) error {
 	if !phoneCode.MatchString(code) {
 		return apperrors.OTPInvalid
 	}

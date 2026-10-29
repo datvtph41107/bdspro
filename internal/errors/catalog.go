@@ -43,6 +43,10 @@ var (
 	InvalidRefreshToken          = &Error{Code: "auth.invalid_refresh_token", Message: "invalid refresh token", Status: http.StatusUnauthorized}
 	SessionUnavailable           = &Error{Code: "auth.session_unavailable", Message: "session unavailable", Status: http.StatusUnauthorized}
 	InvalidCredentials           = &Error{Code: "auth.invalid_credentials", Message: "invalid credentials", Status: http.StatusUnauthorized}
+	InvalidEmail = &Error{Code: "auth.invalid_email", Message: "invalid email", Status: http.StatusBadRequest}
+	EmailAlreadyLinked = &Error{Code: "auth.email_already_linked", Message: "account already has an email", Status: http.StatusConflict}
+	InvalidEmailLink = &Error{Code: "auth.invalid_email_link", Message: "invalid or expired email link", Status: http.StatusBadRequest}
+	EmailLinkCooldown = &Error{Code: "auth.email_link_cooldown", Message: "email verification temporarily unavailable", Status: http.StatusTooManyRequests}
 	EmailRegistered              = &Error{Code: "auth.email_registered", Message: "email already registered", Status: http.StatusConflict}
 	OrganizationOwnerRequired    = &Error{Code: "organization.owner_required", Message: "organization owner required", Status: http.StatusForbidden}
 	MembershipExists             = &Error{Code: "organization.membership_exists", Message: "membership already exists", Status: http.StatusConflict}
