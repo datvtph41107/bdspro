@@ -136,3 +136,21 @@ Content-Type: application/json
 A successful response contains a Google authorization URL. Complete that flow in a browser. The callback verifies Google's subject and links it to the **authenticated account**, not to an email-address match. The OTP cannot be replayed. Accounts already having a password may instead send `{"password":"CURRENT_PASSWORD"}`. Providing neither or both proofs fails validation.
 
 **Limitation:** Linking Google to a phone-only account does not yet attach a verified email address to the phone-only Account record. Email/password login for that account requires a separate verified-email linking flow. Do not turn Google subject ownership into an implicit email-based account merge.
+
+## F. Link verified email to a phone-only AccountID
+
+First sign in with phone OTP and request a **fresh** login code for the
+number bound to the same account. Call authenticated
+`POST /users/me/email/start` with `{"email":"new@example.test","phone_code":"123456"}`.
+The response is HTTP 202 and sends a one-time token to the new email.
+While authenticated, submit `{"token":"TOKEN_FROM_EMAIL"}` to
+`POST /users/me/email/verify` and receive HTTP 204. The original AccountID
+is retained and the email becomes verified only after the second proof.
+PostgreSQL enforces email uniqueness; an occupied email is a 409 conflict.
+The email token is single-use and expires in 15 minutes. In development,
+inspect the message with Mailpit, then use Postman for the POST confirmation.
+After linking email, use the existing password reset flow to create a local
+password for the **same** AccountID. No account auto-merge takes place.
+
+Email-link delivery remains synchronous in this first A1 implementation;
+durable retry and live provider acceptance belong to A2/A4.

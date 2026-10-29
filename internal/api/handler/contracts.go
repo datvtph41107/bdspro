@@ -48,3 +48,11 @@ type PasswordResetConfirmRequest struct {
 	Token    string `json:"token" form:"token" binding:"required"`
 	Password string `json:"password" form:"password" binding:"required,min=8,max=72"`
 }
+
+type EmailLinkStartRequest struct {
+    Email string `json:"email" binding:"required,email"`
+    PhoneCode string `json:"phone_code" binding:"required,len=6,numeric"`
+}
+type EmailLinkConfirmRequest struct {
+    Token string `json:"token" binding:"required,len=43"`
+}

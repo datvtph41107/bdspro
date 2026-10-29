@@ -1474,6 +1474,86 @@
           }
         }
       }
+    },
+    "/users/me/email/start": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Start verified email attachment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLinkStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid proof"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Email unavailable"
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        }
+      }
+    },
+    "/users/me/email/verify": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Attach verified email atomically",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLinkConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid proof"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Email unavailable"
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1784,6 +1864,36 @@
           "account_id": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "EmailLinkStartRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "phone_code"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone_code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        }
+      },
+      "EmailLinkConfirmRequest": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 43,
+            "maxLength": 43
           }
         }
       }
