@@ -6,29 +6,27 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	db "github.com/datvtph41107/bdspro/internal/database"
+	"github.com/datvtph41107/bdspro/internal/token"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func organizationTestPhoneSignup(t *testing.T, ctx context.Context, pool *pgxpool.Pool, server *Server) (int64, string) {
-	t.Helper()
-	phone := fmt.Sprintf("+84%09d", time.Now().UnixNano()%1000000000)
-	status, _ := authAcceptanceCall(t, server, "/users/phone/register/start", http.MethodPost, map[string]string{"phone": phone}, "")
-	if status != http.StatusAccepted {
-		t.Fatalf("phone start status=%d", status)
-	}
-	var code string
-	if err := pool.QueryRow(ctx, "SELECT dev_code FROM phone_signup_challenges WHERE phone_e164=$1", phone).Scan(&code); err != nil {
-		t.Fatal(err)
-	}
-	status, body := authAcceptanceCall(t, server, "/users/phone/register/verify", http.MethodPost, map[string]string{"phone": phone, "code": code}, "")
-	if status != http.StatusCreated {
-		t.Fatalf("phone register status=%d result=%v", status, body)
-	}
-	return int64(body["user"].(map[string]any)["account_id"].(float64)), body["access_token"].(string)
+func organizationTestVerifiedAccount(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (int64, string) {
+    t.Helper()
+    account, err := db.NewStore(pool).CreateGoogleAccountTx(ctx,
+        uuid.NewString()+"@example.test", uuid.NewString())
+    if err != nil { t.Fatal(err) }
+    if !account.IsEmailVerified { t.Fatal("test account must have verified email") }
+    maker, err := token.NewJWTMaker(strings.Repeat("x", 32))
+    if err != nil { t.Fatal(err) }
+    access, _, err := maker.CreateToken(account.ID, time.Minute, token.TokenTypeAccess)
+    if err != nil { t.Fatal(err) }
+    return account.ID, access
 }
 
 func organizationGetJSON(t *testing.T, server *Server, path, bearer string) (int, any) {
@@ -58,9 +56,9 @@ func accessPermissionSet(value any) map[string]bool {
 
 func TestOrganizationAccountMembershipRoleAndAuthorizationHTTP(t *testing.T) {
 	ctx, pool, server, _ := authAcceptanceServer(t)
-	ownerID, ownerToken := organizationTestPhoneSignup(t, ctx, pool, server)
-	memberID, memberToken := organizationTestPhoneSignup(t, ctx, pool, server)
-	_, outsiderToken := organizationTestPhoneSignup(t, ctx, pool, server)
+	ownerID, ownerToken := organizationTestVerifiedAccount(t, ctx, pool)
+	memberID, memberToken := organizationTestVerifiedAccount(t, ctx, pool)
+	_, outsiderToken := organizationTestVerifiedAccount(t, ctx, pool)
 
 	status, org := authAcceptanceCall(t, server, "/organizations", http.MethodPost, map[string]string{"name": "Company A"}, ownerToken)
 	if status != http.StatusCreated {
