@@ -194,11 +194,17 @@ func IssueSession(ctx context.Context, store db.Store, maker token.Maker, cfg co
 // synchronous SMTP or reveals whether an email is registered. Workers create
 // time-bound proofs after the durable job reaches Asynq.
 func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
-    account, err := s.store.GetAccountByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
-    if errors.Is(err, pgx.ErrNoRows) { return nil }
-    if err != nil { return err }
-    if !account.IsEmailVerified { return nil }
-    return s.store.RecordPasswordResetJob(ctx, account.ID)
+	account, err := s.store.GetAccountByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !account.IsEmailVerified {
+		return nil
+	}
+	return s.store.RecordPasswordResetJob(ctx, account.ID)
 }
 
 // ResetPassword consumes its token transactionally and revokes refresh sessions.
