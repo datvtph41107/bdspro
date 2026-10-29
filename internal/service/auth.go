@@ -106,7 +106,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	if err := util.CheckPassword(password, hash); err != nil {
 		return result, apperrors.InvalidCredentials
 	}
-	return IssueSession(ctx, s.store, s.maker, s.config, db.AccountFromEmailRow(account), userAgent, clientIP)
+	return IssueSession(ctx, s.store, s.maker, s.config, account, userAgent, clientIP)
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, emailID int64, secretCode string) error {

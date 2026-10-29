@@ -261,5 +261,5 @@ func (s PhoneOTP) VerifyLogin(ctx context.Context, phone, code, userAgent, clien
 	if err != nil {
 		return empty, err
 	}
-	return IssueSession(ctx, s.Store, s.Maker, s.Config, db.AccountFromIDRow(account), userAgent, clientIP)
+	return IssueSession(ctx, s.Store, s.Maker, s.Config, account, userAgent, clientIP)
 }
