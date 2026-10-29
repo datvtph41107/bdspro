@@ -136,15 +136,8 @@
         ],
         "summary": "Sign in using email/password",
         "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginResponse"
-                }
-              }
-            }
+          "200": {
+            "description": "Success"
           },
           "400": {
             "description": "Bad request",
@@ -257,7 +250,7 @@
         ],
         "summary": "Verify email",
         "responses": {
-          "201": {
+          "200": {
             "description": "Success"
           },
           "400": {
@@ -310,7 +303,7 @@
         ],
         "summary": "Resend email verification",
         "responses": {
-          "201": {
+          "202": {
             "description": "Success"
           },
           "400": {
@@ -373,15 +366,8 @@
         ],
         "summary": "Renew access token",
         "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RenewResponse"
-                }
-              }
-            }
+          "200": {
+            "description": "Success"
           },
           "400": {
             "description": "Bad request",
@@ -443,7 +429,7 @@
         ],
         "summary": "Revoke refresh session",
         "responses": {
-          "201": {
+          "204": {
             "description": "Success"
           },
           "400": {
@@ -867,7 +853,7 @@
         ],
         "summary": "Start Google account linking",
         "responses": {
-          "201": {
+          "200": {
             "description": "Success"
           },
           "400": {
@@ -1041,7 +1027,7 @@
         ],
         "summary": "Start Google reauthentication for phone binding",
         "responses": {
-          "201": {
+          "200": {
             "description": "Success"
           },
           "400": {
@@ -1099,7 +1085,7 @@
         ],
         "summary": "Start phone binding",
         "responses": {
-          "201": {
+          "202": {
             "description": "Success"
           },
           "400": {
@@ -1167,7 +1153,7 @@
         ],
         "summary": "Verify phone binding",
         "responses": {
-          "201": {
+          "204": {
             "description": "Success"
           },
           "400": {

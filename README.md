@@ -72,18 +72,18 @@ remain independent concerns.
 
 **Core endpoints:** GET `/health`; POST `/users`, `/users/login`,
 `/users/verify_email`, `/users/verify_email/resend`,
-`/tokens/renew_access`, `/tokens/revoke`; GET `/users/verify_email`,
+`/tokens/renew_access`, `/tokens/revoke`; POST `/users/password/reset/request`, `/users/password/reset`; GET `/users/password/reset`, `/users/verify_email`,
 `/users/me`; GET/POST `/organizations`; PATCH `/organizations/:id`;
 POST `/organizations/:id/members`.
 
-**Optional provider endpoints:** POST `/users/me/google/start`,
+**Optional provider endpoints:** POST `/users/phone/register/start`, `/users/phone/register/verify`, `/users/phone/login/start`, `/users/phone/login/verify`; POST `/users/me/google/start`,
 `/users/me/phone/google/start`, `/users/me/phone/start`,
 `/users/me/phone/verify`; GET `/users/google/login/start`,
 `/users/google/callback`. Provider configuration determines which routes
 are registered.
 
-Swagger UI is available **only in development** at `/swagger/`
-and `/swagger/openapi.json`. The UI downloads CSS/JS from a CDN.
+OpenAPI 3.0.3 is versioned at `doc/swagger/openapi.json`, with route coverage verified against native Gin registration. Swagger UI is available **only in development** at `/swagger/`
+and `/swagger/openapi.json`. The UI files are embedded using Go `embed`; no external CDN or Statik generator is needed.
 `doc/statik` is an embedded snapshot implemented with Go standard-library
 `embed` (rather than an external Statik generator). `make swagger`
 synchronizes the snapshot; CI checks route coverage and asset consistency.
@@ -117,3 +117,24 @@ A green CI run does not prove Google/SMS provider delivery, production
 backup/restore, multi-dispatcher race handling or deployment rollback.
 See [engineering source contract](docs/engineering/mindset-source-contract.md)
 and [current architecture](docs/architecture/README.md).
+
+
+## Three authentication channels
+Email/password sign-up remains POST /users with a unique normalized email.
+Google OAuth creates a passwordless account by verified Google subject and email;
+it never generates or sends a password. A Google user can request a first
+password using POST /users/password/reset/request, then use the one-time
+verified-email link to set it with POST /users/password/reset. Existing refresh
+sessions are revoked when a password is set or reset; already issued access
+JWTs continue until expiry.
+
+Phone signup uses POST /users/phone/register/start and /verify. Only verified
+OTP creates a Party, Person, Account (email=NULL) and unique phone credential in
+one PostgreSQL transaction. Login uses /users/phone/login/start and /verify.
+Phone-only users do not need an email or password; linking an email later is
+a separate verified-ownership workflow not yet implemented.
+
+Phone OTP provider routes require a configured delivery channel. In development,
+the local sender stores a one-time dev_code in the disposable database; use
+Mailpit for password-reset and verification emails. Never expose dev_code in a
+public response or production database. See docs/architecture/authentication.md.

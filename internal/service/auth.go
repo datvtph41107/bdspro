@@ -21,6 +21,7 @@ import (
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+ "github.com/rs/zerolog/log"
 )
 
 // AuthService owns registration, credential authentication, email verification,
@@ -216,7 +217,11 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string, se
         "Set or reset your BDSPro password within 15 minutes: <a href=%q>Set password</a>",
         html.EscapeString(link.String()),
     )
-    return sender.SendEmail("Reset your BDSPro password", content, []string{account.Email}, nil, nil, nil)
+    if err := sender.SendEmail("Reset your BDSPro password", content, []string{account.Email}, nil, nil, nil); err != nil {
+        // Do not turn a provider outage into an account-enumeration oracle.
+        log.Ctx(ctx).Error().Err(err).Msg("auth.password_reset_mail_failed")
+    }
+    return nil
 }
 
 // ResetPassword consumes its token transactionally and revokes refresh sessions.
