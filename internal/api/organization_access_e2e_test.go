@@ -10,13 +10,12 @@ import (
     "time"
 
     db "github.com/datvtph41107/bdspro/internal/database"
-    "github.com/google/uuid"
     "github.com/jackc/pgx/v5/pgxpool"
 )
 
 func organizationTestPhoneSignup(t *testing.T, ctx context.Context, pool *pgxpool.Pool, server *Server) (int64, string) {
     t.Helper()
-    phone := fmt.Sprintf("+84%09d", (time.Now().UnixNano()+int64(uuid.New().ID()))%1000000000)
+    phone := fmt.Sprintf("+84%09d", time.Now().UnixNano()%1000000000)
     status, _ := authAcceptanceCall(t, server, "/users/phone/register/start", http.MethodPost, map[string]string{"phone":phone}, "")
     if status!=http.StatusAccepted { t.Fatalf("phone start status=%d",status) }
     var code string
