@@ -17,16 +17,24 @@ import (
 )
 
 func organizationTestVerifiedAccount(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (int64, string) {
-    t.Helper()
-    account, err := db.NewStore(pool).CreateGoogleAccountTx(ctx,
-        uuid.NewString()+"@example.test", uuid.NewString())
-    if err != nil { t.Fatal(err) }
-    if !account.IsEmailVerified { t.Fatal("test account must have verified email") }
-    maker, err := token.NewJWTMaker(strings.Repeat("x", 32))
-    if err != nil { t.Fatal(err) }
-    access, _, err := maker.CreateToken(account.ID, time.Minute, token.TokenTypeAccess)
-    if err != nil { t.Fatal(err) }
-    return account.ID, access
+	t.Helper()
+	email := uuid.NewString() + "@example.test"
+	account, err := db.NewStore(pool).CreateGoogleAccountTx(ctx, email, uuid.NewString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !account.IsEmailVerified {
+		t.Fatal("test account must have verified email")
+	}
+	maker, err := token.NewJWTMaker(strings.Repeat("x", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	access, _, err := maker.CreateToken(account.ID, time.Minute, token.TokenTypeAccess)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return account.ID, access
 }
 
 func organizationGetJSON(t *testing.T, server *Server, path, bearer string) (int, any) {
