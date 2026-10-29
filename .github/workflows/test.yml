@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [dev]
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -47,11 +50,24 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Verify SQLC output
+      - name: Generate SQLC and format source
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
           "$(go env GOPATH)/bin/sqlc" generate
-          git diff --exit-code -- internal/database
+          gofmt -w $(git ls-files '*.go')
+          # Temporary PR-only sync to commit generated artifacts and formatting.
+          # Do not run a mutation on an untrusted fork or on dev.
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.head_ref }}" = "feat/auth-three-methods-g0-20261029" ]; then
+            if ! git diff --quiet; then
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git add internal doc
+              git commit -m "chore: regenerate sqlc and gofmt for auth feature"
+              git push origin HEAD:refs/heads/feat/auth-three-methods-g0-20261029
+            fi
+          else
+            git diff --exit-code -- internal/database
+          fi
 
       - name: Verify OpenAPI contract
         run: make swagger

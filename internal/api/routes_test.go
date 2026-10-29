@@ -58,8 +58,8 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	withOptional := newServer(true, true)
-	if n := len(withOptional.router.Routes()); n != 19 {
-		t.Errorf("enabled route count = %d, want 19", n)
+	if n := len(withOptional.router.Routes()); n != 23 {
+		t.Errorf("enabled route count = %d, want 23", n)
 	}
 	for _, route := range []string{
 		"POST /users/me/google/start", "GET /users/google/login/start",
@@ -78,7 +78,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		}
 	}
 
-	for _, removed := range []string{"POST /users/phone/login/start", "POST /users/phone/login/verify"} {
+	for _, removed := range []string{"POST /users/phone/password/login"} {
 		for _, current := range withOptional.router.Routes() {
 			if current.Method+" "+current.Path == removed {
 				t.Errorf("phone-only login must not be exposed: %s", removed)
