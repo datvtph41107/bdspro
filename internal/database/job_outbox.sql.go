@@ -83,3 +83,15 @@ func (q *Queries) RecordEmailVerificationJob(ctx context.Context, accountID int6
 	_, err := q.db.Exec(ctx, recordEmailVerificationJob, accountID)
 	return err
 }
+
+const recordPasswordResetJob = `-- name: RecordPasswordResetJob :exec
+INSERT INTO job_outbox (task_type, payload, queue_name, max_retry, run_at)
+VALUES ('task:send_password_reset',
+        jsonb_build_object('account_id', $1::bigint),
+        'critical', 10, now())
+`
+
+func (q *Queries) RecordPasswordResetJob(ctx context.Context, accountID int64) error {
+	_, err := q.db.Exec(ctx, recordPasswordResetJob, accountID)
+	return err
+}

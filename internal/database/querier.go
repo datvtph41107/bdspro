@@ -55,6 +55,7 @@ type Querier interface {
 	ReadAccountByEmail(ctx context.Context, btrim string) (ReadAccountByEmailRow, error)
 	ReadAccountByID(ctx context.Context, id int64) (ReadAccountByIDRow, error)
 	RecordEmailVerificationJob(ctx context.Context, accountID int64) error
+	RecordPasswordResetJob(ctx context.Context, accountID int64) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	RevokeAllAccountSessions(ctx context.Context, accountID int64) (int64, error)
 	RevokeOwnedSession(ctx context.Context, arg RevokeOwnedSessionParams) (int64, error)
