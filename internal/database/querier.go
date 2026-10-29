@@ -33,8 +33,6 @@ type Querier interface {
 	DeleteSessionsForAccount(ctx context.Context, accountID int64) error
 	FailPhoneSignup(ctx context.Context, phoneE164 string) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
-	GetAccountByEmail(ctx context.Context, btrim string) (GetAccountByEmailRow, error)
-	GetAccountByID(ctx context.Context, id int64) (GetAccountByIDRow, error)
 	GetGoogleAccountIDQuery(ctx context.Context, googleSub string) (int64, error)
 	GetPasswordHash(ctx context.Context, accountID int64) (string, error)
 	GetPhoneAccountIDQuery(ctx context.Context, phoneE164 string) (int64, error)
@@ -49,6 +47,8 @@ type Querier interface {
 	LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
 	MarkJobOutboxQueued(ctx context.Context, id int64) error
+	ReadAccountByEmail(ctx context.Context, btrim string) (ReadAccountByEmailRow, error)
+	ReadAccountByID(ctx context.Context, id int64) (ReadAccountByIDRow, error)
 	RecordEmailVerificationJob(ctx context.Context, accountID int64) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)

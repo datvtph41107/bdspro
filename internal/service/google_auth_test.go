@@ -37,19 +37,19 @@ func (s *googleStoreFake) GetGoogleAccountID(_ context.Context, _ string) (int64
 	return 42, nil
 }
 
-func (s *googleStoreFake) GetAccountByID(_ context.Context, id int64) (db.GetAccountByIDRow, error) {
+func (s *googleStoreFake) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
 	if s.accountErr != nil {
-		return db.GetAccountByIDRow{}, s.accountErr
+		return db.Account{}, s.accountErr
 	}
-	return db.GetAccountByIDRow{ID: id, Email: "linked@example.test", IsEmailVerified: true}, nil
+	return db.Account{ID: id, Email: "linked@example.test", IsEmailVerified: true}, nil
 }
 
 func (s *googleStoreFake) CreateGoogleAccountTx(_ context.Context, email, _ string) (db.Account, error) {
 	s.created++
 	if s.createErr != nil {
-		return db.GetAccountByIDRow{}, s.createErr
+		return db.Account{}, s.createErr
 	}
-	return db.GetAccountByIDRow{ID: 71, PersonID: 72, Email: email, IsEmailVerified: true}, nil
+	return db.Account{ID: 71, PersonID: 72, Email: email, IsEmailVerified: true}, nil
 }
 
 func (s *googleStoreFake) CreateSession(_ context.Context, p db.CreateSessionParams) (db.Session, error) {

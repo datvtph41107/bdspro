@@ -58,58 +58,6 @@ func (q *Queries) CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVer
 	return i, err
 }
 
-const getAccountByEmail = `-- name: GetAccountByEmail :one
-SELECT id, person_id, COALESCE(email, '')::text AS email, created_at, is_email_verified
-FROM accounts WHERE lower(btrim(email)) = lower(btrim($1)) LIMIT 1
-`
-
-type GetAccountByEmailRow struct {
-	ID              int64     `json:"id"`
-	PersonID        int64     `json:"person_id"`
-	Email           string    `json:"email"`
-	CreatedAt       time.Time `json:"created_at"`
-	IsEmailVerified bool      `json:"is_email_verified"`
-}
-
-func (q *Queries) GetAccountByEmail(ctx context.Context, btrim string) (GetAccountByEmailRow, error) {
-	row := q.db.QueryRow(ctx, getAccountByEmail, btrim)
-	var i GetAccountByEmailRow
-	err := row.Scan(
-		&i.ID,
-		&i.PersonID,
-		&i.Email,
-		&i.CreatedAt,
-		&i.IsEmailVerified,
-	)
-	return i, err
-}
-
-const getAccountByID = `-- name: GetAccountByID :one
-SELECT id, person_id, COALESCE(email, '')::text AS email, created_at, is_email_verified
-FROM accounts WHERE id = $1 LIMIT 1
-`
-
-type GetAccountByIDRow struct {
-	ID              int64     `json:"id"`
-	PersonID        int64     `json:"person_id"`
-	Email           string    `json:"email"`
-	CreatedAt       time.Time `json:"created_at"`
-	IsEmailVerified bool      `json:"is_email_verified"`
-}
-
-func (q *Queries) GetAccountByID(ctx context.Context, id int64) (GetAccountByIDRow, error) {
-	row := q.db.QueryRow(ctx, getAccountByID, id)
-	var i GetAccountByIDRow
-	err := row.Scan(
-		&i.ID,
-		&i.PersonID,
-		&i.Email,
-		&i.CreatedAt,
-		&i.IsEmailVerified,
-	)
-	return i, err
-}
-
 const markEmailVerified = `-- name: MarkEmailVerified :one
 UPDATE accounts SET is_email_verified = TRUE
 WHERE id = $1 AND lower(btrim(email)) = lower(btrim($2))
@@ -133,3 +81,56 @@ func (q *Queries) MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedPa
 	)
 	return i, err
 }
+
+const readAccountByEmail = `-- name: ReadAccountByEmail :one
+SELECT id, person_id, COALESCE(email, '')::text AS email, created_at, is_email_verified
+FROM accounts WHERE lower(btrim(email)) = lower(btrim($1)) LIMIT 1
+`
+
+type ReadAccountByEmailRow struct {
+	ID              int64     `json:"id"`
+	PersonID        int64     `json:"person_id"`
+	Email           string    `json:"email"`
+	CreatedAt       time.Time `json:"created_at"`
+	IsEmailVerified bool      `json:"is_email_verified"`
+}
+
+func (q *Queries) ReadAccountByEmail(ctx context.Context, btrim string) (ReadAccountByEmailRow, error) {
+	row := q.db.QueryRow(ctx, readAccountByEmail, btrim)
+	var i ReadAccountByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.PersonID,
+		&i.Email,
+		&i.CreatedAt,
+		&i.IsEmailVerified,
+	)
+	return i, err
+}
+
+const readAccountByID = `-- name: ReadAccountByID :one
+SELECT id, person_id, COALESCE(email, '')::text AS email, created_at, is_email_verified
+FROM accounts WHERE id = $1 LIMIT 1
+`
+
+type ReadAccountByIDRow struct {
+	ID              int64     `json:"id"`
+	PersonID        int64     `json:"person_id"`
+	Email           string    `json:"email"`
+	CreatedAt       time.Time `json:"created_at"`
+	IsEmailVerified bool      `json:"is_email_verified"`
+}
+
+func (q *Queries) ReadAccountByID(ctx context.Context, id int64) (ReadAccountByIDRow, error) {
+	row := q.db.QueryRow(ctx, readAccountByID, id)
+	var i ReadAccountByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.PersonID,
+		&i.Email,
+		&i.CreatedAt,
+		&i.IsEmailVerified,
+	)
+	return i, err
+}
+

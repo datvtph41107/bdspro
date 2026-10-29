@@ -76,12 +76,12 @@ type organizationCreateStoreFake struct {
 	accountErr     error
 }
 
-func (s *organizationCreateStoreFake) GetAccountByID(_ context.Context, id int64) (db.GetAccountByIDRow, error) {
+func (s *organizationCreateStoreFake) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
 	s.queriedAccount = id
 	if s.accountErr != nil {
-		return db.GetAccountByIDRow{}, s.accountErr
+		return db.Account{}, s.accountErr
 	}
-	return db.GetAccountByIDRow{ID: id, PersonID: 42}, nil
+	return db.Account{ID: id, PersonID: 42}, nil
 }
 
 func (s *organizationCreateStoreFake) CreateOrganizationTx(_ context.Context, arg db.CreateOrganizationTxParams) (db.Organization, error) {

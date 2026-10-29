@@ -138,7 +138,3 @@ Phone OTP provider routes require a configured delivery channel. In development,
 the local sender stores a one-time dev_code in the disposable database; use
 Mailpit for password-reset and verification emails. Never expose dev_code in a
 public response or production database. See docs/architecture/authentication.md.
-
-## Authentication development guide
-
-[Three-method authentication, OTP/Postman/Mailpit and password recovery](docs/operations/auth-three-methods.md).

@@ -293,28 +293,6 @@
               }
             }
           }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "email_id": {
-                    "type": "integer"
-                  },
-                  "secret_code": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "email_id",
-                  "secret_code"
-                ]
-              }
-            }
-          }
         }
       }
     },
@@ -515,14 +493,7 @@
         "summary": "Current account",
         "responses": {
           "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CurrentAccountResponse"
-                }
-              }
-            }
+            "description": "Success"
           },
           "400": {
             "description": "Bad request",
@@ -950,16 +921,8 @@
         ],
         "summary": "Start Google OAuth sign-in",
         "responses": {
-          "302": {
-            "description": "Redirects browser to Google OAuth",
-            "headers": {
-              "Location": {
-                "schema": {
-                  "type": "string",
-                  "format": "uri"
-                }
-              }
-            }
+          "200": {
+            "description": "Success"
           },
           "400": {
             "description": "Bad request",
@@ -1275,14 +1238,7 @@
             "description": "Invalid request"
           },
           "409": {
-            "description": "phone already registered",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Phone already registered"
           },
           "429": {
             "description": "Rate limited"
@@ -1646,14 +1602,6 @@
           },
           "user": {
             "$ref": "#/components/schemas/UserResponse"
-          },
-          "access_token_expires_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "refresh_token_expires_at": {
-            "type": "string",
-            "format": "date-time"
           }
         }
       },
@@ -1698,15 +1646,6 @@
           },
           "role": {
             "type": "string"
-          },
-          "joined_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "ended_at": {
-            "type": "string",
-            "nullable": true,
-            "format": "date-time"
           }
         }
       },
@@ -1759,15 +1698,6 @@
             "type": "string",
             "minLength": 8,
             "maxLength": 72
-          }
-        }
-      },
-      "CurrentAccountResponse": {
-        "type": "object",
-        "properties": {
-          "account_id": {
-            "type": "integer",
-            "format": "int64"
           }
         }
       }
