@@ -35,3 +35,7 @@ type UpdateOrganizationRequest struct {
 type AddOrganizationMemberRequest struct {
 	PersonID int64 `json:"person_id" binding:"required,min=1"`
 }
+
+type PhoneStartRequest struct {
+ Phone string `json:"phone" binding:"required"`
+}

@@ -85,8 +85,23 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 
 	// Phone verification is enabled only when a safe delivery channel is configured.
 	if server.phoneHandler != nil {
-
-		phone := authenticated.Group("/users/me/phone", middleware.VerifiedEmail(server.store))
+  api.POST("/users/phone/register/start",
+    sourceLimit("phone_register_start",10,time.Hour),
+    server.phoneHandler.StartRegister,
+  )
+  api.POST("/users/phone/register/verify",
+    sourceLimit("phone_register_verify",40,10*time.Minute),
+    server.phoneHandler.VerifyRegister,
+  )
+  api.POST("/users/phone/login/start",
+    sourceLimit("phone_login_start",30,time.Minute),
+    server.phoneHandler.StartLogin,
+  )
+  api.POST("/users/phone/login/verify",
+    sourceLimit("phone_login_verify",40,10*time.Minute),
+    server.phoneHandler.VerifyLogin,
+  )
+  phone := authenticated.Group("/users/me/phone", middleware.VerifiedEmail(server.store))
 		{
 			phone.POST("/start",
 				sourceLimit("phone_bind_start", 10, time.Hour),

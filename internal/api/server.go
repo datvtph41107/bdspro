@@ -98,6 +98,7 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client) (*S
 		server.phoneHandler = handler.NewPhoneHandler(
 			store, cfg, phoneSender, server.identityLimiter,
 		)
+  server.phoneHandler.SetTokenMaker(maker)
 		if server.googleHandler != nil {
 			server.googleHandler.SetPhoneBinding(phone)
 		}
