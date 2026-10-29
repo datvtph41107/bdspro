@@ -39,3 +39,11 @@ type AddOrganizationMemberRequest struct {
 type PhoneStartRequest struct {
  Phone string `json:"phone" binding:"required"`
 }
+
+type PasswordResetRequest struct {
+    Email string `json:"email" binding:"required,email"`
+}
+type PasswordResetConfirmRequest struct {
+    Token string `json:"token" form:"token" binding:"required"`
+    Password string `json:"password" form:"password" binding:"required,min=8,max=72"`
+}

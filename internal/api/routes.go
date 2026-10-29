@@ -46,7 +46,17 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 		server.authHandler.Revoke,
 	)
 
-	// Account authentication is inherited by every nested route group.
+	api.POST("/users/password/reset/request",
+    sourceLimit("password_reset", 10, time.Hour),
+    server.authHandler.RequestPasswordReset,
+)
+api.GET("/users/password/reset", server.authHandler.PasswordResetPage)
+api.POST("/users/password/reset",
+    sourceLimit("password_reset_confirm", 20, time.Hour),
+    server.authHandler.ResetPassword,
+)
+
+// Account authentication is inherited by every nested route group.
 	authenticated := api.Group("", middleware.Authenticate(server.tokenMaker))
 	{
 		authenticated.GET("/users/me", server.authHandler.Me)

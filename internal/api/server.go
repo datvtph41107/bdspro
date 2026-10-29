@@ -15,6 +15,7 @@ import (
 	"github.com/datvtph41107/bdspro/internal/config"
 	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/datvtph41107/bdspro/internal/notification"
+ "github.com/datvtph41107/bdspro/internal/mail"
 	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
@@ -40,7 +41,7 @@ type Server struct {
 }
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
-func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client) (*Server, error) {
+func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client, resetMailers ...mail.EmailSender) (*Server, error) {
 	if redisClient == nil {
 		return nil, errors.New("authentication requires Redis")
 	}
@@ -56,6 +57,7 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client) (*S
 		identityLimiter: middleware.NewIdentityLimiter(redisClient),
 	}
 	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, maker, cfg), server.identityLimiter)
+ if len(resetMailers) > 0 { server.authHandler.SetPasswordResetSender(resetMailers[0]) }
 	server.organizationHandler = handler.NewOrganizationHandler(service.NewOrganizationService(store))
 
 	if cfg.GoogleClientID != "" {

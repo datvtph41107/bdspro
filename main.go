@@ -117,7 +117,7 @@ func run(ctx context.Context) error {
 		dispatcher.Wait()
 	}()
 
-	server, err := api.NewServer(cfg, store, redisClient)
+	server, err := api.NewServer(cfg, store, redisClient, mailer)
 	if err != nil {
 		return fmt.Errorf("create HTTP server: %w", err)
 	}

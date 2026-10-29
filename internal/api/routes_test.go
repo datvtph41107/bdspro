@@ -41,6 +41,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		"GET /health", "POST /users", "POST /users/login",
 		"GET /users/verify_email", "POST /users/verify_email", "POST /users/verify_email/resend", "POST /tokens/renew_access",
 		"POST /tokens/revoke", "GET /users/me",
+ "POST /users/password/reset/request", "GET /users/password/reset", "POST /users/password/reset",
 		"POST /organizations", "GET /organizations",
 		"POST /organizations/:id/members", "PATCH /organizations/:id",
 	}
