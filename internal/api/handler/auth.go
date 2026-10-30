@@ -247,10 +247,10 @@ func (h *AuthHandler) Activity(c *gin.Context) {
 	items := make([]LoginActivityResponse, 0, len(events))
 	for _, event := range events {
 		items = append(items, LoginActivityResponse{
-			ID: event.ID,
-			Outcome: event.Outcome,
-			ClientIP: event.ClientIp,
-			UserAgent: event.UserAgent,
+			ID:         event.ID,
+			Outcome:    event.Outcome,
+			ClientIP:   event.ClientIp,
+			UserAgent:  event.UserAgent,
 			OccurredAt: event.OccurredAt,
 		})
 	}
