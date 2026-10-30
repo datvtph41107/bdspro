@@ -8,7 +8,7 @@
 |---|---|
 | `internal/errors` | Application failure identities; may wrap underlying causes. No `net/http` dependency, public code or client message. |
 | `internal/service` | Interpret operation-specific database/provider failures; return application failures or errors with relevant context. No client JSON. |
-| `internal/api/response/catalog.go` | Mapping owner for the 29 existing application errors → HTTP status, stable code and safe message; application errors are separate from endpoint-local HTTP decisions. |
+| `internal/api/response/errors.go` | Mapping owner for the 29 existing application errors → HTTP status, stable code and safe message; application errors are separate from endpoint-local HTTP decisions. |
 | `internal/api/response/writer.go` | Bind errors (400/413), expected application errors and safe unexpected 500 responses. |
 | `internal/api/response/writer.go` | **One JSON writer**; shared Bearer, rate-limit and safe 500 protocol helpers. HTTP-only operation errors remain at their HTTP caller with explicit status/code/message. |
 | HTTP middleware/handlers | Call `response.Reject(c, status, code, message)` for endpoint-specific HTTP failures; use specialized response helpers when they encapsulate shared protocol behavior. |
@@ -19,7 +19,7 @@
 
 1. Define a named application error identity in `internal/errors` without `http.Status*`.
 2. Classify the cause in the operation using `errors.Is`/`errors.As`; retain relevant causes with `apperrors.Wrap` when needed.
-3. Add exactly one HTTP mapping in `internal/api/response/catalog.go`; choose status, stable code, safe message based on the operation's semantics.
+3. Add exactly one HTTP mapping in `internal/api/response/errors.go`; choose status, stable code, safe message based on the operation's semantics.
 4. Add/extend contract tests for the 4xx/5xx response, including cases where causes must not appear in client JSON.
 5. Update OpenAPI response schemas when changing observable HTTP behavior; do not silently rename existing codes.
 6. Keep handler usage straightforward: `if err != nil { response.Error(c, err); return }`.
@@ -48,7 +48,7 @@ Do not add a new global enum or a central `switch` for each new operation-level 
 - **Dependency unavailable**: use 503 only where the capability's failure policy explicitly supports it. Do not globally map `pgx.ErrNoRows`, SQLSTATE 23505, or all network errors to a single HTTP status.
 - **HTTP-only failures**: use `response.Reject` at the HTTP decision point; reserve helpers for Bearer, rate limiting and safe internal errors. All response JSON still flows through the same writer.
 - **Bearer 401**: use the shared helpers that set `WWW-Authenticate` (missing token, invalid access token, or identity no longer valid). OAuth grant errors are not Bearer challenges.
-- **Rate limiting**: a missing Redis client must fail closed for authentication source and identity limits. Retain the existing `Retry-After` header when rejecting with 429.
+- **Rate limiting**: a missing Redis client must fail closed for authentication source and credential limits. Retain the existing `Retry-After` header when rejecting with 429.
 - **OAuth provider**: a rejected grant remains 401 `google_authorization_failed`; transport failures, 429, 5xx and malformed token responses become 503 `google_unavailable`, with a safe diagnostic event.
 - **Client contract**: preserve `{code,error}`, HTTP status, and `X-Request-ID`. Client logic must not parse the human-readable `error` message.
 - **Diagnostic limits**: safe type/PostgreSQL SQLSTATE can be logged in the first PR, but deeper cause classification and provider-specific events still need acceptance tests.
@@ -83,7 +83,7 @@ Do not add a new global enum or a central `switch` for each new operation-level 
 - A sensitive raw error string must not appear in HTTP JSON or unexpected-error logs.
 - Application code must not log-and-return the same failure at every layer.
 - The response mapper owns no retry, database, authorization, or provider logic.
-- `TestAllApplicationFailuresKeepTheirPublicContract` captures all 29 application failure mappings.
+- `TestApplicationErrorResponses` captures all 29 application failure mappings.
 - CI and local tests must distinguish PASS, SKIP and NOT RUN.
 
 ### Follow-up scope (not part of this PR)

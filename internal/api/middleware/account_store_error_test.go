@@ -27,7 +27,7 @@ func TestVerifiedContactWithoutStoreFailsClosed(t *testing.T) {
 	}
 }
 
-func TestIdentityStoreErrorDoesNotExposePrivateDetails(t *testing.T) {
+func TestAccountStoreErrorDoesNotExposePrivateDetails(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	var output bytes.Buffer
 	logger := zerolog.New(&output)

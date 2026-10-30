@@ -28,8 +28,8 @@ func Invalid(c *gin.Context, err error) {
 }
 
 func Error(c *gin.Context, err error) {
-	if public, ok := classifyApplicationError(err); ok {
-		Reject(c, public.Status, public.Code, public.Message)
+	if result, ok := getErrorResponse(err); ok {
+		Reject(c, result.Status, result.Code, result.Message)
 		return
 	}
 	// Do not serialize or log arbitrary err.Error(): driver and provider errors

@@ -1,10 +1,11 @@
 package handler
 
 import (
+	"time"
+
 	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/jackc/pgx/v5/pgtype"
-	"time"
 )
 
 type UserResponse struct {
@@ -15,7 +16,12 @@ type UserResponse struct {
 }
 
 func newUserResponse(a db.Account) UserResponse {
-	return UserResponse{AccountID: a.ID, Email: a.Email, CreatedAt: a.CreatedAt, IsEmailVerified: a.IsEmailVerified}
+	return UserResponse{
+		AccountID:       a.ID,
+		Email:           a.Email,
+		CreatedAt:       a.CreatedAt,
+		IsEmailVerified: a.IsEmailVerified,
+	}
 }
 
 type LoginResponse struct {
@@ -28,13 +34,21 @@ type LoginResponse struct {
 }
 
 func newLoginResponse(v service.LoginResult) LoginResponse {
-	return LoginResponse{SessionID: v.Session.ID.String(), AccessToken: v.AccessToken, AccessTokenExpiresAt: v.AccessExpiresAt, RefreshToken: v.RefreshToken, RefreshTokenExpiresAt: v.RefreshExpiresAt, User: newUserResponse(v.Account)}
+	return LoginResponse{
+		SessionID:             v.Session.ID.String(),
+		AccessToken:           v.AccessToken,
+		AccessTokenExpiresAt:  v.AccessExpiresAt,
+		RefreshToken:          v.RefreshToken,
+		RefreshTokenExpiresAt: v.RefreshExpiresAt,
+		User:                  newUserResponse(v.Account),
+	}
 }
 
 type RenewAccessTokenResponse struct {
 	AccessToken          string    `json:"access_token"`
 	AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
 }
+
 type OrganizationResponse struct {
 	PartyID   int64     `json:"party_id"`
 	Name      string    `json:"name"`
@@ -42,8 +56,13 @@ type OrganizationResponse struct {
 }
 
 func newOrganizationResponse(a db.Organization) OrganizationResponse {
-	return OrganizationResponse{PartyID: a.PartyID, Name: a.Name, CreatedAt: a.CreatedAt}
+	return OrganizationResponse{
+		PartyID:   a.PartyID,
+		Name:      a.Name,
+		CreatedAt: a.CreatedAt,
+	}
 }
+
 func newOrganizationListResponse(list []db.Organization) []OrganizationResponse {
 	if list == nil {
 		return nil
@@ -65,7 +84,14 @@ type OrganizationMemberResponse struct {
 }
 
 func newOrganizationMemberResponse(a db.OrganizationMembership) OrganizationMemberResponse {
-	return OrganizationMemberResponse{ID: a.ID, OrganizationID: a.OrganizationID, PersonID: a.PersonID, Role: a.Role, JoinedAt: a.JoinedAt, EndedAt: a.EndedAt}
+	return OrganizationMemberResponse{
+		ID:             a.ID,
+		OrganizationID: a.OrganizationID,
+		PersonID:       a.PersonID,
+		Role:           a.Role,
+		JoinedAt:       a.JoinedAt,
+		EndedAt:        a.EndedAt,
+	}
 }
 
 type OrganizationAccessMembershipResponse struct {
@@ -84,10 +110,13 @@ type OrganizationAccessResponse struct {
 
 func newOrganizationAccessResponse(access service.OrganizationAccess) OrganizationAccessResponse {
 	return OrganizationAccessResponse{
-		PartyID: access.Organization.PartyID, Name: access.Organization.Name,
+		PartyID:   access.Organization.PartyID,
+		Name:      access.Organization.Name,
 		CreatedAt: access.Organization.CreatedAt,
 		Membership: OrganizationAccessMembershipResponse{
-			ID: access.MembershipID, Role: access.Role, JoinedAt: access.JoinedAt,
+			ID:       access.MembershipID,
+			Role:     access.Role,
+			JoinedAt: access.JoinedAt,
 		},
 		Permissions: access.Permissions,
 	}
@@ -113,8 +142,11 @@ func newActiveOrganizationMembersResponse(members []db.ListOrganizationMembersFo
 	out := make([]ActiveOrganizationMemberResponse, 0, len(members))
 	for _, member := range members {
 		out = append(out, ActiveOrganizationMemberResponse{
-			ID: member.ID, OrganizationID: member.OrganizationID, PersonID: member.PersonID,
-			Role: member.Role, JoinedAt: member.JoinedAt,
+			ID:             member.ID,
+			OrganizationID: member.OrganizationID,
+			PersonID:       member.PersonID,
+			Role:           member.Role,
+			JoinedAt:       member.JoinedAt,
 		})
 	}
 	return out

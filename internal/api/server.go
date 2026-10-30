@@ -37,7 +37,7 @@ type Server struct {
 	tokenMaker          token.Maker
 	router              *gin.Engine
 	authRateRedis       *redis.Client
-	identityLimiter     *middleware.IdentityLimiter
+	authThrottle        *middleware.AuthThrottle
 }
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
@@ -50,13 +50,13 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client, res
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}
 	server := &Server{
-		config:          cfg,
-		store:           store,
-		tokenMaker:      maker,
-		authRateRedis:   redisClient,
-		identityLimiter: middleware.NewIdentityLimiter(redisClient),
+		config:        cfg,
+		store:         store,
+		tokenMaker:    maker,
+		authRateRedis: redisClient,
+		authThrottle:  middleware.NewAuthThrottle(redisClient),
 	}
-	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, maker, cfg), server.identityLimiter)
+	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, maker, cfg), server.authThrottle)
 	if len(resetMailers) > 0 {
 		server.authHandler.SetPasswordResetSender(resetMailers[0])
 	}
@@ -100,7 +100,7 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client, res
 	if phoneSender != nil {
 		phone := service.PhoneOTP{Store: store, Config: cfg, Sender: phoneSender}
 		server.phoneHandler = handler.NewPhoneHandler(
-			store, cfg, phoneSender, server.identityLimiter,
+			store, cfg, phoneSender, server.authThrottle,
 		)
 		server.phoneHandler.SetTokenMaker(maker)
 		if server.googleHandler != nil {

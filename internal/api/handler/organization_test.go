@@ -41,7 +41,7 @@ func (s *organizationHTTPStoreFake) CreateOrganizationTx(_ context.Context, p db
 	return db.Organization{PartyID: 123, Name: p.Name}, nil
 }
 
-func TestCreateOrganizationHTTP(t *testing.T) {
+func TestStoreOrganizationHTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	maker, err := token.NewJWTMaker(strings.Repeat("x", 32))
 	if err != nil {
@@ -56,7 +56,7 @@ func TestCreateOrganizationHTTP(t *testing.T) {
 	organizations := NewOrganizationHandler(service.NewOrganizationService(store))
 	router := gin.New()
 	router.Use(middleware.RequestIngress())
-	router.POST("/organizations", middleware.Authenticate(maker), organizations.Create)
+	router.POST("/organizations", middleware.Authenticate(maker), organizations.Store)
 
 	send := func(body, bearer string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, "/organizations", strings.NewReader(body))

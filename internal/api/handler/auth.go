@@ -19,11 +19,11 @@ import (
 // AuthHandler handles HTTP input and output; authentication operations belong to AuthService.
 type AuthHandler struct {
 	auth        *service.AuthService
-	limiter     *middleware.IdentityLimiter
+	limiter     *middleware.AuthThrottle
 	resetSender mail.EmailSender
 }
 
-func NewAuthHandler(auth *service.AuthService, limiter *middleware.IdentityLimiter) *AuthHandler {
+func NewAuthHandler(auth *service.AuthService, limiter *middleware.AuthThrottle) *AuthHandler {
 	return &AuthHandler{auth: auth, limiter: limiter}
 }
 

@@ -74,7 +74,7 @@ func (server *Server) registerRoutes(root *gin.Engine) {
 
 		organizations := authenticated.Group("/organizations", middleware.VerifiedContact(server.store))
 		{
-			organizations.POST("", server.organizationHandler.Create)
+			organizations.POST("", server.organizationHandler.Store)
 			organizations.GET("", server.organizationHandler.Index)
 			organizations.GET("/:id", server.organizationHandler.Show)
 			organizations.GET("/:id/members", server.organizationHandler.Members)
