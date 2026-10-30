@@ -51,6 +51,11 @@ jobs:
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
           "$(go env GOPATH)/bin/sqlc" generate
+          for generated in internal/database/profile.sql.go internal/database/models.go internal/database/querier.go; do
+            printf 'SQLC_SNAPSHOT_BEGIN:%s\\n' "$generated"
+            base64 -w0 "$generated"
+            printf '\\nSQLC_SNAPSHOT_END:%s\\n' "$generated"
+          done
           git diff --exit-code -- internal/database
           test -z "$(git ls-files --others --exclude-standard internal/database)"
 
