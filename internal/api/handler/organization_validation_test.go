@@ -20,13 +20,13 @@ func TestOrganizationInvalidRequestsStopBeforeService(t *testing.T) {
 	router.POST("/organizations/:id/members", h.AddMember)
 
 	cases := []struct {
-		name   string
-		method string
-		path   string
-		body   string
-		code   string
-		field  string
-		rule   string
+		name	string
+		method	string
+		path	string
+		body	string
+		code	string
+		field	string
+		rule	string
 	}{
 		{"missing create name", http.MethodPost, "/organizations", `{}`, "validation_failed", "name", "required"},
 		{"blank create name", http.MethodPost, "/organizations", `{"name":"   "}`, "validation_failed", "name", "required"},
@@ -47,8 +47,8 @@ func TestOrganizationInvalidRequestsStopBeforeService(t *testing.T) {
 				t.Fatalf("status=%d want=%d body=%s", w.Code, http.StatusBadRequest, w.Body.String())
 			}
 			var got struct {
-				Code   string                    `json:"code"`
-				Errors map[string][]struct {
+				Code	string `json:"code"`
+				Errors	map[string][]struct {
 					Code string `json:"code"`
 				} `json:"errors"`
 			}
