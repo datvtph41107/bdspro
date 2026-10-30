@@ -8,42 +8,30 @@ services:
             - POSTGRES_PASSWORD=secret
             - POSTGRES_DB=bdspro
         ports:
-            - "127.0.0.1:5432:5432"
+            - "5432:5432"
         volumes:
             - data-volume:/var/lib/postgresql
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U root -d bdspro"]
-            interval: 5s
-            timeout: 3s
-            retries: 12
 
     redis:
         image: redis:7-alpine
         # Redis stores scheduled, active and retry tasks for Asynq.
         command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
         ports:
-            - "127.0.0.1:6379:6379"
+            - "6379:6379"
         volumes:
             - redis-volume:/data
-        healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
-            interval: 5s
-            timeout: 3s
-            retries: 12
-
     mailpit:
         image: axllent/mailpit:latest
         # Local development inbox; do not expose the mailbox on public interfaces.
         ports:
             - "127.0.0.1:8025:8025"
-            - "127.0.0.1:1025:1025"
 
     api:
         build:
             context: .
             dockerfile: Dockerfile
         ports:
-            - "127.0.0.1:8080:8080"
+            - "8080:8080"
         environment:
             - DB_SOURCE=postgresql://root:secret@postgres:5432/bdspro?sslmode=disable
             - REDIS_ADDRESS=redis:6379
@@ -52,12 +40,9 @@ services:
             - SMTP_AUTH=false
             - EMAIL_SENDER_ADDRESS=no-reply@bdspro.test
         depends_on:
-            postgres:
-                condition: service_healthy
-            redis:
-                condition: service_healthy
-            mailpit:
-                condition: service_started
+            - postgres
+            - redis
+            - mailpit
         logging:
             driver: json-file
             options:
