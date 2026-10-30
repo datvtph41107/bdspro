@@ -75,10 +75,6 @@ func TestPhoneSignupAtomicityUniquenessAndWrongAttempt(t *testing.T) {
 	if _, err := store.GetPasswordHash(ctx, account.ID); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("phone-only account should be passwordless: %v", err)
 	}
-	var before, after int64
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&before); err != nil {
-		t.Fatal(err)
-	}
 	if err := store.StartPhoneSignup(ctx, phone, mac[:], "123456"); err != nil {
 		t.Fatal(err)
 	}
@@ -90,11 +86,18 @@ func TestPhoneSignupAtomicityUniquenessAndWrongAttempt(t *testing.T) {
 			t.Fatalf("expected phone uniqueness conflict: %v", err)
 		}
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&after); err != nil {
+	// Assert only the affected phone identity: other test packages may
+	// legitimately create Parties concurrently in the same disposable DB.
+	var credentials int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM phone_credentials WHERE phone_e164=$1", phone).Scan(&credentials); err != nil {
 		t.Fatal(err)
 	}
-	if before != after {
-		t.Fatalf("failed phone registration left orphan party: %d -> %d", before, after)
+	if credentials != 1 {
+		t.Fatalf("duplicate registration changed phone ownership: count=%d", credentials)
+	}
+	currentOwner, err := store.AccountIDForPhone(ctx, phone)
+	if err != nil || currentOwner != owner {
+		t.Fatalf("duplicate registration changed account owner: owner=%d error=%v", currentOwner, err)
 	}
 }
 
