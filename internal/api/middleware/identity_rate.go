@@ -43,7 +43,10 @@ func (l *IdentityLimiter) Allow(ctx *gin.Context, operation, identity string, pe
 	allowed, err := identityRateScript.Run(ctx.Request.Context(), l.client,
 		[]string{ipKey, identityKey}, int64(window.Seconds()), perIP, perIdentity).Int64()
 	if err != nil {
-		log.Ctx(ctx.Request.Context()).Error().Str("operation", operation).
+		log.Ctx(ctx.Request.Context()).Error().
+			Str("operation", operation).
+			Str("dependency", "redis").
+			Str("error_type", fmt.Sprintf("%T", err)).
 			Msg("auth.rate_limit_unavailable")
 		response.Fail(ctx, response.RateLimitUnavailable)
 		return false
