@@ -123,21 +123,21 @@ func (s *OrganizationService) Members(ctx context.Context, actorAccountID, organ
 	return members, nil
 }
 
-func (s *OrganizationService) AddMember(ctx context.Context, actorAccountID, organizationID, personID int64) (db.OrganizationMembership, error) {
+func (s *OrganizationService) AddMember(ctx context.Context, actorAccountID, organizationID, personID int64) (db.OrganizationMember, error) {
 	member, err := s.store.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
 		OrganizationID: organizationID,
 		PersonID:       personID,
 		ActorAccountID: actorAccountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.OrganizationMembership{}, apperrors.OrganizationOwnerRequired
+		return db.OrganizationMember{}, apperrors.OrganizationOwnerRequired
 	}
 	if pgErr := apperrors.Postgres(err); pgErr != nil {
 		switch pgErr.Code {
 		case "23505":
-			return db.OrganizationMembership{}, apperrors.Wrap(apperrors.MembershipExists, err)
+			return db.OrganizationMember{}, apperrors.Wrap(apperrors.MembershipExists, err)
 		case "23503":
-			return db.OrganizationMembership{}, apperrors.Wrap(apperrors.PersonUnavailable, err)
+			return db.OrganizationMember{}, apperrors.Wrap(apperrors.PersonUnavailable, err)
 		}
 	}
 	return member, err

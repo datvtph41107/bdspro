@@ -83,7 +83,7 @@ type OrganizationMemberResponse struct {
 	EndedAt        pgtype.Timestamptz `json:"ended_at"`
 }
 
-func newOrganizationMemberResponse(a db.OrganizationMembership) OrganizationMemberResponse {
+func newOrganizationMemberResponse(a db.OrganizationMember) OrganizationMemberResponse {
 	return OrganizationMemberResponse{
 		ID:             a.ID,
 		OrganizationID: a.OrganizationID,

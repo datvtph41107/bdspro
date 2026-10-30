@@ -51,7 +51,7 @@ type Organization struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type OrganizationMembership struct {
+type OrganizationMember struct {
 	ID             int64              `json:"id"`
 	OrganizationID int64              `json:"organization_id"`
 	PersonID       int64              `json:"person_id"`

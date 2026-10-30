@@ -13,11 +13,11 @@ import (
 )
 
 const addOrganizationMember = `-- name: AddOrganizationMember :one
-INSERT INTO organization_memberships (organization_id, person_id, role)
+INSERT INTO organization_members (organization_id, person_id, role)
 SELECT $1, $2, 'member'
 WHERE EXISTS (
   SELECT 1
-  FROM organization_memberships owner
+  FROM organization_members owner
   JOIN accounts a ON a.person_id = owner.person_id
   WHERE owner.organization_id = $1
     AND a.id = $3
@@ -33,9 +33,9 @@ type AddOrganizationMemberParams struct {
 	ActorAccountID int64 `json:"actor_account_id"`
 }
 
-func (q *Queries) AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMembership, error) {
+func (q *Queries) AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error) {
 	row := q.db.QueryRow(ctx, addOrganizationMember, arg.OrganizationID, arg.PersonID, arg.ActorAccountID)
-	var i OrganizationMembership
+	var i OrganizationMember
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -65,21 +65,21 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 	return i, err
 }
 
-const createOrganizationMembership = `-- name: CreateOrganizationMembership :one
-INSERT INTO organization_memberships (organization_id, person_id, role)
+const createOrganizationMember = `-- name: CreateOrganizationMember :one
+INSERT INTO organization_members (organization_id, person_id, role)
 VALUES ($1, $2, $3)
 RETURNING id, organization_id, person_id, role, joined_at, ended_at
 `
 
-type CreateOrganizationMembershipParams struct {
+type CreateOrganizationMemberParams struct {
 	OrganizationID int64  `json:"organization_id"`
 	PersonID       int64  `json:"person_id"`
 	Role           string `json:"role"`
 }
 
-func (q *Queries) CreateOrganizationMembership(ctx context.Context, arg CreateOrganizationMembershipParams) (OrganizationMembership, error) {
-	row := q.db.QueryRow(ctx, createOrganizationMembership, arg.OrganizationID, arg.PersonID, arg.Role)
-	var i OrganizationMembership
+func (q *Queries) CreateOrganizationMember(ctx context.Context, arg CreateOrganizationMemberParams) (OrganizationMember, error) {
+	row := q.db.QueryRow(ctx, createOrganizationMember, arg.OrganizationID, arg.PersonID, arg.Role)
+	var i OrganizationMember
 	err := row.Scan(
 		&i.ID,
 		&i.OrganizationID,
@@ -95,7 +95,7 @@ const getOrganizationForAccount = `-- name: GetOrganizationForAccount :one
 SELECT o.party_id, o.name, o.created_at,
        m.id AS membership_id, m.role, m.joined_at
 FROM accounts a
-JOIN organization_memberships m ON m.person_id = a.person_id
+JOIN organization_members m ON m.person_id = a.person_id
 JOIN organizations o ON o.party_id = m.organization_id
 WHERE a.id = $1
   AND o.party_id = $2
@@ -132,12 +132,12 @@ func (q *Queries) GetOrganizationForAccount(ctx context.Context, arg GetOrganiza
 
 const listOrganizationMembersForOwner = `-- name: ListOrganizationMembersForOwner :many
 SELECT m.id, m.organization_id, m.person_id, m.role, m.joined_at
-FROM organization_memberships m
+FROM organization_members m
 WHERE m.organization_id = $1
   AND m.ended_at IS NULL
   AND EXISTS (
     SELECT 1
-    FROM organization_memberships owner
+    FROM organization_members owner
     JOIN accounts a ON a.person_id = owner.person_id
     WHERE a.id = $2
       AND owner.organization_id = m.organization_id
@@ -190,7 +190,7 @@ const listOrganizationsForAccount = `-- name: ListOrganizationsForAccount :many
 SELECT o.party_id, o.name, o.created_at,
        m.id AS membership_id, m.role, m.joined_at
 FROM accounts a
-JOIN organization_memberships m ON m.person_id = a.person_id
+JOIN organization_members m ON m.person_id = a.person_id
 JOIN organizations o ON o.party_id = m.organization_id
 WHERE a.id = $1 AND m.ended_at IS NULL
 ORDER BY o.party_id
@@ -238,7 +238,7 @@ SET name = COALESCE($1::text, o.name)
 WHERE o.party_id = $2
   AND EXISTS (
     SELECT 1
-    FROM organization_memberships AS m
+    FROM organization_members AS m
     JOIN accounts AS a ON a.person_id = m.person_id
     WHERE m.organization_id = o.party_id
       AND a.id = $3

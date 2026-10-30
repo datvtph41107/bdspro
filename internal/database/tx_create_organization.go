@@ -20,7 +20,7 @@ func (s *SQLStore) CreateOrganizationTx(ctx context.Context, arg CreateOrganizat
 		if err != nil {
 			return err
 		}
-		_, err = q.CreateOrganizationMembership(ctx, CreateOrganizationMembershipParams{
+		_, err = q.CreateOrganizationMember(ctx, CreateOrganizationMemberParams{
 			OrganizationID: partyID, PersonID: arg.OwnerPersonID, Role: "owner",
 		})
 		return err
