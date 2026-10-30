@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func TestAllApplicationFailuresKeepTheirPublicContract(t *testing.T) {
+func TestApplicationErrorResponses(t *testing.T) {
 	tests := []struct {
 		name    string
 		err     error
@@ -53,28 +53,28 @@ func TestAllApplicationFailuresKeepTheirPublicContract(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			failure, ok := classifyApplicationError(tt.err)
+			result, ok := getErrorResponse(tt.err)
 			if !ok {
 				t.Fatal("application failure not classified")
 			}
-			if failure.Status != tt.status || failure.Code != tt.code || failure.Message != tt.message {
-				t.Fatalf("got %+v, want status=%d code=%q message=%q", failure, tt.status, tt.code, tt.message)
+			if result.Status != tt.status || result.Code != tt.code || result.Message != tt.message {
+				t.Fatalf("got %+v, want status=%d code=%q message=%q", result, tt.status, tt.code, tt.message)
 			}
 		})
 	}
 }
 
-func TestWrappedApplicationFailureRetainsCauseAndHTTPContract(t *testing.T) {
+func TestWrappedApplicationErrorResponse(t *testing.T) {
 	cause := errors.New("private db constraint detail")
 	err := apperrors.Wrap(apperrors.MembershipExists, cause)
 	if !errors.Is(err, apperrors.MembershipExists) || !errors.Is(err, cause) {
 		t.Fatalf("both error identities must be preserved: %v", err)
 	}
-	failure, ok := classifyApplicationError(err)
-	if !ok || failure.Status != http.StatusConflict || failure.Code != "organization.membership_exists" {
-		t.Fatalf("incorrect public contract: %+v, ok=%t", failure, ok)
+	result, ok := getErrorResponse(err)
+	if !ok || result.Status != http.StatusConflict || result.Code != "organization.membership_exists" {
+		t.Fatalf("incorrect public contract: %+v, ok=%t", result, ok)
 	}
-	if _, ok := classifyApplicationError(errors.New("unknown database error")); ok {
+	if _, ok := getErrorResponse(errors.New("unknown database error")); ok {
 		t.Fatal("unexpected errors must not be public")
 	}
 }
