@@ -8,134 +8,132 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// registerRoutes declares the HTTP endpoints on Gin directly.
-// Handlers and middleware are created once when the server starts.
-func (server *Server) registerRoutes(root *gin.Engine) {
-	api := root.Group(apiPrefix)
-	sourceLimit := func(operation string, attempts int64, window time.Duration) gin.HandlerFunc {
-		return middleware.IPActiveSource(server.authRateRedis, operation, attempts, window)
-	}
-
+// registerRoutes uses Gin's native groups and middleware inheritance.
+// Each registered method remains visible without a routing DSL or registry.
+func (s *Server) registerRoutes(root *gin.Engine) {
 	root.GET("/health", Health)
+	s.registerPublicRoutes(root.Group(apiPrefix))
+}
 
-	// Public account and session endpoints.
-	api.POST("/users",
-		sourceLimit("register", 10, time.Hour),
-		server.authHandler.Register,
+func (s *Server) registerPublicRoutes(route *gin.RouterGroup) {
+	route.POST("/users",
+		middleware.IPActiveSource(s.authRateRedis, "register", 10, time.Hour),
+		s.authHandler.Register,
 	)
-	api.POST("/users/login",
+	route.POST("/users/login",
 		middleware.LoginAudit(),
-		sourceLimit("login", 30, time.Minute),
-		server.authHandler.Login,
+		middleware.IPActiveSource(s.authRateRedis, "login", 30, time.Minute),
+		s.authHandler.Login,
 	)
-	api.POST("/users/verify_email/resend",
-		sourceLimit("verify_email_resend", 10, time.Hour),
-		server.authHandler.ResendVerificationEmail,
+	route.GET("/users/verify_email", s.authHandler.VerifyEmailPage)
+	route.POST("/users/verify_email",
+		middleware.IPActiveSource(s.authRateRedis, "verify_email", 60, time.Minute),
+		s.authHandler.VerifyEmail,
 	)
-	api.GET("/users/verify_email", server.authHandler.VerifyEmailPage)
-	api.POST("/users/verify_email",
-		sourceLimit("verify_email", 60, time.Minute),
-		server.authHandler.VerifyEmail,
+	route.POST("/users/verify_email/resend",
+		middleware.IPActiveSource(s.authRateRedis, "verify_email_resend", 10, time.Hour),
+		s.authHandler.ResendVerificationEmail,
 	)
-	api.POST("/tokens/renew_access",
-		sourceLimit("refresh", 60, time.Minute),
-		server.authHandler.Renew,
+	route.POST("/tokens/renew_access",
+		middleware.IPActiveSource(s.authRateRedis, "refresh", 60, time.Minute),
+		s.authHandler.Renew,
 	)
-	api.POST("/tokens/revoke",
-		sourceLimit("revoke", 60, time.Minute),
-		server.authHandler.Revoke,
+	route.POST("/tokens/revoke",
+		middleware.IPActiveSource(s.authRateRedis, "revoke", 60, time.Minute),
+		s.authHandler.Revoke,
+	)
+	route.POST("/users/password/reset/request",
+		middleware.IPActiveSource(s.authRateRedis, "password_reset", 10, time.Hour),
+		s.authHandler.RequestPasswordReset,
+	)
+	route.GET("/users/password/reset", s.authHandler.PasswordResetPage)
+	route.POST("/users/password/reset",
+		middleware.IPActiveSource(s.authRateRedis, "password_reset_confirm", 20, time.Hour),
+		s.authHandler.ResetPassword,
 	)
 
-	api.POST("/users/password/reset/request",
-		sourceLimit("password_reset", 10, time.Hour),
-		server.authHandler.RequestPasswordReset,
-	)
-	api.GET("/users/password/reset", server.authHandler.PasswordResetPage)
-	api.POST("/users/password/reset",
-		sourceLimit("password_reset_confirm", 20, time.Hour),
-		server.authHandler.ResetPassword,
-	)
-
-	// Account authentication is inherited by every nested route group.
-	authenticated := api.Group("", middleware.Authenticate(server.tokenMaker))
-	{
-		authenticated.GET("/users/me", server.authHandler.Me)
-		authenticated.GET("/users/me/sessions", server.authHandler.ListSessions)
-		authenticated.DELETE("/users/me/sessions/:id", server.authHandler.RevokeOwnSession)
-		authenticated.POST("/users/me/sessions/revoke_all", server.authHandler.RevokeAllSessions)
-		authenticated.POST("/users/me/email/start",
-			sourceLimit("email_link_start", 10, time.Hour),
-			server.authHandler.StartEmailLink,
+	if s.googleHandler != nil {
+		route.GET("/users/google/login/start",
+			middleware.IPActiveSource(s.authRateRedis, "google_login_start", 20, time.Minute),
+			s.googleHandler.StartLogin,
 		)
-		authenticated.POST("/users/me/email/verify",
-			sourceLimit("email_link_verify", 20, time.Hour),
-			server.authHandler.ConfirmEmailLink,
-		)
-
-		organizations := authenticated.Group("/organizations", middleware.VerifiedContact(server.store))
-		{
-			organizations.POST("", server.organizationHandler.Store)
-			organizations.GET("", server.organizationHandler.Index)
-			organizations.GET("/:id", server.organizationHandler.Show)
-			organizations.GET("/:id/members", server.organizationHandler.Members)
-			organizations.POST("/:id/members", server.organizationHandler.AddMember)
-			organizations.PATCH("/:id", server.organizationHandler.Update)
-		}
+		route.GET("/users/google/callback", s.googleHandler.Callback)
 	}
-
-	// Google OAuth exists only when the configured client is available.
-	if server.googleHandler != nil {
-		authenticated.POST("/users/me/google/start",
-			sourceLimit("google_link_start", 10, time.Minute),
-			server.googleHandler.StartLink,
+	if s.phoneHandler != nil {
+		route.POST("/users/phone/register/start",
+			middleware.IPActiveSource(s.authRateRedis, "phone_register_start", 10, time.Hour),
+			s.phoneHandler.StartRegister,
 		)
-		api.GET("/users/google/login/start",
-			sourceLimit("google_login_start", 20, time.Minute),
-			server.googleHandler.StartLogin,
+		route.POST("/users/phone/register/verify",
+			middleware.IPActiveSource(s.authRateRedis, "phone_register_verify", 40, 10*time.Minute),
+			s.phoneHandler.VerifyRegister,
 		)
-		api.GET("/users/google/callback", server.googleHandler.Callback)
-	}
-
-	// OAuth confirmation proves control of the Google identity already linked
-	// to this account before the phone verification challenge can be issued.
-	if server.googleHandler != nil && server.phoneHandler != nil {
-		authenticated.POST("/users/me/phone/google/start",
-			middleware.VerifiedEmail(server.store),
-			sourceLimit("phone_google_bind_start", 10, time.Hour),
-			server.googleHandler.StartPhoneBind,
+		route.POST("/users/phone/login/start",
+			middleware.IPActiveSource(s.authRateRedis, "phone_login_start", 30, time.Minute),
+			s.phoneHandler.StartLogin,
+		)
+		route.POST("/users/phone/login/verify",
+			middleware.IPActiveSource(s.authRateRedis, "phone_login_verify", 40, 10*time.Minute),
+			s.phoneHandler.VerifyLogin,
 		)
 	}
 
-	// Phone verification is enabled only when a safe delivery channel is configured.
-	if server.phoneHandler != nil {
-		api.POST("/users/phone/register/start",
-			sourceLimit("phone_register_start", 10, time.Hour),
-			server.phoneHandler.StartRegister,
+	// Authentication is applied once to this group, before every child group.
+	s.registerAuthenticatedRoutes(route.Group("", middleware.Authenticate(s.tokenMaker)))
+}
+
+func (s *Server) registerAuthenticatedRoutes(route *gin.RouterGroup) {
+	route.GET("/users/me", s.authHandler.Me)
+	route.GET("/users/me/sessions", s.authHandler.ListSessions)
+	route.DELETE("/users/me/sessions/:id", s.authHandler.RevokeOwnSession)
+	route.POST("/users/me/sessions/revoke_all", s.authHandler.RevokeAllSessions)
+	route.POST("/users/me/email/start",
+		middleware.IPActiveSource(s.authRateRedis, "email_link_start", 10, time.Hour),
+		s.authHandler.StartEmailLink,
+	)
+	route.POST("/users/me/email/verify",
+		middleware.IPActiveSource(s.authRateRedis, "email_link_verify", 20, time.Hour),
+		s.authHandler.ConfirmEmailLink,
+	)
+
+	s.registerOrganizationRoutes(route.Group("/organizations", middleware.VerifiedContact(s.store)))
+
+	if s.googleHandler != nil {
+		route.POST("/users/me/google/start",
+			middleware.IPActiveSource(s.authRateRedis, "google_link_start", 10, time.Minute),
+			s.googleHandler.StartLink,
 		)
-		api.POST("/users/phone/register/verify",
-			sourceLimit("phone_register_verify", 40, 10*time.Minute),
-			server.phoneHandler.VerifyRegister,
-		)
-		api.POST("/users/phone/login/start",
-			sourceLimit("phone_login_start", 30, time.Minute),
-			server.phoneHandler.StartLogin,
-		)
-		api.POST("/users/phone/login/verify",
-			sourceLimit("phone_login_verify", 40, 10*time.Minute),
-			server.phoneHandler.VerifyLogin,
-		)
-		phone := authenticated.Group("/users/me/phone", middleware.VerifiedEmail(server.store))
-		{
-			phone.POST("/start",
-				sourceLimit("phone_bind_start", 10, time.Hour),
-				server.phoneHandler.StartBind,
-			)
-			phone.POST("/verify",
-				sourceLimit("phone_bind_verify", 40, 10*time.Minute),
-				server.phoneHandler.VerifyBind,
-			)
-		}
 	}
+	if s.googleHandler != nil && s.phoneHandler != nil {
+		route.POST("/users/me/phone/google/start",
+			middleware.VerifiedEmail(s.store),
+			middleware.IPActiveSource(s.authRateRedis, "phone_google_bind_start", 10, time.Hour),
+			s.googleHandler.StartPhoneBind,
+		)
+	}
+	if s.phoneHandler != nil {
+		s.registerPhoneBindRoutes(route.Group("/users/me/phone", middleware.VerifiedEmail(s.store)))
+	}
+}
+
+func (s *Server) registerOrganizationRoutes(route *gin.RouterGroup) {
+	route.GET("", s.organizationHandler.Index)
+	route.GET("/:id", s.organizationHandler.Show)
+	route.POST("", s.organizationHandler.Store)
+	route.PATCH("/:id", s.organizationHandler.Update)
+	route.GET("/:id/members", s.organizationHandler.Members)
+	route.POST("/:id/members", s.organizationHandler.AddMember)
+}
+
+func (s *Server) registerPhoneBindRoutes(route *gin.RouterGroup) {
+	route.POST("/start",
+		middleware.IPActiveSource(s.authRateRedis, "phone_bind_start", 10, time.Hour),
+		s.phoneHandler.StartBind,
+	)
+	route.POST("/verify",
+		middleware.IPActiveSource(s.authRateRedis, "phone_bind_verify", 40, 10*time.Minute),
+		s.phoneHandler.VerifyBind,
+	)
 }
 
 // @Summary Check API health
