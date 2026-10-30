@@ -34,7 +34,7 @@ return 1
 
 func (l *IdentityLimiter) Allow(ctx *gin.Context, operation, identity string, perIP, perIdentity int64, window time.Duration) bool {
 	if l == nil || l.client == nil {
-		response.Fail(ctx, response.RateLimitUnavailable)
+		response.RateLimitUnavailable(ctx)
 		return false
 	}
 	namespace := identityLimitKeyPrefix + operation + ":"
@@ -48,12 +48,11 @@ func (l *IdentityLimiter) Allow(ctx *gin.Context, operation, identity string, pe
 			Str("dependency", "redis").
 			Str("error_type", fmt.Sprintf("%T", err)).
 			Msg("auth.rate_limit_unavailable")
-		response.Fail(ctx, response.RateLimitUnavailable)
+		response.RateLimitUnavailable(ctx)
 		return false
 	}
 	if allowed != 1 {
-		ctx.Header("Retry-After", fmt.Sprint(int64(window.Seconds())))
-		response.Fail(ctx, response.RateLimited)
+		response.RateLimited(ctx, int64(window.Seconds()))
 		return false
 	}
 	return true
