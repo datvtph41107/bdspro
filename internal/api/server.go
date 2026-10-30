@@ -156,7 +156,7 @@ func (server *Server) setupRouter() {
 			Str("path", path).
 			Str("panic_type", fmt.Sprintf("%T", recovered)).
 			Msg("http.panic")
-		response.Reject(ctx, http.StatusInternalServerError, "internal_error", "internal server error")
+		response.InternalError(ctx)
 	}))
 
 	router.Use(

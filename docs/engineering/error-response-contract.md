@@ -1,6 +1,6 @@
 # Error, Response & Logging Contract — BDSPro
 
-**Implementation baseline:** ENG-CORE PR 1; no API success-response or public error-code migration.
+**Implementation baseline:** ENG-CORE PR 1 + stacked PR 2; no success-response or public error-code renaming. HTTP-only failure contracts are now named by the response package.
 
 ## Responsibility and developer workflow
 
@@ -8,9 +8,10 @@
 |---|---|
 | `internal/errors` | Application failure identities; may wrap underlying causes. No `net/http` dependency, public code or client message. |
 | `internal/service` | Interpret operation-specific database/provider failures; return application failures or errors with relevant context. No client JSON. |
-| `internal/api/response/catalog.go` | **Single owner** of the 29 existing application error → HTTP status, stable code and safe message mappings. |
+| `internal/api/response/catalog.go` | Mapping owner for the 29 existing application errors → HTTP status, stable code and safe message; application errors are separate from endpoint-local HTTP decisions. |
 | `internal/api/response/writer.go` | Bind errors (400/413), expected application errors and safe unexpected 500 responses. |
-| HTTP middleware/handlers | Map HTTP-specific failures at the ingress boundary. Existing direct `response.Reject` calls remain for a separately reviewed migration. |
+| `internal/api/response/writer.go` | **One JSON writer**; shared Bearer, rate-limit and safe 500 protocol helpers. HTTP-only operation errors remain at their HTTP caller with explicit status/code/message. |
+| HTTP middleware/handlers | Call `response.Reject(c, status, code, message)` for endpoint-specific HTTP failures; use specialized response helpers when they encapsulate shared protocol behavior. |
 | HTTP access logger | Request ID, route template, method, status, latency, and public `error_code` when available. |
 | Worker/error diagnostics | Report operational outcomes without serializing task secrets or raw credentials. |
 
@@ -23,12 +24,32 @@
 5. Update OpenAPI response schemas when changing observable HTTP behavior; do not silently rename existing codes.
 6. Keep handler usage straightforward: `if err != nil { response.Error(c, err); return }`.
 
+### Adding an HTTP-specific failure
+
+For an operation-specific HTTP decision, write it at the HTTP boundary:
+```go
+response.Reject(c, http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
+return
+```
+
+Only use a shared helper for a repeated rule with real protocol semantics:
+```go
+response.InvalidAccessToken(c)                // includes WWW-Authenticate
+response.RateLimited(c, retryAfterSeconds)    // includes Retry-After
+response.RateLimitUnavailable(c)              // fail-closed admission
+```
+
+Do not add a new global enum or a central `switch` for each new operation-level HTTP failure. Document and test public codes, status, messages and headers where the endpoint contract is owned. No silent renames.
+
 ### Error categories and logging
 
 - **Expected 4xx**: normally do not log as an operational ERROR. Security denial monitoring is a separate concern.
 - **Unexpected 5xx**: report a bounded safe diagnostic category, plus the request ID from the existing logger context. Never blindly serialize a provider/driver error string; it may contain credentials or tokens.
 - **Dependency unavailable**: use 503 only where the capability's failure policy explicitly supports it. Do not globally map `pgx.ErrNoRows`, SQLSTATE 23505, or all network errors to a single HTTP status.
-- **HTTP-only failures**: `response.Reject` still writes the existing `{code,error}` shape; the next PR must centralize repeated inline codes and add missing dependency diagnostics, without inventing a general-purpose exception framework.
+- **HTTP-only failures**: use `response.Reject` at the HTTP decision point; reserve helpers for Bearer, rate limiting and safe internal errors. All response JSON still flows through the same writer.
+- **Bearer 401**: use the shared helpers that set `WWW-Authenticate` (missing token, invalid access token, or identity no longer valid). OAuth grant errors are not Bearer challenges.
+- **Rate limiting**: a missing Redis client must fail closed for authentication source and identity limits. Retain the existing `Retry-After` header when rejecting with 429.
+- **OAuth provider**: a rejected grant remains 401 `google_authorization_failed`; transport failures, 429, 5xx and malformed token responses become 503 `google_unavailable`, with a safe diagnostic event.
 - **Client contract**: preserve `{code,error}`, HTTP status, and `X-Request-ID`. Client logic must not parse the human-readable `error` message.
 - **Diagnostic limits**: safe type/PostgreSQL SQLSTATE can be logged in the first PR, but deeper cause classification and provider-specific events still need acceptance tests.
 
@@ -44,9 +65,8 @@
 
 ### Follow-up scope (not part of this PR)
 
-- Inventory and unify **direct** `response.Reject` codes in Google/Auth/middleware, notably unprefixed reset/verification errors and `identity_store_unavailable`; protect any client compatibility.
-- Add safe dependency diagnostics and distinguish Google authorization errors from provider outages.
-- Extend OpenAPI beyond route-only coverage; verify `WWW-Authenticate` for Bearer 401.
+- Extend OpenAPI beyond route-only coverage, including status schemas and `WWW-Authenticate` expectations.
+- Decide whether historical unprefixed codes should be migrated in a versioned API contract; do not silently rename them.
 - Verify request-to-worker correlation, log levels, outbox retries, and failure injection.
 
 References: https://go.dev/wiki/ErrorValueFAQ and https://google.github.io/styleguide/go/best-practices.html and https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html .

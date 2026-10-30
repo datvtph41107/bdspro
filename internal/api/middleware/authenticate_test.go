@@ -52,6 +52,15 @@ func TestAuthenticateAccessOnly(t *testing.T) {
 			if recorder.Code != tc.status {
 				t.Fatalf("status %d; expected %d; response %s", recorder.Code, tc.status, recorder.Body.String())
 			}
+			if tc.status == http.StatusUnauthorized {
+				want := "Bearer"
+				if tc.authorization != "" && strings.HasPrefix(tc.authorization, "Bearer ") {
+					want = `Bearer error="invalid_token"`
+				}
+				if got := recorder.Header().Get("WWW-Authenticate"); got != want {
+					t.Fatalf("WWW-Authenticate = %q, want %q", got, want)
+				}
+			}
 			if tc.status == http.StatusOK {
 				var data struct {
 					AccountID int64 `json:"account_id"`

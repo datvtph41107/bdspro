@@ -55,6 +55,9 @@ func TestVerifiedEmailGuardsBusinessRoutes(t *testing.T) {
 			if w.Code != tc.want {
 				t.Fatalf("status %d, want %d", w.Code, tc.want)
 			}
+			if tc.want == http.StatusUnauthorized && w.Header().Get("WWW-Authenticate") != "Bearer" {
+				t.Fatalf("missing Bearer challenge: %q", w.Header().Get("WWW-Authenticate"))
+			}
 		})
 	}
 }
