@@ -24,6 +24,7 @@ type Config struct {
 	ZaloTemplateID       string        `mapstructure:"ZALO_TEMPLATE_ID"`
 	ZaloCodeField        string        `mapstructure:"ZALO_CODE_FIELD"`
 	AllowedOrigins       []string      `mapstructure:"ALLOWED_ORIGINS"`
+	TrustedProxies       string        `mapstructure:"TRUSTED_PROXIES"`
 	DBSource             string        `mapstructure:"DB_SOURCE"`
 	MigrationURL         string        `mapstructure:"MIGRATION_URL"`
 	RedisAddress         string        `mapstructure:"REDIS_ADDRESS"`
@@ -51,7 +52,8 @@ func LoadConfig(path string) (config Config, err error) {
 	v.AutomaticEnv()
 	for _, name := range []string{"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
 		"PHONE_DELIVERY", "SMS_GATEWAY_URL", "SMS_GATEWAY_TOKEN",
-		"ZALO_ACCESS_TOKEN", "ZALO_TEMPLATE_ID", "ZALO_CODE_FIELD"} {
+		"ZALO_ACCESS_TOKEN", "ZALO_TEMPLATE_ID", "ZALO_CODE_FIELD",
+		"TRUSTED_PROXIES"} {
 		if err = v.BindEnv(name); err != nil {
 			return config, err
 		}

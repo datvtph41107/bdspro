@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/datvtph41107/bdspro/internal/api/handler"
@@ -108,14 +109,35 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client, res
 		}
 	}
 
-	server.setupRouter()
+	if err := server.setupRouter(); err != nil {
+		return nil, err
+	}
 	return server, nil
 }
 
-func (server *Server) setupRouter() {
+func (server *Server) setupRouter() error {
 	router := gin.New()
-	// Forwarded headers are untrusted unless the deployment defines exact proxy addresses.
-	_ = router.SetTrustedProxies(nil)
+	// The immediate TCP peer must belong to an explicitly trusted proxy range
+	// before Gin may use X-Forwarded-For to determine the client address.
+	var trusted []string
+	if raw := strings.TrimSpace(server.config.TrustedProxies); raw != "" {
+		for _, item := range strings.Split(raw, ",") {
+			proxy := strings.TrimSpace(item)
+			if proxy == "" {
+				return fmt.Errorf("TRUSTED_PROXIES contains an empty entry")
+			}
+			if _, network, err := net.ParseCIDR(proxy); err == nil {
+				ones, _ := network.Mask.Size()
+				if ones == 0 {
+					return fmt.Errorf("TRUSTED_PROXIES must not trust the entire internet")
+				}
+			}
+			trusted = append(trusted, proxy)
+		}
+	}
+	if err := router.SetTrustedProxies(trusted); err != nil {
+		return fmt.Errorf("invalid TRUSTED_PROXIES: %w", err)
+	}
 
 	router.Use(func(ctx *gin.Context) {
 		requestID := uuid.NewString()
@@ -146,6 +168,7 @@ func (server *Server) setupRouter() {
 	server.registerSwagger(router)
 
 	server.router = router
+	return nil
 }
 
 // accessLogger records one safe request outcome, distinct from a failure
