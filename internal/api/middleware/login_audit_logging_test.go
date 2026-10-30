@@ -32,9 +32,9 @@ func TestLoginAuditDoesNotDuplicateServerError(t *testing.T) {
 	}
 
 	var event struct {
-		Level string `json:"level"`
-		Outcome string `json:"outcome"`
-		Message string `json:"message"`
+		Level     string `json:"level"`
+		Outcome   string `json:"outcome"`
+		Message   string `json:"message"`
 		RequestID string `json:"request_id"`
 	}
 	if err := json.Unmarshal(output.Bytes(), &event); err != nil {
