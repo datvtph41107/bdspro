@@ -11,6 +11,11 @@ services:
             - "5432:5432"
         volumes:
             - data-volume:/var/lib/postgresql
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U root -d bdspro"]
+            interval: 5s
+            timeout: 3s
+            retries: 12
 
     redis:
         image: redis:7-alpine
@@ -20,11 +25,18 @@ services:
             - "6379:6379"
         volumes:
             - redis-volume:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 12
+
     mailpit:
         image: axllent/mailpit:latest
         # Local development inbox; do not expose the mailbox on public interfaces.
         ports:
             - "127.0.0.1:8025:8025"
+            - "127.0.0.1:1025:1025"
 
     api:
         build:
@@ -40,9 +52,12 @@ services:
             - SMTP_AUTH=false
             - EMAIL_SENDER_ADDRESS=no-reply@bdspro.test
         depends_on:
-            - postgres
-            - redis
-            - mailpit
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            mailpit:
+                condition: service_started
         logging:
             driver: json-file
             options:
