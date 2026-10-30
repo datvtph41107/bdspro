@@ -69,9 +69,9 @@ type EmailLinkConfirmRequest struct {
 }
 
 type UpdateProfileRequest struct {
-	DisplayName string `json:"display_name" binding:"max=120"`
-	FirstName   string `json:"first_name" binding:"max=120"`
-	LastName    string `json:"last_name" binding:"max=120"`
+	DisplayName *string `json:"display_name" binding:"omitempty,max=120"`
+	FirstName   *string `json:"first_name" binding:"omitempty,max=120"`
+	LastName    *string `json:"last_name" binding:"omitempty,max=120"`
 }
 
 type UpdateSettingsRequest struct {
