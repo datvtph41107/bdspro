@@ -139,9 +139,9 @@ func (s *AuthService) recordPasswordLoginEvent(ctx context.Context, accountID in
 	}
 	return s.store.RecordPasswordLoginEvent(ctx, db.RecordPasswordLoginEventParams{
 		AccountID: account,
-		Outcome: outcome,
+		Outcome:   outcome,
 		UserAgent: truncateLoginMetadata(userAgent, 512),
-		ClientIp: truncateLoginMetadata(clientIP, 64),
+		ClientIp:  truncateLoginMetadata(clientIP, 64),
 	})
 }
 
