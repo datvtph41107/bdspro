@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type routeProfileStore struct { db.Store }
+type routeProfileStore struct{ db.Store }
 
 func (*routeProfileStore) GetAccountProfile(_ context.Context, accountID int64) (db.GetAccountProfileRow, error) {
 	return db.GetAccountProfileRow{
@@ -36,7 +36,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		s := &Server{
 			tokenMaker:          maker,
 			authHandler:         handler.NewAuthHandler(nil, nil),
-			profileHandler: handler.NewProfileHandler(service.NewProfileService(&routeProfileStore{})),
+			profileHandler:      handler.NewProfileHandler(service.NewProfileService(&routeProfileStore{})),
 			organizationHandler: handler.NewOrganizationHandler(nil),
 		}
 		if google {

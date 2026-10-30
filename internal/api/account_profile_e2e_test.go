@@ -75,7 +75,7 @@ func TestPasswordRegistrationCreatesProfile(t *testing.T) {
 	ctx, pool, _, _ := authAcceptanceServer(t)
 	store := db.NewStore(pool)
 	account, err := store.RegisterTx(ctx, db.RegisterTxParams{
-		Email: "test-profile-" + uuid.NewString() + "@example.test",
+		Email:        "test-profile-" + uuid.NewString() + "@example.test",
 		PasswordHash: "test-hash",
 	})
 	if err != nil {

@@ -7,9 +7,9 @@ import (
 )
 
 type PersonProfileResponse struct {
-	DisplayName string `json:"display_name"`
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
+	DisplayName string  `json:"display_name"`
+	FirstName   string  `json:"first_name"`
+	LastName    string  `json:"last_name"`
 	AvatarURL   *string `json:"avatar_url"`
 }
 
@@ -26,12 +26,12 @@ type AccountSettingsResponse struct {
 }
 
 type AccountProfileResponse struct {
-	AccountID       int64 `json:"account_id"`
-	PersonID        int64 `json:"person_id"`
-	Email           string `json:"email"`
-	IsEmailVerified bool `json:"is_email_verified"`
-	CreatedAt       time.Time `json:"created_at"`
-	Profile         PersonProfileResponse `json:"profile"`
+	AccountID       int64                   `json:"account_id"`
+	PersonID        int64                   `json:"person_id"`
+	Email           string                  `json:"email"`
+	IsEmailVerified bool                    `json:"is_email_verified"`
+	CreatedAt       time.Time               `json:"created_at"`
+	Profile         PersonProfileResponse   `json:"profile"`
 	Security        AccountSecurityResponse `json:"security"`
 	Settings        AccountSettingsResponse `json:"settings"`
 }
@@ -44,11 +44,11 @@ func newAccountSettingsResponse(p db.GetAccountProfileRow) AccountSettingsRespon
 
 func newAccountProfileResponse(p db.GetAccountProfileRow) AccountProfileResponse {
 	return AccountProfileResponse{
-		AccountID: p.AccountID,
-		PersonID: p.PersonID,
-		Email: p.Email,
+		AccountID:       p.AccountID,
+		PersonID:        p.PersonID,
+		Email:           p.Email,
 		IsEmailVerified: p.IsEmailVerified,
-		CreatedAt: p.CreatedAt,
+		CreatedAt:       p.CreatedAt,
 		Profile: PersonProfileResponse{
 			DisplayName: p.DisplayName, FirstName: p.FirstName,
 			LastName: p.LastName, AvatarURL: nil,
