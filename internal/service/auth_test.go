@@ -21,6 +21,8 @@ type sessionMemoryStore struct {
 	account      db.Account
 	passwordHash string
 	session      db.Session
+	loginEvents  []db.RecordPasswordLoginEventParams
+	auditErr     error
 }
 
 func (s *sessionMemoryStore) GetAccountByEmail(_ context.Context, email string) (db.Account, error) {
@@ -43,6 +45,24 @@ func (s *sessionMemoryStore) CreateSession(_ context.Context, p db.CreateSession
 		UserAgent: p.UserAgent, ClientIp: p.ClientIp, ExpiresAt: p.ExpiresAt,
 	}
 	return s.session, nil
+}
+
+func (s *sessionMemoryStore) RecordPasswordLoginEvent(_ context.Context, arg db.RecordPasswordLoginEventParams) error {
+	if s.auditErr != nil {
+		return s.auditErr
+	}
+	s.loginEvents = append(s.loginEvents, arg)
+	return nil
+}
+
+func (s *sessionMemoryStore) ListOwnLoginEvents(_ context.Context, accountID int64) ([]db.ListOwnLoginEventsRow, error) {
+	var events []db.ListOwnLoginEventsRow
+	for i, event := range s.loginEvents {
+		if event.AccountID.Valid && event.AccountID.Int64 == accountID {
+			events = append(events, db.ListOwnLoginEventsRow{ID: int64(i + 1), Outcome: event.Outcome})
+		}
+	}
+	return events, nil
 }
 
 func (s *sessionMemoryStore) GetSession(_ context.Context, id uuid.UUID) (db.Session, error) {
@@ -117,6 +137,79 @@ type registrationStoreFake struct {
 func (s *registrationStoreFake) RegisterTx(_ context.Context, _ db.RegisterTxParams) (db.Account, error) {
 	s.calls++
 	return db.Account{ID: 7}, nil
+}
+
+func TestPasswordLoginAuditBoundaries(t *testing.T) {
+	hash, err := util.HashPassword("correct-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{
+		TokenSymmetricKey: strings.Repeat("k", 32),
+		AccessTokenDuration: 15 * time.Minute,
+		RefreshTokenDuration: time.Hour,
+	}
+	maker, err := token.NewJWTMaker(cfg.TokenSymmetricKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &sessionMemoryStore{
+		account: db.Account{ID: 71, Email: "known@example.test"},
+		passwordHash: hash,
+	}
+	service := NewAuthService(store, maker, cfg)
+	ctx := context.Background()
+	for _, email := range []string{"other@example.test", "known@example.test"} {
+		_, err := service.Login(ctx, email, "bad-password", strings.Repeat("u", 600), "192.0.2.10")
+		if !errors.Is(err, apperrors.InvalidCredentials) {
+			t.Fatalf("login error for %s = %v", email, err)
+		}
+	}
+	if len(store.loginEvents) != 2 || store.loginEvents[0].AccountID.Valid ||
+		!store.loginEvents[1].AccountID.Valid || store.loginEvents[1].AccountID.Int64 != 71 ||
+		len([]rune(store.loginEvents[1].UserAgent)) != 512 {
+		t.Fatalf("unexpected audit events: %+v", store.loginEvents)
+	}
+	if _, err := service.Login(ctx, "known@example.test", "correct-password", "test", "192.0.2.11"); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.loginEvents) != 3 || store.loginEvents[2].Outcome != "succeeded" {
+		t.Fatalf("success not audited: %+v", store.loginEvents)
+	}
+	own, err := service.LoginHistory(ctx, 71)
+	if err != nil || len(own) != 2 {
+		t.Fatalf("own event history = %+v, %v", own, err)
+	}
+	other, err := service.LoginHistory(ctx, 99)
+	if err != nil || len(other) != 0 {
+		t.Fatalf("cross-account audit history leaked: %+v, %v", other, err)
+	}
+}
+
+func TestPasswordLoginFailsClosedWhenAuditUnavailable(t *testing.T) {
+	hash, err := util.HashPassword("correct-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{TokenSymmetricKey: strings.Repeat("k", 32), AccessTokenDuration: time.Minute, RefreshTokenDuration: time.Hour}
+	maker, err := token.NewJWTMaker(cfg.TokenSymmetricKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &sessionMemoryStore{
+		account: db.Account{ID: 15, Email: "known@example.test"},
+		passwordHash: hash,
+		auditErr: errors.New("audit database offline"),
+	}
+	service := NewAuthService(store, maker, cfg)
+	_, err = service.Login(context.Background(), "known@example.test", "correct-password", "", "")
+	if err == nil || !store.session.IsBlocked {
+		t.Fatalf("login returned credentials or left refresh session active: %v", err)
+	}
+	_, err = service.Login(context.Background(), "other@example.test", "x", "", "")
+	if err == nil || errors.Is(err, apperrors.InvalidCredentials) {
+		t.Fatalf("audit outage returned an ordinary 401: %v", err)
+	}
 }
 
 func TestRegisterPasswordByteLimit(t *testing.T) {
