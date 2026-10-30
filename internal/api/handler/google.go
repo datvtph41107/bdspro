@@ -65,12 +65,12 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 	}
 	accountID := middleware.AccountID(ctx)
 	if (req.Password == "") == (req.PhoneCode == "") {
-		response.Reject(ctx, http.StatusBadRequest, "invalid_link_proof", "provide exactly one reauthentication method")
+		response.Fail(ctx, response.InvalidLinkProof)
 		return
 	}
 	if req.PhoneCode != "" {
 		if g.phone == nil {
-			response.Reject(ctx, http.StatusForbidden, "phone_reauthentication_unavailable", "phone reauthentication unavailable")
+			response.Fail(ctx, response.PhoneReauthenticationUnavailable)
 			return
 		}
 		if err := g.phone.AuthorizePhoneProof(ctx.Request.Context(), accountID, req.PhoneCode); err != nil {
@@ -83,7 +83,7 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 	}
 	authURL, err := g.begin(ctx, "link", accountID, "")
 	if err != nil {
-		response.Reject(ctx, http.StatusServiceUnavailable, "google_unavailable", "Google sign-in unavailable")
+		response.Fail(ctx, response.GoogleUnavailable)
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"authorization_url": authURL})
@@ -92,7 +92,7 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 func (g *GoogleHandler) StartLogin(ctx *gin.Context) {
 	authURL, err := g.begin(ctx, "login", 0, "")
 	if err != nil {
-		response.Reject(ctx, http.StatusServiceUnavailable, "google_unavailable", "Google sign-in unavailable")
+		response.Fail(ctx, response.GoogleUnavailable)
 		return
 	}
 	ctx.Redirect(http.StatusFound, authURL)
@@ -120,7 +120,7 @@ func (g *GoogleHandler) StartPhoneBind(ctx *gin.Context) {
 	}
 	authURL, err := g.begin(ctx, "phone_bind", middleware.AccountID(ctx), req.Phone)
 	if err != nil {
-		response.Reject(ctx, http.StatusServiceUnavailable, "google_unavailable", "Google sign-in unavailable")
+		response.Fail(ctx, response.GoogleUnavailable)
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"authorization_url": authURL})
@@ -183,36 +183,36 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 	state := ctx.Query("state")
 	cookie, err := ctx.Request.Cookie(googleOAuthCookie)
 	if err != nil || state == "" || len(state) != 43 || subtle.ConstantTimeCompare([]byte(state), []byte(cookie.Value)) != 1 {
-		response.Reject(ctx, http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
+		response.Fail(ctx, response.GoogleInvalidState)
 		return
 	}
 	g.stateCookie(ctx, "", -1)
 	data, err := g.redis.GetDel(ctx.Request.Context(), "google:oauth:state:"+state).Bytes()
 	if errors.Is(err, redis.Nil) {
-		response.Reject(ctx, http.StatusBadRequest, "google_state_expired", "expired Google authorization state")
+		response.Fail(ctx, response.GoogleStateExpired)
 		return
 	}
 	if err != nil {
-		response.Reject(ctx, http.StatusServiceUnavailable, "google_unavailable", "Google sign-in unavailable")
+		response.Fail(ctx, response.GoogleUnavailable)
 		return
 	}
 	var pending googlePending
 	if json.Unmarshal(data, &pending) != nil || pending.Verifier == "" || pending.Nonce == "" {
-		response.Reject(ctx, http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
+		response.Fail(ctx, response.GoogleInvalidState)
 		return
 	}
 	if ctx.Query("error") != "" || ctx.Query("code") == "" {
-		response.Reject(ctx, http.StatusUnauthorized, "google_authorization_declined", "Google authorization declined")
+		response.Fail(ctx, response.GoogleAuthorizationDeclined)
 		return
 	}
 	idToken, err := g.exchange(ctx.Request.Context(), ctx.Query("code"), pending.Verifier)
 	if err != nil {
-		response.Reject(ctx, http.StatusUnauthorized, "google_authorization_failed", "Google authorization failed")
+		response.Fail(ctx, response.GoogleAuthorizationFailed)
 		return
 	}
 	identity, err := service.VerifyGoogleIDToken(ctx.Request.Context(), idToken, g.config.GoogleClientID, pending.Nonce)
 	if err != nil {
-		response.Reject(ctx, http.StatusUnauthorized, "google_invalid_identity", "invalid Google identity")
+		response.Fail(ctx, response.GoogleInvalidIdentity)
 		return
 	}
 
@@ -235,7 +235,7 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		return
 	}
 	if pending.Purpose != "login" || pending.AccountID != 0 {
-		response.Reject(ctx, http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
+		response.Fail(ctx, response.GoogleInvalidState)
 		return
 	}
 	result, err := g.auth.Login(ctx.Request.Context(), identity, ctx.Request.UserAgent(), ctx.ClientIP())
