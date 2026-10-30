@@ -23,6 +23,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -46,7 +47,11 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	log.Logger = util.NewLogger(os.Stderr, cfg.LogFormat)
+	level, err := zerolog.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		return fmt.Errorf("parse LOG_LEVEL: %w", err)
+	}
+	log.Logger = util.NewLogger(os.Stderr, cfg.LogFormat).Level(level)
 	if os.Getenv(gin.EnvGinMode) == "" {
 		gin.SetMode(gin.ReleaseMode)
 	}

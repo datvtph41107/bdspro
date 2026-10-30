@@ -23,7 +23,7 @@ func LoginAudit() gin.HandlerFunc {
 			event = log.Ctx(ctx.Request.Context()).Warn()
 		case status >= 500:
 			outcome = "failed"
-			event = log.Ctx(ctx.Request.Context()).Error()
+			// The operation boundary owns the ERROR event. This records only the outcome.
 		case status < 200 || status >= 300:
 			outcome = "rejected"
 			event = log.Ctx(ctx.Request.Context()).Warn()

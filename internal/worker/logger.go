@@ -18,8 +18,8 @@ func (l *Logger) Print(level zerolog.Level, args ...any) {
 	log.WithLevel(level).Msg(fmt.Sprint(args...))
 }
 
-func (l *Logger) Printf(_ context.Context, format string, v ...any) {
-	log.Debug().Msgf(format, v...)
+func (l *Logger) Printf(ctx context.Context, format string, v ...any) {
+	log.Ctx(ctx).Debug().Msgf(format, v...)
 }
 
 func (l *Logger) Debug(args ...any) {

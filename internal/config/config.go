@@ -13,6 +13,7 @@ import (
 type Config struct {
 	Environment          string        `mapstructure:"ENVIRONMENT"`
 	LogFormat            string        `mapstructure:"LOG_FORMAT"`
+	LogLevel             string        `mapstructure:"LOG_LEVEL"`
 	GoogleClientID       string        `mapstructure:"GOOGLE_CLIENT_ID"`
 	GoogleClientSecret   string        `mapstructure:"GOOGLE_CLIENT_SECRET"`
 	GoogleRedirectURI    string        `mapstructure:"GOOGLE_REDIRECT_URI"`
@@ -45,6 +46,7 @@ func LoadConfig(path string) (config Config, err error) {
 	v.SetConfigName("app")
 	v.SetConfigType("env")
 	v.SetDefault("LOG_FORMAT", "json")
+	v.SetDefault("LOG_LEVEL", "info")
 	v.SetDefault("ZALO_CODE_FIELD", "otp")
 	v.AutomaticEnv()
 	for _, name := range []string{"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
@@ -64,6 +66,11 @@ func LoadConfig(path string) (config Config, err error) {
 
 	if config.LogFormat != "json" && config.LogFormat != "console" {
 		return config, fmt.Errorf("LOG_FORMAT must be console or json")
+	}
+	switch config.LogLevel {
+	case "debug", "info", "warn", "error":
+	default:
+		return config, fmt.Errorf("LOG_LEVEL must be debug, info, warn or error")
 	}
 	if config.DBSource == "" || config.MigrationURL == "" || config.HTTPServerAddress == "" {
 		return config, fmt.Errorf("DB_SOURCE, MIGRATION_URL and HTTP_SERVER_ADDRESS are required")

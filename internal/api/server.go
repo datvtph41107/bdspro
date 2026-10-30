@@ -124,29 +124,7 @@ func (server *Server) setupRouter() {
 		ctx.Request = ctx.Request.WithContext(requestLogger.WithContext(ctx.Request.Context()))
 		ctx.Next()
 	})
-	// Never log a raw URL: email verification tokens may appear in query strings.
-	router.Use(func(ctx *gin.Context) {
-		startedAt := time.Now()
-		ctx.Next()
-
-		path := ctx.FullPath()
-		if path == "" {
-			path = "<unmatched>"
-		}
-		status := ctx.Writer.Status()
-		event := log.Ctx(ctx.Request.Context()).Info()
-		if status >= http.StatusInternalServerError {
-			event = log.Ctx(ctx.Request.Context()).Error()
-		}
-		if code := ctx.GetString(response.ErrorCodeKey); code != "" {
-			event = event.Str("error_code", code)
-		}
-		event.Str("method", ctx.Request.Method).
-			Str("path", path).
-			Int("status", status).
-			Dur("duration", time.Since(startedAt)).
-			Msg("http.request")
-	}, gin.CustomRecoveryWithWriter(nil, func(ctx *gin.Context, recovered any) {
+	router.Use(accessLogger(), gin.CustomRecoveryWithWriter(nil, func(ctx *gin.Context, recovered any) {
 		path := ctx.FullPath()
 		if path == "" {
 			path = "<unmatched>"
@@ -168,6 +146,29 @@ func (server *Server) setupRouter() {
 	server.registerSwagger(router)
 
 	server.router = router
+}
+
+// accessLogger records one safe request outcome, distinct from a failure
+// diagnostic. Route templates avoid token-bearing query strings and raw IDs.
+func accessLogger() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		startedAt := time.Now()
+		ctx.Next()
+
+		path := ctx.FullPath()
+		if path == "" {
+			path = "<unmatched>"
+		}
+		event := log.Ctx(ctx.Request.Context()).Info()
+		if code := ctx.GetString(response.ErrorCodeKey); code != "" {
+			event = event.Str("error_code", code)
+		}
+		event.Str("method", ctx.Request.Method).
+			Str("path", path).
+			Int("status", ctx.Writer.Status()).
+			Dur("duration", time.Since(startedAt)).
+			Msg("http.request")
+	}
 }
 
 // Handler exposes Gin routes with the same CORS policy as the previous HTTP ingress.

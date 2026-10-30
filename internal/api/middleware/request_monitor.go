@@ -54,8 +54,13 @@ func RequestMonitor(redisClient *redis.Client) gin.HandlerFunc {
 			route = "<unmatched>"
 		}
 		ipHash := hashedRateKey(ctx.ClientIP())
-		log.Ctx(ctx.Request.Context()).Warn().
-			Str("reason", reason).
+		// Malformed input alone does not establish a security incident.
+		// Count it for threshold detection, but do not warn on each 400/413.
+		event := log.Ctx(ctx.Request.Context()).Warn()
+		if status == http.StatusBadRequest || status == http.StatusRequestEntityTooLarge {
+			event = log.Ctx(ctx.Request.Context()).Debug()
+		}
+		event.Str("reason", reason).
 			Str("route", route).
 			Str("method", ctx.Request.Method).
 			Str("source_id", ipHash[:16]).

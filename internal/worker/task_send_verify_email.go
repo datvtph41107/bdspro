@@ -45,8 +45,8 @@ func NewVerifyEmailHandler(store jobs.VerificationStore, sender mail.EmailSender
 			return err
 		}
 		taskID, _ := asynq.GetTaskID(ctx)
-		log.Ctx(ctx).Info().Str("type", task.Type()).Str("task_id", taskID).
-			Int64("account_id", payload.AccountID).Msg("verification_email.completed")
+		log.Ctx(ctx).Info().Str("task", task.Type()).Str("task_id", taskID).
+			Msg("verification_email.completed")
 		return nil
 	})
 }
