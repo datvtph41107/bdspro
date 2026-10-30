@@ -148,11 +148,6 @@ func (h *AuthHandler) Revoke(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// Me uses the verified account identity provided by authentication middleware.
-func (h *AuthHandler) Me(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"account_id": middleware.AccountID(c)})
-}
-
 func (h *AuthHandler) SetPasswordResetSender(sender mail.EmailSender) { h.resetSender = sender }
 
 func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
@@ -239,6 +234,27 @@ func (h *AuthHandler) ConfirmEmailLink(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// Activity returns only events owned by the authenticated Account.
+// Unknown-account attempts are intentionally not linked to a customer.
+func (h *AuthHandler) Activity(c *gin.Context) {
+	events, err := h.auth.LoginHistory(c.Request.Context(), middleware.AccountID(c))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	items := make([]LoginActivityResponse, 0, len(events))
+	for _, event := range events {
+		items = append(items, LoginActivityResponse{
+			ID:         event.ID,
+			Outcome:    event.Outcome,
+			ClientIP:   event.ClientIp,
+			UserAgent:  event.UserAgent,
+			OccurredAt: event.OccurredAt,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"events": items})
 }
 
 func (h *AuthHandler) ListSessions(c *gin.Context) {

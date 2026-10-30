@@ -10,6 +10,7 @@ import (
 
 type UserResponse struct {
 	AccountID       int64     `json:"account_id"`
+	PersonID        int64     `json:"person_id"`
 	Email           string    `json:"email"`
 	CreatedAt       time.Time `json:"created_at"`
 	IsEmailVerified bool      `json:"is_email_verified"`
@@ -18,10 +19,21 @@ type UserResponse struct {
 func newUserResponse(a db.Account) UserResponse {
 	return UserResponse{
 		AccountID:       a.ID,
+		PersonID:        a.PersonID,
 		Email:           a.Email,
 		CreatedAt:       a.CreatedAt,
 		IsEmailVerified: a.IsEmailVerified,
 	}
+}
+
+// LoginActivityResponse never contains attempted email, credential material,
+// refresh tokens, OAuth subjects or data belonging to another account.
+type LoginActivityResponse struct {
+	ID         int64     `json:"id"`
+	Outcome    string    `json:"outcome"`
+	ClientIP   string    `json:"client_ip"`
+	UserAgent  string    `json:"user_agent"`
+	OccurredAt time.Time `json:"occurred_at"`
 }
 
 type LoginResponse struct {

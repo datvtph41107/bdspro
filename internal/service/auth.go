@@ -21,6 +21,7 @@ import (
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // AuthService owns registration, credential authentication, email verification,
@@ -86,10 +87,15 @@ type LoginResult struct {
 	RefreshExpiresAt time.Time
 }
 
+// Login persists password authentication outcomes before returning to HTTP.
+// On audit failure, credentials are not returned to the caller.
 func (s *AuthService) Login(ctx context.Context, email, password, userAgent, clientIP string) (LoginResult, error) {
 	var result LoginResult
 	account, err := s.store.GetAccountByEmail(ctx, strings.TrimSpace(email))
 	if errors.Is(err, pgx.ErrNoRows) {
+		if err := s.recordPasswordLoginEvent(ctx, 0, "rejected", userAgent, clientIP); err != nil {
+			return result, err
+		}
 		return result, apperrors.InvalidCredentials
 	}
 	if err != nil {
@@ -97,15 +103,58 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	}
 	hash, err := s.store.GetPasswordHash(ctx, account.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
+		if err := s.recordPasswordLoginEvent(ctx, account.ID, "rejected", userAgent, clientIP); err != nil {
+			return result, err
+		}
 		return result, apperrors.InvalidCredentials
 	}
 	if err != nil {
 		return result, err
 	}
 	if err := util.CheckPassword(password, hash); err != nil {
+		if err := s.recordPasswordLoginEvent(ctx, account.ID, "rejected", userAgent, clientIP); err != nil {
+			return result, err
+		}
 		return result, apperrors.InvalidCredentials
 	}
-	return IssueSession(ctx, s.store, s.maker, s.config, account, userAgent, clientIP)
+	issued, err := IssueSession(ctx, s.store, s.maker, s.config, account, userAgent, clientIP)
+	if err != nil {
+		return result, err
+	}
+	if err := s.recordPasswordLoginEvent(ctx, account.ID, "succeeded", userAgent, clientIP); err != nil {
+		// Credentials are not returned when the security event cannot be
+		// persisted. Attempt to revoke the newly created refresh session.
+		_, revokeErr := s.store.BlockSession(ctx, db.BlockSessionParams{
+			ID: issued.Session.ID, AccountID: account.ID, RefreshToken: issued.RefreshToken,
+		})
+		return result, errors.Join(err, revokeErr)
+	}
+	return issued, nil
+}
+
+func (s *AuthService) recordPasswordLoginEvent(ctx context.Context, accountID int64, outcome, userAgent, clientIP string) error {
+	account := pgtype.Int8{}
+	if accountID > 0 {
+		account = pgtype.Int8{Int64: accountID, Valid: true}
+	}
+	return s.store.RecordPasswordLoginEvent(ctx, db.RecordPasswordLoginEventParams{
+		AccountID: account,
+		Outcome:   outcome,
+		UserAgent: truncateLoginMetadata(userAgent, 512),
+		ClientIp:  truncateLoginMetadata(clientIP, 64),
+	})
+}
+
+func truncateLoginMetadata(value string, limit int) string {
+	runes := []rune(value)
+	if len(runes) > limit {
+		return string(runes[:limit])
+	}
+	return value
+}
+
+func (s *AuthService) LoginHistory(ctx context.Context, accountID int64) ([]db.ListOwnLoginEventsRow, error) {
+	return s.store.ListOwnLoginEvents(ctx, pgtype.Int8{Int64: accountID, Valid: true})
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, emailID int64, secretCode string) error {

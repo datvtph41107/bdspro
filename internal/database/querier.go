@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -19,16 +20,19 @@ type Querier interface {
 	ConsumePasswordResetToken(ctx context.Context, tokenHash []byte) (int64, error)
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
+	CreateAccountSettings(ctx context.Context, accountID int64) error
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	CreateOrganizationMember(ctx context.Context, arg CreateOrganizationMemberParams) (OrganizationMember, error)
 	CreateParty(ctx context.Context) (int64, error)
 	CreatePasswordCredential(ctx context.Context, arg CreatePasswordCredentialParams) error
 	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) error
 	CreatePerson(ctx context.Context, partyID int64) error
+	CreatePersonProfile(ctx context.Context, personID int64) error
 	CreatePhoneOnlyAccount(ctx context.Context, personID int64) (CreatePhoneOnlyAccountRow, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVerifiedGoogleAccountParams) (Account, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
+	DeleteExpiredLoginEvents(ctx context.Context) (int64, error)
 	DeletePasswordResetTokensForAccount(ctx context.Context, accountID int64) error
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
 	DeletePhoneSignup(ctx context.Context, phoneE164 string) error
@@ -36,6 +40,7 @@ type Querier interface {
 	EmailLinkAddressTaken(ctx context.Context, btrim string) (bool, error)
 	FailPhoneSignup(ctx context.Context, phoneE164 string) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
+	GetAccountProfile(ctx context.Context, id int64) (GetAccountProfileRow, error)
 	GetGoogleAccountIDQuery(ctx context.Context, googleSub string) (int64, error)
 	GetOrganizationForAccount(ctx context.Context, arg GetOrganizationForAccountParams) (GetOrganizationForAccountRow, error)
 	GetPasswordHash(ctx context.Context, accountID int64) (string, error)
@@ -46,6 +51,7 @@ type Querier interface {
 	ListActiveSessions(ctx context.Context, accountID int64) ([]ListActiveSessionsRow, error)
 	ListOrganizationMembersForOwner(ctx context.Context, arg ListOrganizationMembersForOwnerParams) ([]ListOrganizationMembersForOwnerRow, error)
 	ListOrganizationsForAccount(ctx context.Context, accountID int64) ([]ListOrganizationsForAccountRow, error)
+	ListOwnLoginEvents(ctx context.Context, accountID pgtype.Int8) ([]ListOwnLoginEventsRow, error)
 	ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error)
 	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
@@ -57,13 +63,16 @@ type Querier interface {
 	ReadAccountByEmail(ctx context.Context, btrim string) (ReadAccountByEmailRow, error)
 	ReadAccountByID(ctx context.Context, id int64) (ReadAccountByIDRow, error)
 	RecordEmailVerificationJob(ctx context.Context, accountID int64) error
+	RecordPasswordLoginEvent(ctx context.Context, arg RecordPasswordLoginEventParams) error
 	// The payload identifies the account, never a reset token or password.
 	// The worker generates the one-time proof only when the job is executed.
 	RecordPasswordResetJob(ctx context.Context, accountID int64) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	RevokeAllAccountSessions(ctx context.Context, accountID int64) (int64, error)
 	RevokeOwnedSession(ctx context.Context, arg RevokeOwnedSessionParams) (int64, error)
+	UpdateAccountSettings(ctx context.Context, arg UpdateAccountSettingsParams) (int64, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+	UpdatePersonProfile(ctx context.Context, arg UpdatePersonProfileParams) (int64, error)
 	UpsertEmailLinkChallenge(ctx context.Context, arg UpsertEmailLinkChallengeParams) (int64, error)
 	UpsertPasswordCredential(ctx context.Context, arg UpsertPasswordCredentialParams) error
 	UpsertPhoneChallengeQuery(ctx context.Context, arg UpsertPhoneChallengeQueryParams) (int64, error)

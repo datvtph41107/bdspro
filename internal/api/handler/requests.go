@@ -67,3 +67,15 @@ type EmailLinkStartRequest struct {
 type EmailLinkConfirmRequest struct {
 	Token string `json:"token" binding:"required,len=43"`
 }
+
+type UpdateProfileRequest struct {
+	DisplayName *string `json:"display_name" binding:"omitempty,max=120"`
+	FirstName   *string `json:"first_name" binding:"omitempty,max=120"`
+	LastName    *string `json:"last_name" binding:"omitempty,max=120"`
+}
+
+type UpdateSettingsRequest struct {
+	Locale   string `json:"locale" binding:"required,oneof=vi en"`
+	Timezone string `json:"timezone" binding:"required,oneof=Asia/Ho_Chi_Minh UTC"`
+	Currency string `json:"currency" binding:"required,oneof=VND USD"`
+}

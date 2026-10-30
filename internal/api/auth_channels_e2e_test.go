@@ -116,6 +116,10 @@ func TestPhoneSignupLoginAndBusinessHTTPAcceptance(t *testing.T) {
 		t.Fatalf("signup verify status=%d result=%v", status, result)
 	}
 	firstID := result["user"].(map[string]any)["account_id"]
+	check, lookupErr := db.NewStore(pool).GetAccountProfile(ctx, int64(firstID.(float64)))
+	if lookupErr != nil || !check.HasPhone || check.HasPassword || check.HasGoogle {
+		t.Fatalf("phone signup profile mismatch: %+v, %v", check, lookupErr)
+	}
 	access := result["access_token"].(string)
 	status, result = authAcceptanceCall(t, server, "/organizations", http.MethodPost, map[string]string{"name": "Phone Business"}, access)
 	if status != http.StatusCreated {

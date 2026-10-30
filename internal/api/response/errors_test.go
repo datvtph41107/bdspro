@@ -22,6 +22,8 @@ func TestApplicationErrorResponses(t *testing.T) {
 		message string
 	}{
 		{name: "InvalidResetToken", err: apperrors.InvalidResetToken, status: http.StatusBadRequest, code: "auth.invalid_reset_token", message: "invalid or expired reset token"},
+		{name: "InvalidProfile", err: apperrors.InvalidProfile, status: http.StatusBadRequest, code: "profile.invalid", message: "invalid profile"},
+		{name: "InvalidSettings", err: apperrors.InvalidSettings, status: http.StatusBadRequest, code: "settings.invalid", message: "invalid settings"},
 		{name: "InvalidPassword", err: apperrors.InvalidPassword, status: http.StatusBadRequest, code: "auth.invalid_password", message: "invalid request"},
 		{name: "AccountUnavailable", err: apperrors.AccountUnavailable, status: http.StatusUnauthorized, code: "auth.account_unavailable", message: "account unavailable"},
 		{name: "NameRequired", err: apperrors.NameRequired, status: http.StatusBadRequest, code: "http.name_required", message: "name required"},

@@ -14,10 +14,16 @@ func (s *SQLStore) CreateGoogleAccountTx(ctx context.Context, email, googleSub s
 		if err := q.CreatePerson(ctx, partyID); err != nil {
 			return err
 		}
+		if err := q.CreatePersonProfile(ctx, partyID); err != nil {
+			return err
+		}
 		account, err = q.CreateVerifiedGoogleAccount(ctx, CreateVerifiedGoogleAccountParams{
 			PersonID: partyID, Email: email,
 		})
 		if err != nil {
+			return err
+		}
+		if err := q.CreateAccountSettings(ctx, account.ID); err != nil {
 			return err
 		}
 		_, err = q.LinkGoogleIdentityQuery(ctx, LinkGoogleIdentityQueryParams{

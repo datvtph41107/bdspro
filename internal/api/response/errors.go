@@ -21,6 +21,10 @@ func getErrorResponse(err error) (errorResponse, bool) {
 		return errorResponse{}, false
 	}
 	switch app {
+	case apperrors.InvalidProfile:
+		return errorResponse{Status: http.StatusBadRequest, Code: "profile.invalid", Message: "invalid profile"}, true
+	case apperrors.InvalidSettings:
+		return errorResponse{Status: http.StatusBadRequest, Code: "settings.invalid", Message: "invalid settings"}, true
 	case apperrors.InvalidResetToken:
 		return errorResponse{Status: http.StatusBadRequest, Code: "auth.invalid_reset_token", Message: "invalid or expired reset token"}, true
 	case apperrors.InvalidPassword:
