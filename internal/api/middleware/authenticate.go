@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"net/http"
 	"strings"
 
 	"github.com/datvtph41107/bdspro/internal/api/response"
@@ -17,12 +16,12 @@ func Authenticate(maker token.Maker) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		parts := strings.Fields(ctx.GetHeader("Authorization"))
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			response.Reject(ctx, http.StatusUnauthorized, "unauthenticated", "missing or invalid bearer token")
+			response.Fail(ctx, response.BearerRequired)
 			return
 		}
 		payload, err := maker.VerifyToken(parts[1], token.TokenTypeAccess)
 		if err != nil {
-			response.Reject(ctx, http.StatusUnauthorized, "invalid_access_token", "invalid access token")
+			response.Fail(ctx, response.InvalidAccessToken)
 			return
 		}
 		ctx.Set(AuthorizationPayloadKey, payload)
