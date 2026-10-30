@@ -35,59 +35,26 @@ docs/                            Engineering, operation and historical decisions
 All Go code under `internal/` stays private to this module. No `pkg/`
 library is needed for the current executable.
 
-## Local development — one supported path
+## Development
 
-Prerequisites: Go 1.27.3, Docker with **Compose v2**, and Make. The local
-Compose project owns PostgreSQL 18, Redis 7 and Mailpit. This path uses
-the local development database `bdspro`, not the disposable test database.
+Requirements: Go 1.27.3, PostgreSQL 18, Redis 7, SQLC v1.30.0 and
+golang-migrate. Copy no example signing key into production.
 
 ```sh
-make help
-make dev-up        # compose up --wait: PostgreSQL/Redis healthy, Mailpit running
-make dev           # run Go on host, connect to Compose services
-# in a second terminal:
-curl -i http://127.0.0.1:8080/health
-curl -i http://127.0.0.1:8080/swagger/openapi.json
-# Mailpit inbox: http://127.0.0.1:8025
-make check         # before opening a PR
-make dev-down      # stops dependencies; preserves named database volumes
+make migrateup
+make sqlc
+make swagger
+go run .
+go test ./...
+go test -race ./...
+go vet ./...
+go build ./...
 ```
 
-`make dev` uses explicitly local database/Redis addresses and loopback HTTP.
-Compose also binds the published PostgreSQL, Redis, API and Mailpit ports to
-`127.0.0.1` so development credentials are not exposed on all host interfaces.
-It sends development email through Mailpit at `127.0.0.1:1025` with no SMTP
-authentication. It uses `app.env` for the remaining development settings.
-`main.go` automatically applies migrations in `development` only.
-**Do not connect the development process to application/production data.**
-Both `make dev-up` and the app can fail if ports 5432, 6379, 8025, 1025
-or 8080 are already in use.
-
-`make server` is the raw `go run .` entry point: unlike `make dev`, it does
-not force local Mailpit/DB overrides and relies on `app.env`/OS settings.
-`make postgres` and `make redis` are Compose-specific convenience commands;
-Compose initially creates `bdspro`, so `make createdb` is not needed on first
-startup. `make dev-down` uses `docker compose stop`, not `down -v`.
-
-For changes to SQL or migrations, install **SQLC v1.30.0** and
-`golang-migrate v4.18.3` separately. Run `make sqlc` after changing
-`db/query/*.sql`; generated `internal/database/*.sql.go` files must be
-committed with their query sources. `make migrateup` uses `DB_URL` and
-must only point to an intended database. `make migratedown` and
-`make migratedown1` require `CONFIRM_MIGRATION_DOWN=yes` as an explicit
-safety prompt, **not** as proof that the target database is disposable.
-
-`make check` checks formatting without modifying source, verifies
-OpenAPI-to-Gin route coverage (`make swagger`), runs Go tests, race detector,
-vet and build. CI additionally checks SQLC drift and migrations using a
-dedicated disposable PostgreSQL database. Local integration tests run only
-with `BDS_TEST_MODE=disposable` and `BDS_TEST_DB_URL` targeting
-`bdspro_test` with schema already migrated; ordinary `make check`
-otherwise skips those integration cases.
-
-Outside development, migrations run in a controlled deployment step before
-starting the API, secrets must be environment-specific, and neither
-`make dev` nor the sample settings are production configuration.
+`main.go` applies migrations automatically only in development. Outside
+development, apply migrations through a controlled deployment step before
+starting the API. JWT signing secrets must be environment-specific.
+Docker Compose can provision supporting services.
 
 ## HTTP contract
 
