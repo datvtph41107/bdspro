@@ -13,9 +13,8 @@ The repository should not add abstractions just to imitate Laravel or SimpleBank
 - `db/query` and `db/migration`: editable SQL and schema source of truth.
 - `internal/worker`: Asynq tasks and durable job-outbox dispatch.
 - `internal/notification`: external delivery adapters.
-- `doc/swagger`: versioned OpenAPI JSON and embedded Swagger UI assets
-  served in development; `make swagger` tests OpenAPI route coverage and
-  does not generate files. There is no `doc/statik` output.
+- `doc/swagger`: versioned OpenAPI; `doc/statik`: embedded snapshot generated
+  by `make swagger`, using standard-library embed rather than rakyll/statik.
 - `docs`: engineer-facing operating and architecture documentation.
 
 ## Coding rules
@@ -46,11 +45,10 @@ serialized. Service outages must not be reported as bad credentials.
 
 ## API documentation and operations
 
-`doc/swagger/openapi.json` is the versioned HTTP specification.
-`make swagger` **checks** OpenAPI-to-Gin route coverage; it does not
-synchronize or generate assets. Embedded Swagger UI is development-only
-and served by the Go `embed` package. The CSS/JS live in the embedded
-assets, not an external CDN. CI verifies route coverage and runtime serving.
+`doc/swagger/openapi.json` is authoritative, `make swagger` synchronizes
+embedded assets and CI checks that generated assets match. Route completeness
+is checked against Gin's registered routes. Swagger UI is development-only,
+and its UI CSS/JS currently load from a CDN.
 
 Production migrations must run separately before app startup. The outbox
 currently enqueues to Redis while holding PostgreSQL row locks, with a
@@ -59,17 +57,14 @@ bounded timeout. At-least-once delivery and idempotent effects remain necessary.
 ## Acceptance
 
 ```sh
-make dev-up
-make dev
-# In another terminal, verify /health and /swagger/openapi.json.
-make check
+make sqlc
+make swagger
+go test ./...
+go test -race ./...
+go vet ./...
+go build ./...
 git diff --check
-make dev-down
 ```
-
-`make check` is non-mutating and does not generate SQLC output. Use
-`make sqlc` deliberately after editing SQL; CI checks generated-output drift.
-Database rollback Make targets require an explicit confirmation flag.
 
 CI additionally uses disposable Postgres 18 and a historical migration-upgrade
 test. No production-ready claim until multi-dispatcher retry behavior,
