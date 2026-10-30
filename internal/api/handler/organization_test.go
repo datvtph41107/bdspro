@@ -15,6 +15,7 @@ import (
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type organizationHTTPStoreFake struct {
@@ -32,13 +33,60 @@ func (s *organizationHTTPStoreFake) GetAccountByID(_ context.Context, id int64) 
 	return db.Account{ID: id, PersonID: 99}, nil
 }
 
-func (s *organizationHTTPStoreFake) CreateOrganizationTx(_ context.Context, p db.CreateOrganizationTxParams) (db.Organization, error) {
+// The fake runs the actual SQLC methods through a small recording DBTX.
+// It does not reimplement the service's Party -> Organization -> owner workflow.
+func (s *organizationHTTPStoreFake) ExecTx(ctx context.Context, operation func(*db.Queries) error) error {
 	s.creates++
-	s.lastName = p.Name
 	if s.createErr != nil {
-		return db.Organization{}, s.createErr
+		return s.createErr
 	}
-	return db.Organization{PartyID: 123, Name: p.Name}, nil
+	return operation(db.New(organizationHTTPQueries{store: s}))
+}
+
+type organizationHTTPQueries struct {
+	store *organizationHTTPStoreFake
+}
+
+func (q organizationHTTPQueries) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
+	return organizationHTTPRow{sql: sql, args: args, store: q.store}
+}
+
+func (organizationHTTPQueries) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, errors.New("unexpected Exec in creation workflow")
+}
+
+func (organizationHTTPQueries) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errors.New("unexpected Query in creation workflow")
+}
+
+type organizationHTTPRow struct {
+	sql   string
+	args  []any
+	store *organizationHTTPStoreFake
+}
+
+func (r organizationHTTPRow) Scan(dest ...any) error {
+	switch {
+	case strings.Contains(r.sql, "INSERT INTO parties DEFAULT VALUES"):
+		*dest[0].(*int64) = 123
+	case strings.Contains(r.sql, "INSERT INTO organizations (party_id, name)"):
+		r.store.lastName = r.args[1].(string)
+		*dest[0].(*int64) = 123
+		*dest[1].(*string) = r.store.lastName
+		*dest[2].(*time.Time) = time.Now()
+	case strings.Contains(r.sql, "INSERT INTO organization_members (organization_id, person_id, role)"):
+		if r.args[0] != int64(123) || r.args[1] != int64(99) || r.args[2] != "owner" {
+			return errors.New("unexpected owner membership arguments")
+		}
+		*dest[0].(*int64) = 1
+		*dest[1].(*int64) = 123
+		*dest[2].(*int64) = 99
+		*dest[3].(*string) = "owner"
+		*dest[4].(*time.Time) = time.Now()
+	default:
+		return errors.New("unexpected SQLC statement")
+	}
+	return nil
 }
 
 func TestStoreOrganizationHTTP(t *testing.T) {
@@ -75,10 +123,10 @@ func TestStoreOrganizationHTTP(t *testing.T) {
 	if store.creates != 0 {
 		t.Fatal("unauthenticated request reached database")
 	}
-	if w := send(`{"name":"My Company"`, access); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "invalid request") {
+	if w := send(`{"name":"My Company"`, access); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), `"code":"malformed_json"`) {
 		t.Fatalf("malformed JSON status=%d body=%s", w.Code, w.Body.String())
 	}
-	if w := send(`{"name":"  "}`, access); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "name required") {
+	if w := send(`{"name":"  "}`, access); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), `"code":"validation_failed"`) || !strings.Contains(w.Body.String(), `"name":[{"code":"required"`) {
 		t.Fatalf("blank name status=%d body=%s", w.Code, w.Body.String())
 	}
 	if store.creates != 0 {
