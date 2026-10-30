@@ -71,7 +71,7 @@ func Validation(c *gin.Context, err error, request any) {
 	}
 
 	var syntax *json.SyntaxError
-	if errors.As(err, &syntax) {
+	if errors.As(err, &syntax) || errors.Is(err, io.ErrUnexpectedEOF) {
 		Reject(c, http.StatusBadRequest, "malformed_json", "malformed JSON body")
 		return
 	}
