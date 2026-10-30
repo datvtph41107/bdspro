@@ -77,6 +77,16 @@ func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string)
 	return s.store.RecordEmailVerificationJob(ctx, account.ID)
 }
 
+// dummyPasswordHash has bcrypt's production default cost but does not belong
+// to any account. It prevents obvious account enumeration by avoiding a fast
+// return when an email has no account or no password credential.
+// This is a timing mitigation, not a constant-time guarantee for the full flow.
+const dummyPasswordHash = "$2a$10$jf3HO8nLz6D6fJUAiJ7sB.wHyxxdZneCFqfIxSyWP4t9wbygi36Ya"
+
+func checkUnknownPassword(password string) {
+	_ = util.CheckPassword(password, dummyPasswordHash)
+}
+
 type LoginResult struct {
 	Account          db.Account
 	Session          db.Session
@@ -90,6 +100,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	var result LoginResult
 	account, err := s.store.GetAccountByEmail(ctx, strings.TrimSpace(email))
 	if errors.Is(err, pgx.ErrNoRows) {
+		checkUnknownPassword(password)
 		return result, apperrors.InvalidCredentials
 	}
 	if err != nil {
@@ -97,6 +108,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	}
 	hash, err := s.store.GetPasswordHash(ctx, account.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
+		checkUnknownPassword(password)
 		return result, apperrors.InvalidCredentials
 	}
 	if err != nil {
