@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -34,6 +33,10 @@ return 1
 `)
 
 func (l *IdentityLimiter) Allow(ctx *gin.Context, operation, identity string, perIP, perIdentity int64, window time.Duration) bool {
+	if l == nil || l.client == nil {
+		response.Fail(ctx, response.RateLimitUnavailable)
+		return false
+	}
 	namespace := identityLimitKeyPrefix + operation + ":"
 	ipKey := namespace + "ip:" + rateHash(ctx.ClientIP())
 	identityKey := namespace + "identity:" + rateHash(strings.ToLower(strings.TrimSpace(identity)))
@@ -42,12 +45,12 @@ func (l *IdentityLimiter) Allow(ctx *gin.Context, operation, identity string, pe
 	if err != nil {
 		log.Ctx(ctx.Request.Context()).Error().Str("operation", operation).
 			Msg("auth.rate_limit_unavailable")
-		response.Reject(ctx, http.StatusServiceUnavailable, "rate_limit_unavailable", "authentication temporarily unavailable")
+		response.Fail(ctx, response.RateLimitUnavailable)
 		return false
 	}
 	if allowed != 1 {
 		ctx.Header("Retry-After", fmt.Sprint(int64(window.Seconds())))
-		response.Reject(ctx, http.StatusTooManyRequests, "rate_limited", "too many requests")
+		response.Fail(ctx, response.RateLimited)
 		return false
 	}
 	return true
