@@ -15,10 +15,10 @@ import (
 
 func TestAllApplicationFailuresKeepTheirPublicContract(t *testing.T) {
 	tests := []struct {
-		name string
-		err error
-		status int
-		code string
+		name    string
+		err     error
+		status  int
+		code    string
 		message string
 	}{
 		{name: "InvalidResetToken", err: apperrors.InvalidResetToken, status: http.StatusBadRequest, code: "auth.invalid_reset_token", message: "invalid or expired reset token"},
