@@ -8,7 +8,7 @@ services:
             - POSTGRES_PASSWORD=secret
             - POSTGRES_DB=bdspro
         ports:
-            - "5432:5432"
+            - "127.0.0.1:5432:5432"
         volumes:
             - data-volume:/var/lib/postgresql
         healthcheck:
@@ -22,7 +22,7 @@ services:
         # Redis stores scheduled, active and retry tasks for Asynq.
         command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
         ports:
-            - "6379:6379"
+            - "127.0.0.1:6379:6379"
         volumes:
             - redis-volume:/data
         healthcheck:
@@ -43,7 +43,7 @@ services:
             context: .
             dockerfile: Dockerfile
         ports:
-            - "8080:8080"
+            - "127.0.0.1:8080:8080"
         environment:
             - DB_SOURCE=postgresql://root:secret@postgres:5432/bdspro?sslmode=disable
             - REDIS_ADDRESS=redis:6379
