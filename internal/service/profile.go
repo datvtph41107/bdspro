@@ -9,6 +9,7 @@ import (
 	db "github.com/datvtph41107/bdspro/internal/database"
 	apperrors "github.com/datvtph41107/bdspro/internal/errors"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ProfileService reads and changes data owned by the signed-in account.
@@ -29,17 +30,27 @@ func (s *ProfileService) Show(ctx context.Context, accountID int64) (db.GetAccou
 	return profile, err
 }
 
-func (s *ProfileService) Update(ctx context.Context, accountID int64, displayName, firstName, lastName string) (db.GetAccountProfileRow, error) {
-	displayName = strings.TrimSpace(displayName)
-	firstName = strings.TrimSpace(firstName)
-	lastName = strings.TrimSpace(lastName)
-	for _, value := range []string{displayName, firstName, lastName} {
-		if utf8.RuneCountInString(value) > 120 {
-			return db.GetAccountProfileRow{}, apperrors.InvalidProfile
-		}
+// Update changes only the fields explicitly present in PATCH. Each SQL
+// COALESCE expression runs in one UPDATE, so independent concurrent field
+// changes cannot overwrite each other through a read/modify/write race.
+func (s *ProfileService) Update(ctx context.Context, accountID int64, displayName, firstName, lastName *string) (db.GetAccountProfileRow, error) {
+	if displayName == nil && firstName == nil && lastName == nil {
+		return db.GetAccountProfileRow{}, apperrors.InvalidProfile
+	}
+	display, err := profileField(displayName)
+	if err != nil {
+		return db.GetAccountProfileRow{}, err
+	}
+	first, err := profileField(firstName)
+	if err != nil {
+		return db.GetAccountProfileRow{}, err
+	}
+	last, err := profileField(lastName)
+	if err != nil {
+		return db.GetAccountProfileRow{}, err
 	}
 	n, err := s.store.UpdatePersonProfile(ctx, db.UpdatePersonProfileParams{
-		AccountID: accountID, DisplayName: displayName, FirstName: firstName, LastName: lastName,
+		AccountID: accountID, DisplayName: display, FirstName: first, LastName: last,
 	})
 	if err != nil {
 		return db.GetAccountProfileRow{}, err
@@ -48,6 +59,17 @@ func (s *ProfileService) Update(ctx context.Context, accountID int64, displayNam
 		return db.GetAccountProfileRow{}, apperrors.AccountUnavailable
 	}
 	return s.Show(ctx, accountID)
+}
+
+func profileField(value *string) (pgtype.Text, error) {
+	if value == nil {
+		return pgtype.Text{}, nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if utf8.RuneCountInString(trimmed) > 120 {
+		return pgtype.Text{}, apperrors.InvalidProfile
+	}
+	return pgtype.Text{String: trimmed, Valid: true}, nil
 }
 
 func (s *ProfileService) UpdateSettings(ctx context.Context, accountID int64, locale, timezone, currency string) (db.GetAccountProfileRow, error) {
