@@ -181,6 +181,7 @@ jobs:
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then
             echo "$unformatted"
+            gofmt -d $unformatted
             exit 1
           fi
 
