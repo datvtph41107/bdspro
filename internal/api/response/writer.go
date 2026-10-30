@@ -12,7 +12,7 @@ import (
 
 const ErrorCodeKey = "public_error_code"
 
-// reject emits one public, stable error contract; underlying errors are never serialized.
+// Reject emits the public JSON error shape; underlying errors are never serialized.
 func Reject(c *gin.Context, status int, code, message string) {
 	c.Set(ErrorCodeKey, code)
 	c.AbortWithStatusJSON(status, gin.H{"error": message, "code": code})
