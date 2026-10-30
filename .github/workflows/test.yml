@@ -158,6 +158,15 @@ jobs:
           make -n dev-up dev-down dev postgres redis
           make -n check
           docker compose config --quiet
+          docker compose config --format json > /tmp/bdspro-compose.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/bdspro-compose.json", encoding="utf-8") as source:
+              config = json.load(source)
+          for service in ("postgres", "redis", "mailpit", "api"):
+              for port in config["services"][service]["ports"]:
+                  assert port.get("host_ip") == "127.0.0.1", (service, port)
+          PY
           if make migratedown > /tmp/migratedown-denial.log 2>&1; then
             echo "migration rollback unexpectedly ran without confirmation"
             exit 1
