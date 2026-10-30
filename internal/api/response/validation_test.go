@@ -19,11 +19,11 @@ func TestValidationContract(t *testing.T) {
 		PersonID int64  `json:"person_id" binding:"required,min=1"`
 	}
 	tests := []struct {
-		name   string
-		body   string
-		code   string
-		field  string
-		rule   string
+		name	string
+		body	string
+		code	string
+		field	string
+		rule	string
 	}{
 		{name: "missing fields use JSON tags", body: `{}`, code: "validation_failed", field: "full_name", rule: "required"},
 		{name: "required numeric field", body: `{"full_name":"Jane"}`, code: "validation_failed", field: "person_id", rule: "required"},
@@ -53,9 +53,9 @@ func TestValidationContract(t *testing.T) {
 				t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
 			}
 			var got struct {
-				Error string                      `json:"error"`
-				Code  string                      `json:"code"`
-				Errors map[string][]FieldIssue    `json:"errors"`
+				Error	string `json:"error"`
+				Code	string `json:"code"`
+				Errors	map[string][]FieldIssue `json:"errors"`
 			}
 			if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 				t.Fatal(err)
