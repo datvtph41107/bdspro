@@ -28,8 +28,8 @@ func TestOrganizationAccessResourcePermissions(t *testing.T) {
 			access := service.OrganizationAccess{
 				Organization: db.Organization{PartyID: 100, Name: "Example"},
 				MembershipID: 12,
-				Role: tt.role,
-				JoinedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+				Role:         tt.role,
+				JoinedAt:     time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
 			}
 			result := newOrganizationAccessResponse(access)
 			if !reflect.DeepEqual(result.Permissions, tt.want) {
