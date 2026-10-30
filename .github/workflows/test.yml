@@ -57,6 +57,17 @@ jobs:
       - name: Verify OpenAPI contract
         run: go test ./internal/api -run TestOpenAPICoverage -count=1
 
+      - name: Verify Swagger and Statik generation
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@v1.16.6
+          go install github.com/rakyll/statik@v0.1.8
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          make swagger
+          test -s doc/swagger/swagger.json
+          test -s doc/statik/statik.go
+          python3 -c 'import json; assert json.load(open("doc/swagger/swagger.json"))["swagger"] == "2.0"'
+          git diff --exit-code -- doc/swagger/openapi.json
+
       - name: Migrate disposable test database
         env:
           PGPASSWORD: secret
