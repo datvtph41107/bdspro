@@ -3,11 +3,13 @@ package middleware
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/jackc/pgx/v5"
 
 	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 // VerifiedEmail guards business operations, while still allowing unverified
@@ -17,7 +19,7 @@ func VerifiedEmail(store interface {
 }) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if store == nil {
-			response.Fail(c, response.IdentityStoreUnavailable)
+			identityStoreUnavailable(c, nil)
 			return
 		}
 		account, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
@@ -26,7 +28,7 @@ func VerifiedEmail(store interface {
 			return
 		}
 		if err != nil {
-			response.Fail(c, response.IdentityStoreUnavailable)
+			identityStoreUnavailable(c, err)
 			return
 		}
 		if !account.IsEmailVerified {
@@ -44,13 +46,17 @@ func VerifiedContact(store interface {
 	GetPhoneForAccount(context.Context, int64) (string, error)
 }) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if store == nil {
+			identityStoreUnavailable(c, nil)
+			return
+		}
 		a, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
 		if errors.Is(err, pgx.ErrNoRows) {
 			response.Fail(c, response.AuthenticationRequired)
 			return
 		}
 		if err != nil {
-			response.Fail(c, response.IdentityStoreUnavailable)
+			identityStoreUnavailable(c, err)
 			return
 		}
 		if a.IsEmailVerified {
@@ -66,6 +72,16 @@ func VerifiedContact(store interface {
 			response.Fail(c, response.ContactVerificationRequired)
 			return
 		}
-		response.Fail(c, response.IdentityStoreUnavailable)
+		identityStoreUnavailable(c, err)
 	}
+}
+
+func identityStoreUnavailable(c *gin.Context, err error) {
+	event := log.Ctx(c.Request.Context()).Error().Str("dependency", "postgres")
+	if err != nil {
+		// The raw database error may contain credentials or private data.
+		event = event.Str("error_type", fmt.Sprintf("%T", err))
+	}
+	event.Msg("auth.identity_store_unavailable")
+	response.Fail(c, response.IdentityStoreUnavailable)
 }
