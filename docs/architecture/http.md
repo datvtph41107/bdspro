@@ -10,7 +10,7 @@ public, authenticated and conditionally enabled Google/Phone routes. Root
 `internal/api/handler/` owns HTTP binding, admission using validated identities,
 extracting the authenticated AccountID and presenting public responses.
 Typed input contracts live in `internal/api/handler/` and public output
-resources in `internal/api/handler/resources.go`. `internal/service/` owns business operations
+resources in `internal/api/handler/representations.go`. `internal/service/` owns business operations
 and must not import Gin. `db/query/` and `internal/database/` own query execution.
 
 ## Middleware ownership and order
