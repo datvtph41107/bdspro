@@ -152,13 +152,25 @@ jobs:
           END $audit$;
           SQL
 
-      - name: Verify Go formatting
+      - name: Verify developer workflow commands
         run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "$unformatted"
+          make help
+          make -n dev-up dev-down dev postgres redis
+          make -n check
+          docker compose config --quiet
+          if make migratedown > /tmp/migratedown-denial.log 2>&1; then
+            echo "migration rollback unexpectedly ran without confirmation"
             exit 1
           fi
+          if make migratedown1 > /tmp/migratedown1-denial.log 2>&1; then
+            echo "single-step rollback unexpectedly ran without confirmation"
+            exit 1
+          fi
+          grep -q "CONFIRM_MIGRATION_DOWN=yes" /tmp/migratedown-denial.log
+          grep -q "CONFIRM_MIGRATION_DOWN=yes" /tmp/migratedown1-denial.log
+
+      - name: Verify Go formatting
+        run: make format-check
 
       - name: Test and compile
         env:
