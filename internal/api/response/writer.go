@@ -43,7 +43,6 @@ func Error(c *gin.Context, err error) {
 	InternalError(c)
 }
 
-
 // BearerRequired responds to requests without a valid Bearer credential.
 func BearerRequired(c *gin.Context) {
 	c.Header("WWW-Authenticate", "Bearer")
