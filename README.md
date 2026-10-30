@@ -82,10 +82,14 @@ POST `/organizations/:id/members`.
 are registered.
 
 OpenAPI 3.0.3 is versioned at `doc/swagger/openapi.json`, with route coverage verified against native Gin registration. Swagger UI is available **only in development** at `/swagger/`
-and `/swagger/openapi.json`. The UI files are embedded using Go `embed`; no external CDN or Statik generator is needed.
-`make swagger` runs the OpenAPI-to-Gin route coverage test. API schemas remain
-versioned in `doc/swagger/openapi.json`; CI checks path/method coverage and
-runtime asset serving, not automatic generation of every response schema.
+and `/swagger/openapi.json`. The running API currently serves these assets using Go `embed`.
+`make swagger` restores the original `swag init` and `statik` generation
+commands, producing Swagger 2.0 `doc/swagger/swagger.json` and
+`doc/statik/statik.go`. The generator output is separate from the versioned
+OpenAPI 3.0 `doc/swagger/openapi.json` used by the running Swagger UI.
+CI checks the OpenAPI-to-Gin route coverage directly, without overwriting
+the versioned API contract. The Statik output is generated, but the runtime
+has not yet been switched away from Go `embed`.
 Swagger does not imply an endpoint is enabled in every environment.
 
 ## Data, sessions and workers

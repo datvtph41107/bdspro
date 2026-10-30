@@ -64,10 +64,21 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 	outsider := createAccount()
 	member := createAccount()
 
-	org, err := store.CreateOrganizationTx(ctx, CreateOrganizationTxParams{
-		Name: "Owned by first account", OwnerPersonID: owner.PersonID,
+	// SQL authorization fixtures are setup data, not a second production
+	// implementation of the create-organization workflow.
+	partyID, err := store.CreateParty(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	org, err := store.CreateOrganization(ctx, CreateOrganizationParams{
+		PartyID: partyID, Name: "Owned by first account",
 	})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CreateOrganizationMember(ctx, CreateOrganizationMemberParams{
+		OrganizationID: partyID, PersonID: owner.PersonID, Role: "owner",
+	}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -103,25 +114,39 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 		OrganizationID: org.PartyID, PersonID: member.PersonID, ActorAccountID: owner.ID,
 	})
 	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" || pgErr.ConstraintName != "organization_members_one_open_uq" {
 		t.Fatalf("duplicate active membership must be rejected by unique constraint: %v", err)
 	}
-	// A failed third insert must roll back the Party and Organization as well.
-	var before, after int64
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&before); err != nil {
-		t.Fatal(err)
-	}
-	_, err = store.CreateOrganizationTx(ctx, CreateOrganizationTxParams{
-		Name: "Rollback probe", OwnerPersonID: -1,
+	// A failed third insert must not commit the named Organization.
+	// Use a unique fixture instead of a global Party count; other package
+	// tests can write to the same disposable database concurrently.
+	rollbackName := "Rollback probe " + uuid.NewString()
+	err = store.ExecTx(ctx, func(q *Queries) error {
+		id, err := q.CreateParty(ctx)
+		if err != nil {
+			return err
+		}
+		if _, err := q.CreateOrganization(ctx, CreateOrganizationParams{
+			PartyID: id, Name: rollbackName,
+		}); err != nil {
+			return err
+		}
+		_, err = q.CreateOrganizationMember(ctx, CreateOrganizationMemberParams{
+			OrganizationID: id, PersonID: -1, Role: "owner",
+		})
+		return err
 	})
-	if err == nil {
-		t.Fatal("expected foreign key failure for nonexistent owner person")
+	var ownerErr *pgconn.PgError
+	if !errors.As(err, &ownerErr) || ownerErr.Code != "23503" ||
+		ownerErr.ConstraintName != "organization_members_person_id_fkey" {
+		t.Fatalf("expected person foreign-key constraint, got %v", err)
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&after); err != nil {
+	var committed int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM organizations WHERE name=$1", rollbackName).Scan(&committed); err != nil {
 		t.Fatal(err)
 	}
-	if before != after {
-		t.Fatalf("failed transaction created a Party: before=%d after=%d", before, after)
+	if committed != 0 {
+		t.Fatalf("failed transaction committed %d organization rows", committed)
 	}
 
 	// Registration and the Redis delivery intent must commit in one database transaction.

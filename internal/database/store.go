@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Store collects the generated queries and the domain transaction.
+// Store exposes SQLC queries and the existing transaction operations.
 type Store interface {
 	Querier
 	PhoneOTPRepository
@@ -15,7 +15,6 @@ type Store interface {
 	RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
 	ExecTx(ctx context.Context, fn func(*Queries) error) error
 	GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
-	CreateOrganizationTx(ctx context.Context, arg CreateOrganizationTxParams) (Organization, error)
 	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
 	StartPhoneSignup(ctx context.Context, phone string, mac []byte, devCode string) error
 	CompletePhoneSignup(ctx context.Context, phone string, mac []byte) (Account, error)

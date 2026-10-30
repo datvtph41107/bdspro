@@ -18,7 +18,7 @@ The current `Store interface { Querier; Tx... }` is broad; monitor its coupling 
 
 ## Transaction ownership
 
-Service chooses what the workflow does and the atomic boundary. The database owner implements `Begin/Commit/Rollback` and binds SQLC queries to the same transaction. The long-term goal is to read the entire Create Organization workflow in one service method instead of hiding operations inside `CreateOrganizationTx`.
+Service chooses what the workflow does and the atomic boundary. The database owner implements `Begin/Commit/Rollback` and binds SQLC queries to the same transaction. CODE-03 moved the existing Create Organization workflow into `OrganizationService.Create`: its Party, Organization, and initial owner membership SQLC calls now share a single `ExecTx` callback. The retired `CreateOrganizationTx` method was deleted, so the workflow has one production owner. The current lookup of the actor's PersonID still occurs before the transaction, as before; database foreign keys protect owner references. This is a scoped decision, not a mandate to move all existing `*Tx` functions at once.
 
 **Do not change semantics during file relocation.** OTP wrong-code handling commits an incremented failed-attempt counter before returning the business error; a generic `WithinTx` that rolls back whenever the callback returns an error would break brute-force controls. OTP bind, one-time consumption and concurrent locking require PostgreSQL transactions and constraints.
 

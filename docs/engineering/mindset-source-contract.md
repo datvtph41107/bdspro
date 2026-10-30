@@ -13,8 +13,9 @@ The repository should not add abstractions just to imitate Laravel or SimpleBank
 - `db/query` and `db/migration`: editable SQL and schema source of truth.
 - `internal/worker`: Asynq tasks and durable job-outbox dispatch.
 - `internal/notification`: external delivery adapters.
-- `doc/swagger`: versioned OpenAPI; `doc/statik`: embedded snapshot generated
-  by `make swagger`, using standard-library embed rather than rakyll/statik.
+- `doc/swagger`: versioned OpenAPI 3.0 and Swagger UI assets;
+  `make swagger` regenerates separate Swagger 2.0 and Statik output.
+  The current HTTP server still embeds the versioned assets with Go `embed`.
 - `docs`: engineer-facing operating and architecture documentation.
 
 ## Coding rules
@@ -45,10 +46,11 @@ serialized. Service outages must not be reported as bad credentials.
 
 ## API documentation and operations
 
-`doc/swagger/openapi.json` is authoritative, `make swagger` synchronizes
-embedded assets and CI checks that generated assets match. Route completeness
-is checked against Gin's registered routes. Swagger UI is development-only,
-and its UI CSS/JS currently load from a CDN.
+`doc/swagger/openapi.json` is the current API contract and the running
+Swagger UI uses its embedded assets in development only.
+`make swagger` runs the historical `swag` and `statik` generators;
+the generated Swagger 2.0 file is **not** an automatic replacement for
+the OpenAPI 3.0 contract. CI checks OpenAPI-to-Gin route coverage.
 
 Production migrations must run separately before app startup. The outbox
 currently enqueues to Redis while holding PostgreSQL row locks, with a
