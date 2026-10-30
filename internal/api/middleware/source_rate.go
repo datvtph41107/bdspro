@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/datvtph41107/bdspro/internal/api/response"
@@ -21,7 +20,7 @@ return n
 func IPActiveSource(redisClient *redis.Client, operation string, maxAttempts int64, window time.Duration) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if redisClient == nil {
-			ctx.Next()
+			response.Fail(ctx, response.RateLimitUnavailable)
 			return
 		}
 		key := sourceLimitKeyPrefix + operation + ":" + hashedRateKey(ctx.ClientIP())
@@ -32,12 +31,12 @@ func IPActiveSource(redisClient *redis.Client, operation string, maxAttempts int
 		if err != nil {
 			log.Ctx(ctx.Request.Context()).Error().Str("operation", operation).
 				Msg("auth.rate_limit_unavailable")
-			response.Reject(ctx, http.StatusServiceUnavailable, "rate_limit_unavailable", "authentication temporarily unavailable")
+			response.Fail(ctx, response.RateLimitUnavailable)
 			return
 		}
 		if count > maxAttempts {
 			ctx.Header("Retry-After", fmt.Sprint(int64(window.Seconds())))
-			response.Reject(ctx, http.StatusTooManyRequests, "rate_limited", "too many requests")
+			response.Fail(ctx, response.RateLimited)
 			return
 		}
 		ctx.Next()
