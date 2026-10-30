@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/datvtph41107/bdspro/internal/api/middleware"
 	"github.com/datvtph41107/bdspro/internal/api/response"
@@ -44,7 +45,11 @@ func (h *OrganizationHandler) Show(c *gin.Context) {
 func (h *OrganizationHandler) Store(c *gin.Context) {
 	var req CreateOrganizationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		response.Validation(c, err, &req)
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		response.FieldError(c, "name", "required", "name is required")
 		return
 	}
 	organization, err := h.organizations.Create(c.Request.Context(), middleware.AccountID(c), req.Name)
@@ -62,11 +67,11 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 	}
 	var req UpdateOrganizationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		response.Validation(c, err, &req)
 		return
 	}
-	if req.Name == nil {
-		response.Error(c, apperrors.NameRequired)
+	if req.Name == nil || strings.TrimSpace(*req.Name) == "" {
+		response.FieldError(c, "name", "required", "name is required")
 		return
 	}
 	organization, err := h.organizations.Update(c.Request.Context(), middleware.AccountID(c), id, *req.Name)
@@ -97,7 +102,7 @@ func (h *OrganizationHandler) AddMember(c *gin.Context) {
 	}
 	var req AddOrganizationMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		response.Validation(c, err, &req)
 		return
 	}
 	member, err := h.organizations.AddMember(c.Request.Context(), middleware.AccountID(c), id, req.PersonID)
