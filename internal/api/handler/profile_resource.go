@@ -7,9 +7,9 @@ import (
 )
 
 type PersonProfileResponse struct {
-	DisplayName string  `json:"display_name"`
-	FirstName   string  `json:"first_name"`
-	LastName    string  `json:"last_name"`
+	DisplayName string `json:"display_name"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
 }
 
 type AccountSecurityResponse struct {
