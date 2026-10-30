@@ -176,16 +176,6 @@ jobs:
           END $audit$;
           SQL
 
-      - name: Format and snapshot profile source
-        run: |
-          gofmt -w internal/api/handler/profile_resource.go internal/api/handler/requests.go internal/api/routes_test.go internal/api/account_profile_e2e_test.go internal/service/profile_test.go internal/service/profile.go internal/api/handler/profile.go
-          for generated in internal/api/handler/profile_resource.go internal/api/handler/requests.go internal/api/routes_test.go internal/api/account_profile_e2e_test.go internal/service/profile_test.go internal/service/profile.go internal/api/handler/profile.go; do
-            echo "GOFMT_BEGIN:$generated"
-            base64 -w0 "$generated"
-            echo
-            echo "GOFMT_END:$generated"
-          done
-
       - name: Verify Go formatting
         run: |
           unformatted="$(gofmt -l .)"

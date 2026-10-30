@@ -2158,6 +2158,10 @@
           },
           "is_email_verified": {
             "type": "boolean"
+          },
+          "person_id": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
