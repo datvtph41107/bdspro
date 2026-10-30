@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -50,7 +51,7 @@ type Querier interface {
 	ListActiveSessions(ctx context.Context, accountID int64) ([]ListActiveSessionsRow, error)
 	ListOrganizationMembersForOwner(ctx context.Context, arg ListOrganizationMembersForOwnerParams) ([]ListOrganizationMembersForOwnerRow, error)
 	ListOrganizationsForAccount(ctx context.Context, accountID int64) ([]ListOrganizationsForAccountRow, error)
-	ListOwnLoginEvents(ctx context.Context, accountID int64) ([]ListOwnLoginEventsRow, error)
+	ListOwnLoginEvents(ctx context.Context, accountID pgtype.Int8) ([]ListOwnLoginEventsRow, error)
 	ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error)
 	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
@@ -62,10 +63,10 @@ type Querier interface {
 	ReadAccountByEmail(ctx context.Context, btrim string) (ReadAccountByEmailRow, error)
 	ReadAccountByID(ctx context.Context, id int64) (ReadAccountByIDRow, error)
 	RecordEmailVerificationJob(ctx context.Context, accountID int64) error
+	RecordPasswordLoginEvent(ctx context.Context, arg RecordPasswordLoginEventParams) error
 	// The payload identifies the account, never a reset token or password.
 	// The worker generates the one-time proof only when the job is executed.
 	RecordPasswordResetJob(ctx context.Context, accountID int64) error
-	RecordPasswordLoginEvent(ctx context.Context, arg RecordPasswordLoginEventParams) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	RevokeAllAccountSessions(ctx context.Context, accountID int64) (int64, error)
 	RevokeOwnedSession(ctx context.Context, arg RevokeOwnedSessionParams) (int64, error)
