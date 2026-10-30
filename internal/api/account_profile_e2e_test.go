@@ -38,6 +38,28 @@ func TestAccountProfileAndSettingsHTTP(t *testing.T) {
 		t.Fatalf("cannot update owned profile: %d %v", status, account)
 	}
 
+	// PATCH must not erase omitted fields. Explicit empty strings must clear only
+	// the selected field, and an empty body cannot silently overwrite the profile.
+	status, account = authAcceptanceCall(t, server, "/users/me/profile", http.MethodPatch,
+		map[string]string{"first_name": "An"}, firstToken)
+	partial := account["profile"].(map[string]any)
+	if status != http.StatusOK || partial["display_name"] != "Nguyen A" ||
+		partial["first_name"] != "An" || partial["last_name"] != "Nguyen" {
+		t.Fatalf("partial patch erased unrelated fields: %d %v", status, account)
+	}
+	status, account = authAcceptanceCall(t, server, "/users/me/profile", http.MethodPatch,
+		map[string]string{"last_name": ""}, firstToken)
+	cleared := account["profile"].(map[string]any)
+	if status != http.StatusOK || cleared["display_name"] != "Nguyen A" ||
+		cleared["first_name"] != "An" || cleared["last_name"] != "" {
+		t.Fatalf("explicit clear corrupted other fields: %d %v", status, account)
+	}
+	status, invalidPatch := authAcceptanceCall(t, server, "/users/me/profile", http.MethodPatch,
+		map[string]string{}, firstToken)
+	if status != http.StatusBadRequest || invalidPatch["code"] != "invalid_request" {
+		t.Fatalf("empty profile patch was accepted: %d %v", status, invalidPatch)
+	}
+
 	status, updated := authAcceptanceCall(t, server, "/users/me/settings", http.MethodPatch,
 		map[string]string{"locale": "en", "timezone": "UTC", "currency": "USD"}, firstToken)
 	if status != http.StatusOK || updated["timezone"] != "UTC" || updated["currency"] != "USD" {
@@ -45,7 +67,7 @@ func TestAccountProfileAndSettingsHTTP(t *testing.T) {
 	}
 
 	status, saved := authAcceptanceCall(t, server, "/users/me", http.MethodGet, nil, firstToken)
-	if status != http.StatusOK || saved["profile"].(map[string]any)["first_name"] != "A" ||
+	if status != http.StatusOK || saved["profile"].(map[string]any)["first_name"] != "An" ||
 		saved["settings"].(map[string]any)["locale"] != "en" {
 		t.Fatalf("profile was not persisted: %d %v", status, saved)
 	}
