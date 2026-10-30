@@ -20,7 +20,7 @@ func TestLoginAuditDoesNotDuplicateServerError(t *testing.T) {
 
 	router := gin.New()
 	router.POST("/users/login", LoginAudit(), func(c *gin.Context) {
-		response.Fail(c, response.RateLimitUnavailable)
+		response.RateLimitUnavailable(c)
 	})
 
 	request := httptest.NewRequest(http.MethodPost, "/users/login?password=private-query-secret", strings.NewReader("private-body"))
