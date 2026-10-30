@@ -55,3 +55,22 @@ integration head**. Tests requiring a database must run against the isolated
 Passing CI on this integration branch demonstrates source-level compatibility
 of the review slices. It does not grant permission to merge or claim full
 production readiness.
+
+## Integration failure found and corrected
+
+The first combined CI run found a cross-package test race: the phone-signup
+test counted **all** Parties before/after a failed registration, while the
+service integration test independently created a Party on the same
+`bdspro_test` database. Package test processes can run concurrently, so
+a legitimate commit from another package caused a false rollback failure.
+
+The HTTP/OTP production implementation was **not changed**. The phone test now
+checks exactly the phone credential and AccountID whose uniqueness it is
+testing. The database organization test likewise checks an operation-specific
+unique name on rollback instead of global Party counts. CODE-03's real
+PostgreSQL rollback test checks its own uniquely named Organization and owner
+foreign-key failure. A global count assertion is not a valid proof when other
+tests share the connection target concurrently.
+
+These corrections prevent the observed test interference; they do **not**
+establish comprehensive isolation of every integration test in the suite.
