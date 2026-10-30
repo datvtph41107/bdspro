@@ -12,8 +12,8 @@ import (
 
 const ErrorCodeKey = "public_error_code"
 
-// Reject emits one public, stable error contract; underlying errors are never serialized.
-func Reject(c *gin.Context, status int, code, message string) {
+// reject emits one public, stable error contract; underlying errors are never serialized.
+func reject(c *gin.Context, status int, code, message string) {
 	c.Set(ErrorCodeKey, code)
 	c.AbortWithStatusJSON(status, gin.H{"error": message, "code": code})
 }
@@ -21,15 +21,15 @@ func Reject(c *gin.Context, status int, code, message string) {
 func Invalid(c *gin.Context, err error) {
 	var size *http.MaxBytesError
 	if errors.As(err, &size) {
-		Reject(c, http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
+		Fail(c, RequestBodyTooLarge)
 		return
 	}
-	Reject(c, http.StatusBadRequest, "invalid_request", "invalid request")
+	Fail(c, InvalidRequest)
 }
 
 func Error(c *gin.Context, err error) {
 	if public, ok := classifyApplicationError(err); ok {
-		Reject(c, public.Status, public.Code, public.Message)
+		reject(c, public.Status, public.Code, public.Message)
 		return
 	}
 	// Do not serialize or log arbitrary err.Error(): driver and provider errors
@@ -40,5 +40,5 @@ func Error(c *gin.Context, err error) {
 		event = event.Str("postgres_code", pgErr.Code)
 	}
 	event.Msg("http.application_error")
-	Reject(c, http.StatusInternalServerError, "internal_error", "internal server error")
+	Fail(c, InternalServerError)
 }
