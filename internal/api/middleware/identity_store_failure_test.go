@@ -41,7 +41,7 @@ func TestIdentityStoreErrorDoesNotExposePrivateDetails(t *testing.T) {
 		},
 		VerifiedEmail(emailVerificationStore{
 			account: db.Account{ID: 7},
-			err: errors.New(private),
+			err:     errors.New(private),
 		}),
 		func(c *gin.Context) { c.Status(http.StatusOK) },
 	)
