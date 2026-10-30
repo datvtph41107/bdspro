@@ -64,10 +64,21 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 	outsider := createAccount()
 	member := createAccount()
 
-	org, err := store.CreateOrganizationTx(ctx, CreateOrganizationTxParams{
-		Name: "Owned by first account", OwnerPersonID: owner.PersonID,
+	// SQL authorization fixtures are setup data, not a second production
+	// implementation of the create-organization workflow.
+	partyID, err := store.CreateParty(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	org, err := store.CreateOrganization(ctx, CreateOrganizationParams{
+		PartyID: partyID, Name: "Owned by first account",
 	})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CreateOrganizationMember(ctx, CreateOrganizationMemberParams{
+		OrganizationID: partyID, PersonID: owner.PersonID, Role: "owner",
+	}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -111,8 +122,20 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&before); err != nil {
 		t.Fatal(err)
 	}
-	_, err = store.CreateOrganizationTx(ctx, CreateOrganizationTxParams{
-		Name: "Rollback probe", OwnerPersonID: -1,
+	err = store.ExecTx(ctx, func(q *Queries) error {
+		id, err := q.CreateParty(ctx)
+		if err != nil {
+			return err
+		}
+		if _, err := q.CreateOrganization(ctx, CreateOrganizationParams{
+			PartyID: id, Name: "Rollback probe",
+		}); err != nil {
+			return err
+		}
+		_, err = q.CreateOrganizationMember(ctx, CreateOrganizationMemberParams{
+			OrganizationID: id, PersonID: -1, Role: "owner",
+		})
+		return err
 	})
 	if err == nil {
 		t.Fatal("expected foreign key failure for nonexistent owner person")
