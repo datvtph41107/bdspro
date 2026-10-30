@@ -75,10 +75,10 @@ func TestStoreOrganizationHTTP(t *testing.T) {
 	if store.creates != 0 {
 		t.Fatal("unauthenticated request reached database")
 	}
-	if w := send(`{"name":"My Company"`, access); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "invalid request") {
+	if w := send(`{"name":"My Company"`, access); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), `"code":"malformed_json"`) {
 		t.Fatalf("malformed JSON status=%d body=%s", w.Code, w.Body.String())
 	}
-	if w := send(`{"name":"  "}`, access); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "name required") {
+	if w := send(`{"name":"  "}`, access); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), `"code":"validation_failed"`) || !strings.Contains(w.Body.String(), `"name":[{"code":"required"`) {
 		t.Fatalf("blank name status=%d body=%s", w.Code, w.Body.String())
 	}
 	if store.creates != 0 {
