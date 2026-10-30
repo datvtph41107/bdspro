@@ -87,6 +87,7 @@ func (s *Server) registerAuthenticatedRoutes(route *gin.RouterGroup) {
 	route.PATCH("/users/me/profile", s.profileHandler.Update)
 	route.GET("/users/me/settings", s.profileHandler.Settings)
 	route.PATCH("/users/me/settings", s.profileHandler.UpdateSettings)
+	route.GET("/users/me/activity", s.authHandler.Activity)
 	route.GET("/users/me/sessions", s.authHandler.ListSessions)
 	route.DELETE("/users/me/sessions/:id", s.authHandler.RevokeOwnSession)
 	route.POST("/users/me/sessions/revoke_all", s.authHandler.RevokeAllSessions)
