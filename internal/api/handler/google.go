@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -20,6 +21,7 @@ import (
 	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -28,6 +30,8 @@ const (
 	googleOAuthCookie      = "bdspro_google_state"
 	googleOAuthTTL         = 5 * time.Minute
 )
+
+var errGoogleProviderUnavailable = errors.New("Google OAuth provider unavailable")
 
 type GoogleHandler struct {
 	auth         *service.GoogleAuthService
@@ -83,7 +87,7 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 	}
 	authURL, err := g.begin(ctx, "link", accountID, "")
 	if err != nil {
-		response.Fail(ctx, response.GoogleUnavailable)
+		googleUnavailable(ctx, err)
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"authorization_url": authURL})
@@ -92,7 +96,7 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 func (g *GoogleHandler) StartLogin(ctx *gin.Context) {
 	authURL, err := g.begin(ctx, "login", 0, "")
 	if err != nil {
-		response.Fail(ctx, response.GoogleUnavailable)
+		googleUnavailable(ctx, err)
 		return
 	}
 	ctx.Redirect(http.StatusFound, authURL)
@@ -120,7 +124,7 @@ func (g *GoogleHandler) StartPhoneBind(ctx *gin.Context) {
 	}
 	authURL, err := g.begin(ctx, "phone_bind", middleware.AccountID(ctx), req.Phone)
 	if err != nil {
-		response.Fail(ctx, response.GoogleUnavailable)
+		googleUnavailable(ctx, err)
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"authorization_url": authURL})
@@ -193,7 +197,7 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		return
 	}
 	if err != nil {
-		response.Fail(ctx, response.GoogleUnavailable)
+		googleUnavailable(ctx, err)
 		return
 	}
 	var pending googlePending
@@ -206,6 +210,10 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		return
 	}
 	idToken, err := g.exchange(ctx.Request.Context(), ctx.Query("code"), pending.Verifier)
+	if errors.Is(err, errGoogleProviderUnavailable) {
+		googleUnavailable(ctx, err)
+		return
+	}
 	if err != nil {
 		response.Fail(ctx, response.GoogleAuthorizationFailed)
 		return
@@ -262,20 +270,33 @@ func (g *GoogleHandler) exchange(ctx context.Context, code, verifier string) (st
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	res, err := g.httpClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %w", errGoogleProviderUnavailable, err)
 	}
 	defer res.Body.Close()
+	if res.StatusCode == http.StatusTooManyRequests || res.StatusCode >= http.StatusInternalServerError {
+		return "", errGoogleProviderUnavailable
+	}
 	if res.StatusCode != http.StatusOK {
-		return "", errors.New("Google exchange failed")
+		return "", errors.New("Google exchange rejected")
 	}
 	var body struct {
 		IDToken string `json:"id_token"`
 	}
 	if err := json.NewDecoder(io.LimitReader(res.Body, 64<<10)).Decode(&body); err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %w", errGoogleProviderUnavailable, err)
 	}
 	if body.IDToken == "" {
-		return "", errors.New("missing Google ID token")
+		return "", errGoogleProviderUnavailable
 	}
 	return body.IDToken, nil
+}
+
+// googleUnavailable records a bounded diagnostic without logging OAuth codes,
+// access tokens, provider response bodies or raw network error messages.
+func googleUnavailable(c *gin.Context, err error) {
+	log.Ctx(c.Request.Context()).Error().
+		Str("dependency", "google_oauth").
+		Str("error_type", fmt.Sprintf("%T", err)).
+		Msg("auth.provider_unavailable")
+	response.Fail(c, response.GoogleUnavailable)
 }
