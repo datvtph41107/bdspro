@@ -27,11 +27,11 @@ func (s *organizationStoreFake) UpdateOrganization(_ context.Context, p db.Updat
 	return db.Organization{PartyID: p.OrganizationID, Name: p.Name.String}, nil
 }
 
-func (s *organizationStoreFake) AddOrganizationMember(_ context.Context, _ db.AddOrganizationMemberParams) (db.OrganizationMembership, error) {
+func (s *organizationStoreFake) AddOrganizationMember(_ context.Context, _ db.AddOrganizationMemberParams) (db.OrganizationMember, error) {
 	if s.memberErr != nil {
-		return db.OrganizationMembership{}, s.memberErr
+		return db.OrganizationMember{}, s.memberErr
 	}
-	return db.OrganizationMembership{Role: "member"}, nil
+	return db.OrganizationMember{Role: "member"}, nil
 }
 
 func TestOrganizationUpdateValidatesAndCarriesActor(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 )
 
 type Querier interface {
-	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMembership, error)
+	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
 	AttachVerifiedEmail(ctx context.Context, arg AttachVerifiedEmailParams) (int64, error)
 	BindPhoneCredentialQuery(ctx context.Context, arg BindPhoneCredentialQueryParams) error
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
@@ -20,7 +20,7 @@ type Querier interface {
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
-	CreateOrganizationMembership(ctx context.Context, arg CreateOrganizationMembershipParams) (OrganizationMembership, error)
+	CreateOrganizationMember(ctx context.Context, arg CreateOrganizationMemberParams) (OrganizationMember, error)
 	CreateParty(ctx context.Context) (int64, error)
 	CreatePasswordCredential(ctx context.Context, arg CreatePasswordCredentialParams) error
 	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) error

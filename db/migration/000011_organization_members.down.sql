@@ -1,0 +1,16 @@
+-- Reverse the name change without dropping membership rows.
+ALTER TABLE organization_members RENAME TO organization_memberships;
+
+ALTER TABLE organization_memberships RENAME CONSTRAINT organization_members_pkey
+  TO organization_memberships_pkey;
+ALTER TABLE organization_memberships RENAME CONSTRAINT organization_members_organization_id_fkey
+  TO organization_memberships_organization_id_fkey;
+ALTER TABLE organization_memberships RENAME CONSTRAINT organization_members_person_id_fkey
+  TO organization_memberships_person_id_fkey;
+ALTER TABLE organization_memberships RENAME CONSTRAINT organization_members_role_check
+  TO organization_memberships_role_check;
+
+ALTER INDEX organization_members_one_open_uq
+  RENAME TO organization_memberships_one_open_uq;
+ALTER INDEX organization_members_person_idx
+  RENAME TO organization_memberships_person_idx;

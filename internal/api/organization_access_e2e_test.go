@@ -162,7 +162,7 @@ func TestOrganizationAccountMembershipRoleAndAuthorizationHTTP(t *testing.T) {
 
 	// Losing active membership immediately removes read rights; no JWT reissue
 	// is needed because all reads evaluate the current database membership.
-	if _, err := pool.Exec(ctx, "UPDATE organization_memberships SET ended_at=now() WHERE organization_id=$1 AND person_id=$2", orgID, memberAccount.PersonID); err != nil {
+	if _, err := pool.Exec(ctx, "UPDATE organization_members SET ended_at=now() WHERE organization_id=$1 AND person_id=$2", orgID, memberAccount.PersonID); err != nil {
 		t.Fatal(err)
 	}
 	status, after := organizationGetJSON(t, server, "/organizations", memberToken)
