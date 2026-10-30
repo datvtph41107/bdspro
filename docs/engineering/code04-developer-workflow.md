@@ -26,6 +26,8 @@ to be running, not SMTP-ready. `make dev` binds Go HTTP to loopback
 `127.0.0.1:8080` and explicitly selects local DB, Redis and SMTP addresses.
 A separate `docker compose up --build` path remains available when the API
 itself must run inside a container; do not run both at once on port 8080.
+All published development ports (5432, 6379, 8025, 1025, 8080) bind to
+`127.0.0.1`; container-to-container traffic uses the Compose network.
 
 The existing volume names are retained. `make dev-down` only stops services,
 so it does not wipe database or queue state. Intentionally clearing local
@@ -119,7 +121,7 @@ generated SQLC files directly. CI checks that regeneration creates no diff.
 ## CI evidence required
 
 GitHub Actions must check:
-- Docker Compose config and dry-run developer Make targets.
+- Docker Compose config, loopback-only published ports and dry-run developer Make targets.
 - Rollback targets reject execution without confirmation.
 - `make format-check` has the same non-mutating semantics locally and in CI.
 - Existing SQLC drift, migrations/upgrade preservation, Go tests,
