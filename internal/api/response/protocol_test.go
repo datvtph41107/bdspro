@@ -13,8 +13,8 @@ func TestSharedProtocolResponses(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []struct {
 		name, code, message, challenge, retryAfter string
-		status int
-		write func(*gin.Context)
+		status                                     int
+		write                                      func(*gin.Context)
 	}{
 		{"missing bearer", "unauthenticated", "missing or invalid bearer token", "Bearer", "", 401, BearerRequired},
 		{"invalid bearer", "invalid_access_token", "invalid access token", `Bearer error="invalid_token"`, "", 401, InvalidAccessToken},
