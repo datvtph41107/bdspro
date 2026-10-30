@@ -73,8 +73,8 @@ func TestUnexpectedErrorProducesOneDiagnosticAndOneOutcome(t *testing.T) {
 	scanner := bufio.NewScanner(bytes.NewReader(output.Bytes()))
 	for scanner.Scan() {
 		var event struct {
-			Level string `json:"level"`
-			Message string `json:"message"`
+			Level     string `json:"level"`
+			Message   string `json:"message"`
 			RequestID string `json:"request_id"`
 		}
 		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
