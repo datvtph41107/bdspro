@@ -10,7 +10,6 @@ type PersonProfileResponse struct {
 	DisplayName string  `json:"display_name"`
 	FirstName   string  `json:"first_name"`
 	LastName    string  `json:"last_name"`
-	AvatarURL   *string `json:"avatar_url"`
 }
 
 type AccountSecurityResponse struct {
@@ -51,7 +50,7 @@ func newAccountProfileResponse(p db.GetAccountProfileRow) AccountProfileResponse
 		CreatedAt:       p.CreatedAt,
 		Profile: PersonProfileResponse{
 			DisplayName: p.DisplayName, FirstName: p.FirstName,
-			LastName: p.LastName, AvatarURL: nil,
+			LastName: p.LastName,
 		},
 		Security: AccountSecurityResponse{
 			HasPassword: p.HasPassword, HasPhone: p.HasPhone, HasGoogle: p.HasGoogle,
