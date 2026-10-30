@@ -54,6 +54,8 @@ make dev-down      # stops dependencies; preserves named database volumes
 ```
 
 `make dev` uses explicitly local database/Redis addresses and loopback HTTP.
+Compose also binds the published PostgreSQL, Redis, API and Mailpit ports to
+`127.0.0.1` so development credentials are not exposed on all host interfaces.
 It sends development email through Mailpit at `127.0.0.1:1025` with no SMTP
 authentication. It uses `app.env` for the remaining development settings.
 `main.go` automatically applies migrations in `development` only.
