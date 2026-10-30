@@ -29,7 +29,10 @@ func IPActiveSource(redisClient *redis.Client, operation string, maxAttempts int
 			[]string{key}, int64(window.Seconds()),
 		).Int64()
 		if err != nil {
-			log.Ctx(ctx.Request.Context()).Error().Str("operation", operation).
+			log.Ctx(ctx.Request.Context()).Error().
+				Str("operation", operation).
+				Str("dependency", "redis").
+				Str("error_type", fmt.Sprintf("%T", err)).
 				Msg("auth.rate_limit_unavailable")
 			response.Fail(ctx, response.RateLimitUnavailable)
 			return
