@@ -18,7 +18,7 @@ JOIN account_settings s ON s.account_id = a.id
 WHERE a.id = $1
 LIMIT 1;
 
--- name: UpdatePersonProfile :exec
+-- name: UpdatePersonProfile :execrows
 UPDATE person_profiles
 SET display_name = sqlc.arg(display_name),
     first_name = sqlc.arg(first_name),
@@ -26,7 +26,7 @@ SET display_name = sqlc.arg(display_name),
     updated_at = now()
 WHERE person_id = (SELECT person_id FROM accounts WHERE id = sqlc.arg(account_id));
 
--- name: UpdateAccountSettings :exec
+-- name: UpdateAccountSettings :execrows
 UPDATE account_settings
 SET locale = sqlc.arg(locale),
     timezone = sqlc.arg(timezone),
