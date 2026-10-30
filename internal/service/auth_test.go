@@ -14,6 +14,7 @@ import (
 	"github.com/datvtph41107/bdspro/internal/util"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type sessionMemoryStore struct {
@@ -55,10 +56,10 @@ func (s *sessionMemoryStore) RecordPasswordLoginEvent(_ context.Context, arg db.
 	return nil
 }
 
-func (s *sessionMemoryStore) ListOwnLoginEvents(_ context.Context, accountID int64) ([]db.ListOwnLoginEventsRow, error) {
+func (s *sessionMemoryStore) ListOwnLoginEvents(_ context.Context, accountID pgtype.Int8) ([]db.ListOwnLoginEventsRow, error) {
 	var events []db.ListOwnLoginEventsRow
 	for i, event := range s.loginEvents {
-		if event.AccountID.Valid && event.AccountID.Int64 == accountID {
+		if event.AccountID.Valid && event.AccountID.Int64 == accountID.Int64 && accountID.Valid {
 			events = append(events, db.ListOwnLoginEventsRow{ID: int64(i + 1), Outcome: event.Outcome})
 		}
 	}
