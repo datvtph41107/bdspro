@@ -19,15 +19,6 @@ type Account struct {
 	IsEmailVerified bool      `json:"is_email_verified"`
 }
 
-type AccountSetting struct {
-	AccountID int64     `json:"account_id"`
-	Locale    string    `json:"locale"`
-	Timezone  string    `json:"timezone"`
-	Currency  string    `json:"currency"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
 type AccountLoginEvent struct {
 	ID         int64       `json:"id"`
 	AccountID  pgtype.Int8 `json:"account_id"`
@@ -35,6 +26,15 @@ type AccountLoginEvent struct {
 	ClientIp   string      `json:"client_ip"`
 	UserAgent  string      `json:"user_agent"`
 	OccurredAt time.Time   `json:"occurred_at"`
+}
+
+type AccountSetting struct {
+	AccountID int64     `json:"account_id"`
+	Locale    string    `json:"locale"`
+	Timezone  string    `json:"timezone"`
+	Currency  string    `json:"currency"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type EmailLinkChallenge struct {
