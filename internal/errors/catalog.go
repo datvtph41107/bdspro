@@ -1,74 +1,52 @@
 package apperrors
 
-import (
-	"errors"
-	"net/http"
-)
+import "errors"
 
-// Error is a public, immutable-by-convention application failure.
-// Code identifies a stable failure; Message is safe for clients.
-// Cause is internal and is never serialized by the HTTP writer.
+// Error is an application failure identity, independent of HTTP status,
+// response codes, and client-facing messages.
 type Error struct {
-	Code    string
-	Message string
-	Status  int
-	Cause   error
+	name string
 }
 
-func (e *Error) Error() string { return e.Message }
-func (e *Error) Unwrap() error { return e.Cause }
+func (e *Error) Error() string { return e.name }
 
-// Wrap preserves a canonical error definition while retaining its underlying cause.
+// Wrap retains both the application identity and the underlying cause.
+// Callers can inspect either with errors.Is/errors.As.
 func Wrap(def *Error, cause error) error {
 	if cause == nil {
 		return def
 	}
-	return &Error{Code: def.Code, Message: def.Message, Status: def.Status, Cause: cause}
+	return errors.Join(def, cause)
 }
 
-func (e *Error) Is(target error) bool {
-	t, ok := target.(*Error)
-	return ok && e.Code != "" && e.Code == t.Code
-}
-
-// Business errors and infrastructure errors are distinct.
-// Internal errors deliberately have no client-facing status/message.
-var (
-	InvalidResetToken            = &Error{Code: "auth.invalid_reset_token", Message: "invalid or expired reset token", Status: http.StatusBadRequest}
-	InvalidPassword              = &Error{Code: "auth.invalid_password", Message: "invalid request", Status: http.StatusBadRequest}
-	AccountUnavailable           = &Error{Code: "auth.account_unavailable", Message: "account unavailable", Status: http.StatusUnauthorized}
-	NameRequired                 = &Error{Code: "http.name_required", Message: "name required", Status: http.StatusBadRequest}
-	InvalidOrganization          = &Error{Code: "http.invalid_organization", Message: "invalid organization", Status: http.StatusBadRequest}
-	InvalidVerificationLink      = &Error{Code: "auth.invalid_verification_link", Message: "invalid or expired verification link", Status: http.StatusBadRequest}
-	InvalidRefreshToken          = &Error{Code: "auth.invalid_refresh_token", Message: "invalid refresh token", Status: http.StatusUnauthorized}
-	SessionNotFound              = &Error{Code: "auth.session_not_found", Message: "session not found", Status: http.StatusNotFound}
-	SessionUnavailable           = &Error{Code: "auth.session_unavailable", Message: "session unavailable", Status: http.StatusUnauthorized}
-	InvalidCredentials           = &Error{Code: "auth.invalid_credentials", Message: "invalid credentials", Status: http.StatusUnauthorized}
-	InvalidEmail                 = &Error{Code: "auth.invalid_email", Message: "invalid email", Status: http.StatusBadRequest}
-	EmailAlreadyLinked           = &Error{Code: "auth.email_already_linked", Message: "account already has an email", Status: http.StatusConflict}
-	InvalidEmailLink             = &Error{Code: "auth.invalid_email_link", Message: "invalid or expired email link", Status: http.StatusBadRequest}
-	EmailLinkCooldown            = &Error{Code: "auth.email_link_cooldown", Message: "email verification temporarily unavailable", Status: http.StatusTooManyRequests}
-	EmailRegistered              = &Error{Code: "auth.email_registered", Message: "email already registered", Status: http.StatusConflict}
-	OrganizationNotFound         = &Error{Code: "organization.not_found", Message: "organization not found", Status: http.StatusNotFound}
-	OrganizationOwnerRequired    = &Error{Code: "organization.owner_required", Message: "organization owner required", Status: http.StatusForbidden}
-	MembershipExists             = &Error{Code: "organization.membership_exists", Message: "membership already exists", Status: http.StatusConflict}
-	PersonUnavailable            = &Error{Code: "organization.person_unavailable", Message: "person unavailable", Status: http.StatusNotFound}
-	GoogleIdentityAlreadyLinked  = &Error{Code: "auth.google_identity_already_linked", Message: "Google identity already linked", Status: http.StatusConflict}
-	GoogleAccountAlreadyLinked   = &Error{Code: "auth.google_account_already_linked", Message: "account already linked", Status: http.StatusConflict}
-	GoogleIdentityUnlinked       = &Error{Code: "auth.google_identity_unlinked", Message: "Google identity not linked", Status: http.StatusUnauthorized}
-	GoogleEmailUnverified        = &Error{Code: "auth.google_email_unverified", Message: "Google email is not verified", Status: http.StatusUnauthorized}
-	GoogleEmailAlreadyRegistered = &Error{Code: "auth.google_email_registered", Message: "email already registered; sign in and link Google", Status: http.StatusConflict}
-	InvalidPhone                 = &Error{Code: "auth.invalid_phone", Message: "invalid phone", Status: http.StatusBadRequest}
-	PhoneRegistered              = &Error{Code: "auth.phone_already_registered", Message: "phone number already registered", Status: http.StatusConflict}
-	PhoneUnavailable             = &Error{Code: "auth.phone_unavailable", Message: "phone unavailable", Status: http.StatusConflict}
-	OTPInvalid                   = &Error{Code: "auth.otp_invalid", Message: "invalid or expired code", Status: http.StatusUnauthorized}
-	OTPCooldown                  = &Error{Code: "auth.otp_cooldown", Message: "code temporarily unavailable", Status: http.StatusTooManyRequests}
-)
-
-func Public(err error) (*Error, bool) {
-	var e *Error
-	if !errors.As(err, &e) || e.Status < 400 || e.Status >= 500 {
-		return nil, false
-	}
-	return e, true
-}
+// These identities are independent of the public API. Public error
+// mappings live only in internal/api/response.
+var InvalidResetToken = &Error{name: "InvalidResetToken"}
+var InvalidPassword = &Error{name: "InvalidPassword"}
+var AccountUnavailable = &Error{name: "AccountUnavailable"}
+var NameRequired = &Error{name: "NameRequired"}
+var InvalidOrganization = &Error{name: "InvalidOrganization"}
+var InvalidVerificationLink = &Error{name: "InvalidVerificationLink"}
+var InvalidRefreshToken = &Error{name: "InvalidRefreshToken"}
+var SessionNotFound = &Error{name: "SessionNotFound"}
+var SessionUnavailable = &Error{name: "SessionUnavailable"}
+var InvalidCredentials = &Error{name: "InvalidCredentials"}
+var InvalidEmail = &Error{name: "InvalidEmail"}
+var EmailAlreadyLinked = &Error{name: "EmailAlreadyLinked"}
+var InvalidEmailLink = &Error{name: "InvalidEmailLink"}
+var EmailLinkCooldown = &Error{name: "EmailLinkCooldown"}
+var EmailRegistered = &Error{name: "EmailRegistered"}
+var OrganizationNotFound = &Error{name: "OrganizationNotFound"}
+var OrganizationOwnerRequired = &Error{name: "OrganizationOwnerRequired"}
+var MembershipExists = &Error{name: "MembershipExists"}
+var PersonUnavailable = &Error{name: "PersonUnavailable"}
+var GoogleIdentityAlreadyLinked = &Error{name: "GoogleIdentityAlreadyLinked"}
+var GoogleAccountAlreadyLinked = &Error{name: "GoogleAccountAlreadyLinked"}
+var GoogleIdentityUnlinked = &Error{name: "GoogleIdentityUnlinked"}
+var GoogleEmailUnverified = &Error{name: "GoogleEmailUnverified"}
+var GoogleEmailAlreadyRegistered = &Error{name: "GoogleEmailAlreadyRegistered"}
+var InvalidPhone = &Error{name: "InvalidPhone"}
+var PhoneRegistered = &Error{name: "PhoneRegistered"}
+var PhoneUnavailable = &Error{name: "PhoneUnavailable"}
+var OTPInvalid = &Error{name: "OTPInvalid"}
+var OTPCooldown = &Error{name: "OTPCooldown"}
