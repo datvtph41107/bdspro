@@ -2489,10 +2489,6 @@
           },
           "last_name": {
             "type": "string"
-          },
-          "avatar_url": {
-            "type": "string",
-            "nullable": true
           }
         }
       },
