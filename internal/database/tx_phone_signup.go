@@ -57,8 +57,14 @@ func (s *SQLStore) CompletePhoneSignup(ctx context.Context, phone string, mac []
 	if err := q.CreatePerson(ctx, partyID); err != nil {
 		return Account{}, err
 	}
+	if err := q.CreatePersonProfile(ctx, partyID); err != nil {
+		return Account{}, err
+	}
 	a, err := q.CreatePhoneOnlyAccount(ctx, partyID)
 	if err != nil {
+		return Account{}, err
+	}
+	if err := q.CreateAccountSettings(ctx, a.ID); err != nil {
 		return Account{}, err
 	}
 	if err := q.BindPhoneCredentialQuery(ctx, BindPhoneCredentialQueryParams{AccountID: a.ID, PhoneE164: phone}); err != nil {
