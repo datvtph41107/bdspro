@@ -20,7 +20,7 @@ func TestRequestMonitorDoesNotWarnOnSingleMalformedRequest(t *testing.T) {
 	router := gin.New()
 	router.Use(RequestMonitor(nil))
 	router.GET("/test", func(c *gin.Context) {
-		response.Fail(c, response.InvalidRequest)
+		response.Reject(c, http.StatusBadRequest, "invalid_request", "invalid request")
 	})
 	request := httptest.NewRequest(http.MethodGet, "/test", nil)
 	recorder := httptest.NewRecorder()
@@ -42,7 +42,7 @@ func TestRequestMonitorWarnsOnDeniedAuthentication(t *testing.T) {
 	router := gin.New()
 	router.Use(RequestMonitor(nil))
 	router.GET("/me", func(c *gin.Context) {
-		response.Fail(c, response.BearerRequired)
+		response.BearerRequired(c)
 	})
 	request := httptest.NewRequest(http.MethodGet, "/me", nil)
 	recorder := httptest.NewRecorder()
