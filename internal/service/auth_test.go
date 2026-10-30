@@ -146,8 +146,8 @@ func TestPasswordLoginAuditBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := config.Config{
-		TokenSymmetricKey: strings.Repeat("k", 32),
-		AccessTokenDuration: 15 * time.Minute,
+		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AccessTokenDuration:  15 * time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}
 	maker, err := token.NewJWTMaker(cfg.TokenSymmetricKey)
@@ -155,7 +155,7 @@ func TestPasswordLoginAuditBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := &sessionMemoryStore{
-		account: db.Account{ID: 71, Email: "known@example.test"},
+		account:      db.Account{ID: 71, Email: "known@example.test"},
 		passwordHash: hash,
 	}
 	service := NewAuthService(store, maker, cfg)
@@ -198,9 +198,9 @@ func TestPasswordLoginFailsClosedWhenAuditUnavailable(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := &sessionMemoryStore{
-		account: db.Account{ID: 15, Email: "known@example.test"},
+		account:      db.Account{ID: 15, Email: "known@example.test"},
 		passwordHash: hash,
-		auditErr: errors.New("audit database offline"),
+		auditErr:     errors.New("audit database offline"),
 	}
 	service := NewAuthService(store, maker, cfg)
 	_, err = service.Login(context.Background(), "known@example.test", "correct-password", "", "")
