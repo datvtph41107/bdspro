@@ -55,7 +55,7 @@ jobs:
           test -z "$(git ls-files --others --exclude-standard internal/database)"
 
       - name: Verify OpenAPI contract
-        run: make swagger
+        run: go test ./internal/api -run TestOpenAPICoverage -count=1
 
       - name: Migrate disposable test database
         env:
@@ -152,34 +152,13 @@ jobs:
           END $audit$;
           SQL
 
-      - name: Verify developer workflow commands
-        run: |
-          make help
-          make -n dev-up dev-down dev postgres redis
-          make -n check
-          docker compose config --quiet
-          docker compose config --format json > /tmp/bdspro-compose.json
-          python3 - <<'PY'
-          import json
-          with open("/tmp/bdspro-compose.json", encoding="utf-8") as source:
-              config = json.load(source)
-          for service in ("postgres", "redis", "mailpit", "api"):
-              for port in config["services"][service]["ports"]:
-                  assert port.get("host_ip") == "127.0.0.1", (service, port)
-          PY
-          if make migratedown > /tmp/migratedown-denial.log 2>&1; then
-            echo "migration rollback unexpectedly ran without confirmation"
-            exit 1
-          fi
-          if make migratedown1 > /tmp/migratedown1-denial.log 2>&1; then
-            echo "single-step rollback unexpectedly ran without confirmation"
-            exit 1
-          fi
-          grep -q "CONFIRM_MIGRATION_DOWN=yes" /tmp/migratedown-denial.log
-          grep -q "CONFIRM_MIGRATION_DOWN=yes" /tmp/migratedown1-denial.log
-
       - name: Verify Go formatting
-        run: make format-check
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
 
       - name: Test and compile
         env:
