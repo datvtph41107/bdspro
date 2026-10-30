@@ -119,10 +119,10 @@ func (s *OrganizationService) AddMember(ctx context.Context, actorAccountID, org
 		return db.OrganizationMember{}, apperrors.OrganizationOwnerRequired
 	}
 	if pgErr := apperrors.Postgres(err); pgErr != nil {
-		switch pgErr.Code {
-		case "23505":
+		switch {
+		case pgErr.Code == "23505" && pgErr.ConstraintName == "organization_members_one_open_uq":
 			return db.OrganizationMember{}, apperrors.Wrap(apperrors.MembershipExists, err)
-		case "23503":
+		case pgErr.Code == "23503" && pgErr.ConstraintName == "organization_members_person_id_fkey":
 			return db.OrganizationMember{}, apperrors.Wrap(apperrors.PersonUnavailable, err)
 		}
 	}
