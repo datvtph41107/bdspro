@@ -17,9 +17,9 @@ type UserResponse struct {
 
 func newUserResponse(a db.Account) UserResponse {
 	return UserResponse{
-		AccountID: a.ID,
-		Email: a.Email,
-		CreatedAt: a.CreatedAt,
+		AccountID:       a.ID,
+		Email:           a.Email,
+		CreatedAt:       a.CreatedAt,
 		IsEmailVerified: a.IsEmailVerified,
 	}
 }
@@ -35,12 +35,12 @@ type LoginResponse struct {
 
 func newLoginResponse(v service.LoginResult) LoginResponse {
 	return LoginResponse{
-		SessionID: v.Session.ID.String(),
-		AccessToken: v.AccessToken,
-		AccessTokenExpiresAt: v.AccessExpiresAt,
-		RefreshToken: v.RefreshToken,
+		SessionID:             v.Session.ID.String(),
+		AccessToken:           v.AccessToken,
+		AccessTokenExpiresAt:  v.AccessExpiresAt,
+		RefreshToken:          v.RefreshToken,
 		RefreshTokenExpiresAt: v.RefreshExpiresAt,
-		User: newUserResponse(v.Account),
+		User:                  newUserResponse(v.Account),
 	}
 }
 
@@ -57,8 +57,8 @@ type OrganizationResponse struct {
 
 func newOrganizationResponse(a db.Organization) OrganizationResponse {
 	return OrganizationResponse{
-		PartyID: a.PartyID,
-		Name: a.Name,
+		PartyID:   a.PartyID,
+		Name:      a.Name,
 		CreatedAt: a.CreatedAt,
 	}
 }
@@ -85,12 +85,12 @@ type OrganizationMemberResponse struct {
 
 func newOrganizationMemberResponse(a db.OrganizationMembership) OrganizationMemberResponse {
 	return OrganizationMemberResponse{
-		ID: a.ID,
+		ID:             a.ID,
 		OrganizationID: a.OrganizationID,
-		PersonID: a.PersonID,
-		Role: a.Role,
-		JoinedAt: a.JoinedAt,
-		EndedAt: a.EndedAt,
+		PersonID:       a.PersonID,
+		Role:           a.Role,
+		JoinedAt:       a.JoinedAt,
+		EndedAt:        a.EndedAt,
 	}
 }
 
@@ -110,12 +110,12 @@ type OrganizationAccessResponse struct {
 
 func newOrganizationAccessResponse(access service.OrganizationAccess) OrganizationAccessResponse {
 	return OrganizationAccessResponse{
-		PartyID: access.Organization.PartyID,
-		Name: access.Organization.Name,
-		CreatedAt: access.Organization.CreatedAt,
-		Membership: OrganizationAccessMembershipResponse{
-			ID: access.MembershipID,
-			Role: access.Role,
+		PartyID:     access.Organization.PartyID,
+		Name:        access.Organization.Name,
+		CreatedAt:   access.Organization.CreatedAt,
+		Membership:  OrganizationAccessMembershipResponse{
+			ID:       access.MembershipID,
+			Role:     access.Role,
 			JoinedAt: access.JoinedAt,
 		},
 		Permissions: access.Permissions,
@@ -142,11 +142,11 @@ func newActiveOrganizationMembersResponse(members []db.ListOrganizationMembersFo
 	out := make([]ActiveOrganizationMemberResponse, 0, len(members))
 	for _, member := range members {
 		out = append(out, ActiveOrganizationMemberResponse{
-			ID: member.ID,
+			ID:             member.ID,
 			OrganizationID: member.OrganizationID,
-			PersonID: member.PersonID,
-			Role: member.Role,
-			JoinedAt: member.JoinedAt,
+			PersonID:       member.PersonID,
+			Role:           member.Role,
+			JoinedAt:       member.JoinedAt,
 		})
 	}
 	return out
