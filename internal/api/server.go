@@ -29,6 +29,7 @@ const apiPrefix = "" // Preserve existing public endpoints; versioning is a sepa
 
 type Server struct {
 	authHandler         *handler.AuthHandler
+	profileHandler      *handler.ProfileHandler
 	organizationHandler *handler.OrganizationHandler
 	googleHandler       *handler.GoogleHandler
 	phoneHandler        *handler.PhoneHandler
@@ -56,6 +57,7 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client, res
 		authRateRedis: redisClient,
 		authThrottle:  middleware.NewAuthThrottle(redisClient),
 	}
+	server.profileHandler = handler.NewProfileHandler(service.NewProfileService(store))
 	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, maker, cfg), server.authThrottle)
 	if len(resetMailers) > 0 {
 		server.authHandler.SetPasswordResetSender(resetMailers[0])

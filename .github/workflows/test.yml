@@ -110,6 +110,30 @@ jobs:
           END $audit$;
           SQL
 
+      - name: Verify profile backfill for existing accounts
+        env:
+          PGPASSWORD: secret
+        run: |
+          psql -h 127.0.0.1 -U root -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE bdspro_profile_upgrade_test'
+          PROFILE_URL='postgres://root:secret@127.0.0.1:5432/bdspro_profile_upgrade_test?sslmode=disable'
+          migrate -path db/migration -database "$PROFILE_URL" up 11
+          psql -h 127.0.0.1 -U root -d bdspro_profile_upgrade_test -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO parties (id) OVERRIDING SYSTEM VALUE VALUES (9801);
+          INSERT INTO persons (party_id) VALUES (9801);
+          INSERT INTO accounts (person_id, email) VALUES (9801, 'old-profile@example.test');
+          SQL
+          migrate -path db/migration -database "$PROFILE_URL" up 1
+          psql -h 127.0.0.1 -U root -d bdspro_profile_upgrade_test -v ON_ERROR_STOP=1 <<'SQL'
+          DO $audit$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM person_profiles WHERE person_id=9801 AND display_name='')
+               OR NOT EXISTS (SELECT 1 FROM account_settings WHERE account_id=(SELECT id FROM accounts WHERE person_id=9801)
+                   AND locale='vi' AND currency='VND' AND timezone='Asia/Ho_Chi_Minh') THEN
+              RAISE EXCEPTION 'profile migration lost or fabricated existing account information';
+            END IF;
+          END $audit$;
+          SQL
+
       - name: Verify organization member rename preserves existing data
         env:
           PGPASSWORD: secret

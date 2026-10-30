@@ -50,3 +50,5 @@ var PhoneRegistered = &Error{name: "PhoneRegistered"}
 var PhoneUnavailable = &Error{name: "PhoneUnavailable"}
 var OTPInvalid = &Error{name: "OTPInvalid"}
 var OTPCooldown = &Error{name: "OTPCooldown"}
+var InvalidProfile = &Error{name: "InvalidProfile"}
+var InvalidSettings = &Error{name: "InvalidSettings"}

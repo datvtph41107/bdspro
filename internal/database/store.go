@@ -66,10 +66,16 @@ func (s *SQLStore) RegisterTx(ctx context.Context, arg RegisterTxParams) (Accoun
 		if err = q.CreatePerson(ctx, partyID); err != nil {
 			return err
 		}
+		if err := q.CreatePersonProfile(ctx, partyID); err != nil {
+			return err
+		}
 		account, err = q.CreateAccount(ctx, CreateAccountParams{
 			PersonID: partyID, Email: arg.Email,
 		})
 		if err != nil {
+			return err
+		}
+		if err := q.CreateAccountSettings(ctx, account.ID); err != nil {
 			return err
 		}
 		if err := q.CreatePasswordCredential(ctx, CreatePasswordCredentialParams{

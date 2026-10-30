@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,9 +10,20 @@ import (
 
 	"github.com/datvtph41107/bdspro/internal/api/handler"
 	"github.com/datvtph41107/bdspro/internal/config"
+	db "github.com/datvtph41107/bdspro/internal/database"
+	"github.com/datvtph41107/bdspro/internal/service"
 	"github.com/datvtph41107/bdspro/internal/token"
 	"github.com/gin-gonic/gin"
 )
+
+type routeProfileStore struct{ db.Store }
+
+func (*routeProfileStore) GetAccountProfile(_ context.Context, accountID int64) (db.GetAccountProfileRow, error) {
+	return db.GetAccountProfileRow{
+		AccountID: accountID, PersonID: 14, Email: "test@example.com",
+		DisplayName: "Tester", Locale: "vi", Timezone: "Asia/Ho_Chi_Minh", Currency: "VND",
+	}, nil
+}
 
 func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -24,6 +36,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		s := &Server{
 			tokenMaker:          maker,
 			authHandler:         handler.NewAuthHandler(nil, nil),
+			profileHandler:      handler.NewProfileHandler(service.NewProfileService(&routeProfileStore{})),
 			organizationHandler: handler.NewOrganizationHandler(nil),
 		}
 		if google {
@@ -41,6 +54,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		"GET /health", "POST /users", "POST /users/login",
 		"GET /users/verify_email", "POST /users/verify_email", "POST /users/verify_email/resend", "POST /tokens/renew_access",
 		"POST /tokens/revoke", "GET /users/me",
+		"PATCH /users/me/profile", "GET /users/me/settings", "PATCH /users/me/settings",
 		"POST /users/password/reset/request", "GET /users/password/reset", "POST /users/password/reset",
 		"POST /users/me/email/start", "POST /users/me/email/verify",
 		"GET /users/me/sessions", "DELETE /users/me/sessions/:id", "POST /users/me/sessions/revoke_all",
@@ -62,8 +76,8 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	withOptional := newServer(true, true)
-	if n := len(withOptional.router.Routes()); n != 33 {
-		t.Errorf("enabled route count = %d, want 33", n)
+	if n := len(withOptional.router.Routes()); n != 36 {
+		t.Errorf("enabled route count = %d, want 36", n)
 	}
 	for _, route := range []string{
 		"POST /users/me/google/start", "GET /users/google/login/start",

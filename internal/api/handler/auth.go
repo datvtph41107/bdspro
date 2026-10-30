@@ -148,11 +148,6 @@ func (h *AuthHandler) Revoke(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// Me uses the verified account identity provided by authentication middleware.
-func (h *AuthHandler) Me(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"account_id": middleware.AccountID(c)})
-}
-
 func (h *AuthHandler) SetPasswordResetSender(sender mail.EmailSender) { h.resetSender = sender }
 
 func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
