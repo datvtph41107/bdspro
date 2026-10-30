@@ -71,9 +71,9 @@ func TestOrganizationMemberDeniedBySQL(t *testing.T) {
 type organizationCreateStoreFake struct {
 	db.Store
 	queriedAccount int64
-	createdWith    db.CreateOrganizationTxParams
-	createCount    int
+	txCalls        int
 	accountErr     error
+	txErr          error
 }
 
 func (s *organizationCreateStoreFake) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
@@ -84,34 +84,33 @@ func (s *organizationCreateStoreFake) GetAccountByID(_ context.Context, id int64
 	return db.Account{ID: id, PersonID: 42}, nil
 }
 
-func (s *organizationCreateStoreFake) CreateOrganizationTx(_ context.Context, arg db.CreateOrganizationTxParams) (db.Organization, error) {
-	s.createCount++
-	s.createdWith = arg
-	return db.Organization{PartyID: 100, Name: arg.Name}, nil
+func (s *organizationCreateStoreFake) ExecTx(_ context.Context, _ func(*db.Queries) error) error {
+	s.txCalls++
+	return s.txErr
 }
 
-func TestOrganizationCreateUsesPersonAndTransaction(t *testing.T) {
+// Pure preconditions are checked before a transaction is opened. The actual
+// Party/Organization/owner sequence and rollback are exercised with PostgreSQL
+// in organization_create_integration_test.go.
+func TestOrganizationCreateValidatesBeforeTransaction(t *testing.T) {
 	store := &organizationCreateStoreFake{}
 	svc := NewOrganizationService(store)
 
 	_, err := svc.Create(context.Background(), 11, "  ")
-	if !errors.Is(err, apperrors.NameRequired) || store.createCount != 0 {
-		t.Fatalf("blank organization name should not reach DB: %v", err)
-	}
-
-	created, err := svc.Create(context.Background(), 11, "  Example Company  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if store.queriedAccount != 11 || store.createdWith.OwnerPersonID != 42 ||
-		store.createdWith.Name != "Example Company" || store.createCount != 1 ||
-		created.PartyID != 100 {
-		t.Fatalf("incorrect create: account=%d args=%+v result=%+v", store.queriedAccount, store.createdWith, created)
+	if !errors.Is(err, apperrors.NameRequired) || store.txCalls != 0 {
+		t.Fatalf("blank organization name opened transaction: %v", err)
 	}
 
 	store.accountErr = pgx.ErrNoRows
 	_, err = svc.Create(context.Background(), 99, "Example Company")
-	if !errors.Is(err, apperrors.AccountUnavailable) || store.createCount != 1 {
-		t.Fatalf("missing account must return unauthorized without DB mutation: %v", err)
+	if !errors.Is(err, apperrors.AccountUnavailable) || store.txCalls != 0 {
+		t.Fatalf("missing account opened transaction: %v", err)
+	}
+
+	store.accountErr = nil
+	store.txErr = errors.New("transaction failed")
+	_, err = svc.Create(context.Background(), 11, "  Example Company  ")
+	if !errors.Is(err, store.txErr) || store.txCalls != 1 || store.queriedAccount != 11 {
+		t.Fatalf("transaction error not propagated: calls=%d actor=%d err=%v", store.txCalls, store.queriedAccount, err)
 	}
 }
