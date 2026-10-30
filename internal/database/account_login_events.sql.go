@@ -41,7 +41,7 @@ type ListOwnLoginEventsRow struct {
 	OccurredAt time.Time `json:"occurred_at"`
 }
 
-func (q *Queries) ListOwnLoginEvents(ctx context.Context, accountID int64) ([]ListOwnLoginEventsRow, error) {
+func (q *Queries) ListOwnLoginEvents(ctx context.Context, accountID pgtype.Int8) ([]ListOwnLoginEventsRow, error) {
 	rows, err := q.db.Query(ctx, listOwnLoginEvents, accountID)
 	if err != nil {
 		return nil, err
