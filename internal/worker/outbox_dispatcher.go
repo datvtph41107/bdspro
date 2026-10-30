@@ -33,7 +33,9 @@ func (d *OutboxDispatcher) Start(ctx context.Context) {
 		for {
 			n, err := d.Dispatch(ctx)
 			if err != nil && ctx.Err() == nil {
-				log.Ctx(ctx).Error().Err(err).Msg("queue.outbox_dispatch_failed")
+				log.Ctx(ctx).Error().
+					Str("error_type", fmt.Sprintf("%T", err)).
+					Msg("queue.outbox_dispatch_failed")
 			}
 			if err == nil && n == int(outboxBatchSize) {
 				continue
