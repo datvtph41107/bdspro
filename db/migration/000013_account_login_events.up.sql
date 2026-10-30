@@ -6,8 +6,7 @@ CREATE TABLE account_login_events (
     outcome text NOT NULL CHECK (outcome IN ('succeeded', 'rejected')),
     client_ip text NOT NULL CHECK (length(client_ip) <= 64),
     user_agent text NOT NULL CHECK (length(user_agent) <= 512),
-    occurred_at timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT account_login_events_known_success CHECK (outcome <> 'succeeded' OR account_id IS NOT NULL)
+    occurred_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX account_login_events_account_time_idx
