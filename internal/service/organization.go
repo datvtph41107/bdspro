@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -49,9 +50,32 @@ func (s *OrganizationService) Create(ctx context.Context, actorAccountID int64, 
 	if err != nil {
 		return db.Organization{}, err
 	}
-	return s.store.CreateOrganizationTx(ctx, db.CreateOrganizationTxParams{
-		Name: name, OwnerPersonID: personID,
+	// The service owns the Party -> Organization -> owner membership workflow.
+	// The database executor owns Begin, Commit and Rollback.
+	var organization db.Organization
+	err = s.store.ExecTx(ctx, func(q *db.Queries) error {
+		partyID, err := q.CreateParty(ctx)
+		if err != nil {
+			return err
+		}
+		organization, err = q.CreateOrganization(ctx, db.CreateOrganizationParams{
+			PartyID: partyID,
+			Name:    name,
+		})
+		if err != nil {
+			return err
+		}
+		_, err = q.CreateOrganizationMember(ctx, db.CreateOrganizationMemberParams{
+			OrganizationID: partyID,
+			PersonID:       personID,
+			Role:           "owner",
+		})
+		return err
 	})
+	if err != nil {
+		return db.Organization{}, fmt.Errorf("create organization: %w", err)
+	}
+	return organization, nil
 }
 
 // OrganizationAccess is the member relationship returned by SQL.
