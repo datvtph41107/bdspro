@@ -154,7 +154,7 @@ func truncateLoginMetadata(value string, limit int) string {
 }
 
 func (s *AuthService) LoginHistory(ctx context.Context, accountID int64) ([]db.ListOwnLoginEventsRow, error) {
-	return s.store.ListOwnLoginEvents(ctx, accountID)
+	return s.store.ListOwnLoginEvents(ctx, pgtype.Int8{Int64: accountID, Valid: true})
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, emailID int64, secretCode string) error {
