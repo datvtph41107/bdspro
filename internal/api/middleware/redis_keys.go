@@ -5,5 +5,5 @@ package middleware
 const (
 	securityDeniedKeyPrefix = "bdspro:security:denied:v1:"
 	sourceLimitKeyPrefix    = "bdspro:source_limit:v1:"
-	identityLimitKeyPrefix  = "bdspro:auth_limit:v1:"
+	authThrottleKeyPrefix  = "bdspro:auth_limit:v1:"
 )

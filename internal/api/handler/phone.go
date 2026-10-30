@@ -17,14 +17,14 @@ import (
 // PhoneHandler handles HTTP concerns. PhoneOTP owns validation and database errors.
 type PhoneHandler struct {
 	phone   service.PhoneOTP
-	limiter *middleware.IdentityLimiter
+	limiter *middleware.AuthThrottle
 }
 
 func NewPhoneHandler(
 	store db.Store,
 	cfg config.Config,
 	sender notification.PhoneCodeSender,
-	limiter *middleware.IdentityLimiter,
+	limiter *middleware.AuthThrottle,
 ) *PhoneHandler {
 	return &PhoneHandler{
 		phone: service.PhoneOTP{
@@ -69,7 +69,7 @@ func (h *PhoneHandler) VerifyBind(c *gin.Context) {
 func (h *PhoneHandler) SetTokenMaker(maker token.Maker) { h.phone.Maker = maker }
 
 // Phone signup and login are public; no AccountID is available until OTP
-// succeeds. The same IP/identity admission contract applies to each action.
+// succeeds. The same IP/credential admission contract applies to each action.
 func (h *PhoneHandler) StartRegister(c *gin.Context) {
 	var req PhoneStartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

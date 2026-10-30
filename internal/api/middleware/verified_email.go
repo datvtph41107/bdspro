@@ -20,7 +20,7 @@ func VerifiedEmail(store interface {
 }) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if store == nil {
-			identityStoreUnavailable(c, nil)
+			accountStoreUnavailable(c, nil)
 			return
 		}
 		account, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
@@ -29,7 +29,7 @@ func VerifiedEmail(store interface {
 			return
 		}
 		if err != nil {
-			identityStoreUnavailable(c, err)
+			accountStoreUnavailable(c, err)
 			return
 		}
 		if !account.IsEmailVerified {
@@ -48,7 +48,7 @@ func VerifiedContact(store interface {
 }) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if store == nil {
-			identityStoreUnavailable(c, nil)
+			accountStoreUnavailable(c, nil)
 			return
 		}
 		a, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
@@ -57,7 +57,7 @@ func VerifiedContact(store interface {
 			return
 		}
 		if err != nil {
-			identityStoreUnavailable(c, err)
+			accountStoreUnavailable(c, err)
 			return
 		}
 		if a.IsEmailVerified {
@@ -73,11 +73,11 @@ func VerifiedContact(store interface {
 			response.Reject(c, http.StatusForbidden, "contact_verification_required", "verified contact required")
 			return
 		}
-		identityStoreUnavailable(c, err)
+		accountStoreUnavailable(c, err)
 	}
 }
 
-func identityStoreUnavailable(c *gin.Context, err error) {
+func accountStoreUnavailable(c *gin.Context, err error) {
 	event := log.Ctx(c.Request.Context()).Error().Str("dependency", "postgres")
 	if err != nil {
 		// The raw database error may contain credentials or private data.
