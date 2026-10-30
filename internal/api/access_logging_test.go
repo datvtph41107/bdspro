@@ -23,7 +23,7 @@ func TestAccessLogIsSafeInfoOutcome(t *testing.T) {
 	router := gin.New()
 	router.Use(accessLogger())
 	router.GET("/organizations/:id", func(c *gin.Context) {
-		response.Fail(c, response.InternalServerError)
+		response.InternalError(c)
 	})
 
 	request := httptest.NewRequest(http.MethodGet, "/organizations/42?token=private-query-value", nil)
