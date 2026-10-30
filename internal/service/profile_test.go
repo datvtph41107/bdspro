@@ -32,8 +32,12 @@ func (s *profileStoreFake) GetAccountProfile(context.Context, int64) (db.GetAcco
 func TestProfileRejectsInvalidInputBeforeDatabase(t *testing.T) {
 	store := &profileStoreFake{}
 	profile := NewProfileService(store)
-	if _, err := profile.Update(context.Background(), 7, strings.Repeat("a", 121), "", ""); !errors.Is(err, apperrors.InvalidProfile) {
+	oversized := strings.Repeat("a", 121)
+	if _, err := profile.Update(context.Background(), 7, &oversized, nil, nil); !errors.Is(err, apperrors.InvalidProfile) {
 		t.Fatalf("oversized profile must fail: %v", err)
+	}
+	if _, err := profile.Update(context.Background(), 7, nil, nil, nil); !errors.Is(err, apperrors.InvalidProfile) {
+		t.Fatalf("empty patch must fail: %v", err)
 	}
 	if _, err := profile.UpdateSettings(context.Background(), 7, "unknown", "UTC", "USD"); !errors.Is(err, apperrors.InvalidSettings) {
 		t.Fatalf("unsupported settings must fail: %v", err)
