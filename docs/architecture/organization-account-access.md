@@ -47,13 +47,13 @@ Sample element from GET /organizations:
 - Member: `organization.view`.
 - Not a member or ended membership: no organization visibility and no capabilities.
 
-Returned permission strings are **a read projection for the client**, not an
+Returned permission strings are constructed in `internal/api/handler/resources.go` only, **a read projection for the client**, not an
 authorization credential or a grant that survives role revocation. Backend
 operations consult current membership and role in PostgreSQL each time.
 Only existing implemented operations are advertised. A JWT's AccountID alone
 never confers Organization access.
 
-The existing `owner`/ `member` predicates in SQL are the operation authority;
+The existing `owner`/ `member` predicates in SQL are the operation authority. The service carries membership facts without assembling HTTP permissions;
 do not add a second middleware permissions registry. Expansion to custom
 roles/permissions requires an explicit migration of both enforcement and
 projection in the same change, not two competing grants.

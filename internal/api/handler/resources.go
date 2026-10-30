@@ -118,7 +118,20 @@ func newOrganizationAccessResponse(access service.OrganizationAccess) Organizati
 			Role:     access.Role,
 			JoinedAt: access.JoinedAt,
 		},
-		Permissions: access.Permissions,
+		Permissions: permissionsForRole(access.Role),
+	}
+}
+
+// permissionsForRole preserves the current public JSON contract. This is
+// display metadata only; controllers never authorize from this list.
+func permissionsForRole(role string) []string {
+	switch role {
+	case "owner":
+		return []string{"organization.view", "organization.update", "organization.members.view", "organization.members.add"}
+	case "member":
+		return []string{"organization.view"}
+	default:
+		return []string{}
 	}
 }
 

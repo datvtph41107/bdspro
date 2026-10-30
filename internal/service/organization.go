@@ -54,25 +54,13 @@ func (s *OrganizationService) Create(ctx context.Context, actorAccountID int64, 
 	})
 }
 
-// OrganizationAccess projects membership and capabilities for a client.
-// This projection cannot authorize mutations: resource SQL predicates do.
+// OrganizationAccess is the member relationship returned by SQL.
+// Authorization remains in the SQL predicates; HTTP presentation is separate.
 type OrganizationAccess struct {
 	Organization db.Organization
 	MembershipID int64
 	Role         string
 	JoinedAt     time.Time
-	Permissions  []string
-}
-
-func organizationPermissions(role string) []string {
-	switch role {
-	case "owner":
-		return []string{"organization.view", "organization.update", "organization.members.view", "organization.members.add"}
-	case "member":
-		return []string{"organization.view"}
-	default:
-		return []string{}
-	}
 }
 
 func (s *OrganizationService) List(ctx context.Context, actorAccountID int64) ([]OrganizationAccess, error) {
@@ -85,7 +73,6 @@ func (s *OrganizationService) List(ctx context.Context, actorAccountID int64) ([
 		out = append(out, OrganizationAccess{
 			Organization: db.Organization{PartyID: row.PartyID, Name: row.Name, CreatedAt: row.CreatedAt},
 			MembershipID: row.MembershipID, Role: row.Role, JoinedAt: row.JoinedAt,
-			Permissions: organizationPermissions(row.Role),
 		})
 	}
 	return out, nil
@@ -104,7 +91,6 @@ func (s *OrganizationService) Get(ctx context.Context, actorAccountID, organizat
 	return OrganizationAccess{
 		Organization: db.Organization{PartyID: row.PartyID, Name: row.Name, CreatedAt: row.CreatedAt},
 		MembershipID: row.MembershipID, Role: row.Role, JoinedAt: row.JoinedAt,
-		Permissions: organizationPermissions(row.Role),
 	}, nil
 }
 
