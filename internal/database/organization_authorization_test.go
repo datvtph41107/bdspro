@@ -103,7 +103,7 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 		OrganizationID: org.PartyID, PersonID: member.PersonID, ActorAccountID: owner.ID,
 	})
 	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" || pgErr.ConstraintName != "organization_members_one_open_uq" {
 		t.Fatalf("duplicate active membership must be rejected by unique constraint: %v", err)
 	}
 	// A failed third insert must roll back the Party and Organization as well.
@@ -114,8 +114,10 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 	_, err = store.CreateOrganizationTx(ctx, CreateOrganizationTxParams{
 		Name: "Rollback probe", OwnerPersonID: -1,
 	})
-	if err == nil {
-		t.Fatal("expected foreign key failure for nonexistent owner person")
+	var ownerErr *pgconn.PgError
+	if !errors.As(err, &ownerErr) || ownerErr.Code != "23503" ||
+		ownerErr.ConstraintName != "organization_members_person_id_fkey" {
+		t.Fatalf("expected person foreign-key constraint, got %v", err)
 	}
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&after); err != nil {
 		t.Fatal(err)
