@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/datvtph41107/bdspro/internal/api/response"
 	"github.com/jackc/pgx/v5"
-	"net/http"
 
 	db "github.com/datvtph41107/bdspro/internal/database"
 	"github.com/gin-gonic/gin"
@@ -18,20 +17,20 @@ func VerifiedEmail(store interface {
 }) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if store == nil {
-			response.Reject(c, http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
+			response.Fail(c, response.IdentityStoreUnavailable)
 			return
 		}
 		account, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
 		if errors.Is(err, pgx.ErrNoRows) {
-			response.Reject(c, http.StatusUnauthorized, "unauthenticated", "authentication required")
+			response.Fail(c, response.AuthenticationRequired)
 			return
 		}
 		if err != nil {
-			response.Reject(c, http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
+			response.Fail(c, response.IdentityStoreUnavailable)
 			return
 		}
 		if !account.IsEmailVerified {
-			response.Reject(c, http.StatusForbidden, "email_verification_required", "email verification required")
+			response.Fail(c, response.EmailVerificationRequired)
 			return
 		}
 		c.Next()
@@ -47,11 +46,11 @@ func VerifiedContact(store interface {
 	return func(c *gin.Context) {
 		a, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
 		if errors.Is(err, pgx.ErrNoRows) {
-			response.Reject(c, http.StatusUnauthorized, "unauthenticated", "authentication required")
+			response.Fail(c, response.AuthenticationRequired)
 			return
 		}
 		if err != nil {
-			response.Reject(c, http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
+			response.Fail(c, response.IdentityStoreUnavailable)
 			return
 		}
 		if a.IsEmailVerified {
@@ -64,9 +63,9 @@ func VerifiedContact(store interface {
 			return
 		}
 		if errors.Is(err, pgx.ErrNoRows) {
-			response.Reject(c, http.StatusForbidden, "contact_verification_required", "verified contact required")
+			response.Fail(c, response.ContactVerificationRequired)
 			return
 		}
-		response.Reject(c, http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
+		response.Fail(c, response.IdentityStoreUnavailable)
 	}
 }
