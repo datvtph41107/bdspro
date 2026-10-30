@@ -56,7 +56,7 @@ func TestAccountProfileAndSettingsHTTP(t *testing.T) {
 	}
 	status, invalidPatch := authAcceptanceCall(t, server, "/users/me/profile", http.MethodPatch,
 		map[string]string{}, firstToken)
-	if status != http.StatusBadRequest || invalidPatch["code"] != "invalid_request" {
+	if status != http.StatusBadRequest || invalidPatch["code"] != "profile.invalid" {
 		t.Fatalf("empty profile patch was accepted: %d %v", status, invalidPatch)
 	}
 
