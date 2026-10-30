@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -64,10 +65,27 @@ func TestPasswordLoginActivityIsAccountScoped(t *testing.T) {
 	if status != http.StatusUnauthorized {
 		t.Fatalf("anonymous activity request: %d", status)
 	}
+	status, secondLogin := authAcceptanceCall(t, server, "/users/login", http.MethodPost, map[string]string{
+		"email": secondEmail, "password": "correct-password",
+	}, "")
+	if status != http.StatusOK {
+		t.Fatalf("second account login unavailable: %d %v", status, secondLogin)
+	}
+	secondToken := secondLogin["access_token"].(string)
+	// A forged account_id query parameter must never override the bearer identity.
+	status, otherHistory := authAcceptanceCall(t, server,
+		"/users/me/activity?account_id="+fmt.Sprint(first.ID), http.MethodGet, nil, secondToken)
+	if status != http.StatusOK {
+		t.Fatalf("other activity request failed: %d %v", status, otherHistory)
+	}
+	otherEvents := otherHistory["events"].([]any)
+	if len(otherEvents) != 1 || otherEvents[0].(map[string]any)["outcome"] != "succeeded" {
+		t.Fatalf("account histories were mixed: %v", otherHistory)
+	}
 	var wrongAccountVisible int
 	err = pool.QueryRow(ctx, "SELECT count(*) FROM account_login_events WHERE account_id=$1", second.ID).Scan(&wrongAccountVisible)
-	if err != nil || wrongAccountVisible != 0 {
-		t.Fatalf("second account accessed history: count=%d error=%v", wrongAccountVisible, err)
+	if err != nil || wrongAccountVisible != 1 {
+		t.Fatalf("second account did not retain only its own login: count=%d error=%v", wrongAccountVisible, err)
 	}
 	var ownCount int
 	err = pool.QueryRow(ctx, "SELECT count(*) FROM account_login_events WHERE account_id=$1", first.ID).Scan(&ownCount)
