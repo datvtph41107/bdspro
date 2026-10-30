@@ -110,10 +110,10 @@ type OrganizationAccessResponse struct {
 
 func newOrganizationAccessResponse(access service.OrganizationAccess) OrganizationAccessResponse {
 	return OrganizationAccessResponse{
-		PartyID:     access.Organization.PartyID,
-		Name:        access.Organization.Name,
-		CreatedAt:   access.Organization.CreatedAt,
-		Membership:  OrganizationAccessMembershipResponse{
+		PartyID:   access.Organization.PartyID,
+		Name:      access.Organization.Name,
+		CreatedAt: access.Organization.CreatedAt,
+		Membership: OrganizationAccessMembershipResponse{
 			ID:       access.MembershipID,
 			Role:     access.Role,
 			JoinedAt: access.JoinedAt,
