@@ -26,6 +26,16 @@ func newUserResponse(a db.Account) UserResponse {
 	}
 }
 
+// LoginActivityResponse never contains attempted email, credential material,
+// refresh tokens, OAuth subjects or data belonging to another account.
+type LoginActivityResponse struct {
+	ID         int64     `json:"id"`
+	Outcome    string    `json:"outcome"`
+	ClientIP   string    `json:"client_ip"`
+	UserAgent  string    `json:"user_agent"`
+	OccurredAt time.Time `json:"occurred_at"`
+}
+
 type LoginResponse struct {
 	SessionID             string       `json:"session_id"`
 	AccessToken           string       `json:"access_token"`
