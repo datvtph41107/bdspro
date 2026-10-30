@@ -31,6 +31,7 @@ type Querier interface {
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVerifiedGoogleAccountParams) (Account, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
+	DeleteExpiredLoginEvents(ctx context.Context) (int64, error)
 	DeletePasswordResetTokensForAccount(ctx context.Context, accountID int64) error
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
 	DeletePhoneSignup(ctx context.Context, phoneE164 string) error
@@ -49,6 +50,7 @@ type Querier interface {
 	ListActiveSessions(ctx context.Context, accountID int64) ([]ListActiveSessionsRow, error)
 	ListOrganizationMembersForOwner(ctx context.Context, arg ListOrganizationMembersForOwnerParams) ([]ListOrganizationMembersForOwnerRow, error)
 	ListOrganizationsForAccount(ctx context.Context, accountID int64) ([]ListOrganizationsForAccountRow, error)
+	ListOwnLoginEvents(ctx context.Context, accountID int64) ([]ListOwnLoginEventsRow, error)
 	ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error)
 	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
@@ -63,6 +65,7 @@ type Querier interface {
 	// The payload identifies the account, never a reset token or password.
 	// The worker generates the one-time proof only when the job is executed.
 	RecordPasswordResetJob(ctx context.Context, accountID int64) error
+	RecordPasswordLoginEvent(ctx context.Context, arg RecordPasswordLoginEventParams) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	RevokeAllAccountSessions(ctx context.Context, accountID int64) (int64, error)
 	RevokeOwnedSession(ctx context.Context, arg RevokeOwnedSessionParams) (int64, error)
