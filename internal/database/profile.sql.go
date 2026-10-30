@@ -8,6 +8,8 @@ package db
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createAccountSettings = `-- name: CreateAccountSettings :exec
@@ -113,18 +115,18 @@ func (q *Queries) UpdateAccountSettings(ctx context.Context, arg UpdateAccountSe
 
 const updatePersonProfile = `-- name: UpdatePersonProfile :execrows
 UPDATE person_profiles
-SET display_name = $1,
-    first_name = $2,
-    last_name = $3,
+SET display_name = COALESCE($1::text, display_name),
+    first_name = COALESCE($2::text, first_name),
+    last_name = COALESCE($3::text, last_name),
     updated_at = now()
 WHERE person_id = (SELECT person_id FROM accounts WHERE id = $4)
 `
 
 type UpdatePersonProfileParams struct {
-	DisplayName string `json:"display_name"`
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
-	AccountID   int64  `json:"account_id"`
+	DisplayName pgtype.Text `json:"display_name"`
+	FirstName   pgtype.Text `json:"first_name"`
+	LastName    pgtype.Text `json:"last_name"`
+	AccountID   int64       `json:"account_id"`
 }
 
 func (q *Queries) UpdatePersonProfile(ctx context.Context, arg UpdatePersonProfileParams) (int64, error) {
