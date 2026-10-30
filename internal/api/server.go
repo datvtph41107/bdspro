@@ -37,7 +37,7 @@ type Server struct {
 	tokenMaker          token.Maker
 	router              *gin.Engine
 	authRateRedis       *redis.Client
-	authThrottle     *middleware.AuthThrottle
+	authThrottle        *middleware.AuthThrottle
 }
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
@@ -50,11 +50,11 @@ func NewServer(cfg config.Config, store db.Store, redisClient *redis.Client, res
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}
 	server := &Server{
-		config:          cfg,
-		store:           store,
-		tokenMaker:      maker,
-		authRateRedis:   redisClient,
-		authThrottle: middleware.NewAuthThrottle(redisClient),
+		config:        cfg,
+		store:         store,
+		tokenMaker:    maker,
+		authRateRedis: redisClient,
+		authThrottle:  middleware.NewAuthThrottle(redisClient),
 	}
 	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, maker, cfg), server.authThrottle)
 	if len(resetMailers) > 0 {
