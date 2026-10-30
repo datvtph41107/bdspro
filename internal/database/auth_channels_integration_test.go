@@ -75,10 +75,6 @@ func TestPhoneSignupAtomicityUniquenessAndWrongAttempt(t *testing.T) {
 	if _, err := store.GetPasswordHash(ctx, account.ID); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("phone-only account should be passwordless: %v", err)
 	}
-	var before, after int64
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&before); err != nil {
-		t.Fatal(err)
-	}
 	if err := store.StartPhoneSignup(ctx, phone, mac[:], "123456"); err != nil {
 		t.Fatal(err)
 	}
@@ -90,11 +86,21 @@ func TestPhoneSignupAtomicityUniquenessAndWrongAttempt(t *testing.T) {
 			t.Fatalf("expected phone uniqueness conflict: %v", err)
 		}
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM parties").Scan(&after); err != nil {
+	// Other test packages can create Parties concurrently in the same test
+	// database. A global before/after row count is therefore nondeterministic.
+	// Instead check the invariant directly: no committed Party without a subtype.
+	var orphanParties int64
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM parties p
+		LEFT JOIN persons pe ON pe.party_id = p.id
+		LEFT JOIN organizations o ON o.party_id = p.id
+		WHERE pe.party_id IS NULL AND o.party_id IS NULL
+	`).Scan(&orphanParties); err != nil {
 		t.Fatal(err)
 	}
-	if before != after {
-		t.Fatalf("failed phone registration left orphan party: %d -> %d", before, after)
+	if orphanParties != 0 {
+		t.Fatalf("committed party has no person/organization subtype: %d", orphanParties)
 	}
 }
 
