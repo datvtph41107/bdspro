@@ -20,7 +20,7 @@ return n
 func IPActiveSource(redisClient *redis.Client, operation string, maxAttempts int64, window time.Duration) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if redisClient == nil {
-			response.Fail(ctx, response.RateLimitUnavailable)
+			response.RateLimitUnavailable(ctx)
 			return
 		}
 		key := sourceLimitKeyPrefix + operation + ":" + hashedRateKey(ctx.ClientIP())
@@ -34,12 +34,11 @@ func IPActiveSource(redisClient *redis.Client, operation string, maxAttempts int
 				Str("dependency", "redis").
 				Str("error_type", fmt.Sprintf("%T", err)).
 				Msg("auth.rate_limit_unavailable")
-			response.Fail(ctx, response.RateLimitUnavailable)
+			response.RateLimitUnavailable(ctx)
 			return
 		}
 		if count > maxAttempts {
-			ctx.Header("Retry-After", fmt.Sprint(int64(window.Seconds())))
-			response.Fail(ctx, response.RateLimited)
+			response.RateLimited(ctx, int64(window.Seconds()))
 			return
 		}
 		ctx.Next()

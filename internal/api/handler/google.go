@@ -69,12 +69,12 @@ func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 	}
 	accountID := middleware.AccountID(ctx)
 	if (req.Password == "") == (req.PhoneCode == "") {
-		response.Fail(ctx, response.InvalidLinkProof)
+		response.Reject(ctx, http.StatusBadRequest, "invalid_link_proof", "provide exactly one reauthentication method")
 		return
 	}
 	if req.PhoneCode != "" {
 		if g.phone == nil {
-			response.Fail(ctx, response.PhoneReauthenticationUnavailable)
+			response.Reject(ctx, http.StatusForbidden, "phone_reauthentication_unavailable", "phone reauthentication unavailable")
 			return
 		}
 		if err := g.phone.AuthorizePhoneProof(ctx.Request.Context(), accountID, req.PhoneCode); err != nil {
@@ -187,13 +187,13 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 	state := ctx.Query("state")
 	cookie, err := ctx.Request.Cookie(googleOAuthCookie)
 	if err != nil || state == "" || len(state) != 43 || subtle.ConstantTimeCompare([]byte(state), []byte(cookie.Value)) != 1 {
-		response.Fail(ctx, response.GoogleInvalidState)
+		response.Reject(ctx, http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
 		return
 	}
 	g.stateCookie(ctx, "", -1)
 	data, err := g.redis.GetDel(ctx.Request.Context(), "google:oauth:state:"+state).Bytes()
 	if errors.Is(err, redis.Nil) {
-		response.Fail(ctx, response.GoogleStateExpired)
+		response.Reject(ctx, http.StatusBadRequest, "google_state_expired", "expired Google authorization state")
 		return
 	}
 	if err != nil {
@@ -202,11 +202,11 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 	}
 	var pending googlePending
 	if json.Unmarshal(data, &pending) != nil || pending.Verifier == "" || pending.Nonce == "" {
-		response.Fail(ctx, response.GoogleInvalidState)
+		response.Reject(ctx, http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
 		return
 	}
 	if ctx.Query("error") != "" || ctx.Query("code") == "" {
-		response.Fail(ctx, response.GoogleAuthorizationDeclined)
+		response.Reject(ctx, http.StatusUnauthorized, "google_authorization_declined", "Google authorization declined")
 		return
 	}
 	idToken, err := g.exchange(ctx.Request.Context(), ctx.Query("code"), pending.Verifier)
@@ -215,12 +215,12 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		return
 	}
 	if err != nil {
-		response.Fail(ctx, response.GoogleAuthorizationFailed)
+		response.Reject(ctx, http.StatusUnauthorized, "google_authorization_failed", "Google authorization failed")
 		return
 	}
 	identity, err := service.VerifyGoogleIDToken(ctx.Request.Context(), idToken, g.config.GoogleClientID, pending.Nonce)
 	if err != nil {
-		response.Fail(ctx, response.GoogleInvalidIdentity)
+		response.Reject(ctx, http.StatusUnauthorized, "google_invalid_identity", "invalid Google identity")
 		return
 	}
 
@@ -243,7 +243,7 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		return
 	}
 	if pending.Purpose != "login" || pending.AccountID != 0 {
-		response.Fail(ctx, response.GoogleInvalidState)
+		response.Reject(ctx, http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
 		return
 	}
 	result, err := g.auth.Login(ctx.Request.Context(), identity, ctx.Request.UserAgent(), ctx.ClientIP())
@@ -298,5 +298,5 @@ func googleUnavailable(c *gin.Context, err error) {
 		Str("dependency", "google_oauth").
 		Str("error_type", fmt.Sprintf("%T", err)).
 		Msg("auth.provider_unavailable")
-	response.Fail(c, response.GoogleUnavailable)
+	response.Reject(c, http.StatusServiceUnavailable, "google_unavailable", "Google sign-in unavailable")
 }

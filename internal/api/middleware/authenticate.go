@@ -16,12 +16,12 @@ func Authenticate(maker token.Maker) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		parts := strings.Fields(ctx.GetHeader("Authorization"))
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			response.Fail(ctx, response.BearerRequired)
+			response.BearerRequired(ctx)
 			return
 		}
 		payload, err := maker.VerifyToken(parts[1], token.TokenTypeAccess)
 		if err != nil {
-			response.Fail(ctx, response.InvalidAccessToken)
+			response.InvalidAccessToken(ctx)
 			return
 		}
 		ctx.Set(AuthorizationPayloadKey, payload)

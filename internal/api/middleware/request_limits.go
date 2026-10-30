@@ -15,7 +15,7 @@ const maxRequestBodyBytes int64 = 1 << 20
 func RequestIngress() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if ctx.Request.ContentLength > maxRequestBodyBytes {
-			response.Fail(ctx, response.RequestBodyTooLarge)
+			response.Reject(ctx, http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
 			return
 		}
 		ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, maxRequestBodyBytes)

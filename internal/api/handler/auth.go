@@ -84,7 +84,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
 	var req VerifyEmailQuery
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Fail(c, response.InvalidVerificationLinkPage)
+		response.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
 	}
 	c.Header("Cache-Control", "no-store")
@@ -99,7 +99,7 @@ func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	var req VerifyEmailQuery
 	if err := c.ShouldBind(&req); err != nil {
-		response.Fail(c, response.InvalidVerificationLinkPage)
+		response.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
 	}
 	if !h.limiter.Allow(c, "verify_email", strconv.FormatInt(req.EmailID, 10), 60, 10, time.Minute) {
@@ -175,7 +175,7 @@ func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 func (h *AuthHandler) PasswordResetPage(c *gin.Context) {
 	token := c.Query("token")
 	if len(token) != 43 {
-		response.Fail(c, response.InvalidResetTokenPage)
+		response.Reject(c, http.StatusBadRequest, "invalid_reset_token", "invalid or expired reset token")
 		return
 	}
 	const page = `<!doctype html><html><head><meta charset="utf-8"><title>Reset password</title></head><body><form method="post" action="/users/password/reset"><input type="hidden" name="token" value="{{.}}"><input type="password" name="password" minlength="8" required><button type="submit">Set password</button></form></body></html>`
@@ -255,7 +255,7 @@ func (h *AuthHandler) ListSessions(c *gin.Context) {
 func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		response.Fail(c, response.InvalidSessionID)
+		response.Reject(c, http.StatusBadRequest, "invalid_session_id", "invalid session id")
 		return
 	}
 	if err := h.auth.RevokeOwnSession(c.Request.Context(), middleware.AccountID(c), id); err != nil {

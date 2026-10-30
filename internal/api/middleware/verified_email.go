@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/datvtph41107/bdspro/internal/api/response"
 	db "github.com/datvtph41107/bdspro/internal/database"
@@ -24,7 +25,7 @@ func VerifiedEmail(store interface {
 		}
 		account, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
 		if errors.Is(err, pgx.ErrNoRows) {
-			response.Fail(c, response.AuthenticationRequired)
+			response.AuthenticationRequired(c)
 			return
 		}
 		if err != nil {
@@ -32,7 +33,7 @@ func VerifiedEmail(store interface {
 			return
 		}
 		if !account.IsEmailVerified {
-			response.Fail(c, response.EmailVerificationRequired)
+			response.Reject(c, http.StatusForbidden, "email_verification_required", "email verification required")
 			return
 		}
 		c.Next()
@@ -52,7 +53,7 @@ func VerifiedContact(store interface {
 		}
 		a, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
 		if errors.Is(err, pgx.ErrNoRows) {
-			response.Fail(c, response.AuthenticationRequired)
+			response.AuthenticationRequired(c)
 			return
 		}
 		if err != nil {
@@ -69,7 +70,7 @@ func VerifiedContact(store interface {
 			return
 		}
 		if errors.Is(err, pgx.ErrNoRows) {
-			response.Fail(c, response.ContactVerificationRequired)
+			response.Reject(c, http.StatusForbidden, "contact_verification_required", "verified contact required")
 			return
 		}
 		identityStoreUnavailable(c, err)
@@ -83,5 +84,5 @@ func identityStoreUnavailable(c *gin.Context, err error) {
 		event = event.Str("error_type", fmt.Sprintf("%T", err))
 	}
 	event.Msg("auth.identity_store_unavailable")
-	response.Fail(c, response.IdentityStoreUnavailable)
+	response.Reject(c, http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
 }
