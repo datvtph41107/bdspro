@@ -38,7 +38,7 @@ func TestLoginDoesNotDiscloseMissingEmailOrPasswordCredential(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			store := &sessionMemoryStore{
-				account: db.Account{ID: 12, PersonID: 33, Email: "known@example.test"},
+				account:      db.Account{ID: 12, PersonID: 33, Email: "known@example.test"},
 				passwordHash: tt.passwordHash,
 			}
 			service := NewAuthService(store, nil, config.Config{})
