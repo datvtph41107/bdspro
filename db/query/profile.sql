@@ -20,9 +20,9 @@ LIMIT 1;
 
 -- name: UpdatePersonProfile :execrows
 UPDATE person_profiles
-SET display_name = sqlc.arg(display_name),
-    first_name = sqlc.arg(first_name),
-    last_name = sqlc.arg(last_name),
+SET display_name = COALESCE(sqlc.narg(display_name)::text, display_name),
+    first_name = COALESCE(sqlc.narg(first_name)::text, first_name),
+    last_name = COALESCE(sqlc.narg(last_name)::text, last_name),
     updated_at = now()
 WHERE person_id = (SELECT person_id FROM accounts WHERE id = sqlc.arg(account_id));
 
