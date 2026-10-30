@@ -57,7 +57,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		"PATCH /users/me/profile", "GET /users/me/settings", "PATCH /users/me/settings",
 		"POST /users/password/reset/request", "GET /users/password/reset", "POST /users/password/reset",
 		"POST /users/me/email/start", "POST /users/me/email/verify",
-		"GET /users/me/sessions", "DELETE /users/me/sessions/:id", "POST /users/me/sessions/revoke_all",
+		"GET /users/me/activity", "GET /users/me/sessions", "DELETE /users/me/sessions/:id", "POST /users/me/sessions/revoke_all",
 		"POST /organizations", "GET /organizations",
 		"POST /organizations/:id/members", "PATCH /organizations/:id",
 		"GET /organizations/:id", "GET /organizations/:id/members",
@@ -76,8 +76,8 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	withOptional := newServer(true, true)
-	if n := len(withOptional.router.Routes()); n != 36 {
-		t.Errorf("enabled route count = %d, want 36", n)
+	if n := len(withOptional.router.Routes()); n != 37 {
+		t.Errorf("enabled route count = %d, want 37", n)
 	}
 	for _, route := range []string{
 		"POST /users/me/google/start", "GET /users/google/login/start",
