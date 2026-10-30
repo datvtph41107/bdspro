@@ -30,8 +30,8 @@ func NewRedisTaskProcessor(options asynq.RedisClientOpt) *RedisTaskProcessor {
 			QueueCritical: 10,
 			QueueDefault:  5,
 		},
-		Logger:   logger,
-		LogLevel: asynq.WarnLevel,
+		Logger:       logger,
+		LogLevel:     asynq.WarnLevel,
 		ErrorHandler: asynq.ErrorHandlerFunc(logTaskFailure),
 	})
 	return &RedisTaskProcessor{server: server, mux: asynq.NewServeMux()}
