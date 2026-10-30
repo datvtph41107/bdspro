@@ -138,6 +138,9 @@ func (server *Server) setupRouter() {
 		if status >= http.StatusInternalServerError {
 			event = log.Ctx(ctx.Request.Context()).Error()
 		}
+		if code := ctx.GetString(response.ErrorCodeKey); code != "" {
+			event = event.Str("error_code", code)
+		}
 		event.Str("method", ctx.Request.Method).
 			Str("path", path).
 			Int("status", status).
