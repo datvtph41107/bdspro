@@ -19,10 +19,10 @@ func (f googleTestTransport) RoundTrip(req *http.Request) (*http.Response, error
 
 func TestGoogleTokenExchangeDistinguishesProviderOutages(t *testing.T) {
 	tests := []struct {
-		name string
-		status int
-		body string
-		networkError error
+		name            string
+		status          int
+		body            string
+		networkError    error
 		wantUnavailable bool
 	}{
 		{name: "grant rejected", status: http.StatusBadRequest, body: `{"error":"invalid_grant"}`},
@@ -40,15 +40,15 @@ func TestGoogleTokenExchangeDistinguishesProviderOutages(t *testing.T) {
 				}
 				return &http.Response{
 					StatusCode: tt.status,
-					Body: io.NopCloser(strings.NewReader(tt.body)),
-					Header: make(http.Header),
-					Request: req,
+					Body:       io.NopCloser(strings.NewReader(tt.body)),
+					Header:     make(http.Header),
+					Request:    req,
 				}, nil
 			})}
 			g := &GoogleHandler{httpClient: client, config: config.Config{
-				GoogleClientID: "test-client",
+				GoogleClientID:     "test-client",
 				GoogleClientSecret: "test-secret",
-				GoogleRedirectURI: "https://example.test/users/google/callback",
+				GoogleRedirectURI:  "https://example.test/users/google/callback",
 			}}
 			_, err := g.exchange(context.Background(), "authorization-code", "verifier")
 			if err == nil {
@@ -67,9 +67,9 @@ func TestGoogleTokenExchangeSuccessfulResponse(t *testing.T) {
 		httpClient: &http.Client{Transport: googleTestTransport(func(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body: io.NopCloser(strings.NewReader(`{"id_token":"test-id-token"}`)),
-				Header: make(http.Header),
-				Request: req,
+				Body:       io.NopCloser(strings.NewReader(`{"id_token":"test-id-token"}`)),
+				Header:     make(http.Header),
+				Request:    req,
 			}, nil
 		})},
 	}
