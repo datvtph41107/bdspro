@@ -108,7 +108,7 @@ A valid token is consumed once. The password credential is inserted/updated, and
 
 ## Development acceptance
 
-For local development run `make dev-up` and `make dev` from the repository root. This starts PostgreSQL/Redis/Mailpit in Docker and the API on the host, including loopback Mailpit SMTP. **Do not use production user data.** Check `GET /health`, `GET /swagger/openapi.json` and Swagger UI at `GET /swagger/`. Run `make check` before a PR. The alternative `docker compose up --build` also runs the API container but uses its own Compose environment.
+Run `docker compose up --build` with a disposable local PostgreSQL instance and Redis; never test OTP against production user data. Check `GET /health`, `GET /swagger/openapi.json` and Swagger UI at `GET /swagger/`. Run `go test ./...`, `go test -race ./...`, `go vet ./...`, and `go build ./...`.
 
 Integration tests require `BDS_TEST_MODE=disposable` and `BDS_TEST_DB_URL` explicitly pointing to `bdspro_test` with migrations applied. A green CI result does not prove a live Google login, external SMS provider delivery, provider outage handling or production rollout.
 
