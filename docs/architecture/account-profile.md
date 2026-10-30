@@ -8,7 +8,7 @@ The source of truth for password/phone/Google availability remains the credentia
 
 API operations:
 - GET /users/me
-- PATCH /users/me/profile (full replacement of the three name fields)
+- PATCH /users/me/profile (partial update: omitted name fields remain unchanged; an explicit empty string clears a field; an empty patch is rejected)
 - GET /users/me/settings
 - PATCH /users/me/settings
 
