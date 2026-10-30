@@ -28,8 +28,8 @@ func TestUnknownPasswordUsesProductionBcryptCost(t *testing.T) {
 
 func TestLoginDoesNotDiscloseMissingEmailOrPasswordCredential(t *testing.T) {
 	for _, tt := range []struct {
-		name string
-		email string
+		name         string
+		email        string
 		passwordHash string
 	}{
 		{"unknown email", "other@example.test", ""},
