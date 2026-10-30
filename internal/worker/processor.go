@@ -2,6 +2,8 @@ package worker
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/hibiken/asynq"
@@ -30,14 +32,7 @@ func NewRedisTaskProcessor(options asynq.RedisClientOpt) *RedisTaskProcessor {
 		},
 		Logger:   logger,
 		LogLevel: asynq.WarnLevel,
-		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
-			taskID, _ := asynq.GetTaskID(ctx)
-			retried, _ := asynq.GetRetryCount(ctx)
-			maxRetry, _ := asynq.GetMaxRetry(ctx)
-			log.Ctx(ctx).Error().Err(err).Str("task", task.Type()).
-				Str("task_id", taskID).Int("retried", retried).
-				Int("max_retry", maxRetry).Msg("task.failed")
-		}),
+		ErrorHandler: asynq.ErrorHandlerFunc(logTaskFailure),
 	})
 	return &RedisTaskProcessor{server: server, mux: asynq.NewServeMux()}
 }
@@ -52,4 +47,20 @@ func (p *RedisTaskProcessor) Start() error {
 
 func (p *RedisTaskProcessor) Shutdown() {
 	p.server.Shutdown()
+}
+
+// logTaskFailure is the single diagnostic event for a failed task attempt.
+// The error text and task payload may contain private account data.
+func logTaskFailure(ctx context.Context, task *asynq.Task, err error) {
+	taskID, _ := asynq.GetTaskID(ctx)
+	retried, _ := asynq.GetRetryCount(ctx)
+	maxRetry, _ := asynq.GetMaxRetry(ctx)
+	log.Ctx(ctx).Error().
+		Str("task", task.Type()).
+		Str("task_id", taskID).
+		Str("error_type", fmt.Sprintf("%T", err)).
+		Bool("skip_retry", errors.Is(err, asynq.SkipRetry)).
+		Int("retried", retried).
+		Int("max_retry", maxRetry).
+		Msg("task.failed")
 }
