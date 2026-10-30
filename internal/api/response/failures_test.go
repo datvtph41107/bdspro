@@ -56,7 +56,7 @@ func TestHTTPFailureContracts(t *testing.T) {
 				t.Fatalf("status = %d, want %d", recorder.Code, tt.status)
 			}
 			var got struct {
-				Code string `json:"code"`
+				Code  string `json:"code"`
 				Error string `json:"error"`
 			}
 			if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
