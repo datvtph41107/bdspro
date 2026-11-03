@@ -14,13 +14,13 @@ import (
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/routers/api/handler"
-	"github.com/datvtph41107/bdspro/routers/common"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
+	"github.com/datvtph41107/bdspro/routers/common"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
-	organization_service "github.com/datvtph41107/bdspro/services/organization"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
+	organization_service "github.com/datvtph41107/bdspro/services/organization"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
@@ -167,7 +167,7 @@ func accessLogger() gin.HandlerFunc {
 
 // Handler exposes Gin routes with the same CORS policy as the previous HTTP ingress.
 func (server *Server) Handler() http.Handler {
-    return common.CORS(server.router, server.config.AllowedOrigins)
+	return common.CORS(server.router, server.config.AllowedOrigins)
 }
 
 // Start runs the HTTP server until shutdown or a serving error.

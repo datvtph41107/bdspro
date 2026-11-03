@@ -1,9 +1,12 @@
 package db
 
 import (
-    "context"
-    "testing"
+	"context"
+	"testing"
 )
+
 func TestConnectRejectsMissingPostgresSource(t *testing.T) {
-    if _,err:=Connect(context.Background(),"");err==nil {t.Fatal("missing database source accepted")}
+	if _, err := Connect(context.Background(), ""); err == nil {
+		t.Fatal("missing database source accepted")
+	}
 }

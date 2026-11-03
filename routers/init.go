@@ -19,6 +19,6 @@ func InitWebInstalled(cfg setting.Config, store db.Store, redisClient *redis.Cli
 		gin.SetMode(gin.ReleaseMode)
 	}
 	sender := mail.NewSMTPSender(cfg.EmailSenderName, cfg.EmailSenderAddress,
-        cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
+		cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
 	return api.NewServer(cfg, store, redisClient, sender)
 }

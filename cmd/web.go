@@ -36,21 +36,31 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 	log.Info("HTTP runtime starting in %s mode", cfg.Environment)
 
 	pool, err := db.Connect(ctx, cfg.DBSource)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer pool.Close()
 	log.Info("PostgreSQL connected")
 
 	if cfg.Environment == "development" {
 		changed, err := db.MigrateUp(cfg.MigrationURL, cfg.DBSource, 0)
-        if err != nil { return err }
-        if changed { log.Info("Migration status: applied") } else { log.Info("Migration status: no_change") }
+		if err != nil {
+			return err
+		}
+		if changed {
+			log.Info("Migration status: applied")
+		} else {
+			log.Info("Migration status: no_change")
+		}
 	} else {
 		log.Info("Database migrations are managed externally")
 	}
 	store := db.NewStore(pool)
 
 	redisClient, err := redisconn.Connect(ctx, cfg.RedisAddress)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer redisClient.Close()
 	log.Info("Redis connected")
 
@@ -62,4 +72,3 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 		log.Info("HTTP server ready in %s", time.Since(startedAt))
 	})
 }
-

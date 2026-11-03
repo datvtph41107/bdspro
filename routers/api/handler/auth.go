@@ -7,10 +7,10 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/templates"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/mail"
+	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"strings"
@@ -176,11 +176,11 @@ func (h *AuthHandler) PasswordResetPage(c *gin.Context) {
 		response.Reject(c, http.StatusBadRequest, "invalid_reset_token", "invalid or expired reset token")
 		return
 	}
-    c.Header("Cache-Control", "no-store")
-    c.Header("Referrer-Policy", "no-referrer")
-    c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
-    c.Header("Content-Type", "text/html; charset=utf-8")
-    _ = templates.PasswordResetPage.Execute(c.Writer, token)
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	_ = templates.PasswordResetPage.Execute(c.Writer, token)
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
