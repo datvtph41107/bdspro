@@ -15,7 +15,7 @@ func LoadDatabaseSettings(filename string) (DatabaseSettings, error) {
 		return DatabaseSettings{}, err
 	}
 	c := DatabaseSettings{
-		Environment:  p.StringDefault("", "RUN_MODE", "development"),
+		Environment:  p.String("", "RUN_MODE"),
 		DBSource:     p.String("database", "DB_SOURCE"),
 		MigrationURL: p.String("database", "MIGRATION_URL"),
 	}
