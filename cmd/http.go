@@ -13,8 +13,6 @@ import (
 
 // serveHTTP owns the HTTP listener, readiness notification, and graceful
 // shutdown. Router packages only provide net/http.Handler.
-// Start runs the HTTP server until shutdown or a serving error.
-// StartWithReady invokes onListening only after the TCP port has been bound.
 func serveHTTP(ctx context.Context, handler http.Handler, address string, onListening func(net.Addr)) error {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
