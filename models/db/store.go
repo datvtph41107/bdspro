@@ -12,7 +12,6 @@ type Store interface {
 	PhoneOTPRepository
 	GetAccountByID(ctx context.Context, id int64) (Account, error)
 	GetAccountByEmail(ctx context.Context, email string) (Account, error)
-	RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error)
 	ExecTx(ctx context.Context, fn func(*Queries) error) error
 	GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
@@ -23,7 +22,6 @@ type Store interface {
 	ConfirmEmailLinkTx(ctx context.Context, accountID int64, tokenHash []byte) error
 	LinkGoogleIdentity(ctx context.Context, arg LinkGoogleIdentityParams) error
 	GetGoogleAccountID(ctx context.Context, googleSub string) (int64, error)
-	CreateGoogleAccountTx(ctx context.Context, email, googleSub string) (Account, error)
 }
 
 type SQLStore struct {
@@ -47,38 +45,6 @@ func (s *SQLStore) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 		return err
 	}
 	return tx.Commit(ctx)
-}
-
-type RegisterTxParams struct {
-	Email        string
-	PasswordHash string
-}
-
-// RegisterTx creates Party, Person and Account atomically.
-func (s *SQLStore) RegisterTx(ctx context.Context, arg RegisterTxParams) (Account, error) {
-	var account Account
-	err := s.ExecTx(ctx, func(q *Queries) error {
-		partyID, err := q.CreateParty(ctx)
-		if err != nil {
-			return err
-		}
-		if err = q.CreatePerson(ctx, partyID); err != nil {
-			return err
-		}
-		account, err = q.CreateAccount(ctx, CreateAccountParams{
-			PersonID: partyID, Email: arg.Email,
-		})
-		if err != nil {
-			return err
-		}
-		if err := q.CreatePasswordCredential(ctx, CreatePasswordCredentialParams{
-			AccountID: account.ID, PasswordHash: arg.PasswordHash,
-		}); err != nil {
-			return err
-		}
-		return q.RecordEmailVerificationJob(ctx, account.ID)
-	})
-	return account, err
 }
 
 var _ Store = (*SQLStore)(nil)

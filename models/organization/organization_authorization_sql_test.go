@@ -1,4 +1,4 @@
-package db
+package organization_test
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
+	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -40,9 +42,9 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 	if err := pool.Ping(ctx); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(pool)
+	store := db.NewStore(pool)
 
-	createAccount := func() Account {
+	createAccount := func() db.Account {
 		t.Helper()
 		id, err := store.CreateParty(ctx)
 		if err != nil {
@@ -51,7 +53,7 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 		if err := store.CreatePerson(ctx, id); err != nil {
 			t.Fatal(err)
 		}
-		account, err := store.CreateAccount(ctx, CreateAccountParams{
+		account, err := store.CreateAccount(ctx, db.CreateAccountParams{
 			PersonID: id,
 			Email:    uuid.NewString() + "@example.test",
 		})
@@ -70,19 +72,19 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	org, err := store.CreateOrganization(ctx, CreateOrganizationParams{
+	org, err := store.CreateOrganization(ctx, db.CreateOrganizationParams{
 		PartyID: partyID, Name: "Owned by first account",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.CreateOrganizationMember(ctx, CreateOrganizationMemberParams{
+	if _, err := store.CreateOrganizationMember(ctx, db.CreateOrganizationMemberParams{
 		OrganizationID: partyID, PersonID: owner.PersonID, Role: "owner",
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	denied, err := store.UpdateOrganization(ctx, UpdateOrganizationParams{
+	denied, err := store.UpdateOrganization(ctx, db.UpdateOrganizationParams{
 		OrganizationID: org.PartyID, ActorAccountID: outsider.ID,
 	})
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -93,7 +95,7 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 		t.Fatalf("unauthorized update changed resource: %+v %v", fromOwner, err)
 	}
 
-	_, err = store.AddOrganizationMember(ctx, AddOrganizationMemberParams{
+	_, err = store.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
 		OrganizationID: org.PartyID, PersonID: member.PersonID, ActorAccountID: outsider.ID,
 	})
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -104,13 +106,13 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 		t.Fatalf("denied membership mutated data: %+v %v", unseen, err)
 	}
 
-	added, err := store.AddOrganizationMember(ctx, AddOrganizationMemberParams{
+	added, err := store.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
 		OrganizationID: org.PartyID, PersonID: member.PersonID, ActorAccountID: owner.ID,
 	})
 	if err != nil || added.Role != "member" {
 		t.Fatalf("owner could not add member: %+v %v", added, err)
 	}
-	_, err = store.AddOrganizationMember(ctx, AddOrganizationMemberParams{
+	_, err = store.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
 		OrganizationID: org.PartyID, PersonID: member.PersonID, ActorAccountID: owner.ID,
 	})
 	var pgErr *pgconn.PgError
@@ -121,17 +123,17 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 	// Use a unique fixture instead of a global Party count; other package
 	// tests can write to the same disposable database concurrently.
 	rollbackName := "Rollback probe " + uuid.NewString()
-	err = store.ExecTx(ctx, func(q *Queries) error {
+	err = store.ExecTx(ctx, func(q *db.Queries) error {
 		id, err := q.CreateParty(ctx)
 		if err != nil {
 			return err
 		}
-		if _, err := q.CreateOrganization(ctx, CreateOrganizationParams{
+		if _, err := q.CreateOrganization(ctx, db.CreateOrganizationParams{
 			PartyID: id, Name: rollbackName,
 		}); err != nil {
 			return err
 		}
-		_, err = q.CreateOrganizationMember(ctx, CreateOrganizationMemberParams{
+		_, err = q.CreateOrganizationMember(ctx, db.CreateOrganizationMemberParams{
 			OrganizationID: id, PersonID: -1, Role: "owner",
 		})
 		return err
@@ -150,7 +152,7 @@ func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
 	}
 
 	// Registration and the Redis delivery intent must commit in one database transaction.
-	registered, err := store.RegisterTx(ctx, RegisterTxParams{
+	registered, err := account_model.Register(ctx, store, account_model.RegisterParams{
 		Email: uuid.NewString() + "@example.test", PasswordHash: "test-only",
 	})
 	if err != nil {

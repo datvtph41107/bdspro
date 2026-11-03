@@ -1,8 +1,10 @@
-package db
+package account_test
 
 import (
 	"context"
 	"errors"
+	account_model "github.com/datvtph41107/bdspro/models/account"
+	db "github.com/datvtph41107/bdspro/models/db"
 	"os"
 	"testing"
 	"time"
@@ -35,11 +37,11 @@ func TestGoogleSignupIsAtomicAndPasswordless(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	store := NewStore(pool)
+	store := db.NewStore(pool)
 
 	email := uuid.NewString() + "@example.test"
 	sub := uuid.NewString()
-	account, err := store.CreateGoogleAccountTx(ctx, email, sub)
+	account, err := account_model.CreateGoogleAccount(ctx, store, email, sub)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +57,7 @@ func TestGoogleSignupIsAtomicAndPasswordless(t *testing.T) {
 	}
 
 	// An existing email is never silently linked to a new Google subject.
-	_, err = store.CreateGoogleAccountTx(ctx, email, uuid.NewString())
+	_, err = account_model.CreateGoogleAccount(ctx, store, email, uuid.NewString())
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.ConstraintName != "accounts_email_login_uq" {
 		t.Fatalf("duplicate email must be rejected: %v", err)
@@ -71,7 +73,7 @@ func TestGoogleSignupIsAtomicAndPasswordless(t *testing.T) {
 	// A Google subject cannot be linked to a second account; the second
 	// transaction must not leave behind Party, Person or Account rows.
 	duplicateSubjectEmail := uuid.NewString() + "@example.test"
-	_, err = store.CreateGoogleAccountTx(ctx, duplicateSubjectEmail, sub)
+	_, err = account_model.CreateGoogleAccount(ctx, store, duplicateSubjectEmail, sub)
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("duplicate subject should reject second account: %v", err)
 	}
@@ -110,8 +112,8 @@ func TestPasswordRegistrationCreatesCredentialAndOutbox(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	store := NewStore(pool)
-	account, err := store.RegisterTx(ctx, RegisterTxParams{
+	store := db.NewStore(pool)
+	account, err := account_model.Register(ctx, store, account_model.RegisterParams{
 		Email: uuid.NewString() + "@example.test", PasswordHash: "test-hash",
 	})
 	if err != nil {

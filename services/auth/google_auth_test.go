@@ -44,12 +44,51 @@ func (s *googleStoreFake) GetAccountByID(_ context.Context, id int64) (db.Accoun
 	return db.Account{ID: id, Email: "linked@example.test", IsEmailVerified: true}, nil
 }
 
-func (s *googleStoreFake) CreateGoogleAccountTx(_ context.Context, email, _ string) (db.Account, error) {
+// This DBTX executes the generated SQLC calls in the model operation, not
+// a second implementation of Google signup business rules.
+type googleCreateDBTX struct{}
+
+func (googleCreateDBTX) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
+	return pgconn.NewCommandTag("INSERT 0 1"), nil
+}
+
+func (googleCreateDBTX) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errors.New("unexpected SQLC query")
+}
+
+func (googleCreateDBTX) QueryRow(_ context.Context, statement string, args ...any) pgx.Row {
+	return googleCreateRow{statement: statement, args: args}
+}
+
+type googleCreateRow struct {
+	statement string
+	args      []any
+}
+
+func (r googleCreateRow) Scan(dest ...any) error {
+	switch {
+	case strings.Contains(r.statement, "INSERT INTO parties DEFAULT VALUES"):
+		*dest[0].(*int64) = 72
+	case strings.Contains(r.statement, "INSERT INTO accounts"):
+		*dest[0].(*int64) = 71
+		*dest[1].(*int64) = 72
+		*dest[2].(*string) = r.args[1].(string)
+		*dest[3].(*time.Time) = time.Now()
+		*dest[4].(*bool) = true
+	case strings.Contains(r.statement, "INSERT INTO google_identities"):
+		*dest[0].(*int64) = 71
+	default:
+		return errors.New("unexpected SQLC statement")
+	}
+	return nil
+}
+
+func (s *googleStoreFake) ExecTx(ctx context.Context, fn func(*db.Queries) error) error {
 	s.created++
 	if s.createErr != nil {
-		return db.Account{}, s.createErr
+		return s.createErr
 	}
-	return db.Account{ID: 71, PersonID: 72, Email: email, IsEmailVerified: true}, nil
+	return fn(db.New(googleCreateDBTX{}))
 }
 
 func (s *googleStoreFake) CreateSession(_ context.Context, p db.CreateSessionParams) (db.Session, error) {

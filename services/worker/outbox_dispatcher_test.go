@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -75,7 +76,7 @@ func TestJobOutboxRetriesRedisFailures(t *testing.T) {
 	}
 
 	store := db.NewStore(pool)
-	account, err := store.RegisterTx(ctx, db.RegisterTxParams{
+	account, err := account_model.Register(ctx, store, account_model.RegisterParams{
 		Email:        uuid.NewString() + "@example.test",
 		PasswordHash: "test-only",
 	})
@@ -126,7 +127,7 @@ func TestJobOutboxRetriesRedisFailures(t *testing.T) {
 	}
 	// If Redis reports an existing stable TaskID (for example after a
 	// crash between enqueue and PostgreSQL commit), treat it as enqueued.
-	second, err := store.RegisterTx(ctx, db.RegisterTxParams{
+	second, err := account_model.Register(ctx, store, account_model.RegisterParams{
 		Email:        uuid.NewString() + "@example.test",
 		PasswordHash: "test-only",
 	})

@@ -1,10 +1,12 @@
-package db
+package db_test
 
 import (
 	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	account_model "github.com/datvtph41107/bdspro/models/account"
+	db "github.com/datvtph41107/bdspro/models/db"
 	"os"
 	"testing"
 	"time"
@@ -15,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func authChannelsTestStore(t *testing.T) (context.Context, *pgxpool.Pool, Store) {
+func authChannelsTestStore(t *testing.T) (context.Context, *pgxpool.Pool, db.Store) {
 	t.Helper()
 	url := os.Getenv("BDS_TEST_DB_URL")
 	if url == "" {
@@ -40,7 +42,7 @@ func authChannelsTestStore(t *testing.T) (context.Context, *pgxpool.Pool, Store)
 	if err := pool.Ping(ctx); err != nil {
 		t.Fatal(err)
 	}
-	return ctx, pool, NewStore(pool)
+	return ctx, pool, db.NewStore(pool)
 }
 
 func TestPhoneSignupAtomicityUniquenessAndWrongAttempt(t *testing.T) {
@@ -51,7 +53,7 @@ func TestPhoneSignupAtomicityUniquenessAndWrongAttempt(t *testing.T) {
 	if err := store.StartPhoneSignup(ctx, phone, mac[:], "123456"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.CompletePhoneSignup(ctx, phone, wrong[:]); !errors.Is(err, ErrOTPInvalid) {
+	if _, err := store.CompletePhoneSignup(ctx, phone, wrong[:]); !errors.Is(err, db.ErrOTPInvalid) {
 		t.Fatalf("wrong OTP: %v", err)
 	}
 	var attempts int
@@ -103,12 +105,12 @@ func TestPhoneSignupAtomicityUniquenessAndWrongAttempt(t *testing.T) {
 
 func TestPasswordResetOnceAndCredentialCreation(t *testing.T) {
 	ctx, _, store := authChannelsTestStore(t)
-	account, err := store.RegisterTx(ctx, RegisterTxParams{Email: uuid.NewString() + "@example.test", PasswordHash: "initial-test-hash"})
+	account, err := account_model.Register(ctx, store, account_model.RegisterParams{Email: uuid.NewString() + "@example.test", PasswordHash: "initial-test-hash"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256([]byte(uuid.NewString()))
-	if err := store.CreatePasswordResetToken(ctx, CreatePasswordResetTokenParams{TokenHash: digest[:], AccountID: account.ID}); err != nil {
+	if err := store.CreatePasswordResetToken(ctx, db.CreatePasswordResetTokenParams{TokenHash: digest[:], AccountID: account.ID}); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.ResetPasswordTx(ctx, digest[:], "replacement-test-hash"); err != nil {
@@ -118,7 +120,7 @@ func TestPasswordResetOnceAndCredentialCreation(t *testing.T) {
 	if err != nil || hash != "replacement-test-hash" {
 		t.Fatalf("reset did not persist credential: hash=%q err=%v", hash, err)
 	}
-	if err := store.ResetPasswordTx(ctx, digest[:], "third-test-hash"); !errors.Is(err, ErrPasswordResetInvalid) {
+	if err := store.ResetPasswordTx(ctx, digest[:], "third-test-hash"); !errors.Is(err, db.ErrPasswordResetInvalid) {
 		t.Fatalf("reset token replay: %v", err)
 	}
 }
