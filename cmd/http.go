@@ -56,4 +56,3 @@ func serveHTTP(ctx context.Context, handler http.Handler, address string, onList
 		return nil
 	}
 }
-
