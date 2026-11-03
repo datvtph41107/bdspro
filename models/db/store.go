@@ -13,7 +13,6 @@ type Store interface {
 	GetAccountByID(ctx context.Context, id int64) (Account, error)
 	GetAccountByEmail(ctx context.Context, email string) (Account, error)
 	ExecTx(ctx context.Context, fn func(*Queries) error) error
-	GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	StartPhoneSignup(ctx context.Context, phone string, mac []byte, devCode string) error
 	CompletePhoneSignup(ctx context.Context, phone string, mac []byte) (Account, error)
 	LinkGoogleIdentity(ctx context.Context, arg LinkGoogleIdentityParams) error

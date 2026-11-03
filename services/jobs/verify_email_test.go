@@ -5,9 +5,11 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type verificationStoreFake struct {
@@ -25,12 +27,66 @@ func (s *verificationStoreFake) GetAccountByID(_ context.Context, _ int64) (db.A
 	return s.account, nil
 }
 
-func (s *verificationStoreFake) GetOrCreateVerifyEmailTx(_ context.Context, _ db.CreateVerifyEmailParams) (db.VerifyEmail, error) {
+// ExecTx runs the real SQLC-generated query methods against a small DBTX fake.
+// SQL logic and transaction semantics are separately tested with PostgreSQL.
+func (s *verificationStoreFake) ExecTx(ctx context.Context, fn func(*db.Queries) error) error {
 	s.tokens++
 	if s.tokenErr != nil {
-		return db.VerifyEmail{}, s.tokenErr
+		return s.tokenErr
 	}
-	return s.record, nil
+	return fn(db.New(verificationDBTX{store: s}))
+}
+
+type verificationDBTX struct {
+	store *verificationStoreFake
+}
+
+func (v verificationDBTX) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, errors.New("unexpected SQLC Exec")
+}
+
+func (v verificationDBTX) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errors.New("unexpected SQLC Query")
+}
+
+func (v verificationDBTX) QueryRow(_ context.Context, statement string, args ...any) pgx.Row {
+	return verificationRow{store: v.store, statement: statement, args: args}
+}
+
+type verificationRow struct {
+	store     *verificationStoreFake
+	statement string
+	args      []any
+}
+
+func (r verificationRow) Scan(dest ...any) error {
+	switch {
+	case strings.Contains(r.statement, "SELECT is_email_verified FROM accounts"):
+		*dest[0].(*bool) = r.store.account.IsEmailVerified
+		return nil
+	case strings.Contains(r.statement, "FROM verify_emails"):
+		if r.store.record.ID == 0 {
+			return pgx.ErrNoRows
+		}
+	case strings.Contains(r.statement, "INSERT INTO verify_emails"):
+		if r.store.record.ID == 0 {
+			r.store.record = db.VerifyEmail{
+				ID: 20, AccountID: r.args[0].(int64),
+				Email: r.args[1].(string), SecretCode: r.args[2].(string),
+			}
+		}
+	default:
+		return errors.New("unexpected SQLC statement")
+	}
+	record := r.store.record
+	*dest[0].(*int64) = record.ID
+	*dest[1].(*int64) = record.AccountID
+	*dest[2].(*string) = record.Email
+	*dest[3].(*string) = record.SecretCode
+	*dest[4].(*bool) = record.IsUsed
+	*dest[5].(*time.Time) = record.CreatedAt
+	*dest[6].(*time.Time) = record.ExpiredAt
+	return nil
 }
 
 type fakeMailSender struct {

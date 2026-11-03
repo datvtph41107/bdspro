@@ -1,19 +1,20 @@
-package db
+package account
 
 import (
 	"context"
 	"errors"
 
+	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
 )
 
 var ErrEmailAlreadyVerified = errors.New("email already verified")
 
-// An account row lock serializes concurrent verification task handlers.
-// All SQL originates from db/query/*.sql.
-func (s *SQLStore) GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error) {
-	var record VerifyEmail
-	err := s.ExecTx(ctx, func(q *Queries) error {
+// GetOrCreateVerifyEmail locks the account row to serialize verification
+// workers. Retry after failed SMTP delivery reuses the still-valid proof.
+func GetOrCreateVerifyEmail(ctx context.Context, tx Transactioner, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error) {
+	var record db.VerifyEmail
+	err := tx.ExecTx(ctx, func(q *db.Queries) error {
 		verified, err := q.LockVerifyEmailAccountQuery(ctx, arg.AccountID)
 		if err != nil {
 			return err
@@ -21,8 +22,7 @@ func (s *SQLStore) GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerif
 		if verified {
 			return ErrEmailAlreadyVerified
 		}
-
-		record, err = q.FindReusableVerifyEmailQuery(ctx, FindReusableVerifyEmailQueryParams{
+		record, err = q.FindReusableVerifyEmailQuery(ctx, db.FindReusableVerifyEmailQueryParams{
 			AccountID: arg.AccountID, Email: arg.Email,
 		})
 		if err == nil {

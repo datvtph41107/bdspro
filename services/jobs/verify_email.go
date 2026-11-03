@@ -7,6 +7,7 @@ import (
 	"html"
 	"net/url"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/secret"
 	"github.com/datvtph41107/bdspro/services/mail"
@@ -15,8 +16,8 @@ import (
 // VerificationStore is the data contract required by email verification.
 // A job does not depend on the application's complete database Store.
 type VerificationStore interface {
+	account_model.Transactioner
 	GetAccountByID(ctx context.Context, id int64) (db.Account, error)
-	GetOrCreateVerifyEmailTx(ctx context.Context, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error)
 }
 
 // SendVerificationEmail performs the business operation. Retry and transport
@@ -40,10 +41,10 @@ func SendVerificationEmail(
 	if err != nil {
 		return err
 	}
-	record, err := store.GetOrCreateVerifyEmailTx(ctx, db.CreateVerifyEmailParams{
+	record, err := account_model.GetOrCreateVerifyEmail(ctx, store, db.CreateVerifyEmailParams{
 		AccountID: account.ID, Email: account.Email, SecretCode: secret,
 	})
-	if errors.Is(err, db.ErrEmailAlreadyVerified) {
+	if errors.Is(err, account_model.ErrEmailAlreadyVerified) {
 		return nil
 	}
 	if err != nil {
