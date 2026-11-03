@@ -1,4 +1,4 @@
-package api
+package routers
 
 import (
 	"errors"
@@ -8,12 +8,9 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/response"
-	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
@@ -24,8 +21,8 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-const apiPrefix = "" // Preserve existing public endpoints; versioning is a separate API contract decision.
-
+// Server owns initialized HTTP dependencies and the configured Gin application.
+// Listener, readiness, timeouts and graceful shutdown remain in cmd/http.go.
 type Server struct {
 	authHandler         *user.AuthHandler
 	organizationHandler *org.Handler
@@ -86,69 +83,8 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		}
 	}
 
-	server.setupRouter()
+	server.router = NormalRoutes(server)
 	return server, nil
-}
-
-func (server *Server) setupRouter() {
-	router := gin.New()
-	// Forwarded headers are untrusted unless the deployment defines exact proxy addresses.
-	_ = router.SetTrustedProxies(nil)
-
-	router.Use(common.RequestID())
-	router.Use(accessLogger(), gin.CustomRecoveryWithWriter(nil, func(ctx *gin.Context, recovered any) {
-		path := ctx.FullPath()
-		if path == "" {
-			path = "<unmatched>"
-		}
-		log.Ctx(ctx.Request.Context()).Error().
-			Str("method", ctx.Request.Method).
-			Str("path", path).
-			Str("panic_type", fmt.Sprintf("%T", recovered)).
-			Msg("http.panic")
-		response.InternalError(ctx)
-	}))
-
-	router.Use(
-		middleware.RequestMonitor(server.authRateRedis),
-		middleware.RequestIngress(),
-	)
-
-	apiv1.Routes(router, apiv1.Dependencies{
-		Auth:         server.authHandler,
-		Organization: server.organizationHandler,
-		Google:       server.googleHandler,
-		Phone:        server.phoneHandler,
-		TokenMaker:   server.tokenMaker,
-		RateRedis:    server.authRateRedis,
-		Store:        server.store,
-	})
-	server.registerSwagger(router)
-
-	server.router = router
-}
-
-// accessLogger records one safe request outcome, distinct from a failure
-// diagnostic. Route templates avoid token-bearing query strings and raw IDs.
-func accessLogger() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		startedAt := time.Now()
-		ctx.Next()
-
-		path := ctx.FullPath()
-		if path == "" {
-			path = "<unmatched>"
-		}
-		event := log.Ctx(ctx.Request.Context()).Info()
-		if code := ctx.GetString(response.ErrorCodeKey); code != "" {
-			event = event.Str("error_code", code)
-		}
-		event.Str("method", ctx.Request.Method).
-			Str("path", path).
-			Int("status", ctx.Writer.Status()).
-			Dur("duration", time.Since(startedAt)).
-			Msg("http.request")
-	}
 }
 
 // Handler exposes Gin routes with the same CORS policy as the previous HTTP ingress.
