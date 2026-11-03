@@ -7,6 +7,7 @@ import (
 
 	"github.com/datvtph41107/bdspro/modules/setting"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	"github.com/go-redis/redis/v8"
 )
 
 const (
