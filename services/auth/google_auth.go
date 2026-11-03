@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -75,7 +76,7 @@ func (s *GoogleAuthService) Login(
 		if !identity.EmailVerified || email == "" {
 			return empty, apperrors.GoogleEmailUnverified
 		}
-		account, err = s.store.CreateGoogleAccountTx(ctx, email, identity.Subject)
+		account, err = account_model.CreateGoogleAccount(ctx, s.store, email, identity.Subject)
 		if err != nil {
 			if pgErr := apperrors.Postgres(err); pgErr != nil &&
 				pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {

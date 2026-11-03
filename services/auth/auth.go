@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -46,7 +47,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 	if err != nil {
 		return db.Account{}, err
 	}
-	account, err := s.store.RegisterTx(ctx, db.RegisterTxParams{
+	account, err := account_model.Register(ctx, s.store, account_model.RegisterParams{
 		Email:        strings.ToLower(strings.TrimSpace(email)),
 		PasswordHash: hash,
 	})

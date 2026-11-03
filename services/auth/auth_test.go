@@ -114,9 +114,9 @@ type registrationStoreFake struct {
 	calls int
 }
 
-func (s *registrationStoreFake) RegisterTx(_ context.Context, _ db.RegisterTxParams) (db.Account, error) {
+func (s *registrationStoreFake) ExecTx(_ context.Context, _ func(*db.Queries) error) error {
 	s.calls++
-	return db.Account{ID: 7}, nil
+	return nil
 }
 
 func TestRegisterPasswordByteLimit(t *testing.T) {
@@ -133,7 +133,7 @@ func TestRegisterPasswordByteLimit(t *testing.T) {
 		}
 	}
 	if store.calls != 0 {
-		t.Fatalf("invalid passwords reached RegisterTx %d times", store.calls)
+		t.Fatalf("invalid passwords reached account transaction %d times", store.calls)
 	}
 	_, err := svc.Register(context.Background(), "test@example.test", strings.Repeat("a", 72))
 	if err != nil || store.calls != 1 {
