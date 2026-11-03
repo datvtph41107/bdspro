@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/jobs"
@@ -152,7 +153,7 @@ func TestPasswordResetAndGoogleCreatedAccountHTTPAcceptance(t *testing.T) {
 	ctx, pool, server, mailer := authAcceptanceServer(t)
 	store := db.NewStore(pool)
 	email := uuid.NewString() + "@example.test"
-	account, err := store.CreateGoogleAccountTx(ctx, email, uuid.NewString())
+	account, err := account_model.CreateGoogleAccount(ctx, store, email, uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}

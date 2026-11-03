@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/google/uuid"
@@ -19,7 +20,7 @@ import (
 func organizationTestVerifiedAccount(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (int64, string) {
 	t.Helper()
 	email := uuid.NewString() + "@example.test"
-	account, err := db.NewStore(pool).CreateGoogleAccountTx(ctx, email, uuid.NewString())
+	account, err := account_model.CreateGoogleAccount(ctx, db.NewStore(pool), email, uuid.NewString())
 	if err != nil {
 		t.Fatal(err)
 	}
