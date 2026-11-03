@@ -3,10 +3,11 @@
 This is the **implementation contract**, not a claim that the refactor has shipped.
 
 - BDSPro source baseline: `datvtph41107/bdspro@e1c3085321a26ee244809be80977155b2a10df1d` (R01, PR #91).
-- `dev` integration baseline at planning time: `e88619a3b42553b3cbea58259378d57fe25c6cdc`.
+- Original `dev` at planning time: `e88619a3b42553b3cbea58259378d57fe25c6cdc`.
+- R00, R01 and R02 foundation merged to `dev` on 2026-11-03; current audited merge commit: `36af7f7eadb321ff5ae02bbbd2398511f96c6ce2`.
 - Gitea reference: `go-gitea/gitea@12b20c7c9962e0be75912b290a0c5778799b0ad2`.
 - Existing public URLs, JSON shapes, statuses, security rules and database semantics must be characterized **before** migration.
-- No remote push/merge follows from the plan itself.
+- GitHub PRs #90, #91 and #92 have been merged after CI. **This does not mean that the full Chi cutover has shipped.**
 
 Read:
 

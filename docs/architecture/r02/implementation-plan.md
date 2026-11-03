@@ -52,3 +52,10 @@ Stop promotion to the next PR when:
 ## Explicit exclusions
 
 New business domains such as CRM, assets, deals and finance are **not** part of the mechanical R02 runtime migration. Their operations will use the R02 conventions once the reference workflows are accepted. New GORM usage is also excluded until a concrete query demonstrates need and correctness.
+
+## Implementation status after initial merges (2026-11-03)
+
+- R00 PR #90 merged into dev: `3fc81ad6bf4362fbf315ee7034e7324dcb033f11`.
+- R01 PR #91 merged into dev: `23dc0eaf593fc6c5dc32e956709903119d2a93d7`.
+- R02 foundation PR #92 merged into dev: `36af7f7eadb321ff5ae02bbbd2398511f96c6ce2`.
+- Full R02 completion **has not been demonstrated**. The original Gin runtime still serves 34 legacy route method/path pairs. The Chi-based Gitea-style API remains an unmounted candidate. Final route cutover, exact auth/rate limiting parity, removal of temporary adapters and production performance/load acceptance remain mandatory.
