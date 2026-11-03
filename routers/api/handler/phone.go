@@ -9,14 +9,14 @@ import (
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	"github.com/datvtph41107/bdspro/services"
+	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/gin-gonic/gin"
 )
 
 // PhoneHandler handles HTTP concerns. PhoneOTP owns validation and database errors.
 type PhoneHandler struct {
-	phone   service.PhoneOTP
+	phone   auth_service.PhoneOTP
 	limiter *middleware.AuthThrottle
 }
 
@@ -27,7 +27,7 @@ func NewPhoneHandler(
 	limiter *middleware.AuthThrottle,
 ) *PhoneHandler {
 	return &PhoneHandler{
-		phone: service.PhoneOTP{
+		phone: auth_service.PhoneOTP{
 			Store: store, Config: cfg, Sender: sender,
 		},
 		limiter: limiter,

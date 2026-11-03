@@ -1,0 +1,16 @@
+root = "."
+tmp_dir = ".air"
+
+[build]
+cmd = "go build -o ./bin/bdspro ."
+entrypoint = ["./bin/bdspro", "--config", "custom/conf/app.ini", "web"]
+delay = 1000
+include_ext = ["go", "ini", "html", "json", "css", "js"]
+include_file = ["main.go"]
+include_dir = ["cmd", "models", "modules", "routers", "services", "templates"]
+exclude_dir = ["bin", ".air", "data", "doc", "docs"]
+exclude_regex = ["_test.go$", "_gen.go$"]
+stop_on_error = true
+
+[log]
+main_only = true

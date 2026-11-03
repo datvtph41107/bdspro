@@ -16,13 +16,13 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/handler"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	"github.com/datvtph41107/bdspro/services"
+	"github.com/datvtph41107/bdspro/routers/common"
+	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
+	organization_service "github.com/datvtph41107/bdspro/services/organization"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
-	"github.com/google/uuid"
-	"github.com/rs/cors"
 )
 
 const apiPrefix = "" // Preserve existing public endpoints; versioning is a separate API contract decision.
@@ -56,11 +56,11 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		authRateRedis: redisClient,
 		authThrottle:  middleware.NewAuthThrottle(redisClient),
 	}
-	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, maker, cfg), server.authThrottle)
+	server.authHandler = handler.NewAuthHandler(auth_service.NewAuthService(store, maker, cfg), server.authThrottle)
 	if len(resetMailers) > 0 {
 		server.authHandler.SetPasswordResetSender(resetMailers[0])
 	}
-	server.organizationHandler = handler.NewOrganizationHandler(service.NewOrganizationService(store))
+	server.organizationHandler = handler.NewOrganizationHandler(organization_service.NewOrganizationService(store))
 
 	if cfg.GoogleClientID != "" {
 		redirect, err := url.Parse(cfg.GoogleRedirectURI)
@@ -68,7 +68,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			return nil, fmt.Errorf("parse Google callback URL: %w", err)
 		}
 		server.googleHandler = handler.NewGoogleHandler(
-			service.NewGoogleAuthService(store, maker, cfg), cfg, redisClient,
+			auth_service.NewGoogleAuthService(store, maker, cfg), cfg, redisClient,
 			&http.Client{Timeout: 10 * time.Second}, redirect.Scheme == "https",
 		)
 	}
@@ -98,7 +98,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		return nil, fmt.Errorf("unsupported PHONE_DELIVERY: %s", cfg.PhoneDelivery)
 	}
 	if phoneSender != nil {
-		phone := service.PhoneOTP{Store: store, Config: cfg, Sender: phoneSender}
+		phone := auth_service.PhoneOTP{Store: store, Config: cfg, Sender: phoneSender}
 		server.phoneHandler = handler.NewPhoneHandler(
 			store, cfg, phoneSender, server.authThrottle,
 		)
@@ -117,13 +117,7 @@ func (server *Server) setupRouter() {
 	// Forwarded headers are untrusted unless the deployment defines exact proxy addresses.
 	_ = router.SetTrustedProxies(nil)
 
-	router.Use(func(ctx *gin.Context) {
-		requestID := uuid.NewString()
-		ctx.Header("X-Request-ID", requestID)
-		requestLogger := log.With().Str("request_id", requestID).Logger()
-		ctx.Request = ctx.Request.WithContext(requestLogger.WithContext(ctx.Request.Context()))
-		ctx.Next()
-	})
+	router.Use(common.RequestID())
 	router.Use(accessLogger(), gin.CustomRecoveryWithWriter(nil, func(ctx *gin.Context, recovered any) {
 		path := ctx.FullPath()
 		if path == "" {
@@ -173,16 +167,7 @@ func accessLogger() gin.HandlerFunc {
 
 // Handler exposes Gin routes with the same CORS policy as the previous HTTP ingress.
 func (server *Server) Handler() http.Handler {
-	return cors.New(cors.Options{
-		AllowedOrigins: server.config.AllowedOrigins,
-		AllowedMethods: []string{
-			http.MethodHead, http.MethodOptions, http.MethodGet, http.MethodPost,
-			http.MethodPut, http.MethodPatch, http.MethodDelete,
-		},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		ExposedHeaders:   []string{"X-Request-ID"},
-		AllowCredentials: true,
-	}).Handler(server.router)
+	return common.CORS(server.router, server.config.AllowedOrigins)
 }
 
 // Start runs the HTTP server until shutdown or a serving error.

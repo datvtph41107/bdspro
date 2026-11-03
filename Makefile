@@ -1,4 +1,3 @@
-DB_URL ?= postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
@@ -13,17 +12,17 @@ redis:
 createdb:
 	docker exec $(POSTGRES_CONTAINER) createdb --username=root --owner=root $(DB_NAME)
 
-migrateup:
-	migrate -path db/migration -database "$(DB_URL)" -verbose up
+migrateup: config-local
+	go run . --config "$(CONFIG)" migrate
 
-migrateup1:
-	migrate -path db/migration -database "$(DB_URL)" -verbose up 1
+migrateup1: config-local
+	go run . --config "$(CONFIG)" migrate --steps 1
 
-migratedown:
-	migrate -path db/migration -database "$(DB_URL)" -verbose down
+migratedown: config-local
+	go run . --config "$(CONFIG)" migrate --down
 
-migratedown1:
-	migrate -path db/migration -database "$(DB_URL)" -verbose down 1
+migratedown1: config-local
+	go run . --config "$(CONFIG)" migrate --down --steps 1
 
 new_migration:
 	migrate create -ext sql -dir db/migration -seq $(name)
@@ -47,6 +46,25 @@ server: config-local
 worker: config-local
 	go run . --config "$(CONFIG)" worker
 
-swagger:
-	swag init -g main.go --parseInternal -o doc/swagger --outputTypes json
-	statik -src=./doc/swagger -dest=./doc
+# Reviewed OpenAPI 3 contract is served from templates/swagger/openapi.json.
+# The previous swag init output was not consumed by runtime, and Statik was unused.
+.PHONY: swagger swagger-check
+swagger: swagger-check
+
+swagger-check:
+	go test ./routers/api -run '^TestOpenAPICoverage$$|^TestSwaggerAssetsDevelopmentOnly$$' -count=1
+
+# Same application binary as Docker, but written to a local, ignored build directory.
+.PHONY: build watch race vet
+build:
+	@mkdir -p bin
+	go build -o bin/bdspro .
+
+watch: config-local
+	go run github.com/air-verse/air@v1.67.4 -c .air.toml
+
+race:
+	go test -race ./...
+
+vet:
+	go vet ./...

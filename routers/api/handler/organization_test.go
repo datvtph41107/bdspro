@@ -12,7 +12,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/services"
+	organization_service "github.com/datvtph41107/bdspro/services/organization"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -101,7 +101,7 @@ func TestStoreOrganizationHTTP(t *testing.T) {
 	}
 
 	store := &organizationHTTPStoreFake{}
-	organizations := NewOrganizationHandler(service.NewOrganizationService(store))
+	organizations := NewOrganizationHandler(organization_service.NewOrganizationService(store))
 	router := gin.New()
 	router.Use(middleware.RequestIngress())
 	router.POST("/organizations", middleware.Authenticate(maker), organizations.Store)

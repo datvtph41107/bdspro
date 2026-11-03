@@ -10,12 +10,10 @@ WORKDIR /app
 COPY --from=builder /app/main .
 COPY docker/root/etc/templates/app.ini /etc/templates/app.ini
 COPY docker/setup /app/setup
-COPY start.sh .
-COPY wait-for.sh .
 COPY db/migration ./db/migration
 
-RUN chmod +x /app/start.sh /app/wait-for.sh /app/setup
+RUN chmod +x /app/setup
 
 EXPOSE 8080
-CMD ["/app/main"]
-ENTRYPOINT ["/app/start.sh"]
+CMD ["/app/main", "--config", "/data/bdspro/conf/app.ini", "web"]
+ENTRYPOINT ["/app/setup"]

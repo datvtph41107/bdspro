@@ -2,21 +2,15 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
+	redisconn "github.com/datvtph41107/bdspro/modules/redis"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers"
-	"github.com/datvtph41107/bdspro/services/mail"
-	"github.com/go-redis/redis/v8"
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/urfave/cli/v3"
 )
 
@@ -41,63 +35,40 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 	log.Info("BDSPro version: %s%s", setting.AppVer, setting.AppBuiltWith)
 	log.Info("HTTP runtime starting in %s mode", cfg.Environment)
 
-	pool, err := pgxpool.New(ctx, cfg.DBSource)
+	pool, err := db.Connect(ctx, cfg.DBSource)
 	if err != nil {
-		return fmt.Errorf("connect PostgreSQL: %w", err)
+		return err
 	}
 	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("ping PostgreSQL: %w", err)
-	}
 	log.Info("PostgreSQL connected")
 
 	if cfg.Environment == "development" {
-		if err := runDBMigration(cfg.MigrationURL, cfg.DBSource); err != nil {
+		changed, err := db.MigrateUp(cfg.MigrationURL, cfg.DBSource, 0)
+		if err != nil {
 			return err
+		}
+		if changed {
+			log.Info("Migration status: applied")
+		} else {
+			log.Info("Migration status: no_change")
 		}
 	} else {
 		log.Info("Database migrations are managed externally")
 	}
 	store := db.NewStore(pool)
 
-	if cfg.RedisAddress == "" {
-		return errors.New("Redis address is required")
-	}
-	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddress})
-	defer redisClient.Close()
-	checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	err = redisClient.Ping(checkCtx).Err()
-	cancel()
+	redisClient, err := redisconn.Connect(ctx, cfg.RedisAddress)
 	if err != nil {
-		return fmt.Errorf("ping Redis: %w", err)
+		return err
 	}
+	defer redisClient.Close()
 	log.Info("Redis connected")
 
-	mailer := mail.NewSMTPSender(cfg.EmailSenderName, cfg.EmailSenderAddress,
-		cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
-	server, err := routers.InitWebInstalled(cfg, store, redisClient, mailer)
+	server, err := routers.InitWebInstalled(cfg, store, redisClient)
 	if err != nil {
 		return fmt.Errorf("initialize HTTP routes: %w", err)
 	}
 	return server.StartWithReady(ctx, cfg.HTTPServerAddress, func(_ net.Addr) {
 		log.Info("HTTP server ready in %s", time.Since(startedAt))
 	})
-}
-
-func runDBMigration(url, source string) error {
-	m, err := migrate.New(url, source)
-	if err != nil {
-		return fmt.Errorf("open database migrations: %w", err)
-	}
-	defer m.Close()
-	err = m.Up()
-	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return fmt.Errorf("apply database migrations: %w", err)
-	}
-	if errors.Is(err, migrate.ErrNoChange) {
-		log.Info("Migration status: no_change")
-	} else {
-		log.Info("Migration status: applied")
-	}
-	return nil
 }

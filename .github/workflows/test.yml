@@ -2,9 +2,9 @@ name: Run unit tests
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, refactor/gitea-ownership-r01]
   pull_request:
-    branches: [dev]
+    branches: [dev, refactor/gitea-runtime-r00]
 
 jobs:
   test:
@@ -47,6 +47,9 @@ jobs:
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
+      - name: Verify package ownership
+        run: go test ./tests/architecture -count=1
+
       - name: Verify SQLC generated output
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
@@ -62,95 +65,19 @@ jobs:
           PGPASSWORD: secret
         run: |
           psql -h 127.0.0.1 -U root -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE bdspro_test'
-          DB_URL='postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable' make migrateup
+          BDS__DATABASE__DB_SOURCE='postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable' make migrateup
 
       - name: Test upgrading existing accounts and outbox records
         env:
           PGPASSWORD: secret
-        run: |
-          psql -h 127.0.0.1 -U root -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE bdspro_upgrade_test'
-          UPGRADE_URL='postgres://root:secret@127.0.0.1:5432/bdspro_upgrade_test?sslmode=disable'
-          migrate -path db/migration -database "$UPGRADE_URL" up 6
-          psql -h 127.0.0.1 -U root -d bdspro_upgrade_test -v ON_ERROR_STOP=1 <<'SQL'
-          INSERT INTO parties(id) OVERRIDING SYSTEM VALUE VALUES (1), (2);
-          INSERT INTO persons(party_id) VALUES (1), (2);
-          INSERT INTO accounts(id, person_id, email, password_hash) OVERRIDING SYSTEM VALUE
-          VALUES (1, 1, 'old1@example.test', 'legacy-hash-1'), (2, 2, 'old2@example.test', 'legacy-hash-2');
-          INSERT INTO verification_outbox(id, account_id, queued_at) OVERRIDING SYSTEM VALUE
-          VALUES (19, 1, NULL), (21, 2, now());
-          SQL
-          migrate -path db/migration -database "$UPGRADE_URL" up 1
-          psql -h 127.0.0.1 -U root -d bdspro_upgrade_test -v ON_ERROR_STOP=1 <<'SQL'
-          DO $audit$
-          BEGIN
-            IF (SELECT count(*) FROM job_outbox) <> 2
-                OR (SELECT count(*) FROM job_outbox WHERE queued_at IS NULL) <> 1
-                OR (SELECT count(*) FROM job_outbox WHERE queued_at IS NOT NULL) <> 1
-                OR (SELECT task_type FROM job_outbox WHERE id = 19) <> 'task:send_verify_email'
-                OR (SELECT payload->>'account_id' FROM job_outbox WHERE id = 19) <> '1'
-                OR (SELECT task_id FROM job_outbox WHERE id = 19) <> 'verify-email-outbox-19'
-                OR to_regclass('public.verification_outbox') IS NOT NULL
-                OR nextval(pg_get_serial_sequence('job_outbox','id')) <= 21 THEN
-              RAISE EXCEPTION 'outbox migration did not preserve pending task state';
-            END IF;
-          END $audit$;
-          SQL
-          migrate -path db/migration -database "$UPGRADE_URL" up 1
-          psql -h 127.0.0.1 -U root -d bdspro_upgrade_test -v ON_ERROR_STOP=1 <<'SQL'
-          DO $audit$
-          BEGIN
-            IF (SELECT count(*) FROM password_credentials) <> 2
-                OR (SELECT password_hash FROM password_credentials WHERE account_id = 1) <> 'legacy-hash-1'
-                OR EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_name = 'accounts' AND column_name = 'password_hash'
-                ) THEN
-              RAISE EXCEPTION 'password credential migration lost an existing hash';
-            END IF;
-          END $audit$;
-          SQL
+          BDS_TEST_MODE: disposable
+        run: bash tests/integration/migrations/accounts-upgrade.sh
 
       - name: Verify organization member rename preserves existing data
         env:
           PGPASSWORD: secret
-        run: |
-          psql -h 127.0.0.1 -U root -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE bdspro_org_upgrade_test'
-          ORG_URL='postgres://root:secret@127.0.0.1:5432/bdspro_org_upgrade_test?sslmode=disable'
-          migrate -path db/migration -database "$ORG_URL" up 10
-          psql -h 127.0.0.1 -U root -d bdspro_org_upgrade_test -v ON_ERROR_STOP=1 <<'SQL'
-          INSERT INTO parties (id) OVERRIDING SYSTEM VALUE VALUES (901), (902);
-          INSERT INTO persons (party_id) VALUES (901), (902);
-          INSERT INTO organizations (party_id, name) VALUES (901, 'Upgrade fixture');
-          INSERT INTO organization_memberships (organization_id, person_id, role, ended_at)
-          VALUES (901, 901, 'owner', NULL), (901, 902, 'member', now());
-          SQL
-          migrate -path db/migration -database "$ORG_URL" up 1
-          psql -h 127.0.0.1 -U root -d bdspro_org_upgrade_test -v ON_ERROR_STOP=1 <<'SQL'
-          DO $audit$
-          BEGIN
-            IF to_regclass('public.organization_members') IS NULL
-              OR to_regclass('public.organization_memberships') IS NOT NULL
-              OR to_regclass('public.organization_members_one_open_uq') IS NULL
-              OR (SELECT count(*) FROM organization_members WHERE organization_id = 901) <> 2
-              OR (SELECT count(*) FROM organization_members WHERE role = 'owner' AND ended_at IS NULL) <> 1
-              OR (SELECT count(*) FROM organization_members WHERE role = 'member' AND ended_at IS NOT NULL) <> 1
-            THEN
-              RAISE EXCEPTION 'organization member rename did not preserve data or constraints';
-            END IF;
-          END $audit$;
-          SQL
-          migrate -path db/migration -database "$ORG_URL" down 1
-          psql -h 127.0.0.1 -U root -d bdspro_org_upgrade_test -v ON_ERROR_STOP=1 <<'SQL'
-          DO $audit$
-          BEGIN
-            IF to_regclass('public.organization_memberships') IS NULL
-              OR to_regclass('public.organization_members') IS NOT NULL
-              OR (SELECT count(*) FROM organization_memberships WHERE organization_id = 901) <> 2
-            THEN
-              RAISE EXCEPTION 'organization member rename is not reversible';
-            END IF;
-          END $audit$;
-          SQL
+          BDS_TEST_MODE: disposable
+        run: bash tests/integration/migrations/organization-members-upgrade.sh
 
       - name: Verify Go formatting
         run: |
@@ -160,16 +87,11 @@ jobs:
             exit 1
           fi
 
-      - name: Verify Swagger and Statik generation
+      - name: Verify embedded OpenAPI contract and UI
         run: |
-          go install github.com/swaggo/swag/cmd/swag@v1.16.6
-          go install github.com/rakyll/statik@v0.1.8
-          export PATH="$(go env GOPATH)/bin:$PATH"
-          make swagger
-          test -s doc/swagger/swagger.json
-          test -s doc/statik/statik.go
-          python3 -c 'import json; assert json.load(open("doc/swagger/swagger.json"))["swagger"] == "2.0"'
-          git diff --exit-code -- doc/swagger/openapi.json
+          make swagger-check
+          python3 -c 'import json; assert json.load(open("templates/swagger/openapi.json"))["openapi"] == "3.0.3"'
+          git diff --exit-code -- templates/swagger/openapi.json
 
       - name: Test and compile
         env:
@@ -180,6 +102,15 @@ jobs:
           go test -race ./...
           go vet ./...
           go build ./...
+          make build
+          test -x bin/bdspro
+          ./bin/bdspro migrate --help
+
+      - name: Verify Docker runtime image
+        run: |
+          sh -n docker/setup
+          docker compose build api worker
+          docker run --rm --entrypoint /app/main bdspro:local --version
 
       - name: HTTP runtime smoke test
         run: |

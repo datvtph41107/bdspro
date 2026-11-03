@@ -1,28 +1,29 @@
-# Runtime — process, PostgreSQL, Redis, HTTP and workers
+# Process lifecycle and failure policy
 
-`main.go` is the executable entrypoint. `run(ctx)` loads `config.Config`,
-sets up logging, opens and verifies the PostgreSQL pool, runs migrations,
-constructs `db.Store`, connects Redis, starts the Asynq worker, constructs
-`internal/api.Server`, and starts the HTTP listener. Shutdown follows
-context cancellation. No `bootstrap/` folder is required or active.
+`main.go` initializes process metadata, installs the CLI, and closes logs.
+`cmd/main.go` selects one of `web`, `worker` and `migrate`.
 
-`internal/api/server.go` owns the one Gin engine, trusted-proxy policy,
-global request middleware, CORS wrapper, idle/read/write timeouts and
-explicit route composition. It is application composition inside `core`,
-not a generic reusable routing framework.
+- `web`: settings → PostgreSQL → dev migration → Redis → Gin → HTTP listen.
+- `worker`: settings → PostgreSQL → Redis → Asynq processor and SQL outbox dispatcher.
+- `migrate`: config path → database-only INI settings → versioned SQL migration.
 
-`internal/errors` carries classified safe public errors and retained internal
-causes. `internal/api/response` writes HTTP JSON. Structured request logs must
-use the matched route pattern, never a raw URL containing verification
-secrets. Security denial monitoring may use Redis independently from rate
-limiting; monitoring failures cannot grant a request previously denied.
+`models/db.Connect` and `modules/redis.Connect` own connection and ping
+cleanup, **not** domain-specific availability policy. Web startup currently
+requires Redis because authentication throttling depends on it.
+Separating the worker does not remove this web dependency.
 
-`internal/worker/` owns Asynq transport, task handler registration and queue lifecycle.
-`internal/jobs/` owns the email verification business operation. `main.go` registers
-each task type with its handler. Registration persists a durable outbox row in
-the account transaction. The dispatcher enqueues committed rows to Redis.
-Delivery is at-least-once and does not guarantee exactly-once SMTP delivery.
+`modules/queue` owns Asynq client, processor and logging adapter.
+`services/worker` owns outbox delivery policy and task adapters;
+`services/jobs` owns the job's business operation.
+`SIGTERM`, task execution, duplicate enqueue, failure between Redis and
+PostgreSQL commits, multiple worker replicas and graceful drain require
+integration/failure-injection tests beyond ordinary unit/HTTP smoke tests.
 
-Redis state for OAuth, admission policies and queues is security/operational
-state, not automatically a disposable cache. No cache Facade or driver
-registry should be introduced without concrete needs.
+`modules/log` supports structured events and console/file output.
+Console output is stderr; file output requires a writable configured
+directory. Logs must not contain OTP tokens, mail secrets or full
+authorization headers.
+
+CLI help/version should not require config or external services.
+See [configuration](../operations/configuration.md) and
+[Docker](../operations/docker.md).

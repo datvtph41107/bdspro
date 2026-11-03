@@ -1,8 +1,6 @@
 package util
 
 import (
-	cryptorand "crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"math/rand/v2"
 	"strings"
@@ -37,14 +35,4 @@ func RandomOrganizationName() string {
 // RandomEmail generates a sample email address.
 func RandomEmail() string {
 	return fmt.Sprintf("%s@example.test", RandomString(8))
-}
-
-// RandomSecret generates a cryptographically secure one-time email token.
-// Do not use math/rand for authentication codes.
-func RandomSecret() (string, error) {
-	bytes := make([]byte, 32)
-	if _, err := cryptorand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
 }

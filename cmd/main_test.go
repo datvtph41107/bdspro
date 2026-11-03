@@ -16,7 +16,7 @@ func TestMainAppExposesWebAndWorker(t *testing.T) {
 	for _, command := range app.Commands {
 		names[command.Name] = true
 	}
-	if !names["web"] || !names["worker"] {
+	if !names["web"] || !names["worker"] || !names["migrate"] {
 		t.Fatalf("commands=%v", names)
 	}
 	var output bytes.Buffer

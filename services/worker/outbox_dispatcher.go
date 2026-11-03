@@ -8,6 +8,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/queue"
 	"github.com/hibiken/asynq"
 )
 
@@ -17,11 +18,11 @@ const outboxBatchSize int32 = 10
 // It does not know which business operation a task represents.
 type OutboxDispatcher struct {
 	store    db.Store
-	enqueuer TaskEnqueuer
+	enqueuer queue.TaskEnqueuer
 	done     chan struct{}
 }
 
-func NewOutboxDispatcher(store db.Store, enqueuer TaskEnqueuer) *OutboxDispatcher {
+func NewOutboxDispatcher(store db.Store, enqueuer queue.TaskEnqueuer) *OutboxDispatcher {
 	return &OutboxDispatcher{store: store, enqueuer: enqueuer, done: make(chan struct{})}
 }
 

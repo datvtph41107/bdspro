@@ -19,7 +19,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/setting"
 	middleware "github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	"github.com/datvtph41107/bdspro/services"
+	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
@@ -34,12 +34,12 @@ const (
 var errGoogleProviderUnavailable = errors.New("Google OAuth provider unavailable")
 
 type GoogleHandler struct {
-	auth         *service.GoogleAuthService
+	auth         *auth_service.GoogleAuthService
 	config       setting.Config
 	redis        *redis.Client
 	httpClient   *http.Client
 	secureCookie bool
-	phone        *service.PhoneOTP
+	phone        *auth_service.PhoneOTP
 }
 type googlePending struct {
 	Purpose   string `json:"purpose"`
@@ -50,7 +50,7 @@ type googlePending struct {
 }
 
 func NewGoogleHandler(
-	auth *service.GoogleAuthService, config setting.Config,
+	auth *auth_service.GoogleAuthService, config setting.Config,
 	client *redis.Client, httpClient *http.Client, secureCookie bool,
 ) *GoogleHandler {
 	return &GoogleHandler{
@@ -104,7 +104,7 @@ func (g *GoogleHandler) StartLogin(ctx *gin.Context) {
 
 // SetPhoneBinding enables the Google reauthentication path in environments
 // where phone verification has an actual delivery implementation.
-func (g *GoogleHandler) SetPhoneBinding(phone service.PhoneOTP) {
+func (g *GoogleHandler) SetPhoneBinding(phone auth_service.PhoneOTP) {
 	g.phone = &phone
 }
 
@@ -218,7 +218,7 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		response.Reject(ctx, http.StatusUnauthorized, "google_authorization_failed", "Google authorization failed")
 		return
 	}
-	identity, err := service.VerifyGoogleIDToken(ctx.Request.Context(), idToken, g.config.GoogleClientID, pending.Nonce)
+	identity, err := auth_service.VerifyGoogleIDToken(ctx.Request.Context(), idToken, g.config.GoogleClientID, pending.Nonce)
 	if err != nil {
 		response.Reject(ctx, http.StatusUnauthorized, "google_invalid_identity", "invalid Google identity")
 		return

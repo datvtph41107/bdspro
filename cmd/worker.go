@@ -3,15 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/queue"
+	redisconn "github.com/datvtph41107/bdspro/modules/redis"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/worker"
-	"github.com/go-redis/redis/v8"
 	"github.com/hibiken/asynq"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/urfave/cli/v3"
 )
 
@@ -30,30 +29,24 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	pool, err := pgxpool.New(ctx, cfg.DBSource)
+	pool, err := db.Connect(ctx, cfg.DBSource)
 	if err != nil {
-		return fmt.Errorf("connect PostgreSQL: %w", err)
+		return err
 	}
 	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("ping PostgreSQL: %w", err)
-	}
 	store := db.NewStore(pool)
-	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddress})
-	defer redisClient.Close()
-	pingCtx, cancelPing := context.WithTimeout(ctx, 5*time.Second)
-	err = redisClient.Ping(pingCtx).Err()
-	cancelPing()
+	redisClient, err := redisconn.Connect(ctx, cfg.RedisAddress)
 	if err != nil {
-		return fmt.Errorf("ping Redis: %w", err)
+		return err
 	}
+	defer redisClient.Close()
 
 	options := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
-	enqueuer := worker.NewRedisEnqueuer(options)
+	enqueuer := queue.NewRedisEnqueuer(options)
 	defer enqueuer.Close()
 	mailer := mail.NewSMTPSender(cfg.EmailSenderName, cfg.EmailSenderAddress,
 		cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
-	processor := worker.NewRedisTaskProcessor(options)
+	processor := queue.NewRedisTaskProcessor(options)
 	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, cfg.VerifyEmailURL))
 	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(store, mailer, cfg.VerifyEmailURL))
 	if err := processor.Start(); err != nil {
