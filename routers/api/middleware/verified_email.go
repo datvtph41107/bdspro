@@ -10,7 +10,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"github.com/rs/zerolog/log"
+	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 // VerifiedEmail guards business operations, while still allowing unverified

@@ -7,7 +7,7 @@ import (
 
 	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
+	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 const ErrorCodeKey = "public_error_code"

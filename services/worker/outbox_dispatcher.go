@@ -8,7 +8,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/hibiken/asynq"
-	"github.com/rs/zerolog/log"
+	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 const outboxBatchSize int32 = 10

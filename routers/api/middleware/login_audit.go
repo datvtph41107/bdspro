@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
+	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 // LoginAudit logs the completed response; it never issues credentials.

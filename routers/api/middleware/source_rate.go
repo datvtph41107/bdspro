@@ -7,7 +7,7 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
-	"github.com/rs/zerolog/log"
+	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 var ipActiveSourceScript = redis.NewScript(`

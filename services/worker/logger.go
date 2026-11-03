@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 type Logger struct{}
@@ -39,5 +39,5 @@ func (l *Logger) Error(args ...any) {
 }
 
 func (l *Logger) Fatal(args ...any) {
-	log.Fatal().Msg(fmt.Sprint(args...))
+	log.Fatal("%s", fmt.Sprint(args...))
 }

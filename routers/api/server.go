@@ -22,7 +22,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/rs/cors"
-	"github.com/rs/zerolog/log"
+	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 const apiPrefix = "" // Preserve existing public endpoints; versioning is a separate API contract decision.
@@ -210,7 +210,7 @@ func (server *Server) StartWithReady(ctx context.Context, address string, onList
 	go func() {
 		errorsCh <- httpServer.Serve(listener)
 	}()
-	log.Info().Str("address", listener.Addr().String()).Msg("http.listening")
+	log.Event(log.INFO).Str("address", listener.Addr().String()).Msg("http.listening")
 	if onListening != nil {
 		onListening(listener.Addr())
 	}
@@ -230,7 +230,7 @@ func (server *Server) StartWithReady(ctx context.Context, address string, onList
 		if err := <-errorsCh; err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("serve HTTP: %w", err)
 		}
-		log.Info().Msg("http.stopped")
+		log.Event(log.INFO).Msg("http.stopped")
 		return nil
 	}
 }
