@@ -6,6 +6,12 @@ One binary, explicit CLI modes, no internal routing facade or gRPC.
 This review branch follows Gitea's **source ownership and operational
 discoverability**, not its domain model or entire folder tree.
 
+[Package ownership review](docs/architecture/source-ownership.md) explains the
+actual responsibilities of Gitea modules and the corresponding BDSPro
+decisions. The review contains executable source-boundary checks:
+`go test ./tests/architecture`.
+
+
 ## First-time development
 
 Requirements: the Go version in `go.mod` (currently 1.27.3), Docker
