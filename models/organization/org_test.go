@@ -88,4 +88,3 @@ func TestCreateOrganizationAndOwnerPostgres(t *testing.T) {
 		t.Fatalf("unauthorized mutation persisted: %+v err=%v", visible, err)
 	}
 }
-

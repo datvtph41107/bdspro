@@ -78,4 +78,3 @@ func applicationError(err error) (status int, code, message string, ok bool) {
 		return 0, "", "", false
 	}
 }
-

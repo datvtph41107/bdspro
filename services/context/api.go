@@ -86,4 +86,3 @@ func (ctx *APIContext) APIErrorAuto(err error) {
 	}
 	ctx.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
 }
-

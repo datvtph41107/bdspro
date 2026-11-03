@@ -64,4 +64,3 @@ func (r *Response) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	}
 	return nil, nil, http.ErrNotSupported
 }
-

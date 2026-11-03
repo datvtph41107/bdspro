@@ -95,4 +95,3 @@ func (r *Router) Combo(path string, h ...any) *Combo {
 func (r *Router) NotFound(h http.HandlerFunc)                        { r.chiRouter.NotFound(h) }
 func (r *Router) MethodNotAllowed(h http.HandlerFunc)                { r.chiRouter.MethodNotAllowed(h) }
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) { r.chiRouter.ServeHTTP(w, req) }
-

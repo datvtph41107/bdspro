@@ -98,4 +98,3 @@ func VerifiedEmail(store interface {
 		}
 	}
 }
-

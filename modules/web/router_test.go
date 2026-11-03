@@ -67,4 +67,3 @@ func BenchmarkRouterSimple(b *testing.B) {
 		r.ServeHTTP(httptest.NewRecorder(), req)
 	}
 }
-

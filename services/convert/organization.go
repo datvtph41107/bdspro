@@ -59,4 +59,3 @@ func ToActiveOrganizationMembers(rows []db.ListOrganizationMembersForOwnerRow) [
 	}
 	return out
 }
-

@@ -55,4 +55,3 @@ func TestRateLimitAndBearerContract(t *testing.T) {
 		})
 	}
 }
-

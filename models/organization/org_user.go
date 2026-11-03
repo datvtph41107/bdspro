@@ -44,4 +44,3 @@ func AddOrgUser(ctx context.Context, store Store, actorAccountID, organizationID
 	}
 	return member, err
 }
-

@@ -199,4 +199,3 @@ func adaptHandlers(groupMiddleware, afterRouting, endpoints []any) http.HandlerF
 	}
 	return chain.ServeHTTP
 }
-

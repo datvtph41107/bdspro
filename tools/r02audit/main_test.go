@@ -55,4 +55,3 @@ func TestCheckRoutesCatchesDriftAndDuplicates(t *testing.T) {
 		t.Fatalf("expected duplicate error, got %v", err)
 	}
 }
-

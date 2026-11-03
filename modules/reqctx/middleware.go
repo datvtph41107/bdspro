@@ -14,4 +14,3 @@ func RequestContextHandler() func(http.Handler) http.Handler {
 		})
 	}
 }
-

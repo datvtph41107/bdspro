@@ -67,4 +67,3 @@ func TestLateCleanupPanics(t *testing.T) {
 	}()
 	MustFromContext(ctx).AddCleanup(func() {})
 }
-

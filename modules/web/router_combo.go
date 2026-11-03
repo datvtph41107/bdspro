@@ -27,4 +27,3 @@ func (c *Combo) Delete(h ...any) *Combo {
 	c.r.Delete(c.path, append(append([]any(nil), c.base...), h...)...)
 	return c
 }
-

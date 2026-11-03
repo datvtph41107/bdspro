@@ -105,4 +105,3 @@ func BenchmarkTypedHandler(b *testing.B) {
 		chain(httptest.NewRecorder(), r)
 	}
 }
-

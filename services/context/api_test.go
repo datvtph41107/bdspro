@@ -104,4 +104,3 @@ func BenchmarkAPIContexter(b *testing.B) {
 		h.ServeHTTP(httptest.NewRecorder(), r)
 	}
 }
-

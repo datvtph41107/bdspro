@@ -131,4 +131,3 @@ func UpdateOrganization(ctx context.Context, store Store, actorAccountID, organi
 	}
 	return updated, err
 }
-

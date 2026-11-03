@@ -34,4 +34,3 @@ func TestBindJSONContract(t *testing.T) {
 		})
 	}
 }
-

@@ -27,4 +27,3 @@ func (ctx *APIContext) RateLimited(seconds int64) {
 func (ctx *APIContext) IdentityStoreUnavailable() {
 	ctx.APIError(http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
 }
-

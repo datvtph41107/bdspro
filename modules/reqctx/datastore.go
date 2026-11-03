@@ -97,4 +97,3 @@ func (s *DataStore) Finish() {
 		fns[i]()
 	}
 }
-

@@ -13,4 +13,3 @@ type ResponseStatusProvider interface {
 // PreMiddlewareProvider wraps an HTTP handler before normal route middleware.
 // Prefer it only when early processing is required by the HTTP contract.
 type PreMiddlewareProvider func(next http.Handler) http.Handler
-

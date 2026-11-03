@@ -26,4 +26,3 @@ func (b *Base) Err() error                              { return b.Req.Context()
 func (b *Base) Value(key any) any                       { return b.Req.Context().Value(key) }
 
 var _ context.Context = (*Base)(nil)
-

@@ -39,4 +39,3 @@ func Routes(store db.Store, maker token.Maker) *web.Router {
 	}, auth.Authenticate(maker), auth.VerifiedContact(store))
 	return m
 }
-

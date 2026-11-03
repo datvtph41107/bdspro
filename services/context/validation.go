@@ -59,4 +59,3 @@ func (ctx *APIContext) BindJSON(target any) bool {
 	}
 	return true
 }
-

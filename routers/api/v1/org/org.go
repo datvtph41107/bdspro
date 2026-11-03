@@ -156,4 +156,3 @@ func (a *API) AddMember(ctx *apictx.APIContext) {
 }
 
 var _ organization_model.Store = (db.Store)(nil)
-
