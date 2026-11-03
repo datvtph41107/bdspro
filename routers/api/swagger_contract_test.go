@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/datvtph41107/bdspro/templates"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api/handler"
+	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
 )
 

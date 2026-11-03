@@ -8,10 +8,10 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
-	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

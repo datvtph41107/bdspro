@@ -36,4 +36,3 @@ func RandomOrganizationName() string {
 func RandomEmail() string {
 	return fmt.Sprintf("%s@example.test", RandomString(8))
 }
-
