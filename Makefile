@@ -38,7 +38,7 @@ CONFIG ?= custom/conf/app.ini
 
 # Initialize a local developer config once. Never overwrite personal settings.
 config-local:
-	@test -f "$(CONFIG)" || { mkdir -p "$(dir $(CONFIG))"; cp custom/conf/app.example.ini "$(CONFIG)"; }
+	@test -f "$(CONFIG)" || { umask 077; mkdir -p "$(dir $(CONFIG))"; cp custom/conf/app.example.ini "$(CONFIG)"; }
 	@echo "Config: $(CONFIG)"
 
 server: config-local
