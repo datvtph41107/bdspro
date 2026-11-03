@@ -14,6 +14,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/routers/api/handler"
+	"github.com/datvtph41107/bdspro/routers/common"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
@@ -22,8 +23,6 @@ import (
 	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
-	"github.com/google/uuid"
-	"github.com/rs/cors"
 )
 
 const apiPrefix = "" // Preserve existing public endpoints; versioning is a separate API contract decision.
@@ -118,13 +117,7 @@ func (server *Server) setupRouter() {
 	// Forwarded headers are untrusted unless the deployment defines exact proxy addresses.
 	_ = router.SetTrustedProxies(nil)
 
-	router.Use(func(ctx *gin.Context) {
-		requestID := uuid.NewString()
-		ctx.Header("X-Request-ID", requestID)
-		requestLogger := log.With().Str("request_id", requestID).Logger()
-		ctx.Request = ctx.Request.WithContext(requestLogger.WithContext(ctx.Request.Context()))
-		ctx.Next()
-	})
+	router.Use(common.RequestID())
 	router.Use(accessLogger(), gin.CustomRecoveryWithWriter(nil, func(ctx *gin.Context, recovered any) {
 		path := ctx.FullPath()
 		if path == "" {
@@ -174,16 +167,7 @@ func accessLogger() gin.HandlerFunc {
 
 // Handler exposes Gin routes with the same CORS policy as the previous HTTP ingress.
 func (server *Server) Handler() http.Handler {
-	return cors.New(cors.Options{
-		AllowedOrigins: server.config.AllowedOrigins,
-		AllowedMethods: []string{
-			http.MethodHead, http.MethodOptions, http.MethodGet, http.MethodPost,
-			http.MethodPut, http.MethodPatch, http.MethodDelete,
-		},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		ExposedHeaders:   []string{"X-Request-ID"},
-		AllowCredentials: true,
-	}).Handler(server.router)
+    return common.CORS(server.router, server.config.AllowedOrigins)
 }
 
 // Start runs the HTTP server until shutdown or a serving error.

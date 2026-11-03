@@ -14,9 +14,11 @@ import (
 
 // InitWebInstalled initializes Gin policy and route-bound dependencies.
 // The existing routers/api package owns route declarations and HTTP contracts.
-func InitWebInstalled(cfg setting.Config, store db.Store, redisClient *redis.Client, sender mail.EmailSender) (*api.Server, error) {
+func InitWebInstalled(cfg setting.Config, store db.Store, redisClient *redis.Client) (*api.Server, error) {
 	if os.Getenv(gin.EnvGinMode) == "" {
 		gin.SetMode(gin.ReleaseMode)
 	}
+	sender := mail.NewSMTPSender(cfg.EmailSenderName, cfg.EmailSenderAddress,
+        cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
 	return api.NewServer(cfg, store, redisClient, sender)
 }
