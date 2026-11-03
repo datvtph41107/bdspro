@@ -1,20 +1,19 @@
 package organization_test
 
 import (
-	account_model "github.com/datvtph41107/bdspro/models/account"
-	db "github.com/datvtph41107/bdspro/models/db"
 	"context"
 	"errors"
 	"os"
 	"testing"
 	"time"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
+	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
 // Runs only on a disposable database with migrations already applied.
 // Never pass an application database, even when exercising this test locally.
 func TestOrganizationOwnerAuthorizationSQL(t *testing.T) {
