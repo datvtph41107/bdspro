@@ -1,3 +1,5 @@
+> **R03 decision:** Gitea file/package ownership remains the reference, but BDSPro retains Gin. Chi-specific proposals in this historical R02 document are not current requirements. See [R03 Gin ownership](../r03-gin-ownership.md).
+
 # Gitea correspondence matrix — pinned source, not directory imitation
 
 Reference: https://github.com/go-gitea/gitea/tree/12b20c7c9962e0be75912b290a0c5778799b0ad2

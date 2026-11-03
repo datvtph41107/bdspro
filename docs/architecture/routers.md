@@ -22,15 +22,14 @@ Gin router (routers/api/server.go)
   -> routers/common.RequestID
   -> access log + Recovery
   -> API RequestMonitor/RequestIngress
-  -> routers/api/routes.go
+  -> routers/api/v1/api.go
      -> security middleware Authenticate / rate-limit
-     -> routers/api/handler
-         parse -> services -> response
+     -> routers/api/v1/user or org
+         parse -> model operation or service -> conversion -> response
 ```
 
-Where Gitea groups controllers by web/API and domain, BDSPro's current
-`routers/api/handler` is deliberately small. Avoid a second route
-registration package, reflective registry or unnecessary per-route wrapper.
+Where Gitea groups controllers by web/API and domain, BDSPro keeps Gin and organizes HTTP endpoints under
+`routers/api/v1/user` and `routers/api/v1/org`. The directory name `v1` does not add a URL prefix. Avoid duplicate dispatchers, reflective registries and unnecessary per-route wrappers.
 
 All new routes must be discoverable in one route declaration file and
 must have a method/path test and corresponding
