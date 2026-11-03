@@ -184,6 +184,12 @@ jobs:
           test -x bin/bdspro
           ./bin/bdspro migrate --help
 
+      - name: Verify Docker runtime image
+        run: |
+          sh -n docker/setup wait-for.sh
+          docker compose build api worker
+          docker run --rm --entrypoint /app/main bdspro:local --version
+
       - name: HTTP runtime smoke test
         run: |
           docker compose config --quiet
