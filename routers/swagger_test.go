@@ -1,4 +1,4 @@
-package api
+package routers
 
 import (
 	"net/http"
@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/datvtph41107/bdspro/modules/setting"
+	api "github.com/datvtph41107/bdspro/routers/api"
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,9 +24,8 @@ func TestSwaggerAssetsDevelopmentOnly(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.mode+tc.path, func(t *testing.T) {
-			server := &Server{config: setting.Config{Environment: tc.mode}}
 			r := gin.New()
-			server.registerSwagger(r)
+			api.RegisterSwagger(r, tc.mode)
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, tc.path, nil))
 			if w.Code != tc.status {

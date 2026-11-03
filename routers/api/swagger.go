@@ -9,8 +9,8 @@ import (
 )
 
 // Swagger is local documentation; public runtime routes are owned by Gin.
-func (server *Server) registerSwagger(router *gin.Engine) {
-	if server.config.Environment != "development" {
+func RegisterSwagger(router *gin.Engine, environment string) {
+	if environment != "development" {
 		return
 	}
 	swaggerFS, err := fs.Sub(templates.Swagger, "swagger")

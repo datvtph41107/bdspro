@@ -1,4 +1,4 @@
-package api
+package routers
 
 import (
 	"net/http"
@@ -33,7 +33,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		if phone {
 			s.phoneHandler = user.NewPhoneHandler(nil, setting.Config{}, nil, nil)
 		}
-		s.setupRouter()
+		s.router = NormalRoutes(s)
 		return s
 	}
 

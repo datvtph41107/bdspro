@@ -29,6 +29,7 @@ var legacyGroupPrefix = map[string]string{
 	"registerOrganizationRoutes":  "/organizations",
 	"registerPhoneBindRoutes":     "/users/me/phone",
 	"registerSwagger":             "",
+	"RegisterSwagger":             "",
 }
 
 var legacyHTTPMethods = map[string]bool{

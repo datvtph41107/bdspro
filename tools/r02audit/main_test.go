@@ -55,3 +55,17 @@ func TestCheckRoutesCatchesDriftAndDuplicates(t *testing.T) {
 		t.Fatalf("expected duplicate error, got %v", err)
 	}
 }
+
+func TestExtractExportedSwaggerRegistration(t *testing.T) {
+	src := `package api
+func RegisterSwagger(router *Router, environment string) {
+  router.GET("/swagger/*filepath", serveSwagger)
+}`
+	got, err := extractRoutes("swagger.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || routeKey(got[0].Method, got[0].Path) != "GET /swagger/*filepath" {
+		t.Fatalf("exported Swagger registration was not discovered: %+v", got)
+	}
+}
