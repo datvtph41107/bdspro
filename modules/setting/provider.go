@@ -1,38 +1,33 @@
 package setting
 
 import (
-	"fmt"
-	"os"
-	"strings"
+    "fmt"
+    "os"
+    "strings"
 
-	"github.com/spf13/viper"
+    "gopkg.in/ini.v1"
 )
 
-// ConfigProvider is a read-only view of one INI file plus explicit env overrides.
-type ConfigProvider struct{ file *viper.Viper }
+// ConfigProvider owns a read-only INI snapshot; env overrides are not
+// persisted. Following Gitea, the parser stays inside modules/setting.
+type ConfigProvider struct { file *ini.File }
 
 func InitCfgProvider(filename string) (*ConfigProvider, error) {
-	v := viper.New()
-	v.SetConfigFile(filename)
-	v.SetConfigType("ini")
-	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("read config %q: %w", filename, err)
-	}
-	return &ConfigProvider{file: v}, nil
+    f, err := ini.Load(filename)
+    if err != nil { return nil, fmt.Errorf("read config %q: %w",filename,err) }
+    return &ConfigProvider{file:f}, nil
 }
 func (p *ConfigProvider) String(section, key string) string {
-	name := "BDS__" + strings.ToUpper(section) + "__" + strings.ToUpper(key)
-	if s, ok := os.LookupEnv(name); ok {
-		return s
-	}
-	if section == "" {
-		return p.file.GetString(key)
-	}
-	return p.file.GetString(section + "." + key)
+    name := "BDS__" + strings.ToUpper(section) + "__" + strings.ToUpper(key)
+    if value, ok := os.LookupEnv(name); ok { return value }
+    if section == "" { section = ini.DefaultSection }
+    sec, err := p.file.GetSection(section)
+    if err != nil { return "" }
+    k, err := sec.GetKey(key)
+    if err != nil { return "" }
+    return k.String()
 }
-func (p *ConfigProvider) StringDefault(section, key, fallback string) string {
-	if s := p.String(section, key); s != "" {
-		return s
-	}
-	return fallback
+func (p *ConfigProvider) StringDefault(section,key,fallback string) string {
+    if s := p.String(section,key); s != "" { return s }
+    return fallback
 }

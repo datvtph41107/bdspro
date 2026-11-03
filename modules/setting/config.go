@@ -10,35 +10,35 @@ import (
 
 // Config holds validated settings loaded from app.ini and process overrides.
 type Config struct {
-	Environment          string `mapstructure:"ENVIRONMENT"`
-	LogFormat            string `mapstructure:"LOG_FORMAT"`
+	Environment          string
+	LogFormat            string
 	LogLevel             string
 	LogMode              string
 	LogRootPath          string
 	LogFileName          string
-	GoogleClientID       string        `mapstructure:"GOOGLE_CLIENT_ID"`
-	GoogleClientSecret   string        `mapstructure:"GOOGLE_CLIENT_SECRET"`
-	GoogleRedirectURI    string        `mapstructure:"GOOGLE_REDIRECT_URI"`
-	PhoneDelivery        string        `mapstructure:"PHONE_DELIVERY"`
-	SMSGatewayURL        string        `mapstructure:"SMS_GATEWAY_URL"`
-	SMSGatewayToken      string        `mapstructure:"SMS_GATEWAY_TOKEN"`
-	ZaloAccessToken      string        `mapstructure:"ZALO_ACCESS_TOKEN"`
-	ZaloTemplateID       string        `mapstructure:"ZALO_TEMPLATE_ID"`
-	ZaloCodeField        string        `mapstructure:"ZALO_CODE_FIELD"`
-	AllowedOrigins       []string      `mapstructure:"ALLOWED_ORIGINS"`
-	DBSource             string        `mapstructure:"DB_SOURCE"`
-	MigrationURL         string        `mapstructure:"MIGRATION_URL"`
-	RedisAddress         string        `mapstructure:"REDIS_ADDRESS"`
-	HTTPServerAddress    string        `mapstructure:"HTTP_SERVER_ADDRESS"`
-	TokenSymmetricKey    string        `mapstructure:"TOKEN_SYMMETRIC_KEY"`
-	AccessTokenDuration  time.Duration `mapstructure:"ACCESS_TOKEN_DURATION"`
-	RefreshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`
-	EmailSenderName      string        `mapstructure:"EMAIL_SENDER_NAME"`
-	EmailSenderAddress   string        `mapstructure:"EMAIL_SENDER_ADDRESS"`
-	EmailSenderPassword  string        `mapstructure:"EMAIL_SENDER_PASSWORD"`
-	SMTPAddress          string        `mapstructure:"SMTP_ADDRESS"`
-	SMTPAuth             bool          `mapstructure:"SMTP_AUTH"`
-	VerifyEmailURL       string        `mapstructure:"VERIFY_EMAIL_URL"`
+	GoogleClientID       string
+	GoogleClientSecret   string
+	GoogleRedirectURI    string
+	PhoneDelivery        string
+	SMSGatewayURL        string
+	SMSGatewayToken      string
+	ZaloAccessToken      string
+	ZaloTemplateID       string
+	ZaloCodeField        string
+	AllowedOrigins       []string
+	DBSource             string
+	MigrationURL         string
+	RedisAddress         string
+	HTTPServerAddress    string
+	TokenSymmetricKey    string
+	AccessTokenDuration  time.Duration
+	RefreshTokenDuration time.Duration
+	EmailSenderName      string
+	EmailSenderAddress   string
+	EmailSenderPassword  string
+	SMTPAddress          string
+	SMTPAuth             bool
+	VerifyEmailURL       string
 }
 
 // LoadConfig resolves the selected INI file and materializes typed settings.
