@@ -1,39 +1,46 @@
 # BDSPro developer documentation
 
-This is the navigation point for **current implementation**, not a list of proposed architectures.
-The source code, `go.mod`, `Makefile` and CI workflow remain authoritative when documentation disagrees.
+Navigation for the **current R01 implementation**. Code and passing CI
+on the exact commit take priority over explanatory claims in these files.
 
 ## Start here
 
-- [Build from source](build-source.md): prerequisites, build and executable output.
-- [Develop locally](development.md): clone, config, PostgreSQL, Redis, web/worker, Air.
-- [Testing and acceptance](testing.md): unit, integration, migrations, API contract, CI.
-- [Backend guidelines](guidelines-backend.md): ownership, names, HTTP/SQL/worker boundaries.
-- [Architecture](architecture/README.md): startup and request paths, database, service ownership.
-- [Configuration](operations/configuration.md): `custom/conf`, INI precedence and secrets.
-- [Docker and Compose](operations/docker.md): dev containers, volumes and first-boot setup.
-- [Migrations](operations/migration.md): SQLC and schema migration decisions.
-- [Logging](operations/logging.md): stdout and file modes.
-- [API and Swagger](api/README.md): OpenAPI source and development-only UI.
-- [Source ownership evidence](architecture/gitea-ownership-r01.md): actual comparison with Gitea.
-- [Historical records](archive/README.md): older lectures, architecture plans, decisions and acceptance notes.
+- [Building the binary](build-source.md)
+- [Local development and Air](development.md)
+- [Testing and acceptance](testing.md)
+- [Backend coding and ownership](guidelines-backend.md)
+- [Current architecture](architecture/README.md)
+- [Modules and real technical mechanisms](architecture/modules.md)
+- [Business services](architecture/services.md)
+- [HTTP routers](architecture/routers.md)
+- [Gitea comparison and deliberate differences](architecture/gitea-ownership-r01.md)
 
-Gitea itself keeps developer-facing documents in its root `docs/`, including
-`build-source.md`, `development.md`, `testing.md` and
-`guidelines-backend.md`. BDSPro uses the same discoverability principle,
-but only documents systems it actually operates. Its documentation site is
-not imported as a new framework.
+## Operating the application
 
-## Source of truth by concern
+- [Configuration and paths](operations/configuration.md)
+- [Docker and Compose](operations/docker.md)
+- [Database migrations](operations/migration.md)
+- [Logging](operations/logging.md)
+- [CI YAML and acceptance guarantees](operations/ci.md)
+- [Build tools and generated assets](operations/developer-tools.md)
+- [API and Swagger](api/README.md)
+- [Historical decisions and lecture material](archive/README.md)
 
-| Concern | Canonical owner |
+## Source ownership at a glance
+
+| Concern | Source |
 | --- | --- |
-| CLI process | `main.go`, `cmd/` |
-| Configuration | `modules/setting/`, `custom/conf/app.example.ini` |
-| Protocol and routes | `routers/common/`, `routers/api/` |
-| Business rules | `services/auth/`, `services/organization/` |
-| Database and schema | `models/db/`, `db/query/`, `db/migration/` |
-| Async dispatch | `services/jobs/`, `services/worker/` |
-| HTML and API assets | `templates/auth/`, `templates/swagger/` |
-| Dev commands | `Makefile`, `.air.toml` |
-| Image/deployment | `Dockerfile`, `docker/`, `docker-compose.yaml` |
+| Command/process | `main.go`, `cmd/` |
+| Runtime config/log | `modules/setting/`, `modules/log/` |
+| Queue transport | `modules/queue/` |
+| HTTP API and protocol | `routers/api/`, `routers/common/` |
+| Business processes | `services/auth/`, `services/organization/`, `services/jobs/` |
+| Worker policy | `services/worker/` |
+| Database/SQL | `models/db/`, `db/query/`, `db/migration/` |
+| Runtime assets | `templates/auth/`, `templates/swagger/` |
+| Developer workflow | `Makefile`, `.air.toml`, `docker-compose.yaml` |
+| Historical migration fixtures | `tests/integration/migrations/` |
+
+Gitea's docs similarly distinguish build, development, testing and backend
+guidelines. This navigation adopts that **workflow** without claiming
+BDSPro has Gitea's Git repository, issue, package or web frontend systems.
