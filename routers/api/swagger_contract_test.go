@@ -8,8 +8,8 @@ import (
 
 	"github.com/datvtph41107/bdspro/modules/setting"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
-	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
+	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
 )
@@ -41,13 +41,13 @@ func TestOpenAPICoverage(t *testing.T) {
 	// Registration only; no handler is executed and no external services are used.
 	root := gin.New()
 	apiv1.Routes(root, apiv1.Dependencies{
-		Auth: s.authHandler,
+		Auth:         s.authHandler,
 		Organization: s.organizationHandler,
-		Google: s.googleHandler,
-		Phone: s.phoneHandler,
-		TokenMaker: s.tokenMaker,
-		RateRedis: s.authRateRedis,
-		Store: s.store,
+		Google:       s.googleHandler,
+		Phone:        s.phoneHandler,
+		TokenMaker:   s.tokenMaker,
+		RateRedis:    s.authRateRedis,
+		Store:        s.store,
 	})
 	normalize := regexp.MustCompile(`:[A-Za-z_][A-Za-z0-9_]*`)
 	actual := map[string]bool{}

@@ -1,8 +1,6 @@
 package user
 
 import (
-	"github.com/datvtph41107/bdspro/modules/structs"
-	"github.com/datvtph41107/bdspro/services/convert"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -11,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/services/convert"
 	"io"
 	"net/http"
 	"net/url"

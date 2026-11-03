@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/token"
-	"github.com/datvtph41107/bdspro/routers/api/v1/user"
+	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
-	"github.com/go-redis/redis/v8"
+	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 )
 
 // Dependencies are constructed once by the HTTP server; route ownership is in this package.

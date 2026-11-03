@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
+	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/gin-gonic/gin"
 )
 

@@ -13,11 +13,11 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
-	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
-	"github.com/datvtph41107/bdspro/routers/api/v1/user"
-	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
+	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
+	"github.com/datvtph41107/bdspro/routers/api/v1/org"
+	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/mail"
@@ -142,9 +142,9 @@ func (server *Server) setupRouter() {
 		Organization: server.organizationHandler,
 		Google:       server.googleHandler,
 		Phone:        server.phoneHandler,
-		TokenMaker:  server.tokenMaker,
-		RateRedis:   server.authRateRedis,
-		Store:       server.store,
+		TokenMaker:   server.tokenMaker,
+		RateRedis:    server.authRateRedis,
+		Store:        server.store,
 	})
 	server.registerSwagger(router)
 
