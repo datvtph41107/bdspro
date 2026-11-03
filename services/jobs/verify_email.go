@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/modules/secret"
 	"github.com/datvtph41107/bdspro/services/mail"
 )
 
@@ -36,7 +36,7 @@ func SendVerificationEmail(
 		return nil
 	}
 
-	secret, err := util.RandomSecret()
+	secret, err := secret.RandomHex(32)
 	if err != nil {
 		return err
 	}

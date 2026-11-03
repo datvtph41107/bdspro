@@ -17,7 +17,7 @@ import (
 	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
-	"github.com/datvtph41107/bdspro/modules/util"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -42,7 +42,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 	if utf8.RuneCountInString(password) < 8 || len(password) > 72 {
 		return db.Account{}, apperrors.InvalidPassword
 	}
-	hash, err := util.HashPassword(password)
+	hash, err := authcrypto.HashPassword(password)
 	if err != nil {
 		return db.Account{}, err
 	}
@@ -102,7 +102,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	if err != nil {
 		return result, err
 	}
-	if err := util.CheckPassword(password, hash); err != nil {
+	if err := authcrypto.CheckPassword(password, hash); err != nil {
 		return result, apperrors.InvalidCredentials
 	}
 	return IssueSession(ctx, s.store, s.maker, s.config, account, userAgent, clientIP)
@@ -217,7 +217,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, secret, password string
 		return apperrors.InvalidResetToken
 	}
 	digest := sha256.Sum256([]byte(secret))
-	hash, err := util.HashPassword(password)
+	hash, err := authcrypto.HashPassword(password)
 	if err != nil {
 		return err
 	}

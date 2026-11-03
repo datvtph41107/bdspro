@@ -11,7 +11,7 @@ import (
 	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
-	"github.com/datvtph41107/bdspro/modules/util"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -62,7 +62,7 @@ func (s *sessionMemoryStore) BlockSession(_ context.Context, p db.BlockSessionPa
 }
 
 func TestAuthLoginRenewRevoke(t *testing.T) {
-	hash, err := util.HashPassword("correct-password")
+	hash, err := authcrypto.HashPassword("correct-password")
 	if err != nil {
 		t.Fatal(err)
 	}

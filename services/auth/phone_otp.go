@@ -14,7 +14,7 @@ import (
 	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
-	"github.com/datvtph41107/bdspro/modules/util"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -84,7 +84,7 @@ func (s PhoneOTP) StartBind(ctx context.Context, accountID int64, password, phon
 	if err != nil {
 		return err
 	}
-	if util.CheckPassword(password, hash) != nil {
+	if authcrypto.CheckPassword(password, hash) != nil {
 		return apperrors.InvalidCredentials
 	}
 	return s.startBind(ctx, accountID, phone)
