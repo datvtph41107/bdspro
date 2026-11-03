@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/ratelimit"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -12,12 +13,6 @@ import (
 
 const securityDetectionThreshold int64 = 12
 const securityDetectionWindow = 10 * time.Minute
-
-var securityCountScript = redis.NewScript(`
-local v = redis.call('INCR', KEYS[1])
-if v == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
-return v
-`)
 
 // RequestMonitor records policy denials and one threshold alert per fixed
 // observation window. It does not automatically ban a client.
@@ -53,7 +48,7 @@ func RequestMonitor(redisClient *redis.Client) gin.HandlerFunc {
 		if route == "" {
 			route = "<unmatched>"
 		}
-		ipHash := hashedRateKey(ctx.ClientIP())
+		ipHash := ratelimit.Hash(ctx.ClientIP())
 		// Malformed input alone does not establish a security incident.
 		// Count it for threshold detection, but do not warn on each 400/413.
 		event := log.Ctx(ctx.Request.Context()).Warn()
@@ -71,8 +66,7 @@ func RequestMonitor(redisClient *redis.Client) gin.HandlerFunc {
 			return
 		}
 		key := securityDeniedKeyPrefix + ipHash
-		count, err := securityCountScript.Run(ctx.Request.Context(), redisClient,
-			[]string{key}, int64(securityDetectionWindow.Seconds())).Int64()
+		count, err := ratelimit.Increment(ctx.Request.Context(), redisClient, key, int64(securityDetectionWindow.Seconds()))
 		if err != nil {
 			log.Ctx(ctx.Request.Context()).Warn().
 				Str("component", "request_monitor").
