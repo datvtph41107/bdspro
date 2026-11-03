@@ -262,13 +262,13 @@ func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email
 	}
 	secret := base64.RawURLEncoding.EncodeToString(raw)
 	hash := sha256.Sum256([]byte(secret))
-	if err := s.store.BeginEmailLinkTx(ctx, accountID, email, hash[:]); err != nil {
+	if err := account_model.BeginEmailLink(ctx, s.store, accountID, email, hash[:]); err != nil {
 		switch {
-		case errors.Is(err, db.ErrEmailLinkTaken):
+		case errors.Is(err, account_model.ErrEmailLinkTaken):
 			return apperrors.EmailRegistered
-		case errors.Is(err, db.ErrEmailLinkUnavailable):
+		case errors.Is(err, account_model.ErrEmailLinkUnavailable):
 			return apperrors.EmailAlreadyLinked
-		case errors.Is(err, db.ErrEmailLinkCooldown):
+		case errors.Is(err, account_model.ErrEmailLinkCooldown):
 			return apperrors.EmailLinkCooldown
 		}
 		return err
@@ -282,11 +282,11 @@ func (s *AuthService) ConfirmEmailLink(ctx context.Context, accountID int64, sec
 		return apperrors.InvalidEmailLink
 	}
 	hash := sha256.Sum256([]byte(secret))
-	err := s.store.ConfirmEmailLinkTx(ctx, accountID, hash[:])
-	if errors.Is(err, db.ErrEmailLinkInvalid) {
+	err := account_model.ConfirmEmailLink(ctx, s.store, accountID, hash[:])
+	if errors.Is(err, account_model.ErrEmailLinkInvalid) {
 		return apperrors.InvalidEmailLink
 	}
-	if errors.Is(err, db.ErrEmailLinkUnavailable) {
+	if errors.Is(err, account_model.ErrEmailLinkUnavailable) {
 		return apperrors.EmailAlreadyLinked
 	}
 	var pgErr *pgconn.PgError
