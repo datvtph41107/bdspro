@@ -1,12 +1,12 @@
 package db_test
 
 import (
-	db "github.com/datvtph41107/bdspro/models/db"
-	account_model "github.com/datvtph41107/bdspro/models/account"
 	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	account_model "github.com/datvtph41107/bdspro/models/account"
+	db "github.com/datvtph41107/bdspro/models/db"
 	"os"
 	"testing"
 	"time"
