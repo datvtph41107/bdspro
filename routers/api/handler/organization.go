@@ -8,15 +8,15 @@ import (
 	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	"github.com/datvtph41107/bdspro/services"
+	organization_service "github.com/datvtph41107/bdspro/services/organization"
 	"github.com/gin-gonic/gin"
 )
 
 type OrganizationHandler struct {
-	organizations *service.OrganizationService
+	organizations *organization_service.OrganizationService
 }
 
-func NewOrganizationHandler(organizations *service.OrganizationService) *OrganizationHandler {
+func NewOrganizationHandler(organizations *organization_service.OrganizationService) *OrganizationHandler {
 	return &OrganizationHandler{organizations: organizations}
 }
 

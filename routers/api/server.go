@@ -16,7 +16,8 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/handler"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	"github.com/datvtph41107/bdspro/services"
+	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	organization_service "github.com/datvtph41107/bdspro/services/organization"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/gin-gonic/gin"
@@ -56,11 +57,11 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		authRateRedis: redisClient,
 		authThrottle:  middleware.NewAuthThrottle(redisClient),
 	}
-	server.authHandler = handler.NewAuthHandler(service.NewAuthService(store, maker, cfg), server.authThrottle)
+	server.authHandler = handler.NewAuthHandler(auth_service.NewAuthService(store, maker, cfg), server.authThrottle)
 	if len(resetMailers) > 0 {
 		server.authHandler.SetPasswordResetSender(resetMailers[0])
 	}
-	server.organizationHandler = handler.NewOrganizationHandler(service.NewOrganizationService(store))
+	server.organizationHandler = handler.NewOrganizationHandler(organization_service.NewOrganizationService(store))
 
 	if cfg.GoogleClientID != "" {
 		redirect, err := url.Parse(cfg.GoogleRedirectURI)
@@ -68,7 +69,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			return nil, fmt.Errorf("parse Google callback URL: %w", err)
 		}
 		server.googleHandler = handler.NewGoogleHandler(
-			service.NewGoogleAuthService(store, maker, cfg), cfg, redisClient,
+			auth_service.NewGoogleAuthService(store, maker, cfg), cfg, redisClient,
 			&http.Client{Timeout: 10 * time.Second}, redirect.Scheme == "https",
 		)
 	}
@@ -98,7 +99,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		return nil, fmt.Errorf("unsupported PHONE_DELIVERY: %s", cfg.PhoneDelivery)
 	}
 	if phoneSender != nil {
-		phone := service.PhoneOTP{Store: store, Config: cfg, Sender: phoneSender}
+		phone := auth_service.PhoneOTP{Store: store, Config: cfg, Sender: phoneSender}
 		server.phoneHandler = handler.NewPhoneHandler(
 			store, cfg, phoneSender, server.authThrottle,
 		)

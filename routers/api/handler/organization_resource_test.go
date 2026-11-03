@@ -6,7 +6,7 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/services"
+	organization_service "github.com/datvtph41107/bdspro/services/organization"
 )
 
 func TestOrganizationAccessResourcePermissions(t *testing.T) {
@@ -25,7 +25,7 @@ func TestOrganizationAccessResourcePermissions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.role, func(t *testing.T) {
-			access := service.OrganizationAccess{
+			access := organization_service.OrganizationAccess{
 				Organization: db.Organization{PartyID: 100, Name: "Example"},
 				MembershipID: 12,
 				Role:         tt.role,

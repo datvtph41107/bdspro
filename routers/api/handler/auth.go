@@ -9,7 +9,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	"github.com/datvtph41107/bdspro/services"
+	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -18,12 +18,12 @@ import (
 
 // AuthHandler handles HTTP input and output; authentication operations belong to AuthService.
 type AuthHandler struct {
-	auth        *service.AuthService
+	auth        *auth_service.AuthService
 	limiter     *middleware.AuthThrottle
 	resetSender mail.EmailSender
 }
 
-func NewAuthHandler(auth *service.AuthService, limiter *middleware.AuthThrottle) *AuthHandler {
+func NewAuthHandler(auth *auth_service.AuthService, limiter *middleware.AuthThrottle) *AuthHandler {
 	return &AuthHandler{auth: auth, limiter: limiter}
 }
 
