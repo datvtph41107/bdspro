@@ -4,7 +4,8 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/services"
+	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	organization_service "github.com/datvtph41107/bdspro/services/organization"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -33,7 +34,7 @@ type LoginResponse struct {
 	User                  UserResponse `json:"user"`
 }
 
-func newLoginResponse(v service.LoginResult) LoginResponse {
+func newLoginResponse(v auth_service.LoginResult) LoginResponse {
 	return LoginResponse{
 		SessionID:             v.Session.ID.String(),
 		AccessToken:           v.AccessToken,
@@ -108,7 +109,7 @@ type OrganizationAccessResponse struct {
 	Permissions []string                             `json:"permissions"`
 }
 
-func newOrganizationAccessResponse(access service.OrganizationAccess) OrganizationAccessResponse {
+func newOrganizationAccessResponse(access organization_service.OrganizationAccess) OrganizationAccessResponse {
 	return OrganizationAccessResponse{
 		PartyID:   access.Organization.PartyID,
 		Name:      access.Organization.Name,
@@ -135,7 +136,7 @@ func permissionsForRole(role string) []string {
 	}
 }
 
-func newOrganizationAccessListResponse(accesses []service.OrganizationAccess) []OrganizationAccessResponse {
+func newOrganizationAccessListResponse(accesses []organization_service.OrganizationAccess) []OrganizationAccessResponse {
 	out := make([]OrganizationAccessResponse, 0, len(accesses))
 	for _, access := range accesses {
 		out = append(out, newOrganizationAccessResponse(access))
