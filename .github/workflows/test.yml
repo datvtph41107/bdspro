@@ -110,7 +110,7 @@ jobs:
         run: go run ./tools/r02audit -root . -contract docs/architecture/r02/routes-r01.json
 
       - name: Benchmark production Gin router
-        run: go test ./routers/api -run '^
+        run: go test ./routers/api -run '^$' -bench '^BenchmarkGinRouting$' -benchmem -count=3
 
       - name: Verify Docker runtime image
         run: |
