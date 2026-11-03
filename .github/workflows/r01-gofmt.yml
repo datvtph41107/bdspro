@@ -1,0 +1,25 @@
+name: One-time R01 gofmt
+on:
+  push:
+    branches: [refactor/gitea-ownership-r01]
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/gitea-ownership-r01
+          persist-credentials: true
+      - name: Format R01 Go source
+        run: |
+          find . -type f -name '*.go' -not -path './.git/*' -print0 | xargs -0 -r gofmt -w
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- '*.go'
+          if ! git diff --cached --quiet; then
+            git commit -m 'style: gofmt R01 source'
+            git push origin HEAD:refactor/gitea-ownership-r01
+          fi
