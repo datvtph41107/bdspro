@@ -176,4 +176,3 @@ func accessLogger() gin.HandlerFunc {
 func (server *Server) Handler() http.Handler {
 	return common.CORS(server.router, server.config.AllowedOrigins)
 }
-
