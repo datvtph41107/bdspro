@@ -13,14 +13,15 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
-	"github.com/datvtph41107/bdspro/routers/api/handler"
+	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
+	"github.com/datvtph41107/bdspro/routers/api/v1/user"
+	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/datvtph41107/bdspro/routers/common"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
-	organization_service "github.com/datvtph41107/bdspro/services/organization"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
@@ -28,10 +29,10 @@ import (
 const apiPrefix = "" // Preserve existing public endpoints; versioning is a separate API contract decision.
 
 type Server struct {
-	authHandler         *handler.AuthHandler
-	organizationHandler *handler.OrganizationHandler
-	googleHandler       *handler.GoogleHandler
-	phoneHandler        *handler.PhoneHandler
+	authHandler         *user.AuthHandler
+	organizationHandler *org.Handler
+	googleHandler       *user.GoogleHandler
+	phoneHandler        *user.PhoneHandler
 	config              setting.Config
 	store               db.Store
 	tokenMaker          token.Maker
@@ -56,18 +57,18 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		authRateRedis: redisClient,
 		authThrottle:  middleware.NewAuthThrottle(redisClient),
 	}
-	server.authHandler = handler.NewAuthHandler(auth_service.NewAuthService(store, maker, cfg), server.authThrottle)
+	server.authHandler = user.NewAuthHandler(auth_service.NewAuthService(store, maker, cfg), server.authThrottle)
 	if len(resetMailers) > 0 {
 		server.authHandler.SetPasswordResetSender(resetMailers[0])
 	}
-	server.organizationHandler = handler.NewOrganizationHandler(organization_service.NewOrganizationService(store))
+	server.organizationHandler = org.NewHandler(store)
 
 	if cfg.GoogleClientID != "" {
 		redirect, err := url.Parse(cfg.GoogleRedirectURI)
 		if err != nil {
 			return nil, fmt.Errorf("parse Google callback URL: %w", err)
 		}
-		server.googleHandler = handler.NewGoogleHandler(
+		server.googleHandler = user.NewGoogleHandler(
 			auth_service.NewGoogleAuthService(store, maker, cfg), cfg, redisClient,
 			&http.Client{Timeout: 10 * time.Second}, redirect.Scheme == "https",
 		)
@@ -99,7 +100,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	}
 	if phoneSender != nil {
 		phone := auth_service.PhoneOTP{Store: store, Config: cfg, Sender: phoneSender}
-		server.phoneHandler = handler.NewPhoneHandler(
+		server.phoneHandler = user.NewPhoneHandler(
 			store, cfg, phoneSender, server.authThrottle,
 		)
 		server.phoneHandler.SetTokenMaker(maker)
@@ -136,7 +137,15 @@ func (server *Server) setupRouter() {
 		middleware.RequestIngress(),
 	)
 
-	server.registerRoutes(router)
+	apiv1.Routes(router, apiv1.Dependencies{
+		Auth: server.authHandler,
+		Organization: server.organizationHandler,
+		Google: server.googleHandler,
+		Phone: server.phoneHandler,
+		TokenMaker: server.tokenMaker,
+		RateRedis: server.authRateRedis,
+		Store: server.store,
+	})
 	server.registerSwagger(router)
 
 	server.router = router

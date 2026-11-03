@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/modules/token"
-	"github.com/datvtph41107/bdspro/routers/api/handler"
+	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
+	"github.com/datvtph41107/bdspro/routers/api/v1/user"
+	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,11 +23,11 @@ func TestOrganizationGroupInheritsAuthentication(t *testing.T) {
 	}
 	server := &Server{
 		tokenMaker:          maker,
-		authHandler:         handler.NewAuthHandler(nil, nil),
-		organizationHandler: handler.NewOrganizationHandler(nil),
+		authHandler:         user.NewAuthHandler(nil, nil),
+		organizationHandler: org.NewHandler(nil),
 	}
 	router := gin.New()
-	server.registerRoutes(router)
+	apiv1.Routes(router, apiv1.Dependencies{Auth:server.authHandler, Organization:server.organizationHandler, TokenMaker:server.tokenMaker, Store:server.store})
 
 	for _, route := range []struct{ method, path string }{
 		{http.MethodGet, "/organizations"},

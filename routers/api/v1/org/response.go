@@ -1,54 +1,12 @@
-package handler
+package org
 
 import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	auth_service "github.com/datvtph41107/bdspro/services/auth"
-	organization_service "github.com/datvtph41107/bdspro/services/organization"
+	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/jackc/pgx/v5/pgtype"
 )
-
-type UserResponse struct {
-	AccountID       int64     `json:"account_id"`
-	Email           string    `json:"email"`
-	CreatedAt       time.Time `json:"created_at"`
-	IsEmailVerified bool      `json:"is_email_verified"`
-}
-
-func newUserResponse(a db.Account) UserResponse {
-	return UserResponse{
-		AccountID:       a.ID,
-		Email:           a.Email,
-		CreatedAt:       a.CreatedAt,
-		IsEmailVerified: a.IsEmailVerified,
-	}
-}
-
-type LoginResponse struct {
-	SessionID             string       `json:"session_id"`
-	AccessToken           string       `json:"access_token"`
-	AccessTokenExpiresAt  time.Time    `json:"access_token_expires_at"`
-	RefreshToken          string       `json:"refresh_token"`
-	RefreshTokenExpiresAt time.Time    `json:"refresh_token_expires_at"`
-	User                  UserResponse `json:"user"`
-}
-
-func newLoginResponse(v auth_service.LoginResult) LoginResponse {
-	return LoginResponse{
-		SessionID:             v.Session.ID.String(),
-		AccessToken:           v.AccessToken,
-		AccessTokenExpiresAt:  v.AccessExpiresAt,
-		RefreshToken:          v.RefreshToken,
-		RefreshTokenExpiresAt: v.RefreshExpiresAt,
-		User:                  newUserResponse(v.Account),
-	}
-}
-
-type RenewAccessTokenResponse struct {
-	AccessToken          string    `json:"access_token"`
-	AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
-}
 
 type OrganizationResponse struct {
 	PartyID   int64     `json:"party_id"`
@@ -109,7 +67,7 @@ type OrganizationAccessResponse struct {
 	Permissions []string                             `json:"permissions"`
 }
 
-func newOrganizationAccessResponse(access organization_service.OrganizationAccess) OrganizationAccessResponse {
+func newOrganizationAccessResponse(access organization_model.Access) OrganizationAccessResponse {
 	return OrganizationAccessResponse{
 		PartyID:   access.Organization.PartyID,
 		Name:      access.Organization.Name,
@@ -136,7 +94,7 @@ func permissionsForRole(role string) []string {
 	}
 }
 
-func newOrganizationAccessListResponse(accesses []organization_service.OrganizationAccess) []OrganizationAccessResponse {
+func newOrganizationAccessListResponse(accesses []organization_model.Access) []OrganizationAccessResponse {
 	out := make([]OrganizationAccessResponse, 0, len(accesses))
 	for _, access := range accesses {
 		out = append(out, newOrganizationAccessResponse(access))
