@@ -17,7 +17,6 @@ type Store interface {
 	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
 	StartPhoneSignup(ctx context.Context, phone string, mac []byte, devCode string) error
 	CompletePhoneSignup(ctx context.Context, phone string, mac []byte) (Account, error)
-	ResetPasswordTx(ctx context.Context, tokenHash []byte, passwordHash string) error
 	BeginEmailLinkTx(ctx context.Context, accountID int64, email string, tokenHash []byte) error
 	ConfirmEmailLinkTx(ctx context.Context, accountID int64, tokenHash []byte) error
 	LinkGoogleIdentity(ctx context.Context, arg LinkGoogleIdentityParams) error

@@ -109,18 +109,30 @@ func TestPasswordResetOnceAndCredentialCreation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	session, err := store.CreateSession(ctx, db.CreateSessionParams{
+		ID: uuid.New(), AccountID: account.ID,
+		RefreshToken: "reset-session-" + uuid.NewString(),
+		UserAgent: "r05-integration", ClientIp: "127.0.0.1",
+		ExpiresAt: time.Now().Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	digest := sha256.Sum256([]byte(uuid.NewString()))
 	if err := store.CreatePasswordResetToken(ctx, db.CreatePasswordResetTokenParams{TokenHash: digest[:], AccountID: account.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.ResetPasswordTx(ctx, digest[:], "replacement-test-hash"); err != nil {
+	if err := account_model.ResetPassword(ctx, store, digest[:], "replacement-test-hash"); err != nil {
 		t.Fatal(err)
 	}
 	hash, err := store.GetPasswordHash(ctx, account.ID)
 	if err != nil || hash != "replacement-test-hash" {
 		t.Fatalf("reset did not persist credential: hash=%q err=%v", hash, err)
 	}
-	if err := store.ResetPasswordTx(ctx, digest[:], "third-test-hash"); !errors.Is(err, db.ErrPasswordResetInvalid) {
+	if _, err := store.GetSession(ctx, session.ID); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("reset must revoke refresh session; got %v", err)
+	}
+	if err := account_model.ResetPassword(ctx, store, digest[:], "third-test-hash"); !errors.Is(err, account_model.ErrPasswordResetInvalid) {
 		t.Fatalf("reset token replay: %v", err)
 	}
 }
