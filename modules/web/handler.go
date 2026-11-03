@@ -17,6 +17,7 @@ type middlewareProvider = func(http.Handler) http.Handler
 var (
 	providersMu        sync.RWMutex
 	providers          = map[reflect.Type]func(*http.Request) types.ResponseStatusProvider{}
+	typedHandlers      = map[reflect.Type]func(any) middlewareProvider{}
 	httpRequestType    = reflect.TypeFor[*http.Request]()
 	responseWriterType = reflect.TypeFor[http.ResponseWriter]()
 )
@@ -35,6 +36,20 @@ func RegisterResponseStatusProvider[T types.ResponseStatusProvider](resolve func
 		panic("web: duplicate status provider: " + key.String())
 	}
 	providers[key] = func(r *http.Request) types.ResponseStatusProvider { return resolve(r) }
+	// Compile the common func(T) dispatch once. Typed APIContext handlers
+	// use no reflect.Call or dynamic argument allocations on the hot path.
+	typedHandlers[reflect.TypeFor[func(T)]()] = func(handler any) middlewareProvider {
+		fn := handler.(func(T))
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ctx := resolve(r)
+				fn(ctx)
+				if next != nil && ctx.WrittenStatus() == 0 {
+					next.ServeHTTP(w, r)
+				}
+			})
+		}
+	}
 }
 
 func providerFor(t reflect.Type) (func(*http.Request) types.ResponseStatusProvider, bool) {
@@ -53,12 +68,37 @@ func toHandlerProvider(h any) middlewareProvider {
 		return fn
 	case func(http.Handler) http.HandlerFunc:
 		return func(next http.Handler) http.Handler { return fn(next) }
+	case func(http.ResponseWriter, *http.Request):
+		return func(next http.Handler) http.Handler {
+			// An endpoint with no successor needs no status wrapper. This
+			// is native net/http dispatch on top of chi's route match.
+			if next == nil {
+				return http.HandlerFunc(fn)
+			}
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				status, ok := w.(types.ResponseStatusProvider)
+				if !ok {
+					tracked := &statusWriter{ResponseWriter: w}
+					w, status = tracked, tracked
+				}
+				fn(w, r)
+				if status.WrittenStatus() == 0 {
+					next.ServeHTTP(w, r)
+				}
+			})
+		}
 	}
 
 	value := reflect.ValueOf(h)
 	typ := value.Type()
 	if typ.Kind() != reflect.Func || value.IsNil() {
 		panic(fmt.Sprintf("web: expected handler function; got %T", h))
+	}
+	providersMu.RLock()
+	factory := typedHandlers[typ]
+	providersMu.RUnlock()
+	if factory != nil {
+		return factory(h)
 	}
 	if typ.NumOut() != 0 {
 		panic(fmt.Sprintf("web: handler cannot return values: %s", typ))
@@ -193,7 +233,7 @@ func adaptHandlers(groupMiddleware, afterRouting, endpoints []any) http.HandlerF
 		providers[i] = toHandlerProvider(m)
 	}
 	// Middleware composition is performed at registration, not on every request.
-	var chain http.Handler = http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+	var chain http.Handler
 	for i := len(providers) - 1; i >= 0; i-- {
 		chain = providers[i](chain)
 	}
