@@ -26,9 +26,8 @@ func PrepareConsoleLoggerLevel(level log.Level) func(context.Context, *cli.Comma
 }
 
 func loadSettings(command *cli.Command) (setting.Config, error) {
-	paths, err := setting.ResolvePaths(setting.PathOptions{Config:command.Root().String("config"), WorkPath:command.Root().String("work-path")})
-	if err != nil { return setting.Config{}, fmt.Errorf("resolve config path: %w", err) }
-	filename := paths.ConfigFile
+	filename, err := resolveConfigFile(command)
+	if err != nil { return setting.Config{}, err }
 	log.Info("Using configuration file: %s", filename)
 	cfg, err := setting.LoadConfig(filename)
 	if err != nil {
@@ -48,4 +47,13 @@ func isValidDefaultSubCommand(command *cli.Command) (string, bool) {
 		return command.Args().First(), false
 	}
 	return "", true
+}
+
+func resolveConfigFile(command *cli.Command) (string, error) {
+    paths, err := setting.ResolvePaths(setting.PathOptions{
+        Config:command.Root().String("config"),
+        WorkPath:command.Root().String("work-path"),
+    })
+    if err != nil {return "",fmt.Errorf("resolve config path: %w",err)}
+    return paths.ConfigFile,nil
 }

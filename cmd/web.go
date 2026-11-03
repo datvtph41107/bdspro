@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -12,9 +11,6 @@ import (
 	redisconn "github.com/datvtph41107/bdspro/modules/redis"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers"
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/urfave/cli/v3"
 )
 
@@ -45,9 +41,9 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 	log.Info("PostgreSQL connected")
 
 	if cfg.Environment == "development" {
-		if err := runDBMigration(cfg.MigrationURL, cfg.DBSource); err != nil {
-			return err
-		}
+		changed, err := db.MigrateUp(cfg.MigrationURL, cfg.DBSource, 0)
+        if err != nil { return err }
+        if changed { log.Info("Migration status: applied") } else { log.Info("Migration status: no_change") }
 	} else {
 		log.Info("Database migrations are managed externally")
 	}
@@ -67,20 +63,3 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 	})
 }
 
-func runDBMigration(url, source string) error {
-	m, err := migrate.New(url, source)
-	if err != nil {
-		return fmt.Errorf("open database migrations: %w", err)
-	}
-	defer m.Close()
-	err = m.Up()
-	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return fmt.Errorf("apply database migrations: %w", err)
-	}
-	if errors.Is(err, migrate.ErrNoChange) {
-		log.Info("Migration status: no_change")
-	} else {
-		log.Info("Migration status: applied")
-	}
-	return nil
-}

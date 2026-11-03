@@ -1,4 +1,3 @@
-DB_URL ?= postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
@@ -13,17 +12,17 @@ redis:
 createdb:
 	docker exec $(POSTGRES_CONTAINER) createdb --username=root --owner=root $(DB_NAME)
 
-migrateup:
-	migrate -path db/migration -database "$(DB_URL)" -verbose up
+migrateup: config-local
+	go run . --config "$(CONFIG)" migrate
 
-migrateup1:
-	migrate -path db/migration -database "$(DB_URL)" -verbose up 1
+migrateup1: config-local
+	go run . --config "$(CONFIG)" migrate --steps 1
 
-migratedown:
-	migrate -path db/migration -database "$(DB_URL)" -verbose down
+migratedown: config-local
+	go run . --config "$(CONFIG)" migrate --down
 
-migratedown1:
-	migrate -path db/migration -database "$(DB_URL)" -verbose down 1
+migratedown1: config-local
+	go run . --config "$(CONFIG)" migrate --down --steps 1
 
 new_migration:
 	migrate create -ext sql -dir db/migration -seq $(name)
