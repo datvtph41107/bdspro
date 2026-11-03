@@ -17,3 +17,8 @@ Read:
 
 The route inventory contains 34 method/path pairs from `routers/api/routes.go` and `routers/api/swagger.go`. It includes conditional routes, so it is a **superset** of routes registered for a given configuration. Route group inheritance and runtime responses are not established by this file. The audit tool verifies source-level method/path drift during R01 stabilization:
 
+```sh
+go run ./tools/r02audit -root . -contract docs/architecture/r02/routes-r01.json
+```
+
+The tool is **temporary and Gin/R01-specific**; replace its source extractor with a runtime route inventory or new Chi extractor at R02-08, preserving `routes-r01.json` as the immutable historical contract. Never silently delete this contract to get a green test.

@@ -28,3 +28,24 @@
 
 ## Local verification already performed in the source workspace
 
+```
+go test -race ./modules/reqctx ./services/context ./modules/structs
+go test -race modules/web/handler.go modules/web/handler_test.go
+go vet ./modules/reqctx ./services/context
+```
+
+A separate smoke harness with **synthetic stubs**, not real Chi/pgx, passed `go test -race` and `go vet` for the added packages. This verifies syntax and the assembled interfaces but is not a full real-dependency build and is not valid runtime/performance evidence.
+
+## Mandatory acceptance before merge or cutover
+
+1. Apply to exact R01 SHA; use Go 1.27.3 and real `github.com/go-chi/chi/v5@v5.5.0`, pgx and SQLC dependencies.
+2. `go mod tidy`, `go test ./...`, `go vet ./...`, `go test -race ./...`, `go build ./...`.
+3. `sqlc generate && git diff --exit-code -- models/db`.
+4. Configure a **disposable** `bdspro_test` and explicitly run the PostgreSQL integration suite, checking it did not skip.
+5. Compare each method/path, headers, status, JSON/error codes from the 34-route R01 inventory.
+6. Compare middleware order, authentication, verified contact, 404/405, CORS, request ID, cancellation, Redis outage and response short-circuiting under real Chi.
+7. Run DB/HTTP performance baseline and assess allocations and SQL calls; no performance claims from fake-dependency smoke tests.
+8. Migrate the remaining 28 endpoints to `routers/api/v1/<resource>` with exact contracts and tests **before** removing Gin. Remove old mappings/services only after all uses are gone.
+9. Verify `cmd`/worker, queue/outbox retry, templates/OpenAPI, Docker/CI and graceful shutdown without deleting or weakening existing tests.
+
+**Acceptance status: NOT READY TO MERGE.** R02 foundations and one vertical slice candidate are implemented locally; the full R02 plan is not finished or verified.

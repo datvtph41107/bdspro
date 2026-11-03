@@ -46,4 +46,3 @@ Gitea's own guidelines:
 - Moving authentication/account flows into `models/db` solely to share a large `Store` interface.
 - Opening a GORM transaction inside a SQLC pgx transaction, assuming they share atomicity.
 - Removing tests or rewriting HTTP statuses just to make a directory change compile.
-

@@ -52,4 +52,3 @@ Stop promotion to the next PR when:
 ## Explicit exclusions
 
 New business domains such as CRM, assets, deals and finance are **not** part of the mechanical R02 runtime migration. Their operations will use the R02 conventions once the reference workflows are accepted. New GORM usage is also excluded until a concrete query demonstrates need and correctness.
-
