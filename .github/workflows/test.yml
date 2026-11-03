@@ -2,9 +2,9 @@ name: Run unit tests
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, refactor/gitea-ownership-r01]
   pull_request:
-    branches: [dev]
+    branches: [dev, refactor/gitea-runtime-r00]
 
 jobs:
   test:
@@ -62,7 +62,7 @@ jobs:
           PGPASSWORD: secret
         run: |
           psql -h 127.0.0.1 -U root -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE bdspro_test'
-          DB_URL='postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable' make migrateup
+          BDS__DATABASE__DB_SOURCE='postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable' make migrateup
 
       - name: Test upgrading existing accounts and outbox records
         env:
@@ -180,6 +180,9 @@ jobs:
           go test -race ./...
           go vet ./...
           go build ./...
+          make build
+          test -x bin/bdspro
+          ./bin/bdspro migrate --help
 
       - name: HTTP runtime smoke test
         run: |
