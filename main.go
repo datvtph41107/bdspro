@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/datvtph41107/bdspro/internal/api"
-	"github.com/datvtph41107/bdspro/internal/config"
-	db "github.com/datvtph41107/bdspro/internal/database"
-	"github.com/datvtph41107/bdspro/internal/mail"
-	"github.com/datvtph41107/bdspro/internal/util"
-	"github.com/datvtph41107/bdspro/internal/worker"
+	"github.com/datvtph41107/bdspro/routers/api"
+	"github.com/datvtph41107/bdspro/modules/setting"
+	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/services/mail"
+	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/services/worker"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-migrate/migrate/v4"
@@ -43,7 +43,7 @@ func main() {
 func run(ctx context.Context) error {
 	startedAt := time.Now()
 
-	cfg, err := config.LoadConfig(".")
+	cfg, err := setting.LoadConfig(".")
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}

@@ -51,11 +51,11 @@ jobs:
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
           "$(go env GOPATH)/bin/sqlc" generate
-          git diff --exit-code -- internal/database
-          test -z "$(git ls-files --others --exclude-standard internal/database)"
+          git diff --exit-code -- models/db
+          test -z "$(git ls-files --others --exclude-standard models/db)"
 
       - name: Verify OpenAPI contract
-        run: go test ./internal/api -run TestOpenAPICoverage -count=1
+        run: go test ./routers/api -run TestOpenAPICoverage -count=1
 
       - name: Migrate disposable test database
         env:
