@@ -14,7 +14,6 @@ type Store interface {
 	GetAccountByEmail(ctx context.Context, email string) (Account, error)
 	ExecTx(ctx context.Context, fn func(*Queries) error) error
 	GetOrCreateVerifyEmailTx(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
-	VerifyEmailTx(ctx context.Context, arg ConsumeVerifyEmailParams) (Account, error)
 	StartPhoneSignup(ctx context.Context, phone string, mac []byte, devCode string) error
 	CompletePhoneSignup(ctx context.Context, phone string, mac []byte) (Account, error)
 	BeginEmailLinkTx(ctx context.Context, accountID int64, email string, tokenHash []byte) error

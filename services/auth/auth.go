@@ -110,7 +110,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, emailID int64, secretCode string) error {
-	_, err := s.store.VerifyEmailTx(ctx, db.ConsumeVerifyEmailParams{
+	_, err := account_model.VerifyEmail(ctx, s.store, db.ConsumeVerifyEmailParams{
 		ID: emailID, SecretCode: secretCode,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
