@@ -55,7 +55,7 @@ func TestEmailLinkModelAtomicity(t *testing.T) {
 		t.Fatal(err)
 	}
 	alreadyTaken, err := account_model.Register(ctx, store, account_model.RegisterParams{
-		Email: uuid.NewString() + "@example.test",
+		Email:        uuid.NewString() + "@example.test",
 		PasswordHash: "test-only",
 	})
 	if err != nil {
