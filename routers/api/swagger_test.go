@@ -19,7 +19,7 @@ func TestSwaggerAssetsDevelopmentOnly(t *testing.T) {
 		fragment string
 	}{
 		{"development", "/swagger/openapi.json", http.StatusOK, `"openapi": "3.0.3"`},
-		{"development", "/swagger/index.html", http.StatusOK, "Swagger UI"},
+		{"development", "/swagger/", http.StatusOK, "Swagger UI"},
 		{"production", "/swagger/openapi.json", http.StatusNotFound, ""},
 	}
 	for _, tc := range cases {
