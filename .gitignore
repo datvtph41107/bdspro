@@ -6,3 +6,5 @@ coverage.out
 /data/
 /docker/app.local.ini
 /custom/conf/app.ini
+/bin/
+/.air/

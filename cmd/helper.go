@@ -26,7 +26,10 @@ func PrepareConsoleLoggerLevel(level log.Level) func(context.Context, *cli.Comma
 }
 
 func loadSettings(command *cli.Command) (setting.Config, error) {
-	filename := command.Root().String("config")
+	paths, err := setting.ResolvePaths(setting.PathOptions{Config:command.Root().String("config"), WorkPath:command.Root().String("work-path")})
+	if err != nil { return setting.Config{}, fmt.Errorf("resolve config path: %w", err) }
+	filename := paths.ConfigFile
+	log.Info("Using configuration file: %s", filename)
 	cfg, err := setting.LoadConfig(filename)
 	if err != nil {
 		return cfg, fmt.Errorf("load config %q: %w", filename, err)

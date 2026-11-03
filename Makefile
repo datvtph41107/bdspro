@@ -50,3 +50,17 @@ worker: config-local
 swagger:
 	swag init -g main.go --parseInternal -o doc/swagger --outputTypes json
 	statik -src=./doc/swagger -dest=./doc
+# Same application binary as Docker, but written to a local, ignored build directory.
+.PHONY: build watch race vet
+build:
+	@mkdir -p bin
+	go build -o bin/bdspro .
+
+watch: config-local
+	go run github.com/air-verse/air@v1.67.4 -c .air.toml
+
+race:
+	go test -race ./...
+
+vet:
+	go vet ./...

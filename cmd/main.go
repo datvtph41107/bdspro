@@ -17,7 +17,8 @@ func NewMainApp(appVer AppVersion) *cli.Command {
 	app.Version = appVer.Version + appVer.Extra
 	app.EnableShellCompletion = true
 	app.Flags = []cli.Flag{
-		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Value: "custom/conf/app.ini", Usage: "Application app.ini path"},
+        &cli.StringFlag{Name: "work-path", Usage: "Absolute application working directory"},
+		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Value: "", Usage: "Application app.ini path (default: {work-path}/custom/conf/app.ini)"},
 	}
 	webCmd := newWebCommand()
 	subCmdWithConfig := []*cli.Command{webCmd, newWorkerCommand()}
