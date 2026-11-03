@@ -36,16 +36,15 @@ func (s *organizationStoreFake) AddOrganizationMember(_ context.Context, _ db.Ad
 
 func TestOrganizationUpdateValidatesAndCarriesActor(t *testing.T) {
 	store := &organizationStoreFake{}
-	service := NewOrganizationService(store)
 	ctx := context.Background()
 
-	if _, err := service.Update(ctx, 11, 23, "  "); !errors.Is(err, apperrors.NameRequired) {
+	if _, err := UpdateOrganization(ctx, store, 11, 23, "  "); !errors.Is(err, apperrors.NameRequired) {
 		t.Fatalf("blank name: %v", err)
 	}
 	if store.updateCalls != 0 {
 		t.Fatal("invalid request reached database")
 	}
-	updated, err := service.Update(ctx, 11, 23, "  New name  ")
+	updated, err := UpdateOrganization(ctx, store, 11, 23, "  New name  ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,15 +54,14 @@ func TestOrganizationUpdateValidatesAndCarriesActor(t *testing.T) {
 	}
 
 	store.updateErr = pgx.ErrNoRows
-	if _, err := service.Update(ctx, 11, 23, "Denied"); !errors.Is(err, apperrors.OrganizationOwnerRequired) {
+	if _, err := UpdateOrganization(ctx, store, 11, 23, "Denied"); !errors.Is(err, apperrors.OrganizationOwnerRequired) {
 		t.Fatalf("SQL owner denial must map to forbidden: %v", err)
 	}
 }
 
 func TestOrganizationMemberDeniedBySQL(t *testing.T) {
 	store := &organizationStoreFake{memberErr: pgx.ErrNoRows}
-	service := NewOrganizationService(store)
-	if _, err := service.AddMember(context.Background(), 11, 23, 31); !errors.Is(err, apperrors.OrganizationOwnerRequired) {
+	if _, err := AddOrgUser(context.Background(), store, 11, 23, 31); !errors.Is(err, apperrors.OrganizationOwnerRequired) {
 		t.Fatalf("non-owner must be denied: %v", err)
 	}
 }
@@ -94,22 +92,21 @@ func (s *organizationCreateStoreFake) ExecTx(_ context.Context, _ func(*db.Queri
 // in organization_create_integration_test.go.
 func TestOrganizationCreateValidatesBeforeTransaction(t *testing.T) {
 	store := &organizationCreateStoreFake{}
-	svc := NewOrganizationService(store)
 
-	_, err := svc.Create(context.Background(), 11, "  ")
+	_, err := CreateOrganization(context.Background(), store, 11, "  ")
 	if !errors.Is(err, apperrors.NameRequired) || store.txCalls != 0 {
 		t.Fatalf("blank organization name opened transaction: %v", err)
 	}
 
 	store.accountErr = pgx.ErrNoRows
-	_, err = svc.Create(context.Background(), 99, "Example Company")
+	_, err = CreateOrganization(context.Background(), store, 99, "Example Company")
 	if !errors.Is(err, apperrors.AccountUnavailable) || store.txCalls != 0 {
 		t.Fatalf("missing account opened transaction: %v", err)
 	}
 
 	store.accountErr = nil
 	store.txErr = errors.New("transaction failed")
-	_, err = svc.Create(context.Background(), 11, "  Example Company  ")
+	_, err = CreateOrganization(context.Background(), store, 11, "  Example Company  ")
 	if !errors.Is(err, store.txErr) || store.txCalls != 1 || store.queriedAccount != 11 {
 		t.Fatalf("transaction error not propagated: calls=%d actor=%d err=%v", store.txCalls, store.queriedAccount, err)
 	}

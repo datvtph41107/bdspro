@@ -65,8 +65,7 @@ func TestOrganizationCreateWorkflowPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := NewOrganizationService(store)
-	created, err := svc.Create(ctx, account.ID, "  Workflow owner  ")
+	created, err := CreateOrganization(ctx, store, account.ID, "  Workflow owner  ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,8 +81,8 @@ func TestOrganizationCreateWorkflowPostgres(t *testing.T) {
 	}
 
 	failedName := "Rollback " + uuid.NewString()
-	invalidOwner := NewOrganizationService(organizationInvalidOwnerStore{Store: store})
-	_, err = invalidOwner.Create(ctx, account.ID, failedName)
+	invalidOwner := organizationInvalidOwnerStore{Store: store}
+	_, err = CreateOrganization(ctx, invalidOwner, account.ID, failedName)
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Code != "23503" ||
 		pgErr.ConstraintName != "organization_members_person_id_fkey" {
