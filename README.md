@@ -3,7 +3,7 @@
 Go/Gin REST monolith. PostgreSQL 18 with SQLC/pgxpool, Redis and Asynq.
 One entry point (`main.go`), no gRPC, gRPC-Gateway or custom route registry.
 
-## Source ownership (R00, Gitea-inspired)
+## Source ownership (R01, responsibility-driven, Gitea-inspired)
 
 ```text
 main.go                        process entry, build information and exit hook
@@ -23,7 +23,7 @@ db/{migration,query}/           canonical SQL and migration history
 docker/root/etc/templates/      app.ini for first-time container setup
 ```
 
-One binary has `web` and `worker` runtimes. No `internal/` tree remains. Migration remains owned by golang-migrate and `make migrateup`. SQLC remains the database access implementation; no ORM or schema ownership change is implied.
+One binary has `web` and `worker` runtimes. No `internal/` tree remains. Migration remains owned by versioned SQL and golang-migrate, invoked through the BDSPro migration command. SQLC remains the database access implementation; no ORM or schema ownership change is implied.
 
 ## Development
 
@@ -46,9 +46,65 @@ go test ./...
 go test -race ./...
 ```
 
-Make targets `server` and `worker` choose the local config path but never inject DB/Redis/SMTP addresses. Edit `custom/conf/app.ini` for local connection settings. `make migrateup` remains a separate golang-migrate CLI operation using `DB_URL`, and therefore does **not yet** share the application config loader; pass an explicit `DB_URL` to avoid targeting an unexpected database. Do not silently pretend these are one mechanism.
+Make targets `server` and `worker` choose the local config path but never inject DB/Redis/SMTP addresses. Edit `custom/conf/app.ini` for local connection settings. `make migrateup` now uses `bdspro migrate` and the same INI database target as web and worker. This resolves the previous `DB_URL`/`DB_SOURCE` drift.
 
 Use `docker compose up --build` for PostgreSQL, Redis, Mailpit, web and worker. HTTP no longer starts the task processor; asynchronous email requires a running worker. In development the web runtime keeps the existing automatic migration behavior; run schema migrations before standalone workers in other environments.
+
+
+
+## R01: developer workflow and module boundaries
+
+```text
+main.go                     one binary entry point
+cmd/                        web, worker, migrate and shared command preparation
+models/db/                  pgx connection, SQLC, transaction and SQL migration ownership
+modules/setting/            config path resolution, INI provider and typed settings
+modules/log/                console/file sinks and safe structured diagnostics
+modules/redis/              Redis connectivity used by security and workers
+modules/{token,errors,util}/ concrete reusable technical mechanisms
+routers/init.go             HTTP initialization, provider wiring
+routers/common/             HTTP protocol middleware (request ID, CORS)
+routers/api/                REST endpoint declarations, API middleware/response/handlers
+services/auth/              account, email, Google, phone and sessions operations
+services/organization/      organization membership and access rules
+services/{worker,jobs,mail,notification}/ asynchronous execution and delivery
+templates/auth/             embedded, safely escaped account HTML forms
+db/migration/               canonical schema history, NOT GORM AutoMigrate
+db/query/                   canonical SQLC query definitions
+custom/conf/                local configuration example and ignored runtime app.ini
+docker/                     deployment image template and runtime setup
+bin/                        ignored local executable from make build
+.air/                       ignored watcher scratch directory
+```
+
+The folders `routers/web`, `routers/private`, `modules/private`,
+`models/issues`, `services/actions`, `options`, `web_src` and `tests/`
+exist in Gitea because Gitea has distinct web/internal-HTTP transports, Git
+repositories/issues/actions, static options, a frontend build, and system-level
+test fixtures. BDSPro does not yet have those contracts; empty copies are not
+architecture. New top-level folders require a concrete consumer and invariant.
+
+`make config-local` copies an example only if missing. `make server`,
+`make worker` and `make migrateup` use the same `CONFIG` file and
+`modules/setting` provider. `make migrateup1` and `make migratedown1`
+also use the same database source; `migratedown` is restricted to
+`RUN_MODE=development`. The `migrate` CLI command loads only database
+settings, not HTTP/JWT/Redis.
+
+Run `make build` to produce `bin/bdspro`. Run `make watch` to use Air
+(`.air.toml`, requires the Go toolchain and network/cached Air CLI). The
+watcher runs the HTTP API; run `make worker` in a second terminal. Docker
+builds its own binary in the image and does not depend on local `bin/`.
+
+Logging does not create a repository `logs/` source directory: console logs
+stream to stderr; if file mode is selected, its configured `ROOT_PATH`
+must exist. Docker setup prepares `/data/bdspro/log`; local file mode
+requires creating `data/log` (and ensuring it is writable). Log files,
+generated binaries, and runtime secrets must never be tracked.
+
+Do not change the URL prefix, auth guards, SQLC schema, error codes, or
+transaction boundaries during this source-ownership refactor. More domain
+models and tools come only after they have actual work to own.
 
 ## HTTP contract
 

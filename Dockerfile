@@ -16,5 +16,5 @@ COPY db/migration ./db/migration
 RUN chmod +x /app/wait-for.sh /app/setup
 
 EXPOSE 8080
-CMD ["/app/main"]
+CMD ["/app/main", "--config", "/data/bdspro/conf/app.ini", "web"]
 ENTRYPOINT ["/app/setup"]
