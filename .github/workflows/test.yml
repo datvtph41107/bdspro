@@ -106,6 +106,9 @@ jobs:
           test -x bin/bdspro
           ./bin/bdspro migrate --help
 
+      - name: Compare HTTP routing overhead
+        run: go test ./modules/web -run '^$' -bench '^(BenchmarkRouterCompare|BenchmarkTypedHandler)$' -benchmem -count=3
+
       - name: Verify Docker runtime image
         run: |
           sh -n docker/setup

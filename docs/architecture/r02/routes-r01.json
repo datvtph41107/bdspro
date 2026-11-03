@@ -1,0 +1,193 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "e1c3085321a26ee244809be80977155b2a10df1d",
+  "api_prefix": "",
+  "notes": [
+    "Legacy Gin route declarations from routers/api/routes.go and swagger.go.",
+    "Access and condition labels are reviewed annotations, not inferred/tested by the static extractor.",
+    "No guarantee about status, headers, JSON, middleware order or DB behavior; these require HTTP integration tests."
+  ],
+  "routes": [
+    {
+      "method": "DELETE",
+      "path": "/users/me/sessions/:id",
+      "access": "authenticated"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "access": "public"
+    },
+    {
+      "method": "GET",
+      "path": "/organizations",
+      "access": "verified_contact"
+    },
+    {
+      "method": "GET",
+      "path": "/organizations/:id",
+      "access": "verified_contact"
+    },
+    {
+      "method": "GET",
+      "path": "/organizations/:id/members",
+      "access": "verified_contact"
+    },
+    {
+      "method": "GET",
+      "path": "/swagger/*filepath",
+      "access": "public",
+      "condition": "development_only"
+    },
+    {
+      "method": "GET",
+      "path": "/users/google/callback",
+      "access": "public",
+      "condition": "google_enabled"
+    },
+    {
+      "method": "GET",
+      "path": "/users/google/login/start",
+      "access": "public",
+      "condition": "google_enabled"
+    },
+    {
+      "method": "GET",
+      "path": "/users/me",
+      "access": "authenticated"
+    },
+    {
+      "method": "GET",
+      "path": "/users/me/sessions",
+      "access": "authenticated"
+    },
+    {
+      "method": "GET",
+      "path": "/users/password/reset",
+      "access": "public"
+    },
+    {
+      "method": "GET",
+      "path": "/users/verify_email",
+      "access": "public"
+    },
+    {
+      "method": "PATCH",
+      "path": "/organizations/:id",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/organizations",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/organizations/:id/members",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/tokens/renew_access",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/tokens/revoke",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/users",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/users/login",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/email/start",
+      "access": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/email/verify",
+      "access": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/google/start",
+      "access": "authenticated",
+      "condition": "google_enabled"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/phone/google/start",
+      "access": "verified_email",
+      "condition": "google_and_phone_enabled"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/phone/start",
+      "access": "verified_email",
+      "condition": "phone_enabled"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/phone/verify",
+      "access": "verified_email",
+      "condition": "phone_enabled"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/sessions/revoke_all",
+      "access": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/users/password/reset",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/users/password/reset/request",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/users/phone/login/start",
+      "access": "public",
+      "condition": "phone_enabled"
+    },
+    {
+      "method": "POST",
+      "path": "/users/phone/login/verify",
+      "access": "public",
+      "condition": "phone_enabled"
+    },
+    {
+      "method": "POST",
+      "path": "/users/phone/register/start",
+      "access": "public",
+      "condition": "phone_enabled"
+    },
+    {
+      "method": "POST",
+      "path": "/users/phone/register/verify",
+      "access": "public",
+      "condition": "phone_enabled"
+    },
+    {
+      "method": "POST",
+      "path": "/users/verify_email",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/users/verify_email/resend",
+      "access": "public"
+    }
+  ]
+}
