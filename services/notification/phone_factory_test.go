@@ -10,9 +10,9 @@ import (
 
 func TestNewPhoneCodeSenderPolicy(t *testing.T) {
 	tests := []struct {
-		name string
-		cfg setting.Config
-		wantKind string
+		name      string
+		cfg       setting.Config
+		wantKind  string
 		wantError string
 	}{
 		{name: "development is local", cfg: setting.Config{Environment: "development", PhoneDelivery: "sms"}, wantKind: "local"},
