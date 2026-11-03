@@ -160,16 +160,11 @@ jobs:
             exit 1
           fi
 
-      - name: Verify Swagger and Statik generation
+      - name: Verify embedded OpenAPI contract and UI
         run: |
-          go install github.com/swaggo/swag/cmd/swag@v1.16.6
-          go install github.com/rakyll/statik@v0.1.8
-          export PATH="$(go env GOPATH)/bin:$PATH"
-          make swagger
-          test -s doc/swagger/swagger.json
-          test -s doc/statik/statik.go
-          python3 -c 'import json; assert json.load(open("doc/swagger/swagger.json"))["swagger"] == "2.0"'
-          git diff --exit-code -- doc/swagger/openapi.json
+          make swagger-check
+          python3 -c 'import json; assert json.load(open("templates/swagger/openapi.json"))["openapi"] == "3.0.3"'
+          git diff --exit-code -- templates/swagger/openapi.json
 
       - name: Test and compile
         env:

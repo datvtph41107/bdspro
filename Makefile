@@ -46,9 +46,14 @@ server: config-local
 worker: config-local
 	go run . --config "$(CONFIG)" worker
 
-swagger:
-	swag init -g main.go --parseInternal -o doc/swagger --outputTypes json
-	statik -src=./doc/swagger -dest=./doc
+# Reviewed OpenAPI 3 contract is served from templates/swagger/openapi.json.
+# The previous swag init output was not consumed by runtime, and Statik was unused.
+.PHONY: swagger swagger-check
+swagger: swagger-check
+
+swagger-check:
+	go test ./routers/api -run '^TestOpenAPICoverage$$|^TestSwaggerAssetsDevelopmentOnly$$' -count=1
+
 # Same application binary as Docker, but written to a local, ignored build directory.
 .PHONY: build watch race vet
 build:

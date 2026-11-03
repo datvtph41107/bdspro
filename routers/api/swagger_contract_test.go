@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	assets "github.com/datvtph41107/bdspro/doc"
+	"github.com/datvtph41107/bdspro/templates"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api/handler"
 	"github.com/gin-gonic/gin"
@@ -15,7 +15,7 @@ import (
 // The OpenAPI contract must cover every registered Gin route, including
 // optionally enabled provider endpoints; it must not invent unimplemented paths.
 func TestOpenAPICoverage(t *testing.T) {
-	raw, err := assets.Swagger.ReadFile("swagger/openapi.json")
+	raw, err := templates.Swagger.ReadFile("swagger/openapi.json")
 	if err != nil {
 		t.Fatal(err)
 	}

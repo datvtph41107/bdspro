@@ -4,7 +4,7 @@ import (
 	"io/fs"
 	"net/http"
 
-	assets "github.com/datvtph41107/bdspro/doc"
+	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,7 +13,7 @@ func (server *Server) registerSwagger(router *gin.Engine) {
 	if server.config.Environment != "development" {
 		return
 	}
-	swaggerFS, err := fs.Sub(assets.Swagger, "swagger")
+	swaggerFS, err := fs.Sub(templates.Swagger, "swagger")
 	if err != nil {
 		panic(err)
 	}
