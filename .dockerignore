@@ -6,3 +6,6 @@
 docs
 README.md
 /data
+/custom/conf/app.ini
+/bin/
+/.air/

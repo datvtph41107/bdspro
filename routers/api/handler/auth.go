@@ -1,13 +1,13 @@
 package handler
 
 import (
-	"html/template"
 	"net/http"
 	"strconv"
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	"github.com/datvtph41107/bdspro/templates"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/mail"
@@ -91,9 +91,7 @@ func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
 	c.Header("Referrer-Policy", "no-referrer")
 	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
 	c.Header("Content-Type", "text/html; charset=utf-8")
-	const confirmation = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Verify email</title></head><body><h1>Verify your email</h1><form method="post" action="/users/verify_email"><input type="hidden" name="email_id" value="{{.EmailID}}"><input type="hidden" name="secret_code" value="{{.SecretCode}}"><button type="submit">Confirm email</button></form></body></html>`
-	page := template.Must(template.New("verify").Parse(confirmation))
-	_ = page.Execute(c.Writer, req)
+	_ = templates.VerifyEmailPage.Execute(c.Writer, req)
 }
 
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
@@ -178,13 +176,11 @@ func (h *AuthHandler) PasswordResetPage(c *gin.Context) {
 		response.Reject(c, http.StatusBadRequest, "invalid_reset_token", "invalid or expired reset token")
 		return
 	}
-	const page = `<!doctype html><html><head><meta charset="utf-8"><title>Reset password</title></head><body><form method="post" action="/users/password/reset"><input type="hidden" name="token" value="{{.}}"><input type="password" name="password" minlength="8" required><button type="submit">Set password</button></form></body></html>`
-	c.Header("Cache-Control", "no-store")
-	c.Header("Referrer-Policy", "no-referrer")
-	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	tmpl := template.Must(template.New("reset").Parse(page))
-	_ = tmpl.Execute(c.Writer, token)
+    c.Header("Cache-Control", "no-store")
+    c.Header("Referrer-Policy", "no-referrer")
+    c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
+    c.Header("Content-Type", "text/html; charset=utf-8")
+    _ = templates.PasswordResetPage.Execute(c.Writer, token)
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
