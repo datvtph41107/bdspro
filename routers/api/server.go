@@ -138,13 +138,13 @@ func (server *Server) setupRouter() {
 	)
 
 	apiv1.Routes(router, apiv1.Dependencies{
-		Auth: server.authHandler,
+		Auth:         server.authHandler,
 		Organization: server.organizationHandler,
-		Google: server.googleHandler,
-		Phone: server.phoneHandler,
-		TokenMaker: server.tokenMaker,
-		RateRedis: server.authRateRedis,
-		Store: server.store,
+		Google:       server.googleHandler,
+		Phone:        server.phoneHandler,
+		TokenMaker:  server.tokenMaker,
+		RateRedis:   server.authRateRedis,
+		Store:       server.store,
 	})
 	server.registerSwagger(router)
 

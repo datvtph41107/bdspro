@@ -27,7 +27,7 @@ func TestOrganizationGroupInheritsAuthentication(t *testing.T) {
 		organizationHandler: org.NewHandler(nil),
 	}
 	router := gin.New()
-	apiv1.Routes(router, apiv1.Dependencies{Auth:server.authHandler, Organization:server.organizationHandler, TokenMaker:server.tokenMaker, Store:server.store})
+	apiv1.Routes(router, apiv1.Dependencies{Auth: server.authHandler, Organization: server.organizationHandler, TokenMaker: server.tokenMaker, Store: server.store})
 
 	for _, route := range []struct{ method, path string }{
 		{http.MethodGet, "/organizations"},

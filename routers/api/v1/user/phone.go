@@ -1,6 +1,8 @@
 package user
 
 import (
+	"github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/services/convert"
 	"net/http"
 	"time"
 
@@ -35,7 +37,7 @@ func NewPhoneHandler(
 }
 
 func (h *PhoneHandler) StartBind(c *gin.Context) {
-	var req PhoneBindRequest
+	var req structs.PhoneBindRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -51,7 +53,7 @@ func (h *PhoneHandler) StartBind(c *gin.Context) {
 }
 
 func (h *PhoneHandler) VerifyBind(c *gin.Context) {
-	var req PhoneVerifyRequest
+	var req structs.PhoneVerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -71,7 +73,7 @@ func (h *PhoneHandler) SetTokenMaker(maker token.Maker) { h.phone.Maker = maker 
 // Phone signup and login are public; no AccountID is available until OTP
 // succeeds. The same IP/credential admission contract applies to each action.
 func (h *PhoneHandler) StartRegister(c *gin.Context) {
-	var req PhoneStartRequest
+	var req structs.PhoneStartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -86,7 +88,7 @@ func (h *PhoneHandler) StartRegister(c *gin.Context) {
 	c.Status(http.StatusAccepted)
 }
 func (h *PhoneHandler) VerifyRegister(c *gin.Context) {
-	var req PhoneVerifyRequest
+	var req structs.PhoneVerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -99,10 +101,10 @@ func (h *PhoneHandler) VerifyRegister(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, newLoginResponse(result))
+	c.JSON(http.StatusCreated, convert.ToLogin(result))
 }
 func (h *PhoneHandler) StartLogin(c *gin.Context) {
-	var req PhoneStartRequest
+	var req structs.PhoneStartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -117,7 +119,7 @@ func (h *PhoneHandler) StartLogin(c *gin.Context) {
 	c.Status(http.StatusAccepted)
 }
 func (h *PhoneHandler) VerifyLogin(c *gin.Context) {
-	var req PhoneVerifyRequest
+	var req structs.PhoneVerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -130,5 +132,5 @@ func (h *PhoneHandler) VerifyLogin(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, newLoginResponse(result))
+	c.JSON(http.StatusOK, convert.ToLogin(result))
 }

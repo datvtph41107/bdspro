@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/routers/api/handler"
+	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
+	"github.com/datvtph41107/bdspro/routers/api/v1/user"
+	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
 )
@@ -31,14 +33,22 @@ func TestOpenAPICoverage(t *testing.T) {
 	}
 	gin.SetMode(gin.TestMode)
 	s := &Server{
-		authHandler:         handler.NewAuthHandler(nil, nil),
-		organizationHandler: handler.NewOrganizationHandler(nil),
-		googleHandler:       handler.NewGoogleHandler(nil, setting.Config{}, nil, nil, false),
-		phoneHandler:        handler.NewPhoneHandler(nil, setting.Config{}, nil, nil),
+		authHandler:         user.NewAuthHandler(nil, nil),
+		organizationHandler: org.NewHandler(nil),
+		googleHandler:       user.NewGoogleHandler(nil, setting.Config{}, nil, nil, false),
+		phoneHandler:        user.NewPhoneHandler(nil, setting.Config{}, nil, nil),
 	}
 	// Registration only; no handler is executed and no external services are used.
 	root := gin.New()
-	s.registerRoutes(root)
+	apiv1.Routes(root, apiv1.Dependencies{
+		Auth: s.authHandler,
+		Organization: s.organizationHandler,
+		Google: s.googleHandler,
+		Phone: s.phoneHandler,
+		TokenMaker: s.tokenMaker,
+		RateRedis: s.authRateRedis,
+		Store: s.store,
+	})
 	normalize := regexp.MustCompile(`:[A-Za-z_][A-Za-z0-9_]*`)
 	actual := map[string]bool{}
 	for _, route := range root.Routes() {

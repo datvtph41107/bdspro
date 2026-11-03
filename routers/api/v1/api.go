@@ -15,13 +15,13 @@ import (
 
 // Dependencies are constructed once by the HTTP server; route ownership is in this package.
 type Dependencies struct {
-	Auth *user.AuthHandler
+	Auth         *user.AuthHandler
 	Organization *org.Handler
-	Google *user.GoogleHandler
-	Phone *user.PhoneHandler
-	TokenMaker token.Maker
-	RateRedis *redis.Client
-	Store db.Store
+	Google       *user.GoogleHandler
+	Phone        *user.PhoneHandler
+	TokenMaker   token.Maker
+	RateRedis    *redis.Client
+	Store        db.Store
 }
 
 // Routes declares the existing Gin HTTP surface using Gitea-style file ownership.

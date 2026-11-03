@@ -1,6 +1,8 @@
 package org
 
 import (
+	"github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/services/convert"
 	"net/http"
 	"strconv"
 	"strings"
@@ -26,7 +28,7 @@ func (h *Handler) List(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, newOrganizationAccessListResponse(organizations))
+	c.JSON(http.StatusOK, convert.ToOrganizationAccessList(organizations))
 }
 
 func (h *Handler) Get(c *gin.Context) {
@@ -39,11 +41,11 @@ func (h *Handler) Get(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, newOrganizationAccessResponse(organization))
+	c.JSON(http.StatusOK, convert.ToOrganizationAccess(organization))
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	var req CreateOrganizationRequest
+	var req structs.CreateOrgOption
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Validation(c, err, &req)
 		return
@@ -57,7 +59,7 @@ func (h *Handler) Create(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, newOrganizationResponse(organization))
+	c.JSON(http.StatusCreated, convert.ToOrganization(organization))
 }
 
 func (h *Handler) Edit(c *gin.Context) {
@@ -65,7 +67,7 @@ func (h *Handler) Edit(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var req UpdateOrganizationRequest
+	var req structs.EditOrgOption
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Validation(c, err, &req)
 		return
@@ -79,7 +81,7 @@ func (h *Handler) Edit(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, newOrganizationResponse(organization))
+	c.JSON(http.StatusOK, convert.ToOrganization(organization))
 }
 
 func (h *Handler) Members(c *gin.Context) {
@@ -92,7 +94,7 @@ func (h *Handler) Members(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, newActiveOrganizationMembersResponse(members))
+	c.JSON(http.StatusOK, convert.ToActiveOrganizationMembers(members))
 }
 
 func (h *Handler) AddMember(c *gin.Context) {
@@ -100,7 +102,7 @@ func (h *Handler) AddMember(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var req AddOrganizationMemberRequest
+	var req structs.AddOrgUserOption
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Validation(c, err, &req)
 		return
@@ -110,7 +112,7 @@ func (h *Handler) AddMember(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, newOrganizationMemberResponse(member))
+	c.JSON(http.StatusCreated, convert.ToOrganizationMember(member))
 }
 
 func organizationID(c *gin.Context) (int64, bool) {

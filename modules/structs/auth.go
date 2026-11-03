@@ -1,4 +1,5 @@
-package user
+// Package structs defines HTTP contract shapes, independent of persistence and Gin.
+package structs
 
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`

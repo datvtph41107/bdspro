@@ -1,6 +1,8 @@
 package user
 
 import (
+	"github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/services/convert"
 	"net/http"
 	"strconv"
 	"time"
@@ -28,7 +30,7 @@ func NewAuthHandler(auth *auth_service.AuthService, limiter *middleware.AuthThro
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
-	var req RegisterRequest
+	var req structs.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -41,7 +43,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, newUserResponse(account))
+	c.JSON(http.StatusCreated, convert.ToUser(account))
 }
 
 func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
@@ -63,7 +65,7 @@ func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-	var req LoginRequest
+	var req structs.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -77,12 +79,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, newLoginResponse(result))
+	c.JSON(http.StatusOK, convert.ToLogin(result))
 }
 
 // VerifyEmailPage is safe for mail scanners: GET never consumes a token.
 func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
-	var req VerifyEmailQuery
+	var req structs.VerifyEmailQuery
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
@@ -95,7 +97,7 @@ func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
 }
 
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
-	var req VerifyEmailQuery
+	var req structs.VerifyEmailQuery
 	if err := c.ShouldBind(&req); err != nil {
 		response.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
@@ -111,7 +113,7 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 }
 
 func (h *AuthHandler) Renew(c *gin.Context) {
-	var req TokenRequest
+	var req structs.TokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -124,14 +126,14 @@ func (h *AuthHandler) Renew(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, RenewAccessTokenResponse{
+	c.JSON(http.StatusOK, structs.RenewAccessTokenResponse{
 		AccessToken:          result.AccessToken,
 		AccessTokenExpiresAt: result.AccessTokenExpiresAt,
 	})
 }
 
 func (h *AuthHandler) Revoke(c *gin.Context) {
-	var req TokenRequest
+	var req structs.TokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -154,7 +156,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 func (h *AuthHandler) SetPasswordResetSender(sender mail.EmailSender) { h.resetSender = sender }
 
 func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
-	var req PasswordResetRequest
+	var req structs.PasswordResetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -184,7 +186,7 @@ func (h *AuthHandler) PasswordResetPage(c *gin.Context) {
 }
 
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
-	var req PasswordResetConfirmRequest
+	var req structs.PasswordResetConfirmRequest
 	var err error
 	if strings.HasPrefix(c.ContentType(), "application/json") {
 		err = c.ShouldBindJSON(&req)
@@ -206,7 +208,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 }
 
 func (h *AuthHandler) StartEmailLink(c *gin.Context) {
-	var req EmailLinkStartRequest
+	var req structs.EmailLinkStartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return
@@ -222,7 +224,7 @@ func (h *AuthHandler) StartEmailLink(c *gin.Context) {
 }
 
 func (h *AuthHandler) ConfirmEmailLink(c *gin.Context) {
-	var req EmailLinkConfirmRequest
+	var req structs.EmailLinkConfirmRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Invalid(c, err)
 		return

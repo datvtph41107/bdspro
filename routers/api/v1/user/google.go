@@ -1,6 +1,8 @@
 package user
 
 import (
+	"github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/services/convert"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -59,7 +61,7 @@ func NewGoogleHandler(
 	}
 }
 
-type googleLinkStartRequest = GoogleLinkRequest
+type googleLinkStartRequest = structs.GoogleLinkRequest
 
 func (g *GoogleHandler) StartLink(ctx *gin.Context) {
 	var req googleLinkStartRequest
@@ -251,7 +253,7 @@ func (g *GoogleHandler) Callback(ctx *gin.Context) {
 		response.Error(ctx, err)
 		return
 	}
-	ctx.JSON(http.StatusOK, newLoginResponse(result))
+	ctx.JSON(http.StatusOK, convert.ToLogin(result))
 }
 
 func (g *GoogleHandler) exchange(ctx context.Context, code, verifier string) (string, error) {

@@ -1,6 +1,7 @@
 package org
 
 import (
+	"github.com/datvtph41107/bdspro/services/convert"
 	"reflect"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func TestOrganizationAccessResourcePermissions(t *testing.T) {
 				Role:         tt.role,
 				JoinedAt:     time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
 			}
-			result := newOrganizationAccessResponse(access)
+			result := convert.ToOrganizationAccess(access)
 			if !reflect.DeepEqual(result.Permissions, tt.want) {
 				t.Fatalf("permissions = %v, want %v", result.Permissions, tt.want)
 			}

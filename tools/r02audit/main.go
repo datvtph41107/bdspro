@@ -23,6 +23,7 @@ import (
 // Keep this table specific to the pinned R01 snapshot, not future routers.
 var legacyGroupPrefix = map[string]string{
 	"registerRoutes":              "",
+	"Routes":                      "",
 	"registerPublicRoutes":        "",
 	"registerAuthenticatedRoutes": "",
 	"registerOrganizationRoutes":  "/organizations",
@@ -124,7 +125,7 @@ func extractRoutes(filename string, src any) ([]route, error) {
 
 func collect(root string) ([]route, error) {
 	var all []route
-	for _, name := range []string{"routes.go", "swagger.go"} {
+	for _, name := range []string{"v1/api.go", "swagger.go"} {
 		path := filepath.Join(root, "routers", "api", name)
 		found, err := extractRoutes(path, nil)
 		if err != nil {
