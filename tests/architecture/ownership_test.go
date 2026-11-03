@@ -1,4 +1,5 @@
-// Package architecture enforces verifiable source ownership constraints.
+// Package architecture enforces a small set of testable BDSPro package
+// ownership contracts, not a copy of Gitea's complete dependency graph.
 package architecture
 
 import (
@@ -13,22 +14,24 @@ import (
 
 const modulePath = "github.com/datvtph41107/bdspro"
 
+// TestSourcePackageOwnership checks production imports only. Integration
+// tests may cross package boundaries to verify real end-to-end behavior.
 func TestSourcePackageOwnership(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	for _, owner := range []string{"modules", "models", "services", "routers"} {
 		t.Run(owner, func(t *testing.T) {
-			err := filepath.WalkDir(filepath.Join(root, owner), func(path string, entry fs.DirEntry, walkErr error) error {
+			err := filepath.WalkDir(filepath.Join(root, owner), func(path string, e fs.DirEntry, walkErr error) error {
 				if walkErr != nil {
 					return walkErr
 				}
-				if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+				if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
 					return nil
 				}
 				file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
 				if err != nil {
 					return err
 				}
-				relative, err := filepath.Rel(root, path)
+				rel, err := filepath.Rel(root, path)
 				if err != nil {
 					return err
 				}
@@ -41,19 +44,25 @@ func TestSourcePackageOwnership(t *testing.T) {
 					isService := strings.HasPrefix(dep, modulePath+"/services/")
 					isModel := strings.HasPrefix(dep, modulePath+"/models/")
 					if strings.HasPrefix(dep, modulePath+"/internal/") {
-						t.Errorf("%s imports legacy internal path %q", relative, dep)
+						t.Errorf("%s imports legacy internal package %q", rel, dep)
 					}
 					if owner == "modules" && (isRouter || isService) {
-						t.Errorf("%s: module imports delivery/business package %q", relative, dep)
+						t.Errorf("%s: technical module imports transport/business %q", rel, dep)
 					}
 					if owner == "models" && (isRouter || isService) {
-						t.Errorf("%s: persistence imports delivery/business package %q", relative, dep)
+						t.Errorf("%s: persistence imports transport/business %q", rel, dep)
 					}
 					if owner == "services" && (isRouter || dep == "github.com/gin-gonic/gin") {
-						t.Errorf("%s: service imports HTTP delivery %q", relative, dep)
+						t.Errorf("%s: business service depends on HTTP delivery %q", rel, dep)
 					}
-					if strings.HasPrefix(filepath.ToSlash(relative), "routers/common/") && (isModel || isService) {
-						t.Errorf("%s: common HTTP protocol imports persistence/business %q", relative, dep)
+					if strings.HasPrefix(filepath.ToSlash(rel), "routers/common/") && (isModel || isService) {
+						t.Errorf("%s: common HTTP protocol imports business/persistence %q", rel, dep)
+					}
+					if dep == "gopkg.in/ini.v1" && !strings.HasPrefix(filepath.ToSlash(rel), "modules/setting/") {
+						t.Errorf("%s: INI decoding must be owned by modules/setting, got %q", rel, dep)
+					}
+					if dep == "github.com/rs/zerolog/log" && !strings.HasPrefix(filepath.ToSlash(rel), "modules/log/") {
+						t.Errorf("%s: application logging should use modules/log, got %q", rel, dep)
 					}
 				}
 				return nil
