@@ -17,7 +17,7 @@ func NewMainApp(appVer AppVersion) *cli.Command {
 	app.Version = appVer.Version + appVer.Extra
 	app.EnableShellCompletion = true
 	app.Flags = []cli.Flag{
-		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Value: "docker/root/etc/templates/app.ini", Usage: "Application app.ini path"},
+		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Value: "custom/conf/app.ini", Usage: "Application app.ini path"},
 	}
 	webCmd := newWebCommand()
 	subCmdWithConfig := []*cli.Command{webCmd, newWorkerCommand()}

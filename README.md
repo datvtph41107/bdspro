@@ -28,11 +28,13 @@ One binary has `web` and `worker` runtimes. No `internal/` tree remains. Migrati
 ## Development
 
 Requirements: Go 1.27.3, PostgreSQL 18, Redis 7 and golang-migrate.
-Configuration: one `app.ini`, selected with `--config` (default: `docker/root/etc/templates/app.ini`).
+Configuration: one active `app.ini` per process, selected with `--config` (local default: `custom/conf/app.ini`). `make config-local` creates the ignored local config once from `custom/conf/app.example.ini` and never overwrites it. Docker's setup uses the image-only template `docker/root/etc/templates/app.ini` to create the persisted `/data/bdspro/conf/app.ini`; this is not used as the local default.
 Environment overrides use `BDS__SECTION__KEY`; no `app.env` is loaded.
 Docker initializes `/data/bdspro/conf/app.ini` and `/data/bdspro/log/` using its template. Secrets must be injected externally in non-development deployments.
 
 ```sh
+docker compose up -d postgres redis mailpit
+make config-local
 make migrateup
 make sqlc
 make swagger
@@ -43,6 +45,8 @@ go run . --help
 go test ./...
 go test -race ./...
 ```
+
+Make targets `server` and `worker` choose the local config path but never inject DB/Redis/SMTP addresses. Edit `custom/conf/app.ini` for local connection settings. `make migrateup` remains a separate golang-migrate CLI operation using `DB_URL`, and therefore does **not yet** share the application config loader; pass an explicit `DB_URL` to avoid targeting an unexpected database. Do not silently pretend these are one mechanism.
 
 Use `docker compose up --build` for PostgreSQL, Redis, Mailpit, web and worker. HTTP no longer starts the task processor; asynchronous email requires a running worker. In development the web runtime keeps the existing automatic migration behavior; run schema migrations before standalone workers in other environments.
 
