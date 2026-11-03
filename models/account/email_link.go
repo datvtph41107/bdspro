@@ -1,8 +1,10 @@
-package db
+package account
 
 import (
 	"context"
 	"errors"
+
+	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -13,8 +15,10 @@ var (
 	ErrEmailLinkInvalid     = errors.New("invalid or expired email link")
 )
 
-func (s *SQLStore) BeginEmailLinkTx(ctx context.Context, accountID int64, email string, hash []byte) error {
-	return s.ExecTx(ctx, func(q *Queries) error {
+// BeginEmailLink serializes a phone-first account's email-link request.
+// The current SQLC query owns the resend cooldown and address availability.
+func BeginEmailLink(ctx context.Context, tx Transactioner, accountID int64, email string, hash []byte) error {
+	return tx.ExecTx(ctx, func(q *db.Queries) error {
 		_, err := q.LockPhoneOnlyEmailAccount(ctx, accountID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrEmailLinkUnavailable
@@ -29,7 +33,7 @@ func (s *SQLStore) BeginEmailLinkTx(ctx context.Context, accountID int64, email 
 		if taken {
 			return ErrEmailLinkTaken
 		}
-		n, err := q.UpsertEmailLinkChallenge(ctx, UpsertEmailLinkChallengeParams{
+		n, err := q.UpsertEmailLinkChallenge(ctx, db.UpsertEmailLinkChallengeParams{
 			AccountID: accountID, Email: email, TokenHash: hash,
 		})
 		if err != nil {
@@ -42,9 +46,11 @@ func (s *SQLStore) BeginEmailLinkTx(ctx context.Context, accountID int64, email 
 	})
 }
 
-func (s *SQLStore) ConfirmEmailLinkTx(ctx context.Context, accountID int64, hash []byte) error {
-	return s.ExecTx(ctx, func(q *Queries) error {
-		email, err := q.ConsumeEmailLinkChallenge(ctx, ConsumeEmailLinkChallengeParams{
+// ConfirmEmailLink consumes the single-use challenge and adds a verified email
+// in one transaction, leaving the existing Account and credentials intact.
+func ConfirmEmailLink(ctx context.Context, tx Transactioner, accountID int64, hash []byte) error {
+	return tx.ExecTx(ctx, func(q *db.Queries) error {
+		email, err := q.ConsumeEmailLinkChallenge(ctx, db.ConsumeEmailLinkChallengeParams{
 			AccountID: accountID, TokenHash: hash,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -53,7 +59,9 @@ func (s *SQLStore) ConfirmEmailLinkTx(ctx context.Context, accountID int64, hash
 		if err != nil {
 			return err
 		}
-		n, err := q.AttachVerifiedEmail(ctx, AttachVerifiedEmailParams{ID: accountID, Email: email})
+		n, err := q.AttachVerifiedEmail(ctx, db.AttachVerifiedEmailParams{
+			ID: accountID, Email: email,
+		})
 		if err != nil {
 			return err
 		}
