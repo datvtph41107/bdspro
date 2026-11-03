@@ -6,6 +6,7 @@ import (
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/queue"
 	redisconn "github.com/datvtph41107/bdspro/modules/redis"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/worker"
@@ -41,11 +42,11 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	defer redisClient.Close()
 
 	options := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
-	enqueuer := worker.NewRedisEnqueuer(options)
+	enqueuer := queue.NewRedisEnqueuer(options)
 	defer enqueuer.Close()
 	mailer := mail.NewSMTPSender(cfg.EmailSenderName, cfg.EmailSenderAddress,
 		cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
-	processor := worker.NewRedisTaskProcessor(options)
+	processor := queue.NewRedisTaskProcessor(options)
 	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, cfg.VerifyEmailURL))
 	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(store, mailer, cfg.VerifyEmailURL))
 	if err := processor.Start(); err != nil {
