@@ -68,7 +68,7 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 	if err != nil {
 		return fmt.Errorf("initialize HTTP routes: %w", err)
 	}
-	return server.StartWithReady(ctx, cfg.HTTPServerAddress, func(_ net.Addr) {
+	return serveHTTP(ctx, server.Handler(), cfg.HTTPServerAddress, func(_ net.Addr) {
 		log.Info("HTTP server ready in %s", time.Since(startedAt))
 	})
 }
