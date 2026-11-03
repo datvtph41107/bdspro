@@ -1,153 +1,42 @@
 package main
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"net"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+    "os"
+    "runtime"
+    "strings"
+    "time"
 
-	"github.com/datvtph41107/bdspro/routers/api"
-	"github.com/datvtph41107/bdspro/modules/setting"
-	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/services/mail"
-	"github.com/datvtph41107/bdspro/modules/util"
-	"github.com/datvtph41107/bdspro/services/worker"
-	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/hibiken/asynq"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+    "github.com/datvtph41107/bdspro/cmd"
+    "github.com/datvtph41107/bdspro/modules/log"
+    "github.com/datvtph41107/bdspro/modules/setting"
+    "github.com/urfave/cli/v3"
 )
+
+var (
+    Version = "development"
+    Tags = ""
+)
+func init() {
+    setting.AppVer = Version
+    setting.AppBuiltWith = formatBuiltWith()
+    setting.AppStartTime = time.Now().UTC()
+}
 
 // @title BDSPro API
 // @version 1.0
 // @description BDSPro REST API.
 // @BasePath /
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	if err := run(ctx); err != nil {
-		log.Fatal().Err(err).Msg("startup.failed")
-	}
+    cli.OsExiter = func(code int) {
+        log.GetManager().Close()
+        os.Exit(code)
+    }
+    app := cmd.NewMainApp(cmd.AppVersion{Version: Version, Extra: formatBuiltWith()})
+    _ = cmd.RunMainApp(app, os.Args...)
+    log.GetManager().Close()
 }
-
-func run(ctx context.Context) error {
-	startedAt := time.Now()
-
-	cfg, err := setting.LoadConfig(".")
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-	level, err := zerolog.ParseLevel(cfg.LogLevel)
-	if err != nil {
-		return fmt.Errorf("parse LOG_LEVEL: %w", err)
-	}
-	log.Logger = util.NewLogger(os.Stderr, cfg.LogFormat).Level(level)
-	if os.Getenv(gin.EnvGinMode) == "" {
-		gin.SetMode(gin.ReleaseMode)
-	}
-	if cfg.LogFormat == "console" {
-		fmt.Fprint(os.Stderr, "\nBDS PRO / API\n\n")
-	}
-	log.Info().Str("environment", cfg.Environment).Msg("startup.begin")
-
-	pool, err := pgxpool.New(ctx, cfg.DBSource)
-	if err != nil {
-		return fmt.Errorf("connect PostgreSQL: %w", err)
-	}
-	defer pool.Close()
-
-	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("ping PostgreSQL: %w", err)
-	}
-	log.Info().Msg("postgres.connected")
-
-	if cfg.Environment == "development" {
-		if err := runDBMigration(cfg.MigrationURL, cfg.DBSource); err != nil {
-			return err
-		}
-	} else {
-		log.Info().Msg("migration.external")
-	}
-	store := db.NewStore(pool)
-
-	if cfg.RedisAddress == "" {
-		return errors.New("REDIS_ADDRESS is required")
-	}
-	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddress})
-	defer redisClient.Close()
-
-	redisCtx, cancelRedis := context.WithTimeout(ctx, 5*time.Second)
-	err = redisClient.Ping(redisCtx).Err()
-	cancelRedis()
-	if err != nil {
-		return fmt.Errorf("ping Redis: %w", err)
-	}
-	log.Info().Msg("redis.connected")
-
-	redisOptions := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
-	distributor := worker.NewRedisEnqueuer(redisOptions)
-	defer distributor.Close()
-
-	mailer := mail.NewSMTPSender(
-		cfg.EmailSenderName,
-		cfg.EmailSenderAddress,
-		cfg.EmailSenderPassword,
-		cfg.SMTPAddress,
-		cfg.SMTPAuth,
-	)
-	processor := worker.NewRedisTaskProcessor(redisOptions)
-	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, cfg.VerifyEmailURL))
-	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(store, mailer, cfg.VerifyEmailURL))
-	if err := processor.Start(); err != nil {
-		return fmt.Errorf("start worker: %w", err)
-	}
-	defer processor.Shutdown()
-	log.Info().Msg("task.processor.started")
-
-	// Persisted registration intents are queued only after the account commits.
-	dispatchCtx, stopDispatch := context.WithCancel(ctx)
-	dispatcher := worker.NewOutboxDispatcher(store, distributor)
-	dispatcher.Start(dispatchCtx)
-	defer func() {
-		stopDispatch()
-		dispatcher.Wait()
-	}()
-
-	server, err := api.NewServer(cfg, store, redisClient, mailer)
-	if err != nil {
-		return fmt.Errorf("create HTTP server: %w", err)
-	}
-
-	return server.StartWithReady(ctx, cfg.HTTPServerAddress, func(net.Addr) {
-		log.Info().Dur("duration", time.Since(startedAt)).Msg("startup.ready")
-	})
-}
-
-func runDBMigration(migrationURL, dbSource string) error {
-	m, err := migrate.New(migrationURL, dbSource)
-	if err != nil {
-		return fmt.Errorf("open database migrations: %w", err)
-	}
-	defer m.Close()
-
-	err = m.Up()
-	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return fmt.Errorf("apply database migrations: %w", err)
-	}
-	result := "applied"
-	if errors.Is(err, migrate.ErrNoChange) {
-		result = "no_change"
-	}
-	log.Info().Str("result", result).Msg("migration.checked")
-	return nil
+func formatBuiltWith() string {
+    version := runtime.Version()
+    if len(Tags) == 0 { return " built with " + version }
+    return " built with " + version + " : " + strings.ReplaceAll(Tags, " ", ", ")
 }

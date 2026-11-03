@@ -3,6 +3,7 @@ module github.com/datvtph41107/bdspro
 go 1.27.3
 
 require (
+	github.com/urfave/cli/v3 v3.14.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/go-redis/redis/v8 v8.11.5
