@@ -33,3 +33,18 @@ func TestLogLevelDefaultAndOverride(t *testing.T) {
 		t.Fatalf("invalid log level accepted: %v", err)
 	}
 }
+
+func TestDefaultSectionEnvironmentOverride(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "app.ini")
+	if err := os.WriteFile(file, []byte("RUN_MODE = development\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	provider, err := InitCfgProvider(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("BDS__RUN_MODE", "staging")
+	if got := provider.String("", "RUN_MODE"); got != "staging" {
+		t.Fatalf("root environment override = %q, want staging", got)
+	}
+}

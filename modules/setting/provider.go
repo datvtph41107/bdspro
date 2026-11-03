@@ -21,6 +21,9 @@ func InitCfgProvider(filename string) (*ConfigProvider, error) {
 }
 func (p *ConfigProvider) String(section, key string) string {
 	name := "BDS__" + strings.ToUpper(section) + "__" + strings.ToUpper(key)
+	if section == "" {
+		name = "BDS__" + strings.ToUpper(key)
+	}
 	if value, ok := os.LookupEnv(name); ok {
 		return value
 	}
