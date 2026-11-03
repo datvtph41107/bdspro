@@ -9,7 +9,8 @@ import (
 
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
-	"github.com/datvtph41107/bdspro/routers/api/handler"
+	"github.com/datvtph41107/bdspro/routers/api/v1/org"
+	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,14 +24,14 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	newServer := func(google, phone bool) *Server {
 		s := &Server{
 			tokenMaker:          maker,
-			authHandler:         handler.NewAuthHandler(nil, nil),
-			organizationHandler: handler.NewOrganizationHandler(nil),
+			authHandler:         user.NewAuthHandler(nil, nil),
+			organizationHandler: org.NewHandler(nil),
 		}
 		if google {
-			s.googleHandler = handler.NewGoogleHandler(nil, setting.Config{}, nil, nil, false)
+			s.googleHandler = user.NewGoogleHandler(nil, setting.Config{}, nil, nil, false)
 		}
 		if phone {
-			s.phoneHandler = handler.NewPhoneHandler(nil, setting.Config{}, nil, nil)
+			s.phoneHandler = user.NewPhoneHandler(nil, setting.Config{}, nil, nil)
 		}
 		s.setupRouter()
 		return s

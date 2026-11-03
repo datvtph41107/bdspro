@@ -12,13 +12,11 @@ import (
 // SQLSTATE alone cannot identify which business invariant was violated.
 func TestAddMemberClassifiesOnlyKnownConstraints(t *testing.T) {
 	store := &organizationStoreFake{}
-	svc := NewOrganizationService(store)
-
 	check := func(t *testing.T, code, constraint string, want error) {
 		t.Helper()
 		cause := &pgconn.PgError{Code: code, ConstraintName: constraint}
 		store.memberErr = cause
-		_, err := svc.AddMember(context.Background(), 11, 23, 31)
+		_, err := AddOrgUser(context.Background(), store, 11, 23, 31)
 		if err == nil || !errors.Is(err, cause) {
 			t.Fatalf("driver cause not retained: %v", err)
 		}

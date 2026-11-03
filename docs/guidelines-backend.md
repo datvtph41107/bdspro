@@ -10,14 +10,14 @@ domain operations; **folder names are not a pattern by themselves**.
 | `modules/log/` | writer/format/level lifecycle | domain event decisions |
 | `modules/redis/` | Redis connectivity | security business policy |
 | `routers/common/` | cross-transport HTTP protocol | duplicate Gin router |
-| `routers/api/` | API routes, middleware, requests and responses | SQL transactions |
+| `routers/api/v1/` | Gin API route registration and resource HTTP handlers (no URL prefix change) | SQL transactions |
 | `services/auth/` | credentials, sessions, phone and OAuth behavior | Gin responses |
-| `services/organization/` | membership and organization invariants | Gin response formats |
+| `models/organization/` | membership and organization persistence invariants | HTTP/transport responses |
 | `services/worker/` | Asynq task execution and outbox delivery | synchronous request processing |
 | `models/db/` | SQLC queries, pgx connection, SQL transaction machinery | HTTP or job transport |
 | `templates/` | embedded HTML and Swagger assets | persistent data models |
 
-When adding a feature: find the API route → request binding → business
+When adding a feature: find the API route → request binding → model or business
 operation → SQL query → migration. Keep names concrete, use native Gin and
 SQLC rather than an extra route dispatcher or generic repository registry.
 

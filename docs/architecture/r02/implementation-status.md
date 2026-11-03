@@ -1,3 +1,5 @@
+> **Historical R02 evidence.** R03 has preserved Gin and removed the unused Chi runtime candidate. See [R03 Gin ownership](../r03-gin-ownership.md) for the current design; benchmark entries below describe experiments, not the runtime.
+
 # R02 implementation status (2026-11-03)
 
 ## Base and reference

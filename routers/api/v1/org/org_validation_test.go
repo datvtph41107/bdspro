@@ -1,4 +1,4 @@
-package handler
+package org
 
 import (
 	"encoding/json"
@@ -13,10 +13,10 @@ import (
 func TestOrganizationInvalidRequestsStopBeforeService(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	// A nil service proves invalid HTTP input never reaches the operation.
-	h := NewOrganizationHandler(nil)
+	h := NewHandler(nil)
 	router := gin.New()
-	router.POST("/organizations", h.Store)
-	router.PATCH("/organizations/:id", h.Update)
+	router.POST("/organizations", h.Create)
+	router.PATCH("/organizations/:id", h.Edit)
 	router.POST("/organizations/:id/members", h.AddMember)
 
 	cases := []struct {

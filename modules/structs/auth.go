@@ -1,4 +1,5 @@
-package handler
+// Package structs defines HTTP contract shapes, independent of persistence and Gin.
+package structs
 
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
@@ -32,18 +33,6 @@ type PhoneBindRequest struct {
 type PhoneVerifyRequest struct {
 	Phone string `json:"phone" binding:"required"`
 	Code  string `json:"code" binding:"required"`
-}
-
-type CreateOrganizationRequest struct {
-	Name string `json:"name" binding:"required"`
-}
-
-type UpdateOrganizationRequest struct {
-	Name *string `json:"name" binding:"required"`
-}
-
-type AddOrganizationMemberRequest struct {
-	PersonID int64 `json:"person_id" binding:"required,min=1"`
 }
 
 type PhoneStartRequest struct {
