@@ -222,8 +222,8 @@ func (s *AuthService) ResetPassword(ctx context.Context, secret, password string
 	if err != nil {
 		return err
 	}
-	err = s.store.ResetPasswordTx(ctx, digest[:], hash)
-	if errors.Is(err, db.ErrPasswordResetInvalid) {
+	err = account_model.ResetPassword(ctx, s.store, digest[:], hash)
+	if errors.Is(err, account_model.ErrPasswordResetInvalid) {
 		return apperrors.InvalidResetToken
 	}
 	return err
