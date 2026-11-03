@@ -9,20 +9,20 @@ import (
 	"net/url"
 	"time"
 
+	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/routers/api/handler"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	"github.com/datvtph41107/bdspro/modules/setting"
-	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/services"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
-	"github.com/datvtph41107/bdspro/services"
-	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/rs/cors"
-	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 const apiPrefix = "" // Preserve existing public endpoints; versioning is a separate API contract decision.

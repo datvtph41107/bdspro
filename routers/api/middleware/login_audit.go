@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/gin-gonic/gin"
 )
 
 // LoginAudit logs the completed response; it never issues credentials.

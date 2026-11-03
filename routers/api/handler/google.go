@@ -15,13 +15,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	middleware "github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
-	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 const (

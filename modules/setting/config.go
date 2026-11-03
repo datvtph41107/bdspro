@@ -3,19 +3,19 @@ package setting
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
 )
 
 // Config holds validated settings loaded from app.ini and process overrides.
 type Config struct {
-	Environment          string        `mapstructure:"ENVIRONMENT"`
-	LogFormat            string        `mapstructure:"LOG_FORMAT"`
+	Environment          string `mapstructure:"ENVIRONMENT"`
+	LogFormat            string `mapstructure:"LOG_FORMAT"`
 	LogLevel             string
-    LogMode              string
-    LogRootPath          string
-    LogFileName          string        `mapstructure:"LOG_LEVEL"`
+	LogMode              string
+	LogRootPath          string
+	LogFileName          string        `mapstructure:"LOG_LEVEL"`
 	GoogleClientID       string        `mapstructure:"GOOGLE_CLIENT_ID"`
 	GoogleClientSecret   string        `mapstructure:"GOOGLE_CLIENT_SECRET"`
 	GoogleRedirectURI    string        `mapstructure:"GOOGLE_REDIRECT_URI"`
@@ -44,69 +44,79 @@ type Config struct {
 // LoadConfig resolves the selected INI file and materializes typed settings.
 // Only one config file is read. Environment overrides stay in-memory.
 func LoadConfig(filename string) (Config, error) {
-    provider, err := InitCfgProvider(filename)
-    if err != nil { return Config{}, err }
-    return LoadSettings(provider)
+	provider, err := InitCfgProvider(filename)
+	if err != nil {
+		return Config{}, err
+	}
+	return LoadSettings(provider)
 }
 
 type CommonSettings struct {
-    RunMode, LogFormat, LogLevel, LogMode, LogRootPath, LogFileName string
+	RunMode, LogFormat, LogLevel, LogMode, LogRootPath, LogFileName string
 }
 
 // LoadCommonSettings reads settings needed before runtime dependencies start.
 func LoadCommonSettings(p *ConfigProvider) CommonSettings {
-    return CommonSettings{
-        RunMode: p.StringDefault("", "RUN_MODE", "development"),
-        LogFormat: p.StringDefault("log", "FORMAT", "json"),
-        LogLevel: p.StringDefault("log", "LEVEL", "info"),
-        LogMode: p.StringDefault("log", "MODE", "console"),
-        LogRootPath: p.StringDefault("log", "ROOT_PATH", "data/log"),
-        LogFileName: p.StringDefault("log.file", "FILE_NAME", "bdspro.log"),
-    }
+	return CommonSettings{
+		RunMode:     p.StringDefault("", "RUN_MODE", "development"),
+		LogFormat:   p.StringDefault("log", "FORMAT", "json"),
+		LogLevel:    p.StringDefault("log", "LEVEL", "info"),
+		LogMode:     p.StringDefault("log", "MODE", "console"),
+		LogRootPath: p.StringDefault("log", "ROOT_PATH", "data/log"),
+		LogFileName: p.StringDefault("log.file", "FILE_NAME", "bdspro.log"),
+	}
 }
 
 // LoadSettings validates the complete typed config; it does not open DB/Redis.
 func LoadSettings(p *ConfigProvider) (config Config, err error) {
-    common := LoadCommonSettings(p)
-    config.Environment = common.RunMode
-    config.LogFormat = common.LogFormat
-    config.LogLevel = common.LogLevel
-    config.LogMode = common.LogMode
-    config.LogRootPath = common.LogRootPath
-    config.LogFileName = common.LogFileName
-    get := p.String
-    config.DBSource = get("database", "DB_SOURCE")
-    config.MigrationURL = get("database", "MIGRATION_URL")
-    config.HTTPServerAddress = get("server", "HTTP_SERVER_ADDRESS")
-    config.RedisAddress = get("redis", "ADDR")
-    config.TokenSymmetricKey = get("security", "TOKEN_SYMMETRIC_KEY")
-    config.AccessTokenDuration, err = time.ParseDuration(get("security", "ACCESS_TOKEN_DURATION"))
-    if err != nil { return config, fmt.Errorf("ACCESS_TOKEN_DURATION: %w", err) }
-    config.RefreshTokenDuration, err = time.ParseDuration(get("security", "REFRESH_TOKEN_DURATION"))
-    if err != nil { return config, fmt.Errorf("REFRESH_TOKEN_DURATION: %w", err) }
-    config.GoogleClientID = get("oauth", "GOOGLE_CLIENT_ID")
-    config.GoogleClientSecret = get("oauth", "GOOGLE_CLIENT_SECRET")
-    config.GoogleRedirectURI = get("oauth", "GOOGLE_REDIRECT_URI")
-    config.PhoneDelivery = get("phone", "PHONE_DELIVERY")
-    config.SMSGatewayURL = get("phone", "SMS_GATEWAY_URL")
-    config.SMSGatewayToken = get("phone", "SMS_GATEWAY_TOKEN")
-    config.ZaloAccessToken = get("phone", "ZALO_ACCESS_TOKEN")
-    config.ZaloTemplateID = get("phone", "ZALO_TEMPLATE_ID")
-    config.ZaloCodeField = p.StringDefault("phone", "ZALO_CODE_FIELD", "otp")
-    for _, origin := range strings.Split(get("cors", "ALLOWED_ORIGINS"), ",") {
-        if s := strings.TrimSpace(origin); s != "" { config.AllowedOrigins = append(config.AllowedOrigins, s) }
-    }
-    config.EmailSenderName = get("mailer", "EMAIL_SENDER_NAME")
-    config.EmailSenderAddress = get("mailer", "EMAIL_SENDER_ADDRESS")
-    config.EmailSenderPassword = get("mailer", "EMAIL_SENDER_PASSWORD")
-    config.SMTPAddress = get("mailer", "SMTP_ADDRESS")
-    config.SMTPAuth, err = strconv.ParseBool(p.StringDefault("mailer", "SMTP_AUTH", "false"))
-    if err != nil { return config, fmt.Errorf("SMTP_AUTH: %w", err) }
-    config.VerifyEmailURL = get("mailer", "VERIFY_EMAIL_URL")
-    if config.LogMode != "console" && config.LogMode != "file" &&
-       config.LogMode != "console,file" && config.LogMode != "file,console" {
-        return config, fmt.Errorf("LOG_MODE must be console, file or console,file")
-    }
+	common := LoadCommonSettings(p)
+	config.Environment = common.RunMode
+	config.LogFormat = common.LogFormat
+	config.LogLevel = common.LogLevel
+	config.LogMode = common.LogMode
+	config.LogRootPath = common.LogRootPath
+	config.LogFileName = common.LogFileName
+	get := p.String
+	config.DBSource = get("database", "DB_SOURCE")
+	config.MigrationURL = get("database", "MIGRATION_URL")
+	config.HTTPServerAddress = get("server", "HTTP_SERVER_ADDRESS")
+	config.RedisAddress = get("redis", "ADDR")
+	config.TokenSymmetricKey = get("security", "TOKEN_SYMMETRIC_KEY")
+	config.AccessTokenDuration, err = time.ParseDuration(get("security", "ACCESS_TOKEN_DURATION"))
+	if err != nil {
+		return config, fmt.Errorf("ACCESS_TOKEN_DURATION: %w", err)
+	}
+	config.RefreshTokenDuration, err = time.ParseDuration(get("security", "REFRESH_TOKEN_DURATION"))
+	if err != nil {
+		return config, fmt.Errorf("REFRESH_TOKEN_DURATION: %w", err)
+	}
+	config.GoogleClientID = get("oauth", "GOOGLE_CLIENT_ID")
+	config.GoogleClientSecret = get("oauth", "GOOGLE_CLIENT_SECRET")
+	config.GoogleRedirectURI = get("oauth", "GOOGLE_REDIRECT_URI")
+	config.PhoneDelivery = get("phone", "PHONE_DELIVERY")
+	config.SMSGatewayURL = get("phone", "SMS_GATEWAY_URL")
+	config.SMSGatewayToken = get("phone", "SMS_GATEWAY_TOKEN")
+	config.ZaloAccessToken = get("phone", "ZALO_ACCESS_TOKEN")
+	config.ZaloTemplateID = get("phone", "ZALO_TEMPLATE_ID")
+	config.ZaloCodeField = p.StringDefault("phone", "ZALO_CODE_FIELD", "otp")
+	for _, origin := range strings.Split(get("cors", "ALLOWED_ORIGINS"), ",") {
+		if s := strings.TrimSpace(origin); s != "" {
+			config.AllowedOrigins = append(config.AllowedOrigins, s)
+		}
+	}
+	config.EmailSenderName = get("mailer", "EMAIL_SENDER_NAME")
+	config.EmailSenderAddress = get("mailer", "EMAIL_SENDER_ADDRESS")
+	config.EmailSenderPassword = get("mailer", "EMAIL_SENDER_PASSWORD")
+	config.SMTPAddress = get("mailer", "SMTP_ADDRESS")
+	config.SMTPAuth, err = strconv.ParseBool(p.StringDefault("mailer", "SMTP_AUTH", "false"))
+	if err != nil {
+		return config, fmt.Errorf("SMTP_AUTH: %w", err)
+	}
+	config.VerifyEmailURL = get("mailer", "VERIFY_EMAIL_URL")
+	if config.LogMode != "console" && config.LogMode != "file" &&
+		config.LogMode != "console,file" && config.LogMode != "file,console" {
+		return config, fmt.Errorf("LOG_MODE must be console, file or console,file")
+	}
 	if config.LogFormat != "json" && config.LogFormat != "console" {
 		return config, fmt.Errorf("LOG_FORMAT must be console or json")
 	}

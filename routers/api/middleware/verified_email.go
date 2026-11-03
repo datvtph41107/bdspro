@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/datvtph41107/bdspro/routers/api/response"
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 // VerifiedEmail guards business operations, while still allowing unverified

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/datvtph41107/bdspro/modules/setting"
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/jackc/pgx/v5"
 )
 

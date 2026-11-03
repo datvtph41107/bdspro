@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"time"
 
+	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	"github.com/datvtph41107/bdspro/modules/setting"
-	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/datvtph41107/bdspro/services"
-	"github.com/datvtph41107/bdspro/modules/token"
+	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/gin-gonic/gin"
 )
 

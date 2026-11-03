@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	assets "github.com/datvtph41107/bdspro/doc"
-	"github.com/datvtph41107/bdspro/routers/api/handler"
 	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/routers/api/handler"
 	"github.com/gin-gonic/gin"
 )
 

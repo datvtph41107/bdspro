@@ -7,8 +7,8 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/hibiken/asynq"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/hibiken/asynq"
 )
 
 const outboxBatchSize int32 = 10

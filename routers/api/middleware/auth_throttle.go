@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
-	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 // AuthThrottle limits repeated authentication requests by IP and credential.

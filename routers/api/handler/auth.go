@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"time"
 
+	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
-	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services"
+	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"strings"

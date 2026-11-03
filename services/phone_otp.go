@@ -10,12 +10,12 @@ import (
 	"math/big"
 	"regexp"
 
-	"github.com/datvtph41107/bdspro/modules/setting"
 	db "github.com/datvtph41107/bdspro/models/db"
 	apperrors "github.com/datvtph41107/bdspro/modules/errors"
-	"github.com/datvtph41107/bdspro/services/notification"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )

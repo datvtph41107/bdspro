@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/services"
 	"github.com/datvtph41107/bdspro/modules/token"
+	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	"github.com/datvtph41107/bdspro/services"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"

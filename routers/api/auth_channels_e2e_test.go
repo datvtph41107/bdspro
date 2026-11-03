@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datvtph41107/bdspro/modules/setting"
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/jobs"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"

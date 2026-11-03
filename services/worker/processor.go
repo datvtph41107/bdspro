@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/go-redis/redis/v8"
 	"github.com/hibiken/asynq"
-	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 const (

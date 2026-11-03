@@ -8,8 +8,8 @@ import (
 	"net/url"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/services/mail"
 )
 
 // VerificationStore is the data contract required by email verification.

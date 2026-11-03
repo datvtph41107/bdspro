@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/services/jobs"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/hibiken/asynq"
-	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 // TaskSendVerifyEmail is a persisted Asynq task type. Do not rename without

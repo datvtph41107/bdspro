@@ -3,8 +3,8 @@ package middleware
 import (
 	"strings"
 
-	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/datvtph41107/bdspro/modules/token"
+	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/gin-gonic/gin"
 )
 
