@@ -1,13 +1,12 @@
 package middleware
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/ratelimit"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -23,25 +22,16 @@ func NewAuthThrottle(client *redis.Client) *AuthThrottle {
 	return &AuthThrottle{client: client}
 }
 
-var authThrottleScript = redis.NewScript(`
-local a = redis.call('INCR', KEYS[1])
-if a == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
-local b = redis.call('INCR', KEYS[2])
-if b == 1 then redis.call('EXPIRE', KEYS[2], ARGV[1]) end
-if a > tonumber(ARGV[2]) or b > tonumber(ARGV[3]) then return 0 end
-return 1
-`)
-
 func (l *AuthThrottle) Allow(ctx *gin.Context, operation, credential string, perIP, perCredential int64, window time.Duration) bool {
 	if l == nil || l.client == nil {
 		response.RateLimitUnavailable(ctx)
 		return false
 	}
 	namespace := authThrottleKeyPrefix + operation + ":"
-	ipKey := namespace + "ip:" + rateHash(ctx.ClientIP())
-	credentialKey := namespace + "identity:" + rateHash(strings.ToLower(strings.TrimSpace(credential)))
-	allowed, err := authThrottleScript.Run(ctx.Request.Context(), l.client,
-		[]string{ipKey, credentialKey}, int64(window.Seconds()), perIP, perCredential).Int64()
+	ipKey := namespace + "ip:" + ratelimit.Hash(ctx.ClientIP())
+	credentialKey := namespace + "identity:" + ratelimit.Hash(strings.ToLower(strings.TrimSpace(credential)))
+	allowed, err := ratelimit.AllowPair(ctx.Request.Context(), l.client,
+		ipKey, credentialKey, int64(window.Seconds()), perIP, perCredential)
 	if err != nil {
 		log.Ctx(ctx.Request.Context()).Error().
 			Str("operation", operation).
@@ -56,9 +46,4 @@ func (l *AuthThrottle) Allow(ctx *gin.Context, operation, credential string, per
 		return false
 	}
 	return true
-}
-
-func rateHash(value string) string {
-	sum := sha256.Sum256([]byte(value))
-	return hex.EncodeToString(sum[:])
 }
