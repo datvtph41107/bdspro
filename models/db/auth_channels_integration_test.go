@@ -110,10 +110,12 @@ func TestPasswordResetOnceAndCredentialCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 	session, err := store.CreateSession(ctx, db.CreateSessionParams{
-		ID: uuid.New(), AccountID: account.ID,
+		ID:           uuid.New(),
+		AccountID:    account.ID,
 		RefreshToken: "reset-session-" + uuid.NewString(),
-		UserAgent: "r05-integration", ClientIp: "127.0.0.1",
-		ExpiresAt: time.Now().Add(time.Hour),
+		UserAgent:    "r05-integration",
+		ClientIp:     "127.0.0.1",
+		ExpiresAt:    time.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatal(err)
