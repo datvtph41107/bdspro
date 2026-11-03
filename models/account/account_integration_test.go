@@ -134,3 +134,62 @@ func TestPasswordRegistrationCreatesCredentialAndOutbox(t *testing.T) {
 		t.Fatalf("registration created %d verification jobs, want 1", count)
 	}
 }
+
+// TestVerifyEmailConsumesCodeOnce verifies the PostgreSQL transaction itself,
+// including the one-use proof and the account state transition.
+func TestVerifyEmailConsumesCodeOnce(t *testing.T) {
+	source := os.Getenv("BDS_TEST_DB_URL")
+	if source == "" {
+		t.Skip("requires disposable bdspro_test database")
+	}
+	if os.Getenv("BDS_TEST_MODE") != "disposable" {
+		t.Fatal("refusing database writes without disposable test mode")
+	}
+	cfg, err := pgxpool.ParseConfig(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ConnConfig.Database != "bdspro_test" {
+		t.Fatal("refusing database writes outside bdspro_test")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if err := pool.Ping(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	store := db.NewStore(pool)
+	account, err := account_model.Register(ctx, store, account_model.RegisterParams{
+		Email: uuid.NewString() + "@example.test", PasswordHash: "test-only",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret := uuid.NewString()
+	proof, err := store.CreateVerifyEmail(ctx, db.CreateVerifyEmailParams{
+		AccountID: account.ID, Email: account.Email, SecretCode: secret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	verified, err := account_model.VerifyEmail(ctx, store, db.ConsumeVerifyEmailParams{
+		ID: proof.ID, SecretCode: secret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verified.ID != account.ID || !verified.IsEmailVerified {
+		t.Fatalf("account email not verified: %+v", verified)
+	}
+	_, err = account_model.VerifyEmail(ctx, store, db.ConsumeVerifyEmailParams{
+		ID: proof.ID, SecretCode: secret,
+	})
+	if !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("consumed token replay must fail: %v", err)
+	}
+}
