@@ -141,7 +141,7 @@ func (s *AuthService) Renew(ctx context.Context, refreshToken string) (RenewResu
 		return result, apperrors.SessionUnavailable
 	}
 	access, tokenPayload, err := s.maker.CreateToken(
-		payload.AccountID, s.setting.Authentication().AccessTokenTTL, token.TokenTypeAccess,
+		payload.AccountID, s.config.Authentication().AccessTokenTTL, token.TokenTypeAccess,
 	)
 	if err != nil {
 		return result, err

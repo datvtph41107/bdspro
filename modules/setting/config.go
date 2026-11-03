@@ -15,7 +15,7 @@ type Config struct {
 	LogLevel             string
 	LogMode              string
 	LogRootPath          string
-	LogFileName          string        `mapstructure:"LOG_LEVEL"`
+	LogFileName          string
 	GoogleClientID       string        `mapstructure:"GOOGLE_CLIENT_ID"`
 	GoogleClientSecret   string        `mapstructure:"GOOGLE_CLIENT_SECRET"`
 	GoogleRedirectURI    string        `mapstructure:"GOOGLE_REDIRECT_URI"`

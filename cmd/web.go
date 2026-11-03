@@ -9,6 +9,7 @@ import (
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/go-redis/redis/v8"
@@ -37,7 +38,7 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	log.Info("BDSPro version: %s%s", "development", "")
+	log.Info("BDSPro version: %s%s", setting.AppVer, setting.AppBuiltWith)
 	log.Info("HTTP runtime starting in %s mode", cfg.Environment)
 
 	pool, err := pgxpool.New(ctx, cfg.DBSource)
