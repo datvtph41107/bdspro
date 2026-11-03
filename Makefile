@@ -2,7 +2,7 @@ DB_URL ?= postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
-.PHONY: postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration sqlc test server swagger
+.PHONY: config-local worker postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration sqlc test server swagger
 
 postgres:
 	docker start $(POSTGRES_CONTAINER)
@@ -34,8 +34,18 @@ sqlc:
 test:
 	go test -v ./...
 
-server:
-	go run .
+CONFIG ?= custom/conf/app.ini
+
+# Initialize a local developer config once. Never overwrite personal settings.
+config-local:
+	@test -f "$(CONFIG)" || { umask 077; mkdir -p "$(dir $(CONFIG))"; cp custom/conf/app.example.ini "$(CONFIG)"; }
+	@echo "Config: $(CONFIG)"
+
+server: config-local
+	go run . --config "$(CONFIG)" web
+
+worker: config-local
+	go run . --config "$(CONFIG)" worker
 
 swagger:
 	swag init -g main.go --parseInternal -o doc/swagger --outputTypes json

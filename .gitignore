@@ -3,3 +3,6 @@ app.local.env
 .env.local
 *.log
 coverage.out
+/data/
+/docker/app.local.ini
+/custom/conf/app.ini

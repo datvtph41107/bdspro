@@ -51,11 +51,11 @@ jobs:
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
           "$(go env GOPATH)/bin/sqlc" generate
-          git diff --exit-code -- internal/database
-          test -z "$(git ls-files --others --exclude-standard internal/database)"
+          git diff --exit-code -- models/db
+          test -z "$(git ls-files --others --exclude-standard models/db)"
 
       - name: Verify OpenAPI contract
-        run: go test ./internal/api -run TestOpenAPICoverage -count=1
+        run: go test ./routers/api -run TestOpenAPICoverage -count=1
 
       - name: Migrate disposable test database
         env:
@@ -185,7 +185,7 @@ jobs:
         run: |
           docker compose config --quiet
           go build -o /tmp/bdspro-smoke .
-          /tmp/bdspro-smoke > /tmp/bdspro-smoke.log 2>&1 &
+          /tmp/bdspro-smoke --config custom/conf/app.example.ini web > /tmp/bdspro-smoke.log 2>&1 &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
           ready=false
