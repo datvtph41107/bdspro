@@ -1,58 +1,45 @@
 name: bdspro
-
 services:
-    postgres:
-        image: postgres:18-alpine
-        environment:
-            - POSTGRES_USER=root
-            - POSTGRES_PASSWORD=secret
-            - POSTGRES_DB=bdspro
-        ports:
-            - "5432:5432"
-        volumes:
-            - data-volume:/var/lib/postgresql
-
-    redis:
-        image: redis:7-alpine
-        # Redis stores scheduled, active and retry tasks for Asynq.
-        command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
-        ports:
-            - "6379:6379"
-        volumes:
-            - redis-volume:/data
-    mailpit:
-        image: axllent/mailpit:latest
-        # Local development inbox; do not expose the mailbox on public interfaces.
-        ports:
-            - "127.0.0.1:8025:8025"
-
-    api:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        ports:
-            - "8080:8080"
-        environment:
-            - DB_SOURCE=postgresql://root:secret@postgres:5432/bdspro?sslmode=disable
-            - REDIS_ADDRESS=redis:6379
-            - LOG_FORMAT=json
-            - SMTP_ADDRESS=mailpit:1025
-            - SMTP_AUTH=false
-            - EMAIL_SENDER_ADDRESS=no-reply@bdspro.test
-        depends_on:
-            - postgres
-            - redis
-            - mailpit
-        logging:
-            driver: json-file
-            options:
-                max-size: "10m"
-                max-file: "3"
-        entrypoint: ["/app/wait-for.sh", "postgres:5432", "--", "/app/start.sh"]
-        command: ["/app/main"]
-
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: bdspro
+    ports: ["5432:5432"]
+    volumes: [data-volume:/var/lib/postgresql]
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports: ["6379:6379"]
+    volumes: [redis-volume:/data]
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+  api:
+    image: bdspro:local
+    build: {context: ., dockerfile: Dockerfile}
+    ports: ["8080:8080"]
+    depends_on: [postgres, redis, mailpit]
+    volumes: [bdspro-volume:/data]
+    entrypoint: ["/app/wait-for.sh", "postgres:5432", "--", "/app/setup"]
+    command: ["/app/main", "--config", "/data/bdspro/conf/app.ini", "web"]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  worker:
+    image: bdspro:local
+    build: {context: ., dockerfile: Dockerfile}
+    depends_on: [postgres, redis, mailpit]
+    volumes: [bdspro-volume:/data]
+    entrypoint: ["/app/wait-for.sh", "postgres:5432", "--", "/app/setup"]
+    command: ["/app/main", "--config", "/data/bdspro/conf/app.ini", "worker"]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
 volumes:
-    data-volume:
-        name: bdspro-postgres18-data
-    redis-volume:
-        name: bdspro-redis-data
+  data-volume: {name: bdspro-postgres18-data}
+  redis-volume: {name: bdspro-redis-data}
+  bdspro-volume: {name: bdspro-app-data}

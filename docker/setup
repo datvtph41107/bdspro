@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+conf_dir=/data/bdspro/conf
+log_dir=/data/bdspro/log
+conf_file="$conf_dir/app.ini"
+mkdir -p "$conf_dir" "$log_dir"
+# Atomic first-time creation even when web and worker start together.
+if [ ! -f "$conf_file" ]; then
+    tmp_file="$(mktemp "$conf_dir/.app.ini.XXXXXX")"
+    cp /etc/templates/app.ini "$tmp_file"
+    chmod 0600 "$tmp_file"
+    ln "$tmp_file" "$conf_file" 2>/dev/null || true
+    rm -f "$tmp_file"
+fi
+exec "$@"

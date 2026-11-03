@@ -3,58 +3,48 @@
 Go/Gin REST monolith. PostgreSQL 18 with SQLC/pgxpool, Redis and Asynq.
 One entry point (`main.go`), no gRPC, gRPC-Gateway or custom route registry.
 
-## Source ownership
+## Source ownership (R00, Gitea-inspired)
 
 ```text
-main.go
-internal/
-  api/
-    server.go                   Gin engine and HTTP lifecycle
-    routes.go                   Native Gin route registration
-    handler/                    HTTP input and explicitly public output contracts
-    middleware/                 Authentication, admission and rate limits
-    response/                   Public errors and status mapping
-  service/                      Business operations; does not depend on Gin
-  database/                     SQLC generated files and handwritten transactions
-  errors/                       Application error definitions and classifications
-  config/                       Runtime settings
-  token/                        JWT maker and token payload
-  worker/                       Redis/Asynq runtime and outbox dispatch
-  jobs/                         Background business operations
-  mail/                         SMTP delivery
-  notification/                 Phone delivery adapters
-  util/                         Logger and small independent functions
-db/
-  migration/                    Append-only PostgreSQL migrations
-  query/                        Editable canonical SQL queries
-doc/
-  swagger/                      Versioned OpenAPI JSON + Swagger UI page
-docs/                            Engineering, operation and historical decisions
+main.go                        process entry, build information and exit hook
+cmd/main.go                     urfave/cli/v3 command declaration and execution
+cmd/web.go                      HTTP runtime (alias: serve)
+cmd/worker.go                   Asynq processor and outbox dispatch runtime
+cmd/helper.go                   signals, early logging, shared setting loader
+routers/init.go                 HTTP initialization
+routers/api/                    Gin server, routes, handlers, middleware, response
+models/db/                      SQLC/pgx generated queries and transactions
+modules/setting/                INI config, common settings, log policy
+modules/log/                    Gitea-style logging API, owned writers, shutdown
+modules/{errors,token,util}/    shared non-HTTP logic
+services/                       authentication and organization operations
+services/{jobs,worker,mail,notification}/
+db/{migration,query}/           canonical SQL and migration history
+docker/root/etc/templates/      app.ini for first-time container setup
 ```
 
-All Go code under `internal/` stays private to this module. No `pkg/`
-library is needed for the current executable.
+One binary has `web` and `worker` runtimes. No `internal/` tree remains. Migration remains owned by golang-migrate and `make migrateup`. SQLC remains the database access implementation; no ORM or schema ownership change is implied.
 
 ## Development
 
-Requirements: Go 1.27.3, PostgreSQL 18, Redis 7, SQLC v1.30.0 and
-golang-migrate. Copy no example signing key into production.
+Requirements: Go 1.27.3, PostgreSQL 18, Redis 7 and golang-migrate.
+Configuration: one `app.ini`, selected with `--config` (default: `docker/root/etc/templates/app.ini`).
+Environment overrides use `BDS__SECTION__KEY`; no `app.env` is loaded.
+Docker initializes `/data/bdspro/conf/app.ini` and `/data/bdspro/log/` using its template. Secrets must be injected externally in non-development deployments.
 
 ```sh
 make migrateup
 make sqlc
 make swagger
-go run .
+make server     # API only
+make worker     # background tasks and outbox delivery
+go run . --version
+go run . --help
 go test ./...
 go test -race ./...
-go vet ./...
-go build ./...
 ```
 
-`main.go` applies migrations automatically only in development. Outside
-development, apply migrations through a controlled deployment step before
-starting the API. JWT signing secrets must be environment-specific.
-Docker Compose can provision supporting services.
+Use `docker compose up --build` for PostgreSQL, Redis, Mailpit, web and worker. HTTP no longer starts the task processor; asynchronous email requires a running worker. In development the web runtime keeps the existing automatic migration behavior; run schema migrations before standalone workers in other environments.
 
 ## HTTP contract
 

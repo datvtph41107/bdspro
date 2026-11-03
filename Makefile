@@ -2,7 +2,7 @@ DB_URL ?= postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
-.PHONY: postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration sqlc test server swagger
+.PHONY: worker postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration sqlc test server swagger
 
 postgres:
 	docker start $(POSTGRES_CONTAINER)
@@ -35,7 +35,10 @@ test:
 	go test -v ./...
 
 server:
-	go run .
+	BDS__DATABASE__DB_SOURCE='postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable' BDS__REDIS__ADDR=127.0.0.1:6379 BDS__MAILER__SMTP_ADDRESS=127.0.0.1:1025 go run . web
+
+worker:
+	BDS__DATABASE__DB_SOURCE='postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable' BDS__REDIS__ADDR=127.0.0.1:6379 BDS__MAILER__SMTP_ADDRESS=127.0.0.1:1025 go run . worker
 
 swagger:
 	swag init -g main.go --parseInternal -o doc/swagger --outputTypes json
