@@ -1,46 +1,19 @@
 package setting
 
-import (
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
-)
-
+import ("os"; "path/filepath"; "strings"; "testing")
 func TestLogLevelDefaultAndOverride(t *testing.T) {
-	directory := t.TempDir()
-	env := strings.Join([]string{
-		"ENVIRONMENT=development",
-		"DB_SOURCE=postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable",
-		"MIGRATION_URL=file://db/migration",
-		"HTTP_SERVER_ADDRESS=127.0.0.1:8080",
-		"TOKEN_SYMMETRIC_KEY=01234567890123456789012345678901",
-		"ACCESS_TOKEN_DURATION=15m",
-		"REFRESH_TOKEN_DURATION=24h",
-	}, "\n") + "\n"
-	if err := os.WriteFile(filepath.Join(directory, "app.env"), []byte(env), 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg, err := LoadConfig(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.LogLevel != "info" {
-		t.Fatalf("default LOG_LEVEL = %q, want info", cfg.LogLevel)
-	}
-
-	t.Setenv("LOG_LEVEL", "debug")
-	cfg, err = LoadConfig(directory)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.LogLevel != "debug" {
-		t.Fatalf("environment LOG_LEVEL = %q, want debug", cfg.LogLevel)
-	}
-
-	t.Setenv("LOG_LEVEL", "verbose")
-	if _, err := LoadConfig(directory); err == nil || !strings.Contains(err.Error(), "LOG_LEVEL") {
-		t.Fatalf("expected invalid LOG_LEVEL rejection, got %v", err)
-	}
+    file := filepath.Join(t.TempDir(),"app.ini")
+    data := "RUN_MODE = development\n[database]\nDB_SOURCE = postgresql://root:secret@localhost:5432/bdspro?sslmode=disable\nMIGRATION_URL = file://db/migration\n[server]\nHTTP_SERVER_ADDRESS = 127.0.0.1:8080\n[security]\nTOKEN_SYMMETRIC_KEY = 01234567890123456789012345678901\nACCESS_TOKEN_DURATION = 15m\nREFRESH_TOKEN_DURATION = 24h\n"
+    if err := os.WriteFile(file,[]byte(data),0600);err!=nil {t.Fatal(err)}
+    cfg,err:=LoadConfig(file)
+    if err!=nil {t.Fatal(err)}
+    if cfg.LogLevel!="info" {t.Fatalf("default log level=%q",cfg.LogLevel)}
+    t.Setenv("BDS__LOG__LEVEL","debug")
+    cfg,err=LoadConfig(file)
+    if err!=nil {t.Fatal(err)}
+    if cfg.LogLevel!="debug" {t.Fatalf("env override=%q",cfg.LogLevel)}
+    t.Setenv("BDS__LOG__LEVEL","verbose")
+    if _,err=LoadConfig(file);err==nil || !strings.Contains(err.Error(),"LOG_LEVEL") {
+        t.Fatalf("invalid log level accepted: %v",err)
+    }
 }
