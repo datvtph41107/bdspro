@@ -4,7 +4,7 @@ import "errors"
 
 // Authentication model errors have no HTTP status or public message contract.
 var (
-	ErrPasswordResetInvalid      = errors.New("invalid or expired password reset")
+	ErrPasswordResetInvalid         = errors.New("invalid or expired password reset")
 	ErrInvalidResetToken            = errors.New("invalid reset token")
 	ErrInvalidPassword              = errors.New("invalid password")
 	ErrInvalidVerificationLink      = errors.New("invalid verification link")
