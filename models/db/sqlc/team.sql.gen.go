@@ -130,6 +130,10 @@ WHERE t.id = $6
     WHERE recipient.is_email_verified = TRUE
       AND lower(btrim(recipient.email)) = lower(btrim($2::text))
       AND member.organization_id = t.organization_id AND member.ended_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM team_members tm
+        WHERE tm.team_id = t.id AND tm.person_id = recipient.person_id
+      )
   )
 RETURNING id, team_id, invited_email, invited_by_account_id, token_hash,
           expires_at, accepted_at, revoked_at, created_at
@@ -277,15 +281,23 @@ WHERE t.id = $1
       AND m.person_id = tm.person_id AND m.ended_at IS NULL
   )
 ORDER BY tm.joined_at, tm.person_id
+LIMIT $4::integer OFFSET $3::integer
 `
 
 type ListTeamUsersForAccountParams struct {
 	TeamID         int64 `json:"team_id"`
 	ActorAccountID int64 `json:"actor_account_id"`
+	Skip           int32 `json:"skip"`
+	Take           int32 `json:"take"`
 }
 
 func (q *Queries) ListTeamUsersForAccount(ctx context.Context, arg ListTeamUsersForAccountParams) ([]TeamMember, error) {
-	rows, err := q.db.Query(ctx, listTeamUsersForAccount, arg.TeamID, arg.ActorAccountID)
+	rows, err := q.db.Query(ctx, listTeamUsersForAccount,
+		arg.TeamID,
+		arg.ActorAccountID,
+		arg.Skip,
+		arg.Take,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -444,11 +456,12 @@ SET revoked_at = now()
 FROM teams AS t
 WHERE ti.id = $1
   AND ti.team_id = t.id
+  AND t.id = $2
   AND ti.accepted_at IS NULL AND ti.revoked_at IS NULL
   AND EXISTS (
     SELECT 1 FROM accounts a
     JOIN organization_members m ON m.person_id = a.person_id
-    WHERE a.id = $2
+    WHERE a.id = $3
       AND m.organization_id = t.organization_id
       AND m.role = 'owner' AND m.ended_at IS NULL
   )
@@ -456,11 +469,12 @@ WHERE ti.id = $1
 
 type RevokeTeamInviteForOwnerParams struct {
 	InviteID       uuid.UUID `json:"invite_id"`
+	TeamID         int64     `json:"team_id"`
 	ActorAccountID int64     `json:"actor_account_id"`
 }
 
 func (q *Queries) RevokeTeamInviteForOwner(ctx context.Context, arg RevokeTeamInviteForOwnerParams) (int64, error) {
-	result, err := q.db.Exec(ctx, revokeTeamInviteForOwner, arg.InviteID, arg.ActorAccountID)
+	result, err := q.db.Exec(ctx, revokeTeamInviteForOwner, arg.InviteID, arg.TeamID, arg.ActorAccountID)
 	if err != nil {
 		return 0, err
 	}

@@ -46,8 +46,8 @@ type AcceptTeamInviteOption struct {
 // IssuedTeamInvite never contains the raw proof. Only the asynchronous
 // worker sends that proof to the verified organization member.
 type IssuedTeamInvite struct {
-	ID uuid.UUID `json:"id"`
-	TeamID int64 `json:"team_id"`
-	InvitedEmail string `json:"invited_email"`
-	ExpiresAt time.Time `json:"expires_at"`
+	ID           uuid.UUID `json:"id"`
+	TeamID       int64     `json:"team_id"`
+	InvitedEmail string    `json:"invited_email"`
+	ExpiresAt    time.Time `json:"expires_at"`
 }

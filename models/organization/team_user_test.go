@@ -1,9 +1,9 @@
 package organization_test
 
 import (
-	db "github.com/datvtph41107/bdspro/models/db"
 	"context"
 	"errors"
+	db "github.com/datvtph41107/bdspro/models/db"
 	"testing"
 
 	organization "github.com/datvtph41107/bdspro/models/organization"

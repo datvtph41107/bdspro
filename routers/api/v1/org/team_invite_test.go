@@ -13,12 +13,12 @@ func TestTeamInviteHandlersRejectMalformedRequests(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewTeamHandler(nil, "")
 	for _, tt := range []struct {
-		name string
-		method string
-		path string
+		name    string
+		method  string
+		path    string
 		pattern string
-		body string
-		handle gin.HandlerFunc
+		body    string
+		handle  gin.HandlerFunc
 	}{
 		{"missing email", http.MethodPost, "/teams/1/invites", "/teams/:team_id/invites", "{}", h.CreateInvite},
 		{"invalid email", http.MethodPost, "/teams/1/invites", "/teams/:team_id/invites", `{"email":"bad"}`, h.CreateInvite},
@@ -26,7 +26,7 @@ func TestTeamInviteHandlersRejectMalformedRequests(t *testing.T) {
 		{"missing token", http.MethodPost, "/teams/invites/accept", "/teams/invites/accept", "{}", h.AcceptInvite},
 		{"invalid token length", http.MethodPost, "/teams/invites/accept", "/teams/invites/accept", `{"token":"wrong"}`, h.AcceptInvite},
 		{"invalid invite ID", http.MethodDelete, "/teams/1/invites/wrong", "/teams/:team_id/invites/:invite_id", "", h.RevokeInvite},
-	}{
+	} {
 		t.Run(tt.name, func(t *testing.T) {
 			router := gin.New()
 			router.Handle(tt.method, tt.pattern, tt.handle)

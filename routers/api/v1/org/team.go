@@ -15,7 +15,7 @@ import (
 
 // TeamHandler keeps HTTP parsing separate from Team persistence and permissions.
 type TeamHandler struct {
-	store db.Store
+	store      db.Store
 	signingKey string
 }
 
