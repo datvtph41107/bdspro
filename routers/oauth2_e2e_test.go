@@ -1,7 +1,6 @@
 package routers
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -29,6 +28,7 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	var nonce string
+	var codeChallenge string
 	var issuer string
 	var clientID = "bdspro-test"
 	var email = uuid.NewString() + "@example.test"
@@ -56,6 +56,10 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 				r.Form.Get("code") != "one-time-code" ||
 				r.Form.Get("code_verifier") == "" {
 				t.Error("invalid authorization-code exchange request")
+			}
+			digest := sha256.Sum256([]byte(r.Form.Get("code_verifier")))
+			if base64.RawURLEncoding.EncodeToString(digest[:]) != codeChallenge {
+				t.Error("PKCE verifier does not match authorization challenge")
 			}
 			claims := jwt.MapClaims{
 				"iss": issuer,
@@ -110,6 +114,7 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 			t.Fatal(err)
 		}
 		nonce = redirect.Query().Get("nonce")
+		codeChallenge = redirect.Query().Get("code_challenge")
 		state := redirect.Query().Get("state")
 		if redirect.Query().Get("code_challenge_method") != "S256" ||
 			len(state) != 43 || nonce == "" {
@@ -155,11 +160,4 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 		t.Fatalf("the same issuer/subject generated two accounts: %d != %d", firstID, secondID)
 	}
 
-	// Extra check: a consumed nonce and state are not sufficient to forge the
-	// PKCE challenge; a fresh SHA-256 challenge must have proper length.
-	verifier := "independent-test-verifier"
-	if len(sha256.Sum256([]byte(verifier))) != 32 {
-		t.Fatal("unexpected SHA256 size")
-	}
-	_ = context.Background()
 }
