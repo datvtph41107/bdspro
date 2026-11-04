@@ -14,10 +14,10 @@ func TestTeamHandlersRejectMalformedInputsWithoutDatabase(t *testing.T) {
 	handler := NewTeamHandler(nil)
 	tests := []struct {
 		method string
-		path string
-		bind string
-		body string
-		serve gin.HandlerFunc
+		path   string
+		bind   string
+		body   string
+		serve  gin.HandlerFunc
 	}{
 		{http.MethodGet, "/organizations/invalid/teams", "/organizations/:id/teams", "", handler.List},
 		{http.MethodGet, "/organizations/1/teams?page=invalid", "/organizations/:id/teams", "", handler.List},
