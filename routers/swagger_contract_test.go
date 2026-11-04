@@ -46,7 +46,6 @@ func TestOpenAPICoverage(t *testing.T) {
 		OAuth2:       s.oauth2Handler,
 		Phone:        s.phoneHandler,
 		TokenMaker:   s.tokenMaker,
-		RateRedis:    s.authRateRedis,
 		Store:        s.store,
 	})
 	normalize := regexp.MustCompile(`:[A-Za-z_][A-Za-z0-9_]*`)
