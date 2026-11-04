@@ -1,6 +1,7 @@
 package routers
 
 import (
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"errors"
 	"fmt"
 	"net/http"
@@ -73,7 +74,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		return nil, err
 	}
 	if phoneSender != nil {
-		phone := auth_service.PhoneOTP{Store: store, Config: cfg, Sender: phoneSender}
+		phone := auth_service.PhoneOTP{Store: auth_model.NewPhoneStore(store), Config: cfg, Sender: phoneSender}
 		server.phoneHandler = user.NewPhoneHandler(
 			store, cfg, phoneSender, server.authThrottle,
 		)

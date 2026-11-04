@@ -13,6 +13,7 @@ import (
 
 type phoneBindingStore struct {
 	db.Store
+	auth_model.PhoneOperations
 	linkedID      int64
 	linkedSub     string
 	accountID     int64

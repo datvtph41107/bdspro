@@ -1,6 +1,7 @@
 package user
 
 import (
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/services/convert"
 	"net/http"
@@ -30,7 +31,7 @@ func NewPhoneHandler(
 ) *PhoneHandler {
 	return &PhoneHandler{
 		phone: auth_service.PhoneOTP{
-			Store: store, Config: cfg, Sender: sender,
+			Store: auth_model.NewPhoneStore(store), Config: cfg, Sender: sender,
 		},
 		limiter: limiter,
 	}

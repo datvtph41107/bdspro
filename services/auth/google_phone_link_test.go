@@ -14,6 +14,7 @@ import (
 
 type linkPhoneProofStore struct {
 	db.Store
+	auth_model.PhoneOperations
 	phone      string
 	err        error
 	callCount  int
