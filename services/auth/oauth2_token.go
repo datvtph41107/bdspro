@@ -27,9 +27,9 @@ type OIDCTokenVerifier struct {
 
 type oidcIDClaims struct {
 	jwt.RegisteredClaims
-	Nonce         string `json:"nonce"`
-	Email         string `json:"email"`
-	EmailVerified bool   `json:"email_verified"`
+	Nonce           string `json:"nonce"`
+	Email           string `json:"email"`
+	EmailVerified   bool   `json:"email_verified"`
 	AuthorizedParty string `json:"azp"`
 }
 
