@@ -66,7 +66,7 @@ worker: config-local
 swagger: swagger-check
 
 swagger-check:
-	go test ./routers/api -run '^TestOpenAPICoverage$$|^TestSwaggerAssetsDevelopmentOnly$$' -count=1
+	go test ./routers -run '^TestOpenAPICoverage$|^TestSwaggerAssetsDevelopmentOnly$' -count=1
 
 # Same application binary as Docker, but written to a local, ignored build directory.
 .PHONY: build watch race vet
