@@ -1,43 +1,45 @@
 package auth
 
 import (
-    "errors"
-    "net/url"
-    "strings"
+	"errors"
+	"net/url"
+	"strings"
 )
 
 var (
-    ErrOIDCIssuerInvalid = errors.New("invalid OIDC issuer")
-    ErrOIDCSubjectInvalid = errors.New("invalid OIDC subject")
+	ErrOIDCIssuerInvalid  = errors.New("invalid OIDC issuer")
+	ErrOIDCSubjectInvalid = errors.New("invalid OIDC subject")
 )
 
-// OIDCIdentity contains claims from a verified OpenID Connect ID token.
-// Constructing it does NOT verify a token. Callers must first check signature,
-// issuer, audience, expiry, nonce and other required claims using provider
-// metadata. Email must not be used as an identity key for account linking.
+// OIDCIdentity carries identity claims AFTER an OpenID Connect ID token was
+// cryptographically verified against a trusted provider configuration.
+// This value type does not verify or grant account access on its own.
 type OIDCIdentity struct {
-    Issuer string
-    Subject string
-    Email string
-    EmailVerified bool
+	Issuer        string
+	Subject       string
+	Email         string
+	EmailVerified bool
 }
 
-// IdentityKey is scoped by the OpenID Provider issuer, not email.
+// IdentityKey is globally unique within the configured set of trusted issuers.
+// Never use email as an identity key or silently link identities by email.
 type IdentityKey struct {
-    Issuer string
-    Subject string
+	Issuer  string
+	Subject string
 }
 
-// Key checks the shape of a verified issuer and subject. It is NOT token
-// verification. Preserve the issuer exactly as verified against configuration.
+// Key checks key shape only; it does not validate signature, audience or nonce.
+// Preserve the verified issuer exactly, including its path when present.
 func (identity OIDCIdentity) Key() (IdentityKey, error) {
-    issuer := identity.Issuer
-    parsed, err := url.Parse(issuer)
-    if err != nil || parsed == nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Opaque != "" || parsed.String() != issuer {
-        return IdentityKey{}, ErrOIDCIssuerInvalid
-    }
-    if strings.TrimSpace(identity.Subject) == "" || identity.Subject != strings.TrimSpace(identity.Subject) {
-        return IdentityKey{}, ErrOIDCSubjectInvalid
-    }
-    return IdentityKey{Issuer: issuer, Subject: identity.Subject}, nil
+	issuer := identity.Issuer
+	parsed, err := url.Parse(issuer)
+	if err != nil || parsed == nil || parsed.Scheme != "https" || parsed.Host == "" ||
+		parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" ||
+		parsed.Opaque != "" || parsed.String() != issuer {
+		return IdentityKey{}, ErrOIDCIssuerInvalid
+	}
+	if strings.TrimSpace(identity.Subject) == "" || identity.Subject != strings.TrimSpace(identity.Subject) {
+		return IdentityKey{}, ErrOIDCSubjectInvalid
+	}
+	return IdentityKey{Issuer: issuer, Subject: identity.Subject}, nil
 }

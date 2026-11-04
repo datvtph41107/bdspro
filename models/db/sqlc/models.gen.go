@@ -45,6 +45,13 @@ type JobOutbox struct {
 	QueuedAt  pgtype.Timestamptz `json:"queued_at"`
 }
 
+type OAuth2Identity struct {
+	Issuer    string    `json:"issuer"`
+	Subject   string    `json:"subject"`
+	AccountID int64     `json:"account_id"`
+	LinkedAt  time.Time `json:"linked_at"`
+}
+
 type Organization struct {
 	PartyID   int64     `json:"party_id"`
 	Name      string    `json:"name"`

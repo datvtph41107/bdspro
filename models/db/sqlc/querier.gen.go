@@ -40,6 +40,7 @@ type Querier interface {
 	EmailLinkAddressTaken(ctx context.Context, btrim string) (bool, error)
 	FailPhoneSignup(ctx context.Context, phoneE164 string) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
+	GetOAuth2AccountID(ctx context.Context, arg GetOAuth2AccountIDParams) (int64, error)
 	GetGoogleAccountIDQuery(ctx context.Context, googleSub string) (int64, error)
 	GetOrganizationForAccount(ctx context.Context, arg GetOrganizationForAccountParams) (GetOrganizationForAccountRow, error)
 	GetPasswordHash(ctx context.Context, accountID int64) (string, error)
@@ -49,7 +50,9 @@ type Querier interface {
 	GetTeamForAccount(ctx context.Context, arg GetTeamForAccountParams) (Team, error)
 	GetTeamInviteForDelivery(ctx context.Context, inviteID uuid.UUID) (GetTeamInviteForDeliveryRow, error)
 	InsertInvitedTeamUser(ctx context.Context, arg InsertInvitedTeamUserParams) (TeamMember, error)
+	LinkOAuth2Identity(ctx context.Context, arg LinkOAuth2IdentityParams) (int64, error)
 	LinkGoogleIdentityQuery(ctx context.Context, arg LinkGoogleIdentityQueryParams) (int64, error)
+	ListOAuth2IdentitiesForAccount(ctx context.Context, accountID int64) ([]OAuth2Identity, error)
 	ListActiveSessions(ctx context.Context, accountID int64) ([]ListActiveSessionsRow, error)
 	ListOrganizationMembersForOwner(ctx context.Context, arg ListOrganizationMembersForOwnerParams) ([]ListOrganizationMembersForOwnerRow, error)
 	ListOrganizationsForAccount(ctx context.Context, accountID int64) ([]ListOrganizationsForAccountRow, error)
