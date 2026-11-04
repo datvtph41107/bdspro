@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -19,7 +18,7 @@ func GetOrgMembers(ctx context.Context, store Store, actorAccountID, organizatio
 	}
 	// Active owners must be active members. Preserve R01's 404 visibility policy.
 	if len(members) == 0 {
-		return nil, apperrors.OrganizationNotFound
+		return nil, ErrOrganizationNotFound
 	}
 	return members, nil
 }
@@ -31,15 +30,15 @@ func AddOrgUser(ctx context.Context, store Store, actorAccountID, organizationID
 		OrganizationID: organizationID, PersonID: personID, ActorAccountID: actorAccountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.OrganizationMember{}, apperrors.OrganizationOwnerRequired
+		return db.OrganizationMember{}, ErrOrganizationOwnerRequired
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		switch {
 		case pgErr.Code == "23505" && pgErr.ConstraintName == "organization_members_one_open_uq":
-			return db.OrganizationMember{}, apperrors.Wrap(apperrors.MembershipExists, err)
+			return db.OrganizationMember{}, errors.Join(ErrMembershipExists, err)
 		case pgErr.Code == "23503" && pgErr.ConstraintName == "organization_members_person_id_fkey":
-			return db.OrganizationMember{}, apperrors.Wrap(apperrors.PersonUnavailable, err)
+			return db.OrganizationMember{}, errors.Join(ErrPersonUnavailable, err)
 		}
 	}
 	return member, err

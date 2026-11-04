@@ -3,12 +3,13 @@ package auth
 import (
 	"context"
 	"errors"
+	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"strings"
 	"testing"
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/google/uuid"
@@ -119,18 +120,18 @@ func TestGoogleLinkAndLoginErrorClassification(t *testing.T) {
 	auth := googleTestService(store, t)
 
 	store.linkErr = pgx.ErrNoRows
-	if err := auth.Link(ctx, 42, "google-sub"); !errors.Is(err, apperrors.GoogleIdentityAlreadyLinked) {
+	if err := auth.Link(ctx, 42, "google-sub"); !errors.Is(err, auth_model.ErrGoogleIdentityAlreadyLinked) {
 		t.Fatalf("already-linked Google identity: %v", err)
 	}
 	store.linkErr = &pgconn.PgError{Code: "23505"}
-	if err := auth.Link(ctx, 42, "google-sub"); !errors.Is(err, apperrors.GoogleAccountAlreadyLinked) {
+	if err := auth.Link(ctx, 42, "google-sub"); !errors.Is(err, auth_model.ErrGoogleAccountAlreadyLinked) {
 		t.Fatalf("duplicate linked account: %v", err)
 	}
 	store.linkErr = nil
 
 	store.lookupErr = pgx.ErrNoRows
 	unknown := VerifiedGoogleIdentity{Subject: "new-google-sub"}
-	if _, err := auth.Login(ctx, unknown, "", ""); !errors.Is(err, apperrors.GoogleEmailUnverified) {
+	if _, err := auth.Login(ctx, unknown, "", ""); !errors.Is(err, auth_model.ErrGoogleEmailUnverified) {
 		t.Fatalf("unverified email must not create account: %v", err)
 	}
 	if store.created != 0 {
@@ -147,17 +148,17 @@ func TestGoogleLinkAndLoginErrorClassification(t *testing.T) {
 		t.Fatalf("incorrect Google account/session: %+v, created=%d sessions=%d", result.Account, store.created, store.sessions)
 	}
 	store.createErr = &pgconn.PgError{Code: "23505", ConstraintName: "accounts_email_login_uq"}
-	if _, err := auth.Login(ctx, verified, "", ""); !errors.Is(err, apperrors.GoogleEmailAlreadyRegistered) {
+	if _, err := auth.Login(ctx, verified, "", ""); !errors.Is(err, auth_model.ErrGoogleEmailAlreadyRegistered) {
 		t.Fatalf("existing email must require explicit linking: %v", err)
 	}
 	store.createErr = nil
 
 	store.lookupErr = nil
 	store.accountErr = pgx.ErrNoRows
-	if _, err := auth.Login(ctx, verified, "", ""); !errors.Is(err, apperrors.AccountUnavailable) {
+	if _, err := auth.Login(ctx, verified, "", ""); !errors.Is(err, account_model.ErrAccountUnavailable) {
 		t.Fatalf("Google subject linked to deleted account: %v", err)
 	}
-	if err := auth.CheckPassword(ctx, 42, "password"); !errors.Is(err, apperrors.InvalidCredentials) {
+	if err := auth.CheckPassword(ctx, 42, "password"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 		t.Fatalf("removed account cannot link Google: %v", err)
 	}
 }

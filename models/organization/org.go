@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -39,7 +39,7 @@ type Access struct {
 func organizationName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "", apperrors.NameRequired
+		return "", ErrNameRequired
 	}
 	return name, nil
 }
@@ -54,7 +54,7 @@ func CreateOrganization(ctx context.Context, store Store, actorAccountID int64, 
 	}
 	actor, err := store.GetAccountByID(ctx, actorAccountID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.Organization{}, apperrors.AccountUnavailable
+		return db.Organization{}, account_model.ErrAccountUnavailable
 	}
 	if err != nil {
 		return db.Organization{}, err
@@ -104,7 +104,7 @@ func GetForAccount(ctx context.Context, store Store, actorAccountID, organizatio
 		AccountID: actorAccountID, OrganizationID: organizationID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Access{}, apperrors.OrganizationNotFound
+		return Access{}, ErrOrganizationNotFound
 	}
 	if err != nil {
 		return Access{}, err
@@ -127,7 +127,7 @@ func UpdateOrganization(ctx context.Context, store Store, actorAccountID, organi
 		Name: pgtype.Text{String: name, Valid: true},
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.Organization{}, apperrors.OrganizationOwnerRequired
+		return db.Organization{}, ErrOrganizationOwnerRequired
 	}
 	return updated, err
 }

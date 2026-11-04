@@ -3,12 +3,13 @@ package auth
 import (
 	"context"
 	"errors"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/jackc/pgx/v5"
@@ -29,20 +30,20 @@ func NewGoogleAuthService(store db.Store, maker token.Maker, cfg setting.Config)
 func (s *GoogleAuthService) CheckPassword(ctx context.Context, accountID int64, password string) error {
 	_, err := s.store.GetAccountByID(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return apperrors.InvalidCredentials
+		return auth_model.ErrInvalidCredentials
 	}
 	if err != nil {
 		return err
 	}
 	hash, err := s.store.GetPasswordHash(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return apperrors.InvalidCredentials
+		return auth_model.ErrInvalidCredentials
 	}
 	if err != nil {
 		return err
 	}
 	if authcrypto.CheckPassword(password, hash) != nil {
-		return apperrors.InvalidCredentials
+		return auth_model.ErrInvalidCredentials
 	}
 	return nil
 }
@@ -52,10 +53,11 @@ func (s *GoogleAuthService) Link(ctx context.Context, accountID int64, subject s
 		AccountID: accountID, GoogleSub: subject,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return apperrors.GoogleIdentityAlreadyLinked
+		return auth_model.ErrGoogleIdentityAlreadyLinked
 	}
-	if pgErr := apperrors.Postgres(err); pgErr != nil && pgErr.Code == "23505" {
-		return apperrors.Wrap(apperrors.GoogleAccountAlreadyLinked, err)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return errors.Join(auth_model.ErrGoogleAccountAlreadyLinked, err)
 	}
 	return err
 }
@@ -67,20 +69,20 @@ func (s *GoogleAuthService) Login(
 ) (LoginResult, error) {
 	var empty LoginResult
 	if identity.Subject == "" {
-		return empty, apperrors.GoogleIdentityUnlinked
+		return empty, auth_model.ErrGoogleIdentityUnlinked
 	}
 	accountID, err := s.store.GetGoogleAccountID(ctx, identity.Subject)
 	var account db.Account
 	if errors.Is(err, pgx.ErrNoRows) {
 		email := strings.ToLower(strings.TrimSpace(identity.Email))
 		if !identity.EmailVerified || email == "" {
-			return empty, apperrors.GoogleEmailUnverified
+			return empty, auth_model.ErrGoogleEmailUnverified
 		}
 		account, err = account_model.CreateGoogleAccount(ctx, s.store, email, identity.Subject)
 		if err != nil {
-			if pgErr := apperrors.Postgres(err); pgErr != nil &&
-				pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
-				return empty, apperrors.Wrap(apperrors.GoogleEmailAlreadyRegistered, err)
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
+				return empty, errors.Join(auth_model.ErrGoogleEmailAlreadyRegistered, err)
 			}
 			// Concurrent first login: the other transaction may have linked
 			// the same subject. Only resolve by sub, never by email.
@@ -94,7 +96,7 @@ func (s *GoogleAuthService) Login(
 		account, err = s.store.GetAccountByID(ctx, accountID)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
-		return empty, apperrors.AccountUnavailable
+		return empty, account_model.ErrAccountUnavailable
 	}
 	if err != nil {
 		return empty, err

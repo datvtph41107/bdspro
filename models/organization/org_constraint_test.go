@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -23,17 +22,17 @@ func TestAddMemberClassifiesOnlyKnownConstraints(t *testing.T) {
 		if want != nil && !errors.Is(err, want) {
 			t.Fatalf("constraint %s: got %v, want %v", constraint, err, want)
 		}
-		if want == nil && (errors.Is(err, apperrors.MembershipExists) ||
-			errors.Is(err, apperrors.PersonUnavailable)) {
+		if want == nil && (errors.Is(err, ErrMembershipExists) ||
+			errors.Is(err, ErrPersonUnavailable)) {
 			t.Fatalf("unrelated constraint falsely classified: %v", err)
 		}
 	}
 
 	t.Run("active membership unique index", func(t *testing.T) {
-		check(t, "23505", "organization_members_one_open_uq", apperrors.MembershipExists)
+		check(t, "23505", "organization_members_one_open_uq", ErrMembershipExists)
 	})
 	t.Run("person foreign key", func(t *testing.T) {
-		check(t, "23503", "organization_members_person_id_fkey", apperrors.PersonUnavailable)
+		check(t, "23503", "organization_members_person_id_fkey", ErrPersonUnavailable)
 	})
 	t.Run("unrelated unique violation", func(t *testing.T) {
 		check(t, "23505", "other_unique_constraint", nil)

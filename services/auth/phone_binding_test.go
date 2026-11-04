@@ -3,10 +3,10 @@ package auth
 import (
 	"context"
 	"errors"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"testing"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/jackc/pgx/v5"
 )
@@ -71,7 +71,7 @@ func TestGoogleSubjectMustOwnPhoneBindingAccount(t *testing.T) {
 		{"wrong account", 4, "google-sub-3"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := phone.StartGoogleBind(ctx, tc.id, tc.sub, "+84912345678"); !errors.Is(err, apperrors.InvalidCredentials) {
+			if err := phone.StartGoogleBind(ctx, tc.id, tc.sub, "+84912345678"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 				t.Fatalf("expected identity rejection, got %v", err)
 			}
 		})
@@ -86,7 +86,7 @@ func TestGoogleSubjectMustOwnPhoneBindingAccount(t *testing.T) {
 		t.Fatalf("expected exactly one local OTP, got %d", store.issued)
 	}
 	store.existingPhone = 11
-	if err := phone.StartGoogleBind(ctx, 3, "google-sub-3", "+84912345678"); !errors.Is(err, apperrors.PhoneUnavailable) {
+	if err := phone.StartGoogleBind(ctx, 3, "google-sub-3", "+84912345678"); !errors.Is(err, auth_model.ErrPhoneUnavailable) {
 		t.Fatalf("already bound number should be unavailable: %v", err)
 	}
 	if store.issued != 1 {
@@ -94,7 +94,7 @@ func TestGoogleSubjectMustOwnPhoneBindingAccount(t *testing.T) {
 	}
 	store.existingPhone = 0
 	store.alreadyBound = true
-	if err := phone.StartGoogleBind(ctx, 3, "google-sub-3", "+84912345679"); !errors.Is(err, apperrors.PhoneUnavailable) {
+	if err := phone.StartGoogleBind(ctx, 3, "google-sub-3", "+84912345679"); !errors.Is(err, auth_model.ErrPhoneUnavailable) {
 		t.Fatalf("already-bound account issued OTP: %v", err)
 	}
 	if store.issued != 1 {

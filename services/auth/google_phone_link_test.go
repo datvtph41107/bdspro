@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"testing"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/jackc/pgx/v5"
 )
@@ -50,14 +50,14 @@ func TestPhoneProofForGoogleLink(t *testing.T) {
 		t.Fatal("OTP verification did not bind account, phone and code")
 	}
 	store.callCount = 0
-	if err := s.AuthorizePhoneProof(context.Background(), 25, "incorrect"); !errors.Is(err, apperrors.OTPInvalid) {
+	if err := s.AuthorizePhoneProof(context.Background(), 25, "incorrect"); !errors.Is(err, auth_model.ErrOTPInvalid) {
 		t.Fatalf("invalid phone code accepted: %v", err)
 	}
 	if store.callCount != 0 {
 		t.Fatal("invalid code reached database")
 	}
 	store.err = pgx.ErrNoRows
-	if err := s.AuthorizePhoneProof(context.Background(), 25, "123456"); !errors.Is(err, apperrors.InvalidCredentials) {
+	if err := s.AuthorizePhoneProof(context.Background(), 25, "123456"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 		t.Fatalf("phone not bound to account: %v", err)
 	}
 }

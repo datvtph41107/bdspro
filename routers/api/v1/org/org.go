@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
@@ -87,7 +86,7 @@ func (h *Handler) Edit(c *gin.Context) {
 func organizationID(c *gin.Context) (int64, bool) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
-		response.Error(c, apperrors.InvalidOrganization)
+		response.Error(c, organization_model.ErrInvalidOrganization)
 		return 0, false
 	}
 	return id, true

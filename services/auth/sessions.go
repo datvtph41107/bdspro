@@ -3,31 +3,20 @@ package auth
 import (
 	"context"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/google/uuid"
 )
 
 func (s *AuthService) ListSessions(ctx context.Context, accountID int64) ([]db.ListActiveSessionsRow, error) {
-	return s.store.ListActiveSessions(ctx, accountID)
+	return auth_model.ListSessions(ctx, s.store, accountID)
 }
 
 func (s *AuthService) RevokeOwnSession(ctx context.Context, accountID int64, sessionID uuid.UUID) error {
-	affected, err := s.store.RevokeOwnedSession(ctx, db.RevokeOwnedSessionParams{
-		ID: sessionID, AccountID: accountID,
-	})
-	if err != nil {
-		return err
-	}
-	if affected != 1 {
-		return apperrors.SessionNotFound
-	}
-	return nil
+	return auth_model.RevokeOwnedSession(ctx, s.store, accountID, sessionID)
 }
 
-// RevokeAllSessions revokes refresh sessions only. Stateless access JWTs are
-// not invalidated until their standard expiry; this limitation is explicit.
+// RevokeAllSessions revokes refresh sessions only; access JWTs expire naturally.
 func (s *AuthService) RevokeAllSessions(ctx context.Context, accountID int64) error {
-	_, err := s.store.RevokeAllAccountSessions(ctx, accountID)
-	return err
+	return auth_model.RevokeAllSessions(ctx, s.store, accountID)
 }

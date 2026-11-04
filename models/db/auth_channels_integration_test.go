@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"os"
 	"testing"
@@ -124,7 +125,7 @@ func TestPasswordResetOnceAndCredentialCreation(t *testing.T) {
 	if err := store.CreatePasswordResetToken(ctx, db.CreatePasswordResetTokenParams{TokenHash: digest[:], AccountID: account.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := account_model.ResetPassword(ctx, store, digest[:], "replacement-test-hash"); err != nil {
+	if err := auth_model.ResetPassword(ctx, store, digest[:], "replacement-test-hash"); err != nil {
 		t.Fatal(err)
 	}
 	hash, err := store.GetPasswordHash(ctx, account.ID)
@@ -134,7 +135,7 @@ func TestPasswordResetOnceAndCredentialCreation(t *testing.T) {
 	if _, err := store.GetSession(ctx, session.ID); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("reset must revoke refresh session; got %v", err)
 	}
-	if err := account_model.ResetPassword(ctx, store, digest[:], "third-test-hash"); !errors.Is(err, account_model.ErrPasswordResetInvalid) {
+	if err := auth_model.ResetPassword(ctx, store, digest[:], "third-test-hash"); !errors.Is(err, auth_model.ErrPasswordResetInvalid) {
 		t.Fatalf("reset token replay: %v", err)
 	}
 }

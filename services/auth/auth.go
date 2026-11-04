@@ -7,16 +7,15 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	"github.com/datvtph41107/bdspro/modules/validation"
 	"html"
-	netmail "net/mail"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/services/mail"
@@ -40,8 +39,8 @@ func NewAuthService(store db.Store, maker token.Maker, cfg setting.Config) *Auth
 func (s *AuthService) Register(ctx context.Context, email, password string) (db.Account, error) {
 	// Gin validates rune length; bcrypt limits passwords to 72 bytes.
 	// Enforce this again for non-HTTP callers before hashing or DB writes.
-	if utf8.RuneCountInString(password) < 8 || len(password) > 72 {
-		return db.Account{}, apperrors.InvalidPassword
+	if !validation.PasswordLength(password) {
+		return db.Account{}, auth_model.ErrInvalidPassword
 	}
 	hash, err := authcrypto.HashPassword(password)
 	if err != nil {
@@ -54,7 +53,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
-			return db.Account{}, apperrors.Wrap(apperrors.EmailRegistered, err)
+			return db.Account{}, errors.Join(account_model.ErrEmailRegistered, err)
 		}
 		return db.Account{}, err
 	}
@@ -91,20 +90,20 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	var result LoginResult
 	account, err := s.store.GetAccountByEmail(ctx, strings.TrimSpace(email))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return result, apperrors.InvalidCredentials
+		return result, auth_model.ErrInvalidCredentials
 	}
 	if err != nil {
 		return result, err
 	}
 	hash, err := s.store.GetPasswordHash(ctx, account.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return result, apperrors.InvalidCredentials
+		return result, auth_model.ErrInvalidCredentials
 	}
 	if err != nil {
 		return result, err
 	}
 	if err := authcrypto.CheckPassword(password, hash); err != nil {
-		return result, apperrors.InvalidCredentials
+		return result, auth_model.ErrInvalidCredentials
 	}
 	return IssueSession(ctx, s.store, s.maker, s.config, account, userAgent, clientIP)
 }
@@ -114,7 +113,7 @@ func (s *AuthService) VerifyEmail(ctx context.Context, emailID int64, secretCode
 		ID: emailID, SecretCode: secretCode,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return apperrors.InvalidVerificationLink
+		return auth_model.ErrInvalidVerificationLink
 	}
 	return err
 }
@@ -128,18 +127,17 @@ func (s *AuthService) Renew(ctx context.Context, refreshToken string) (RenewResu
 	var result RenewResult
 	payload, err := s.maker.VerifyToken(refreshToken, token.TokenTypeRefresh)
 	if err != nil {
-		return result, apperrors.InvalidRefreshToken
+		return result, auth_model.ErrInvalidRefreshToken
 	}
 	session, err := s.store.GetSession(ctx, payload.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return result, apperrors.SessionUnavailable
+		return result, auth_model.ErrSessionUnavailable
 	}
 	if err != nil {
 		return result, err
 	}
-	if session.IsBlocked || session.AccountID != payload.AccountID ||
-		session.RefreshToken != refreshToken || !time.Now().Before(session.ExpiresAt) {
-		return result, apperrors.SessionUnavailable
+	if !auth_model.ValidRefreshSession(session, payload.AccountID, refreshToken, time.Now()) {
+		return result, auth_model.ErrSessionUnavailable
 	}
 	access, tokenPayload, err := s.maker.CreateToken(
 		payload.AccountID, s.config.Authentication().AccessTokenTTL, token.TokenTypeAccess,
@@ -153,13 +151,13 @@ func (s *AuthService) Renew(ctx context.Context, refreshToken string) (RenewResu
 func (s *AuthService) Revoke(ctx context.Context, refreshToken string) error {
 	payload, err := s.maker.VerifyToken(refreshToken, token.TokenTypeRefresh)
 	if err != nil {
-		return apperrors.InvalidRefreshToken
+		return auth_model.ErrInvalidRefreshToken
 	}
 	_, err = s.store.BlockSession(ctx, db.BlockSessionParams{
 		ID: payload.ID, AccountID: payload.AccountID, RefreshToken: refreshToken,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return apperrors.SessionUnavailable
+		return auth_model.ErrSessionUnavailable
 	}
 	return err
 }
@@ -177,7 +175,7 @@ func IssueSession(ctx context.Context, store db.Store, maker token.Maker, cfg se
 	if err != nil {
 		return result, err
 	}
-	session, err := store.CreateSession(ctx, db.CreateSessionParams{
+	session, err := auth_model.NewSession(ctx, store, db.CreateSessionParams{
 		ID: refreshPayload.ID, AccountID: account.ID, RefreshToken: refreshToken,
 		UserAgent: userAgent, ClientIp: clientIP, ExpiresAt: refreshPayload.ExpiredAt,
 	})
@@ -211,20 +209,20 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 // ResetPassword consumes its token transactionally and revokes refresh sessions.
 // Issued access JWTs remain valid until their normal expiry.
 func (s *AuthService) ResetPassword(ctx context.Context, secret, password string) error {
-	if utf8.RuneCountInString(password) < 8 || len(password) > 72 {
-		return apperrors.InvalidPassword
+	if !validation.PasswordLength(password) {
+		return auth_model.ErrInvalidPassword
 	}
 	if len(secret) != 43 {
-		return apperrors.InvalidResetToken
+		return auth_model.ErrInvalidResetToken
 	}
 	digest := sha256.Sum256([]byte(secret))
 	hash, err := authcrypto.HashPassword(password)
 	if err != nil {
 		return err
 	}
-	err = account_model.ResetPassword(ctx, s.store, digest[:], hash)
-	if errors.Is(err, account_model.ErrPasswordResetInvalid) {
-		return apperrors.InvalidResetToken
+	err = auth_model.ResetPassword(ctx, s.store, digest[:], hash)
+	if errors.Is(err, auth_model.ErrPasswordResetInvalid) {
+		return auth_model.ErrInvalidResetToken
 	}
 	return err
 }
@@ -233,21 +231,20 @@ func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email
 	if sender == nil {
 		return fmt.Errorf("email link mailer unavailable")
 	}
-	email = strings.ToLower(strings.TrimSpace(email))
-	address, err := netmail.ParseAddress(email)
-	if err != nil || address.Address != email || len(email) > 254 {
-		return apperrors.InvalidEmail
+	email, valid := validation.EmailAddress(email)
+	if !valid {
+		return auth_model.ErrInvalidEmail
 	}
 	account, err := s.store.GetAccountByID(ctx, accountID)
 	if err != nil {
 		return err
 	}
 	if account.Email != "" {
-		return apperrors.EmailAlreadyLinked
+		return auth_model.ErrEmailAlreadyLinked
 	}
 	_, err = s.store.GetAccountByEmail(ctx, email)
 	if err == nil {
-		return apperrors.EmailRegistered
+		return account_model.ErrEmailRegistered
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return err
@@ -265,11 +262,11 @@ func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email
 	if err := account_model.BeginEmailLink(ctx, s.store, accountID, email, hash[:]); err != nil {
 		switch {
 		case errors.Is(err, account_model.ErrEmailLinkTaken):
-			return apperrors.EmailRegistered
+			return account_model.ErrEmailRegistered
 		case errors.Is(err, account_model.ErrEmailLinkUnavailable):
-			return apperrors.EmailAlreadyLinked
+			return auth_model.ErrEmailAlreadyLinked
 		case errors.Is(err, account_model.ErrEmailLinkCooldown):
-			return apperrors.EmailLinkCooldown
+			return auth_model.ErrEmailLinkCooldown
 		}
 		return err
 	}
@@ -279,19 +276,19 @@ func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email
 
 func (s *AuthService) ConfirmEmailLink(ctx context.Context, accountID int64, secret string) error {
 	if len(secret) != 43 {
-		return apperrors.InvalidEmailLink
+		return auth_model.ErrInvalidEmailLink
 	}
 	hash := sha256.Sum256([]byte(secret))
 	err := account_model.ConfirmEmailLink(ctx, s.store, accountID, hash[:])
 	if errors.Is(err, account_model.ErrEmailLinkInvalid) {
-		return apperrors.InvalidEmailLink
+		return auth_model.ErrInvalidEmailLink
 	}
 	if errors.Is(err, account_model.ErrEmailLinkUnavailable) {
-		return apperrors.EmailAlreadyLinked
+		return auth_model.ErrEmailAlreadyLinked
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
-		return apperrors.EmailRegistered
+		return account_model.ErrEmailRegistered
 	}
 	return err
 }
