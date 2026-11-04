@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/modules/setting"
-	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
+	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
