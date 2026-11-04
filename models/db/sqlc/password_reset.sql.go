@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: password_reset.sql
 
-package db
+package sqlc
 
 import (
 	"context"
