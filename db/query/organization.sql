@@ -58,6 +58,12 @@ WHERE EXISTS (
 )
 RETURNING id, organization_id, person_id, role, joined_at, ended_at;
 
+-- name: LockOrganizationCreator :one
+SELECT person_id
+FROM accounts
+WHERE id = sqlc.arg(actor_account_id)
+FOR KEY SHARE;
+
 -- name: UpdateOrganization :one
 UPDATE organizations AS o
 SET name = COALESCE(sqlc.narg(name)::text, o.name)

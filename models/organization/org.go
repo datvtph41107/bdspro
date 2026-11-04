@@ -40,14 +40,16 @@ func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int6
 	if err != nil {
 		return db.Organization{}, err
 	}
-	actor, err := store.GetAccountByID(ctx, actorAccountID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return db.Organization{}, account_model.ErrAccountUnavailable
-	}
-	if err != nil {
-		return db.Organization{}, err
-	}
 	created, err := db.WithTxResult(ctx, store, func(q *db.Queries) (db.Organization, error) {
+		// Lock the originating account until this owner membership commits.
+		// A surviving Person row must not authorize a deleted Account.
+		actorPersonID, err := q.LockOrganizationCreator(ctx, actorAccountID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.Organization{}, account_model.ErrAccountUnavailable
+		}
+		if err != nil {
+			return db.Organization{}, err
+		}
 		partyID, err := q.CreateParty(ctx)
 		if err != nil {
 			return db.Organization{}, fmt.Errorf("create party: %w", err)
@@ -59,7 +61,7 @@ func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int6
 			return db.Organization{}, fmt.Errorf("create organization: %w", err)
 		}
 		_, err = q.CreateOrganizationMember(ctx, db.CreateOrganizationMemberParams{
-			OrganizationID: partyID, PersonID: actor.PersonID, Role: RoleOwner,
+			OrganizationID: partyID, PersonID: actorPersonID, Role: RoleOwner,
 		})
 		if err != nil {
 			return db.Organization{}, fmt.Errorf("create owner membership: %w", err)

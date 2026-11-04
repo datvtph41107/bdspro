@@ -233,6 +233,20 @@ func (q *Queries) ListOrganizationsForAccount(ctx context.Context, accountID int
 	return items, nil
 }
 
+const lockOrganizationCreator = `-- name: LockOrganizationCreator :one
+SELECT person_id
+FROM accounts
+WHERE id = $1
+FOR KEY SHARE
+`
+
+func (q *Queries) LockOrganizationCreator(ctx context.Context, actorAccountID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, lockOrganizationCreator, actorAccountID)
+	var person_id int64
+	err := row.Scan(&person_id)
+	return person_id, err
+}
+
 const updateOrganization = `-- name: UpdateOrganization :one
 UPDATE organizations AS o
 SET name = COALESCE($1::text, o.name)
