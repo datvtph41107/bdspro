@@ -10,7 +10,7 @@ import (
 
 func TestParseTrustedProxies(t *testing.T) {
 	for _, tc := range []struct {
-		raw string
+		raw  string
 		want []string
 	}{
 		{raw: "", want: nil},
