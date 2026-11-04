@@ -3,7 +3,6 @@ package jobs
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -81,8 +80,5 @@ func TestTeamInviteJobSkipsExpiredAndDetectsKeyMismatch(t *testing.T) {
 	}
 	if sender.calls != 0 {
 		t.Fatal("invalid proof was sent")
-	}
-	if !errors.Is(pgx.ErrNoRows, pgx.ErrNoRows) {
-		t.Fatal("unreachable")
 	}
 }

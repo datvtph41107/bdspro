@@ -1,0 +1,29 @@
+# Temporary one-shot generator; removed after committing generated SQLC.
+name: Generate Team invitation R22
+on:
+  push:
+    branches: [feature/team-invite-delivery-r22]
+permissions:
+  contents: write
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Generate SQLC, facade and format new code
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          make generated
+          gofmt -w modules/secret/derive.go modules/secret/derive_test.go models/organization/team_invite.go models/organization/team_invite_test.go models/organization/team_integration_test.go services/jobs/team_invite.go services/jobs/team_invite_test.go services/worker/task_send_team_invite.go services/worker/task_send_team_invite_test.go cmd/worker.go
+          git add -- models/db/sqlc models/db/sqlc_types.gen.go modules/secret/derive.go modules/secret/derive_test.go models/organization/team_invite.go models/organization/team_invite_test.go models/organization/team_integration_test.go services/jobs/team_invite.go services/jobs/team_invite_test.go services/worker/task_send_team_invite.go services/worker/task_send_team_invite_test.go cmd/worker.go
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'build(invites): generated SQLC queries and formatted worker'
+            git push origin HEAD:feature/team-invite-delivery-r22
+          fi
