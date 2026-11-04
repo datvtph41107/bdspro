@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/models/db"
-	organization "github.com/datvtph41107/bdspro/models/organization"
+	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/organization"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -66,7 +66,7 @@ func TestOwnerRevocationSerializesOrganizationWrites(t *testing.T) {
 		}
 		account, err := store.CreateAccount(ctx, db.CreateAccountParams{
 			PersonID: personID,
-			Email: uuid.NewString() + "@example.test",
+			Email:    uuid.NewString() + "@example.test",
 		})
 		if err != nil {
 			t.Fatal(err)
