@@ -84,6 +84,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	var result LoginResult
 	account, err := s.store.GetAccountByEmail(ctx, strings.TrimSpace(email))
 	if errors.Is(err, pgx.ErrNoRows) {
+		checkUnknownPassword(password)
 		return result, auth_model.ErrInvalidCredentials
 	}
 	if err != nil {
@@ -91,6 +92,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	}
 	hash, err := s.store.GetPasswordHash(ctx, account.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
+		checkUnknownPassword(password)
 		return result, auth_model.ErrInvalidCredentials
 	}
 	if err != nil {
