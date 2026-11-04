@@ -16,7 +16,6 @@ func TestWithKind(t *testing.T) {
 }
 
 func TestWithCauseKeepsSafeMessageAndErrorIdentity(t *testing.T) {
-	type driverError struct{ details string }
 	cause := errors.New("postgres://root:secret@localhost:5432")
 	public := WithKind(ErrAlreadyExist, "email already registered")
 	err := WithCause(public, cause)
@@ -32,5 +31,4 @@ func TestWithCauseKeepsSafeMessageAndErrorIdentity(t *testing.T) {
 	if WithCause(nil, cause) != cause {
 		t.Fatal("nil safe error should preserve cause")
 	}
-	_ = driverError{}
 }

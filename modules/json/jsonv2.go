@@ -2,7 +2,6 @@ package json
 
 import (
 	jsonv2 "encoding/json/v2"
-	"io"
 )
 
 // These options preserve the JSON representation used by pre-R30 jobs and
@@ -20,14 +19,6 @@ func unmarshalV2(data []byte, target any) error {
 	return jsonv2.Unmarshal(data, target, jsonv2.DefaultOptionsV2())
 }
 
-type streamDecoder struct {
-	reader io.Reader
-}
-
-func newDecoderV2(reader io.Reader) Decoder {
-	return &streamDecoder{reader: reader}
-}
-
-func (d *streamDecoder) Decode(target any) error {
+func (d *Decoder) Decode(target any) error {
 	return jsonv2.UnmarshalRead(d.reader, target, jsonv2.DefaultOptionsV2())
 }

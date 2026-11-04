@@ -4,9 +4,9 @@ package json
 
 import "io"
 
-// Decoder decodes one JSON value from a stream (e.g. a bounded OIDC response).
-type Decoder interface {
-	Decode(any) error
+// Decoder holds one JSON stream reader. A second backend is not required.
+type Decoder struct {
+	reader io.Reader
 }
 
 // Marshal preserves the established v1 null representation of nil slices/maps.
@@ -17,4 +17,4 @@ func Marshal(value any) ([]byte, error) { return marshalV2(value) }
 func Unmarshal(data []byte, target any) error { return unmarshalV2(data, target) }
 
 // NewDecoder supports provider responses without buffering them in the caller.
-func NewDecoder(reader io.Reader) Decoder { return newDecoderV2(reader) }
+func NewDecoder(reader io.Reader) *Decoder { return &Decoder{reader: reader} }
