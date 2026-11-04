@@ -17,6 +17,7 @@ type GoogleHandler struct {
 	secureCookie bool
 	phone        *auth_service.PhoneOTP
 }
+
 func NewGoogleHandler(
 	auth *auth_service.GoogleAuthService, config setting.Config,
 	client *redis.Client, httpClient *http.Client, secureCookie bool,
