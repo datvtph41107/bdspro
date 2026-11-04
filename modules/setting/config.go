@@ -26,7 +26,7 @@ type Config struct {
 	ZaloTemplateID       string
 	ZaloCodeField        string
 	AllowedOrigins       []string
-	TrustedProxies      []string
+	TrustedProxies       []string
 	DBSource             string
 	MigrationURL         string
 	RedisAddress         string
