@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 
+	sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,8 +25,17 @@ type SQLStore struct {
 	*Queries
 }
 
-func NewStore(pool *pgxpool.Pool) Store {
+// New exposes SQLC query construction through the stable db package.
+func New(conn DBTX) *Queries {
+	return sqlc.New(conn)
+}
+
+func NewStore(pool *pgxpool.Pool) *SQLStore {
 	return &SQLStore{pool: pool, Queries: New(pool)}
+}
+
+func (s *SQLStore) Close() {
+	s.pool.Close()
 }
 
 // ExecTx owns transaction creation, commit and rollback.
