@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/timeutil"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -33,7 +34,7 @@ return 1
 `)
 
 func (l *AuthThrottle) Allow(ctx *gin.Context, operation, credential string, perIP, perCredential int64, window time.Duration) bool {
-	if l == nil || l.client == nil {
+	if l == nil || l.client == nil || perIP <= 0 || perCredential <= 0 || timeutil.SecondsCeil(window) == 0 {
 		response.RateLimitUnavailable(ctx)
 		return false
 	}
@@ -41,7 +42,7 @@ func (l *AuthThrottle) Allow(ctx *gin.Context, operation, credential string, per
 	ipKey := namespace + "ip:" + rateHash(ctx.ClientIP())
 	credentialKey := namespace + "identity:" + rateHash(strings.ToLower(strings.TrimSpace(credential)))
 	allowed, err := authThrottleScript.Run(ctx.Request.Context(), l.client,
-		[]string{ipKey, credentialKey}, int64(window.Seconds()), perIP, perCredential).Int64()
+		[]string{ipKey, credentialKey}, timeutil.SecondsCeil(window), perIP, perCredential).Int64()
 	if err != nil {
 		log.Ctx(ctx.Request.Context()).Error().
 			Str("operation", operation).
@@ -52,7 +53,7 @@ func (l *AuthThrottle) Allow(ctx *gin.Context, operation, credential string, per
 		return false
 	}
 	if allowed != 1 {
-		response.RateLimited(ctx, int64(window.Seconds()))
+		response.RateLimited(ctx, timeutil.SecondsCeil(window))
 		return false
 	}
 	return true

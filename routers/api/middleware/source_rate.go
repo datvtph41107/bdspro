@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/timeutil"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -19,14 +20,14 @@ return n
 // IPActiveSource is the source admission check that runs before controller binding.
 func IPActiveSource(redisClient *redis.Client, operation string, maxAttempts int64, window time.Duration) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if redisClient == nil {
+		if redisClient == nil || maxAttempts <= 0 || timeutil.SecondsCeil(window) == 0 {
 			response.RateLimitUnavailable(ctx)
 			return
 		}
 		key := sourceLimitKeyPrefix + operation + ":" + hashedRateKey(ctx.ClientIP())
 		count, err := ipActiveSourceScript.Run(
 			ctx.Request.Context(), redisClient,
-			[]string{key}, int64(window.Seconds()),
+			[]string{key}, timeutil.SecondsCeil(window),
 		).Int64()
 		if err != nil {
 			log.Ctx(ctx.Request.Context()).Error().

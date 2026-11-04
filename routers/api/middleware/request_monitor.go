@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/timeutil"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -72,7 +73,7 @@ func RequestMonitor(redisClient *redis.Client) gin.HandlerFunc {
 		}
 		key := securityDeniedKeyPrefix + ipHash
 		count, err := securityCountScript.Run(ctx.Request.Context(), redisClient,
-			[]string{key}, int64(securityDetectionWindow.Seconds())).Int64()
+			[]string{key}, timeutil.SecondsCeil(securityDetectionWindow)).Int64()
 		if err != nil {
 			log.Ctx(ctx.Request.Context()).Warn().
 				Str("component", "request_monitor").
