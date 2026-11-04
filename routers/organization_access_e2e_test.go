@@ -13,7 +13,7 @@ import (
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/token"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -31,11 +31,11 @@ func organizationTestVerifiedAccount(t *testing.T, ctx context.Context, pool *pg
 	if !account.IsEmailVerified {
 		t.Fatal("test account must have verified email")
 	}
-	maker, err := token.NewJWTMaker(strings.Repeat("x", 32))
+	maker, err := authcrypto.NewJWTMaker(strings.Repeat("x", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	access, _, err := maker.CreateToken(account.ID, time.Minute, token.TokenTypeAccess)
+	access, _, err := maker.CreateToken(account.ID, time.Minute, authcrypto.TokenTypeAccess)
 	if err != nil {
 		t.Fatal(err)
 	}

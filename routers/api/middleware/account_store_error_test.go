@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/token"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
@@ -35,7 +35,7 @@ func TestAccountStoreErrorDoesNotExposePrivateDetails(t *testing.T) {
 	router := gin.New()
 	router.GET("/business",
 		func(c *gin.Context) {
-			c.Set(AuthorizationPayloadKey, &token.Payload{AccountID: 7})
+			c.Set(AuthorizationPayloadKey, &authcrypto.Payload{AccountID: 7})
 			c.Request = c.Request.WithContext(logger.WithContext(c.Request.Context()))
 			c.Next()
 		},
