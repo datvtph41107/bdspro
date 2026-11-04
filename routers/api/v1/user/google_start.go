@@ -1,12 +1,7 @@
 package user
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
 	"net/http"
-	"net/url"
 
 	"github.com/datvtph41107/bdspro/modules/structs"
 	middleware "github.com/datvtph41107/bdspro/routers/api/middleware"
@@ -79,14 +74,6 @@ func (g *GoogleHandler) StartPhoneBind(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"authorization_url": authURL})
 }
 
-func googleRandom() (string, error) {
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(raw), nil
-}
-
 func (g *GoogleHandler) stateCookie(ctx *gin.Context, state string, age int) {
 	http.SetCookie(ctx.Writer, &http.Cookie{
 		Name: googleOAuthCookie, Value: state, Path: "/users/google/callback", MaxAge: age,
@@ -95,37 +82,11 @@ func (g *GoogleHandler) stateCookie(ctx *gin.Context, state string, age int) {
 }
 
 func (g *GoogleHandler) begin(ctx *gin.Context, purpose string, accountID int64, phone string) (string, error) {
-	state, err := googleRandom()
+	start, err := g.flow.Begin(ctx.Request.Context(), purpose, accountID, phone)
 	if err != nil {
 		return "", err
 	}
-	verifier, err := googleRandom()
-	if err != nil {
-		return "", err
-	}
-	nonce, err := googleRandom()
-	if err != nil {
-		return "", err
-	}
-	record, err := json.Marshal(googlePending{Purpose: purpose, AccountID: accountID, Verifier: verifier, Nonce: nonce, Phone: phone})
-	if err != nil {
-		return "", err
-	}
-	if err = g.redis.Set(ctx.Request.Context(), "google:oauth:state:"+state, record, googleOAuthTTL).Err(); err != nil {
-		return "", err
-	}
-	hash := sha256.Sum256([]byte(verifier))
-	params := url.Values{
-		"client_id":             {g.config.GoogleClientID},
-		"redirect_uri":          {g.config.GoogleRedirectURI},
-		"response_type":         {"code"},
-		"scope":                 {"openid email profile"},
-		"state":                 {state},
-		"nonce":                 {nonce},
-		"code_challenge":        {base64.RawURLEncoding.EncodeToString(hash[:])},
-		"code_challenge_method": {"S256"},
-	}
-	g.stateCookie(ctx, state, int(googleOAuthTTL.Seconds()))
+	g.stateCookie(ctx, start.State, start.MaxAge)
 	ctx.Header("Cache-Control", "no-store")
-	return googleAuthorizationURL + "?" + params.Encode(), nil
+	return start.URL, nil
 }
