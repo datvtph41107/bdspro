@@ -96,9 +96,9 @@ func AcceptTeamInvite(ctx context.Context, store db.Store, accountID int64, toke
 	return member, nil
 }
 
-func RevokeTeamInvite(ctx context.Context, store db.Store, actorAccountID int64, inviteID uuid.UUID) error {
+func RevokeTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamID int64, inviteID uuid.UUID) error {
 	n, err := store.RevokeTeamInviteForOwner(ctx, db.RevokeTeamInviteForOwnerParams{
-		InviteID: inviteID, ActorAccountID: actorAccountID,
+		InviteID: inviteID, ActorAccountID: actorAccountID, TeamID: teamID,
 	})
 	if err != nil {
 		return err

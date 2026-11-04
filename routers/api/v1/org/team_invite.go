@@ -56,7 +56,7 @@ func (h *TeamHandler) AcceptInvite(c *gin.Context) {
 }
 
 func (h *TeamHandler) RevokeInvite(c *gin.Context) {
-	_, ok := positivePathID(c, "team_id")
+	teamID, ok := positivePathID(c, "team_id")
 	if !ok {
 		return
 	}
@@ -66,7 +66,7 @@ func (h *TeamHandler) RevokeInvite(c *gin.Context) {
 		return
 	}
 	// RevokeTeamInvite checks that the actor owns the invitation's team.
-	if err := organization_model.RevokeTeamInvite(c.Request.Context(), h.store, middleware.AccountID(c), inviteID); err != nil {
+	if err := organization_model.RevokeTeamInvite(c.Request.Context(), h.store, middleware.AccountID(c), teamID, inviteID); err != nil {
 		response.Error(c, err)
 		return
 	}
