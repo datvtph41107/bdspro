@@ -51,6 +51,22 @@ client secrets, JWT signing keys, authorization headers or OTPs.
 keys. Do not deploy examples unchanged. The Docker Compose file is a
 development environment, not production hardening.
 
+## OAuth2 config parity across local and Docker instances
+
+Both committed example INI files use the current `[oauth2]` settings:
+`ISSUER`, `AUTHORIZATION_URL`, `TOKEN_URL`, `JWKS_URL`,
+`CLIENT_ID`, `CLIENT_SECRET`, and `REDIRECT_URI`.
+The previous Docker-only `[oauth] GOOGLE_*` example is obsolete.
+`modules/setting` continues to reject **non-empty** legacy OAuth provider
+keys rather than silently guessing their meaning.
+
+The Docker entrypoint copies the image template into
+`/data/bdspro/conf/app.ini` **only if it does not already exist**. Updating
+the image does not rewrite a persisted instance configuration. Operators
+must migrate any populated legacy keys to `[oauth2]` in the existing
+volume, preserving actual credentials securely; do not delete the app.ini
+volume or overwrite it with example secrets.
+
 ## Optional cache configuration (R28)
 
 The optional `[cache]` section is read only by `setting.LoadCacheSettings` when
