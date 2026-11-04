@@ -1,0 +1,31 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "R23: Team Invite and bounded membership endpoints",
+  "notes": [
+    "Only the four R23 routes. R01 and R20 manifests are independent, immutable historical snapshots.",
+    "Each route inherits Authenticate and VerifiedContact. Domain owner/member checks are inside SQLC predicates.",
+    "OpenAPI-to-Gin coverage, route authentication tests and model PostgreSQL integration tests are separate acceptance gates."
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/teams/:team_id/members",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/teams/:team_id/invites",
+      "access": "verified_contact"
+    },
+    {
+      "method": "DELETE",
+      "path": "/teams/:team_id/invites/:invite_id",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/teams/invites/accept",
+      "access": "verified_contact"
+    }
+  ]
+}

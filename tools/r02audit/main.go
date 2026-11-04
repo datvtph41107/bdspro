@@ -197,18 +197,24 @@ func executeWithAdditions(root, contractPath, additionsPath string, output io.Wr
 		return fmt.Errorf("decode route contract: %w", err)
 	}
 	if additionsPath != "" {
-		extensionsData, err := os.ReadFile(additionsPath)
-		if err != nil {
-			return fmt.Errorf("read reviewed additions: %w", err)
+		for _, addition := range strings.Split(additionsPath, ",") {
+			addition = strings.TrimSpace(addition)
+			if addition == "" {
+				return errors.New("reviewed additions path cannot be empty")
+			}
+			extensionsData, err := os.ReadFile(addition)
+			if err != nil {
+				return fmt.Errorf("read reviewed additions %s: %w", addition, err)
+			}
+			var extensions contract
+			if err := json.Unmarshal(extensionsData, &extensions); err != nil {
+				return fmt.Errorf("decode reviewed additions %s: %w", addition, err)
+			}
+			if extensions.Repository != expected.Repository {
+				return fmt.Errorf("additions repository mismatch: %q", extensions.Repository)
+			}
+			expected.Routes = append(expected.Routes, extensions.Routes...)
 		}
-		var extensions contract
-		if err := json.Unmarshal(extensionsData, &extensions); err != nil {
-			return fmt.Errorf("decode reviewed additions: %w", err)
-		}
-		if extensions.Repository != expected.Repository {
-			return fmt.Errorf("additions repository mismatch: %q", extensions.Repository)
-		}
-		expected.Routes = append(expected.Routes, extensions.Routes...)
 	}
 	if err := checkRoutes(found, expected); err != nil {
 		return err
