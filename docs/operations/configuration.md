@@ -60,6 +60,7 @@ used by rate limits, OIDC state and Asynq.
 ```ini
 [cache]
 ADAPTER = memory
+HOST = 127.0.0.1:11211  ; only for Memcached
 PREFIX = cache:
 MAX_ENTRIES = 10000
 ITEM_TTL = 5m

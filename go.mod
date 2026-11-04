@@ -3,6 +3,7 @@ module github.com/datvtph41107/bdspro
 go 1.27.3
 
 require (
+	github.com/bradfitz/gomemcache v0.0.0-20260422231931-4d751bb6e37c
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/go-redis/redis/v8 v8.11.5

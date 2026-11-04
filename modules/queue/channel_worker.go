@@ -57,6 +57,9 @@ func (q *ChannelTaskQueue) Enqueue(ctx context.Context, task *asynq.Task, opts .
 	if q == nil {
 		return ErrQueueClosed
 	}
+	if task == nil {
+		return errors.New("channel queue task is nil")
+	}
 	q.mu.Lock()
 	handler := q.handlers[task.Type()]
 	q.mu.Unlock()

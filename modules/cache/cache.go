@@ -15,6 +15,8 @@ func NewStringCache(cfg setting.CacheSettings, client redis.Cmdable) (StringCach
 		return NewMemoryStringCache(cfg.MaxEntries)
 	case "redis":
 		return NewRedisStringCache(client, cfg.Prefix)
+	case "memcache":
+		return NewMemcacheStringCache(cfg.Host, cfg.Prefix)
 	default:
 		return nil, fmt.Errorf("unsupported cache adapter %q", cfg.Adapter)
 	}

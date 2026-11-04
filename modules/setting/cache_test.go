@@ -26,6 +26,7 @@ func TestLoadCacheSettingsRejectsInvalidConfiguration(t *testing.T) {
 		"[cache]\nADAPTER=invalid\n",
 		"[cache]\nMAX_ENTRIES=0\n",
 		"[cache]\nITEM_TTL=0s\n",
+		"[cache]\nADAPTER=memcache\n",
 	} {
 		f, err := ini.Load([]byte(section))
 		if err != nil {

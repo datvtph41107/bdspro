@@ -12,6 +12,7 @@ import (
 // until a caller explicitly needs it.
 type CacheSettings struct {
 	Adapter    string
+	Host       string
 	Prefix     string
 	MaxEntries int
 	DefaultTTL time.Duration
@@ -23,12 +24,13 @@ func LoadCacheSettings(provider *ConfigProvider) (CacheSettings, error) {
 	}
 	cfg := CacheSettings{
 		Adapter:    strings.ToLower(provider.StringDefault("cache", "ADAPTER", "memory")),
+		Host:       provider.String("cache", "HOST"),
 		Prefix:     provider.StringDefault("cache", "PREFIX", "cache:"),
 		MaxEntries: 10000,
 		DefaultTTL: 5 * time.Minute,
 	}
 	switch cfg.Adapter {
-	case "memory", "redis":
+	case "memory", "redis", "memcache":
 	default:
 		return CacheSettings{}, fmt.Errorf("unsupported cache adapter %q", cfg.Adapter)
 	}
@@ -45,6 +47,9 @@ func LoadCacheSettings(provider *ConfigProvider) (CacheSettings, error) {
 			return CacheSettings{}, fmt.Errorf("cache ITEM_TTL must be a positive duration: %q", raw)
 		}
 		cfg.DefaultTTL = ttl
+	}
+	if cfg.Adapter == "memcache" && cfg.Host == "" {
+		return CacheSettings{}, fmt.Errorf("Memcached HOST is required")
 	}
 	if cfg.Prefix == "" {
 		return CacheSettings{}, fmt.Errorf("cache PREFIX is required")

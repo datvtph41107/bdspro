@@ -8,7 +8,7 @@ This is an implementation decision, not a promise to copy all Gitea backends.
 | Gitea | What it actually owns | BDSPro R28 |
 | --- | --- | --- |
 | [modules/nosql/manager_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/nosql/manager_redis.go) | shared Redis client registry, reference counting and topology | `modules/connection/manager_redis.go`: process-scoped shared clients with one closing owner; no speculative reference counting |
-| [modules/cache/string_cache.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/cache/string_cache.go) | cache semantics, configuration and backends | `modules/cache`: memory LRU and Redis-backed string cache |
+| [modules/cache/string_cache.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/cache/string_cache.go) | cache semantics, configuration and backends | `modules/cache`: memory LRU, Redis and Memcached-backed string cache |
 | [modules/cache/cache_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/cache/cache_redis.go) | Redis adapter borrowing shared connection | Redis cache adapter borrows `redis.Cmdable`, never closes it |
 | [modules/queue/base_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/queue/base_redis.go) | Redis backend for Gitea's own queue engine | `modules/queue/base_redis.go`: Asynq-based transport, not a second queue engine |
 | [modules/queue/workerqueue.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/queue/workerqueue.go) | worker pool, retries and shutdown | `modules/queue/workerqueue.go`: Asynq server and task handlers |
@@ -25,7 +25,9 @@ modules/cache/
     cache.go         explicit backend selection
     string_cache.go  semantics and cache-aside loading
     cache_memory.go  bounded in-process LRU/TTL
+    cache_memcache.go Memcached backend with timeout, absolute/relative TTL
     cache_redis.go   Redis adapter, borrowed client
+    context.go       request-level cache with explicit invalidation
 modules/queue/
     queue.go         existing Asynq enqueue contract
     config.go        queue weights and concurrency
