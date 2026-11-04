@@ -32,6 +32,7 @@ main.go -> cmd/main.go (CLI flags and command dispatch)
 Their code is not interchangeable just because they are siblings.
 
 - [Cache, queue and Redis lifecycle](cache-queue.md): Gitea comparison, backend ownership and failure policies.
+- [JSON serialization policy](json.md): Gitea JSON v2 implementation, compatibility rules, and usage in cache, OAuth2 and queue tasks.
 - [Technical modules](modules.md): existing modules, actual Gitea counterparts, and explicit conditions for future modules.
 - [Business services](services.md): business operations, queue adapters and transaction ownership.
 - [Routers and transports](routers.md): Gin protocol, handlers and API public contracts.
