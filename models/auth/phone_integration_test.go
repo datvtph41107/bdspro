@@ -60,7 +60,7 @@ func randomPhone(t *testing.T) string {
 
 func provisionPhoneAccount(t *testing.T, ctx context.Context, store db.Store, phone string) db.Account {
 	t.Helper()
-	mac := sha256.Sum256([]byte("phone-register:"+phone))
+	mac := sha256.Sum256([]byte("phone-register:" + phone))
 	if err := auth_model.StartPhoneSignup(ctx, store, phone, mac[:], "123456"); err != nil {
 		t.Fatal(err)
 	}
@@ -75,8 +75,8 @@ func TestPhoneChallengeCommitsWrongCodeAndConsumesOnce(t *testing.T) {
 	ctx, pool, store := phoneTestStore(t)
 	phone := randomPhone(t)
 	account := provisionPhoneAccount(t, ctx, store, phone)
-	mac := sha256.Sum256([]byte("correct-login:"+phone))
-	wrong := sha256.Sum256([]byte("wrong-login:"+phone))
+	mac := sha256.Sum256([]byte("correct-login:" + phone))
+	wrong := sha256.Sum256([]byte("wrong-login:" + phone))
 
 	if err := auth_model.StartChallenge(ctx, store, phone, "login", account.ID, mac[:], "234567"); err != nil {
 		t.Fatal(err)
@@ -101,8 +101,8 @@ func TestPhoneChallengeLockoutAfterFiveFailures(t *testing.T) {
 	ctx, pool, store := phoneTestStore(t)
 	phone := randomPhone(t)
 	account := provisionPhoneAccount(t, ctx, store, phone)
-	mac := sha256.Sum256([]byte("correct:"+phone))
-	wrong := sha256.Sum256([]byte("wrong:"+phone))
+	mac := sha256.Sum256([]byte("correct:" + phone))
+	wrong := sha256.Sum256([]byte("wrong:" + phone))
 	if err := auth_model.StartChallenge(ctx, store, phone, "login", account.ID, mac[:], "234567"); err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestConcurrentPhoneProofOnlyOneSuccess(t *testing.T) {
 	ctx, _, store := phoneTestStore(t)
 	phone := randomPhone(t)
 	account := provisionPhoneAccount(t, ctx, store, phone)
-	mac := sha256.Sum256([]byte("one-time:"+phone))
+	mac := sha256.Sum256([]byte("one-time:" + phone))
 	if err := auth_model.StartChallenge(ctx, store, phone, "login", account.ID, mac[:], "234567"); err != nil {
 		t.Fatal(err)
 	}
