@@ -9,7 +9,7 @@ func TestOAuth2ProviderValidation(t *testing.T) {
 		TokenURL:         "https://issuer.example/token",
 		JWKSURL:          "https://issuer.example/keys",
 		ClientID:         "test-client", ClientSecret: "secret",
-		RedirectURI:      "http://localhost:8080/users/oauth2/callback",
+		RedirectURI: "http://localhost:8080/users/oauth2/callback",
 	}
 	if err := valid.Validate(); err != nil {
 		t.Fatal(err)
