@@ -2,10 +2,10 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/datvtph41107/bdspro/modules/json"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/services/jobs"
 	"github.com/datvtph41107/bdspro/services/mail"
