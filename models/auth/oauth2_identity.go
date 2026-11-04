@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
+	"errors"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/jackc/pgx/v5"
 )
 
 // GetOAuth2AccountID reads a verified external identity binding.
@@ -27,5 +29,8 @@ func LinkOAuth2Identity(ctx context.Context, queries db.Querier, accountID int64
 	_, err := queries.LinkOAuth2Identity(ctx, db.LinkOAuth2IdentityParams{
 		Issuer: key.Issuer, Subject: key.Subject, AccountID: accountID,
 	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrOAuth2IdentityAlreadyLinked
+	}
 	return err
 }
