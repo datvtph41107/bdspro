@@ -1,6 +1,7 @@
 package auth
 
 import (
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"context"
 	"errors"
 	"strings"
@@ -9,7 +10,6 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/google/uuid"
@@ -79,7 +79,7 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	svc := NewAuthService(store, maker, cfg)
 	ctx := context.Background()
 
-	if _, err := svc.Login(ctx, store.account.Email, "wrong", "", ""); !errors.Is(err, apperrors.InvalidCredentials) {
+	if _, err := svc.Login(ctx, store.account.Email, "wrong", "", ""); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 		t.Fatalf("invalid password: got %v", err)
 	}
 
@@ -100,7 +100,7 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	if err := svc.Revoke(ctx, result.RefreshToken); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Renew(ctx, result.RefreshToken); !errors.Is(err, apperrors.SessionUnavailable) {
+	if _, err := svc.Renew(ctx, result.RefreshToken); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("revoked session must not renew: %v", err)
 	}
 	// Existing access JWTs remain valid until expiry by current stateless policy.
@@ -128,7 +128,7 @@ func TestRegisterPasswordByteLimit(t *testing.T) {
 		strings.Repeat("😀", 19), // 19 runes, 76 bytes; Gin's max=72 alone would accept it.
 	} {
 		_, err := svc.Register(context.Background(), "test@example.test", password)
-		if !errors.Is(err, apperrors.InvalidPassword) {
+		if !errors.Is(err, auth_model.ErrInvalidPassword) {
 			t.Fatalf("password %q: expected invalid password, got %v", password, err)
 		}
 	}
