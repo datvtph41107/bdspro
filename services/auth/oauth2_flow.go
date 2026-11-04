@@ -52,6 +52,7 @@ type OAuth2Flow struct {
 	provider setting.OAuth2Provider
 	redis    *redis.Client
 	client   *http.Client
+	keyCache *OIDCKeyCache
 }
 
 func NewOAuth2Flow(provider setting.OAuth2Provider, redisClient *redis.Client, client *http.Client) (*OAuth2Flow, error) {
@@ -61,7 +62,7 @@ func NewOAuth2Flow(provider setting.OAuth2Provider, redisClient *redis.Client, c
 	if redisClient == nil || client == nil {
 		return nil, errors.New("oauth2 dependencies unavailable")
 	}
-	return &OAuth2Flow{provider: provider, redis: redisClient, client: client}, nil
+	return &OAuth2Flow{provider: provider, redis: redisClient, client: client, keyCache: &OIDCKeyCache{}}, nil
 }
 
 func oauth2Random() (string, error) {
@@ -188,6 +189,6 @@ func (f *OAuth2Flow) Exchange(ctx context.Context, code, verifier string) (strin
 func (f *OAuth2Flow) Verify(ctx context.Context, idToken, nonce string) (auth_model.OIDCIdentity, error) {
 	return (OIDCTokenVerifier{
 		Issuer: f.provider.Issuer, Audience: f.provider.ClientID,
-		JWKSURL: f.provider.JWKSURL, Client: f.client,
+		JWKSURL: f.provider.JWKSURL, Client: f.client, Cache: f.keyCache,
 	}).Verify(ctx, idToken, nonce)
 }

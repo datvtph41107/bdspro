@@ -23,6 +23,7 @@ type OIDCTokenVerifier struct {
 	Audience string
 	JWKSURL  string
 	Client   *http.Client
+	Cache    *OIDCKeyCache
 }
 
 type oidcIDClaims struct {
@@ -58,7 +59,7 @@ func (v OIDCTokenVerifier) Verify(ctx context.Context, raw, expectedNonce string
 		if !ok || kid == "" {
 			return nil, errors.New("missing OIDC verification key ID")
 		}
-		return fetchOIDCRSAKey(ctx, v.Client, v.JWKSURL, kid)
+		return v.Cache.get(ctx, v.Client, v.JWKSURL, kid)
 	})
 	if err != nil || token == nil || !token.Valid || claims.IssuedAt == nil {
 		return empty, errors.New("invalid OIDC ID token")
