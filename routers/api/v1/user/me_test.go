@@ -21,9 +21,9 @@ import (
 
 type currentAccountStoreFake struct {
 	db.Store
-	account	db.Account
-	err		error
-	calls	int
+	account db.Account
+	err     error
+	calls   int
 }
 
 func (s *currentAccountStoreFake) GetAccountByID(_ context.Context, _ int64) (db.Account, error) {
@@ -67,10 +67,10 @@ func TestMeReadsCurrentAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 		t.Fatalf("live account HTTP status=%d body=%s", w.Code, w.Body.String())
 	}
 	var payload struct {
-		AccountID		int64		`json:"account_id"`
-		Email			string		`json:"email"`
-		IsEmailVerified	bool		`json:"is_email_verified"`
-		CreatedAt		time.Time	`json:"created_at"`
+		AccountID       int64     `json:"account_id"`
+		Email           string    `json:"email"`
+		IsEmailVerified bool      `json:"is_email_verified"`
+		CreatedAt       time.Time `json:"created_at"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
 		t.Fatal(err)
