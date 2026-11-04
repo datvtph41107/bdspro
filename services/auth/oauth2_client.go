@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	"github.com/datvtph41107/bdspro/modules/json"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/go-redis/redis/v8"
 )
