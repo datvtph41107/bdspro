@@ -9,6 +9,7 @@ import (
 func ToUser(a db.Account) structs.UserResponse {
 	return structs.UserResponse{
 		AccountID:       a.ID,
+		PersonID:        a.PersonID,
 		Email:           a.Email,
 		CreatedAt:       a.CreatedAt,
 		IsEmailVerified: a.IsEmailVerified,

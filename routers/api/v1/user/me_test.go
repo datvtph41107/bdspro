@@ -68,6 +68,7 @@ func TestMeReadsCurrentAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 	}
 	var payload struct {
 		AccountID       int64     `json:"account_id"`
+		PersonID        int64     `json:"person_id"`
 		Email           string    `json:"email"`
 		IsEmailVerified bool      `json:"is_email_verified"`
 		CreatedAt       time.Time `json:"created_at"`
@@ -75,7 +76,7 @@ func TestMeReadsCurrentAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.AccountID != 42 || payload.Email != "verified@example.test" || !payload.IsEmailVerified ||
+	if payload.AccountID != 42 || payload.PersonID != 67 || payload.Email != "verified@example.test" || !payload.IsEmailVerified ||
 		!payload.CreatedAt.Equal(store.account.CreatedAt) {
 		t.Fatalf("unexpected current-account response: %+v", payload)
 	}
