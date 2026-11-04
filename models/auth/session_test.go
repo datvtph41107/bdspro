@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-
 	"testing"
 	"time"
 
@@ -32,8 +31,8 @@ func TestValidRefreshSession(t *testing.T) {
 type testSessionStore struct {
 	SessionStore
 	affected int64
-	err error
-	seen db.RevokeOwnedSessionParams
+	err      error
+	seen     db.RevokeOwnedSessionParams
 }
 
 func (s *testSessionStore) RevokeOwnedSession(_ context.Context, arg db.RevokeOwnedSessionParams) (int64, error) {
