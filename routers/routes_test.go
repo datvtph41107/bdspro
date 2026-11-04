@@ -1,18 +1,29 @@
 package routers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
+	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/gin-gonic/gin"
 )
+
+// The registered route reads a real account through AuthService, while this
+// test remains independent from PostgreSQL.
+type routeAccountStore struct{ db.Store }
+
+func (routeAccountStore) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
+	return db.Account{ID: id, Email: "route@example.test", CreatedAt: time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC), IsEmailVerified: true}, nil
+}
 
 func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -24,7 +35,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	newServer := func(oauth2, phone bool) *Server {
 		s := &Server{
 			tokenMaker:          maker,
-			authHandler:         user.NewAuthHandler(nil, nil),
+			authHandler:         user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}), nil),
 			organizationHandler: org.NewHandler(nil),
 		}
 		if oauth2 {

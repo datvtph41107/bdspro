@@ -519,7 +519,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CurrentAccountResponse"
+                  "$ref": "#/components/schemas/UserResponse"
                 }
               }
             }
@@ -3157,15 +3157,6 @@
             "type": "string",
             "minLength": 8,
             "maxLength": 72
-          }
-        }
-      },
-      "CurrentAccountResponse": {
-        "type": "object",
-        "properties": {
-          "account_id": {
-            "type": "integer",
-            "format": "int64"
           }
         }
       },
