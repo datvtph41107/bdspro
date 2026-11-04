@@ -7,7 +7,7 @@ This is an implementation decision, not a promise to copy all Gitea backends.
 
 | Gitea | What it actually owns | BDSPro R28 |
 | --- | --- | --- |
-| [modules/nosql/manager_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/nosql/manager_redis.go) | shared Redis client registry, reference counting and topology | `modules/kvstore/manager_redis.go`: process-scoped shared clients with one closing owner; no speculative reference counting |
+| [modules/nosql/manager_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/nosql/manager_redis.go) | shared Redis client registry, reference counting and topology | `modules/connection/manager_redis.go`: process-scoped shared clients with one closing owner; no speculative reference counting |
 | [modules/cache/string_cache.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/cache/string_cache.go) | cache semantics, configuration and backends | `modules/cache`: memory LRU and Redis-backed string cache |
 | [modules/cache/cache_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/cache/cache_redis.go) | Redis adapter borrowing shared connection | Redis cache adapter borrows `redis.Cmdable`, never closes it |
 | [modules/queue/base_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/queue/base_redis.go) | Redis backend for Gitea's own queue engine | `modules/queue/base_redis.go`: Asynq-based transport, not a second queue engine |
@@ -18,7 +18,7 @@ This is an implementation decision, not a promise to copy all Gitea backends.
 
 ```text
 cmd/web.go, cmd/worker.go
-    -> modules/kvstore/manager_redis.go  (go-redis connection owner)
+    -> modules/connection/manager_redis.go  (go-redis connection owner)
     -> modules/queue/base_redis.go       (Asynq producer: own client)
     -> modules/queue/workerqueue.go      (Asynq consumer: own connections)
 modules/cache/
@@ -34,14 +34,14 @@ modules/queue/
     logger.go        logging adapter
 ```
 
-The package is called `kvstore`, not `nosql` or `redis`. It owns shared Redis
-key-value *connections*, **not** business authorization, cache invalidation or
+The package is called `connection`, not `nosql` or `redis`. It owns shared Redis
+Redis *connections*, **not** business authorization, cache invalidation or
 queue retry policy. The Redis library is intentionally visible to some
 low-level consumers; this is not a fabricated vendor-independent KV API.
 
 ## Redis resource lifecycle
 
-1. The process constructs `kvstore.NewRedisManager()` in `cmd`.
+1. The process constructs `connection.NewRedisManager()` in `cmd`.
 2. `Client(ctx, addr)` checks the address, creates and PINGs one go-redis
    client, and shares it within that process. A failed PING is not cached.
 3. Gin admission/OIDC state consumers borrow the client. A future Redis cache
@@ -83,7 +83,7 @@ ITEM_TTL = 5m
 
 `setting.LoadCacheSettings` reads these keys. `cache.NewStringCache`
 selects the backend; when `ADAPTER = redis`, the caller supplies a borrowed
-client obtained from `kvstore.RedisManager`. `LoadSettings` does not
+client obtained from `connection.RedisManager`. `LoadSettings` does not
 implicitly start the cache because no production endpoint consumes it yet.
 
 ## Queue semantics and limitations
@@ -105,7 +105,7 @@ implicitly start the cache because no production endpoint consumes it yet.
 
 | Contract | Evidence in this PR | Remaining integration requirement |
 | --- | --- | --- |
-| Missing Redis address and closed manager | `modules/kvstore/manager_redis_test.go` | Live Redis PING and restart/close behavior |
+| Missing Redis address and closed manager | `modules/connection/manager_redis_test.go` | Live Redis PING and restart/close behavior |
 | Memory TTL, bounded LRU, cache-aside | `modules/cache/cache_test.go` | Memory pressure and concurrent load |
 | Redis cache nil-client policy | `modules/cache/cache_test.go` | Live Redis prefix, missing key, outage and TTL |
 | Cache config invalid adapter/TTL/size | `modules/setting/cache_test.go` | Environment override precedence |

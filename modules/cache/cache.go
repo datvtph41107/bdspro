@@ -8,7 +8,7 @@ import (
 )
 
 // NewStringCache selects a cache backend, without opening or owning Redis
-// connections. Redis clients are provided by modules/kvstore.
+// connections. Redis clients are provided by modules/connection.
 func NewStringCache(cfg setting.CacheSettings, client redis.Cmdable) (StringCache, error) {
 	switch cfg.Adapter {
 	case "", "memory":

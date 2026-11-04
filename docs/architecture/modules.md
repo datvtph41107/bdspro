@@ -10,12 +10,12 @@ Gitea separates
 [queue](https://github.com/go-gitea/gitea/tree/main/modules/queue) and
 [nosql/manager_redis.go](https://github.com/go-gitea/gitea/blob/main/modules/nosql/manager_redis.go):
 cache semantics, queue semantics, and shared connection ownership.
-BDSPro calls the latter `kvstore`, because no NoSQL database manager or
+BDSPro calls the latter `connection`, because no NoSQL database manager or
 LevelDB backend exists.
 
 | BDSPro module | Responsibility | Consumer and constraints |
 | --- | --- | --- |
-| `kvstore` | `manager_redis.go`: verified shared process-level go-redis clients, explicit close | cmd web/worker, Gin security, OIDC state; no auth policy here |
+| `connection` | `manager_redis.go`: verified shared process-level go-redis clients, explicit close | cmd web/worker, Gin security, OIDC state; no auth policy here |
 | `cache` | bounded memory LRU and Redis string cache; TTL, miss/error distinction | opt-in future consumers; **not used for security state** |
 | `queue` | Asynq producer, worker processor, task registration, log adapter, queue weights | cmd worker and services/worker; **not** business job policy |
 | `setting` | app.ini config, paths, typed settings, cache defaults | cmd, cache construction, service configuration |
@@ -28,14 +28,14 @@ LevelDB backend exists.
 | `util` | narrow error categories and shared helpers | models/services; no generic app-wide policy |
 
 **Removed:** `modules/redis`. Its only behavior was client constructor +
-PING, now owned by `modules/kvstore/manager_redis.go`. This is a package
+PING, now owned by `modules/connection/manager_redis.go`. This is a package
 ownership correction, not Redis removal. `modules/errors` was already
 retired; do not document it as current.
 
 ## File organization
 
 ```text
-modules/kvstore/
+modules/connection/
     manager_redis.go
 modules/cache/
     cache.go

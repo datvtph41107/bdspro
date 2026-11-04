@@ -1,6 +1,6 @@
-// Package kvstore owns Redis client connectivity shared by key-value consumers.
+// Package connection owns Redis client connectivity shared by Redis consumers.
 // Cache and security state use the client; Asynq owns its own Redis connections.
-package kvstore
+package connection
 
 import (
 	"context"

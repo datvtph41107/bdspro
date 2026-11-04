@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datvtph41107/bdspro/modules/kvstore"
+	"github.com/datvtph41107/bdspro/modules/connection"
 )
 
 func TestRedisCacheIntegration(t *testing.T) {
@@ -16,7 +16,7 @@ func TestRedisCacheIntegration(t *testing.T) {
 		t.Skip("set BDS_TEST_REDIS_ADDR to test the Redis backend")
 	}
 	ctx := context.Background()
-	manager := kvstore.NewRedisManager()
+	manager := connection.NewRedisManager()
 	defer manager.Close()
 	client, err := manager.Client(ctx, address)
 	if err != nil {

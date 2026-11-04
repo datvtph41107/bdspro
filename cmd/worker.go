@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/kvstore"
+	"github.com/datvtph41107/bdspro/modules/connection"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/queue"
 	"github.com/datvtph41107/bdspro/services/mail"
@@ -34,7 +34,7 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 		return err
 	}
 	defer store.Close()
-	redisManager := kvstore.NewRedisManager()
+	redisManager := connection.NewRedisManager()
 	_, err = redisManager.Client(ctx, cfg.RedisAddress)
 	if err != nil {
 		return err
@@ -53,7 +53,12 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	if err := processor.Start(); err != nil {
 		return fmt.Errorf("start worker: %w", err)
 	}
-	defer processor.Shutdown()
+	queueManager := queue.NewManager()
+	if err := queueManager.Register("tasks", processor); err != nil {
+		processor.Shutdown()
+		return err
+	}
+	defer queueManager.Shutdown()
 	dispatchCtx, stopDispatch := context.WithCancel(ctx)
 	dispatcher := worker.NewOutboxDispatcher(store, enqueuer)
 	dispatcher.Start(dispatchCtx)

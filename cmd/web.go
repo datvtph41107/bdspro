@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/kvstore"
+	"github.com/datvtph41107/bdspro/modules/connection"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers"
@@ -56,7 +56,7 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 		log.Info("Database migrations are managed externally")
 	}
 
-	redisManager := kvstore.NewRedisManager()
+	redisManager := connection.NewRedisManager()
 	redisClient, err := redisManager.Client(ctx, cfg.RedisAddress)
 	if err != nil {
 		return err

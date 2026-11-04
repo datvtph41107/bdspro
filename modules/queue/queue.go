@@ -1,5 +1,5 @@
-// Package queue adapts Asynq task transport and worker execution.
-// PostgreSQL outbox policy and task business handlers live in services.
+// Package queue owns task transport, worker execution and process lifecycle.
+// Redis uses Asynq. The channel backend is deliberately non-durable.
 package queue
 
 import (
@@ -8,8 +8,8 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-// TaskEnqueuer is the narrow existing Asynq transport contract.
-// It is intentionally not a broker-independent or persistent-job interface.
+// TaskEnqueuer is the existing narrow contract consumed by the outbox worker.
+// Asynq-specific options are intentionally visible; this is not a generic broker API.
 type TaskEnqueuer interface {
-	Enqueue(ctx context.Context, task *asynq.Task, opts ...asynq.Option) error
+	Enqueue(context.Context, *asynq.Task, ...asynq.Option) error
 }

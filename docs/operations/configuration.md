@@ -65,6 +65,6 @@ MAX_ENTRIES = 10000
 ITEM_TTL = 5m
 ```
 
-`ADAPTER = redis` requires a client borrowed from `modules/kvstore`.
+`ADAPTER = redis` requires a client borrowed from `modules/connection`.
 Cache errors are returned to the caller; they are not silently treated as
 misses. A memory backend is per-process, not a multi-instance shared cache.
