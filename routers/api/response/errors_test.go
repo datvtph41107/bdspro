@@ -6,6 +6,7 @@ import (
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -42,6 +43,15 @@ func TestApplicationErrorResponses(t *testing.T) {
 		{name: "OrganizationOwnerRequired", err: organization_model.ErrOrganizationOwnerRequired, status: http.StatusForbidden, code: "organization.owner_required", message: "organization owner required"},
 		{name: "MembershipExists", err: organization_model.ErrMembershipExists, status: http.StatusConflict, code: "organization.membership_exists", message: "membership already exists"},
 		{name: "PersonUnavailable", err: organization_model.ErrPersonUnavailable, status: http.StatusNotFound, code: "organization.person_unavailable", message: "person unavailable"},
+		{name: "ErrTeamNotFound", err: organization_model.ErrTeamNotFound, status: http.StatusNotFound, code: "organization.team_not_found", message: "team not found"},
+		{name: "ErrTeamNameInvalid", err: organization_model.ErrTeamNameInvalid, status: http.StatusBadRequest, code: "organization.team_name_invalid", message: "invalid team name"},
+		{name: "ErrTeamAlreadyExists", err: organization_model.ErrTeamAlreadyExists, status: http.StatusConflict, code: "organization.team_exists", message: "team already exists"},
+		{name: "ErrTeamOwnerRequired", err: organization_model.ErrTeamOwnerRequired, status: http.StatusForbidden, code: "organization.team_owner_required", message: "organization owner required"},
+		{name: "ErrTeamMemberExists", err: organization_model.ErrTeamMemberExists, status: http.StatusConflict, code: "organization.team_member_exists", message: "team member already exists"},
+		{name: "ErrTeamMemberNotFound", err: organization_model.ErrTeamMemberNotFound, status: http.StatusNotFound, code: "organization.team_member_not_found", message: "team member not found"},
+		{name: "ErrTeamPaginationInvalid", err: organization_model.ErrTeamPaginationInvalid, status: http.StatusBadRequest, code: "organization.team_pagination_invalid", message: "invalid team pagination"},
+		{name: "ErrTeamInviteInvalid", err: organization_model.ErrTeamInviteInvalid, status: http.StatusBadRequest, code: "organization.team_invite_invalid", message: "invalid or expired invitation"},
+		{name: "ErrTeamInviteExists", err: organization_model.ErrTeamInviteExists, status: http.StatusConflict, code: "organization.team_invite_exists", message: "team invitation already exists"},
 		{name: "GoogleIdentityAlreadyLinked", err: auth_model.ErrGoogleIdentityAlreadyLinked, status: http.StatusConflict, code: "auth.google_identity_already_linked", message: "Google identity already linked"},
 		{name: "GoogleAccountAlreadyLinked", err: auth_model.ErrGoogleAccountAlreadyLinked, status: http.StatusConflict, code: "auth.google_account_already_linked", message: "account already linked"},
 		{name: "GoogleIdentityUnlinked", err: auth_model.ErrGoogleIdentityUnlinked, status: http.StatusUnauthorized, code: "auth.google_identity_unlinked", message: "Google identity not linked"},
@@ -104,5 +114,11 @@ func TestUnexpectedErrorDoesNotLeakIntoClientOrLog(t *testing.T) {
 	}
 	if !strings.Contains(logs.String(), `"error_type"`) {
 		t.Fatalf("missing safe diagnostic category: %s", logs.String())
+	}
+}
+
+func TestGenericCategoryDoesNotExposeRawError(t *testing.T) {
+	if result, ok := getErrorResponse(util.ErrNotExist); ok {
+		t.Fatalf("unowned error exposed through API: %+v", result)
 	}
 }

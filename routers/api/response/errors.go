@@ -76,6 +76,24 @@ func getErrorResponse(err error) (errorResponse, bool) {
 		return errorResponse{Status: http.StatusUnauthorized, Code: "auth.otp_invalid", Message: "invalid or expired code"}, true
 	case errors.Is(err, auth_model.ErrOTPCooldown):
 		return errorResponse{Status: http.StatusTooManyRequests, Code: "auth.otp_cooldown", Message: "code temporarily unavailable"}, true
+	case errors.Is(err, organization_model.ErrTeamNotFound):
+		return errorResponse{Status: http.StatusNotFound, Code: "organization.team_not_found", Message: "team not found"}, true
+	case errors.Is(err, organization_model.ErrTeamNameInvalid):
+		return errorResponse{Status: http.StatusBadRequest, Code: "organization.team_name_invalid", Message: "invalid team name"}, true
+	case errors.Is(err, organization_model.ErrTeamAlreadyExists):
+		return errorResponse{Status: http.StatusConflict, Code: "organization.team_exists", Message: "team already exists"}, true
+	case errors.Is(err, organization_model.ErrTeamOwnerRequired):
+		return errorResponse{Status: http.StatusForbidden, Code: "organization.team_owner_required", Message: "organization owner required"}, true
+	case errors.Is(err, organization_model.ErrTeamMemberExists):
+		return errorResponse{Status: http.StatusConflict, Code: "organization.team_member_exists", Message: "team member already exists"}, true
+	case errors.Is(err, organization_model.ErrTeamMemberNotFound):
+		return errorResponse{Status: http.StatusNotFound, Code: "organization.team_member_not_found", Message: "team member not found"}, true
+	case errors.Is(err, organization_model.ErrTeamPaginationInvalid):
+		return errorResponse{Status: http.StatusBadRequest, Code: "organization.team_pagination_invalid", Message: "invalid team pagination"}, true
+	case errors.Is(err, organization_model.ErrTeamInviteInvalid):
+		return errorResponse{Status: http.StatusBadRequest, Code: "organization.team_invite_invalid", Message: "invalid or expired invitation"}, true
+	case errors.Is(err, organization_model.ErrTeamInviteExists):
+		return errorResponse{Status: http.StatusConflict, Code: "organization.team_invite_exists", Message: "team invitation already exists"}, true
 	default:
 		return errorResponse{}, false
 	}
