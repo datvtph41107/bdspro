@@ -6,11 +6,11 @@ import (
 	"context"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/util"
 )
 
-type Transactioner interface {
-	ExecTx(context.Context, func(*db.Queries) error) error
-}
+// Transactioner retains the model's existing public name; db owns the contract.
+type Transactioner = db.Transactioner
 
 type RegisterParams struct {
 	Email        string
@@ -22,11 +22,8 @@ type RegisterParams struct {
 func Register(ctx context.Context, tx Transactioner, arg RegisterParams) (db.Account, error) {
 	var created db.Account
 	err := tx.ExecTx(ctx, func(q *db.Queries) error {
-		partyID, err := q.CreateParty(ctx)
+		partyID, err := db.CreatePersonWithParty(ctx, q)
 		if err != nil {
-			return err
-		}
-		if err := q.CreatePerson(ctx, partyID); err != nil {
 			return err
 		}
 		created, err = q.CreateAccount(ctx, db.CreateAccountParams{
@@ -42,5 +39,11 @@ func Register(ctx context.Context, tx Transactioner, arg RegisterParams) (db.Acc
 		}
 		return q.RecordEmailVerificationJob(ctx, created.ID)
 	})
-	return created, err
+	if err != nil {
+		if emailLoginTaken(err) {
+			return db.Account{}, util.WithCause(ErrEmailRegistered, err)
+		}
+		return db.Account{}, err
+	}
+	return created, nil
 }

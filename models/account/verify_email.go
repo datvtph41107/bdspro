@@ -20,5 +20,8 @@ func VerifyEmail(ctx context.Context, tx Transactioner, arg db.ConsumeVerifyEmai
 		})
 		return err
 	})
-	return verifiedAccount, err
+	if err != nil {
+		return db.Account{}, err
+	}
+	return verifiedAccount, nil
 }

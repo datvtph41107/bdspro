@@ -1,5 +1,7 @@
 package db
 
+import "math"
+
 // Paginator is the query-pagination contract shared by list options.
 type Paginator interface {
 	GetSkipTake() (skip, take int)
@@ -35,6 +37,17 @@ func (opts ListOptions) GetSkipTake() (skip, take int) {
 
 func (opts ListOptions) IsListAll() bool {
 	return opts.ListAll
+}
+
+// GetSkipTake32 validates bounded SQLC limit and offset parameters before
+// multiplication. It never returns wrapped or negative offsets to a SQL query.
+// Models decide which domain error to return for invalid pagination.
+func (opts ListOptions) GetSkipTake32() (skip, take int32, ok bool) {
+	if opts.ListAll || opts.Page < 1 || opts.PageSize < 1 || opts.PageSize > math.MaxInt32 ||
+		opts.Page-1 > math.MaxInt32/opts.PageSize {
+		return 0, 0, false
+	}
+	return int32((opts.Page - 1) * opts.PageSize), int32(opts.PageSize), true
 }
 
 // AbsoluteListOptions specifies offset-based pagination.
