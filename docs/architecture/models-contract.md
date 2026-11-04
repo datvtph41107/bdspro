@@ -67,3 +67,14 @@ PostgreSQL's default READ COMMITTED isolation allows a plain `EXISTS` authorizat
 This applies only to writes, avoiding row locks for listing and reading. The SQLC query parameters and result shapes do not change, and no extra Go authorization lookup or wrapper is introduced. The lock protects the owner authorization invariant through the statement; it does not imply that other unreviewed team or invitation mutations have been race-hardened.
 
 Integration coverage must prove that a pending owner revocation blocks the attempted mutation, that the post-commit mutation is denied, and that authorized writes continue working when there is no conflicting revocation. A simple green sequential test is not sufficient evidence for this property.
+
+
+## Team membership write authorization (PR #129)
+
+Owner-controlled team writes use the **active owner membership** as their authority: create/rename team, add/remove team user, create/revoke team invitation. Their SQLC statements now lock that membership row with `FOR SHARE OF m` inside the existing `EXISTS` predicate. No separate Go check, duplicate repository or new transaction engine is introduced.
+
+The recipient's **active organization membership** is additionally locked when adding a team user, creating a team invitation, and inserting a verified invited team user. Those writes cannot silently commit against a membership that was already being ended by a concurrent transaction.
+
+Read paths are not locked. `ConsumeTeamInvite` still has a distinct multi-table `UPDATE ... FROM` shape and is deliberately not claimed as completely race-safe without its own concurrency test. The acceptance test must prove the lock dependency and the denied write after the revocation commits. No public errors or API endpoint contracts change.
+
+This mirrors the responsibility boundary Gitea uses for persisted membership permissions while keeping BDSPro's SQLC/pgx query and schema canonical.

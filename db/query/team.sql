@@ -7,6 +7,7 @@ WHERE EXISTS (
     WHERE m.organization_id = sqlc.arg(organization_id)
       AND a.id = sqlc.arg(actor_account_id)
       AND m.role = 'owner' AND m.ended_at IS NULL
+  FOR SHARE OF m
 )
 RETURNING id, organization_id, name, description, created_at, updated_at;
 
@@ -44,6 +45,7 @@ WHERE t.id = sqlc.arg(team_id)
     WHERE a.id = sqlc.arg(actor_account_id)
       AND m.organization_id = t.organization_id
       AND m.role = 'owner' AND m.ended_at IS NULL
+    FOR SHARE OF m
   )
 RETURNING t.id, t.organization_id, t.name, t.description, t.created_at, t.updated_at;
 
@@ -57,12 +59,14 @@ WHERE t.id = sqlc.arg(team_id)
     WHERE a.id = sqlc.arg(actor_account_id)
       AND m.organization_id = t.organization_id
       AND m.role = 'owner' AND m.ended_at IS NULL
+    FOR SHARE OF m
   )
   AND EXISTS (
     SELECT 1 FROM organization_members m
     WHERE m.person_id = sqlc.arg(person_id)
       AND m.organization_id = t.organization_id
       AND m.ended_at IS NULL
+    FOR SHARE OF m
   )
 RETURNING team_id, person_id, joined_at;
 
@@ -78,6 +82,7 @@ WHERE tm.team_id = t.id
     WHERE a.id = sqlc.arg(actor_account_id)
       AND m.organization_id = t.organization_id
       AND m.role = 'owner' AND m.ended_at IS NULL
+    FOR SHARE OF m
   );
 
 -- name: ListTeamUsersForAccount :many
@@ -118,6 +123,7 @@ WHERE t.id = sqlc.arg(team_id)
     WHERE a.id = sqlc.arg(actor_account_id)
       AND m.organization_id = t.organization_id
       AND m.role = 'owner' AND m.ended_at IS NULL
+    FOR SHARE OF m
   )
   -- A Team invitation is only valid for a verified current Organization member.
   AND EXISTS (
@@ -130,6 +136,7 @@ WHERE t.id = sqlc.arg(team_id)
         SELECT 1 FROM team_members tm
         WHERE tm.team_id = t.id AND tm.person_id = recipient.person_id
       )
+    FOR SHARE OF member
   )
 RETURNING id, team_id, invited_email, invited_by_account_id, token_hash,
           expires_at, accepted_at, revoked_at, created_at;
@@ -155,6 +162,7 @@ JOIN organization_members AS m
   ON m.organization_id = t.organization_id
  AND m.person_id = a.person_id AND m.ended_at IS NULL
 WHERE t.id = sqlc.arg(team_id)
+FOR SHARE OF m
 RETURNING team_id, person_id, joined_at;
 
 -- name: RevokeTeamInviteForOwner :execrows
@@ -171,6 +179,7 @@ WHERE ti.id = sqlc.arg(invite_id)
     WHERE a.id = sqlc.arg(actor_account_id)
       AND m.organization_id = t.organization_id
       AND m.role = 'owner' AND m.ended_at IS NULL
+    FOR SHARE OF m
   );
 
 -- name: GetTeamInviteForDelivery :one

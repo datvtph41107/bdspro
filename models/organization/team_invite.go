@@ -81,9 +81,15 @@ func AcceptTeamInvite(ctx context.Context, store db.Store, accountID int64, toke
 		if err != nil {
 			return db.TeamMember{}, err
 		}
-		return q.InsertInvitedTeamUser(ctx, db.InsertInvitedTeamUserParams{
+		member, err := q.InsertInvitedTeamUser(ctx, db.InsertInvitedTeamUserParams{
 			AccountID: accountID, TeamID: teamID,
 		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Membership may have been revoked after the proof lookup.
+			// Rolling back this transaction also restores the proof.
+			return db.TeamMember{}, ErrTeamInviteInvalid
+		}
+		return member, err
 	})
 }
 
