@@ -220,8 +220,8 @@ func (s *AuthService) ResetPassword(ctx context.Context, secret, password string
 	if err != nil {
 		return err
 	}
-	err = account_model.ResetPassword(ctx, s.store, digest[:], hash)
-	if errors.Is(err, account_model.ErrPasswordResetInvalid) {
+	err = auth_model.ResetPassword(ctx, s.store, digest[:], hash)
+	if errors.Is(err, auth_model.ErrPasswordResetInvalid) {
 		return auth_model.ErrInvalidResetToken
 	}
 	return err
