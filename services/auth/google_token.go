@@ -10,8 +10,8 @@ import (
 const googleJWKSURL = "https://www.googleapis.com/oauth2/v3/certs"
 
 // Legacy compatibility only. New authentication integrations must use the
-// provider-independent OIDCTokenVerifier and OIDCIdentity.
-type VerifiedGoogleIdentity = auth_model.OIDCIdentity
+// provider-independent OIDCTokenVerifier and OIDCClaims.
+type VerifiedGoogleIdentity = auth_model.OIDCClaims
 type googleIDClaims = oidcIDClaims
 
 func VerifyGoogleIDToken(ctx context.Context, raw, clientID, nonce string) (VerifiedGoogleIdentity, error) {

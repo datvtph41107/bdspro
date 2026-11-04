@@ -51,13 +51,13 @@ func TestOAuth2LegacyIdentityBridge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key := auth_model.IdentityKey{Issuer: "https://accounts.google.com", Subject: subject}
+	key := auth_model.OAuth2CredentialKey{Issuer: "https://accounts.google.com", Subject: subject}
 	id, err := auth_model.GetOAuth2AccountID(ctx, store, key)
 	if err != nil || id != account.ID {
 		t.Fatalf("legacy insert was not mirrored: id=%d err=%v", id, err)
 	}
-	other := auth_model.IdentityKey{Issuer: key.Issuer, Subject: uuid.NewString()}
-	if err := auth_model.LinkOAuth2Identity(ctx, store, account.ID, other); !errors.Is(err, auth_model.ErrOAuth2IdentityAlreadyLinked) {
+	other := auth_model.OAuth2CredentialKey{Issuer: key.Issuer, Subject: uuid.NewString()}
+	if err := auth_model.LinkOAuth2Credential(ctx, store, account.ID, other); !errors.Is(err, auth_model.ErrOAuth2CredentialAlreadyLinked) {
 		t.Fatalf("same account linked twice to one issuer: %v", err)
 	}
 	_, err = pool.Exec(ctx, "DELETE FROM google_identities WHERE google_sub = $1", subject)
@@ -68,7 +68,7 @@ func TestOAuth2LegacyIdentityBridge(t *testing.T) {
 		t.Fatalf("deleted legacy identity survived: %v", err)
 	}
 	// Test the opposite direction for the cut-over and rollback window.
-	if err := auth_model.LinkOAuth2Identity(ctx, store, account.ID, other); err != nil {
+	if err := auth_model.LinkOAuth2Credential(ctx, store, account.ID, other); err != nil {
 		t.Fatal(err)
 	}
 	var gotAccount int64
@@ -78,7 +78,7 @@ func TestOAuth2LegacyIdentityBridge(t *testing.T) {
 		t.Fatalf("OIDC link not mirrored for legacy reader: %d %v", gotAccount, err)
 	}
 	if _, err := pool.Exec(ctx,
-		"DELETE FROM oauth2_identities WHERE issuer = $1 AND subject = $2",
+		"DELETE FROM oauth2_credentials WHERE issuer = $1 AND subject = $2",
 		other.Issuer, other.Subject,
 	); err != nil {
 		t.Fatal(err)

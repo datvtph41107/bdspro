@@ -97,11 +97,11 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 		ClientSecret:     "test-secret",
 		RedirectURI:      "http://localhost/users/oauth2/callback",
 	}
-	flow, err := auth_service.NewOAuth2Flow(cfg.OIDC, server.authRateRedis, provider.Client())
+	oauth2, err := auth_service.NewOAuth2Client(cfg.OIDC, server.authRateRedis, provider.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.oauth2Handler = user.NewOAuth2Handler(auth_service.NewOAuth2AuthService(server.store, server.tokenMaker, cfg), flow, false)
+	server.oauth2Handler = user.NewOAuth2Handler(auth_service.NewOAuth2AuthService(server.store, server.tokenMaker, cfg), oauth2, false)
 	server.router = NormalRoutes(server)
 	gin.SetMode(gin.TestMode)
 

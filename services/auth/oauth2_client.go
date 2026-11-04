@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	oauth2StateKeyPrefix = "oidc:flow:state:"
+	oauth2StateKeyPrefix = "oidc:state:"
 	oauth2StateTTL       = 5 * time.Minute
 )
 
@@ -48,21 +48,21 @@ type OAuth2Start struct {
 	MaxAge           int
 }
 
-type OAuth2Flow struct {
+type OAuth2Client struct {
 	provider setting.OAuth2Provider
 	redis    *redis.Client
 	client   *http.Client
 	keyCache *OIDCKeyCache
 }
 
-func NewOAuth2Flow(provider setting.OAuth2Provider, redisClient *redis.Client, client *http.Client) (*OAuth2Flow, error) {
+func NewOAuth2Client(provider setting.OAuth2Provider, redisClient *redis.Client, client *http.Client) (*OAuth2Client, error) {
 	if err := provider.Validate(); err != nil {
 		return nil, err
 	}
 	if redisClient == nil || client == nil {
 		return nil, errors.New("oauth2 dependencies unavailable")
 	}
-	return &OAuth2Flow{provider: provider, redis: redisClient, client: client, keyCache: &OIDCKeyCache{}}, nil
+	return &OAuth2Client{provider: provider, redis: redisClient, client: client, keyCache: &OIDCKeyCache{}}, nil
 }
 
 func oauth2Random() (string, error) {
@@ -73,7 +73,7 @@ func oauth2Random() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
-func (f *OAuth2Flow) Begin(ctx context.Context, purpose string, accountID int64, phone string) (OAuth2Start, error) {
+func (f *OAuth2Client) Begin(ctx context.Context, purpose string, accountID int64, phone string) (OAuth2Start, error) {
 	var empty OAuth2Start
 	switch purpose {
 	case "login":
@@ -125,7 +125,7 @@ func (f *OAuth2Flow) Begin(ctx context.Context, purpose string, accountID int64,
 	return OAuth2Start{AuthorizationURL: u.String(), State: state, MaxAge: int(oauth2StateTTL.Seconds())}, nil
 }
 
-func (f *OAuth2Flow) Consume(ctx context.Context, state string) (OAuth2Pending, error) {
+func (f *OAuth2Client) Consume(ctx context.Context, state string) (OAuth2Pending, error) {
 	var empty OAuth2Pending
 	if len(state) != 43 {
 		return empty, ErrOAuth2StateInvalid
@@ -145,7 +145,7 @@ func (f *OAuth2Flow) Consume(ctx context.Context, state string) (OAuth2Pending, 
 	return pending, nil
 }
 
-func (f *OAuth2Flow) Exchange(ctx context.Context, code, verifier string) (string, error) {
+func (f *OAuth2Client) Exchange(ctx context.Context, code, verifier string) (string, error) {
 	if code == "" || verifier == "" {
 		return "", ErrOAuth2AuthorizationFailed
 	}
@@ -186,7 +186,7 @@ func (f *OAuth2Flow) Exchange(ctx context.Context, code, verifier string) (strin
 }
 
 // Verify exchanges no secrets; it checks the trusted issuer's signed ID token.
-func (f *OAuth2Flow) Verify(ctx context.Context, idToken, nonce string) (auth_model.OIDCIdentity, error) {
+func (f *OAuth2Client) Verify(ctx context.Context, idToken, nonce string) (auth_model.OIDCClaims, error) {
 	return (OIDCTokenVerifier{
 		Issuer: f.provider.Issuer, Audience: f.provider.ClientID,
 		JWKSURL: f.provider.JWKSURL, Client: f.client, Cache: f.keyCache,

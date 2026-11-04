@@ -26,13 +26,13 @@ func NewOAuth2AuthService(store db.Store, maker token.Maker, cfg setting.Config)
 	return &OAuth2AuthService{store: store, maker: maker, cfg: cfg}
 }
 
-func (s *OAuth2AuthService) identityKey(identity auth_model.OIDCIdentity) (auth_model.IdentityKey, error) {
+func (s *OAuth2AuthService) credentialKey(identity auth_model.OIDCClaims) (auth_model.OAuth2CredentialKey, error) {
 	key, err := identity.Key()
 	if err != nil {
 		return key, err
 	}
 	if !s.cfg.OIDC.Enabled() || key.Issuer != s.cfg.OIDC.Issuer {
-		return auth_model.IdentityKey{}, auth_model.ErrOIDCIssuerInvalid
+		return auth_model.OAuth2CredentialKey{}, auth_model.ErrOIDCIssuerInvalid
 	}
 	return key, nil
 }
@@ -53,22 +53,22 @@ func (s *OAuth2AuthService) CheckPassword(ctx context.Context, accountID int64, 
 	return nil
 }
 
-func (s *OAuth2AuthService) Link(ctx context.Context, accountID int64, identity auth_model.OIDCIdentity) error {
+func (s *OAuth2AuthService) Link(ctx context.Context, accountID int64, identity auth_model.OIDCClaims) error {
 	if accountID <= 0 {
 		return auth_model.ErrInvalidCredentials
 	}
-	key, err := s.identityKey(identity)
+	key, err := s.credentialKey(identity)
 	if err != nil {
 		return err
 	}
-	return auth_model.LinkOAuth2Identity(ctx, s.store, accountID, key)
+	return auth_model.LinkOAuth2Credential(ctx, s.store, accountID, key)
 }
 
 // Login never automatically links identities to an existing email account.
 // On concurrent first logins it recovers only by the exact issuer/subject key.
-func (s *OAuth2AuthService) Login(ctx context.Context, identity auth_model.OIDCIdentity, userAgent, clientIP string) (LoginResult, error) {
+func (s *OAuth2AuthService) Login(ctx context.Context, identity auth_model.OIDCClaims, userAgent, clientIP string) (LoginResult, error) {
 	var empty LoginResult
-	key, err := s.identityKey(identity)
+	key, err := s.credentialKey(identity)
 	if err != nil {
 		return empty, err
 	}

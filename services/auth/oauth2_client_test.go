@@ -15,7 +15,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-func TestOAuth2FlowTokenExchange(t *testing.T) {
+func TestOAuth2ClientTokenExchange(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("wrong method: %s", r.Method)
@@ -37,7 +37,7 @@ func TestOAuth2FlowTokenExchange(t *testing.T) {
 		ClientID: "test-client", ClientSecret: "secret",
 		RedirectURI: "https://client.example/users/oauth2/callback",
 	}
-	flow, err := NewOAuth2Flow(provider, redis.NewClient(&redis.Options{Addr: "127.0.0.1:0"}), server.Client())
+	flow, err := NewOAuth2Client(provider, redis.NewClient(&redis.Options{Addr: "127.0.0.1:0"}), server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestOAuth2ExchangeProviderFailure(t *testing.T) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer server.Close()
-	flow, err := NewOAuth2Flow(setting.OAuth2Provider{
+	flow, err := NewOAuth2Client(setting.OAuth2Provider{
 		Issuer: "https://issuer.example", AuthorizationURL: "https://issuer.example/authorize",
 		TokenURL: server.URL, JWKSURL: "https://issuer.example/keys",
 		ClientID: "test-client", ClientSecret: "secret",
@@ -88,7 +88,7 @@ func TestOAuth2PKCEStateIsSingleUse(t *testing.T) {
 		ClientSecret:     "secret",
 		RedirectURI:      "https://client.example/users/oauth2/callback",
 	}
-	flow, err := NewOAuth2Flow(provider, client, http.DefaultClient)
+	flow, err := NewOAuth2Client(provider, client, http.DefaultClient)
 	if err != nil {
 		t.Fatal(err)
 	}

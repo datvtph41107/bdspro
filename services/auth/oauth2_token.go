@@ -37,13 +37,13 @@ type oidcIDClaims struct {
 // Verify validates signature, algorithm, expected issuer, audience, exp, iat
 // and browser-bound nonce. Only RS256 is supported by this implementation.
 // The caller must supply metadata from a trusted, configured OIDC issuer.
-func (v OIDCTokenVerifier) Verify(ctx context.Context, raw, expectedNonce string) (auth_model.OIDCIdentity, error) {
-	var empty auth_model.OIDCIdentity
+func (v OIDCTokenVerifier) Verify(ctx context.Context, raw, expectedNonce string) (auth_model.OIDCClaims, error) {
+	var empty auth_model.OIDCClaims
 	if raw == "" || v.Issuer == "" || v.Audience == "" || v.JWKSURL == "" ||
 		v.Client == nil || expectedNonce == "" {
 		return empty, errors.New("invalid OpenID Connect verification parameters")
 	}
-	if _, err := (auth_model.OIDCIdentity{Issuer: v.Issuer, Subject: "probe"}).Key(); err != nil {
+	if _, err := (auth_model.OIDCClaims{Issuer: v.Issuer, Subject: "probe"}).Key(); err != nil {
 		return empty, err
 	}
 	claims := &oidcIDClaims{}
@@ -71,7 +71,7 @@ func (v OIDCTokenVerifier) Verify(ctx context.Context, raw, expectedNonce string
 	if claims.Subject == "" || subtle.ConstantTimeCompare([]byte(claims.Nonce), []byte(expectedNonce)) != 1 {
 		return empty, errors.New("invalid OIDC identity claims")
 	}
-	result := auth_model.OIDCIdentity{
+	result := auth_model.OIDCClaims{
 		Issuer: claims.Issuer, Subject: claims.Subject,
 		Email: claims.Email, EmailVerified: claims.EmailVerified,
 	}

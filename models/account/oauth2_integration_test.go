@@ -39,7 +39,7 @@ func TestOAuth2IdentityIsIssuerScopedAndPasswordless(t *testing.T) {
 	defer pool.Close()
 	store := db.NewStore(pool)
 	subject := uuid.NewString()
-	identity := auth_model.OIDCIdentity{
+	identity := auth_model.OIDCClaims{
 		Issuer: "https://oidc-first.example.test", Subject: subject,
 		Email: uuid.NewString() + "@example.test", EmailVerified: true,
 	}
@@ -61,7 +61,7 @@ func TestOAuth2IdentityIsIssuerScopedAndPasswordless(t *testing.T) {
 	if err != nil || id != account.ID {
 		t.Fatalf("identity was not linked to created account: %d %v", id, err)
 	}
-	if err := auth_model.LinkOAuth2Identity(ctx, store, account.ID, firstKey); err != nil {
+	if err := auth_model.LinkOAuth2Credential(ctx, store, account.ID, firstKey); err != nil {
 		t.Fatalf("same account link should be idempotent: %v", err)
 	}
 	second := identity
@@ -74,7 +74,7 @@ func TestOAuth2IdentityIsIssuerScopedAndPasswordless(t *testing.T) {
 	if secondAccount.ID == account.ID {
 		t.Fatal("different issuers collapsed to one identity")
 	}
-	if err := auth_model.LinkOAuth2Identity(ctx, store, secondAccount.ID, firstKey); !errors.Is(err, auth_model.ErrOAuth2IdentityAlreadyLinked) {
+	if err := auth_model.LinkOAuth2Credential(ctx, store, secondAccount.ID, firstKey); !errors.Is(err, auth_model.ErrOAuth2CredentialAlreadyLinked) {
 		t.Fatalf("foreign account stole identity: %v", err)
 	}
 	conflict := identity
@@ -90,7 +90,7 @@ func TestOAuth2IdentityIsIssuerScopedAndPasswordless(t *testing.T) {
 	if _, err := auth_model.GetOAuth2AccountID(ctx, store, conflictKey); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("failed account transaction left external identity: %v", err)
 	}
-	racing := auth_model.OIDCIdentity{
+	racing := auth_model.OIDCClaims{
 		Issuer: "https://oidc-race.example.test", Subject: uuid.NewString(),
 		Email: uuid.NewString() + "@example.test", EmailVerified: true,
 	}
