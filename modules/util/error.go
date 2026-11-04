@@ -4,15 +4,15 @@ package util
 import "errors"
 
 var (
-	ErrInvalidArgument = errors.New("invalid argument")
+	ErrInvalidArgument  = errors.New("invalid argument")
 	ErrPermissionDenied = errors.New("permission denied")
-	ErrNotExist = errors.New("resource not found")
-	ErrAlreadyExist = errors.New("resource already exists")
+	ErrNotExist         = errors.New("resource not found")
+	ErrAlreadyExist     = errors.New("resource already exists")
 )
 
 // kindError retains a model-specific safe message and a shared error category.
 type kindError struct {
-	kind error
+	kind    error
 	message string
 }
 
