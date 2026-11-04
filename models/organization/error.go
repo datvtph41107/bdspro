@@ -1,12 +1,14 @@
 package organization
 
-import "errors"
+import (
+	"github.com/datvtph41107/bdspro/modules/util"
+)
 
 var (
-	ErrNameRequired              = errors.New("organization name required")
-	ErrInvalidOrganization       = errors.New("invalid organization")
-	ErrOrganizationNotFound      = errors.New("organization not found")
-	ErrOrganizationOwnerRequired = errors.New("organization owner required")
-	ErrMembershipExists          = errors.New("membership already exists")
-	ErrPersonUnavailable         = errors.New("person unavailable")
+	ErrNameRequired              = util.WithKind(util.ErrInvalidArgument, "organization name required")
+	ErrInvalidOrganization       = util.WithKind(util.ErrInvalidArgument, "invalid organization")
+	ErrOrganizationNotFound      = util.WithKind(util.ErrNotExist, "organization not found")
+	ErrOrganizationOwnerRequired = util.WithKind(util.ErrPermissionDenied, "organization owner required")
+	ErrMembershipExists          = util.WithKind(util.ErrAlreadyExist, "membership already exists")
+	ErrPersonUnavailable         = util.WithKind(util.ErrNotExist, "person unavailable")
 )

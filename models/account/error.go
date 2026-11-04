@@ -1,8 +1,12 @@
 package account
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/datvtph41107/bdspro/modules/util"
+)
 
 var (
 	ErrAccountUnavailable = errors.New("account unavailable")
-	ErrEmailRegistered    = errors.New("email already registered")
+	ErrEmailRegistered    = util.WithKind(util.ErrAlreadyExist, "email already registered")
 )
