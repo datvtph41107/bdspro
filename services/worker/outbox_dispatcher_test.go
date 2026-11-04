@@ -26,20 +26,11 @@ func (f *verificationDistributorFake) Enqueue(
 	if f.err != nil {
 		return f.err
 	}
-	if task.Type() == TaskSendPasswordReset {
-		// Another test package may have queued a reset intent in the shared
-		// disposable database. The dispatcher itself is type-agnostic.
-		var payload PayloadSendPasswordReset
-		if err := json.Unmarshal(task.Payload(), &payload); err != nil {
-			return err
-		}
-		if payload.AccountID <= 0 {
-			return errors.New("invalid reset account")
-		}
-		return nil
-	}
+	// Dispatcher is deliberately task-agnostic. Other test packages may
+	// produce additional durable intents in the same disposable database.
+	// This fake captures only verification payloads for this test.
 	if task.Type() != TaskSendVerifyEmail {
-		return errors.New("unexpected task type")
+		return nil
 	}
 	var payload PayloadSendVerifyEmail
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
