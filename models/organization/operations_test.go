@@ -3,7 +3,6 @@ package organization
 import (
 	"context"
 	"errors"
-	account_model "github.com/datvtph41107/bdspro/models/account"
 	"testing"
 
 	db "github.com/datvtph41107/bdspro/models/db"
@@ -68,18 +67,8 @@ func TestOrganizationMemberDeniedBySQL(t *testing.T) {
 
 type organizationCreateStoreFake struct {
 	db.Store
-	queriedAccount int64
-	txCalls        int
-	accountErr     error
-	txErr          error
-}
-
-func (s *organizationCreateStoreFake) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
-	s.queriedAccount = id
-	if s.accountErr != nil {
-		return db.Account{}, s.accountErr
-	}
-	return db.Account{ID: id, PersonID: 42}, nil
+	txCalls int
+	txErr   error
 }
 
 func (s *organizationCreateStoreFake) ExecTx(_ context.Context, _ func(*db.Queries) error) error {
@@ -87,9 +76,9 @@ func (s *organizationCreateStoreFake) ExecTx(_ context.Context, _ func(*db.Queri
 	return s.txErr
 }
 
-// Pure preconditions are checked before a transaction is opened. The actual
-// Party/Organization/owner sequence and rollback are exercised with PostgreSQL
-// in organization_create_integration_test.go.
+// Invalid names are rejected before opening a transaction. Creator-account
+// existence is deliberately checked INSIDE the transaction; PostgreSQL tests
+// cover the missing-account and concurrent-deletion cases.
 func TestOrganizationCreateValidatesBeforeTransaction(t *testing.T) {
 	store := &organizationCreateStoreFake{}
 
@@ -98,16 +87,9 @@ func TestOrganizationCreateValidatesBeforeTransaction(t *testing.T) {
 		t.Fatalf("blank organization name opened transaction: %v", err)
 	}
 
-	store.accountErr = pgx.ErrNoRows
-	_, err = CreateOrganization(context.Background(), store, 99, "Example Company")
-	if !errors.Is(err, account_model.ErrAccountUnavailable) || store.txCalls != 0 {
-		t.Fatalf("missing account opened transaction: %v", err)
-	}
-
-	store.accountErr = nil
 	store.txErr = errors.New("transaction failed")
-	_, err = CreateOrganization(context.Background(), store, 11, "  Example Company  ")
-	if !errors.Is(err, store.txErr) || store.txCalls != 1 || store.queriedAccount != 11 {
-		t.Fatalf("transaction error not propagated: calls=%d actor=%d err=%v", store.txCalls, store.queriedAccount, err)
+	created, err := CreateOrganization(context.Background(), store, 11, "  Example Company  ")
+	if !errors.Is(err, store.txErr) || store.txCalls != 1 || created.PartyID != 0 {
+		t.Fatalf("transaction error not propagated or result leaked: calls=%d created=%+v err=%v", store.txCalls, created, err)
 	}
 }
