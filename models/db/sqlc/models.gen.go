@@ -122,6 +122,33 @@ type Session struct {
 	ExpiresAt    time.Time `json:"expires_at"`
 }
 
+type Team struct {
+	ID             int64     `json:"id"`
+	OrganizationID int64     `json:"organization_id"`
+	Name           string    `json:"name"`
+	Description    string    `json:"description"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type TeamInvite struct {
+	ID                 uuid.UUID          `json:"id"`
+	TeamID             int64              `json:"team_id"`
+	InvitedEmail       string             `json:"invited_email"`
+	InvitedByAccountID int64              `json:"invited_by_account_id"`
+	TokenHash          []byte             `json:"token_hash"`
+	ExpiresAt          time.Time          `json:"expires_at"`
+	AcceptedAt         pgtype.Timestamptz `json:"accepted_at"`
+	RevokedAt          pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt          time.Time          `json:"created_at"`
+}
+
+type TeamMember struct {
+	TeamID   int64     `json:"team_id"`
+	PersonID int64     `json:"person_id"`
+	JoinedAt time.Time `json:"joined_at"`
+}
+
 type VerifyEmail struct {
 	ID         int64     `json:"id"`
 	AccountID  int64     `json:"account_id"`
