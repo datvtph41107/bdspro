@@ -10,7 +10,6 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -18,11 +17,11 @@ import (
 // cryptographically verified OpenID Connect identity assertions.
 type OAuth2AuthService struct {
 	store db.Store
-	maker token.Maker
+	maker authcrypto.Maker
 	cfg   setting.Config
 }
 
-func NewOAuth2AuthService(store db.Store, maker token.Maker, cfg setting.Config) *OAuth2AuthService {
+func NewOAuth2AuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config) *OAuth2AuthService {
 	return &OAuth2AuthService{store: store, maker: maker, cfg: cfg}
 }
 
