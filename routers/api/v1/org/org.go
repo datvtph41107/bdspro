@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
@@ -14,10 +15,10 @@ import (
 )
 
 type Handler struct {
-	store organization_model.Store
+	store db.Store
 }
 
-func NewHandler(store organization_model.Store) *Handler {
+func NewHandler(store db.Store) *Handler {
 	return &Handler{store: store}
 }
 
