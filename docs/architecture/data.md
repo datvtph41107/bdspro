@@ -36,3 +36,13 @@ introducing a second transaction implementation.
 `models/db/list.go` implements query paging with a Gitea-style Paginator;
 `TestPaginator` lives in `models/db/list_test.go`. Public callers must not
 enable ListAll without explicit access and resource policies.
+
+## Native SQLC output filenames
+
+SQLC v1.30.0 generates the stable package in `models/db/sqlc/` using only
+native naming flags from `sqlc.yaml`: `output_db_file_name`,
+`output_models_file_name`, `output_querier_file_name`, and
+`output_files_suffix: ".gen.go"`. Query files keep the SQL source basename:
+`db/query/account.sql` generates `models/db/sqlc/account.sql.gen.go`.
+This avoids any custom post-generation filename rewriting, while
+`tools/dbalias` maintains the public `db.` type aliases automatically.
