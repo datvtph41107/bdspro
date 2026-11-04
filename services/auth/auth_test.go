@@ -147,8 +147,8 @@ func TestRegisterPasswordByteLimit(t *testing.T) {
 // This test exercises the same renewal and revocation APIs across the rollout.
 func TestAuthLegacyRefreshSessionTransition(t *testing.T) {
 	cfg := setting.Config{
-		TokenSymmetricKey: strings.Repeat("k", 32),
-		AccessTokenDuration: 15 * time.Minute,
+		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AccessTokenDuration:  15 * time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}
 	maker, err := authcrypto.NewJWTMaker(cfg.TokenSymmetricKey)
