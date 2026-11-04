@@ -73,6 +73,13 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			response.RateLimitUnavailable(c)
 			return
 		}
+		// Log the actual admission-decision time, not a later handler timestamp.
+		// No raw client IP or Redis key is written to the application log.
+		log.Ctx(c.Request.Context()).Warn().
+			Str("action", string(event.Action)).
+			Int64("occurred_at_unix", int64(event.OccurredAt)).
+			Int64("attempts", event.Attempts).
+			Msg("ipactive.rate_limited")
 		response.RateLimited(c, event.RetryAfter)
 	})
 	server.authHandler = user.NewAuthHandler(auth_service.NewAuthService(store, maker, cfg), server.authThrottle)

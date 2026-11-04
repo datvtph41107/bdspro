@@ -12,9 +12,8 @@ import (
 // ResetPassword consumes the one-use proof, updates the password and removes
 // reset proofs and refresh sessions in the same PostgreSQL transaction.
 // Access JWTs continue to expire according to the existing stateless policy.
-type Transactioner interface {
-	ExecTx(context.Context, func(*db.Queries) error) error
-}
+// Transactioner retains the model's existing public name; db owns the contract.
+type Transactioner = db.Transactioner
 
 func ResetPassword(ctx context.Context, tx Transactioner, tokenHash []byte, passwordHash string) error {
 	return tx.ExecTx(ctx, func(q *db.Queries) error {

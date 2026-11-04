@@ -25,13 +25,6 @@ type organizationHTTPStoreFake struct {
 	createErr  error
 }
 
-func (s *organizationHTTPStoreFake) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
-	if s.accountErr != nil {
-		return db.Account{}, s.accountErr
-	}
-	return db.Account{ID: id, PersonID: 99}, nil
-}
-
 // The fake runs the actual SQLC methods through a small recording DBTX.
 // It does not reimplement the service's Party -> Organization -> owner workflow.
 func (s *organizationHTTPStoreFake) ExecTx(ctx context.Context, operation func(*db.Queries) error) error {
@@ -66,6 +59,14 @@ type organizationHTTPRow struct {
 
 func (r organizationHTTPRow) Scan(dest ...any) error {
 	switch {
+	case strings.Contains(r.sql, "-- name: LockOrganizationCreator"):
+		if len(r.args) != 1 || r.args[0] != int64(42) {
+			return errors.New("unexpected creator account ID")
+		}
+		if r.store.accountErr != nil {
+			return r.store.accountErr
+		}
+		*dest[0].(*int64) = 99
 	case strings.Contains(r.sql, "INSERT INTO parties DEFAULT VALUES"):
 		*dest[0].(*int64) = 123
 	case strings.Contains(r.sql, "INSERT INTO organizations (party_id, name)"):

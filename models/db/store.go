@@ -7,12 +7,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Transactioner is the sole transaction capability shared by account,
+// authentication and organization model operations.
+type Transactioner interface {
+	ExecTx(context.Context, func(*Queries) error) error
+}
+
 // Store exposes SQLC queries and the existing transaction operations.
 type Store interface {
 	Querier
 	GetAccountByID(ctx context.Context, id int64) (Account, error)
 	GetAccountByEmail(ctx context.Context, email string) (Account, error)
-	ExecTx(ctx context.Context, fn func(*Queries) error) error
+	Transactioner
 }
 
 type SQLStore struct {

@@ -7,21 +7,11 @@ import (
 	"testing"
 	"time"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-// Simulates an account whose referenced person cannot be inserted as an owner.
-// The actual workflow, SQLC queries, and PostgreSQL transaction stay real.
-type organizationInvalidOwnerStore struct {
-	db.Store
-}
-
-func (s organizationInvalidOwnerStore) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
-	return db.Account{ID: id, PersonID: -1}, nil
-}
 
 func TestOrganizationCreateWorkflowPostgres(t *testing.T) {
 	source := os.Getenv("BDS_TEST_DB_URL")
@@ -80,19 +70,19 @@ func TestOrganizationCreateWorkflowPostgres(t *testing.T) {
 		t.Fatalf("workflow must create exactly one owner membership: %+v, %v", member, err)
 	}
 
-	failedName := "Rollback " + uuid.NewString()
-	invalidOwner := organizationInvalidOwnerStore{Store: store}
-	_, err = CreateOrganization(ctx, invalidOwner, account.ID, failedName)
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || pgErr.Code != "23503" ||
-		pgErr.ConstraintName != "organization_members_person_id_fkey" {
-		t.Fatalf("expected failed owner insert to propagate PostgreSQL FK: %v", err)
+	// A missing creator account cannot leave an organization or a Party.
+	// This must be checked by the transaction-bound SQLC lookup, not by a
+	// mockable preliminary GetAccountByID call on the pool-backed store.
+	failedName := "Missing creator " + uuid.NewString()
+	_, err = CreateOrganization(ctx, store, -1, failedName)
+	if !errors.Is(err, account_model.ErrAccountUnavailable) {
+		t.Fatalf("missing account must reject organization creation: %v", err)
 	}
 	var count int
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM organizations WHERE name=$1", failedName).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
-		t.Fatal("failed owner insertion committed organization")
+		t.Fatal("missing account created organization")
 	}
 }

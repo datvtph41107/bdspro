@@ -13,11 +13,14 @@ func TestAddMemberClassifiesOnlyKnownConstraints(t *testing.T) {
 	store := &organizationStoreFake{}
 	check := func(t *testing.T, code, constraint string, want error) {
 		t.Helper()
-		cause := &pgconn.PgError{Code: code, ConstraintName: constraint}
+		cause := &pgconn.PgError{Code: code, ConstraintName: constraint, Message: "private database credential"}
 		store.memberErr = cause
 		_, err := AddOrgUser(context.Background(), store, 11, 23, 31)
 		if err == nil || !errors.Is(err, cause) {
 			t.Fatalf("driver cause not retained: %v", err)
+		}
+		if want != nil && err.Error() != want.Error() {
+			t.Fatalf("model error exposed internal database detail: %q", err.Error())
 		}
 		if want != nil && !errors.Is(err, want) {
 			t.Fatalf("constraint %s: got %v, want %v", constraint, err, want)

@@ -17,10 +17,8 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // AuthService owns registration, credential authentication, email verification,
@@ -51,10 +49,6 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 		PasswordHash: hash,
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
-			return db.Account{}, util.WithCause(account_model.ErrEmailRegistered, err)
-		}
 		return db.Account{}, err
 	}
 	return account, nil
@@ -286,8 +280,7 @@ func (s *AuthService) ConfirmEmailLink(ctx context.Context, accountID int64, sec
 	if errors.Is(err, account_model.ErrEmailLinkUnavailable) {
 		return auth_model.ErrEmailAlreadyLinked
 	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
+	if errors.Is(err, account_model.ErrEmailLinkTaken) {
 		return account_model.ErrEmailRegistered
 	}
 	return err

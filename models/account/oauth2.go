@@ -5,6 +5,7 @@ import (
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/datvtph41107/bdspro/modules/validation"
 )
 
@@ -20,34 +21,30 @@ func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_mo
 	if !identity.EmailVerified || !valid {
 		return db.Account{}, auth_model.ErrInvalidEmail
 	}
-	var created db.Account
-	err = tx.ExecTx(ctx, func(q *db.Queries) error {
-		partyID, err := q.CreateParty(ctx)
+	created, err := db.WithTxResult(ctx, tx, func(q *db.Queries) (db.Account, error) {
+		partyID, err := db.CreatePersonWithParty(ctx, q)
 		if err != nil {
-			return err
+			return db.Account{}, err
 		}
-		if err := q.CreatePerson(ctx, partyID); err != nil {
-			return err
-		}
-		created, err = q.CreateAccount(ctx, db.CreateAccountParams{
+		account, err := q.CreateAccount(ctx, db.CreateAccountParams{
 			PersonID: partyID, Email: email,
 		})
 		if err != nil {
-			return err
+			return db.Account{}, err
 		}
-		created, err = q.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{
-			ID: created.ID, Email: email,
+		account, err = q.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{
+			ID: account.ID, Email: email,
 		})
 		if err != nil {
-			return err
+			return db.Account{}, err
 		}
 		_, err = q.LinkOAuth2Credential(ctx, db.LinkOAuth2CredentialParams{
-			Issuer: key.Issuer, Subject: key.Subject, AccountID: created.ID,
+			Issuer: key.Issuer, Subject: key.Subject, AccountID: account.ID,
 		})
-		return err
+		return account, err
 	})
-	if err != nil {
-		return db.Account{}, err
+	if emailLoginTaken(err) {
+		return db.Account{}, util.WithCause(ErrEmailRegistered, err)
 	}
-	return created, nil
+	return created, err
 }

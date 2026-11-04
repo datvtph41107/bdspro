@@ -13,9 +13,9 @@ func ToOrganization(v db.Organization) structs.Organization {
 // PermissionsForRole is public display metadata, never an authorization source.
 func PermissionsForRole(role string) []string {
 	switch role {
-	case "owner":
+	case organization_model.RoleOwner:
 		return []string{"organization.view", "organization.update", "organization.members.view", "organization.members.add"}
-	case "member":
+	case organization_model.RoleMember:
 		return []string{"organization.view"}
 	default:
 		return []string{}

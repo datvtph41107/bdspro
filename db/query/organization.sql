@@ -54,8 +54,15 @@ WHERE EXISTS (
     AND a.id = sqlc.arg(actor_account_id)
     AND owner.role = 'owner'
     AND owner.ended_at IS NULL
+  FOR SHARE OF owner
 )
 RETURNING id, organization_id, person_id, role, joined_at, ended_at;
+
+-- name: LockOrganizationCreator :one
+SELECT person_id
+FROM accounts
+WHERE id = sqlc.arg(actor_account_id)
+FOR KEY SHARE;
 
 -- name: UpdateOrganization :one
 UPDATE organizations AS o
@@ -69,5 +76,6 @@ WHERE o.party_id = sqlc.arg(organization_id)
       AND a.id = sqlc.arg(actor_account_id)
       AND m.role = 'owner'
       AND m.ended_at IS NULL
+    FOR SHARE OF m
   )
 RETURNING o.party_id, o.name, o.created_at;
