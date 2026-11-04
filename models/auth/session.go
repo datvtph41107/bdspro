@@ -5,6 +5,7 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/timeutil"
 	"github.com/google/uuid"
 )
 
@@ -23,7 +24,7 @@ func NewSession(ctx context.Context, store SessionStore, params db.CreateSession
 
 func ValidRefreshSession(session db.Session, accountID int64, refreshToken string, now time.Time) bool {
 	return !session.IsBlocked && session.AccountID == accountID &&
-		session.RefreshToken == refreshToken && now.Before(session.ExpiresAt)
+		session.RefreshToken == refreshToken && !timeutil.Expired(now, session.ExpiresAt)
 }
 
 func ListSessions(ctx context.Context, store SessionStore, accountID int64) ([]db.ListActiveSessionsRow, error) {

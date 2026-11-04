@@ -17,6 +17,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -52,7 +53,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
-			return db.Account{}, errors.Join(account_model.ErrEmailRegistered, err)
+			return db.Account{}, util.WithCause(account_model.ErrEmailRegistered, err)
 		}
 		return db.Account{}, err
 	}

@@ -23,3 +23,24 @@ func (e kindError) Unwrap() error { return e.kind }
 func WithKind(kind error, message string) error {
 	return kindError{kind: kind, message: message}
 }
+
+// WithCause keeps a safe public error string while preserving both the
+// application classification and underlying cause for errors.Is/errors.As.
+// Unlike errors.Join, Error() does not include driver/provider diagnostics.
+func WithCause(safe, cause error) error {
+	if safe == nil {
+		return cause
+	}
+	if cause == nil {
+		return safe
+	}
+	return safeCause{safe: safe, cause: cause}
+}
+
+type safeCause struct {
+	safe  error
+	cause error
+}
+
+func (e safeCause) Error() string { return e.safe.Error() }
+func (e safeCause) Unwrap() []error { return []error{e.safe, e.cause} }
