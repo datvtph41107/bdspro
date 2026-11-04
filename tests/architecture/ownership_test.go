@@ -49,8 +49,11 @@ func TestSourcePackageOwnership(t *testing.T) {
 					if owner == "modules" && (isRouter || isService) {
 						t.Errorf("%s: technical module imports transport/business %q", rel, dep)
 					}
-					if owner == "models" && (isRouter || isService) {
-						t.Errorf("%s: persistence imports transport/business %q", rel, dep)
+					if owner == "models" && (isRouter || isService || dep == "net/http" || dep == "github.com/gin-gonic/gin") {
+						t.Errorf("%s: persistence imports HTTP/business %q", rel, dep)
+					}
+					if owner == "services" && dep == "github.com/jackc/pgx/v5/pgconn" {
+						t.Errorf("%s: PostgreSQL constraints must be classified by owning models, not services", rel)
 					}
 					if owner == "services" && (isRouter || dep == "github.com/gin-gonic/gin") {
 						t.Errorf("%s: business service depends on HTTP delivery %q", rel, dep)
