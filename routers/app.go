@@ -40,6 +40,9 @@ type Server struct {
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
 func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, resetMailers ...mail.EmailSender) (*Server, error) {
+	if cfg.OIDC.Enabled() && cfg.GoogleClientID != "" {
+		return nil, errors.New("OAuth2/OIDC and legacy OAuth provider cannot be enabled together")
+	}
 	if redisClient == nil {
 		return nil, errors.New("authentication requires Redis")
 	}

@@ -108,6 +108,10 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 	config.GoogleClientID = get("oauth", "GOOGLE_CLIENT_ID")
 	config.GoogleClientSecret = get("oauth", "GOOGLE_CLIENT_SECRET")
 	config.GoogleRedirectURI = get("oauth", "GOOGLE_REDIRECT_URI")
+	if config.OIDC.Enabled() && (config.GoogleClientID != "" ||
+		config.GoogleClientSecret != "" || config.GoogleRedirectURI != "") {
+		return config, fmt.Errorf("OAuth2/OIDC and legacy OAuth provider cannot be enabled together")
+	}
 	config.PhoneDelivery = get("phone", "PHONE_DELIVERY")
 	config.SMSGatewayURL = get("phone", "SMS_GATEWAY_URL")
 	config.SMSGatewayToken = get("phone", "SMS_GATEWAY_TOKEN")
