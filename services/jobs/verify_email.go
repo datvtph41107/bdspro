@@ -1,16 +1,17 @@
 package jobs
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"html"
 	"net/url"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/secret"
 	"github.com/datvtph41107/bdspro/services/mail"
+	"github.com/datvtph41107/bdspro/templates"
 )
 
 // VerificationStore is the data contract required by email verification.
@@ -59,6 +60,11 @@ func SendVerificationEmail(
 	query.Set("email_id", fmt.Sprint(record.ID))
 	query.Set("secret_code", record.SecretCode)
 	link.RawQuery = query.Encode()
-	content := fmt.Sprintf("Welcome to BDSPro. Please verify your email: <a href=%q>Verify email</a>", html.EscapeString(link.String()))
-	return mailer.SendEmail("Verify your BDSPro email", content, []string{account.Email}, nil, nil, nil)
+	var body bytes.Buffer
+	if err := templates.VerifyEmailMail.Execute(&body, struct {
+		VerificationURL string
+	}{VerificationURL: link.String()}); err != nil {
+		return fmt.Errorf("render verification email: %w", err)
+	}
+	return mailer.SendEmail("Verify your BDSPro email", body.String(), []string{account.Email}, nil, nil, nil)
 }

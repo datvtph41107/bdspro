@@ -20,7 +20,7 @@ func Wrap(def *Error, cause error) error {
 }
 
 // These identities are independent of the public API. Public error
-// mappings live only in internal/api/response.
+// mappings live only in routers/api/response.
 var InvalidResetToken = &Error{name: "InvalidResetToken"}
 var InvalidPassword = &Error{name: "InvalidPassword"}
 var AccountUnavailable = &Error{name: "AccountUnavailable"}
