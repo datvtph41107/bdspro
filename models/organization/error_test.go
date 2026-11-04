@@ -10,8 +10,8 @@ import (
 
 func TestModelErrorClassification(t *testing.T) {
 	tests := []struct {
-		name string
-		domain error
+		name     string
+		domain   error
 		category error
 	}{
 		{"team hidden", organization.ErrTeamNotFound, util.ErrNotExist},
