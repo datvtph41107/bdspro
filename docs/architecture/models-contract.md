@@ -56,3 +56,14 @@ Gitea uses `models/db.WithTx2[T]` to make transaction-scoped work return a resul
 - Tests must include rollback after a statement has succeeded, a callback failure, and a commit failure. A green test with mocked SQL is not proof of PostgreSQL atomicity.
 
 This is a selective adaptation of Gitea's result-handling style, **not** its XORM session lifecycle or context-implicit nested transaction behavior.
+
+
+## Concurrent owner authorization (PR #128)
+
+PostgreSQL's default READ COMMITTED isolation allows a plain `EXISTS` authorization predicate to observe a previously committed owner row while a concurrent transaction is revoking that row. The write can then commit even though the revocation completed first.
+
+`db/query/organization.sql` now locks the **exact active owner membership row** with `FOR SHARE OF owner` or `FOR SHARE OF m` in two state-changing operations: `AddOrganizationMember` and `UpdateOrganization`. If an owner revocation has already obtained the membership row lock, these writes wait and re-check the latest row version; if it is no longer active, the operation is denied.
+
+This applies only to writes, avoiding row locks for listing and reading. The SQLC query parameters and result shapes do not change, and no extra Go authorization lookup or wrapper is introduced. The lock protects the owner authorization invariant through the statement; it does not imply that other unreviewed team or invitation mutations have been race-hardened.
+
+Integration coverage must prove that a pending owner revocation blocks the attempted mutation, that the post-commit mutation is denied, and that authorized writes continue working when there is no conflicting revocation. A simple green sequential test is not sufficient evidence for this property.
