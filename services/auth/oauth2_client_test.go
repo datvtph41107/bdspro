@@ -134,12 +134,13 @@ func TestOAuth2TokenExchangeDoesNotForwardSecretsAcrossRedirects(t *testing.T) {
 	}))
 	defer server.Close()
 	provider := setting.OAuth2Provider{
-		Issuer: "https://issuer.example",
+		Issuer:           "https://issuer.example",
 		AuthorizationURL: "https://issuer.example/authorize",
-		TokenURL: server.URL + "/token",
-		JWKSURL: "https://issuer.example/keys",
-		ClientID: "client", ClientSecret: "client-secret",
-		RedirectURI: "https://client.example/users/oauth2/callback",
+		TokenURL:         server.URL + "/token",
+		JWKSURL:          "https://issuer.example/keys",
+		ClientID:         "client",
+		ClientSecret:     "client-secret",
+		RedirectURI:      "https://client.example/users/oauth2/callback",
 	}
 	client, err := NewOAuth2Client(provider, redis.NewClient(&redis.Options{Addr: "127.0.0.1:0"}), server.Client())
 	if err != nil {
