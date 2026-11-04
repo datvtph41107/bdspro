@@ -6,6 +6,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // GetOAuth2AccountID reads a verified external identity binding.
@@ -30,6 +31,11 @@ func LinkOAuth2Identity(ctx context.Context, queries db.Querier, accountID int64
 		Issuer: key.Issuer, Subject: key.Subject, AccountID: accountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrOAuth2IdentityAlreadyLinked
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
+		pgErr.ConstraintName == "oauth2_identities_account_issuer_uq" {
 		return ErrOAuth2IdentityAlreadyLinked
 	}
 	return err
