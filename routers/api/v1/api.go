@@ -113,6 +113,7 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	)
 
 	registerOrganizationRoutes(route.Group("/organizations", middleware.VerifiedContact(d.Store)), d)
+	registerTeamRoutes(route.Group("/teams", middleware.VerifiedContact(d.Store)), d)
 
 	if d.Google != nil {
 		route.POST("/users/me/google/start",
@@ -139,6 +140,17 @@ func registerOrganizationRoutes(route *gin.RouterGroup, d Dependencies) {
 	route.PATCH("/:id", d.Organization.Edit)
 	route.GET("/:id/members", d.Organization.Members)
 	route.POST("/:id/members", d.Organization.AddMember)
+	teams := org.NewTeamHandler(d.Store)
+	route.GET("/:id/teams", teams.List)
+	route.POST("/:id/teams", teams.Create)
+}
+
+func registerTeamRoutes(route *gin.RouterGroup, d Dependencies) {
+	teams := org.NewTeamHandler(d.Store)
+	route.GET("/:team_id", teams.Get)
+	route.PATCH("/:team_id", teams.Edit)
+	route.POST("/:team_id/members", teams.AddMember)
+	route.DELETE("/:team_id/members/:person_id", teams.RemoveMember)
 }
 
 func registerPhoneBindRoutes(route *gin.RouterGroup, d Dependencies) {
