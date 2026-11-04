@@ -35,7 +35,7 @@ func TestStrictDecodeRejectsDuplicateNamesAndInvalidUTF8(t *testing.T) {
 		t.Fatal("invalid UTF-8 accepted")
 	}
 	// Prior invalid decodes can partially mutate their destination.
-	target = struct{ Name string `json:"name"` }{}
+	target.Name = ""
 	if err := Unmarshal([]byte(`{"NAME":"Alice"}`), &target); err != nil {
 		t.Fatal(err)
 	} else if target.Name != "" {
