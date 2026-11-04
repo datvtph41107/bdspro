@@ -28,3 +28,13 @@ VALUES (
     jsonb_build_object('account_id', sqlc.arg(account_id)::bigint),
     'critical', 10, now()
 );
+
+-- name: RecordTeamInviteJob :exec
+-- Only the invite UUID is durable. The proof is derived inside the worker
+-- using the configured signing key, never persisted in plaintext.
+INSERT INTO job_outbox (task_type, payload, queue_name, max_retry, run_at)
+VALUES (
+    'task:send_team_invite',
+    jsonb_build_object('invite_id', sqlc.arg(invite_id)::uuid),
+    'critical', 10, now()
+);

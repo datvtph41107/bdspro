@@ -21,14 +21,17 @@ type CreatedTeamInvite struct {
 	Token  string
 }
 
-// CreateTeamInvite stores a hash, not the raw token. Delivery is the service's responsibility.
-func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamID int64, email string, ttl time.Duration) (CreatedTeamInvite, error) {
+// CreateTeamInvite atomically stores the hashed proof and a durable delivery intent.
+// The same secret can be recovered by the worker from the random invitation ID
+// and the signing key, without storing a plaintext proof in the outbox.
+func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamID int64, email string, ttl time.Duration, signingKey string) (CreatedTeamInvite, error) {
 	var result CreatedTeamInvite
 	email, valid := validation.EmailAddress(email)
 	if !valid || ttl <= 0 {
 		return result, ErrTeamInviteInvalid
 	}
-	token, err := secret.RandomHex(32)
+	inviteID := uuid.New()
+	token, err := secret.DeriveToken(signingKey, "team-invite:v1", inviteID[:])
 	if err != nil {
 		return result, err
 	}
@@ -42,10 +45,13 @@ func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamI
 		}
 		var createErr error
 		invite, createErr = q.CreateTeamInviteForOwner(ctx, db.CreateTeamInviteForOwnerParams{
-			ID: uuid.New(), TeamID: teamID, ActorAccountID: actorAccountID,
+			ID: inviteID, TeamID: teamID, ActorAccountID: actorAccountID,
 			InvitedEmail: email, TokenHash: hash[:], ExpiresAt: time.Now().Add(ttl),
 		})
-		return createErr
+		if createErr != nil {
+			return createErr
+		}
+		return q.RecordTeamInviteJob(ctx, invite.ID)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return result, ErrTeamOwnerRequired
