@@ -13,8 +13,7 @@ const googleOAuthCookie = "bdspro_google_state"
 type GoogleHandler struct {
 	auth         *auth_service.GoogleAuthService
 	config       setting.Config
-	redis        *redis.Client
-	httpClient   *http.Client
+	flow         *auth_service.GoogleOAuthFlow
 	secureCookie bool
 	phone        *auth_service.PhoneOTP
 }
