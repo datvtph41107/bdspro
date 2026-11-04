@@ -8,9 +8,17 @@ import (
 
 const alphabet = "abcdefghijklmnopqrstuvwxyz"
 
-// RandomInt generates a random integer between min and max, inclusive.
+// RandomInt returns a uniformly distributed integer in [min, max].
+// It handles the full signed 64-bit range without overflowing the span.
 func RandomInt(min, max int64) int64 {
-	return min + rand.Int64N(max-min+1)
+	if min > max {
+		panic("util.RandomInt: min exceeds max")
+	}
+	span := uint64(max) - uint64(min) + 1
+	if span == 0 {
+		return int64(rand.Uint64()) // Entire int64 domain.
+	}
+	return int64(uint64(min) + rand.Uint64N(span))
 }
 
 // RandomString generates a random lowercase string of length n.

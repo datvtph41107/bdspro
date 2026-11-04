@@ -115,6 +115,6 @@ func (l *Limiter) Check(ctx context.Context, action Action, sourceIP string) (Ev
 	return Event{
 		Action: action, SourceID: sourceID, Mode: policy.Mode,
 		Allowed: allowed, Attempts: attempts, Limit: policy.Limit,
-		RetryAfter: ttl,
+		RetryAfter: ttl, OccurredAt: timeutil.TimeStampNow(),
 	}, nil
 }

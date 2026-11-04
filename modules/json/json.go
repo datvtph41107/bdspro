@@ -1,20 +1,40 @@
-// Package json centralizes the encoding/json/v2 policy used by BDSPro.
-// Public functions exist only when production code has a concrete caller.
+// Package json owns the application's JSON v2 wire policy.
+// Persisted OAuth state and queued task payloads retain their existing shape.
 package json
 
-import "io"
+import (
+	jsonv2 "encoding/json/v2"
+	"io"
+)
 
-// Decoder holds one JSON stream reader. A second backend is not required.
+var (
+	marshalOptions = jsonv2.JoinOptions(
+		jsonv2.FormatNilSliceAsNull(true),
+		jsonv2.FormatNilMapAsNull(true),
+	)
+	unmarshalOptions = jsonv2.DefaultOptionsV2()
+)
+
+// Marshal retains legacy nil collection encoding for persisted payloads.
+func Marshal(value any) ([]byte, error) {
+	return jsonv2.Marshal(value, marshalOptions)
+}
+
+// Unmarshal applies strict JSON v2 decoding (including duplicate-name rejection).
+func Unmarshal(data []byte, target any) error {
+	return jsonv2.Unmarshal(data, target, unmarshalOptions)
+}
+
+// Decoder decodes a single JSON value from a reader.
 type Decoder struct {
 	reader io.Reader
 }
 
-// Marshal preserves the established v1 null representation of nil slices/maps.
-func Marshal(value any) ([]byte, error) { return marshalV2(value) }
+// NewDecoder is used for bounded provider responses.
+func NewDecoder(reader io.Reader) *Decoder {
+	return &Decoder{reader: reader}
+}
 
-// Unmarshal uses strict JSON v2 semantics, rejecting duplicate object names
-// and invalid UTF-8 rather than silently accepting ambiguous input.
-func Unmarshal(data []byte, target any) error { return unmarshalV2(data, target) }
-
-// NewDecoder supports provider responses without buffering them in the caller.
-func NewDecoder(reader io.Reader) *Decoder { return &Decoder{reader: reader} }
+func (d *Decoder) Decode(target any) error {
+	return jsonv2.UnmarshalRead(d.reader, target, unmarshalOptions)
+}
