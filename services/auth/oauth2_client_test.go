@@ -118,3 +118,35 @@ func TestOAuth2PKCEStateIsSingleUse(t *testing.T) {
 		t.Fatalf("consumed authorization state replay accepted: %v", err)
 	}
 }
+
+func TestOAuth2TokenExchangeDoesNotForwardSecretsAcrossRedirects(t *testing.T) {
+	captured := false
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			http.Redirect(w, r, "/capture", http.StatusTemporaryRedirect)
+		case "/capture":
+			captured = true
+			w.WriteHeader(http.StatusOK)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	provider := setting.OAuth2Provider{
+		Issuer: "https://issuer.example",
+		AuthorizationURL: "https://issuer.example/authorize",
+		TokenURL: server.URL + "/token",
+		JWKSURL: "https://issuer.example/keys",
+		ClientID: "client", ClientSecret: "client-secret",
+		RedirectURI: "https://client.example/users/oauth2/callback",
+	}
+	client, err := NewOAuth2Client(provider, redis.NewClient(&redis.Options{Addr: "127.0.0.1:0"}), server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Exchange(context.Background(), "authorization-code", "pkce-verifier")
+	if err == nil || captured {
+		t.Fatalf("redirect target received OAuth2 credentials: captured=%v err=%v", captured, err)
+	}
+}

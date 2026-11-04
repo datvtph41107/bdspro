@@ -101,6 +101,10 @@ func fetchOIDCRSAKey(ctx context.Context, client *http.Client, uri, kid string) 
 	if bounded.Timeout == 0 || bounded.Timeout > 10*time.Second {
 		bounded.Timeout = 10 * time.Second
 	}
+	// Never follow a JWKS redirect to a host outside the trusted endpoint.
+	bounded.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 	res, err := bounded.Do(req)
 	if err != nil {
 		return nil, err
