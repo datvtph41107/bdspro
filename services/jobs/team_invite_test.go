@@ -17,15 +17,17 @@ type inviteDeliveryStore struct {
 	row db.GetTeamInviteForDeliveryRow
 	err error
 }
+
 func (s *inviteDeliveryStore) GetTeamInviteForDelivery(_ context.Context, _ uuid.UUID) (db.GetTeamInviteForDeliveryRow, error) {
 	return s.row, s.err
 }
 
 type inviteMailer struct {
-	to []string
-	body string
+	to    []string
+	body  string
 	calls int
 }
+
 func (m *inviteMailer) SendEmail(subject, content string, to, cc, bcc, attachFiles []string) error {
 	m.calls++
 	m.to = to
@@ -42,10 +44,10 @@ func TestTeamInviteJobRegeneratesProofWithoutPersistingPlaintext(t *testing.T) {
 	}
 	hash := sha256.Sum256([]byte(token))
 	store := &inviteDeliveryStore{row: db.GetTeamInviteForDeliveryRow{
-		InvitedEmail: "member@example.test",
-		TokenHash: hash[:],
-		ExpiresAt: time.Now().Add(time.Hour),
-		TeamName: "<script>Engineering</script>",
+		InvitedEmail:     "member@example.test",
+		TokenHash:        hash[:],
+		ExpiresAt:        time.Now().Add(time.Hour),
+		TeamName:         "<script>Engineering</script>",
 		OrganizationName: "Example",
 	}}
 	sender := &inviteMailer{}

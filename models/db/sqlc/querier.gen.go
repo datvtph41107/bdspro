@@ -47,6 +47,7 @@ type Querier interface {
 	GetPhoneForAccount(ctx context.Context, accountID int64) (string, error)
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
 	GetTeamForAccount(ctx context.Context, arg GetTeamForAccountParams) (Team, error)
+	GetTeamInviteForDelivery(ctx context.Context, inviteID uuid.UUID) (GetTeamInviteForDeliveryRow, error)
 	InsertInvitedTeamUser(ctx context.Context, arg InsertInvitedTeamUserParams) (TeamMember, error)
 	LinkGoogleIdentityQuery(ctx context.Context, arg LinkGoogleIdentityQueryParams) (int64, error)
 	ListActiveSessions(ctx context.Context, accountID int64) ([]ListActiveSessionsRow, error)
@@ -69,6 +70,9 @@ type Querier interface {
 	// The worker generates the one-time proof only when the job is executed.
 	RecordPasswordResetJob(ctx context.Context, accountID int64) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
+	// Only the invite UUID is durable. The proof is derived inside the worker
+	// using the configured signing key, never persisted in plaintext.
+	RecordTeamInviteJob(ctx context.Context, inviteID uuid.UUID) error
 	RemoveTeamUserForOwner(ctx context.Context, arg RemoveTeamUserForOwnerParams) (int64, error)
 	RenameTeamForOwner(ctx context.Context, arg RenameTeamForOwnerParams) (Team, error)
 	RevokeAllAccountSessions(ctx context.Context, accountID int64) (int64, error)
