@@ -42,5 +42,10 @@ type safeCause struct {
 	cause error
 }
 
-func (e safeCause) Error() string { return e.safe.Error() }
-func (e safeCause) Unwrap() []error { return []error{e.safe, e.cause} }
+func (e safeCause) Error() string {
+	return e.safe.Error()
+}
+
+func (e safeCause) Unwrap() []error {
+	return []error{e.safe, e.cause}
+}

@@ -1,17 +1,17 @@
 package user
 
 import (
-	"github.com/datvtph41107/bdspro/modules/structs"
-	"github.com/datvtph41107/bdspro/services/convert"
 	"net/http"
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/setting"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	"github.com/datvtph41107/bdspro/services/convert"
 	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/gin-gonic/gin"
 )

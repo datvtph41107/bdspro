@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datvtph41107/bdspro/modules/setting"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/gin-gonic/gin"

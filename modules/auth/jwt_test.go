@@ -42,10 +42,10 @@ func TestJWTLegacyWireClaimsRemainReadable(t *testing.T) {
 	}
 	now := time.Now().UTC().Truncate(time.Second)
 	claims := &Payload{
-		ID: uuid.MustParse("00000000-0000-4000-8000-000000000123"),
+		ID:        uuid.MustParse("00000000-0000-4000-8000-000000000123"),
 		AccountID: 19,
 		TokenType: TokenTypeRefresh,
-		IssuedAt: now.Add(-time.Minute),
+		IssuedAt:  now.Add(-time.Minute),
 		ExpiredAt: now.Add(time.Hour),
 	}
 	legacyWire, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
