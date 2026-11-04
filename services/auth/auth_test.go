@@ -92,6 +92,9 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	if _, err := maker.VerifyToken(result.RefreshToken, authcrypto.TokenTypeAccess); err == nil {
 		t.Fatal("refresh token must never authenticate as access token")
 	}
+	if store.session.RefreshToken != auth_model.RefreshTokenDigest(result.RefreshToken) || store.session.RefreshToken == result.RefreshToken {
+		t.Fatal("raw refresh JWT persisted in session storage")
+	}
 	renewal, err := svc.Renew(ctx, result.RefreshToken)
 	if err != nil || renewal.AccessToken == "" {
 		t.Fatalf("renew failed: %v", err)
@@ -137,5 +140,36 @@ func TestRegisterPasswordByteLimit(t *testing.T) {
 	_, err := svc.Register(context.Background(), "test@example.test", strings.Repeat("a", 72))
 	if err != nil || store.calls != 1 {
 		t.Fatalf("72-byte password should be accepted: calls=%d err=%v", store.calls, err)
+	}
+}
+
+// Legacy refresh sessions remain valid only for the configured expiry window.
+// This test exercises the same renewal and revocation APIs across the rollout.
+func TestAuthLegacyRefreshSessionTransition(t *testing.T) {
+	cfg := setting.Config{
+		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AccessTokenDuration:  15 * time.Minute,
+		RefreshTokenDuration: time.Hour,
+	}
+	maker, err := authcrypto.NewJWTMaker(cfg.TokenSymmetricKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &sessionMemoryStore{account: db.Account{ID: 17}}
+	svc := NewAuthService(store, maker, cfg)
+	issued, err := IssueSession(context.Background(), store, maker, cfg, store.account, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.session.RefreshToken = issued.RefreshToken // simulates legacy DB row
+	renewal, err := svc.Renew(context.Background(), issued.RefreshToken)
+	if err != nil || renewal.AccessToken == "" {
+		t.Fatalf("legacy token could not renew: %v", err)
+	}
+	if err := svc.Revoke(context.Background(), issued.RefreshToken); err != nil {
+		t.Fatalf("legacy token could not revoke: %v", err)
+	}
+	if _, err := svc.Renew(context.Background(), issued.RefreshToken); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+		t.Fatalf("revoked legacy refresh proof renewed: %v", err)
 	}
 }

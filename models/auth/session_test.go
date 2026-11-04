@@ -14,7 +14,11 @@ func TestValidRefreshSession(t *testing.T) {
 	now := time.Now()
 	session := db.Session{AccountID: 7, RefreshToken: "token", ExpiresAt: now.Add(time.Minute)}
 	if !ValidRefreshSession(session, 7, "token", now) {
-		t.Fatal("valid session rejected")
+		t.Fatal("legacy valid session rejected")
+	}
+	session.RefreshToken = RefreshTokenDigest("token")
+	if !ValidRefreshSession(session, 7, "token", now) || ValidRefreshSession(session, 7, "wrong", now) {
+		t.Fatal("hashed refresh proof authority failed")
 	}
 	session.IsBlocked = true
 	if ValidRefreshSession(session, 7, "token", now) {
