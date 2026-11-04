@@ -18,7 +18,7 @@ const modulePath = "github.com/datvtph41107/bdspro"
 // tests may cross package boundaries to verify real end-to-end behavior.
 func TestSourcePackageOwnership(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
-	for _, owner := range []string{"modules", "models", "services", "routers"} {
+	for _, owner := range []string{"modules", "models", "services", "routers", "templates"} {
 		t.Run(owner, func(t *testing.T) {
 			err := filepath.WalkDir(filepath.Join(root, owner), func(path string, e fs.DirEntry, walkErr error) error {
 				if walkErr != nil {
@@ -46,8 +46,14 @@ func TestSourcePackageOwnership(t *testing.T) {
 					if strings.HasPrefix(dep, modulePath+"/internal/") {
 						t.Errorf("%s imports legacy internal package %q", rel, dep)
 					}
-					if owner == "modules" && (isRouter || isService) {
-						t.Errorf("%s: technical module imports transport/business %q", rel, dep)
+					if owner == "modules" && (isRouter || isService || isModel) {
+						t.Errorf("%s: technical module imports model/business/transport %q", rel, dep)
+					}
+					if owner == "templates" && (isRouter || isService || isModel) {
+						t.Errorf("%s: static templates import application logic %q", rel, dep)
+					}
+					if (owner == "modules" || owner == "models" || owner == "templates") && dep == "github.com/gin-gonic/gin" {
+						t.Errorf("%s: technical/data/template package imports Gin %q", rel, dep)
 					}
 					if owner == "models" && (isRouter || isService) {
 						t.Errorf("%s: persistence imports transport/business %q", rel, dep)
