@@ -101,3 +101,37 @@ func TestCheckRoutesPreservesHistoricalBaselineWithAdditions(t *testing.T) {
 		t.Fatal("missing reviewed route must fail")
 	}
 }
+
+func TestReviewedRemovalsMustExistAndCannotRepeat(t *testing.T) {
+	var base contract
+	base.Routes = []struct {
+		Method    string `json:"method"`
+		Path      string `json:"path"`
+		Access    string `json:"access"`
+		Condition string `json:"condition,omitempty"`
+	}{
+		{Method: "GET", Path: "/users/legacy", Access: "public"},
+		{Method: "GET", Path: "/health", Access: "public"},
+	}
+	removals := base
+	removals.Routes = append(removals.Routes[:0:0], base.Routes[0])
+	next, err := applyRemovals(base, removals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkRoutes([]route{{Method: "GET", Path: "/health"}}, next); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkRoutes([]route{{Method: "GET", Path: "/health"}}, base); err == nil {
+		t.Fatal("historical contract was modified")
+	}
+	removals.Routes[0].Path = "/not-in-baseline"
+	if _, err := applyRemovals(base, removals); err == nil || !strings.Contains(err.Error(), "not present") {
+		t.Fatalf("unknown reviewed removal allowed: %v", err)
+	}
+	removals.Routes[0].Path = "/users/legacy"
+	removals.Routes = append(removals.Routes, removals.Routes[0])
+	if _, err := applyRemovals(base, removals); err == nil || !strings.Contains(err.Error(), "duplicate") {
+		t.Fatalf("duplicate reviewed removal allowed: %v", err)
+	}
+}
