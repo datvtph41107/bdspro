@@ -33,12 +33,12 @@ func TestOIDCTokenVerifierRejectsWrongIssuerAndNonce(t *testing.T) {
 	claims := &oidcIDClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer: issuer, Subject: "tenant-user-1",
-			Audience: jwt.ClaimStrings{"bdspro-client"},
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5*time.Minute)),
-			IssuedAt: jwt.NewNumericDate(time.Now().Add(-time.Minute)),
+			Audience:  jwt.ClaimStrings{"bdspro-client"},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-time.Minute)),
 		},
-		Nonce: "browser-nonce",
-		Email: "verified@example.test",
+		Nonce:         "browser-nonce",
+		Email:         "verified@example.test",
 		EmailVerified: true,
 	}
 	sign := func() string {
@@ -60,13 +60,30 @@ func TestOIDCTokenVerifierRejectsWrongIssuerAndNonce(t *testing.T) {
 		t.Fatalf("valid ID token rejected: %#v %v", id, err)
 	}
 	for _, tc := range []struct {
-		name string
+		name  string
 		check func() error
 	}{
 		{"wrong nonce", func() error { _, err := verifier.Verify(context.Background(), sign(), "wrong"); return err }},
-		{"wrong issuer", func() error { old := claims.Issuer; claims.Issuer = "https://attacker.example.test"; defer func() { claims.Issuer = old }(); _, err := verifier.Verify(context.Background(), sign(), "browser-nonce"); return err }},
-		{"wrong audience", func() error { copy := verifier; copy.Audience = "other-client"; _, err := copy.Verify(context.Background(), sign(), "browser-nonce"); return err }},
-		{"expired", func() error { old := claims.ExpiresAt; claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(-2*time.Minute)); defer func() { claims.ExpiresAt = old }(); _, err := verifier.Verify(context.Background(), sign(), "browser-nonce"); return err }},
+		{"wrong issuer", func() error {
+			old := claims.Issuer
+			claims.Issuer = "https://attacker.example.test"
+			defer func() { claims.Issuer = old }()
+			_, err := verifier.Verify(context.Background(), sign(), "browser-nonce")
+			return err
+		}},
+		{"wrong audience", func() error {
+			copy := verifier
+			copy.Audience = "other-client"
+			_, err := copy.Verify(context.Background(), sign(), "browser-nonce")
+			return err
+		}},
+		{"expired", func() error {
+			old := claims.ExpiresAt
+			claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(-2 * time.Minute))
+			defer func() { claims.ExpiresAt = old }()
+			_, err := verifier.Verify(context.Background(), sign(), "browser-nonce")
+			return err
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := tc.check(); err == nil {
