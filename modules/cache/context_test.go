@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestContextCacheReadsAndInvalidation(t *testing.T) {
@@ -61,11 +62,18 @@ func TestContextCacheDoesNotStoreErrors(t *testing.T) {
 func TestContextCacheExpiredFallsThrough(t *testing.T) {
 	ctx := WithCacheContext(context.Background())
 	c := GetContextCache(ctx)
-	c.expires = c.expires.Add(-2 * contextCacheLifetime)
+	c.expires = time.Now().Add(-time.Minute)
 	calls := 0
-	load := func(context.Context, int) (int, error) { calls++; return calls, nil }
-	for range 2 {
-		if _, err := GetWithContextCache(ctx, "x", 1, load); err != nil { t.Fatal(err) }
+	load := func(context.Context, int) (int, error) {
+		calls++
+		return calls, nil
 	}
-	if calls != 2 { t.Fatal("expired context cache unexpectedly retained values") }
+	for range 2 {
+		if _, err := GetWithContextCache(ctx, "x", 1, load); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if calls != 2 {
+		t.Fatal("expired context cache unexpectedly retained values")
+	}
 }

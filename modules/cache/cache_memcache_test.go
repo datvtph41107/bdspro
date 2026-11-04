@@ -35,19 +35,25 @@ func TestMemcacheIntegration(t *testing.T) {
 		t.Skip("set BDS_TEST_MEMCACHE_ADDR to test Memcached backend")
 	}
 	cache, err := NewMemcacheStringCache(host, "bds-test:")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx := context.Background()
 	key := "test:" + time.Now().Format("150405.000000000")
 	if _, hit, err := cache.Get(ctx, key); err != nil || hit {
 		t.Fatalf("expected miss: hit=%v err=%v", hit, err)
 	}
-	if err := cache.Put(ctx, key, "abc", time.Second); err != nil { t.Fatal(err) }
+	if err := cache.Put(ctx, key, "abc", 2*time.Second); err != nil {
+		t.Fatal(err)
+	}
 	if value, hit, err := cache.Get(ctx, key); err != nil || !hit || value != "abc" {
 		t.Fatalf("expected hit: %q hit=%v err=%v", value, hit, err)
 	}
-	time.Sleep(1200 * time.Millisecond)
+	time.Sleep(2300 * time.Millisecond)
 	if _, hit, err := cache.Get(ctx, key); err != nil || hit {
 		t.Fatalf("expired entry should miss: hit=%v err=%v", hit, err)
 	}
-	if err := cache.Delete(ctx, key); err != nil { t.Fatal(err) }
+	if err := cache.Delete(ctx, key); err != nil {
+		t.Fatal(err)
+	}
 }
