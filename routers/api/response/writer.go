@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/gin-gonic/gin"
 )
@@ -36,9 +35,6 @@ func Error(c *gin.Context, err error) {
 	// may contain credentials, tokens, URLs or other sensitive values.
 	event := log.Ctx(c.Request.Context()).Error().
 		Str("error_type", fmt.Sprintf("%T", err))
-	if pgErr := apperrors.Postgres(err); pgErr != nil {
-		event = event.Str("postgres_code", pgErr.Code)
-	}
 	event.Msg("http.application_error")
 	InternalError(c)
 }
