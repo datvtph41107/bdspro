@@ -1,0 +1,25 @@
+name: Format R20
+on:
+  push:
+    branches: [refactor/models-auth-phone-r20]
+permissions:
+  contents: write
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Apply gofmt and commit refactor
+        run: |
+          gofmt -w models/auth/phone.go models/auth/phone_otp.go models/auth/phone_signup.go models/db/store.go models/db/auth_channels_integration_test.go services/auth/phone_otp.go services/auth/auth.go services/auth/phone_binding_test.go services/auth/google_phone_link_test.go routers/app.go routers/api/v1/user/phone.go
+          git add -- models/auth/phone.go models/auth/phone_otp.go models/auth/phone_signup.go models/db/store.go models/db/auth_channels_integration_test.go services/auth/phone_otp.go services/auth/auth.go services/auth/phone_binding_test.go services/auth/google_phone_link_test.go routers/app.go routers/api/v1/user/phone.go
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'style(auth): gofmt phone model ownership migration'
+            git push origin HEAD:refactor/models-auth-phone-r20
+          fi
