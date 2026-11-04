@@ -73,6 +73,9 @@ func TestRedisCountAtomicAndLegacyKey(t *testing.T) {
 	if event.SourceID == source {
 		t.Fatal("event exposed source IP")
 	}
+	if event.OccurredAt.IsZero() || event.OccurredAt.AsTime().After(time.Now().Add(time.Second)) {
+		t.Fatalf("admission event timestamp invalid: %v", event.OccurredAt)
+	}
 }
 
 func TestRedisCooldownOnlyRecordsAdmittedAttempts(t *testing.T) {
