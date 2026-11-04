@@ -42,6 +42,10 @@ func TestOrganizationGroupInheritsAuthentication(t *testing.T) {
 		{http.MethodPatch, "/teams/1"},
 		{http.MethodPost, "/teams/1/members"},
 		{http.MethodDelete, "/teams/1/members/2"},
+		{http.MethodGet, "/teams/1/members"},
+		{http.MethodPost, "/teams/1/invites"},
+		{http.MethodDelete, "/teams/1/invites/3e7783e8-a93b-4875-ab34-4f95bc150000"},
+		{http.MethodPost, "/teams/invites/accept"},
 	} {
 		t.Run(route.method+" "+route.path, func(t *testing.T) {
 			recorder := httptest.NewRecorder()

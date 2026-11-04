@@ -25,3 +25,11 @@ func ToTeamMember(member db.TeamMember) structs.TeamMember {
 		TeamID: member.TeamID, PersonID: member.PersonID, JoinedAt: member.JoinedAt,
 	}
 }
+
+func ToTeamMembers(members []db.TeamMember) []structs.TeamMember {
+	out := make([]structs.TeamMember, 0, len(members))
+	for _, member := range members {
+		out = append(out, ToTeamMember(member))
+	}
+	return out
+}

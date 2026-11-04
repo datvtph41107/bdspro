@@ -16,10 +16,11 @@ import (
 // TeamHandler keeps HTTP parsing separate from Team persistence and permissions.
 type TeamHandler struct {
 	store db.Store
+	signingKey string
 }
 
-func NewTeamHandler(store db.Store) *TeamHandler {
-	return &TeamHandler{store: store}
+func NewTeamHandler(store db.Store, signingKey string) *TeamHandler {
+	return &TeamHandler{store: store, signingKey: signingKey}
 }
 
 func (h *TeamHandler) Create(c *gin.Context) {

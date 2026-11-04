@@ -51,6 +51,8 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		"GET /organizations/:id/teams", "POST /organizations/:id/teams",
 		"GET /teams/:team_id", "PATCH /teams/:team_id",
 		"POST /teams/:team_id/members", "DELETE /teams/:team_id/members/:person_id",
+		"GET /teams/:team_id/members", "POST /teams/:team_id/invites",
+		"DELETE /teams/:team_id/invites/:invite_id", "POST /teams/invites/accept",
 	}
 	got := make(map[string]bool)
 	for _, route := range base.router.Routes() {
@@ -66,8 +68,8 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	withOptional := newServer(true, true)
-	if n := len(withOptional.router.Routes()); n != 39 {
-		t.Errorf("enabled route count = %d, want 39", n)
+	if n := len(withOptional.router.Routes()); n != 43 {
+		t.Errorf("enabled route count = %d, want 43", n)
 	}
 	for _, route := range []string{
 		"POST /users/me/google/start", "GET /users/google/login/start",

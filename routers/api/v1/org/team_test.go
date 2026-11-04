@@ -11,7 +11,7 @@ import (
 
 func TestTeamHandlersRejectMalformedInputsWithoutDatabase(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewTeamHandler(nil)
+	handler := NewTeamHandler(nil, "")
 	tests := []struct {
 		method string
 		path   string
