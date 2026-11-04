@@ -1,4 +1,4 @@
-package db
+package auth
 
 import (
 	"context"
@@ -6,28 +6,16 @@ import (
 	"errors"
 	"time"
 
+	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
 )
 
-var (
-	ErrOTPInvalid  = errors.New("invalid or expired phone code")
-	ErrOTPCooldown = errors.New("phone code temporarily unavailable")
-)
-
-// PhoneOTPRepository is a narrow consumer contract implemented by SQLStore.
-// It does NOT create a second PostgreSQL pool, query executor or repository.
-type PhoneOTPRepository interface {
-	AccountIDForPhone(ctx context.Context, phone string) (int64, error)
-	StartChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte, devCode string) error
-	ConsumeChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte) error
+func (s *phoneStore) AccountIDForPhone(ctx context.Context, phone string) (int64, error) {
+	return s.Store.GetPhoneAccountIDQuery(ctx, phone)
 }
 
-func (s *SQLStore) AccountIDForPhone(ctx context.Context, phone string) (int64, error) {
-	return s.Queries.GetPhoneAccountIDQuery(ctx, phone)
-}
-
-func (s *SQLStore) StartChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte, devCode string) error {
-	affected, err := s.Queries.UpsertPhoneChallengeQuery(ctx, UpsertPhoneChallengeQueryParams{
+func (s *phoneStore) StartChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte, devCode string) error {
+	affected, err := s.Store.UpsertPhoneChallengeQuery(ctx, db.UpsertPhoneChallengeQueryParams{
 		PhoneE164: phone, Purpose: purpose, AccountID: accountID, CodeMac: mac, DevCode: devCode,
 	})
 	if err != nil {
@@ -41,15 +29,15 @@ func (s *SQLStore) StartChallenge(ctx context.Context, phone, purpose string, ac
 
 // ConsumeChallenge retains the locked-row and commit-on-wrong-code contract.
 // The complete SQL source lives in db/query/phone_otp.sql; no SQL string here.
-func (s *SQLStore) ConsumeChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte) error {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+func (s *phoneStore) ConsumeChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte) error {
+	tx, err := s.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
-	q := s.Queries.WithTx(tx)
+	q := db.New(tx)
 
-	challenge, err := q.LockPhoneChallengeQuery(ctx, LockPhoneChallengeQueryParams{
+	challenge, err := q.LockPhoneChallengeQuery(ctx, db.LockPhoneChallengeQueryParams{
 		PhoneE164: phone, Purpose: purpose,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -66,7 +54,7 @@ func (s *SQLStore) ConsumeChallenge(ctx context.Context, phone, purpose string, 
 	}
 
 	if !hmac.Equal(challenge.CodeMac, mac) {
-		if err := q.RecordPhoneChallengeFailureQuery(ctx, RecordPhoneChallengeFailureQueryParams{
+		if err := q.RecordPhoneChallengeFailureQuery(ctx, db.RecordPhoneChallengeFailureQueryParams{
 			PhoneE164: phone, Purpose: purpose,
 		}); err != nil {
 			return err
@@ -79,7 +67,7 @@ func (s *SQLStore) ConsumeChallenge(ctx context.Context, phone, purpose string, 
 
 	switch purpose {
 	case "bind":
-		if err := q.BindPhoneCredentialQuery(ctx, BindPhoneCredentialQueryParams{
+		if err := q.BindPhoneCredentialQuery(ctx, db.BindPhoneCredentialQueryParams{
 			AccountID: accountID, PhoneE164: phone,
 		}); err != nil {
 			return err
@@ -99,7 +87,7 @@ func (s *SQLStore) ConsumeChallenge(ctx context.Context, phone, purpose string, 
 		return ErrOTPInvalid
 	}
 
-	if err := q.DeletePhoneChallengeQuery(ctx, DeletePhoneChallengeQueryParams{
+	if err := q.DeletePhoneChallengeQuery(ctx, db.DeletePhoneChallengeQueryParams{
 		PhoneE164: phone, Purpose: purpose,
 	}); err != nil {
 		return err
@@ -107,4 +95,4 @@ func (s *SQLStore) ConsumeChallenge(ctx context.Context, phone, purpose string, 
 	return tx.Commit(ctx)
 }
 
-var _ PhoneOTPRepository = (*SQLStore)(nil)
+var _ PhoneOperations = (*phoneStore)(nil)
