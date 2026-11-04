@@ -23,6 +23,7 @@ WHERE EXISTS (
     AND a.id = $3
     AND owner.role = 'owner'
     AND owner.ended_at IS NULL
+  FOR SHARE OF owner
 )
 RETURNING id, organization_id, person_id, role, joined_at, ended_at
 `
@@ -244,6 +245,7 @@ WHERE o.party_id = $2
       AND a.id = $3
       AND m.role = 'owner'
       AND m.ended_at IS NULL
+    FOR SHARE OF m
   )
 RETURNING o.party_id, o.name, o.created_at
 `
