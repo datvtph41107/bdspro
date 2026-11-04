@@ -59,7 +59,7 @@ func (s PhoneOTP) start(ctx context.Context, phone, purpose string, accountID in
 	if s.Config.Environment == "development" {
 		devCode = code
 	}
-	if err := s.Store.StartChallenge(ctx, phone, purpose, accountID, s.mac(phone, purpose, accountID, code), devCode); err != nil {
+	if err := auth_model.StartChallenge(ctx, s.Store, phone, purpose, accountID, s.mac(phone, purpose, accountID, code), devCode); err != nil {
 		return err
 	}
 	if s.Sender == nil {
@@ -120,7 +120,7 @@ func (s PhoneOTP) startBind(ctx context.Context, accountID int64, phone string) 
 	} else if !errors.Is(lookupErr, pgx.ErrNoRows) {
 		return lookupErr
 	}
-	existing, err := s.Store.AccountIDForPhone(ctx, phone)
+	existing, err := auth_model.AccountIDForPhone(ctx, s.Store, phone)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -130,9 +130,6 @@ func (s PhoneOTP) startBind(ctx context.Context, accountID int64, phone string) 
 		return auth_model.ErrPhoneUnavailable
 	}
 	err = s.start(ctx, phone, "bind", accountID)
-	if errors.Is(err, db.ErrOTPCooldown) {
-		return auth_model.ErrOTPCooldown
-	}
 	return err
 }
 func (s PhoneOTP) VerifyBind(ctx context.Context, accountID int64, phone, code string) error {
@@ -142,10 +139,7 @@ func (s PhoneOTP) VerifyBind(ctx context.Context, accountID int64, phone, code s
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
 		return auth_model.ErrOTPInvalid
 	}
-	err := s.Store.ConsumeChallenge(ctx, phone, "bind", accountID, s.mac(phone, "bind", accountID, code))
-	if errors.Is(err, db.ErrOTPInvalid) {
-		return auth_model.ErrOTPInvalid
-	}
+	err := auth_model.ConsumeChallenge(ctx, s.Store, phone, "bind", accountID, s.mac(phone, "bind", accountID, code))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return auth_model.ErrPhoneUnavailable
@@ -162,7 +156,7 @@ func (s PhoneOTP) StartRegister(ctx context.Context, phone string) error {
 	if !phoneE164.MatchString(phone) {
 		return auth_model.ErrInvalidPhone
 	}
-	_, err := s.Store.AccountIDForPhone(ctx, phone)
+	_, err := auth_model.AccountIDForPhone(ctx, s.Store, phone)
 	if err == nil {
 		return auth_model.ErrPhoneRegistered
 	}
@@ -177,8 +171,8 @@ func (s PhoneOTP) StartRegister(ctx context.Context, phone string) error {
 	if s.Config.Environment == "development" {
 		devCode = code
 	}
-	if err = s.Store.StartPhoneSignup(ctx, phone, s.mac(phone, "register", 0, code), devCode); err != nil {
-		if errors.Is(err, db.ErrOTPCooldown) {
+	if err = auth_model.StartPhoneSignup(ctx, s.Store, phone, s.mac(phone, "register", 0, code), devCode); err != nil {
+		if errors.Is(err, auth_model.ErrOTPCooldown) {
 			return auth_model.ErrOTPCooldown
 		}
 		return err
@@ -200,10 +194,7 @@ func (s PhoneOTP) VerifyRegister(ctx context.Context, phone, code, userAgent, cl
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
 		return empty, auth_model.ErrOTPInvalid
 	}
-	a, err := s.Store.CompletePhoneSignup(ctx, phone, s.mac(phone, "register", 0, code))
-	if errors.Is(err, db.ErrOTPInvalid) {
-		return empty, auth_model.ErrOTPInvalid
-	}
+	a, err := auth_model.CompletePhoneSignup(ctx, s.Store, phone, s.mac(phone, "register", 0, code))
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return empty, auth_model.ErrPhoneRegistered
@@ -223,7 +214,7 @@ func (s PhoneOTP) StartLogin(ctx context.Context, phone string) error {
 	if !phoneE164.MatchString(phone) {
 		return auth_model.ErrInvalidPhone
 	}
-	accountID, err := s.Store.AccountIDForPhone(ctx, phone)
+	accountID, err := auth_model.AccountIDForPhone(ctx, s.Store, phone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -231,7 +222,7 @@ func (s PhoneOTP) StartLogin(ctx context.Context, phone string) error {
 		return err
 	}
 	err = s.start(ctx, phone, "login", accountID)
-	if errors.Is(err, db.ErrOTPCooldown) {
+	if errors.Is(err, auth_model.ErrOTPCooldown) {
 		// An existing number and an unknown number must not be distinguishable.
 		return nil
 	}
@@ -245,15 +236,15 @@ func (s PhoneOTP) VerifyLogin(ctx context.Context, phone, code, userAgent, clien
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
 		return empty, auth_model.ErrOTPInvalid
 	}
-	accountID, err := s.Store.AccountIDForPhone(ctx, phone)
+	accountID, err := auth_model.AccountIDForPhone(ctx, s.Store, phone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return empty, auth_model.ErrOTPInvalid
 	}
 	if err != nil {
 		return empty, err
 	}
-	if err := s.Store.ConsumeChallenge(ctx, phone, "login", accountID, s.mac(phone, "login", accountID, code)); err != nil {
-		if errors.Is(err, db.ErrOTPInvalid) {
+	if err := auth_model.ConsumeChallenge(ctx, s.Store, phone, "login", accountID, s.mac(phone, "login", accountID, code)); err != nil {
+		if errors.Is(err, auth_model.ErrOTPInvalid) {
 			return empty, auth_model.ErrOTPInvalid
 		}
 		return empty, err
@@ -279,8 +270,8 @@ func (s PhoneOTP) AuthorizePhoneProof(ctx context.Context, accountID int64, code
 	if err != nil {
 		return err
 	}
-	err = s.Store.ConsumeChallenge(ctx, phone, "login", accountID, s.mac(phone, "login", accountID, code))
-	if errors.Is(err, db.ErrOTPInvalid) {
+	err = auth_model.ConsumeChallenge(ctx, s.Store, phone, "login", accountID, s.mac(phone, "login", accountID, code))
+	if errors.Is(err, auth_model.ErrOTPInvalid) {
 		return auth_model.ErrOTPInvalid
 	}
 	return err

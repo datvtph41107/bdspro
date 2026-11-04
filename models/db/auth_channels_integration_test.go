@@ -51,10 +51,10 @@ func TestPhoneSignupAtomicityUniquenessAndWrongAttempt(t *testing.T) {
 	phone := fmt.Sprintf("+84%09d", time.Now().UnixNano()%1000000000)
 	mac := sha256.Sum256([]byte("valid code"))
 	wrong := sha256.Sum256([]byte("incorrect"))
-	if err := store.StartPhoneSignup(ctx, phone, mac[:], "123456"); err != nil {
+	if err := auth_model.StartPhoneSignup(ctx, store, phone, mac[:], "123456"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.CompletePhoneSignup(ctx, phone, wrong[:]); !errors.Is(err, db.ErrOTPInvalid) {
+	if _, err := auth_model.CompletePhoneSignup(ctx, store, phone, wrong[:]); !errors.Is(err, auth_model.ErrOTPInvalid) {
 		t.Fatalf("wrong OTP: %v", err)
 	}
 	var attempts int
@@ -64,24 +64,24 @@ func TestPhoneSignupAtomicityUniquenessAndWrongAttempt(t *testing.T) {
 	if attempts != 1 {
 		t.Fatalf("wrong OTP failure not committed: %d", attempts)
 	}
-	account, err := store.CompletePhoneSignup(ctx, phone, mac[:])
+	account, err := auth_model.CompletePhoneSignup(ctx, store, phone, mac[:])
 	if err != nil {
 		t.Fatal(err)
 	}
 	if account.ID <= 0 || account.Email != "" {
 		t.Fatalf("unexpected phone-only account: %+v", account)
 	}
-	owner, err := store.AccountIDForPhone(ctx, phone)
+	owner, err := auth_model.AccountIDForPhone(ctx, store, phone)
 	if err != nil || owner != account.ID {
 		t.Fatalf("phone owner=%d err=%v", owner, err)
 	}
 	if _, err := store.GetPasswordHash(ctx, account.ID); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("phone-only account should be passwordless: %v", err)
 	}
-	if err := store.StartPhoneSignup(ctx, phone, mac[:], "123456"); err != nil {
+	if err := auth_model.StartPhoneSignup(ctx, store, phone, mac[:], "123456"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.CompletePhoneSignup(ctx, phone, mac[:]); err == nil {
+	if _, err := auth_model.CompletePhoneSignup(ctx, store, phone, mac[:]); err == nil {
 		t.Fatal("same phone registered twice")
 	} else {
 		var pgErr *pgconn.PgError
@@ -98,7 +98,7 @@ func TestPhoneSignupAtomicityUniquenessAndWrongAttempt(t *testing.T) {
 	if credentials != 1 {
 		t.Fatalf("duplicate registration changed phone ownership: count=%d", credentials)
 	}
-	currentOwner, err := store.AccountIDForPhone(ctx, phone)
+	currentOwner, err := auth_model.AccountIDForPhone(ctx, store, phone)
 	if err != nil || currentOwner != owner {
 		t.Fatalf("duplicate registration changed account owner: owner=%d error=%v", currentOwner, err)
 	}
