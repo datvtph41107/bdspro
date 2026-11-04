@@ -12,11 +12,13 @@ import (
 
 type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
+	AddTeamUserForOwner(ctx context.Context, arg AddTeamUserForOwnerParams) (TeamMember, error)
 	AttachVerifiedEmail(ctx context.Context, arg AttachVerifiedEmailParams) (int64, error)
 	BindPhoneCredentialQuery(ctx context.Context, arg BindPhoneCredentialQueryParams) error
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
 	ConsumeEmailLinkChallenge(ctx context.Context, arg ConsumeEmailLinkChallengeParams) (string, error)
 	ConsumePasswordResetToken(ctx context.Context, tokenHash []byte) (int64, error)
+	ConsumeTeamInvite(ctx context.Context, arg ConsumeTeamInviteParams) (int64, error)
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
@@ -27,6 +29,8 @@ type Querier interface {
 	CreatePerson(ctx context.Context, partyID int64) error
 	CreatePhoneOnlyAccount(ctx context.Context, personID int64) (CreatePhoneOnlyAccountRow, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateTeamForOwner(ctx context.Context, arg CreateTeamForOwnerParams) (Team, error)
+	CreateTeamInviteForOwner(ctx context.Context, arg CreateTeamInviteForOwnerParams) (TeamInvite, error)
 	CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVerifiedGoogleAccountParams) (Account, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	DeletePasswordResetTokensForAccount(ctx context.Context, accountID int64) error
@@ -42,11 +46,15 @@ type Querier interface {
 	GetPhoneAccountIDQuery(ctx context.Context, phoneE164 string) (int64, error)
 	GetPhoneForAccount(ctx context.Context, accountID int64) (string, error)
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
+	GetTeamForAccount(ctx context.Context, arg GetTeamForAccountParams) (Team, error)
+	InsertInvitedTeamUser(ctx context.Context, arg InsertInvitedTeamUserParams) (TeamMember, error)
 	LinkGoogleIdentityQuery(ctx context.Context, arg LinkGoogleIdentityQueryParams) (int64, error)
 	ListActiveSessions(ctx context.Context, accountID int64) ([]ListActiveSessionsRow, error)
 	ListOrganizationMembersForOwner(ctx context.Context, arg ListOrganizationMembersForOwnerParams) ([]ListOrganizationMembersForOwnerRow, error)
 	ListOrganizationsForAccount(ctx context.Context, accountID int64) ([]ListOrganizationsForAccountRow, error)
 	ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error)
+	ListTeamUsersForAccount(ctx context.Context, arg ListTeamUsersForAccountParams) ([]TeamMember, error)
+	ListTeamsForAccount(ctx context.Context, arg ListTeamsForAccountParams) ([]Team, error)
 	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
 	LockPhoneOnlyEmailAccount(ctx context.Context, id int64) (int64, error)
@@ -61,8 +69,12 @@ type Querier interface {
 	// The worker generates the one-time proof only when the job is executed.
 	RecordPasswordResetJob(ctx context.Context, accountID int64) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
+	RemoveTeamUserForOwner(ctx context.Context, arg RemoveTeamUserForOwnerParams) (int64, error)
+	RenameTeamForOwner(ctx context.Context, arg RenameTeamForOwnerParams) (Team, error)
 	RevokeAllAccountSessions(ctx context.Context, accountID int64) (int64, error)
+	RevokeExpiredTeamInvites(ctx context.Context, arg RevokeExpiredTeamInvitesParams) error
 	RevokeOwnedSession(ctx context.Context, arg RevokeOwnedSessionParams) (int64, error)
+	RevokeTeamInviteForOwner(ctx context.Context, arg RevokeTeamInviteForOwnerParams) (int64, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
 	UpsertEmailLinkChallenge(ctx context.Context, arg UpsertEmailLinkChallengeParams) (int64, error)
 	UpsertPasswordCredential(ctx context.Context, arg UpsertPasswordCredentialParams) error
