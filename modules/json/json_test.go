@@ -31,7 +31,7 @@ func TestStrictDecodeRejectsDuplicateNamesAndInvalidUTF8(t *testing.T) {
 	if err := Unmarshal([]byte(`{"name":"one","name":"two"}`), &target); err == nil {
 		t.Fatal("duplicate JSON member accepted")
 	}
-	if err := Unmarshal([]byte{'{', '"', 'n', 'a', 'm', 'e', '"', ':', '"', 0xff, '"', '}'} , &target); err == nil {
+	if err := Unmarshal([]byte{'{', '"', 'n', 'a', 'm', 'e', '"', ':', '"', 0xff, '"', '}'}, &target); err == nil {
 		t.Fatal("invalid UTF-8 accepted")
 	}
 	if err := Unmarshal([]byte(`{"NAME":"Alice"}`), &target); err != nil {
