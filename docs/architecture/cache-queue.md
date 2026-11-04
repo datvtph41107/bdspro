@@ -29,15 +29,18 @@ modules/cache/
     cache_redis.go   Redis adapter, borrowed client
     context.go       request-level cache with explicit invalidation
 modules/queue/
-    queue.go         existing Asynq enqueue contract
+    queue.go         task enqueuer contract (Asynq-shaped)
+    manager.go       registered workers and deterministic shutdown
+    base.go          backend enqueue/close contract and errors
+    base_redis.go    Redis Asynq producer (durable task transport)
+    base_channel.go  in-process FIFO bounded queue
+    workerqueue.go   Asynq worker processor and handler mux
+    channel_worker.go channel task handlers and worker goroutines
     config.go        queue weights and concurrency
-    base_redis.go    Redis Asynq producer
-    workerqueue.go   consumer/processor lifecycle
     logger.go        logging adapter
 ```
 
-The package is called `connection`, not `nosql` or `redis`. It owns shared Redis
-Redis *connections*, **not** business authorization, cache invalidation or
+The package is called `connection`, not `nosql` or `redis`. It owns shared Redis *connections*, **not** business authorization, cache invalidation or
 queue retry policy. The Redis library is intentionally visible to some
 low-level consumers; this is not a fabricated vendor-independent KV API.
 
@@ -78,6 +81,7 @@ Optional INI keys:
 ```ini
 [cache]
 ADAPTER = memory
+HOST = 127.0.0.1:11211  ; only when adapter = memcache
 PREFIX = cache:
 MAX_ENTRIES = 10000
 ITEM_TTL = 5m
@@ -87,6 +91,17 @@ ITEM_TTL = 5m
 selects the backend; when `ADAPTER = redis`, the caller supplies a borrowed
 client obtained from `connection.RedisManager`. `LoadSettings` does not
 implicitly start the cache because no production endpoint consumes it yet.
+
+## Real cache backend behaviors
+
+| Backend | Read semantics | Lifecycle and consistency |
+| --- | --- | --- |
+| Memory LRU (`cache_memory.go`) | Cache hit/miss, TTL, capacity-bound eviction | Process-local; cleared on restart; not shared across replicas |
+| Redis (`cache_redis.go`) | `redis.Nil` is a miss; transport errors propagate | Borrows go-redis client from `modules/connection`; does not own its shutdown |
+| Memcached (`cache_memcache.go`) | `memcache.ErrCacheMiss` is a miss; other errors propagate | Memcached TTL rules including absolute expiration above 30 days; bounded 2-second client timeout; actual Memcached integration test |
+| Request context (`context.go`) | Typed, successful-only memoization, manual key invalidation | Lifetime limited to the request / 5 minutes; not a distributed cache or write-through mechanism |
+
+`PutJSON` and `GetJSON` are serialization helpers on `StringCache`. Errors are never cached as successful values. Cache-aside loaders do not automatically suppress a thundering herd; callers must design invalidation and failure policy for their own data.
 
 ## Queue semantics and limitations
 
@@ -100,8 +115,18 @@ implicitly start the cache because no production endpoint consumes it yet.
 - Redis enqueue and PostgreSQL commit are not atomic. The dispatcher currently
   performs enqueue *inside* a SQL transaction; its lock duration, duplicate
   delivery and multi-worker recovery need separate fault-injection acceptance.
-- Do not replace Asynq with a copied Gitea worker engine: that would introduce
-  duplicate scheduling, retry and worker shutdown policies.
+- `base.go` gives two backends a common enqueue/close contract; it does **not**
+  claim equivalent guarantees. Redis queues are backed by Asynq; in-memory
+  `base_channel.go` provides bounded FIFO and explicit `ErrQueueFull`,
+  `ErrQueueClosed`, and unsupported-option errors.
+- `ChannelTaskQueue` runs local handlers with configurable goroutine count.
+  It does not persist tasks or implement distributed locks, retries, delay,
+  leasing or scheduled delivery. Never route committed outbox jobs to it.
+- `Manager.Register/Get/Shutdown` owns explicitly registered worker lifetimes.
+  The actual `cmd/worker.go` registers its Asynq processor; no global init()
+  manager is needed.
+- Do not replace Asynq with a copied Gitea worker engine. Channel is a distinct
+  transient test/local backend and explicitly cannot claim Asynq delivery guarantees.
 
 ## Acceptance tests and unproven cases
 
@@ -109,9 +134,9 @@ implicitly start the cache because no production endpoint consumes it yet.
 | --- | --- | --- |
 | Missing Redis address and closed manager | `modules/connection/manager_redis_test.go` | Live Redis PING and restart/close behavior |
 | Memory TTL, bounded LRU, cache-aside | `modules/cache/cache_test.go` | Memory pressure and concurrent load |
-| Redis cache nil-client policy | `modules/cache/cache_test.go` | Live Redis prefix, missing key, outage and TTL |
-| Cache config invalid adapter/TTL/size | `modules/setting/cache_test.go` | Environment override precedence |
-| Asynq worker and queue config | Existing queue tests + `config_test.go` | Queue processing, reconnect and graceful shutdown |
+| Redis cache nil-client policy | `modules/cache/cache_test.go` + Redis integration test | Live Redis prefix, missing key, outage and TTL |
+| Memcached key/TTL, hit/miss/expiration | `modules/cache/cache_memcache_test.go` | CI Memcached service; protocol failure policy |\n| Request context memoization and invalidate | `modules/cache/context_test.go` | Caller-managed invalidation after writes |\n| Cache config invalid adapter/TTL/size | `modules/setting/cache_test.go` | Environment override precedence |
+| Asynq worker and queue config | Existing queue tests + `config_test.go` | Redis worker reconnect and graceful shutdown |\n| Channel queue bounded capacity, worker execution, concurrency | `modules/queue/base_channel_test.go` | No durability or retry claim |\n| Managed queue registration/close | `modules/queue/manager_test.go` | Worker shutdown under long task |
 | Source ownership | `tests/architecture/ownership_test.go` | CI Go 1.27.3 / Docker / smoke tests |
 
 No database migration or HTTP endpoint contract changes are intended in R28.
