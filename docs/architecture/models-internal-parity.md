@@ -1,3 +1,9 @@
+> **Historical migration snapshot (R17–R19).** This is not the current
+> source inventory. For active OAuth2 and model ownership see
+> [R26](r26-oauth2-runtime-consolidation.md) and
+> [services](services.md). Earlier Google-specific paths and outstanding
+> tasks below intentionally describe their state **at the original baseline**.
+
 # Legacy internal → Gitea-style models/modules acceptance
 
 Evidence baseline: `e43ebbd9271f14a94e6ea6f27bb02aa7d618df8f`

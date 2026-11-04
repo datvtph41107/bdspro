@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/conn"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/queue"
-	redisconn "github.com/datvtph41107/bdspro/modules/redis"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/worker"
 	"github.com/hibiken/asynq"
@@ -34,11 +34,12 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 		return err
 	}
 	defer store.Close()
-	redisClient, err := redisconn.Connect(ctx, cfg.RedisAddress)
+	redisManager := conn.NewRedisManager()
+	_, err = redisManager.Client(ctx, cfg.RedisAddress)
 	if err != nil {
 		return err
 	}
-	defer redisClient.Close()
+	defer redisManager.Close()
 
 	options := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
 	enqueuer := queue.NewRedisEnqueuer(options)
@@ -52,7 +53,12 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	if err := processor.Start(); err != nil {
 		return fmt.Errorf("start worker: %w", err)
 	}
-	defer processor.Shutdown()
+	queueManager := queue.NewManager()
+	if err := queueManager.Register("tasks", processor); err != nil {
+		processor.Shutdown()
+		return err
+	}
+	defer queueManager.Shutdown()
 	dispatchCtx, stopDispatch := context.WithCancel(ctx)
 	dispatcher := worker.NewOutboxDispatcher(store, enqueuer)
 	dispatcher.Start(dispatchCtx)

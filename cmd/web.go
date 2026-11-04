@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/conn"
 	"github.com/datvtph41107/bdspro/modules/log"
-	redisconn "github.com/datvtph41107/bdspro/modules/redis"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers"
 	"github.com/urfave/cli/v3"
@@ -56,11 +56,12 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 		log.Info("Database migrations are managed externally")
 	}
 
-	redisClient, err := redisconn.Connect(ctx, cfg.RedisAddress)
+	redisManager := conn.NewRedisManager()
+	redisClient, err := redisManager.Client(ctx, cfg.RedisAddress)
 	if err != nil {
 		return err
 	}
-	defer redisClient.Close()
+	defer redisManager.Close()
 	log.Info("Redis connected")
 
 	server, err := routers.InitWebInstalled(cfg, store, redisClient)

@@ -50,3 +50,22 @@ client secrets, JWT signing keys, authorization headers or OTPs.
 **Security:** examples contain development-only credentials and signing
 keys. Do not deploy examples unchanged. The Docker Compose file is a
 development environment, not production hardening.
+
+## Optional cache configuration (R28)
+
+The optional `[cache]` section is read only by `setting.LoadCacheSettings` when
+an explicit consumer builds `modules/cache`. It does **not** replace `[redis]`
+used by rate limits, OIDC state and Asynq.
+
+```ini
+[cache]
+ADAPTER = memory
+HOST = 127.0.0.1:11211  ; only for Memcached
+PREFIX = cache:
+MAX_ENTRIES = 10000
+ITEM_TTL = 5m
+```
+
+`ADAPTER = redis` requires a client borrowed from `modules/conn`.
+Cache errors are returned to the caller; they are not silently treated as
+misses. A memory backend is per-process, not a multi-instance shared cache.

@@ -10,11 +10,6 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-const (
-	QueueCritical = "critical"
-	QueueDefault  = "default"
-)
-
 // RedisTaskProcessor owns queue lifecycle and handler registration.
 // Jobs implement the native asynq.Handler contract.
 type RedisTaskProcessor struct {
@@ -23,13 +18,24 @@ type RedisTaskProcessor struct {
 }
 
 func NewRedisTaskProcessor(options asynq.RedisClientOpt) *RedisTaskProcessor {
+	return newRedisTaskProcessor(options, DefaultConfig())
+}
+
+// NewRedisTaskProcessorWithConfig validates queue policy before starting a
+// worker. The queue names and weights are copied to avoid caller mutation.
+func NewRedisTaskProcessorWithConfig(options asynq.RedisClientOpt, config Config) (*RedisTaskProcessor, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+	return newRedisTaskProcessor(options, config), nil
+}
+
+func newRedisTaskProcessor(options asynq.RedisClientOpt, config Config) *RedisTaskProcessor {
 	logger := NewLogger()
 	redis.SetLogger(logger)
 	server := asynq.NewServer(options, asynq.Config{
-		Queues: map[string]int{
-			QueueCritical: 10,
-			QueueDefault:  5,
-		},
+		Queues:       config.weights(),
+		Concurrency:  config.Concurrency,
 		Logger:       logger,
 		LogLevel:     asynq.WarnLevel,
 		ErrorHandler: asynq.ErrorHandlerFunc(logTaskFailure),

@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"io"
 	"math/big"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	"github.com/datvtph41107/bdspro/modules/json"
 	"github.com/golang-jwt/jwt/v5"
 )
 

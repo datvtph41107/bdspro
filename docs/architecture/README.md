@@ -10,16 +10,17 @@ Former `internal/` references live in [historical records](../archive/README.md)
 main.go -> cmd/main.go (CLI flags and command dispatch)
   ├── cmd/web.go
   │   ├── modules/setting (paths, INI, validation)
-  │   ├── models/db.Connect -> SQLC store
+  │   ├── models/db.InitStore -> SQLC store
   │   ├── models/db.MigrateUp (development only)
-  │   ├── modules/redis.Connect
+  │   ├── modules/conn.RedisManager.Client
   │   └── routers.InitWebInstalled
-  │       └── routers/api.NewServer -> routers/api/routes.go
+  │       └── routers/api/v1.Routes -> routers/api/v1/api.go
   │           ├── routers/common (request ID, CORS)
   │           ├── routers/api/middleware (security/request admission)
-  │           ├── routers/api/handler (decode/response)
-  │           └── services/auth, services/organization -> models/db
+  │           ├── routers/api/v1/user and org (HTTP handlers)
+  │           └── services/auth and models/organization -> models/db
   ├── cmd/worker.go
+  │   ├── modules/conn (Redis startup readiness)
   │   ├── modules/queue (Asynq transport, processor, logger)
   │   └── services/worker (outbox dispatcher, job adapters)
   │       └── services/jobs (actual email workflows)
@@ -30,6 +31,8 @@ main.go -> cmd/main.go (CLI flags and command dispatch)
 `routers/`, `services/` and `modules/` are **different kinds of ownership**.
 Their code is not interchangeable just because they are siblings.
 
+- [Cache, queue and Redis lifecycle](cache-queue.md): Gitea comparison, backend ownership and failure policies.
+- [JSON serialization policy](json.md): Gitea JSON v2 implementation, compatibility rules, and usage in cache, OAuth2 and queue tasks.
 - [Technical modules](modules.md): existing modules, actual Gitea counterparts, and explicit conditions for future modules.
 - [Business services](services.md): business operations, queue adapters and transaction ownership.
 - [Routers and transports](routers.md): Gin protocol, handlers and API public contracts.
