@@ -4,18 +4,17 @@ import (
 	"context"
 
 	sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Store exposes SQLC queries and the existing transaction operations.
 type Store interface {
 	Querier
-	PhoneOTPRepository
 	GetAccountByID(ctx context.Context, id int64) (Account, error)
 	GetAccountByEmail(ctx context.Context, email string) (Account, error)
 	ExecTx(ctx context.Context, fn func(*Queries) error) error
-	StartPhoneSignup(ctx context.Context, phone string, mac []byte, devCode string) error
-	CompletePhoneSignup(ctx context.Context, phone string, mac []byte) (Account, error)
+	Begin(ctx context.Context) (pgx.Tx, error)
 	LinkGoogleIdentity(ctx context.Context, arg LinkGoogleIdentityParams) error
 	GetGoogleAccountID(ctx context.Context, googleSub string) (int64, error)
 }
@@ -53,3 +52,9 @@ func (s *SQLStore) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 }
 
 var _ Store = (*SQLStore)(nil)
+
+// Begin exposes the transaction capability needed for workflows that must
+// persist a security failure and still return an authentication error.
+func (s *SQLStore) Begin(ctx context.Context) (pgx.Tx, error) {
+	return s.pool.Begin(ctx)
+}
