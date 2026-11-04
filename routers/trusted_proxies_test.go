@@ -14,10 +14,10 @@ import (
 func TestTrustedIngressPeersDetermineClientIP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, tc := range []struct {
-		name string
-		peers []string
+		name   string
+		peers  []string
 		remote string
-		want string
+		want   string
 	}{
 		{name: "direct ignores spoofed header", remote: "10.1.2.3:2345", want: "10.1.2.3"},
 		{name: "untrusted peer ignores spoofed header", peers: []string{"192.0.2.0/24"}, remote: "10.1.2.3:2345", want: "10.1.2.3"},
@@ -28,9 +28,9 @@ func TestTrustedIngressPeersDetermineClientIP(t *testing.T) {
 			client := redis.NewClient(&redis.Options{Addr: "127.0.0.1:6379"})
 			defer client.Close()
 			server, err := NewServer(setting.Config{
-				Environment: "production",
+				Environment:       "production",
 				TokenSymmetricKey: strings.Repeat("x", 32),
-				TrustedProxies: tc.peers,
+				TrustedProxies:    tc.peers,
 			}, nil, client)
 			if err != nil {
 				t.Fatal(err)
@@ -56,7 +56,7 @@ func TestUntrustedProxyConfigurationFailsStartup(t *testing.T) {
 	for _, unsafe := range []string{"not-an-ip", "0.0.0.0/0", "::/0", "192.0.2.0/0"} {
 		_, err := NewServer(setting.Config{
 			TokenSymmetricKey: strings.Repeat("x", 32),
-			TrustedProxies: []string{unsafe},
+			TrustedProxies:    []string{unsafe},
 		}, nil, client)
 		if err == nil {
 			t.Fatalf("unsafe proxy policy accepted: %q", unsafe)
