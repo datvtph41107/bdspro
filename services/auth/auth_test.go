@@ -11,7 +11,6 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -71,7 +70,7 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 		AccessTokenDuration:  15 * time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}
-	maker, err := token.NewJWTMaker(cfg.TokenSymmetricKey)
+	maker, err := authcrypto.NewJWTMaker(cfg.TokenSymmetricKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,10 +86,10 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := maker.VerifyToken(result.AccessToken, token.TokenTypeAccess); err != nil {
+	if _, err := maker.VerifyToken(result.AccessToken, authcrypto.TokenTypeAccess); err != nil {
 		t.Fatalf("access token invalid: %v", err)
 	}
-	if _, err := maker.VerifyToken(result.RefreshToken, token.TokenTypeAccess); err == nil {
+	if _, err := maker.VerifyToken(result.RefreshToken, authcrypto.TokenTypeAccess); err == nil {
 		t.Fatal("refresh token must never authenticate as access token")
 	}
 	renewal, err := svc.Renew(ctx, result.RefreshToken)
@@ -104,7 +103,7 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 		t.Fatalf("revoked session must not renew: %v", err)
 	}
 	// Existing access JWTs remain valid until expiry by current stateless policy.
-	if _, err := maker.VerifyToken(result.AccessToken, token.TokenTypeAccess); err != nil {
+	if _, err := maker.VerifyToken(result.AccessToken, authcrypto.TokenTypeAccess); err != nil {
 		t.Fatalf("revocation must not silently change current JWT semantics: %v", err)
 	}
 }
