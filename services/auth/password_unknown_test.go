@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -24,9 +24,9 @@ func TestUnknownPasswordUsesProductionBcryptCost(t *testing.T) {
 
 func TestPasswordLoginMissingCredentialsUseCanonicalFailure(t *testing.T) {
 	for _, tc := range []struct {
-		name string
+		name  string
 		email string
-		hash string
+		hash  string
 	}{
 		{name: "unknown email", email: "missing@example.test"},
 		{name: "passwordless account", email: "account@example.test"},
@@ -34,7 +34,7 @@ func TestPasswordLoginMissingCredentialsUseCanonicalFailure(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			store := &sessionMemoryStore{
-				account: db.Account{ID: 11, Email: "account@example.test"},
+				account:      db.Account{ID: 11, Email: "account@example.test"},
 				passwordHash: tc.hash,
 			}
 			svc := NewAuthService(store, nil, setting.Config{})
