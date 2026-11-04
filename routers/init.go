@@ -34,7 +34,8 @@ func InitWebInstalled(cfg setting.Config, store db.Store, redisClient *redis.Cli
 // and local Swagger UI. Gin remains the only routing engine; no new wrappers.
 func NormalRoutes(server *Server) *gin.Engine {
 	router := gin.New()
-	// Forwarded headers are untrusted unless the deployment defines exact proxy addresses.
+	// Safe default for internal/registration-only routers: never trust forwarded
+	// headers. NewServer configures validated deployment peers before serving.
 	_ = router.SetTrustedProxies(nil)
 
 	router.Use(common.RequestID())

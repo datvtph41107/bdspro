@@ -45,6 +45,9 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	if redisClient == nil {
 		return nil, errors.New("authentication requires Redis")
 	}
+	if err := setting.ValidateTrustedProxies(cfg.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("configure trusted ingress peers: %w", err)
+	}
 	maker, err := authcrypto.NewJWTMaker(cfg.Authentication().JWTSecret)
 	if err != nil {
 		return nil, fmt.Errorf("create token maker: %w", err)
@@ -115,6 +118,9 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	}
 
 	server.router = NormalRoutes(server)
+	if err := server.router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
+	}
 	return server, nil
 }
 
