@@ -53,12 +53,11 @@ jobs:
       - name: Verify SQLC generated output
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
-          "$(go env GOPATH)/bin/sqlc" generate
-          git diff --exit-code -- models/db
-          test -z "$(git ls-files --others --exclude-standard models/db)"
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          make sqlc-check
 
       - name: Verify OpenAPI contract
-        run: go test ./routers/api -run TestOpenAPICoverage -count=1
+        run: go test ./routers -run TestOpenAPICoverage -count=1
 
       - name: Migrate disposable test database
         env:
