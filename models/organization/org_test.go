@@ -9,7 +9,6 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	organization "github.com/datvtph41107/bdspro/models/organization"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -80,7 +79,7 @@ func TestCreateOrganizationAndOwnerPostgres(t *testing.T) {
 	}
 
 	_, err = organization.UpdateOrganization(ctx, store, outsider.ID, created.PartyID, "tampered")
-	if !errors.Is(err, apperrors.OrganizationOwnerRequired) {
+	if !errors.Is(err, ErrOrganizationOwnerRequired) {
 		t.Fatalf("outsider update: %v", err)
 	}
 	visible, err := organization.GetForAccount(ctx, store, owner.ID, created.PartyID)

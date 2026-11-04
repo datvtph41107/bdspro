@@ -1,12 +1,12 @@
 package organization
 
 import (
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	"context"
 	"errors"
 	"testing"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -38,7 +38,7 @@ func TestOrganizationUpdateValidatesAndCarriesActor(t *testing.T) {
 	store := &organizationStoreFake{}
 	ctx := context.Background()
 
-	if _, err := UpdateOrganization(ctx, store, 11, 23, "  "); !errors.Is(err, apperrors.NameRequired) {
+	if _, err := UpdateOrganization(ctx, store, 11, 23, "  "); !errors.Is(err, ErrNameRequired) {
 		t.Fatalf("blank name: %v", err)
 	}
 	if store.updateCalls != 0 {
@@ -54,14 +54,14 @@ func TestOrganizationUpdateValidatesAndCarriesActor(t *testing.T) {
 	}
 
 	store.updateErr = pgx.ErrNoRows
-	if _, err := UpdateOrganization(ctx, store, 11, 23, "Denied"); !errors.Is(err, apperrors.OrganizationOwnerRequired) {
+	if _, err := UpdateOrganization(ctx, store, 11, 23, "Denied"); !errors.Is(err, ErrOrganizationOwnerRequired) {
 		t.Fatalf("SQL owner denial must map to forbidden: %v", err)
 	}
 }
 
 func TestOrganizationMemberDeniedBySQL(t *testing.T) {
 	store := &organizationStoreFake{memberErr: pgx.ErrNoRows}
-	if _, err := AddOrgUser(context.Background(), store, 11, 23, 31); !errors.Is(err, apperrors.OrganizationOwnerRequired) {
+	if _, err := AddOrgUser(context.Background(), store, 11, 23, 31); !errors.Is(err, ErrOrganizationOwnerRequired) {
 		t.Fatalf("non-owner must be denied: %v", err)
 	}
 }
@@ -94,13 +94,13 @@ func TestOrganizationCreateValidatesBeforeTransaction(t *testing.T) {
 	store := &organizationCreateStoreFake{}
 
 	_, err := CreateOrganization(context.Background(), store, 11, "  ")
-	if !errors.Is(err, apperrors.NameRequired) || store.txCalls != 0 {
+	if !errors.Is(err, ErrNameRequired) || store.txCalls != 0 {
 		t.Fatalf("blank organization name opened transaction: %v", err)
 	}
 
 	store.accountErr = pgx.ErrNoRows
 	_, err = CreateOrganization(context.Background(), store, 99, "Example Company")
-	if !errors.Is(err, apperrors.AccountUnavailable) || store.txCalls != 0 {
+	if !errors.Is(err, account_model.ErrAccountUnavailable) || store.txCalls != 0 {
 		t.Fatalf("missing account opened transaction: %v", err)
 	}
 
