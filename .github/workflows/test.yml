@@ -2,9 +2,9 @@ name: Run unit tests
 
 on:
   push:
-    branches: [dev, 'refactor/**']
+    branches: [dev, 'refactor/**', 'feature/**']
   pull_request:
-    branches: [dev, 'refactor/**']
+    branches: [dev, 'refactor/**', 'feature/**']
 
 jobs:
   test:

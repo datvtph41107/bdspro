@@ -1,0 +1,29 @@
+# Branch-only single-use SQLC generation, removed after output is committed.
+name: Generate Team Invitation API R23
+on:
+  push:
+    branches: [feature/team-invite-api-r23]
+permissions:
+  contents: write
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Generate SQLC and format Team invitation API
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          make generated
+          gofmt -w models/organization/team_user.go models/organization/team_user_test.go models/organization/team_invite.go models/organization/team_outbox_integration_test.go routers/api/v1/org/team.go routers/api/v1/org/team_test.go routers/api/v1/org/team_invite.go routers/api/v1/org/team_invite_test.go routers/api/v1/org/team_member.go routers/api/v1/api.go routers/init.go routers/routes_test.go routers/routes_group_test.go modules/structs/team.go services/convert/team.go tools/r02audit/main.go
+          git add -- models/db/sqlc models/db/sqlc_types.gen.go models/organization/team_user.go models/organization/team_user_test.go models/organization/team_invite.go models/organization/team_outbox_integration_test.go routers/api/v1/org/team.go routers/api/v1/org/team_test.go routers/api/v1/org/team_invite.go routers/api/v1/org/team_invite_test.go routers/api/v1/org/team_member.go routers/api/v1/api.go routers/init.go routers/routes_test.go routers/routes_group_test.go modules/structs/team.go services/convert/team.go tools/r02audit/main.go
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'build(team-api): generated SQLC list and revoke queries, formatted handlers'
+            git push origin HEAD:feature/team-invite-api-r23
+          fi
