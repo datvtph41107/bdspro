@@ -8,9 +8,9 @@ import (
 
 var (
 	ErrOIDCIssuerInvalid  = errors.New("invalid OIDC issuer")
-	ErrOIDCSubjectInvalid = errors.New("invalid OIDC subject")
-	ErrOAuth2IdentityAlreadyLinked = errors.New("external identity already linked")
-	ErrOAuth2EmailUnverified = errors.New("external identity email unverified")
+	ErrOIDCSubjectInvalid           = errors.New("invalid OIDC subject")
+	ErrOAuth2IdentityAlreadyLinked  = errors.New("external identity already linked")
+	ErrOAuth2EmailUnverified        = errors.New("external identity email unverified")
 	ErrOAuth2EmailAlreadyRegistered = errors.New("email already registered; reauthentication required")
 )
 
