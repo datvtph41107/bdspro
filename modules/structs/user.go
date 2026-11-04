@@ -4,6 +4,7 @@ import "time"
 
 type UserResponse struct {
 	AccountID       int64     `json:"account_id"`
+	PersonID        int64     `json:"person_id"`
 	Email           string    `json:"email"`
 	CreatedAt       time.Time `json:"created_at"`
 	IsEmailVerified bool      `json:"is_email_verified"`
