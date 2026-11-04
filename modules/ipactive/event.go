@@ -11,6 +11,6 @@ type Event struct {
 	Allowed    bool
 	Attempts   int64
 	Limit      int64
-	RetryAfter int64 // whole seconds, only on rejection
+	RetryAfter int64              // whole seconds, only on rejection
 	OccurredAt timeutil.TimeStamp // Unix seconds for structured audit consumers
 }
