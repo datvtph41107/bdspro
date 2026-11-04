@@ -38,5 +38,8 @@ func Register(ctx context.Context, tx Transactioner, arg RegisterParams) (db.Acc
 		}
 		return q.RecordEmailVerificationJob(ctx, created.ID)
 	})
-	return created, err
+	if err != nil {
+		return db.Account{}, err
+	}
+	return created, nil
 }

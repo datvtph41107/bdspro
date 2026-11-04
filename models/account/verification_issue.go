@@ -32,5 +32,8 @@ func GetOrCreateVerifyEmail(ctx context.Context, tx Transactioner, arg db.Create
 		record, err = q.CreateVerifyEmail(ctx, arg)
 		return err
 	})
-	return record, err
+	if err != nil {
+		return db.VerifyEmail{}, err
+	}
+	return record, nil
 }
