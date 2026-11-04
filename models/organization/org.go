@@ -47,23 +47,24 @@ func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int6
 	if err != nil {
 		return db.Organization{}, err
 	}
-	var created db.Organization
-	err = store.ExecTx(ctx, func(q *db.Queries) error {
+	created, err := db.WithTxResult(ctx, store, func(q *db.Queries) (db.Organization, error) {
 		partyID, err := q.CreateParty(ctx)
 		if err != nil {
-			return fmt.Errorf("create party: %w", err)
+			return db.Organization{}, fmt.Errorf("create party: %w", err)
 		}
-		created, err = q.CreateOrganization(ctx, db.CreateOrganizationParams{PartyID: partyID, Name: name})
+		organization, err := q.CreateOrganization(ctx, db.CreateOrganizationParams{
+			PartyID: partyID, Name: name,
+		})
 		if err != nil {
-			return fmt.Errorf("create organization: %w", err)
+			return db.Organization{}, fmt.Errorf("create organization: %w", err)
 		}
 		_, err = q.CreateOrganizationMember(ctx, db.CreateOrganizationMemberParams{
 			OrganizationID: partyID, PersonID: actor.PersonID, Role: RoleOwner,
 		})
 		if err != nil {
-			return fmt.Errorf("create owner membership: %w", err)
+			return db.Organization{}, fmt.Errorf("create owner membership: %w", err)
 		}
-		return nil
+		return organization, nil
 	})
 	if err != nil {
 		return db.Organization{}, fmt.Errorf("create organization: %w", err)

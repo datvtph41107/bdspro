@@ -36,22 +36,20 @@ func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamI
 		return result, err
 	}
 	hash := sha256.Sum256([]byte(token))
-	var invite db.TeamInvite
-	err = store.ExecTx(ctx, func(q *db.Queries) error {
+	invite, err := db.WithTxResult(ctx, store, func(q *db.Queries) (db.TeamInvite, error) {
 		if err := q.RevokeExpiredTeamInvites(ctx, db.RevokeExpiredTeamInvitesParams{
 			TeamID: teamID, InvitedEmail: email,
 		}); err != nil {
-			return err
+			return db.TeamInvite{}, err
 		}
-		var createErr error
-		invite, createErr = q.CreateTeamInviteForOwner(ctx, db.CreateTeamInviteForOwnerParams{
+		record, err := q.CreateTeamInviteForOwner(ctx, db.CreateTeamInviteForOwnerParams{
 			ID: inviteID, TeamID: teamID, ActorAccountID: actorAccountID,
 			InvitedEmail: email, TokenHash: hash[:], ExpiresAt: time.Now().Add(ttl),
 		})
-		if createErr != nil {
-			return createErr
+		if err != nil {
+			return db.TeamInvite{}, err
 		}
-		return q.RecordTeamInviteJob(ctx, invite.ID)
+		return record, q.RecordTeamInviteJob(ctx, record.ID)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return result, util.WithCause(ErrTeamOwnerRequired, err)
@@ -68,31 +66,25 @@ func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamI
 // AcceptTeamInvite commits proof consumption and membership creation together.
 // A second use, expired proof, or wrong verified email cannot succeed.
 func AcceptTeamInvite(ctx context.Context, store db.Store, accountID int64, token string) (db.TeamMember, error) {
-	var member db.TeamMember
 	raw, err := hex.DecodeString(token)
 	if err != nil || len(raw) != 32 {
-		return member, ErrTeamInviteInvalid
+		return db.TeamMember{}, ErrTeamInviteInvalid
 	}
 	hash := sha256.Sum256([]byte(token))
-	err = store.ExecTx(ctx, func(q *db.Queries) error {
+	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.TeamMember, error) {
 		teamID, err := q.ConsumeTeamInvite(ctx, db.ConsumeTeamInviteParams{
 			TokenHash: hash[:], AccountID: accountID,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrTeamInviteInvalid
+			return db.TeamMember{}, ErrTeamInviteInvalid
 		}
 		if err != nil {
-			return err
+			return db.TeamMember{}, err
 		}
-		member, err = q.InsertInvitedTeamUser(ctx, db.InsertInvitedTeamUserParams{
+		return q.InsertInvitedTeamUser(ctx, db.InsertInvitedTeamUserParams{
 			AccountID: accountID, TeamID: teamID,
 		})
-		return err
 	})
-	if err != nil {
-		return db.TeamMember{}, err
-	}
-	return member, nil
 }
 
 func RevokeTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamID int64, inviteID uuid.UUID) error {
