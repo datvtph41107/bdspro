@@ -16,8 +16,8 @@ LevelDB backend exists.
 | BDSPro module | Responsibility | Consumer and constraints |
 | --- | --- | --- |
 | `connection` | `manager_redis.go`: verified shared process-level go-redis clients, explicit close | cmd web/worker, Gin security, OIDC state; no auth policy here |
-| `cache` | bounded memory LRU and Redis string cache; TTL, miss/error distinction | opt-in future consumers; **not used for security state** |
-| `queue` | Asynq producer, worker processor, task registration, log adapter, queue weights | cmd worker and services/worker; **not** business job policy |
+| `cache` | memory LRU, Redis, Memcached, JSON and request-context memoization; TTL/invalidation/miss/error | opt-in future consumers; **not used for security state** |
+| `queue` | Asynq Redis producer/worker, bounded transient channel backend, worker Manager, logging and config | cmd worker and services/worker; transient channel has **no retry/durability** |
 | `setting` | app.ini config, paths, typed settings, cache defaults | cmd, cache construction, service configuration |
 | `log` | structured logs, console/file writers and close behavior | runtime and adapters; redact credentials |
 | `auth` | password hash/check primitives | services/auth, no Gin or persistence |
@@ -42,11 +42,17 @@ modules/cache/
     string_cache.go
     cache_memory.go
     cache_redis.go
+    cache_memcache.go
+    context.go
 modules/queue/
     queue.go
-    config.go
+    manager.go
+    base.go
     base_redis.go
+    base_channel.go
     workerqueue.go
+    channel_worker.go
+    config.go
     logger.go
 modules/setting/
     cache.go
@@ -54,8 +60,8 @@ modules/setting/
     config.go
 ```
 
-The queue is not Gitea's specialized worker-queue engine because BDSPro
-already runs Asynq. The cache adapter borrows Redis clients and cannot close
+The Redis queue is not Gitea's specialized worker-queue engine because BDSPro
+already runs Asynq. The channel backend has independent, deliberately non-durable semantics and is not used for committed jobs. The cache adapter borrows Redis clients and cannot close
 them. Asynq creates separate internal Redis connections; sharing one go-redis
 `*Client` does not automatically share Asynq's internal connection pool.
 Details, tests and limitations: [R28 cache/queue ownership](cache-queue.md).
