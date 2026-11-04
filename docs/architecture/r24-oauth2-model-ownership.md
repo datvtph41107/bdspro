@@ -7,12 +7,12 @@ BDSPro is an **OAuth2 client** implementing the Authorization Code flow with PKC
 ## What exists on this branch
 
 - `models/auth/oauth2.go`: OIDC identity value, scoped by the exact `(issuer, subject)` tuple.
-- `models/auth/oauth2_identity.go`: persistent identity lookup and explicit linking.
+- `models/auth/oauth2_credential.go`: persistent identity lookup and explicit linking.
 - `models/account/oauth2.go`: atomic Party/Person/Account/identity creation, verified email validation, rollback on constraint conflicts.
-- `db/migration/000013_oauth2_identities.*`: additive migration with backfill of legacy identities; does **not** discard old data.
+- `db/migration/000013_oauth2_credentials.*`: additive migration with backfill of legacy identities; does **not** discard old data.
 - `db/query/oauth2_identity.sql` and generated SQLC code: one query implementation; application models do not hand-edit SQLC output.
 - `modules/setting/oauth2.go`: trusted issuer and endpoint configuration.
-- `services/auth/oauth2_flow.go`: PKCE challenge, one-use Redis state, nonce and code exchange.
+- `services/auth/oauth2_client.go`: PKCE challenge, one-use Redis state, nonce and code exchange.
 - `services/auth/oauth2_token.go`: signed OIDC ID-token verification.
 - `services/auth/oauth2_auth.go`: account linkage/login and session workflow.
 - `routers/api/v1/user/oauth2.go`: HTTP start, callback, explicit link, phone reauthentication.

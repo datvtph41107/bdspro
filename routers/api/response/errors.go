@@ -18,7 +18,7 @@ type errorResponse struct {
 // getErrorResponse maps application errors to the existing HTTP contract.
 func getErrorResponse(err error) (errorResponse, bool) {
 	switch {
-	case errors.Is(err, auth_model.ErrOAuth2IdentityAlreadyLinked):
+	case errors.Is(err, auth_model.ErrOAuth2CredentialAlreadyLinked):
 		return errorResponse{Status: http.StatusConflict, Code: "oauth2.identity_already_linked", Message: "external identity already linked"}, true
 	case errors.Is(err, auth_model.ErrOAuth2EmailAlreadyRegistered):
 		return errorResponse{Status: http.StatusConflict, Code: "oauth2.email_registered", Message: "email already registered; sign in to link"}, true

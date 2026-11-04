@@ -75,12 +75,12 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	}
 	if cfg.OIDC.Enabled() {
 		client := &http.Client{Timeout: 10 * time.Second}
-		flow, err := auth_service.NewOAuth2Flow(cfg.OIDC, redisClient, client)
+		oauth2, err := auth_service.NewOAuth2Client(cfg.OIDC, redisClient, client)
 		if err != nil {
 			return nil, fmt.Errorf("configure oauth2: %w", err)
 		}
 		server.oauth2Handler = user.NewOAuth2Handler(
-			auth_service.NewOAuth2AuthService(store, maker, cfg), flow,
+			auth_service.NewOAuth2AuthService(store, maker, cfg), oauth2,
 			strings.HasPrefix(cfg.OIDC.RedirectURI, "https://"),
 		)
 	}

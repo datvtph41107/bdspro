@@ -21,13 +21,13 @@ const oauth2StateCookie = "bdspro_oidc_state"
 // binding remain in the auth service and model.
 type OAuth2Handler struct {
 	auth   *auth_service.OAuth2AuthService
-	flow   *auth_service.OAuth2Flow
+	oauth2 *auth_service.OAuth2Client
 	phone  *auth_service.PhoneOTP
 	secure bool
 }
 
-func NewOAuth2Handler(auth *auth_service.OAuth2AuthService, flow *auth_service.OAuth2Flow, secure bool) *OAuth2Handler {
-	return &OAuth2Handler{auth: auth, flow: flow, secure: secure}
+func NewOAuth2Handler(auth *auth_service.OAuth2AuthService, oauth2 *auth_service.OAuth2Client, secure bool) *OAuth2Handler {
+	return &OAuth2Handler{auth: auth, oauth2: oauth2, secure: secure}
 }
 
 func (h *OAuth2Handler) SetPhoneBinding(phone auth_service.PhoneOTP) {
@@ -42,7 +42,7 @@ func (h *OAuth2Handler) stateCookie(c *gin.Context, state string, maxAge int) {
 }
 
 func (h *OAuth2Handler) StartLogin(c *gin.Context) {
-	start, err := h.flow.Begin(c.Request.Context(), "login", 0, "")
+	start, err := h.oauth2.Begin(c.Request.Context(), "login", 0, "")
 	if err != nil {
 		h.unavailable(c, err)
 		return
@@ -76,7 +76,7 @@ func (h *OAuth2Handler) StartLink(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	start, err := h.flow.Begin(c.Request.Context(), "link", accountID, "")
+	start, err := h.oauth2.Begin(c.Request.Context(), "link", accountID, "")
 	if err != nil {
 		h.unavailable(c, err)
 		return
@@ -100,7 +100,7 @@ func (h *OAuth2Handler) StartPhoneBind(c *gin.Context) {
 		response.Invalid(c, err)
 		return
 	}
-	start, err := h.flow.Begin(c.Request.Context(), "phone_bind", middleware.AccountID(c), req.Phone)
+	start, err := h.oauth2.Begin(c.Request.Context(), "phone_bind", middleware.AccountID(c), req.Phone)
 	if err != nil {
 		h.unavailable(c, err)
 		return
@@ -121,7 +121,7 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 		return
 	}
 	h.stateCookie(c, "", -1)
-	pending, err := h.flow.Consume(c.Request.Context(), state)
+	pending, err := h.oauth2.Consume(c.Request.Context(), state)
 	if err != nil {
 		if errors.Is(err, auth_service.ErrOAuth2StateExpired) || errors.Is(err, auth_service.ErrOAuth2StateInvalid) {
 			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "expired or invalid authorization state")
@@ -134,7 +134,7 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 		response.Reject(c, http.StatusUnauthorized, "oauth2.authorization_declined", "authorization declined")
 		return
 	}
-	idToken, err := h.flow.Exchange(c.Request.Context(), c.Query("code"), pending.Verifier)
+	idToken, err := h.oauth2.Exchange(c.Request.Context(), c.Query("code"), pending.Verifier)
 	if errors.Is(err, auth_service.ErrOAuth2AuthorizationFailed) {
 		response.Reject(c, http.StatusUnauthorized, "oauth2.authorization_failed", "authorization code rejected")
 		return
@@ -143,7 +143,7 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 		h.unavailable(c, err)
 		return
 	}
-	identity, err := h.flow.Verify(c.Request.Context(), idToken, pending.Nonce)
+	identity, err := h.oauth2.Verify(c.Request.Context(), idToken, pending.Nonce)
 	if err != nil {
 		response.Reject(c, http.StatusUnauthorized, "oauth2.invalid_identity", "invalid identity assertion")
 		return
