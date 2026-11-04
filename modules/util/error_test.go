@@ -32,3 +32,30 @@ func TestWithCauseKeepsSafeMessageAndErrorIdentity(t *testing.T) {
 		t.Fatal("nil safe error should preserve cause")
 	}
 }
+
+func TestErrorForClientExplicitOptInOnly(t *testing.T) {
+	const secret = "postgres://user:privatepassword@internal"
+	public := WithPublic(ErrNotExist, "private model context", "organization.team_not_found", "team not found")
+	wrapped := WithCause(public, errors.New(secret))
+	kind, code, message, ok := ErrorForClient(wrapped)
+	if !ok || !errors.Is(kind, ErrNotExist) || code != "organization.team_not_found" || message != "team not found" {
+		t.Fatalf("explicit public metadata lost: category=%v code=%q message=%q ok=%t", kind, code, message, ok)
+	}
+	if wrapped.Error() != "private model context" || errors.Is(wrapped, ErrAlreadyExist) {
+		t.Fatalf("unsafe model error or incorrect classification: %v", wrapped)
+	}
+	for _, err := range []error{errors.New(secret), ErrNotExist, WithKind(ErrNotExist, "not owned")} {
+		_, _, _, ok := ErrorForClient(err)
+		if ok {
+			t.Fatalf("unowned error was exposed: %v", err)
+		}
+	}
+}
+
+func TestErrorForClientThroughJoin(t *testing.T) {
+	declared := WithPublic(ErrAlreadyExist, "private conflict", "resource.conflict", "already exists")
+	kind, code, msg, ok := ErrorForClient(errors.Join(declared, errors.New("sensitive driver detail")))
+	if !ok || !errors.Is(kind, ErrAlreadyExist) || code != "resource.conflict" || msg != "already exists" {
+		t.Fatalf("lost public metadata through Join: %v %s %s %v", kind, code, msg, ok)
+	}
+}
