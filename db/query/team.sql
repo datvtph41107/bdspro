@@ -96,7 +96,8 @@ WHERE t.id = sqlc.arg(team_id)
     WHERE m.organization_id = t.organization_id
       AND m.person_id = tm.person_id AND m.ended_at IS NULL
   )
-ORDER BY tm.joined_at, tm.person_id;
+ORDER BY tm.joined_at, tm.person_id
+LIMIT sqlc.arg(take)::integer OFFSET sqlc.arg(skip)::integer;
 
 -- name: RevokeExpiredTeamInvites :exec
 UPDATE team_invites
