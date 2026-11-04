@@ -11,29 +11,23 @@ import (
 // GetOrCreateVerifyEmail locks the account row to serialize verification
 // workers. Retry after failed SMTP delivery reuses the still-valid proof.
 func GetOrCreateVerifyEmail(ctx context.Context, tx Transactioner, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error) {
-	var record db.VerifyEmail
-	err := tx.ExecTx(ctx, func(q *db.Queries) error {
+	return db.WithTxResult(ctx, tx, func(q *db.Queries) (db.VerifyEmail, error) {
 		verified, err := q.LockVerifyEmailAccountQuery(ctx, arg.AccountID)
 		if err != nil {
-			return err
+			return db.VerifyEmail{}, err
 		}
 		if verified {
-			return ErrEmailAlreadyVerified
+			return db.VerifyEmail{}, ErrEmailAlreadyVerified
 		}
-		record, err = q.FindReusableVerifyEmailQuery(ctx, db.FindReusableVerifyEmailQueryParams{
+		record, err := q.FindReusableVerifyEmailQuery(ctx, db.FindReusableVerifyEmailQueryParams{
 			AccountID: arg.AccountID, Email: arg.Email,
 		})
 		if err == nil {
-			return nil
+			return record, nil
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
-			return err
+			return db.VerifyEmail{}, err
 		}
-		record, err = q.CreateVerifyEmail(ctx, arg)
-		return err
+		return q.CreateVerifyEmail(ctx, arg)
 	})
-	if err != nil {
-		return db.VerifyEmail{}, err
-	}
-	return record, nil
 }

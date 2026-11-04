@@ -20,30 +20,26 @@ type RegisterParams struct {
 // Register creates the Party, Person, Account, password credential and
 // verification outbox row atomically; the caller controls HTTP error mapping.
 func Register(ctx context.Context, tx Transactioner, arg RegisterParams) (db.Account, error) {
-	var created db.Account
-	err := tx.ExecTx(ctx, func(q *db.Queries) error {
+	created, err := db.WithTxResult(ctx, tx, func(q *db.Queries) (db.Account, error) {
 		partyID, err := db.CreatePersonWithParty(ctx, q)
 		if err != nil {
-			return err
+			return db.Account{}, err
 		}
-		created, err = q.CreateAccount(ctx, db.CreateAccountParams{
+		account, err := q.CreateAccount(ctx, db.CreateAccountParams{
 			PersonID: partyID, Email: arg.Email,
 		})
 		if err != nil {
-			return err
+			return db.Account{}, err
 		}
 		if err := q.CreatePasswordCredential(ctx, db.CreatePasswordCredentialParams{
-			AccountID: created.ID, PasswordHash: arg.PasswordHash,
+			AccountID: account.ID, PasswordHash: arg.PasswordHash,
 		}); err != nil {
-			return err
+			return db.Account{}, err
 		}
-		return q.RecordEmailVerificationJob(ctx, created.ID)
+		return account, q.RecordEmailVerificationJob(ctx, account.ID)
 	})
-	if err != nil {
-		if emailLoginTaken(err) {
-			return db.Account{}, util.WithCause(ErrEmailRegistered, err)
-		}
-		return db.Account{}, err
+	if emailLoginTaken(err) {
+		return db.Account{}, util.WithCause(ErrEmailRegistered, err)
 	}
-	return created, nil
+	return created, err
 }
