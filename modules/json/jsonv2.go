@@ -32,7 +32,7 @@ func newJSONv2() *JSONv2 {
 		marshalKeepOptionalEmptyOptions: jsonv2.JoinOptions(
 			commonMarshalOptions, jsonv1.OmitEmptyWithLegacySemantics(true),
 		),
-		unmarshalOptions: jsonv2.DefaultOptionsV2(),
+		unmarshalOptions:                jsonv2.DefaultOptionsV2(),
 		unmarshalCaseInsensitiveOptions: jsonv2.MatchCaseInsensitiveNames(true),
 	}
 }
