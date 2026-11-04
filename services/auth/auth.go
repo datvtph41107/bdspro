@@ -147,9 +147,17 @@ func (s *AuthService) Revoke(ctx context.Context, refreshToken string) error {
 	if err != nil {
 		return auth_model.ErrInvalidRefreshToken
 	}
-	_, err = s.store.BlockSession(ctx, db.BlockSessionParams{
-		ID: payload.ID, AccountID: payload.AccountID, RefreshToken: refreshToken,
-	})
+	params := db.BlockSessionParams{
+		ID: payload.ID, AccountID: payload.AccountID,
+		RefreshToken: auth_model.RefreshTokenDigest(refreshToken),
+	}
+	_, err = s.store.BlockSession(ctx, params)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Transition compatibility: sessions written before digest storage
+		// contain the raw JWT. Remove this fallback after their maximum TTL.
+		params.RefreshToken = refreshToken
+		_, err = s.store.BlockSession(ctx, params)
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return auth_model.ErrSessionUnavailable
 	}
@@ -170,7 +178,7 @@ func IssueSession(ctx context.Context, store db.Store, maker authcrypto.Maker, c
 		return result, err
 	}
 	session, err := auth_model.NewSession(ctx, store, db.CreateSessionParams{
-		ID: refreshPayload.ID, AccountID: account.ID, RefreshToken: refreshToken,
+		ID: refreshPayload.ID, AccountID: account.ID, RefreshToken: auth_model.RefreshTokenDigest(refreshToken),
 		UserAgent: userAgent, ClientIp: clientIP, ExpiresAt: refreshPayload.ExpiredAt,
 	})
 	if err != nil {

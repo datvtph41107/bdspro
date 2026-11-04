@@ -194,7 +194,7 @@ func TestPasswordResetAndOAuth2CreatedAccountHTTPAcceptance(t *testing.T) {
 }
 
 func TestEmailPasswordRegistrationAndDuplicateHTTPAcceptance(t *testing.T) {
-	_, _, server, _ := authAcceptanceServer(t)
+	ctx, pool, server, _ := authAcceptanceServer(t)
 	email := uuid.NewString() + "@example.test"
 	status, created := authAcceptanceCall(t, server, "/users", http.MethodPost, map[string]string{
 		"email": email, "password": "InitialPassword123",
@@ -214,6 +214,18 @@ func TestEmailPasswordRegistrationAndDuplicateHTTPAcceptance(t *testing.T) {
 	}, "")
 	if status != http.StatusOK || login["user"].(map[string]any)["account_id"] != accountID {
 		t.Fatalf("email login did not preserve AccountID: status=%d response=%v", status, login)
+	}
+	// Inspect PostgreSQL at rest; the raw refresh JWT must only be returned to the client.
+	sessionID, err := uuid.Parse(login["session_id"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored string
+	if err := pool.QueryRow(ctx, "SELECT refresh_token FROM sessions WHERE id=$1", sessionID).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != auth_model.RefreshTokenDigest(login["refresh_token"].(string)) || stored == login["refresh_token"] {
+		t.Fatal("session table persists an unhashed refresh bearer credential")
 	}
 }
 
