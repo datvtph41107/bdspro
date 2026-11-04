@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
@@ -27,6 +28,7 @@ type Server struct {
 	authHandler         *user.AuthHandler
 	organizationHandler *org.Handler
 	googleHandler       *user.GoogleHandler
+	oauth2Handler       *user.OAuth2Handler
 	phoneHandler        *user.PhoneHandler
 	config              setting.Config
 	store               db.Store
@@ -66,6 +68,17 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		server.googleHandler = user.NewGoogleHandler(
 			auth_service.NewGoogleAuthService(store, maker, cfg), cfg, redisClient,
 			&http.Client{Timeout: 10 * time.Second}, redirect.Scheme == "https",
+		)
+	}
+	if cfg.OIDC.Enabled() {
+		client := &http.Client{Timeout: 10 * time.Second}
+		flow, err := auth_service.NewOAuth2Flow(cfg.OIDC, redisClient, client)
+		if err != nil {
+			return nil, fmt.Errorf("configure oauth2: %w", err)
+		}
+		server.oauth2Handler = user.NewOAuth2Handler(
+			auth_service.NewOAuth2AuthService(store, maker, cfg), flow,
+			strings.HasPrefix(cfg.OIDC.RedirectURI, "https://"),
 		)
 	}
 	phoneSender, err := notification.NewPhoneCodeSender(cfg)

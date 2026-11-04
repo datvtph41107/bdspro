@@ -36,6 +36,7 @@ func TestOpenAPICoverage(t *testing.T) {
 		authHandler:         user.NewAuthHandler(nil, nil),
 		organizationHandler: org.NewHandler(nil),
 		googleHandler:       user.NewGoogleHandler(nil, setting.Config{}, nil, nil, false),
+		oauth2Handler:       user.NewOAuth2Handler(nil, nil, false),
 		phoneHandler:        user.NewPhoneHandler(nil, setting.Config{}, nil, nil),
 	}
 	// Registration only; no handler is executed and no external services are used.
@@ -44,6 +45,7 @@ func TestOpenAPICoverage(t *testing.T) {
 		Auth:         s.authHandler,
 		Organization: s.organizationHandler,
 		Google:       s.googleHandler,
+		OAuth2:       s.oauth2Handler,
 		Phone:        s.phoneHandler,
 		TokenMaker:   s.tokenMaker,
 		RateRedis:    s.authRateRedis,
