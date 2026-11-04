@@ -4,9 +4,10 @@ import (
 	"context"
 	"crypto/hmac"
 	"errors"
+	"time"
+
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
-	"time"
 )
 
 func (s *phoneStore) StartPhoneSignup(ctx context.Context, phone string, mac []byte, devCode string) error {
@@ -30,7 +31,7 @@ func (s *phoneStore) CompletePhoneSignup(ctx context.Context, phone string, mac 
 		return db.Account{}, err
 	}
 	defer tx.Rollback(ctx)
-	q := s.Store.WithTx(tx)
+	q := db.New(tx)
 	row, err := q.LockPhoneSignup(ctx, phone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return db.Account{}, ErrOTPInvalid

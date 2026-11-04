@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"regexp"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/token"
@@ -26,7 +25,7 @@ var phoneCode = regexp.MustCompile(`^[0-9]{6}$`)
 // PhoneOTP owns phone verification regardless of delivery channel. Plaintext
 // codes are saved only in disposable development PostgreSQL, never in logs.
 type PhoneOTP struct {
-	Store  db.Store
+	Store  auth_model.PhoneStore
 	Config setting.Config
 	Sender notification.PhoneCodeSender
 	Maker  token.Maker
@@ -130,7 +129,7 @@ func (s PhoneOTP) startBind(ctx context.Context, accountID int64, phone string) 
 		return auth_model.ErrPhoneUnavailable
 	}
 	err = s.start(ctx, phone, "bind", accountID)
-	if errors.Is(err, db.ErrOTPCooldown) {
+	if errors.Is(err, auth_model.ErrOTPCooldown) {
 		return auth_model.ErrOTPCooldown
 	}
 	return err
@@ -143,7 +142,7 @@ func (s PhoneOTP) VerifyBind(ctx context.Context, accountID int64, phone, code s
 		return auth_model.ErrOTPInvalid
 	}
 	err := s.Store.ConsumeChallenge(ctx, phone, "bind", accountID, s.mac(phone, "bind", accountID, code))
-	if errors.Is(err, db.ErrOTPInvalid) {
+	if errors.Is(err, auth_model.ErrOTPInvalid) {
 		return auth_model.ErrOTPInvalid
 	}
 	var pgErr *pgconn.PgError
@@ -178,7 +177,7 @@ func (s PhoneOTP) StartRegister(ctx context.Context, phone string) error {
 		devCode = code
 	}
 	if err = s.Store.StartPhoneSignup(ctx, phone, s.mac(phone, "register", 0, code), devCode); err != nil {
-		if errors.Is(err, db.ErrOTPCooldown) {
+		if errors.Is(err, auth_model.ErrOTPCooldown) {
 			return auth_model.ErrOTPCooldown
 		}
 		return err
@@ -201,7 +200,7 @@ func (s PhoneOTP) VerifyRegister(ctx context.Context, phone, code, userAgent, cl
 		return empty, auth_model.ErrOTPInvalid
 	}
 	a, err := s.Store.CompletePhoneSignup(ctx, phone, s.mac(phone, "register", 0, code))
-	if errors.Is(err, db.ErrOTPInvalid) {
+	if errors.Is(err, auth_model.ErrOTPInvalid) {
 		return empty, auth_model.ErrOTPInvalid
 	}
 	var pgErr *pgconn.PgError
@@ -231,7 +230,7 @@ func (s PhoneOTP) StartLogin(ctx context.Context, phone string) error {
 		return err
 	}
 	err = s.start(ctx, phone, "login", accountID)
-	if errors.Is(err, db.ErrOTPCooldown) {
+	if errors.Is(err, auth_model.ErrOTPCooldown) {
 		// An existing number and an unknown number must not be distinguishable.
 		return nil
 	}
@@ -253,7 +252,7 @@ func (s PhoneOTP) VerifyLogin(ctx context.Context, phone, code, userAgent, clien
 		return empty, err
 	}
 	if err := s.Store.ConsumeChallenge(ctx, phone, "login", accountID, s.mac(phone, "login", accountID, code)); err != nil {
-		if errors.Is(err, db.ErrOTPInvalid) {
+		if errors.Is(err, auth_model.ErrOTPInvalid) {
 			return empty, auth_model.ErrOTPInvalid
 		}
 		return empty, err
@@ -280,7 +279,7 @@ func (s PhoneOTP) AuthorizePhoneProof(ctx context.Context, accountID int64, code
 		return err
 	}
 	err = s.Store.ConsumeChallenge(ctx, phone, "login", accountID, s.mac(phone, "login", accountID, code))
-	if errors.Is(err, db.ErrOTPInvalid) {
+	if errors.Is(err, auth_model.ErrOTPInvalid) {
 		return auth_model.ErrOTPInvalid
 	}
 	return err

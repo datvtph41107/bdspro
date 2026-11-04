@@ -35,7 +35,7 @@ func (s *phoneStore) ConsumeChallenge(ctx context.Context, phone, purpose string
 		return err
 	}
 	defer tx.Rollback(ctx)
-	q := s.Store.WithTx(tx)
+	q := db.New(tx)
 
 	challenge, err := q.LockPhoneChallengeQuery(ctx, db.LockPhoneChallengeQueryParams{
 		PhoneE164: phone, Purpose: purpose,
