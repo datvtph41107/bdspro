@@ -63,6 +63,7 @@ func NormalRoutes(server *Server) *gin.Engine {
 		Phone:        server.phoneHandler,
 		TokenMaker:   server.tokenMaker,
 		RateRedis:    server.authRateRedis,
+		IPActive:     server.ipActive,
 		Store:        server.store,
 		InviteKey:    server.config.TokenSymmetricKey,
 	})
