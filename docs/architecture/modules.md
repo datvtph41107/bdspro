@@ -16,6 +16,7 @@ LevelDB backend exists.
 | BDSPro module | Responsibility | Consumer and constraints |
 | --- | --- | --- |
 | `conn` | `manager_redis.go`: verified shared process-level go-redis clients, explicit close | cmd web/worker, Gin security, OIDC state; no auth policy here |
+| `json` | JSON v2 serialization policy: strict unmarshal, stream I/O, deterministic/legacy/relaxed modes | cache JSON, OAuth2 state/provider payloads, Asynq jobs; not a Gin response adapter |
 | `cache` | memory LRU, Redis, Memcached, JSON and request-context memoization; TTL/invalidation/miss/error | opt-in future consumers; **not used for security state** |
 | `queue` | Asynq Redis producer/worker, bounded transient channel backend, worker Manager, logging and config | cmd worker and services/worker; transient channel has **no retry/durability** |
 | `setting` | app.ini config, paths, typed settings, cache defaults | cmd, cache construction, service configuration |
@@ -37,6 +38,10 @@ retired; do not document it as current.
 ```text
 modules/conn/
     manager_redis.go
+modules/json/
+    json.go
+    jsonv2.go
+    json_test.go
 modules/cache/
     cache.go
     string_cache.go
@@ -64,7 +69,7 @@ The Redis queue is not Gitea's specialized worker-queue engine because BDSPro
 already runs Asynq. The channel backend has independent, deliberately non-durable semantics and is not used for committed jobs. The cache adapter borrows Redis clients and cannot close
 them. Asynq creates separate internal Redis connections; sharing one go-redis
 `*Client` does not automatically share Asynq's internal connection pool.
-Details, tests and limitations: [R28 cache/queue ownership](cache-queue.md).
+Details, tests and limitations: [R28 cache/queue ownership](cache-queue.md).\nJSON semantics, Gitea evidence and compatibility: [JSON serialization policy](json.md).
 
 ## Additional Gitea module candidates
 
