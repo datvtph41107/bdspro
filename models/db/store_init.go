@@ -8,7 +8,7 @@ import (
 )
 
 // Connect owns PostgreSQL connection setup, readiness and failure cleanup.
-// Query generation and transactions remain in models/db.
+// Queries and transactions are managed through SQLStore.
 func Connect(ctx context.Context, source string) (*pgxpool.Pool, error) {
 	if source == "" {
 		return nil, fmt.Errorf("PostgreSQL source is required")
@@ -22,4 +22,13 @@ func Connect(ctx context.Context, source string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("ping PostgreSQL: %w", err)
 	}
 	return pool, nil
+}
+
+// InitStore owns connection setup for a process. Call store.Close on shutdown.
+func InitStore(ctx context.Context, source string) (*SQLStore, error) {
+	pool, err := Connect(ctx, source)
+	if err != nil {
+		return nil, err
+	}
+	return NewStore(pool), nil
 }

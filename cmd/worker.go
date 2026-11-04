@@ -29,12 +29,11 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	pool, err := db.Connect(ctx, cfg.DBSource)
+	store, err := db.InitStore(ctx, cfg.DBSource)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
-	store := db.NewStore(pool)
+	defer store.Close()
 	redisClient, err := redisconn.Connect(ctx, cfg.RedisAddress)
 	if err != nil {
 		return err
