@@ -79,7 +79,7 @@ func TestCreateOrganizationAndOwnerPostgres(t *testing.T) {
 	}
 
 	_, err = organization.UpdateOrganization(ctx, store, outsider.ID, created.PartyID, "tampered")
-	if !errors.Is(err, ErrOrganizationOwnerRequired) {
+	if !errors.Is(err, organization.ErrOrganizationOwnerRequired) {
 		t.Fatalf("outsider update: %v", err)
 	}
 	visible, err := organization.GetForAccount(ctx, store, owner.ID, created.PartyID)

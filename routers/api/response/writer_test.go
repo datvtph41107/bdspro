@@ -7,7 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	apperrors "github.com/datvtph41107/bdspro/modules/errors"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,9 +23,9 @@ func TestPublicErrorContract(t *testing.T) {
 	}{
 		{"invalid", errors.New("private validation detail"), true, 400, "invalid_request", "invalid request"},
 		{"too_large", &http.MaxBytesError{Limit: 1024}, true, 413, "request_body_too_large", "request body too large"},
-		{"domain", apperrors.NameRequired, false, 400, "http.name_required", "name required"},
-		{"wrapped", apperrors.Wrap(apperrors.MembershipExists, errors.New("private DB detail")), false, 409, "organization.membership_exists", "membership already exists"},
-		{"otp", apperrors.OTPInvalid, false, 401, "auth.otp_invalid", "invalid or expired code"},
+		{"domain", organization_model.ErrNameRequired, false, 400, "http.name_required", "name required"},
+		{"wrapped", errors.Join(organization_model.ErrMembershipExists, errors.New("private DB detail")), false, 409, "organization.membership_exists", "membership already exists"},
+		{"otp", auth_model.ErrOTPInvalid, false, 401, "auth.otp_invalid", "invalid or expired code"},
 		{"unknown", errors.New("postgres password secret"), false, 500, "internal_error", "internal server error"},
 	}
 	for _, tc := range cases {
