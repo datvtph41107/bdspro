@@ -91,6 +91,9 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			store, cfg, phoneSender, server.authThrottle,
 		)
 		server.phoneHandler.SetTokenMaker(maker)
+		if server.oauth2Handler != nil {
+			server.oauth2Handler.SetPhoneBinding(phone)
+		}
 		if server.googleHandler != nil {
 			server.googleHandler.SetPhoneBinding(phone)
 		}

@@ -59,5 +59,6 @@ type EmailLinkConfirmRequest struct {
 
 // OAuth2LinkRequest requires local reauthentication before linking a provider.
 type OAuth2LinkRequest struct {
-	Password string `json:"password" binding:"required"`
+	Password  string `json:"password"`
+	PhoneCode string `json:"phone_code"`
 }

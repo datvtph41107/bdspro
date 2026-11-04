@@ -136,6 +136,13 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 			d.Google.StartLink,
 		)
 	}
+	if d.OAuth2 != nil && d.Phone != nil {
+		route.POST("/users/me/phone/oauth2/start",
+			middleware.VerifiedEmail(d.Store),
+			middleware.IPActiveSource(d.RateRedis, "phone_oauth2_bind_start", 10, time.Hour),
+			d.OAuth2.StartPhoneBind,
+		)
+	}
 	if d.Google != nil && d.Phone != nil {
 		route.POST("/users/me/phone/google/start",
 			middleware.VerifiedEmail(d.Store),

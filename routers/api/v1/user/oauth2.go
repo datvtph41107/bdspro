@@ -22,11 +22,16 @@ const oauth2StateCookie = "bdspro_oidc_state"
 type OAuth2Handler struct {
 	auth   *auth_service.OAuth2AuthService
 	flow   *auth_service.OAuth2Flow
+	phone  *auth_service.PhoneOTP
 	secure bool
 }
 
 func NewOAuth2Handler(auth *auth_service.OAuth2AuthService, flow *auth_service.OAuth2Flow, secure bool) *OAuth2Handler {
 	return &OAuth2Handler{auth: auth, flow: flow, secure: secure}
+}
+
+func (h *OAuth2Handler) SetPhoneBinding(phone auth_service.PhoneOTP) {
+	h.phone = &phone
 }
 
 func (h *OAuth2Handler) stateCookie(c *gin.Context, state string, maxAge int) {
@@ -54,11 +59,48 @@ func (h *OAuth2Handler) StartLink(c *gin.Context) {
 		return
 	}
 	accountID := middleware.AccountID(c)
-	if err := h.auth.CheckPassword(c.Request.Context(), accountID, req.Password); err != nil {
+	if (req.Password == "") == (req.PhoneCode == "") {
+		response.Reject(c, http.StatusBadRequest, "oauth2.invalid_link_proof", "provide exactly one reauthentication method")
+		return
+	}
+	if req.PhoneCode != "" {
+		if h.phone == nil {
+			response.Reject(c, http.StatusForbidden, "oauth2.phone_proof_unavailable", "phone reauthentication unavailable")
+			return
+		}
+		if err := h.phone.AuthorizePhoneProof(c.Request.Context(), accountID, req.PhoneCode); err != nil {
+			response.Error(c, err)
+			return
+		}
+	} else if err := h.auth.CheckPassword(c.Request.Context(), accountID, req.Password); err != nil {
 		response.Error(c, err)
 		return
 	}
 	start, err := h.flow.Begin(c.Request.Context(), "link", accountID, "")
+	if err != nil {
+		h.unavailable(c, err)
+		return
+	}
+	h.stateCookie(c, start.State, start.MaxAge)
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, gin.H{"authorization_url": start.AuthorizationURL})
+}
+
+// StartPhoneBind reauthenticates using an already linked OIDC identity before
+// issuing the phone-verification challenge.
+func (h *OAuth2Handler) StartPhoneBind(c *gin.Context) {
+	if h.phone == nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	var req struct {
+		Phone string `json:"phone" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
+		return
+	}
+	start, err := h.flow.Begin(c.Request.Context(), "phone_bind", middleware.AccountID(c), req.Phone)
 	if err != nil {
 		h.unavailable(c, err)
 		return
@@ -107,6 +149,16 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 		return
 	}
 	switch pending.Purpose {
+	case "phone_bind":
+		if pending.AccountID <= 0 || h.phone == nil {
+			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
+			return
+		}
+		if err := h.phone.StartOAuth2Bind(c.Request.Context(), pending.AccountID, identity, pending.Phone); err != nil {
+			response.Error(c, err)
+			return
+		}
+		c.JSON(http.StatusAccepted, gin.H{"phone_verification_started": true})
 	case "link":
 		if pending.AccountID <= 0 {
 			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
