@@ -42,3 +42,17 @@ Model changes are not complete merely when `go test ./...` is green. Acceptance 
 Explicit domain failures use `util.WithPublic(category, modelMessage, clientCode, clientMessage)` in the owning `models/<area>/error.go`. `util.ErrorForClient` recognizes this concrete declaration through wrapped error chains. Ordinary `util.WithKind`, unknown SQL/provider errors and raw categories are **not** public. `routers/api/response` has exactly one generic category-to-status mapping, without per-model switches or `models/` imports. Existing `{code,error}` values are regression-tested. Do not put driver errors or user-supplied secrets in `clientMessage`.
 
 `models/db.Store` remains the single production SQLC store contract across account, authentication and organization. Do not introduce a second store implementation merely to resemble Gitea's XORM engine. A narrow consumer interface is appropriate only when an operation's test seam or alternate dependency genuinely needs it; it must not become a parallel database source of truth.
+
+
+## Transaction results and composition (PR #127)
+
+Gitea uses `models/db.WithTx2[T]` to make transaction-scoped work return a result. BDSPro's SQLC equivalent is `db.WithTxResult[T](ctx, transactioner, func(q *db.Queries) (T, error))`; `SQLStore.ExecTx` remains the sole owner of begin, commit and rollback.
+
+- The callback must use the provided transaction-bound `q` for **all** participating SQL writes. Helpers such as `db.CreatePersonWithParty(ctx, q)` are reusable transaction-scoped operations.
+- Do **not** call `store.ExecTx` or ordinary pool-backed `store.Queries` from inside the callback. That would start a second, independently committed transaction and invalidate the outer atomicity guarantee. We intentionally do **not** simulate Gitea's XORM context engine or implicit nested transactions.
+- `WithTxResult` returns zero `T` on callback failure **and** failure during commit. Its returned value is not a success signal until the commit succeeds.
+- Use bare `ExecTx` for operations without a result, and for security flows that **deliberately commit failure counters** before returning an OTP error. These must not be refactored into rollback-on-error flows.
+- Enqueue delivery intent in the same transaction as the durable model state; deliver email/notifications asynchronously after commit.
+- Tests must include rollback after a statement has succeeded, a callback failure, and a commit failure. A green test with mocked SQL is not proof of PostgreSQL atomicity.
+
+This is a selective adaptation of Gitea's result-handling style, **not** its XORM session lifecycle or context-implicit nested transaction behavior.
