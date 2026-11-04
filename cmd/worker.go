@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/kvstore"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/queue"
-	"github.com/datvtph41107/bdspro/modules/kvstore"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/worker"
 	"github.com/hibiken/asynq"
