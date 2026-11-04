@@ -7,12 +7,6 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-// TaskEnqueuer is the queue transport contract; task type and payload belong
-// to the job, not to the queue transport.
-type TaskEnqueuer interface {
-	Enqueue(ctx context.Context, task *asynq.Task, opts ...asynq.Option) error
-}
-
 type RedisEnqueuer struct {
 	client *asynq.Client
 }

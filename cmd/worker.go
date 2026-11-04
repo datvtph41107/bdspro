@@ -7,7 +7,7 @@ import (
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/queue"
-	redisconn "github.com/datvtph41107/bdspro/modules/redis"
+	"github.com/datvtph41107/bdspro/modules/kvstore"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/worker"
 	"github.com/hibiken/asynq"
@@ -34,11 +34,12 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 		return err
 	}
 	defer store.Close()
-	redisClient, err := redisconn.Connect(ctx, cfg.RedisAddress)
+	redisManager := kvstore.NewRedisManager()
+	_, err = redisManager.Client(ctx, cfg.RedisAddress)
 	if err != nil {
 		return err
 	}
-	defer redisClient.Close()
+	defer redisManager.Close()
 
 	options := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
 	enqueuer := queue.NewRedisEnqueuer(options)
