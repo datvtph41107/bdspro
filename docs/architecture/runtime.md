@@ -7,11 +7,17 @@
 - `worker`: settings → PostgreSQL → Redis → Asynq processor and SQL outbox dispatcher.
 - `migrate`: config path → database-only INI settings → versioned SQL migration.
 
-`models/db.InitStore` owns PostgreSQL pool initialization.\n`modules/kvstore.RedisManager` owns go-redis connection sharing, PING and\nshutdown. Neither chooses domain-specific failure policies. Web startup currently
+`models/db.InitStore` owns PostgreSQL pool initialization.
+`modules/kvstore.RedisManager` owns go-redis connection sharing, PING and
+shutdown. Neither chooses domain-specific failure policies. Web startup currently
 requires Redis because authentication throttling depends on it.
 Separating the worker does not remove this web dependency.
 
-`modules/queue` owns Asynq client, processor and logging adapter.\nAsynq opens its own Redis connections; sharing the go-redis client used by\nGin middleware does not unify those internal Asynq pools.\n`modules/cache` is opt-in, not initialized at startup; security admission\nand OIDC one-time state must not silently fall back to this cache.
+`modules/queue` owns Asynq client, processor and logging adapter.
+Asynq opens its own Redis connections; sharing the go-redis client used by
+Gin middleware does not unify those internal Asynq pools.
+`modules/cache` is opt-in, not initialized at startup; security admission
+and OIDC one-time state must not silently fall back to this cache.
 `services/worker` owns outbox delivery policy and task adapters;
 `services/jobs` owns the job's business operation.
 `SIGTERM`, task execution, duplicate enqueue, failure between Redis and

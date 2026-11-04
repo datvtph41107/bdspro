@@ -1,4 +1,9 @@
-> **Current-state note (R28):** Gitea comparison and historical migration\n> details below must be read alongside [cache/queue ownership](cache-queue.md).\n> BDSPro uses `models/organization` directly and has no\n> `services/organization` package.\n\n# R01 — Package ownership based on actual Gitea code
+> **Current-state note (R28):** Gitea comparison and historical migration
+> details below must be read alongside [cache/queue ownership](cache-queue.md).
+> BDSPro uses `models/organization` directly and has no
+> `services/organization` package.
+
+# R01 — Package ownership based on actual Gitea code
 
 This document explains the *work* owned by packages, rather than trying to
 reproduce Gitea's list of folders. Compared with Gitea `main`, 2026-11-03.

@@ -102,6 +102,7 @@ jobs:
         env:
           BDS_TEST_MODE: disposable
           BDS_TEST_DB_URL: postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable
+          BDS_TEST_REDIS_ADDR: 127.0.0.1:6379
         run: |
           make test
           go test -race ./...

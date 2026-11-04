@@ -20,7 +20,8 @@ main.go -> cmd/main.go (CLI flags and command dispatch)
   │           ├── routers/api/v1/user and org (HTTP handlers)
   │           └── services/auth and models/organization -> models/db
   ├── cmd/worker.go
-  │   ├── modules/kvstore (Redis startup readiness)\n  │   ├── modules/queue (Asynq transport, processor, logger)
+  │   ├── modules/kvstore (Redis startup readiness)
+  │   ├── modules/queue (Asynq transport, processor, logger)
   │   └── services/worker (outbox dispatcher, job adapters)
   │       └── services/jobs (actual email workflows)
   └── cmd/migrate.go
@@ -30,7 +31,8 @@ main.go -> cmd/main.go (CLI flags and command dispatch)
 `routers/`, `services/` and `modules/` are **different kinds of ownership**.
 Their code is not interchangeable just because they are siblings.
 
-- [Cache, queue and Redis lifecycle](cache-queue.md): Gitea comparison, backend ownership and failure policies.\n- [Technical modules](modules.md): existing modules, actual Gitea counterparts, and explicit conditions for future modules.
+- [Cache, queue and Redis lifecycle](cache-queue.md): Gitea comparison, backend ownership and failure policies.
+- [Technical modules](modules.md): existing modules, actual Gitea counterparts, and explicit conditions for future modules.
 - [Business services](services.md): business operations, queue adapters and transaction ownership.
 - [Routers and transports](routers.md): Gin protocol, handlers and API public contracts.
 - [Database](data.md): SQLC, migrations and connection lifecycle.
