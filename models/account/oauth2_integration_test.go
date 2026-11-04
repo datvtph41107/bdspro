@@ -90,4 +90,45 @@ func TestOAuth2IdentityIsIssuerScopedAndPasswordless(t *testing.T) {
 	if _, err := auth_model.GetOAuth2AccountID(ctx, store, conflictKey); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("failed account transaction left external identity: %v", err)
 	}
+	racing := auth_model.OIDCIdentity{
+		Issuer: "https://oidc-race.example.test", Subject: uuid.NewString(),
+		Email: uuid.NewString() + "@example.test", EmailVerified: true,
+	}
+	type outcome struct {
+		accountID int64
+		err       error
+	}
+	results := make(chan outcome, 2)
+	for range 2 {
+		go func() {
+			created, createErr := account_model.CreateOAuth2Account(ctx, store, racing)
+			results <- outcome{accountID: created.ID, err: createErr}
+		}()
+	}
+	successes := 0
+	var winner int64
+	for range 2 {
+		result := <-results
+		if result.err == nil {
+			successes++
+			winner = result.accountID
+		}
+	}
+	if successes != 1 || winner <= 0 {
+		t.Fatalf("concurrent identical external identities created %d accounts", successes)
+	}
+	var count int
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*) FROM accounts WHERE email = $1", racing.Email,
+	).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("concurrent account creation persisted %d rows: %v", count, err)
+	}
+	raceKey, err := racing.Key()
+	if err != nil {
+		t.Fatal(err)
+	}
+	linked, err := auth_model.GetOAuth2AccountID(ctx, store, raceKey)
+	if err != nil || linked != winner {
+		t.Fatalf("concurrent registration lost identity binding: got=%d want=%d err=%v", linked, winner, err)
+	}
 }
