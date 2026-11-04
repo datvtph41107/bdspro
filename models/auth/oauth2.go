@@ -24,13 +24,6 @@ type OIDCClaims struct {
 	EmailVerified bool
 }
 
-// OAuth2CredentialKey is globally unique within the configured set of trusted issuers.
-// Never use email as an identity key or silently link identities by email.
-type OAuth2CredentialKey struct {
-	Issuer  string
-	Subject string
-}
-
 // Key checks key shape only; it does not validate signature, audience or nonce.
 // Preserve the verified issuer exactly, including its path when present.
 func (identity OIDCClaims) Key() (OAuth2CredentialKey, error) {
