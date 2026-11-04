@@ -19,7 +19,7 @@ type errorResponse struct {
 func getErrorResponse(err error) (errorResponse, bool) {
 	switch {
 	case errors.Is(err, auth_model.ErrOAuth2CredentialAlreadyLinked):
-		return errorResponse{Status: http.StatusConflict, Code: "oauth2.identity_already_linked", Message: "external identity already linked"}, true
+		return errorResponse{Status: http.StatusConflict, Code: "oauth2.credential_already_linked", Message: "OAuth2 credential already linked"}, true
 	case errors.Is(err, auth_model.ErrOAuth2EmailAlreadyRegistered):
 		return errorResponse{Status: http.StatusConflict, Code: "oauth2.email_registered", Message: "email already registered; sign in to link"}, true
 	case errors.Is(err, auth_model.ErrOAuth2EmailUnverified):
@@ -64,16 +64,6 @@ func getErrorResponse(err error) (errorResponse, bool) {
 		return errorResponse{Status: http.StatusConflict, Code: "organization.membership_exists", Message: "membership already exists"}, true
 	case errors.Is(err, organization_model.ErrPersonUnavailable):
 		return errorResponse{Status: http.StatusNotFound, Code: "organization.person_unavailable", Message: "person unavailable"}, true
-	case errors.Is(err, auth_model.ErrGoogleIdentityAlreadyLinked):
-		return errorResponse{Status: http.StatusConflict, Code: "auth.google_identity_already_linked", Message: "Google identity already linked"}, true
-	case errors.Is(err, auth_model.ErrGoogleAccountAlreadyLinked):
-		return errorResponse{Status: http.StatusConflict, Code: "auth.google_account_already_linked", Message: "account already linked"}, true
-	case errors.Is(err, auth_model.ErrGoogleIdentityUnlinked):
-		return errorResponse{Status: http.StatusUnauthorized, Code: "auth.google_identity_unlinked", Message: "Google identity not linked"}, true
-	case errors.Is(err, auth_model.ErrGoogleEmailUnverified):
-		return errorResponse{Status: http.StatusUnauthorized, Code: "auth.google_email_unverified", Message: "Google email is not verified"}, true
-	case errors.Is(err, auth_model.ErrGoogleEmailAlreadyRegistered):
-		return errorResponse{Status: http.StatusConflict, Code: "auth.google_email_registered", Message: "email already registered; sign in and link Google"}, true
 	case errors.Is(err, auth_model.ErrInvalidPhone):
 		return errorResponse{Status: http.StatusBadRequest, Code: "auth.invalid_phone", Message: "invalid phone"}, true
 	case errors.Is(err, auth_model.ErrPhoneRegistered):
