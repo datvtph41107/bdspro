@@ -10,9 +10,9 @@ import (
 )
 
 type accountReaderFake struct {
-	calls int
-	value db.Account
-	err error
+	calls	int
+	value	db.Account
+	err		error
 }
 
 func (s *accountReaderFake) GetAccountByID(_ context.Context, _ int64) (db.Account, error) {
