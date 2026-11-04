@@ -19,14 +19,16 @@ import (
 	"strings"
 )
 
-// Legacy route groups use a path prefix established at the caller.
-// Keep this table specific to the pinned R01 snapshot, not future routers.
+// Route groups use a path prefix established at the caller.
+// R01 groups retain their pinned baseline; later groups require an explicit
+// additive route contract rather than rewriting the historic snapshot.
 var legacyGroupPrefix = map[string]string{
 	"registerRoutes":              "",
 	"Routes":                      "",
 	"registerPublicRoutes":        "",
 	"registerAuthenticatedRoutes": "",
 	"registerOrganizationRoutes":  "/organizations",
+	"registerTeamRoutes":          "/teams",
 	"registerPhoneBindRoutes":     "/users/me/phone",
 	"registerSwagger":             "",
 	"RegisterSwagger":             "",
@@ -175,6 +177,13 @@ func checkRoutes(actual []route, expected contract) error {
 }
 
 func execute(root, contractPath string, output io.Writer) error {
+	return executeWithAdditions(root, contractPath, "", output)
+}
+
+// executeWithAdditions verifies the immutable R01 snapshot plus a separately
+// reviewed additive route manifest. It rejects missing, duplicate and unknown
+// HTTP method/path pairs without rewriting the historical contract.
+func executeWithAdditions(root, contractPath, additionsPath string, output io.Writer) error {
 	found, err := collect(root)
 	if err != nil {
 		return err
@@ -187,18 +196,33 @@ func execute(root, contractPath string, output io.Writer) error {
 	if err := json.Unmarshal(data, &expected); err != nil {
 		return fmt.Errorf("decode route contract: %w", err)
 	}
+	if additionsPath != "" {
+		extensionsData, err := os.ReadFile(additionsPath)
+		if err != nil {
+			return fmt.Errorf("read reviewed additions: %w", err)
+		}
+		var extensions contract
+		if err := json.Unmarshal(extensionsData, &extensions); err != nil {
+			return fmt.Errorf("decode reviewed additions: %w", err)
+		}
+		if extensions.Repository != expected.Repository {
+			return fmt.Errorf("additions repository mismatch: %q", extensions.Repository)
+		}
+		expected.Routes = append(expected.Routes, extensions.Routes...)
+	}
 	if err := checkRoutes(found, expected); err != nil {
 		return err
 	}
-	fmt.Fprintf(output, "PASS: %d legacy route method/path pairs match %s\n", len(found), expected.Commit)
+	fmt.Fprintf(output, "PASS: %d routes match pinned R01 baseline %s and reviewed additions\n", len(found), expected.Commit)
 	return nil
 }
 
 func main() {
 	root := flag.String("root", ".", "R01 repository root")
 	contractFile := flag.String("contract", "docs/architecture/r02/routes-r01.json", "pinned R01 route contract")
+	additionsFile := flag.String("additions", "", "separately reviewed route additions")
 	flag.Parse()
-	if err := execute(*root, *contractFile, os.Stdout); err != nil {
+	if err := executeWithAdditions(*root, *contractFile, *additionsFile, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "R02 preflight failed:", err)
 		os.Exit(1)
 	}
