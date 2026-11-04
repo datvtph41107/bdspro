@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/hibiken/asynq"
@@ -19,6 +20,8 @@ type ChannelTaskQueue struct {
 	handlers map[string]asynq.Handler
 	workers  int
 	started  bool
+	closed   bool
+	runCtx   context.Context
 	cancel   context.CancelFunc
 	done     chan struct{}
 }
@@ -43,6 +46,9 @@ func (q *ChannelTaskQueue) Handle(taskType string, handler asynq.Handler) error 
 	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
+	if q.closed {
+		return ErrQueueClosed
+	}
 	if q.started {
 		return errors.New("cannot register handler after queue startup")
 	}
@@ -62,7 +68,11 @@ func (q *ChannelTaskQueue) Enqueue(ctx context.Context, task *asynq.Task, opts .
 	}
 	q.mu.Lock()
 	handler := q.handlers[task.Type()]
+	runCtx, closed := q.runCtx, q.closed
 	q.mu.Unlock()
+	if closed || (runCtx != nil && runCtx.Err() != nil) {
+		return ErrQueueClosed
+	}
 	if handler == nil {
 		return ErrUnknownTask
 	}
@@ -75,6 +85,9 @@ func (q *ChannelTaskQueue) Start(ctx context.Context) error {
 	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
+	if q.closed {
+		return ErrQueueClosed
+	}
 	if q.started {
 		return errors.New("channel queue already started")
 	}
@@ -84,6 +97,7 @@ func (q *ChannelTaskQueue) Start(ctx context.Context) error {
 	q.started = true
 	runCtx, cancel := context.WithCancel(ctx)
 	q.cancel = cancel
+	q.runCtx = runCtx
 	q.done = make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < q.workers; i++ {
@@ -107,19 +121,37 @@ func (q *ChannelTaskQueue) Start(ctx context.Context) error {
 	return nil
 }
 
-func (q *ChannelTaskQueue) Shutdown() {
+// ShutdownContext stops accepting work, cancels workers and awaits them.
+// A handler ignoring its context cannot be forcibly terminated.
+func (q *ChannelTaskQueue) ShutdownContext(ctx context.Context) error {
 	if q == nil {
-		return
+		return nil
 	}
 	q.mu.Lock()
+	q.closed = true
 	cancel, done := q.cancel, q.done
 	_ = q.base.Close()
 	q.mu.Unlock()
 	if cancel != nil {
 		cancel()
 	}
-	if done != nil {
-		<-done
+	if done == nil {
+		return nil
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Shutdown provides a bounded timeout to the process queue Manager.
+func (q *ChannelTaskQueue) Shutdown() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := q.ShutdownContext(ctx); err != nil {
+		log.Error("channel worker shutdown timed out: %v", err)
 	}
 }
 
