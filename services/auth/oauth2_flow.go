@@ -149,10 +149,12 @@ func (f *OAuth2Flow) Exchange(ctx context.Context, code, verifier string) (strin
 		return "", ErrOAuth2AuthorizationFailed
 	}
 	form := url.Values{
-		"code": {code}, "client_id": {f.provider.ClientID},
+		"code":          {code},
+		"client_id":     {f.provider.ClientID},
 		"client_secret": {f.provider.ClientSecret},
-		"redirect_uri": {f.provider.RedirectURI},
-		"grant_type": {"authorization_code"}, "code_verifier": {verifier},
+		"redirect_uri":  {f.provider.RedirectURI},
+		"grant_type":    {"authorization_code"},
+		"code_verifier": {verifier},
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, f.provider.TokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
