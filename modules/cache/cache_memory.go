@@ -16,11 +16,11 @@ type memoryItem struct {
 // memoryCache is a bounded, concurrent LRU. Expiration is evaluated on access;
 // the maximum entry count bounds memory growth without a background goroutine.
 type memoryCache struct {
-	mu      sync.Mutex
-	items   map[string]*list.Element
-	order   *list.List
-	max     int
-	now     func() time.Time
+	mu    sync.Mutex
+	items map[string]*list.Element
+	order *list.List
+	max   int
+	now   func() time.Time
 }
 
 func NewMemoryStringCache(maxEntries int) (StringCache, error) {

@@ -1,90 +1,80 @@
-# Modules — technical mechanisms, not a universal "core"
+# Modules — technical capability and backend ownership
 
-## How Gitea uses modules/
+The module name describes a **mechanism** with explicit callers and lifecycle,
+not an arbitrary dependency or a copy of Gitea's folder list.
 
-Gitea main includes many modules because its product executes Git operations,
-serves multiple HTTP surfaces, manages issue/package content, renders a web UI,
-uses several caches/queues and has extensive infrastructure adapters.
-Presence in Gitea alone does **not** justify a BDSPro package.
+## Gitea reference and BDSPro decision
 
-Sample source:
-- [Gitea modules/cache/cache.go](https://github.com/go-gitea/gitea/blob/main/modules/cache/cache.go): an initialized shared cache with specific lookup semantics.
-- [Gitea modules/queue](https://github.com/go-gitea/gitea/tree/main/modules/queue): task transport and typed queue mechanisms.
-- [Gitea modules/storage/storage.go](https://github.com/go-gitea/gitea/blob/main/modules/storage/storage.go): object storage interface with registered drivers.
-- [Gitea modules/session/session.go](https://github.com/go-gitea/gitea/blob/main/modules/session/session.go): HTTP cookie/session middleware, which is NOT equivalent to JWT session records.
-- [Gitea modules/repository](https://github.com/go-gitea/gitea/tree/main/modules/repository): Git-repository technical logic used by higher-level repository workflows.
-- [Gitea modules/graceful](https://github.com/go-gitea/gitea/tree/main/modules/graceful), [proxy](https://github.com/go-gitea/gitea/tree/main/modules/proxy), [validation](https://github.com/go-gitea/gitea/tree/main/modules/validation): concrete process, outbound HTTP and validation mechanisms.
-- [Gitea modules/setting](https://github.com/go-gitea/gitea/tree/main/modules/setting), [log](https://github.com/go-gitea/gitea/tree/main/modules/log): long-lived application infrastructure.
+Gitea separates
+[cache](https://github.com/go-gitea/gitea/tree/main/modules/cache),
+[queue](https://github.com/go-gitea/gitea/tree/main/modules/queue) and
+[nosql/manager_redis.go](https://github.com/go-gitea/gitea/blob/main/modules/nosql/manager_redis.go):
+cache semantics, queue semantics, and shared connection ownership.
+BDSPro calls the latter `kvstore`, because no NoSQL database manager or
+LevelDB backend exists.
 
-These modules are **not all generic utilities**: some are domain-specific
-technical components (Git operations, markup, repository), others are cross-cutting
-mechanisms (cache, settings, storage). Their value comes from owned behavior
-and callers, not from being in a "core layer".
-
-## Existing BDSPro modules
-
-| Package | Code and responsibility | Consumers / invariant |
+| BDSPro module | Responsibility | Consumer and constraints |
 | --- | --- | --- |
-| `setting` | `path.go`, `provider.go`, typed config; selection and validation | CLI web, worker, migrate; no DB connections |
-| `log` | manager, formatted API, structured events, console/file writer lifecycle | HTTP, worker, CLI; errors must not leak credentials |
-| `redis` | client setup, ping, cleanup on startup failure | HTTP throttling and worker |
-| `queue` | Asynq Redis enqueuer, task processor/mux, queue-level logger | `cmd/worker` and outbox; **transport**, not job business |
-| `auth` | bcrypt hash/verification | authentication service; no Gin or account repository |
-| `token` | JWT maker, payload and access/refresh validation | services/auth, HTTP bearer admission |
-| `secret` | cryptographic random hex bytes | verification/OTP proof generation; not a secrets manager |
-| `errors` | application error identities and PostgreSQL classification helper | services produce identities; HTTP maps externally |
-| `util` | random demo-data helpers | review for migration into test fixtures; not authorization/security |
+| `kvstore` | `manager_redis.go`: verified shared process-level go-redis clients, explicit close | cmd web/worker, Gin security, OIDC state; no auth policy here |
+| `cache` | bounded memory LRU and Redis string cache; TTL, miss/error distinction | opt-in future consumers; **not used for security state** |
+| `queue` | Asynq producer, worker processor, task registration, log adapter, queue weights | cmd worker and services/worker; **not** business job policy |
+| `setting` | app.ini config, paths, typed settings, cache defaults | cmd, cache construction, service configuration |
+| `log` | structured logs, console/file writers and close behavior | runtime and adapters; redact credentials |
+| `auth` | password hash/check primitives | services/auth, no Gin or persistence |
+| `token` | signed access/refresh token maker | auth operations and HTTP admission |
+| `secret` | cryptographic random/derived proof primitives | verification and jobs |
+| `validation` | shared email/password input rules | routers and services, not domain authorization |
+| `structs` | shared external API option/response structures | routers and services/convert |
+| `util` | narrow error categories and shared helpers | models/services; no generic app-wide policy |
 
-The package `modules/queue` is **real**: it now owns the reusable Asynq
-transport that was previously mixed into `services/worker`. The latter
-continues to own persistence-to-queue outbox policy and task-to-business
-adaptation. This is a *boundary change*, not just a directory rename.
+**Removed:** `modules/redis`. Its only behavior was client constructor +
+PING, now owned by `modules/kvstore/manager_redis.go`. This is a package
+ownership correction, not Redis removal. `modules/errors` was already
+retired; do not document it as current.
+
+## File organization
 
 ```text
-cmd.runWorker
-  -> queue.NewRedisTaskProcessor (transport lifecycle, queues, mux, logs)
-  -> queue.NewRedisEnqueuer (Redis transport)
-  -> worker.NewOutboxDispatcher (SQL outbox processing)
-  -> worker.NewVerifyEmailHandler (adapts Asynq to jobs)
-  -> jobs.SendVerificationEmail (business operation)
+modules/kvstore/
+    manager_redis.go
+modules/cache/
+    cache.go
+    string_cache.go
+    cache_memory.go
+    cache_redis.go
+modules/queue/
+    queue.go
+    config.go
+    base_redis.go
+    workerqueue.go
+    logger.go
+modules/setting/
+    cache.go
+    provider.go
+    config.go
 ```
 
-Where should an interface live? Prefer the narrow consuming boundary.
-`queue.TaskEnqueuer` currently captures a transport contract using native
-`asynq.Task`; it is **not** a transport-agnostic general job interface.
-Only introduce a higher-level task contract if replacing Asynq becomes a
-real requirement and tests establish the benefit.
+The queue is not Gitea's specialized worker-queue engine because BDSPro
+already runs Asynq. The cache adapter borrows Redis clients and cannot close
+them. Asynq creates separate internal Redis connections; sharing one go-redis
+`*Client` does not automatically share Asynq's internal connection pool.
+Details, tests and limitations: [R28 cache/queue ownership](cache-queue.md).
 
-## Requested Gitea package candidates — admission criteria
+## Additional Gitea module candidates
 
-| Name | Actual responsibility to prove | Decision today |
-| --- | --- | --- |
-| `cache`, `httpcache` | bounded cached data, invalidation, memory pressure; HTTP caching semantics | No general cache: Redis rate limiting is not a cache |
-| `storage` | durable files, stream/URL policy, local/S3 lifecycle | No owner until dossier/asset files exist |
-| `session` | cookie-based HTTP session middleware | Not introduced: JWT + DB sessions already have an explicit contract |
-| `graceful` | multiple independent process lifecycles requiring coordinated stop/drain | Today context and native HTTP/Asynq shutdown; evaluate on failure injection |
-| `proxy`, `httplib` | shared outbound proxy/timeout/SSRF controls | Only if OAuth/SMS clients need the same enforced policy |
-| `repository` | common technical repository operation in Gitea is Git-specific | Do not create a generic SQL repository facade around SQLC |
-| `public`, `web`, `templates` | static assets, rendered web utilities | Current two account pages and Swagger belong to top-level `templates/` |
-| `private` | Gitea's internal HTTP client for Git/SSH subprocesses | No internal HTTP protocol in BDSPro |
-| `options` | shipped static catalogs/license/gitignore data | No BDSPro static catalog yet |
-| `paginator` | paging state and page-link rendering | Implement when a real endpoint defines stable paging semantics |
-| `validation` | shared parsers/validators and domain-independent rules | Current Gin request binding and service invariants suffice |
-| `structs` | shared API structs or independent transport contracts | Keep API requests/responses in routers until another consumer proves sharing |
-| `test`, `testlogger` | fixture/log tools imported by test suites | Add only with real repeated test plumbing |
-| `migration` | product/domain import-export operations in Gitea | Database schema migrations stay `models/db` + `db/migration` |
-| `user`, `auth` | reusable identity **primitives** | bcrypt/JWT primitives exist; workflows remain in services/auth |
-| `secret` | cryptography / encryption | RandomHex exists; rotation and storage need a real design |
-| `util` | narrowly scoped genuinely reusable helpers | Avoid broad junk drawer; move test-only helpers when safe |
+- `modules/web`: Gitea wraps Chi routing, request binding and middleware.
+  BDSPro keeps Gin directly; a second router engine has no demonstrated value.
+- `modules/graceful`, `modules/process`: add only when `cmd` context and
+  native HTTP/Asynq shutdown fail a concrete lifecycle acceptance test.
+- `modules/storage`, `modules/httpcache`, `modules/paginator`: add with
+  actual persisted files, HTTP cache policy or stable pagination contract.
+- `modules/repository` and `modules/git`: Gitea-specific Git repository
+  mechanisms; neither means a SQLC repository pattern.
+- `models/db`, `models/organization`, and Gitea `models/perm/access`
+  remain persistence/domain ownership, **not** a generic `modules/perm`.
 
-## A package is admitted only after five checks
+## Admission rule
 
-1. Name a present caller and actual failure/use case.
-2. Write the behavior and lifecycle it owns, including config/error policy.
-3. Show the import direction; technical module must not import an HTTP handler.
-4. State the native or existing mechanism it replaces and its maintenance cost.
-5. Add a discriminating test (behavior/failure/cleanup), not just construction.
-
-Do not introduce `modules/common` or `modules/core` as catch-all directories.
-Gitea does not provide permission to create wrappers around existing
-`net/http`, Gin, SQLC or Redis functionality that already works.
+Before adding a module, state its caller, backend, lifecycle owner, failure
+semantics, configuration source and discriminating test. No empty future
+directories, duplicate queue engines or cache fallback for OTP/rate-limits.

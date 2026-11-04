@@ -1,4 +1,4 @@
-# Legacy internal → Gitea-style models/modules acceptance
+> **Historical migration snapshot (R17–R19).** This is not the current\n> source inventory. For active OAuth2 and model ownership see\n> [R26](r26-oauth2-runtime-consolidation.md) and\n> [services](services.md). Earlier Google-specific paths and outstanding\n> tasks below intentionally describe their state **at the original baseline**.\n\n# Legacy internal → Gitea-style models/modules acceptance
 
 Evidence baseline: `e43ebbd9271f14a94e6ea6f27bb02aa7d618df8f`
 (the pre-migration `internal/` tree), compared with the stacked R17–R19

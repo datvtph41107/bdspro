@@ -1,4 +1,4 @@
-# R01 — Package ownership based on actual Gitea code
+> **Current-state note (R28):** Gitea comparison and historical migration\n> details below must be read alongside [cache/queue ownership](cache-queue.md).\n> BDSPro uses `models/organization` directly and has no\n> `services/organization` package.\n\n# R01 — Package ownership based on actual Gitea code
 
 This document explains the *work* owned by packages, rather than trying to
 reproduce Gitea's list of folders. Compared with Gitea `main`, 2026-11-03.
@@ -8,7 +8,7 @@ reproduce Gitea's list of folders. Compared with Gitea `main`, 2026-11-03.
 | What the code owns | Location | Example in BDSPro |
 | --- | --- | --- |
 | HTTP admission and API contract | `routers/` | `routers/common/RequestID`, API handlers and responses |
-| Business operation or invariant | `services/<area>/` | `services/auth/Register`, `services/organization` |
+| Business operation or invariant | `services/<area>/` | `services/auth/Register`, `models/organization` |
 | Persistent state and atomic changes | `models/` | `models/db` (SQLC, pgx, transactions, schema runner) |
 | Reusable technical mechanism *with callers* | `modules/<mechanism>/` | logging, settings, Asynq transport, bcrypt, cryptographic randomness |
 | Static rendered assets | `templates/` | auth pages, Swagger UI and OpenAPI contract |
@@ -28,7 +28,7 @@ failure/validation test. Do not create directories merely for future features.
 | `modules/log/manager.go` | own event writers and close behavior | synchronous writers in `modules/log`; do not copy Gitea's async manager |
 | `modules/queue/queue.go` | queue, batches, workers, retries, backend | Asynq mechanism in `modules/queue`; jobs/outbox policy remain services |
 | `modules/graceful/manager.go` | shutdown phases for HTTP, SSH, installer | `cmd` signal context + runtime shutdown already exist; add only for a failed shutdown contract |
-| `modules/cache/cache.go` | shared data cache and key/backends | not created until invalidation, TTL and outage policy are specified |
+| `modules/cache/cache.go` | shared cache semantics and backends | R28 implements opt-in memory/Redis cache with explicit error policy; no security-state use |
 | `modules/httpcache/httpcache.go` | ETag and HTTP Cache-Control semantics | not equivalent to Redis data cache or route middleware |
 | `modules/storage/storage.go` | storage interface, local and cloud backends | wait for a real document/upload persistence requirement |
 | `modules/session/session.go` | web session middleware and stores | NOT the same as BDSPro's PostgreSQL authentication sessions |
@@ -51,9 +51,9 @@ https://github.com/go-gitea/gitea/tree/main/modules
 ## Three BDSPro execution paths prove the boundaries
 
 **HTTP register**:
-`routers/api/handler/auth.go` parses the request and invokes
+`routers/api/v1/user/auth.go` parses the request and invokes
 `services/auth/AuthService.Register`. The service enforces password
-requirements and calls `models/db.Store.RegisterTx`. Bcrypt is in
+requirements and calls `models/account.Register`. Bcrypt is in
 `modules/auth`. Gin does not enter services or models.
 
 **Async verification**:
@@ -82,8 +82,8 @@ not a reason to move SQL schema handling there or enable GORM AutoMigrate.
   serves REST and a few embedded auth/Swagger assets, not a full web UI.
 - `routers/private`: Gitea serves internal Git/SSH subprocess APIs.
   BDSPro worker uses Go services directly, not internal HTTP.
-- `services/auth`: registration, sessions, Google/phone account business.
-- `services/organization`: membership and organization rules.
+- `services/auth`: registration, sessions, OIDC/phone account business.
+- `models/organization`: membership and organization rules.
 - `services/jobs`: business operations invoked by task consumers.
 - `services/worker`: outbox delivery semantics and task-to-business adapters.
 - `services/mail`: outbound mail delivery implementation; keep its
