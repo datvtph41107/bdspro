@@ -3,7 +3,7 @@
 Go/Gin REST monolith. PostgreSQL 18, SQLC/pgx, Redis 7 and Asynq.
 One binary, explicit CLI modes, no internal routing facade or gRPC.
 
-This review branch follows Gitea's **source ownership and operational
+BDSPro follows Gitea's **source ownership and operational
 discoverability**, not its domain model or entire folder tree.
 
 [Package ownership review](docs/architecture/source-ownership.md) explains the
@@ -85,6 +85,11 @@ config precedence, Docker/Compose, CI/test contract and migration guidance.
 [Architecture vs. Gitea](docs/architecture/gitea-ownership-r01.md)
 records exact sources and differences; [historical docs](docs/archive/README.md)
 are preserved separately.
+
+OAuth2/OIDC uses `[oauth2]` in `app.ini`, a single configured issuer,
+and `oauth2_credentials` for persistent account bindings. See
+[OAuth2 model conventions](docs/architecture/r24-oauth2-model-ownership.md)
+and [runtime cut-over](docs/architecture/r26-oauth2-runtime-consolidation.md).
 
 This is not a claim of production readiness. Current limitations include
 multi-worker outbox concurrency and retry/failure-injection E2E evidence,

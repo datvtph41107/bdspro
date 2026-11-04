@@ -24,4 +24,4 @@ Authorization Code flow with S256 PKCE and verified ID tokens.
 ## Acceptance
 `sqlc-check`, migration upgrade/rollback tests, OIDC browser E2E, same-subject
 concurrency, phone reauthentication, Docker and HTTP smoke must succeed.
-Do not merge until R24/R25 and the R17–R23 stack are integrated into dev.
+Merged into `dev` in PR #118 at commit `b86af22351d4`, following R17–R25. CI on the final merge commit is the integration acceptance gate. This is a development-branch rollout, not a claim of real-provider production readiness.
