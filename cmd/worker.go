@@ -48,6 +48,7 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	processor := queue.NewRedisTaskProcessor(options)
 	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, cfg.VerifyEmailURL))
 	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(store, mailer, cfg.VerifyEmailURL))
+	processor.Handle(worker.TaskSendTeamInvite, worker.NewTeamInviteHandler(store, mailer, cfg.TokenSymmetricKey))
 	if err := processor.Start(); err != nil {
 		return fmt.Errorf("start worker: %w", err)
 	}
