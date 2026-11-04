@@ -8,6 +8,8 @@ var (
 	ErrPermissionDenied = errors.New("permission denied")
 	ErrNotExist         = errors.New("resource not found")
 	ErrAlreadyExist     = errors.New("resource already exists")
+	ErrUnauthenticated  = errors.New("authentication required")
+	ErrRateLimited      = errors.New("rate limit exceeded")
 )
 
 // kindError retains a model-specific safe message and a shared error category.
@@ -48,4 +50,36 @@ func (e safeCause) Error() string {
 
 func (e safeCause) Unwrap() []error {
 	return []error{e.safe, e.cause}
+}
+
+// publicError explicitly declares a safe client contract alongside the
+// model-owned error identity. Driver/provider errors remain private.
+type publicError struct {
+	kindError
+	code          string
+	publicMessage string
+}
+
+// WithPublic declares stable client metadata without encoding an HTTP status.
+// The model's diagnostic message and the public message may differ.
+func WithPublic(kind error, modelMessage, code, publicMessage string) error {
+	if kind == nil || code == "" || publicMessage == "" {
+		panic("util.WithPublic: missing error category or public contract")
+	}
+	return publicError{
+		kindError:     kindError{kind: kind, message: modelMessage},
+		code:          code,
+		publicMessage: publicMessage,
+	}
+}
+
+// ErrorForClient only reveals errors explicitly constructed with WithPublic.
+// Unknown driver errors and generic error categories are never public.
+// errors.As traverses cause-safe and joined error chains.
+func ErrorForClient(err error) (category error, code, message string, ok bool) {
+	var declared publicError
+	if !errors.As(err, &declared) {
+		return nil, "", "", false
+	}
+	return declared.kind, declared.code, declared.publicMessage, true
 }

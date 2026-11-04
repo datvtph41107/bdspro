@@ -56,6 +56,7 @@ func TestApplicationErrorResponses(t *testing.T) {
 		{name: "OAuth2EmailUnverified", err: auth_model.ErrOAuth2EmailUnverified, status: http.StatusUnauthorized, code: "oauth2.email_unverified", message: "verified email required"},
 		{name: "OAuth2EmailAlreadyRegistered", err: auth_model.ErrOAuth2EmailAlreadyRegistered, status: http.StatusConflict, code: "oauth2.email_registered", message: "email already registered; sign in to link"},
 		{name: "OIDCIssuerInvalid", err: auth_model.ErrOIDCIssuerInvalid, status: http.StatusUnauthorized, code: "oauth2.invalid_identity", message: "invalid identity assertion"},
+		{name: "OIDCSubjectInvalid", err: auth_model.ErrOIDCSubjectInvalid, status: http.StatusUnauthorized, code: "oauth2.invalid_identity", message: "invalid identity assertion"},
 		{name: "InvalidPhone", err: auth_model.ErrInvalidPhone, status: http.StatusBadRequest, code: "auth.invalid_phone", message: "invalid phone"},
 		{name: "PhoneRegistered", err: auth_model.ErrPhoneRegistered, status: http.StatusConflict, code: "auth.phone_already_registered", message: "phone number already registered"},
 		{name: "PhoneUnavailable", err: auth_model.ErrPhoneUnavailable, status: http.StatusConflict, code: "auth.phone_unavailable", message: "phone unavailable"},
