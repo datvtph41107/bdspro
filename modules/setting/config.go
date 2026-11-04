@@ -26,6 +26,7 @@ type Config struct {
 	ZaloTemplateID       string
 	ZaloCodeField        string
 	AllowedOrigins       []string
+	TrustedProxies      []string
 	DBSource             string
 	MigrationURL         string
 	RedisAddress         string
@@ -80,6 +81,10 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 	config.DBSource = get("database", "DB_SOURCE")
 	config.MigrationURL = get("database", "MIGRATION_URL")
 	config.HTTPServerAddress = get("server", "HTTP_SERVER_ADDRESS")
+	config.TrustedProxies, err = ParseTrustedProxies(get("server", "TRUSTED_PROXIES"))
+	if err != nil {
+		return config, err
+	}
 	config.RedisAddress = get("redis", "ADDR")
 	config.TokenSymmetricKey = get("security", "TOKEN_SYMMETRIC_KEY")
 	config.AccessTokenDuration, err = time.ParseDuration(get("security", "ACCESS_TOKEN_DURATION"))
