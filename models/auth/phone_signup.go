@@ -49,11 +49,8 @@ func CompletePhoneSignup(ctx context.Context, store db.Store, phone string, mac 
 			return nil // Commit failed attempts rather than rolling them back.
 		}
 
-		partyID, err := q.CreateParty(ctx)
+		partyID, err := db.CreatePersonWithParty(ctx, q)
 		if err != nil {
-			return err
-		}
-		if err := q.CreatePerson(ctx, partyID); err != nil {
 			return err
 		}
 		created, err := q.CreatePhoneOnlyAccount(ctx, partyID)

@@ -37,3 +37,31 @@ func TestListAllContract(t *testing.T) {
 		t.Fatal("absolute pagination must not enable ListAll")
 	}
 }
+
+func TestListOptionsSQLPagination(t *testing.T) {
+	tests := []struct {
+		name       string
+		opts       ListOptions
+		skip, take int32
+		valid      bool
+	}{
+		{"first page", ListOptions{Page: 1, PageSize: 20}, 0, 20, true},
+		{"second page", ListOptions{Page: 2, PageSize: 20}, 20, 20, true},
+		{"largest offset", ListOptions{Page: 2147483647, PageSize: 1}, 2147483646, 1, true},
+		{"overflow", ListOptions{Page: 2147483647, PageSize: 2}, 0, 0, false},
+		{"page zero", ListOptions{Page: 0, PageSize: 20}, 0, 0, false},
+		{"negative page", ListOptions{Page: -1, PageSize: 20}, 0, 0, false},
+		{"size zero", ListOptions{Page: 1, PageSize: 0}, 0, 0, false},
+		{"size out of range", ListOptions{Page: 1, PageSize: 2147483647 + 1}, 0, 0, false},
+		{"list all", ListOptions{Page: 1, PageSize: 20, ListAll: true}, 0, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			skip, take, ok := tt.opts.GetSkipTake32()
+			if skip != tt.skip || take != tt.take || ok != tt.valid {
+				t.Fatalf("GetSkipTake32 = (%d, %d, %v), want (%d, %d, %v)",
+					skip, take, ok, tt.skip, tt.take, tt.valid)
+			}
+		})
+	}
+}

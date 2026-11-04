@@ -3,7 +3,6 @@ package organization
 import (
 	"context"
 	"errors"
-	"math"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
@@ -27,16 +26,13 @@ func AddTeamUser(ctx context.Context, store db.Store, actorAccountID, teamID, pe
 
 // ListTeamUsers enforces bounded SQL pagination and active organization membership.
 func ListTeamUsers(ctx context.Context, store db.Store, actorAccountID, teamID int64, opts db.ListOptions) ([]db.TeamMember, error) {
-	if opts.IsListAll() {
-		return nil, ErrTeamPaginationInvalid
-	}
-	skip, take := opts.GetSkipTake()
-	if take <= 0 || take > math.MaxInt32 || skip < 0 || skip > math.MaxInt32 {
+	skip, take, ok := opts.GetSkipTake32()
+	if !ok {
 		return nil, ErrTeamPaginationInvalid
 	}
 	return store.ListTeamUsersForAccount(ctx, db.ListTeamUsersForAccountParams{
 		ActorAccountID: actorAccountID, TeamID: teamID,
-		Take: int32(take), Skip: int32(skip),
+		Take: take, Skip: skip,
 	})
 }
 

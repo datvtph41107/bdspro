@@ -70,7 +70,7 @@ func CreateOrganization(ctx context.Context, store Store, actorAccountID int64, 
 			return fmt.Errorf("create organization: %w", err)
 		}
 		_, err = q.CreateOrganizationMember(ctx, db.CreateOrganizationMemberParams{
-			OrganizationID: partyID, PersonID: actor.PersonID, Role: "owner",
+			OrganizationID: partyID, PersonID: actor.PersonID, Role: RoleOwner,
 		})
 		if err != nil {
 			return fmt.Errorf("create owner membership: %w", err)

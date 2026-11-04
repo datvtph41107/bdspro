@@ -22,11 +22,8 @@ func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_mo
 	}
 	var created db.Account
 	err = tx.ExecTx(ctx, func(q *db.Queries) error {
-		partyID, err := q.CreateParty(ctx)
+		partyID, err := db.CreatePersonWithParty(ctx, q)
 		if err != nil {
-			return err
-		}
-		if err := q.CreatePerson(ctx, partyID); err != nil {
 			return err
 		}
 		created, err = q.CreateAccount(ctx, db.CreateAccountParams{
