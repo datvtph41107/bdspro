@@ -14,7 +14,7 @@ import (
 func TestPersistedTaskPayloadCompatibility(t *testing.T) {
 	id := uuid.MustParse("00000000-0000-4000-8000-000000000001")
 	cases := []struct {
-		name string
+		name  string
 		value any
 	}{
 		{"verification", PayloadSendVerifyEmail{AccountID: 81}},
