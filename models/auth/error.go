@@ -1,6 +1,10 @@
 package auth
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/datvtph41107/bdspro/modules/util"
+)
 
 // Authentication model errors have no HTTP status or public message contract.
 var (
@@ -9,7 +13,7 @@ var (
 	ErrInvalidPassword              = errors.New("invalid password")
 	ErrInvalidVerificationLink      = errors.New("invalid verification link")
 	ErrInvalidRefreshToken          = errors.New("invalid refresh token")
-	ErrSessionNotFound              = errors.New("session not found")
+	ErrSessionNotFound              = util.WithKind(util.ErrNotExist, "session not found")
 	ErrSessionUnavailable           = errors.New("session unavailable")
 	ErrInvalidCredentials           = errors.New("invalid credentials")
 	ErrInvalidEmail                 = errors.New("invalid email")
