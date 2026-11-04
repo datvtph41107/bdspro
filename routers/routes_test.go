@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/gin-gonic/gin"
@@ -16,7 +16,7 @@ import (
 
 func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	maker, err := token.NewJWTMaker(strings.Repeat("x", 32))
+	maker, err := authcrypto.NewJWTMaker(strings.Repeat("x", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,11 +98,11 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		}
 	}
 
-	access, _, err := maker.CreateToken(42, time.Minute, token.TokenTypeAccess)
+	access, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeAccess)
 	if err != nil {
 		t.Fatal(err)
 	}
-	refresh, _, err := maker.CreateToken(42, time.Minute, token.TokenTypeRefresh)
+	refresh, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeRefresh)
 	if err != nil {
 		t.Fatal(err)
 	}

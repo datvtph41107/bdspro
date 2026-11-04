@@ -16,17 +16,17 @@ LevelDB backend exists.
 | BDSPro module | Responsibility | Consumer and constraints |
 | --- | --- | --- |
 | `conn` | `manager_redis.go`: verified shared process-level go-redis clients, explicit close | cmd web/worker, Gin security, OIDC state; no auth policy here |
-| `json` | JSON v2 serialization policy: strict unmarshal, stream I/O, deterministic/legacy/relaxed modes | cache JSON, OAuth2 state/provider payloads, Asynq jobs; not a Gin response adapter |
+| `json` | only Marshal, Unmarshal and NewDecoder backed by strict JSON v2 | cache, OAuth2 state/provider payloads, Asynq; Gin responses remain separate |
 | `cache` | memory LRU, Redis, Memcached, JSON and request-context memoization; TTL/invalidation/miss/error | opt-in future consumers; **not used for security state** |
 | `queue` | Asynq Redis producer/worker, bounded transient channel backend, worker Manager, logging and config | cmd worker and services/worker; transient channel has **no retry/durability** |
 | `setting` | app.ini config, paths, typed settings, cache defaults | cmd, cache construction, service configuration |
 | `log` | structured logs, console/file writers and close behavior | runtime and adapters; redact credentials |
-| `auth` | password hash/check primitives | services/auth, no Gin or persistence |
-| `token` | signed access/refresh token maker | auth operations and HTTP admission |
+| `auth` | password hash/check and JWT access/refresh maker/claims | services/auth, Gin authentication middleware, HTTP startup; no DB sessions here |
+| `timeutil` | SecondsCeil (Redis rate limit TTL) and Expired (JWT and DB sessions) | routers/api/middleware, models/auth, modules/auth; no second DB timestamp type |
 | `secret` | cryptographic random/derived proof primitives | verification and jobs |
 | `validation` | shared email/password input rules | routers and services, not domain authorization |
 | `structs` | shared external API option/response structures | routers and services/convert |
-| `util` | narrow error categories and shared helpers | models/services; no generic app-wide policy |
+| `util` | shared error categories, WithKind and WithCause with safe public messages | models and services/auth; test fixture random helpers are not cryptographic |
 
 **Removed:** `modules/redis`. Its only behavior was client constructor +
 PING, now owned by `modules/conn/manager_redis.go`. This is a package
@@ -42,6 +42,17 @@ modules/json/
     json.go
     jsonv2.go
     json_test.go
+modules/auth/
+    password.go
+    jwt.go
+    jwt_payload.go
+    token.go
+modules/timeutil/
+    duration.go
+    expiry.go
+modules/util/
+    error.go
+    random.go
 modules/cache/
     cache.go
     string_cache.go
@@ -90,3 +101,13 @@ JSON semantics, Gitea evidence and compatibility: [JSON serialization policy](js
 Before adding a module, state its caller, backend, lifecycle owner, failure
 semantics, configuration source and discriminating test. No empty future
 directories, duplicate queue engines or cache fallback for OTP/rate-limits.
+
+## R30 acceptance
+
+JWT signing moved from `modules/token` into `modules/auth` without changing
+stored refresh JWTs. See [JWT, JSON, timeutil and safe error decisions](r30-auth-json-timeutil.md).
+
+Gitea's `timeutil.TimeStamp` is not copied because SQLC already owns
+PostgreSQL `time.Time` representation. `json` exposes only operations that
+existing production callers need. `util.WithCause` hides driver messages while
+preserving `errors.Is`/`errors.As` for diagnosis.

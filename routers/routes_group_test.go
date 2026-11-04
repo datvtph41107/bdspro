@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/datvtph41107/bdspro/modules/token"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
@@ -17,7 +17,7 @@ import (
 // authentication middleware.
 func TestOrganizationGroupInheritsAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	maker, err := token.NewJWTMaker(strings.Repeat("x", 32))
+	maker, err := authcrypto.NewJWTMaker(strings.Repeat("x", 32))
 	if err != nil {
 		t.Fatal(err)
 	}

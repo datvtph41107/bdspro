@@ -10,7 +10,7 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/token"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -90,11 +90,11 @@ func (r organizationHTTPRow) Scan(dest ...any) error {
 
 func TestStoreOrganizationHTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	maker, err := token.NewJWTMaker(strings.Repeat("x", 32))
+	maker, err := authcrypto.NewJWTMaker(strings.Repeat("x", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	access, _, err := maker.CreateToken(42, time.Minute, token.TokenTypeAccess)
+	access, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeAccess)
 	if err != nil {
 		t.Fatal(err)
 	}

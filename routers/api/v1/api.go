@@ -5,7 +5,7 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/token"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
@@ -19,7 +19,7 @@ type Dependencies struct {
 	Organization *org.Handler
 	OAuth2       *user.OAuth2Handler
 	Phone        *user.PhoneHandler
-	TokenMaker   token.Maker
+	TokenMaker   authcrypto.Maker
 	RateRedis    *redis.Client
 	Store        db.Store
 	InviteKey    string

@@ -17,7 +17,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/token"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -28,11 +28,11 @@ import (
 // these operations.
 type AuthService struct {
 	store  db.Store
-	maker  token.Maker
+	maker  authcrypto.Maker
 	config setting.Config
 }
 
-func NewAuthService(store db.Store, maker token.Maker, cfg setting.Config) *AuthService {
+func NewAuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config) *AuthService {
 	return &AuthService{store: store, maker: maker, config: cfg}
 }
 
@@ -53,7 +53,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "accounts_email_login_uq" {
-			return db.Account{}, errors.Join(account_model.ErrEmailRegistered, err)
+			return db.Account{}, util.WithCause(account_model.ErrEmailRegistered, err)
 		}
 		return db.Account{}, err
 	}
@@ -125,7 +125,7 @@ type RenewResult struct {
 
 func (s *AuthService) Renew(ctx context.Context, refreshToken string) (RenewResult, error) {
 	var result RenewResult
-	payload, err := s.maker.VerifyToken(refreshToken, token.TokenTypeRefresh)
+	payload, err := s.maker.VerifyToken(refreshToken, authcrypto.TokenTypeRefresh)
 	if err != nil {
 		return result, auth_model.ErrInvalidRefreshToken
 	}
@@ -140,7 +140,7 @@ func (s *AuthService) Renew(ctx context.Context, refreshToken string) (RenewResu
 		return result, auth_model.ErrSessionUnavailable
 	}
 	access, tokenPayload, err := s.maker.CreateToken(
-		payload.AccountID, s.config.Authentication().AccessTokenTTL, token.TokenTypeAccess,
+		payload.AccountID, s.config.Authentication().AccessTokenTTL, authcrypto.TokenTypeAccess,
 	)
 	if err != nil {
 		return result, err
@@ -149,7 +149,7 @@ func (s *AuthService) Renew(ctx context.Context, refreshToken string) (RenewResu
 }
 
 func (s *AuthService) Revoke(ctx context.Context, refreshToken string) error {
-	payload, err := s.maker.VerifyToken(refreshToken, token.TokenTypeRefresh)
+	payload, err := s.maker.VerifyToken(refreshToken, authcrypto.TokenTypeRefresh)
 	if err != nil {
 		return auth_model.ErrInvalidRefreshToken
 	}
@@ -164,14 +164,14 @@ func (s *AuthService) Revoke(ctx context.Context, refreshToken string) error {
 
 // IssueSession is shared by password, Google and phone login, after the
 // corresponding identity provider has already authenticated the account.
-func IssueSession(ctx context.Context, store db.Store, maker token.Maker, cfg setting.Config, account db.Account, userAgent, clientIP string) (LoginResult, error) {
+func IssueSession(ctx context.Context, store db.Store, maker authcrypto.Maker, cfg setting.Config, account db.Account, userAgent, clientIP string) (LoginResult, error) {
 	var result LoginResult
 	auth := cfg.Authentication()
-	accessToken, accessPayload, err := maker.CreateToken(account.ID, auth.AccessTokenTTL, token.TokenTypeAccess)
+	accessToken, accessPayload, err := maker.CreateToken(account.ID, auth.AccessTokenTTL, authcrypto.TokenTypeAccess)
 	if err != nil {
 		return result, err
 	}
-	refreshToken, refreshPayload, err := maker.CreateToken(account.ID, auth.RefreshTokenTTL, token.TokenTypeRefresh)
+	refreshToken, refreshPayload, err := maker.CreateToken(account.ID, auth.RefreshTokenTTL, authcrypto.TokenTypeRefresh)
 	if err != nil {
 		return result, err
 	}

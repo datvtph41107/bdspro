@@ -1,9 +1,10 @@
-package token
+package auth
 
 import (
 	"errors"
 	"time"
 
+	"github.com/datvtph41107/bdspro/modules/timeutil"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -49,7 +50,7 @@ func (payload *Payload) Valid(kind TokenType) error {
 		(kind != TokenTypeAccess && kind != TokenTypeRefresh) || payload.TokenType != kind {
 		return ErrInvalidToken
 	}
-	if !time.Now().Before(payload.ExpiredAt) {
+	if timeutil.Expired(time.Now(), payload.ExpiredAt) {
 		return ErrExpiredToken
 	}
 	return nil

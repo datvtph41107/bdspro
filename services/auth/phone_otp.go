@@ -14,7 +14,6 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/token"
 	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -29,7 +28,7 @@ type PhoneOTP struct {
 	Store  db.Store
 	Config setting.Config
 	Sender notification.PhoneCodeSender
-	Maker  token.Maker
+	Maker  authcrypto.Maker
 }
 
 func (s PhoneOTP) allowed() error {
