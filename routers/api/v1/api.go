@@ -10,7 +10,6 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 )
 
 // Dependencies are constructed once by the HTTP server; route ownership is in this package.
@@ -20,7 +19,6 @@ type Dependencies struct {
 	OAuth2       *user.OAuth2Handler
 	Phone        *user.PhoneHandler
 	TokenMaker   authcrypto.Maker
-	RateRedis    *redis.Client
 	IPActive     *ipactive.Middleware
 	Store        db.Store
 	InviteKey    string
