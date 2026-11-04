@@ -11,7 +11,7 @@ import (
 // CreateOAuth2Account atomically creates a passwordless account and its OIDC
 // identity. This must ONLY be called after verifying an ID token and a verified
 // email from a trusted issuer. It never links an existing account by email.
-func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_model.OIDCIdentity) (db.Account, error) {
+func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_model.OIDCClaims) (db.Account, error) {
 	key, err := identity.Key()
 	if err != nil {
 		return db.Account{}, err
@@ -41,7 +41,7 @@ func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_mo
 		if err != nil {
 			return err
 		}
-		_, err = q.LinkOAuth2Identity(ctx, db.LinkOAuth2IdentityParams{
+		_, err = q.LinkOAuth2Credential(ctx, db.LinkOAuth2CredentialParams{
 			Issuer: key.Issuer, Subject: key.Subject, AccountID: created.ID,
 		})
 		return err

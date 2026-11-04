@@ -92,7 +92,7 @@ func (s PhoneOTP) StartBind(ctx context.Context, accountID int64, password, phon
 
 // StartOAuth2Bind requires a fresh OIDC assertion whose issuer/subject is
 // already linked to this very account. Matching email never authorizes binding.
-func (s PhoneOTP) StartOAuth2Bind(ctx context.Context, accountID int64, identity auth_model.OIDCIdentity, phone string) error {
+func (s PhoneOTP) StartOAuth2Bind(ctx context.Context, accountID int64, identity auth_model.OIDCClaims, phone string) error {
 	if err := s.allowed(); err != nil {
 		return err
 	}

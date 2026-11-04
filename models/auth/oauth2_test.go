@@ -6,19 +6,19 @@ import (
 	"testing"
 )
 
-func TestOIDCIdentityKey(t *testing.T) {
+func TestOIDCClaimsKey(t *testing.T) {
 	tests := []struct {
 		name     string
-		identity OIDCIdentity
+		identity OIDCClaims
 		wantErr  error
 	}{
-		{name: "valid", identity: OIDCIdentity{Issuer: "https://accounts.example.test", Subject: "subject-1"}},
-		{name: "issuer with path", identity: OIDCIdentity{Issuer: "https://example.test/tenant", Subject: "subject-1"}},
-		{name: "insecure issuer", identity: OIDCIdentity{Issuer: "http://example.test", Subject: "subject-1"}, wantErr: ErrOIDCIssuerInvalid},
-		{name: "query issuer", identity: OIDCIdentity{Issuer: "https://example.test?x=1", Subject: "subject-1"}, wantErr: ErrOIDCIssuerInvalid},
-		{name: "empty subject", identity: OIDCIdentity{Issuer: "https://example.test", Subject: " "}, wantErr: ErrOIDCSubjectInvalid},
-		{name: "non-ascii subject", identity: OIDCIdentity{Issuer: "https://example.test", Subject: "émail"}, wantErr: ErrOIDCSubjectInvalid},
-		{name: "long subject", identity: OIDCIdentity{Issuer: "https://example.test", Subject: strings.Repeat("x", 256)}, wantErr: ErrOIDCSubjectInvalid},
+		{name: "valid", identity: OIDCClaims{Issuer: "https://accounts.example.test", Subject: "subject-1"}},
+		{name: "issuer with path", identity: OIDCClaims{Issuer: "https://example.test/tenant", Subject: "subject-1"}},
+		{name: "insecure issuer", identity: OIDCClaims{Issuer: "http://example.test", Subject: "subject-1"}, wantErr: ErrOIDCIssuerInvalid},
+		{name: "query issuer", identity: OIDCClaims{Issuer: "https://example.test?x=1", Subject: "subject-1"}, wantErr: ErrOIDCIssuerInvalid},
+		{name: "empty subject", identity: OIDCClaims{Issuer: "https://example.test", Subject: " "}, wantErr: ErrOIDCSubjectInvalid},
+		{name: "non-ascii subject", identity: OIDCClaims{Issuer: "https://example.test", Subject: "émail"}, wantErr: ErrOIDCSubjectInvalid},
+		{name: "long subject", identity: OIDCClaims{Issuer: "https://example.test", Subject: strings.Repeat("x", 256)}, wantErr: ErrOIDCSubjectInvalid},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -33,9 +33,9 @@ func TestOIDCIdentityKey(t *testing.T) {
 	}
 }
 
-func TestOIDCIdentityKeyDoesNotUseEmail(t *testing.T) {
-	first := OIDCIdentity{Issuer: "https://first.example.test", Subject: "same", Email: "a@example.test", EmailVerified: true}
-	second := OIDCIdentity{Issuer: "https://second.example.test", Subject: "same", Email: "a@example.test", EmailVerified: true}
+func TestOIDCClaimsKeyDoesNotUseEmail(t *testing.T) {
+	first := OIDCClaims{Issuer: "https://first.example.test", Subject: "same", Email: "a@example.test", EmailVerified: true}
+	second := OIDCClaims{Issuer: "https://second.example.test", Subject: "same", Email: "a@example.test", EmailVerified: true}
 	a, err := first.Key()
 	if err != nil {
 		t.Fatal(err)
