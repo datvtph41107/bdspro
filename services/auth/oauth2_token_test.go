@@ -64,6 +64,13 @@ func TestOIDCTokenVerifierRejectsWrongIssuerAndNonce(t *testing.T) {
 		check func() error
 	}{
 		{"wrong nonce", func() error { _, err := verifier.Verify(context.Background(), sign(), "wrong"); return err }},
+		{"multiple audiences without authorized party", func() error {
+			original := claims.Audience
+			claims.Audience = jwt.ClaimStrings{"bdspro-client", "other-client"}
+			defer func() { claims.Audience = original }()
+			_, err := verifier.Verify(context.Background(), sign(), "browser-nonce")
+			return err
+		}},
 		{"wrong issuer", func() error {
 			old := claims.Issuer
 			claims.Issuer = "https://attacker.example.test"

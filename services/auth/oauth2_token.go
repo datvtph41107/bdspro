@@ -30,6 +30,7 @@ type oidcIDClaims struct {
 	Nonce         string `json:"nonce"`
 	Email         string `json:"email"`
 	EmailVerified bool   `json:"email_verified"`
+	AuthorizedParty string `json:"azp"`
 }
 
 // Verify validates signature, algorithm, expected issuer, audience, exp, iat
@@ -61,6 +62,10 @@ func (v OIDCTokenVerifier) Verify(ctx context.Context, raw, expectedNonce string
 	})
 	if err != nil || token == nil || !token.Valid {
 		return empty, errors.New("invalid OIDC ID token")
+	}
+	if (claims.AuthorizedParty != "" && claims.AuthorizedParty != v.Audience) ||
+		(len(claims.Audience) > 1 && claims.AuthorizedParty != v.Audience) {
+		return empty, errors.New("OIDC authorized party mismatch")
 	}
 	if claims.Subject == "" || subtle.ConstantTimeCompare([]byte(claims.Nonce), []byte(expectedNonce)) != 1 {
 		return empty, errors.New("invalid OIDC identity claims")

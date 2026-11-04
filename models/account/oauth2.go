@@ -5,6 +5,7 @@ import (
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/validation"
 )
 
 // CreateOAuth2Account atomically creates a passwordless account and its OIDC
@@ -15,7 +16,8 @@ func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_mo
 	if err != nil {
 		return db.Account{}, err
 	}
-	if !identity.EmailVerified || identity.Email == "" {
+	email, valid := validation.EmailAddress(identity.Email)
+	if !identity.EmailVerified || !valid {
 		return db.Account{}, auth_model.ErrInvalidEmail
 	}
 	var created db.Account
@@ -28,13 +30,13 @@ func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_mo
 			return err
 		}
 		created, err = q.CreateAccount(ctx, db.CreateAccountParams{
-			PersonID: partyID, Email: identity.Email,
+			PersonID: partyID, Email: email,
 		})
 		if err != nil {
 			return err
 		}
 		created, err = q.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{
-			ID: created.ID, Email: identity.Email,
+			ID: created.ID, Email: email,
 		})
 		if err != nil {
 			return err

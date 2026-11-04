@@ -19,8 +19,12 @@ type OAuth2Provider struct {
 	RedirectURI      string
 }
 
-// Enabled is true only if an issuer has been explicitly configured.
-func (p OAuth2Provider) Enabled() bool { return p.Issuer != "" }
+// Enabled is true when any provider field has been configured; incomplete
+// configuration is then rejected rather than silently disabling authentication.
+func (p OAuth2Provider) Enabled() bool {
+	return p.Issuer != "" || p.AuthorizationURL != "" || p.TokenURL != "" ||
+		p.JWKSURL != "" || p.ClientID != "" || p.ClientSecret != "" || p.RedirectURI != ""
+}
 
 // Validate rejects incomplete or untrusted remote endpoint configuration.
 // Redirects may use localhost HTTP only for local development.
@@ -53,6 +57,10 @@ func (p OAuth2Provider) Validate() error {
 		if err := check(item.name, item.value, item.local); err != nil {
 			return err
 		}
+	}
+	callback, err := url.Parse(p.RedirectURI)
+	if err != nil || callback.Path != "/users/oauth2/callback" {
+		return fmt.Errorf("oauth2 redirect URI must target /users/oauth2/callback")
 	}
 	return nil
 }
