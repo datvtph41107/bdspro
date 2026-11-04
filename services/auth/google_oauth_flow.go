@@ -104,7 +104,7 @@ func (f *GoogleOAuthFlow) Begin(ctx context.Context, purpose string, accountID i
 		"code_challenge_method": {"S256"},
 	}
 	return GoogleOAuthStart{
-		URL: googleAuthorizationURL + "?" + params.Encode(),
+		URL:   googleAuthorizationURL + "?" + params.Encode(),
 		State: state, MaxAge: int(googleOAuthTTL.Seconds()),
 	}, nil
 }
