@@ -69,7 +69,8 @@ The Redis queue is not Gitea's specialized worker-queue engine because BDSPro
 already runs Asynq. The channel backend has independent, deliberately non-durable semantics and is not used for committed jobs. The cache adapter borrows Redis clients and cannot close
 them. Asynq creates separate internal Redis connections; sharing one go-redis
 `*Client` does not automatically share Asynq's internal connection pool.
-Details, tests and limitations: [R28 cache/queue ownership](cache-queue.md).\nJSON semantics, Gitea evidence and compatibility: [JSON serialization policy](json.md).
+Details, tests and limitations: [R28 cache/queue ownership](cache-queue.md).
+JSON semantics, Gitea evidence and compatibility: [JSON serialization policy](json.md).
 
 ## Additional Gitea module candidates
 
