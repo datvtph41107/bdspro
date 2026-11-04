@@ -46,12 +46,12 @@ type Oauth2Credential struct {
 	LinkedAt  time.Time `json:"linked_at"`
 }
 
-
 type Oauth2CredentialsArchive struct {
 	Subject   string    `json:"subject"`
 	AccountID int64     `json:"account_id"`
 	LinkedAt  time.Time `json:"linked_at"`
 }
+
 type Organization struct {
 	PartyID   int64     `json:"party_id"`
 	Name      string    `json:"name"`
