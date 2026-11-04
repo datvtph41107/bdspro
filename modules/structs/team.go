@@ -1,6 +1,10 @@
 package structs
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // Team API shapes are independent of generated SQLC models.
 type CreateTeamOption struct {
@@ -29,4 +33,21 @@ type TeamMember struct {
 	TeamID   int64     `json:"team_id"`
 	PersonID int64     `json:"person_id"`
 	JoinedAt time.Time `json:"joined_at"`
+}
+
+type CreateTeamInviteOption struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type AcceptTeamInviteOption struct {
+	Token string `json:"token" binding:"required,len=64"`
+}
+
+// IssuedTeamInvite never contains the raw proof. Only the asynchronous
+// worker sends that proof to the verified organization member.
+type IssuedTeamInvite struct {
+	ID           uuid.UUID `json:"id"`
+	TeamID       int64     `json:"team_id"`
+	InvitedEmail string    `json:"invited_email"`
+	ExpiresAt    time.Time `json:"expires_at"`
 }

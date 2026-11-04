@@ -22,6 +22,7 @@ type Dependencies struct {
 	TokenMaker   token.Maker
 	RateRedis    *redis.Client
 	Store        db.Store
+	InviteKey    string
 }
 
 // Routes declares the existing Gin HTTP surface using Gitea-style file ownership.
@@ -140,17 +141,27 @@ func registerOrganizationRoutes(route *gin.RouterGroup, d Dependencies) {
 	route.PATCH("/:id", d.Organization.Edit)
 	route.GET("/:id/members", d.Organization.Members)
 	route.POST("/:id/members", d.Organization.AddMember)
-	teams := org.NewTeamHandler(d.Store)
+	teams := org.NewTeamHandler(d.Store, d.InviteKey)
 	route.GET("/:id/teams", teams.List)
 	route.POST("/:id/teams", teams.Create)
 }
 
 func registerTeamRoutes(route *gin.RouterGroup, d Dependencies) {
-	teams := org.NewTeamHandler(d.Store)
+	teams := org.NewTeamHandler(d.Store, d.InviteKey)
+	route.POST("/invites/accept",
+		middleware.IPActiveSource(d.RateRedis, "team_invite_accept", 40, 10*time.Minute),
+		teams.AcceptInvite,
+	)
 	route.GET("/:team_id", teams.Get)
 	route.PATCH("/:team_id", teams.Edit)
+	route.GET("/:team_id/members", teams.Members)
 	route.POST("/:team_id/members", teams.AddMember)
 	route.DELETE("/:team_id/members/:person_id", teams.RemoveMember)
+	route.POST("/:team_id/invites",
+		middleware.IPActiveSource(d.RateRedis, "team_invite_issue", 10, time.Hour),
+		teams.CreateInvite,
+	)
+	route.DELETE("/:team_id/invites/:invite_id", teams.RevokeInvite)
 }
 
 func registerPhoneBindRoutes(route *gin.RouterGroup, d Dependencies) {

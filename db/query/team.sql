@@ -96,7 +96,8 @@ WHERE t.id = sqlc.arg(team_id)
     WHERE m.organization_id = t.organization_id
       AND m.person_id = tm.person_id AND m.ended_at IS NULL
   )
-ORDER BY tm.joined_at, tm.person_id;
+ORDER BY tm.joined_at, tm.person_id
+LIMIT sqlc.arg(take)::integer OFFSET sqlc.arg(skip)::integer;
 
 -- name: RevokeExpiredTeamInvites :exec
 UPDATE team_invites
@@ -125,6 +126,10 @@ WHERE t.id = sqlc.arg(team_id)
     WHERE recipient.is_email_verified = TRUE
       AND lower(btrim(recipient.email)) = lower(btrim(sqlc.arg(invited_email)::text))
       AND member.organization_id = t.organization_id AND member.ended_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM team_members tm
+        WHERE tm.team_id = t.id AND tm.person_id = recipient.person_id
+      )
   )
 RETURNING id, team_id, invited_email, invited_by_account_id, token_hash,
           expires_at, accepted_at, revoked_at, created_at;
@@ -158,6 +163,7 @@ SET revoked_at = now()
 FROM teams AS t
 WHERE ti.id = sqlc.arg(invite_id)
   AND ti.team_id = t.id
+  AND t.id = sqlc.arg(team_id)
   AND ti.accepted_at IS NULL AND ti.revoked_at IS NULL
   AND EXISTS (
     SELECT 1 FROM accounts a

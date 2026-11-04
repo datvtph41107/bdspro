@@ -64,6 +64,7 @@ func NormalRoutes(server *Server) *gin.Engine {
 		TokenMaker:   server.tokenMaker,
 		RateRedis:    server.authRateRedis,
 		Store:        server.store,
+		InviteKey:    server.config.TokenSymmetricKey,
 	})
 	api.RegisterSwagger(router, server.config.Environment)
 

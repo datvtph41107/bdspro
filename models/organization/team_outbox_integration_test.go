@@ -79,7 +79,7 @@ func TestTeamInviteRecordsOutboxWithoutPlaintext(t *testing.T) {
 	if _, err := organization.CreateTeamInvite(ctx, store, owner.ID, team.ID, recipient.Email, time.Hour, key); !errors.Is(err, organization.ErrTeamInviteExists) {
 		t.Fatalf("duplicate invitation accepted: %v", err)
 	}
-	if err := organization.RevokeTeamInvite(ctx, store, owner.ID, issued.Invite.ID); err != nil {
+	if err := organization.RevokeTeamInvite(ctx, store, owner.ID, team.ID, issued.Invite.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.GetTeamInviteForDelivery(ctx, issued.Invite.ID); !errors.Is(err, pgx.ErrNoRows) {

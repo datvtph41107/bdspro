@@ -32,3 +32,22 @@ Verification:
 - `TestTeamInviteJobRegeneratesProofWithoutPersistingPlaintext` verifies
   reproducibility, HTML escaping and email delivery.
 - Existing model tests cover invitation replay and simultaneous acceptance.
+
+## Authenticated API
+
+`POST /teams/{team_id}/invites` queues a 7-day invitation to a verified,
+active Organization member and returns only its ID and expiration (HTTP 202).
+`POST /teams/invites/accept` redeems the email-delivered proof under the
+caller account (HTTP 201), and `DELETE /teams/{team_id}/invites/{invite_id}`
+revokes it (HTTP 204). `GET /teams/{team_id}/members` uses bounded SQL
+pagination with max page size 100.
+
+The URI team ID must match the invitation's team on revocation. A non-owner
+cannot issue or revoke; a recipient without matching verified email and active
+organization membership cannot redeem. The public JSON contract **never
+contains the invitation token**. Avoid writing request bodies or raw tokens
+into audit logs. The API has no browser landing page in this backend-only
+release: recipients are instructed to sign in and submit the token to the
+authenticated REST endpoint.
+
+Routes are added to a separate R23 manifest, preserving the R01/R20 snapshots.
