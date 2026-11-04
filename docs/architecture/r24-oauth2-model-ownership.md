@@ -1,50 +1,87 @@
-# R24: model and module ownership for OAuth2/OIDC
+# OAuth2/OIDC ownership and accepted source conventions (R24–R26)
 
-## Scope
+## Integration evidence
 
-BDSPro is an **OAuth2 client** implementing the Authorization Code flow with PKCE and obtaining identity assertions via **OpenID Connect**. It does not implement Gitea's OAuth2 **authorization-server** entities (OAuth2Application, authorization grants, access token scopes) merely because those names exist in `go-gitea/gitea/models/auth`.
+The implementation was merged to `dev` in order through PRs #108–#111,
+#113–#118. The final R26 merge commit is
+`b86af22351d4d4967ffdbe6b305b9a41f53f7c92`.
+R24 introduced the protocol client, R25 standardized credential terminology,
+and R26 retired the provider-specific runtime.
 
-## What exists on this branch
+BDSPro is an **OAuth2 client** with OIDC authentication, not an OAuth2
+authorization server. It does not implement Gitea's OAuth2 application,
+grant, or access-token-scope entities merely because those names exist in
+`go-gitea/gitea/models/auth`.
 
-- `models/auth/oauth2.go`: OIDC identity value, scoped by the exact `(issuer, subject)` tuple.
-- `models/auth/oauth2_credential.go`: persistent identity lookup and explicit linking.
-- `models/account/oauth2.go`: atomic Party/Person/Account/identity creation, verified email validation, rollback on constraint conflicts.
-- `db/migration/000013_oauth2_credentials.*`: additive migration with backfill of legacy identities; does **not** discard old data.
-- `db/query/oauth2_identity.sql` and generated SQLC code: one query implementation; application models do not hand-edit SQLC output.
-- `modules/setting/oauth2.go`: trusted issuer and endpoint configuration.
-- `services/auth/oauth2_client.go`: PKCE challenge, one-use Redis state, nonce and code exchange.
-- `services/auth/oauth2_token.go`: signed OIDC ID-token verification.
-- `services/auth/oauth2_auth.go`: account linkage/login and session workflow.
-- `routers/api/v1/user/oauth2.go`: HTTP start, callback, explicit link, phone reauthentication.
-- `modules/structs/auth.go`: request DTO, not an input for SQLC.
-- `routers/api/response/errors.go`: public HTTP error shape; raw database and provider errors are not serialized.
+## Ownership and naming
 
-## Model vs module conventions
+- `models/auth/oauth2.go` declares `OIDCClaims` from a **verified** ID token.
+  Claims are not the stored credential and do not authenticate themselves.
+- `models/auth/oauth2_credential.go` declares `OAuth2Credential` (a named
+  alias for generated SQLC persistence), `OAuth2CredentialKey` and
+  Get/Link/List operations. The key is exactly `(issuer, subject)`, never email.
+- `models/account/oauth2.go` creates Party, Person, Account and the
+  corresponding credential in one PostgreSQL transaction. Duplicate email
+  does not silently merge accounts.
+- `models/db` owns pgx, SQLC, migrations and the transaction executor.
+  Handwritten model logic belongs to `models/auth` / `models/account`.
+- `modules/setting/oauth2.go` validates trusted issuer, authorization,
+  token, JWKS, client credentials and redirect URI configuration.
+- `modules/validation` checks reusable email syntax; account linking policy
+  remains in models.
+- `services/auth/oauth2_client.go` is the OAuth2 Authorization Code/PKCE
+  coordinator (previously `OAuth2Flow`); it manages one-use Redis state,
+  nonce, code exchange and the trusted OIDC token verifier.
+- `routers/api/v1/user/oauth2.go` owns cookies, redirects and HTTP binding;
+  `modules/structs` owns HTTP request types, not SQLC query parameters.
+- `routers/api/response` translates only established model errors to public
+  HTTP codes. Unexpected pgx errors are propagated, never serialized.
 
-- The model package owns persistent behavior and invariants, not arbitrary helper registries. Model operations may call SQLC, and by default return underlying query errors unchanged.
-- `modules/setting` validates technical provider configuration. `modules/validation` checks email syntax. Provider trust and account linking are not owned by utility packages.
-- `models/db` alone owns SQLC, pgx and transaction mechanics. No `modules/errors` framework.
-- `db.Store` currently includes SQLC `Querier`; `ExecTx` passes transaction-bound `*db.Queries`. This is **not** equivalent to Gitea `db.GetEngine(ctx)`/ `db.WithTx(ctx)`. A transaction-propagation refactor requires proof of nested operations and isolation before being applied globally.
-- HTTP DTOs, model options and generated SQL params have separate owners; use a distinct type only where it protects a real semantic boundary.
-- `services/auth` orchestrates external transport and account/session operations; it must not be a generic mapper of every PostgreSQL error.
+The persistent table is `oauth2_credentials`, not `oauth2_identities`.
+The old name remains ONLY inside immutable historical migration artifacts
+and associated migration test documentation. SQLC source lives at
+`db/query/oauth2_credential.sql`; generated output is never hand-maintained.
 
-## Invariants and tests
+## Database history and compatibility
 
-- The identity key is `(issuer, subject)`, never email alone. Issuer is validated against configured trusted issuer.
-- The OAuth2 code is exchanged only with the configured HTTPS token endpoint.
-- State is random, browser-bound by HttpOnly SameSite cookie and consumed with Redis GETDEL exactly once.
-- PKCE uses S256. A fresh nonce is verified in the signed ID token.
-- ID tokens verify RS256 signature, key ID, audience, exact issuer, expiry, issue time if present, `azp` for multi-audience and nonce.
-- PostgreSQL uniqueness prevents attaching the same external identity to another account.
-- Link requires a verified local reauthentication proof; the callback alone does not authorize linking by matching email.
-- Passwordless registration and identity insert share a transaction; account creation failure cannot leave an unlinked account.
+1. `000013_oauth2_identities`: originally introduced the table and backfilled
+   legacy account links. Immutable migration history must retain that name.
+2. `000014_oauth2_legacy_sync`: provided a temporary bidirectional bridge.
+3. `000015_oauth2_credentials`: renamed the active table and its indexes.
+4. `000016_oauth2_legacy_archive`: archived the old provider-specific table
+   as `oauth2_credentials_archive` and removed active dual writes.
 
-## Remaining before integration into dev
+The rollback test `tests/integration/migrations/oauth2-credentials-upgrade.sh`
+exercises upgrading, rolling back R26 and re-upgrading while retaining account
+IDs and external credential bindings. Never deploy the old binary against the
+post-000016 schema before reversing that migration.
 
-1. Legacy Google-named source, endpoints, settings and schema are still present for compatibility and must be retired in a separate reversible change. **Historical migration files must never be rewritten**.
-2. The earlier R16 flow move is a parallel unmerged PR; reconcile rather than merge duplicate mechanisms.
-3. Complete real-provider smoke, migration rollback/upgrade edge cases, JWKS caching/rotation and provider compatibility review.
-4. Compare Gitea context-bound transaction against BDSPro explicit executor on a real cross-model workflow before changing all model signatures.
-5. Merge stacked R17–R23 into dev in order, with full CI after each integration, before R24; R14–R16 may overlap and require reconciliation.
+## Security properties and evidence
 
-Do not treat this draft as completion of the requested removal of Google-specific behavior.
+- Authorization Code with PKCE S256, random one-use Redis state, browser-bound
+  HttpOnly SameSite cookie and signed-token nonce checks.
+- Trusted issuer, audience, expiry, issued-at, authorized-party and RS256
+  signature verification. Public JWKS keys have a bounded cache and key-ID
+  refresh; HTTP redirects are never followed for sensitive token exchange.
+- External credentials are indexed by issuer and subject, not email.
+- Explicit account reauthentication is mandatory for link; verified email
+  alone is not sufficient. Phone binding requires ownership proof.
+- PostgreSQL enforces one linked subject per account per issuer.
+- CI covers rollback/upgrade, SQLC, tests, race detector, Go vet/build,
+  route/OpenAPI contract, Docker and HTTP smoke. A mock-provider browser E2E
+  also tests login, replay prevention and PKCE.
+
+## Limits and unresolved architectural choices
+
+- One trusted OIDC issuer can be configured at a time; multi-provider
+  registration and OIDC Discovery are not implemented.
+- Real-provider credential configuration and production end-to-end smoke
+  require deployment-specific secrets and are not claimed as completed.
+- BDSPro's explicit `db.Store` + `ExecTx(func(*db.Queries))` is NOT Gitea's
+  context-propagated `GetEngine(ctx)` / `WithTx(ctx)`; transaction composition
+  across models needs its own comparative implementation and isolation tests.
+- Models and modules ownership is standardized for this OAuth2 slice; this
+  does not imply every planned BDSPro model domain is implemented.
+
+R14–R16 were parallel experiments; R16's Google-specific implementation is
+superseded by R24–R26, not automatically merged as an additional runtime.
