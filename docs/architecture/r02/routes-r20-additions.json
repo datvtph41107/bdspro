@@ -1,0 +1,41 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "R20: verified Team API",
+  "notes": [
+    "Additive method/path contract only; the pinned routes-r01.json remains immutable.",
+    "All routes inherit Authenticate and VerifiedContact middleware.",
+    "Behavior and status are verified separately by routers tests, model integration tests and OpenAPI coverage."
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/organizations/:id/teams",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/organizations/:id/teams",
+      "access": "verified_contact"
+    },
+    {
+      "method": "GET",
+      "path": "/teams/:team_id",
+      "access": "verified_contact"
+    },
+    {
+      "method": "PATCH",
+      "path": "/teams/:team_id",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/teams/:team_id/members",
+      "access": "verified_contact"
+    },
+    {
+      "method": "DELETE",
+      "path": "/teams/:team_id/members/:person_id",
+      "access": "verified_contact"
+    }
+  ]
+}

@@ -69,3 +69,35 @@ func RegisterSwagger(router *Router, environment string) {
 		t.Fatalf("exported Swagger registration was not discovered: %+v", got)
 	}
 }
+
+func TestCheckRoutesPreservesHistoricalBaselineWithAdditions(t *testing.T) {
+	var baseline contract
+	baseline.Repository = "datvtph41107/bdspro"
+	baseline.Routes = []struct {
+		Method    string `json:"method"`
+		Path      string `json:"path"`
+		Access    string `json:"access"`
+		Condition string `json:"condition,omitempty"`
+	}{{Method: "GET", Path: "/health", Access: "public"}}
+
+	additions := baseline
+	additions.Routes = append(additions.Routes[:0:0], baseline.Routes[0])
+	additions.Routes[0].Path = "/teams/:team_id"
+	additions.Routes[0].Access = "verified_contact"
+
+	expected := baseline
+	expected.Routes = append(expected.Routes, additions.Routes...)
+	whole := []route{
+		{Method: "GET", Path: "/health"},
+		{Method: "GET", Path: "/teams/:team_id"},
+	}
+	if err := checkRoutes(whole, expected); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkRoutes(whole, baseline); err == nil {
+		t.Fatal("new route must fail without reviewed addition")
+	}
+	if err := checkRoutes(whole[:1], expected); err == nil {
+		t.Fatal("missing reviewed route must fail")
+	}
+}

@@ -8,7 +8,7 @@
 Schema: `db/migration/000012_teams.up.sql`.
 Queries: `db/query/team.sql`.
 Generated code: `models/db/sqlc/team.sql.gen.go` (do not edit).
-HTTP response/error codes are a separate API-contract change.
+Model errors map to explicit public response codes in `routers/api/response/errors.go`.
 
 Team membership never grants access if the user's organization membership
 has ended. No Team ↔ Git repository relation exists in BDSPro, so Gitea's
@@ -18,3 +18,25 @@ Raw invitation proofs are returned only from the model operation to the
 invoking service, which must arrange delivery and never log or persist the
 plaintext. This PR does not expose an invitation endpoint or claim durable
 delivery semantics.
+
+Domain errors in `models/organization/error.go` wrap a domain-neutral
+`modules/util` category for `errors.Is` classification, following Gitea's
+error layering. The HTTP response mapper exposes **only** explicitly listed
+model errors; generic categories and unknown driver/provider errors remain
+private. All Team errors have stable JSON `code`/status mappings and tests.
+
+## HTTP Team operations
+
+`routers/api/v1/org/team.go` parses and validates HTTP requests, and calls
+the model without embedding persistence or permission predicates. Authenticated
+requests that passed the existing verified-contact middleware may access:
+
+- `GET/POST /organizations/{id}/teams`: member list, owner create
+- `GET/PATCH /teams/{team_id}`: member read, owner rename
+- `POST /teams/{team_id}/members`: owner adds a current Organization member
+- `DELETE /teams/{team_id}/members/{person_id}`: owner removes membership
+
+The API only exposes bounded team listing. `team_invite.go` remains a model
+operation and is deliberately **not** exposed via HTTP until a durable
+notification/outbox delivery integration exists. These paths and their schemas
+are covered by the OpenAPI-to-Gin route correspondence test.
