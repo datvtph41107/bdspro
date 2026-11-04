@@ -2,11 +2,11 @@ package setting
 
 import (
 	"fmt"
-
-	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/datvtph41107/bdspro/modules/ipactive"
 )
 
 // Config holds validated settings loaded from app.ini and process overrides.
