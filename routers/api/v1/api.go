@@ -18,6 +18,7 @@ type Dependencies struct {
 	Auth         *user.AuthHandler
 	Organization *org.Handler
 	Google       *user.GoogleHandler
+	OAuth2       *user.OAuth2Handler
 	Phone        *user.PhoneHandler
 	TokenMaker   token.Maker
 	RateRedis    *redis.Client
@@ -69,6 +70,13 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 		d.Auth.ResetPassword,
 	)
 
+	if d.OAuth2 != nil {
+		route.GET("/users/oauth2/login/start",
+			middleware.IPActiveSource(d.RateRedis, "oauth2_login_start", 20, time.Minute),
+			d.OAuth2.StartLogin,
+		)
+		route.GET("/users/oauth2/callback", d.OAuth2.Callback)
+	}
 	if d.Google != nil {
 		route.GET("/users/google/login/start",
 			middleware.IPActiveSource(d.RateRedis, "google_login_start", 20, time.Minute),
@@ -116,10 +124,23 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	registerOrganizationRoutes(route.Group("/organizations", middleware.VerifiedContact(d.Store)), d)
 	registerTeamRoutes(route.Group("/teams", middleware.VerifiedContact(d.Store)), d)
 
+	if d.OAuth2 != nil {
+		route.POST("/users/me/oauth2/start",
+			middleware.IPActiveSource(d.RateRedis, "oauth2_link_start", 10, time.Minute),
+			d.OAuth2.StartLink,
+		)
+	}
 	if d.Google != nil {
 		route.POST("/users/me/google/start",
 			middleware.IPActiveSource(d.RateRedis, "google_link_start", 10, time.Minute),
 			d.Google.StartLink,
+		)
+	}
+	if d.OAuth2 != nil && d.Phone != nil {
+		route.POST("/users/me/phone/oauth2/start",
+			middleware.VerifiedEmail(d.Store),
+			middleware.IPActiveSource(d.RateRedis, "phone_oauth2_bind_start", 10, time.Hour),
+			d.OAuth2.StartPhoneBind,
 		)
 	}
 	if d.Google != nil && d.Phone != nil {

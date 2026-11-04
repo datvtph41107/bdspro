@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
@@ -27,6 +28,7 @@ type Server struct {
 	authHandler         *user.AuthHandler
 	organizationHandler *org.Handler
 	googleHandler       *user.GoogleHandler
+	oauth2Handler       *user.OAuth2Handler
 	phoneHandler        *user.PhoneHandler
 	config              setting.Config
 	store               db.Store
@@ -38,6 +40,9 @@ type Server struct {
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
 func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, resetMailers ...mail.EmailSender) (*Server, error) {
+	if cfg.OIDC.Enabled() && cfg.GoogleClientID != "" {
+		return nil, errors.New("OAuth2/OIDC and legacy OAuth provider cannot be enabled together")
+	}
 	if redisClient == nil {
 		return nil, errors.New("authentication requires Redis")
 	}
@@ -68,6 +73,17 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			&http.Client{Timeout: 10 * time.Second}, redirect.Scheme == "https",
 		)
 	}
+	if cfg.OIDC.Enabled() {
+		client := &http.Client{Timeout: 10 * time.Second}
+		flow, err := auth_service.NewOAuth2Flow(cfg.OIDC, redisClient, client)
+		if err != nil {
+			return nil, fmt.Errorf("configure oauth2: %w", err)
+		}
+		server.oauth2Handler = user.NewOAuth2Handler(
+			auth_service.NewOAuth2AuthService(store, maker, cfg), flow,
+			strings.HasPrefix(cfg.OIDC.RedirectURI, "https://"),
+		)
+	}
 	phoneSender, err := notification.NewPhoneCodeSender(cfg)
 	if err != nil {
 		return nil, err
@@ -78,6 +94,9 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			store, cfg, phoneSender, server.authThrottle,
 		)
 		server.phoneHandler.SetTokenMaker(maker)
+		if server.oauth2Handler != nil {
+			server.oauth2Handler.SetPhoneBinding(phone)
+		}
 		if server.googleHandler != nil {
 			server.googleHandler.SetPhoneBinding(phone)
 		}

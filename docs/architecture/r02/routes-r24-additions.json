@@ -1,0 +1,30 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "R24: OAuth2/OIDC login and linking",
+  "notes": [
+    "Authorization Code + PKCE with one-time state and verified OIDC ID tokens",
+    "Routes enabled only when the trusted OIDC provider is configured"
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/users/oauth2/login/start",
+      "access": "public"
+    },
+    {
+      "method": "GET",
+      "path": "/users/oauth2/callback",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/oauth2/start",
+      "access": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/phone/oauth2/start",
+      "access": "verified_email"
+    }
+  ]
+}

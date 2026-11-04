@@ -18,6 +18,14 @@ type errorResponse struct {
 // getErrorResponse maps application errors to the existing HTTP contract.
 func getErrorResponse(err error) (errorResponse, bool) {
 	switch {
+	case errors.Is(err, auth_model.ErrOAuth2IdentityAlreadyLinked):
+		return errorResponse{Status: http.StatusConflict, Code: "oauth2.identity_already_linked", Message: "external identity already linked"}, true
+	case errors.Is(err, auth_model.ErrOAuth2EmailAlreadyRegistered):
+		return errorResponse{Status: http.StatusConflict, Code: "oauth2.email_registered", Message: "email already registered; sign in to link"}, true
+	case errors.Is(err, auth_model.ErrOAuth2EmailUnverified):
+		return errorResponse{Status: http.StatusUnauthorized, Code: "oauth2.email_unverified", Message: "verified email required"}, true
+	case errors.Is(err, auth_model.ErrOIDCIssuerInvalid), errors.Is(err, auth_model.ErrOIDCSubjectInvalid):
+		return errorResponse{Status: http.StatusUnauthorized, Code: "oauth2.invalid_identity", Message: "invalid identity assertion"}, true
 	case errors.Is(err, auth_model.ErrInvalidResetToken):
 		return errorResponse{Status: http.StatusBadRequest, Code: "auth.invalid_reset_token", Message: "invalid or expired reset token"}, true
 	case errors.Is(err, auth_model.ErrInvalidPassword):

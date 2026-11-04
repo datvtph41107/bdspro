@@ -56,3 +56,9 @@ type EmailLinkStartRequest struct {
 type EmailLinkConfirmRequest struct {
 	Token string `json:"token" binding:"required,len=43"`
 }
+
+// OAuth2LinkRequest requires local reauthentication before linking a provider.
+type OAuth2LinkRequest struct {
+	Password  string `json:"password"`
+	PhoneCode string `json:"phone_code"`
+}

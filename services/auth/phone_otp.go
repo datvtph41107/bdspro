@@ -90,6 +90,29 @@ func (s PhoneOTP) StartBind(ctx context.Context, accountID int64, password, phon
 	return s.startBind(ctx, accountID, phone)
 }
 
+// StartOAuth2Bind requires a fresh OIDC assertion whose issuer/subject is
+// already linked to this very account. Matching email never authorizes binding.
+func (s PhoneOTP) StartOAuth2Bind(ctx context.Context, accountID int64, identity auth_model.OIDCIdentity, phone string) error {
+	if err := s.allowed(); err != nil {
+		return err
+	}
+	if !phoneE164.MatchString(phone) {
+		return auth_model.ErrInvalidPhone
+	}
+	key, err := identity.Key()
+	if err != nil || !s.Config.OIDC.Enabled() || key.Issuer != s.Config.OIDC.Issuer {
+		return auth_model.ErrInvalidCredentials
+	}
+	linkedID, err := auth_model.GetOAuth2AccountID(ctx, s.Store, key)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && linkedID != accountID) {
+		return auth_model.ErrInvalidCredentials
+	}
+	if err != nil {
+		return err
+	}
+	return s.startBind(ctx, accountID, phone)
+}
+
 // StartGoogleBind is called only after an OAuth callback verified Google's ID
 // token, state, nonce and PKCE. The linked subject must own this account.
 func (s PhoneOTP) StartGoogleBind(ctx context.Context, accountID int64, googleSubject, phone string) error {
