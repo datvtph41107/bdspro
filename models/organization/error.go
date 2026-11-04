@@ -1,6 +1,11 @@
 package organization
 
-import "github.com/datvtph41107/bdspro/modules/util"
+import (
+	"errors"
+
+	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/jackc/pgx/v5/pgconn"
+)
 
 var (
 	ErrTeamNotFound              = util.WithKind(util.ErrNotExist, "team not found")
@@ -19,3 +24,10 @@ var (
 	ErrMembershipExists          = util.WithKind(util.ErrAlreadyExist, "membership already exists")
 	ErrPersonUnavailable         = util.WithKind(util.ErrNotExist, "person unavailable")
 )
+
+// isPGConstraint recognizes an exact database invariant owned by this model.
+// SQLSTATE alone is not sufficient: unrelated constraints remain internal.
+func isPGConstraint(err error, state, constraint string) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == state && pgErr.ConstraintName == constraint
+}

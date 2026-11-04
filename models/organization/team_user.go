@@ -6,7 +6,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/datvtph41107/bdspro/modules/util"
 )
 
 // AddTeamUser requires an active Organization owner and an active Organization member.
@@ -15,11 +15,10 @@ func AddTeamUser(ctx context.Context, store db.Store, actorAccountID, teamID, pe
 		TeamID: teamID, ActorAccountID: actorAccountID, PersonID: personID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.TeamMember{}, ErrTeamOwnerRequired
+		return db.TeamMember{}, util.WithCause(ErrTeamOwnerRequired, err)
 	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "team_members_pkey" {
-		return db.TeamMember{}, errors.Join(ErrTeamMemberExists, err)
+	if isPGConstraint(err, "23505", "team_members_pkey") {
+		return db.TeamMember{}, util.WithCause(ErrTeamMemberExists, err)
 	}
 	return member, err
 }

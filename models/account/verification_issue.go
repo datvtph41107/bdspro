@@ -8,8 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var ErrEmailAlreadyVerified = errors.New("email already verified")
-
 // GetOrCreateVerifyEmail locks the account row to serialize verification
 // workers. Retry after failed SMTP delivery reuses the still-valid proof.
 func GetOrCreateVerifyEmail(ctx context.Context, tx Transactioner, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error) {

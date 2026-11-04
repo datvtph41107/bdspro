@@ -1,17 +1,8 @@
 package auth
 
 import (
-	"errors"
 	"net/url"
 	"strings"
-)
-
-var (
-	ErrOIDCIssuerInvalid             = errors.New("invalid OIDC issuer")
-	ErrOIDCSubjectInvalid            = errors.New("invalid OIDC subject")
-	ErrOAuth2CredentialAlreadyLinked = errors.New("external identity already linked")
-	ErrOAuth2EmailUnverified         = errors.New("external identity email unverified")
-	ErrOAuth2EmailAlreadyRegistered  = errors.New("email already registered; reauthentication required")
 )
 
 // OIDCClaims carries identity claims AFTER an OpenID Connect ID token was

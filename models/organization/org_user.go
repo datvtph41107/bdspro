@@ -6,7 +6,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/datvtph41107/bdspro/modules/util"
 )
 
 func GetOrgMembers(ctx context.Context, store Store, actorAccountID, organizationID int64) ([]db.ListOrganizationMembersForOwnerRow, error) {
@@ -30,16 +30,13 @@ func AddOrgUser(ctx context.Context, store Store, actorAccountID, organizationID
 		OrganizationID: organizationID, PersonID: personID, ActorAccountID: actorAccountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.OrganizationMember{}, ErrOrganizationOwnerRequired
+		return db.OrganizationMember{}, util.WithCause(ErrOrganizationOwnerRequired, err)
 	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		switch {
-		case pgErr.Code == "23505" && pgErr.ConstraintName == "organization_members_one_open_uq":
-			return db.OrganizationMember{}, errors.Join(ErrMembershipExists, err)
-		case pgErr.Code == "23503" && pgErr.ConstraintName == "organization_members_person_id_fkey":
-			return db.OrganizationMember{}, errors.Join(ErrPersonUnavailable, err)
-		}
+	if isPGConstraint(err, "23505", "organization_members_one_open_uq") {
+		return db.OrganizationMember{}, util.WithCause(ErrMembershipExists, err)
+	}
+	if isPGConstraint(err, "23503", "organization_members_person_id_fkey") {
+		return db.OrganizationMember{}, util.WithCause(ErrPersonUnavailable, err)
 	}
 	return member, err
 }

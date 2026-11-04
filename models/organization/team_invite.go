@@ -12,7 +12,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/validation"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/datvtph41107/bdspro/modules/util"
 )
 
 // CreatedTeamInvite contains the raw secret once; never persist or log Token.
@@ -54,11 +54,10 @@ func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamI
 		return q.RecordTeamInviteJob(ctx, invite.ID)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return result, ErrTeamOwnerRequired
+		return result, util.WithCause(ErrTeamOwnerRequired, err)
 	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "team_invites_open_uq" {
-		return result, errors.Join(ErrTeamInviteExists, err)
+	if isPGConstraint(err, "23505", "team_invites_open_uq") {
+		return result, util.WithCause(ErrTeamInviteExists, err)
 	}
 	if err != nil {
 		return result, err

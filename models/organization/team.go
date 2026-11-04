@@ -8,7 +8,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/datvtph41107/bdspro/modules/util"
 )
 
 type CreateTeamOptions struct {
@@ -57,11 +57,10 @@ func RenameTeam(ctx context.Context, store db.Store, actorAccountID, teamID int6
 
 func teamWriteError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrTeamOwnerRequired
+		return util.WithCause(ErrTeamOwnerRequired, err)
 	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "teams_org_name_uq" {
-		return errors.Join(ErrTeamAlreadyExists, err)
+	if isPGConstraint(err, "23505", "teams_org_name_uq") {
+		return util.WithCause(ErrTeamAlreadyExists, err)
 	}
 	return err
 }

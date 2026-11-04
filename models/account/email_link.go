@@ -8,13 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var (
-	ErrEmailLinkUnavailable = errors.New("account cannot attach an email")
-	ErrEmailLinkTaken       = errors.New("email address belongs to another account")
-	ErrEmailLinkCooldown    = errors.New("email verification temporarily unavailable")
-	ErrEmailLinkInvalid     = errors.New("invalid or expired email link")
-)
-
 // BeginEmailLink serializes a phone-first account's email-link request.
 // The current SQLC query owns the resend cooldown and address availability.
 func BeginEmailLink(ctx context.Context, tx Transactioner, accountID int64, email string, hash []byte) error {

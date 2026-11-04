@@ -7,6 +7,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/datvtph41107/bdspro/modules/util"
 )
 
 // OAuth2Credential is the persistent Account-to-issuer binding. The alias
@@ -47,12 +48,12 @@ func LinkOAuth2Credential(ctx context.Context, queries db.Querier, accountID int
 		Issuer: key.Issuer, Subject: key.Subject, AccountID: accountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrOAuth2CredentialAlreadyLinked
+		return util.WithCause(ErrOAuth2CredentialAlreadyLinked, err)
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
 		pgErr.ConstraintName == "oauth2_credentials_account_issuer_uq" {
-		return ErrOAuth2CredentialAlreadyLinked
+		return util.WithCause(ErrOAuth2CredentialAlreadyLinked, err)
 	}
 	return err
 }
