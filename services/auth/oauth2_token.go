@@ -60,7 +60,7 @@ func (v OIDCTokenVerifier) Verify(ctx context.Context, raw, expectedNonce string
 		}
 		return fetchOIDCRSAKey(ctx, v.Client, v.JWKSURL, kid)
 	})
-	if err != nil || token == nil || !token.Valid {
+	if err != nil || token == nil || !token.Valid || claims.IssuedAt == nil {
 		return empty, errors.New("invalid OIDC ID token")
 	}
 	if (claims.AuthorizedParty != "" && claims.AuthorizedParty != v.Audience) ||

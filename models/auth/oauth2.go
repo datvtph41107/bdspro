@@ -41,6 +41,14 @@ func (identity OIDCIdentity) Key() (IdentityKey, error) {
 		parsed.Opaque != "" || parsed.String() != issuer {
 		return IdentityKey{}, ErrOIDCIssuerInvalid
 	}
+	if len(identity.Subject) > 255 {
+		return IdentityKey{}, ErrOIDCSubjectInvalid
+	}
+	for i := 0; i < len(identity.Subject); i++ {
+		if identity.Subject[i] > 127 {
+			return IdentityKey{}, ErrOIDCSubjectInvalid
+		}
+	}
 	if strings.TrimSpace(identity.Subject) == "" || identity.Subject != strings.TrimSpace(identity.Subject) {
 		return IdentityKey{}, ErrOIDCSubjectInvalid
 	}

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -16,6 +17,8 @@ func TestOIDCIdentityKey(t *testing.T) {
 		{name: "insecure issuer", identity: OIDCIdentity{Issuer: "http://example.test", Subject: "subject-1"}, wantErr: ErrOIDCIssuerInvalid},
 		{name: "query issuer", identity: OIDCIdentity{Issuer: "https://example.test?x=1", Subject: "subject-1"}, wantErr: ErrOIDCIssuerInvalid},
 		{name: "empty subject", identity: OIDCIdentity{Issuer: "https://example.test", Subject: " "}, wantErr: ErrOIDCSubjectInvalid},
+		{name: "non-ascii subject", identity: OIDCIdentity{Issuer: "https://example.test", Subject: "émail"}, wantErr: ErrOIDCSubjectInvalid},
+		{name: "long subject", identity: OIDCIdentity{Issuer: "https://example.test", Subject: strings.Repeat("x", 256)}, wantErr: ErrOIDCSubjectInvalid},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

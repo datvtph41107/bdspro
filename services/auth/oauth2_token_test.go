@@ -84,6 +84,13 @@ func TestOIDCTokenVerifierRejectsWrongIssuerAndNonce(t *testing.T) {
 			_, err := copy.Verify(context.Background(), sign(), "browser-nonce")
 			return err
 		}},
+		{"missing issued-at", func() error {
+			old := claims.IssuedAt
+			claims.IssuedAt = nil
+			defer func() { claims.IssuedAt = old }()
+			_, err := verifier.Verify(context.Background(), sign(), "browser-nonce")
+			return err
+		}},
 		{"expired", func() error {
 			old := claims.ExpiresAt
 			claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(-2 * time.Minute))
