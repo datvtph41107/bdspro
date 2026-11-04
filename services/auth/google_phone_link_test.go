@@ -1,10 +1,10 @@
 package auth
 
 import (
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"bytes"
 	"context"
 	"errors"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"testing"
 
 	db "github.com/datvtph41107/bdspro/models/db"

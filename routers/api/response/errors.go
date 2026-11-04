@@ -1,12 +1,11 @@
 package response
 
 import (
-	organization_model "github.com/datvtph41107/bdspro/models/organization"
+	"errors"
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
-	"errors"
+	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"net/http"
-
 )
 
 // errorResponse contains the HTTP status and safe client message for a Go error.

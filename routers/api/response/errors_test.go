@@ -1,11 +1,11 @@
 package response
 
 import (
-	organization_model "github.com/datvtph41107/bdspro/models/organization"
-	account_model "github.com/datvtph41107/bdspro/models/account"
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"bytes"
 	"errors"
+	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"net/http"
 	"net/http/httptest"
 	"strings"

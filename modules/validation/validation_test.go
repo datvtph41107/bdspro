@@ -5,7 +5,7 @@ import "testing"
 func TestPasswordLength(t *testing.T) {
 	for _, tt := range []struct {
 		password string
-		want bool
+		want     bool
 	}{
 		{"1234567", false},
 		{"12345678", true},
@@ -21,7 +21,7 @@ func TestPasswordLength(t *testing.T) {
 func TestEmailAddress(t *testing.T) {
 	for _, tt := range []struct {
 		input, canonical string
-		valid bool
+		valid            bool
 	}{
 		{" A@Example.COM ", "a@example.com", true},
 		{"not-an-email", "not-an-email", false},

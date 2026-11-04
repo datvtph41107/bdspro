@@ -1,14 +1,14 @@
 package auth
 
 import (
-	"github.com/datvtph41107/bdspro/modules/validation"
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	"github.com/datvtph41107/bdspro/modules/validation"
 	"html"
 	"strings"
 	"time"

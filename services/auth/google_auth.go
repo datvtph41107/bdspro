@@ -1,10 +1,10 @@
 package auth
 
 import (
-	"github.com/jackc/pgx/v5/pgconn"
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"context"
 	"errors"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
