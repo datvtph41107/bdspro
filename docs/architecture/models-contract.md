@@ -78,3 +78,14 @@ The recipient's **active organization membership** is additionally locked when a
 Read paths are not locked. `ConsumeTeamInvite` still has a distinct multi-table `UPDATE ... FROM` shape and is deliberately not claimed as completely race-safe without its own concurrency test. The acceptance test must prove the lock dependency and the denied write after the revocation commits. No public errors or API endpoint contracts change.
 
 This mirrors the responsibility boundary Gitea uses for persisted membership permissions while keeping BDSPro's SQLC/pgx query and schema canonical.
+
+
+## Creator account ownership and transaction scope (PR #130)
+
+A `Person` row is durable even if its corresponding `Account` is deleted. Therefore, reading an actor account *before* the create-organization transaction and then inserting an owner membership based only on the existing `persons` FK permits a stale account identity to create an organization.
+
+`db/query/organization.sql::LockOrganizationCreator` selects the actor's `person_id` with `FOR KEY SHARE` **inside** the same transaction as Party, Organization, and owner membership creation. Under PostgreSQL READ COMMITTED, a committed account delete makes that lookup return no row; a pending delete blocks the lookup and is checked again after the delete commits. The resulting `account.ErrAccountUnavailable` retains the existing public API contract and a failed workflow returns zero Organization.
+
+`FOR KEY SHARE` rather than `FOR SHARE` is deliberate: it protects account existence and identity without unnecessarily blocking non-key updates (e.g. verifying an email). This is *not* a global guarantee that a separate future account-deletion workflow will preserve organizations after their owner account is deleted; account deletion needs its own explicit lifecycle policy and acceptance tests.
+
+PostgreSQL integration tests use two pinned backends and `pg_blocking_pids` to prove the real waiting relationship, then check the deleted creator is rejected and no orphaned organization is committed. Generated SQLC and interface output are checked for reproducibility; generated files are not a second source of truth.
