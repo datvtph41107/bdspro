@@ -41,8 +41,8 @@ sqlc:
 sqlc-check:
 	@$(MAKE) --no-print-directory generated
 	@git diff --exit-code -- models/db/sqlc models/db/sqlc_types.gen.go
-	@test -z "$(git ls-files --others --exclude-standard models/db/sqlc models/db/sqlc_types.gen.go)"
-	@test -z "$(find models/db -maxdepth 1 -name '*.sql.go' -print -quit)"
+	@test -z "$$(git ls-files --others --exclude-standard models/db/sqlc models/db/sqlc_types.gen.go)"
+	@test -z "$$(find models/db -maxdepth 1 -name '*.sql.go' -print -quit)"
 
 test:
 	go test -v ./...
@@ -66,7 +66,7 @@ worker: config-local
 swagger: swagger-check
 
 swagger-check:
-	go test ./routers -run '^TestOpenAPICoverage$|^TestSwaggerAssetsDevelopmentOnly$' -count=1
+	go test ./routers -run '^TestOpenAPICoverage$$|^TestSwaggerAssetsDevelopmentOnly$$' -count=1
 
 # Same application binary as Docker, but written to a local, ignored build directory.
 .PHONY: build watch race vet
