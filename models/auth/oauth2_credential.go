@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/datvtph41107/bdspro/modules/util"
+	db "github.com/datvtph41107/bdspro/models/db"
 )
 
 // OAuth2Credential is the persistent Account-to-issuer binding. The alias

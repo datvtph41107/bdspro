@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/jackc/pgx/v5"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/jackc/pgx/v5"
+	db "github.com/datvtph41107/bdspro/models/db"
 )
 
 // AddTeamUser requires an active Organization owner and an active Organization member.
