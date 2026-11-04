@@ -43,17 +43,17 @@ func (s *phoneBindingStore) GetPhoneForAccount(_ context.Context, _ int64) (stri
 	return "", pgx.ErrNoRows
 }
 
-func (s *phoneBindingStore) AccountIDForPhone(_ context.Context, _ string) (int64, error) {
+func (s *phoneBindingStore) GetPhoneAccountIDQuery(_ context.Context, _ string) (int64, error) {
 	if s.existingPhone != 0 {
 		return s.existingPhone, nil
 	}
 	return 0, pgx.ErrNoRows
 }
 
-func (s *phoneBindingStore) StartChallenge(_ context.Context, _, _ string, _ int64, _ []byte, code string) error {
+func (s *phoneBindingStore) UpsertPhoneChallengeQuery(_ context.Context, arg db.UpsertPhoneChallengeQueryParams) (int64, error) {
 	s.issued++
-	s.lastCode = code
-	return nil
+	s.lastCode = arg.DevCode
+	return 1, nil
 }
 
 func TestGoogleSubjectMustOwnPhoneBindingAccount(t *testing.T) {

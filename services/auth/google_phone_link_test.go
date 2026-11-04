@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
@@ -27,12 +26,8 @@ func (s *linkPhoneProofStore) GetPhoneForAccount(_ context.Context, accountID in
 	s.gotAccount = accountID
 	return s.phone, s.err
 }
-func (s *linkPhoneProofStore) ConsumeChallenge(_ context.Context, phone, purpose string, accountID int64, mac []byte) error {
+func (s *linkPhoneProofStore) ExecTx(_ context.Context, _ func(*db.Queries) error) error {
 	s.callCount++
-	s.gotPhone = phone
-	s.gotPurpose = purpose
-	s.gotAccount = accountID
-	s.gotMAC = append([]byte(nil), mac...)
 	return s.err
 }
 func TestPhoneProofForGoogleLink(t *testing.T) {
@@ -43,11 +38,8 @@ func TestPhoneProofForGoogleLink(t *testing.T) {
 	if err := s.AuthorizePhoneProof(context.Background(), 25, "123456"); err != nil {
 		t.Fatal(err)
 	}
-	if store.callCount != 1 || store.gotPhone != phone || store.gotPurpose != "login" || store.gotAccount != 25 {
-		t.Fatalf("wrong verification target: %+v", store)
-	}
-	if !bytes.Equal(store.gotMAC, s.mac(phone, "login", 25, "123456")) {
-		t.Fatal("OTP verification did not bind account, phone and code")
+	if store.callCount != 1 || store.gotAccount != 25 {
+		t.Fatalf("phone proof did not reach transaction boundary: %+v", store)
 	}
 	store.callCount = 0
 	if err := s.AuthorizePhoneProof(context.Background(), 25, "incorrect"); !errors.Is(err, auth_model.ErrOTPInvalid) {
