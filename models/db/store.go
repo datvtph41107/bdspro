@@ -13,8 +13,6 @@ type Store interface {
 	GetAccountByID(ctx context.Context, id int64) (Account, error)
 	GetAccountByEmail(ctx context.Context, email string) (Account, error)
 	ExecTx(ctx context.Context, fn func(*Queries) error) error
-	LinkGoogleIdentity(ctx context.Context, arg LinkGoogleIdentityParams) error
-	GetGoogleAccountID(ctx context.Context, googleSub string) (int64, error)
 }
 
 type SQLStore struct {
