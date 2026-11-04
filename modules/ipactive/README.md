@@ -67,5 +67,6 @@ keys in bulk. Keep the separate per-IP/credential `AuthThrottle` and
 Run `go test ./modules/ipactive ./modules/setting ./routers/...`.
 With `BDS_TEST_REDIS_ADDR`, integration tests cover concurrent admission,
 counting, cooldown, key compatibility, isolation, invalid source and failure
-behavior. Production behavior also depends on configuring **trusted proxies**
+behavior. A Gin integration test also rejects a spoofed X-Forwarded-For
+header and proves denied requests cannot enter their downstream handler. Production behavior also depends on configuring **trusted proxies**
 correctly; raw `X-Forwarded-For` is never accepted as a source.
