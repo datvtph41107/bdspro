@@ -9,7 +9,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/token"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
@@ -30,7 +30,7 @@ type Server struct {
 	phoneHandler        *user.PhoneHandler
 	config              setting.Config
 	store               db.Store
-	tokenMaker          token.Maker
+	tokenMaker          authcrypto.Maker
 	router              *gin.Engine
 	authRateRedis       *redis.Client
 	authThrottle        *middleware.AuthThrottle
@@ -41,7 +41,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	if redisClient == nil {
 		return nil, errors.New("authentication requires Redis")
 	}
-	maker, err := token.NewJWTMaker(cfg.Authentication().JWTSecret)
+	maker, err := authcrypto.NewJWTMaker(cfg.Authentication().JWTSecret)
 	if err != nil {
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}

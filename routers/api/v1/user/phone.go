@@ -8,7 +8,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/token"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
@@ -68,7 +68,7 @@ func (h *PhoneHandler) VerifyBind(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func (h *PhoneHandler) SetTokenMaker(maker token.Maker) { h.phone.Maker = maker }
+func (h *PhoneHandler) SetTokenMaker(maker authcrypto.Maker) { h.phone.Maker = maker }
 
 // Phone signup and login are public; no AccountID is available until OTP
 // succeeds. The same IP/credential admission contract applies to each action.
