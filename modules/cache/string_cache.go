@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	ErrInvalidTTL = errors.New("cache TTL must be positive")
+	ErrInvalidTTL     = errors.New("cache TTL must be positive")
 	ErrLoaderRequired = errors.New("cache loader is required")
 )
 
