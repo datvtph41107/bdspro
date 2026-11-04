@@ -27,8 +27,22 @@ migratedown1: config-local
 new_migration:
 	migrate create -ext sql -dir db/migration -seq $(name)
 
+# SQLC source is generated only in models/db/sqlc; public aliases are generated too.
+.PHONY: generated sqlc-check
+generated: sqlc
+
 sqlc:
+	sqlc compile
+	@mkdir -p models/db/sqlc
+	@find models/db/sqlc -maxdepth 1 -type f -name '*.go' -delete
 	sqlc generate
+	go run ./tools/dbalias
+
+sqlc-check:
+	@$(MAKE) --no-print-directory generated
+	@git diff --exit-code -- models/db/sqlc models/db/sqlc_types.gen.go
+	@test -z "$$(git ls-files --others --exclude-standard models/db/sqlc models/db/sqlc_types.gen.go)"
+	@test -z "$$(find models/db -maxdepth 1 -name '*.sql.go' -print -quit)"
 
 test:
 	go test -v ./...
@@ -52,7 +66,7 @@ worker: config-local
 swagger: swagger-check
 
 swagger-check:
-	go test ./routers/api -run '^TestOpenAPICoverage$$|^TestSwaggerAssetsDevelopmentOnly$$' -count=1
+	go test ./routers -run '^TestOpenAPICoverage$$|^TestSwaggerAssetsDevelopmentOnly$$' -count=1
 
 # Same application binary as Docker, but written to a local, ignored build directory.
 .PHONY: build watch race vet

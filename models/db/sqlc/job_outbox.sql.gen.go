@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: job_outbox.sql
 
-package db
+package sqlc
 
 import (
 	"context"

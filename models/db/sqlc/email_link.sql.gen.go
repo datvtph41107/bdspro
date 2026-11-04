@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: email_link.sql
 
-package db
+package sqlc
 
 import (
 	"context"
