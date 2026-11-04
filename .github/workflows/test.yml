@@ -78,6 +78,12 @@ jobs:
           BDS_TEST_MODE: disposable
         run: bash tests/integration/migrations/organization-members-upgrade.sh
 
+      - name: Verify OAuth2 credential cut-over and rollback
+        env:
+          PGPASSWORD: secret
+          BDS_TEST_MODE: disposable
+        run: bash tests/integration/migrations/oauth2-credentials-upgrade.sh
+
       - name: Verify Go formatting
         run: |
           unformatted="$(gofmt -l .)"
