@@ -62,13 +62,13 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 				t.Error("PKCE verifier does not match authorization challenge")
 			}
 			claims := jwt.MapClaims{
-				"iss": issuer,
-				"sub": "external-subject",
-				"aud": clientID,
-				"exp": time.Now().Add(10 * time.Minute).Unix(),
-				"iat": time.Now().Add(-time.Minute).Unix(),
-				"nonce": nonce,
-				"email": email,
+				"iss":            issuer,
+				"sub":            "external-subject",
+				"aud":            clientID,
+				"exp":            time.Now().Add(10 * time.Minute).Unix(),
+				"iat":            time.Now().Add(-time.Minute).Unix(),
+				"nonce":          nonce,
+				"email":          email,
 				"email_verified": true,
 			}
 			token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
@@ -89,10 +89,13 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 	issuer = provider.URL
 	cfg := server.config
 	cfg.OIDC = setting.OAuth2Provider{
-		Issuer: issuer, AuthorizationURL: issuer + "/authorize",
-		TokenURL: issuer + "/token", JWKSURL: issuer + "/keys",
-		ClientID: clientID, ClientSecret: "test-secret",
-		RedirectURI: "http://localhost/users/oauth2/callback",
+		Issuer:           issuer,
+		AuthorizationURL: issuer + "/authorize",
+		TokenURL:         issuer + "/token",
+		JWKSURL:          issuer + "/keys",
+		ClientID:         clientID,
+		ClientSecret:     "test-secret",
+		RedirectURI:      "http://localhost/users/oauth2/callback",
 	}
 	flow, err := auth_service.NewOAuth2Flow(cfg.OIDC, server.authRateRedis, provider.Client())
 	if err != nil {
@@ -159,5 +162,4 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 	if firstID != secondID {
 		t.Fatalf("the same issuer/subject generated two accounts: %d != %d", firstID, secondID)
 	}
-
 }
