@@ -21,9 +21,9 @@ type GetOAuth2AccountIDParams struct {
 
 func (q *Queries) GetOAuth2AccountID(ctx context.Context, arg GetOAuth2AccountIDParams) (int64, error) {
 	row := q.db.QueryRow(ctx, getOAuth2AccountID, arg.Issuer, arg.Subject)
-	var accountID int64
-	err := row.Scan(&accountID)
-	return accountID, err
+	var account_id int64
+	err := row.Scan(&account_id)
+	return account_id, err
 }
 
 const linkOAuth2Identity = `-- name: LinkOAuth2Identity :one
@@ -43,9 +43,9 @@ type LinkOAuth2IdentityParams struct {
 
 func (q *Queries) LinkOAuth2Identity(ctx context.Context, arg LinkOAuth2IdentityParams) (int64, error) {
 	row := q.db.QueryRow(ctx, linkOAuth2Identity, arg.Issuer, arg.Subject, arg.AccountID)
-	var accountID int64
-	err := row.Scan(&accountID)
-	return accountID, err
+	var account_id int64
+	err := row.Scan(&account_id)
+	return account_id, err
 }
 
 const listOAuth2IdentitiesForAccount = `-- name: ListOAuth2IdentitiesForAccount :many
@@ -54,16 +54,21 @@ FROM oauth2_identities WHERE account_id = $1
 ORDER BY linked_at, issuer, subject
 `
 
-func (q *Queries) ListOAuth2IdentitiesForAccount(ctx context.Context, accountID int64) ([]OAuth2Identity, error) {
+func (q *Queries) ListOAuth2IdentitiesForAccount(ctx context.Context, accountID int64) ([]Oauth2Identity, error) {
 	rows, err := q.db.Query(ctx, listOAuth2IdentitiesForAccount, accountID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []OAuth2Identity
+	var items []Oauth2Identity
 	for rows.Next() {
-		var i OAuth2Identity
-		if err := rows.Scan(&i.Issuer, &i.Subject, &i.AccountID, &i.LinkedAt); err != nil {
+		var i Oauth2Identity
+		if err := rows.Scan(
+			&i.Issuer,
+			&i.Subject,
+			&i.AccountID,
+			&i.LinkedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

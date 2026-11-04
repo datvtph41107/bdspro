@@ -45,7 +45,7 @@ type JobOutbox struct {
 	QueuedAt  pgtype.Timestamptz `json:"queued_at"`
 }
 
-type OAuth2Identity struct {
+type Oauth2Identity struct {
 	Issuer    string    `json:"issuer"`
 	Subject   string    `json:"subject"`
 	AccountID int64     `json:"account_id"`
