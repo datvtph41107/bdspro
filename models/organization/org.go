@@ -15,18 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// Store is the database capability this model actually consumes. The current
-// db.Store satisfies it without a new repository implementation.
-type Store interface {
-	GetAccountByID(context.Context, int64) (db.Account, error)
-	ExecTx(context.Context, func(*db.Queries) error) error
-	ListOrganizationsForAccount(context.Context, int64) ([]db.ListOrganizationsForAccountRow, error)
-	GetOrganizationForAccount(context.Context, db.GetOrganizationForAccountParams) (db.GetOrganizationForAccountRow, error)
-	UpdateOrganization(context.Context, db.UpdateOrganizationParams) (db.Organization, error)
-	ListOrganizationMembersForOwner(context.Context, db.ListOrganizationMembersForOwnerParams) ([]db.ListOrganizationMembersForOwnerRow, error)
-	AddOrganizationMember(context.Context, db.AddOrganizationMemberParams) (db.OrganizationMember, error)
-}
-
 // Access includes the account-scoped membership returned by SQL. It is not an
 // HTTP representation and does not grant permission by itself.
 type Access struct {
@@ -47,7 +35,7 @@ func organizationName(name string) (string, error) {
 // CreateOrganization creates the party, organization, and initial owner in
 // one PostgreSQL transaction. This is the equivalent of Gitea's
 // models/organization.CreateOrganization, but using SQLC instead of XORM.
-func CreateOrganization(ctx context.Context, store Store, actorAccountID int64, name string) (db.Organization, error) {
+func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int64, name string) (db.Organization, error) {
 	name, err := organizationName(name)
 	if err != nil {
 		return db.Organization{}, err
@@ -83,7 +71,7 @@ func CreateOrganization(ctx context.Context, store Store, actorAccountID int64, 
 	return created, nil
 }
 
-func ListForAccount(ctx context.Context, store Store, actorAccountID int64) ([]Access, error) {
+func ListForAccount(ctx context.Context, store db.Store, actorAccountID int64) ([]Access, error) {
 	rows, err := store.ListOrganizationsForAccount(ctx, actorAccountID)
 	if err != nil {
 		return nil, err
@@ -99,7 +87,7 @@ func ListForAccount(ctx context.Context, store Store, actorAccountID int64) ([]A
 }
 
 // GetForAccount preserves the account visibility predicate in SQLC.
-func GetForAccount(ctx context.Context, store Store, actorAccountID, organizationID int64) (Access, error) {
+func GetForAccount(ctx context.Context, store db.Store, actorAccountID, organizationID int64) (Access, error) {
 	row, err := store.GetOrganizationForAccount(ctx, db.GetOrganizationForAccountParams{
 		AccountID: actorAccountID, OrganizationID: organizationID,
 	})
@@ -117,7 +105,7 @@ func GetForAccount(ctx context.Context, store Store, actorAccountID, organizatio
 
 // UpdateOrganization must keep the owner-guarded atomic SQLC UPDATE; replacing
 // this with a separate "check permission, then update" introduces a race.
-func UpdateOrganization(ctx context.Context, store Store, actorAccountID, organizationID int64, name string) (db.Organization, error) {
+func UpdateOrganization(ctx context.Context, store db.Store, actorAccountID, organizationID int64, name string) (db.Organization, error) {
 	name, err := organizationName(name)
 	if err != nil {
 		return db.Organization{}, err

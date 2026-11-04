@@ -36,3 +36,9 @@ All team and team-member SQLC list operations use `db.ListOptions.GetSkipTake32`
 ### Audit and acceptance
 
 Model changes are not complete merely when `go test ./...` is green. Acceptance requires PostgreSQL integration on a disposable DB, race/vet/build, schema/query consistency, HTTP error regression tests and source SHA recorded in the PR.
+
+## Public error contract (Gitea-inspired)
+
+Explicit domain failures use `util.WithPublic(category, modelMessage, clientCode, clientMessage)` in the owning `models/<area>/error.go`. `util.ErrorForClient` recognizes this concrete declaration through wrapped error chains. Ordinary `util.WithKind`, unknown SQL/provider errors and raw categories are **not** public. `routers/api/response` has exactly one generic category-to-status mapping, without per-model switches or `models/` imports. Existing `{code,error}` values are regression-tested. Do not put driver errors or user-supplied secrets in `clientMessage`.
+
+`models/db.Store` remains the single production SQLC store contract across account, authentication and organization. Do not introduce a second store implementation merely to resemble Gitea's XORM engine. A narrow consumer interface is appropriate only when an operation's test seam or alternate dependency genuinely needs it; it must not become a parallel database source of truth.

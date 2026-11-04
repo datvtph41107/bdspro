@@ -6,7 +6,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/util"
 )
 
-// Authentication model errors have no HTTP status or public message contract.
+// Authentication model errors own stable client codes/messages but never an HTTP status.
 var (
 	ErrPasswordResetInvalid          = errors.New("invalid or expired password reset")
 	ErrInvalidResetToken             = util.WithPublic(util.ErrInvalidArgument, "invalid reset token", "auth.invalid_reset_token", "invalid or expired reset token")
