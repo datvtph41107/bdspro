@@ -9,6 +9,22 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// OAuth2Credential is the persistent Account-to-issuer binding. The alias
+// exposes the expected OAuth2 capitalization without copying the SQLC model.
+type OAuth2Credential = db.Oauth2Credential
+
+// OAuth2CredentialKey identifies an external subject within its issuer.
+// Neither email nor a provider display name is an account-linking key.
+type OAuth2CredentialKey struct {
+	Issuer  string
+	Subject string
+}
+
+// ListOAuth2CredentialsForAccount reads all credentials linked to an Account.
+func ListOAuth2CredentialsForAccount(ctx context.Context, queries db.Querier, accountID int64) ([]OAuth2Credential, error) {
+	return queries.ListOAuth2CredentialsForAccount(ctx, accountID)
+}
+
 // GetOAuth2AccountID reads a verified external identity binding.
 // A missing identity returns the query's error unchanged.
 func GetOAuth2AccountID(ctx context.Context, queries db.Querier, key OAuth2CredentialKey) (int64, error) {

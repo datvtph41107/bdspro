@@ -35,7 +35,6 @@ func TestOpenAPICoverage(t *testing.T) {
 	s := &Server{
 		authHandler:         user.NewAuthHandler(nil, nil),
 		organizationHandler: org.NewHandler(nil),
-		googleHandler:       user.NewGoogleHandler(nil, setting.Config{}, nil, nil, false),
 		oauth2Handler:       user.NewOAuth2Handler(nil, nil, false),
 		phoneHandler:        user.NewPhoneHandler(nil, setting.Config{}, nil, nil),
 	}
@@ -44,7 +43,6 @@ func TestOpenAPICoverage(t *testing.T) {
 	apiv1.Routes(root, apiv1.Dependencies{
 		Auth:         s.authHandler,
 		Organization: s.organizationHandler,
-		Google:       s.googleHandler,
 		OAuth2:       s.oauth2Handler,
 		Phone:        s.phoneHandler,
 		TokenMaker:   s.tokenMaker,

@@ -162,7 +162,13 @@ func (f *OAuth2Client) Exchange(ctx context.Context, code, verifier string) (str
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	res, err := f.client.Do(req)
+	// Authorization codes, PKCE verifiers and client secrets must never be
+	// forwarded to a redirect target, including by HTTP 307/308.
+	oneHop := *f.client
+	oneHop.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	res, err := oneHop.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrOAuth2ProviderUnavailable, err)
 	}

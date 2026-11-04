@@ -30,7 +30,7 @@ func (s *linkPhoneProofStore) ExecTx(_ context.Context, _ func(*db.Queries) erro
 	s.callCount++
 	return s.err
 }
-func TestPhoneProofForGoogleLink(t *testing.T) {
+func TestPhoneProofForOAuth2CredentialLink(t *testing.T) {
 	const phone = "+84901234567"
 	const key = "01234567890123456789012345678901"
 	store := &linkPhoneProofStore{phone: phone}

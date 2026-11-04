@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -27,7 +26,6 @@ import (
 type Server struct {
 	authHandler         *user.AuthHandler
 	organizationHandler *org.Handler
-	googleHandler       *user.GoogleHandler
 	oauth2Handler       *user.OAuth2Handler
 	phoneHandler        *user.PhoneHandler
 	config              setting.Config
@@ -40,9 +38,6 @@ type Server struct {
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
 func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, resetMailers ...mail.EmailSender) (*Server, error) {
-	if cfg.OIDC.Enabled() && cfg.GoogleClientID != "" {
-		return nil, errors.New("OAuth2/OIDC and legacy OAuth provider cannot be enabled together")
-	}
 	if redisClient == nil {
 		return nil, errors.New("authentication requires Redis")
 	}
@@ -63,16 +58,6 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	}
 	server.organizationHandler = org.NewHandler(store)
 
-	if cfg.GoogleClientID != "" {
-		redirect, err := url.Parse(cfg.GoogleRedirectURI)
-		if err != nil {
-			return nil, fmt.Errorf("parse Google callback URL: %w", err)
-		}
-		server.googleHandler = user.NewGoogleHandler(
-			auth_service.NewGoogleAuthService(store, maker, cfg), cfg, redisClient,
-			&http.Client{Timeout: 10 * time.Second}, redirect.Scheme == "https",
-		)
-	}
 	if cfg.OIDC.Enabled() {
 		client := &http.Client{Timeout: 10 * time.Second}
 		oauth2, err := auth_service.NewOAuth2Client(cfg.OIDC, redisClient, client)
@@ -96,9 +81,6 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		server.phoneHandler.SetTokenMaker(maker)
 		if server.oauth2Handler != nil {
 			server.oauth2Handler.SetPhoneBinding(phone)
-		}
-		if server.googleHandler != nil {
-			server.googleHandler.SetPhoneBinding(phone)
 		}
 	}
 

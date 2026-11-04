@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"os"
 	"testing"
@@ -15,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestGoogleSignupIsAtomicAndPasswordless(t *testing.T) {
+func TestOAuth2SignupIsAtomicAndPasswordless(t *testing.T) {
 	url := os.Getenv("BDS_TEST_DB_URL")
 	if url == "" {
 		t.Skip("requires disposable test database")
@@ -41,23 +42,30 @@ func TestGoogleSignupIsAtomicAndPasswordless(t *testing.T) {
 
 	email := uuid.NewString() + "@example.test"
 	sub := uuid.NewString()
-	account, err := account_model.CreateGoogleAccount(ctx, store, email, sub)
+	account, err := account_model.CreateOAuth2Account(ctx, store, auth_model.OIDCClaims{
+		Issuer: "https://issuer.example.test", Subject: sub, Email: email, EmailVerified: true,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !account.IsEmailVerified || account.Email != email {
-		t.Fatalf("invalid Google-only account: %+v", account)
+		t.Fatalf("invalid OIDC-only account: %+v", account)
 	}
-	id, err := store.GetGoogleAccountID(ctx, sub)
+	id, err := auth_model.GetOAuth2AccountID(ctx, store, auth_model.OAuth2CredentialKey{
+		Issuer: "https://issuer.example.test", Subject: sub,
+	})
 	if err != nil || id != account.ID {
-		t.Fatalf("Google identity not linked: account=%d link=%d err=%v", account.ID, id, err)
+		t.Fatalf("OAuth2 credential not linked: account=%d link=%d err=%v", account.ID, id, err)
 	}
 	if _, err := store.GetPasswordHash(ctx, account.ID); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("passwordless account should not have password credential: %v", err)
 	}
 
-	// An existing email is never silently linked to a new Google subject.
-	_, err = account_model.CreateGoogleAccount(ctx, store, email, uuid.NewString())
+	// An existing email is never silently linked to a new OAuth2 subject.
+	_, err = account_model.CreateOAuth2Account(ctx, store, auth_model.OIDCClaims{
+		Issuer: "https://issuer.example.test", Subject: uuid.NewString(),
+		Email: email, EmailVerified: true,
+	})
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.ConstraintName != "accounts_email_login_uq" {
 		t.Fatalf("duplicate email must be rejected: %v", err)
@@ -70,10 +78,13 @@ func TestGoogleSignupIsAtomicAndPasswordless(t *testing.T) {
 		t.Fatalf("duplicate email created unexpected accounts: %d", sameEmail)
 	}
 
-	// A Google subject cannot be linked to a second account; the second
+	// An OAuth2 subject cannot be linked to a second account; the second
 	// transaction must not leave behind Party, Person or Account rows.
 	duplicateSubjectEmail := uuid.NewString() + "@example.test"
-	_, err = account_model.CreateGoogleAccount(ctx, store, duplicateSubjectEmail, sub)
+	_, err = account_model.CreateOAuth2Account(ctx, store, auth_model.OIDCClaims{
+		Issuer: "https://issuer.example.test", Subject: sub,
+		Email: duplicateSubjectEmail, EmailVerified: true,
+	})
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("duplicate subject should reject second account: %v", err)
 	}
@@ -84,7 +95,9 @@ func TestGoogleSignupIsAtomicAndPasswordless(t *testing.T) {
 	if created != 0 {
 		t.Fatalf("duplicate subject left an unexpected account: %d", created)
 	}
-	linkedID, err := store.GetGoogleAccountID(ctx, sub)
+	linkedID, err := auth_model.GetOAuth2AccountID(ctx, store, auth_model.OAuth2CredentialKey{
+		Issuer: "https://issuer.example.test", Subject: sub,
+	})
 	if err != nil || linkedID != account.ID {
 		t.Fatalf("duplicate subject changed its existing linkage: id=%d err=%v", linkedID, err)
 	}

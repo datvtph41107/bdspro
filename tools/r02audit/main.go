@@ -176,6 +176,41 @@ func checkRoutes(actual []route, expected contract) error {
 	return nil
 }
 
+// applyRemovals requires every removed route to be present in the effective
+// baseline+additions and refuses duplicate, invalid or unexplained removals.
+func applyRemovals(expected, removals contract) (contract, error) {
+	if len(removals.Routes) == 0 {
+		return contract{}, errors.New("reviewed removals cannot be empty")
+	}
+	removed := make(map[string]bool, len(removals.Routes))
+	for _, r := range removals.Routes {
+		k := routeKey(r.Method, r.Path)
+		if !legacyHTTPMethods[r.Method] || !strings.HasPrefix(r.Path, "/") || r.Access == "" {
+			return contract{}, fmt.Errorf("invalid reviewed removal: %s", k)
+		}
+		if removed[k] {
+			return contract{}, fmt.Errorf("duplicate reviewed removal: %s", k)
+		}
+		removed[k] = true
+	}
+	filtered := expected.Routes[:0:0]
+	for _, r := range expected.Routes {
+		k := routeKey(r.Method, r.Path)
+		if removed[k] {
+			delete(removed, k)
+			continue
+		}
+		filtered = append(filtered, r)
+	}
+	if len(removed) != 0 {
+		for k := range removed {
+			return contract{}, fmt.Errorf("reviewed removal not present in baseline: %s", k)
+		}
+	}
+	expected.Routes = filtered
+	return expected, nil
+}
+
 func execute(root, contractPath string, output io.Writer) error {
 	return executeWithAdditions(root, contractPath, "", output)
 }
@@ -184,6 +219,13 @@ func execute(root, contractPath string, output io.Writer) error {
 // reviewed additive route manifest. It rejects missing, duplicate and unknown
 // HTTP method/path pairs without rewriting the historical contract.
 func executeWithAdditions(root, contractPath, additionsPath string, output io.Writer) error {
+	return executeWithChanges(root, contractPath, additionsPath, "", output)
+}
+
+// executeWithChanges retains the pinned baseline and applies separately
+// reviewed additions and removals. A removal must exist in the expected
+// historical surface; unknown or repeated removals fail closed.
+func executeWithChanges(root, contractPath, additionsPath, removalsPath string, output io.Writer) error {
 	found, err := collect(root)
 	if err != nil {
 		return err
@@ -216,10 +258,27 @@ func executeWithAdditions(root, contractPath, additionsPath string, output io.Wr
 			expected.Routes = append(expected.Routes, extensions.Routes...)
 		}
 	}
+	if removalsPath != "" {
+		removedData, err := os.ReadFile(removalsPath)
+		if err != nil {
+			return fmt.Errorf("read reviewed removals %s: %w", removalsPath, err)
+		}
+		var removals contract
+		if err := json.Unmarshal(removedData, &removals); err != nil {
+			return fmt.Errorf("decode reviewed removals %s: %w", removalsPath, err)
+		}
+		if removals.Repository != expected.Repository {
+			return fmt.Errorf("removals repository mismatch: %q", removals.Repository)
+		}
+		expected, err = applyRemovals(expected, removals)
+		if err != nil {
+			return err
+		}
+	}
 	if err := checkRoutes(found, expected); err != nil {
 		return err
 	}
-	fmt.Fprintf(output, "PASS: %d routes match pinned R01 baseline %s and reviewed additions\n", len(found), expected.Commit)
+	fmt.Fprintf(output, "PASS: %d routes match pinned R01 baseline %s and reviewed changes\n", len(found), expected.Commit)
 	return nil
 }
 
@@ -227,8 +286,9 @@ func main() {
 	root := flag.String("root", ".", "R01 repository root")
 	contractFile := flag.String("contract", "docs/architecture/r02/routes-r01.json", "pinned R01 route contract")
 	additionsFile := flag.String("additions", "", "separately reviewed route additions")
+	removalsFile := flag.String("removals", "", "separately reviewed route removals")
 	flag.Parse()
-	if err := executeWithAdditions(*root, *contractFile, *additionsFile, os.Stdout); err != nil {
+	if err := executeWithChanges(*root, *contractFile, *additionsFile, *removalsFile, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "R02 preflight failed:", err)
 		os.Exit(1)
 	}

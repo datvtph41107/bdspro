@@ -113,25 +113,6 @@ func (s PhoneOTP) StartOAuth2Bind(ctx context.Context, accountID int64, identity
 	return s.startBind(ctx, accountID, phone)
 }
 
-// StartGoogleBind is called only after an OAuth callback verified Google's ID
-// token, state, nonce and PKCE. The linked subject must own this account.
-func (s PhoneOTP) StartGoogleBind(ctx context.Context, accountID int64, googleSubject, phone string) error {
-	if err := s.allowed(); err != nil {
-		return err
-	}
-	if !phoneE164.MatchString(phone) {
-		return auth_model.ErrInvalidPhone
-	}
-	linkedID, err := s.Store.GetGoogleAccountID(ctx, googleSubject)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && linkedID != accountID) {
-		return auth_model.ErrInvalidCredentials
-	}
-	if err != nil {
-		return err
-	}
-	return s.startBind(ctx, accountID, phone)
-}
-
 func (s PhoneOTP) startBind(ctx context.Context, accountID int64, phone string) error {
 	if _, err := s.Store.GetAccountByID(ctx, accountID); err != nil {
 		return err
@@ -207,7 +188,7 @@ func (s PhoneOTP) StartRegister(ctx context.Context, phone string) error {
 }
 
 // VerifyRegister creates a phone-only Account and issues the same session
-// contract used by password and Google sign-in. A failed session issuance
+// contract used by password and OIDC sign-in. A failed session issuance
 // leaves the verified account accessible through OTP login.
 func (s PhoneOTP) VerifyRegister(ctx context.Context, phone, code, userAgent, clientIP string) (LoginResult, error) {
 	var empty LoginResult
@@ -279,9 +260,9 @@ func (s PhoneOTP) VerifyLogin(ctx context.Context, phone, code, userAgent, clien
 	return IssueSession(ctx, s.Store, s.Maker, s.Config, account, userAgent, clientIP)
 }
 
-// AuthorizeGoogleLink proves fresh possession of the *already bound* phone.
+// AuthorizePhoneProof proves fresh possession of the *already bound* phone.
 // The login OTP is single-use, so it cannot be replayed for OAuth linking.
-// A linked Google identity is not inferred from a matching email address.
+// A linked OAuth2 credential is not inferred from a matching email address.
 func (s PhoneOTP) AuthorizePhoneProof(ctx context.Context, accountID int64, code string) error {
 	if !phoneCode.MatchString(code) {
 		return auth_model.ErrOTPInvalid

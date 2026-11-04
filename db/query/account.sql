@@ -3,11 +3,6 @@ INSERT INTO accounts (person_id, email)
 VALUES ($1, $2)
 RETURNING id, person_id, email, created_at, is_email_verified;
 
--- name: CreateVerifiedGoogleAccount :one
-INSERT INTO accounts (person_id, email, is_email_verified)
-VALUES ($1, $2, TRUE)
-RETURNING id, person_id, email, created_at, is_email_verified;
-
 -- name: ReadAccountByEmail :one
 SELECT id, person_id, COALESCE(email, '')::text AS email, created_at, is_email_verified
 FROM accounts WHERE lower(btrim(email)) = lower(btrim($1)) LIMIT 1;

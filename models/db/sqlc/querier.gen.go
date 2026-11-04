@@ -31,7 +31,6 @@ type Querier interface {
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTeamForOwner(ctx context.Context, arg CreateTeamForOwnerParams) (Team, error)
 	CreateTeamInviteForOwner(ctx context.Context, arg CreateTeamInviteForOwnerParams) (TeamInvite, error)
-	CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVerifiedGoogleAccountParams) (Account, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	DeletePasswordResetTokensForAccount(ctx context.Context, accountID int64) error
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
@@ -40,7 +39,6 @@ type Querier interface {
 	EmailLinkAddressTaken(ctx context.Context, btrim string) (bool, error)
 	FailPhoneSignup(ctx context.Context, phoneE164 string) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
-	GetGoogleAccountIDQuery(ctx context.Context, googleSub string) (int64, error)
 	GetOAuth2AccountID(ctx context.Context, arg GetOAuth2AccountIDParams) (int64, error)
 	GetOrganizationForAccount(ctx context.Context, arg GetOrganizationForAccountParams) (GetOrganizationForAccountRow, error)
 	GetPasswordHash(ctx context.Context, accountID int64) (string, error)
@@ -50,7 +48,6 @@ type Querier interface {
 	GetTeamForAccount(ctx context.Context, arg GetTeamForAccountParams) (Team, error)
 	GetTeamInviteForDelivery(ctx context.Context, inviteID uuid.UUID) (GetTeamInviteForDeliveryRow, error)
 	InsertInvitedTeamUser(ctx context.Context, arg InsertInvitedTeamUserParams) (TeamMember, error)
-	LinkGoogleIdentityQuery(ctx context.Context, arg LinkGoogleIdentityQueryParams) (int64, error)
 	LinkOAuth2Credential(ctx context.Context, arg LinkOAuth2CredentialParams) (int64, error)
 	ListActiveSessions(ctx context.Context, accountID int64) ([]ListActiveSessionsRow, error)
 	ListOAuth2CredentialsForAccount(ctx context.Context, accountID int64) ([]Oauth2Credential, error)

@@ -22,8 +22,8 @@ type phoneBindingStore struct {
 	lastCode      string
 }
 
-func (s *phoneBindingStore) GetGoogleAccountID(_ context.Context, sub string) (int64, error) {
-	if sub != s.linkedSub {
+func (s *phoneBindingStore) GetOAuth2AccountID(_ context.Context, arg db.GetOAuth2AccountIDParams) (int64, error) {
+	if arg.Issuer != "https://issuer.example.test" || arg.Subject != s.linkedSub {
 		return 0, pgx.ErrNoRows
 	}
 	return s.linkedID, nil
@@ -56,11 +56,12 @@ func (s *phoneBindingStore) UpsertPhoneChallengeQuery(_ context.Context, arg db.
 	return 1, nil
 }
 
-func TestGoogleSubjectMustOwnPhoneBindingAccount(t *testing.T) {
+func TestOAuth2CredentialMustOwnPhoneBindingAccount(t *testing.T) {
 	ctx := context.Background()
-	store := &phoneBindingStore{accountID: 3, linkedID: 3, linkedSub: "google-sub-3"}
+	store := &phoneBindingStore{accountID: 3, linkedID: 3, linkedSub: "subject-3"}
 	phone := PhoneOTP{Store: store, Config: setting.Config{
 		Environment: "development", TokenSymmetricKey: "01234567890123456789012345678901",
+		OIDC: setting.OAuth2Provider{Issuer: "https://issuer.example.test"},
 	}}
 	for _, tc := range []struct {
 		name string
@@ -68,25 +69,25 @@ func TestGoogleSubjectMustOwnPhoneBindingAccount(t *testing.T) {
 		sub  string
 	}{
 		{"unlinked subject", 3, "attacker"},
-		{"wrong account", 4, "google-sub-3"},
+		{"wrong account", 4, "subject-3"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := phone.StartGoogleBind(ctx, tc.id, tc.sub, "+84912345678"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
+			if err := phone.StartOAuth2Bind(ctx, tc.id, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: tc.sub}, "+84912345678"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 				t.Fatalf("expected identity rejection, got %v", err)
 			}
 		})
 	}
 	if store.issued != 0 {
-		t.Fatal("unverified Google identity issued an OTP")
+		t.Fatal("unverified OAuth2 credential issued an OTP")
 	}
-	if err := phone.StartGoogleBind(ctx, 3, "google-sub-3", "+84912345678"); err != nil {
+	if err := phone.StartOAuth2Bind(ctx, 3, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: "subject-3"}, "+84912345678"); err != nil {
 		t.Fatal(err)
 	}
 	if store.issued != 1 || len(store.lastCode) != 6 {
 		t.Fatalf("expected exactly one local OTP, got %d", store.issued)
 	}
 	store.existingPhone = 11
-	if err := phone.StartGoogleBind(ctx, 3, "google-sub-3", "+84912345678"); !errors.Is(err, auth_model.ErrPhoneUnavailable) {
+	if err := phone.StartOAuth2Bind(ctx, 3, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: "subject-3"}, "+84912345678"); !errors.Is(err, auth_model.ErrPhoneUnavailable) {
 		t.Fatalf("already bound number should be unavailable: %v", err)
 	}
 	if store.issued != 1 {
@@ -94,7 +95,7 @@ func TestGoogleSubjectMustOwnPhoneBindingAccount(t *testing.T) {
 	}
 	store.existingPhone = 0
 	store.alreadyBound = true
-	if err := phone.StartGoogleBind(ctx, 3, "google-sub-3", "+84912345679"); !errors.Is(err, auth_model.ErrPhoneUnavailable) {
+	if err := phone.StartOAuth2Bind(ctx, 3, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: "subject-3"}, "+84912345679"); !errors.Is(err, auth_model.ErrPhoneUnavailable) {
 		t.Fatalf("already-bound account issued OTP: %v", err)
 	}
 	if store.issued != 1 {

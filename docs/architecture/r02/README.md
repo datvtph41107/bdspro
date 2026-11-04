@@ -23,3 +23,8 @@ go run ./tools/r02audit -root . -contract docs/architecture/r02/routes-r01.json
 ```
 
 The tool now verifies the R03 Gin route declarations in `routers/api/v1/api.go`, preserving `routes-r01.json` as the immutable historical contract. Never silently delete this contract to get a green test.
+
+R26 deliberately removes four provider-specific Google routes. The pinned R01
+snapshot remains unchanged; the new `routes-r26-removals.json` is the reviewed
+subtraction passed to `r02audit -removals`, while R24 lists replacement OAuth2
+routes. Unknown and duplicate removals fail the audit.

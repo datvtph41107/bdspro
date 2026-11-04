@@ -61,6 +61,11 @@ func TestOAuth2IdentityIsIssuerScopedAndPasswordless(t *testing.T) {
 	if err != nil || id != account.ID {
 		t.Fatalf("identity was not linked to created account: %d %v", id, err)
 	}
+	credentials, err := auth_model.ListOAuth2CredentialsForAccount(ctx, store, account.ID)
+	if err != nil || len(credentials) != 1 || credentials[0].Issuer != identity.Issuer ||
+		credentials[0].Subject != identity.Subject {
+		t.Fatalf("unexpected account credential list: %#v %v", credentials, err)
+	}
 	if err := auth_model.LinkOAuth2Credential(ctx, store, account.ID, firstKey); err != nil {
 		t.Fatalf("same account link should be idempotent: %v", err)
 	}

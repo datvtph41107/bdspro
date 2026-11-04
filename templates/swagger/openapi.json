@@ -3,7 +3,7 @@
   "info": {
     "title": "BDSPro REST API",
     "version": "1.0.0",
-    "description": "HTTP API. OAuth2/OpenID Connect and other optional auth provider endpoints require configuration."
+    "description": "HTTP API. Optional OAuth2/OpenID Connect and phone endpoints are enabled by validated provider configuration."
   },
   "paths": {
     "/health": {
@@ -1034,246 +1034,6 @@
             }
           }
         }
-      }
-    },
-    "/users/me/google/start": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Start Google account linking",
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GoogleLinkRequest"
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
-    "/users/google/login/start": {
-      "get": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Start Google OAuth sign-in",
-        "responses": {
-          "302": {
-            "description": "Redirects browser to Google OAuth",
-            "headers": {
-              "Location": {
-                "schema": {
-                  "type": "string",
-                  "format": "uri"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/users/google/callback": {
-      "get": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Google OAuth callback",
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/users/me/phone/google/start": {
-      "post": {
-        "tags": [
-          "Accounts"
-        ],
-        "summary": "Start Google reauthentication for phone binding",
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
       }
     },
     "/users/me/phone/start": {
@@ -2892,7 +2652,7 @@
         "summary": "Start OAuth2 / OpenID Connect OAuth sign-in",
         "responses": {
           "302": {
-            "description": "Redirects browser to Google OAuth",
+            "description": "Redirects browser to OAuth2/OIDC",
             "headers": {
               "Location": {
                 "schema": {
@@ -3054,7 +2814,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/GoogleLinkRequest"
+                "$ref": "#/components/schemas/OAuth2LinkRequest"
               }
             }
           }
@@ -3220,33 +2980,6 @@
         },
         "required": [
           "person_id"
-        ]
-      },
-      "GoogleLinkRequest": {
-        "type": "object",
-        "description": "Exactly one fresh proof: current password or a phone login OTP for the phone already bound to the account.",
-        "properties": {
-          "password": {
-            "type": "string",
-            "description": "Current BDSPro password"
-          },
-          "phone_code": {
-            "type": "string",
-            "pattern": "^[0-9]{6}$",
-            "description": "Fresh OTP from /users/phone/login/start"
-          }
-        },
-        "oneOf": [
-          {
-            "required": [
-              "password"
-            ]
-          },
-          {
-            "required": [
-              "phone_code"
-            ]
-          }
         ]
       },
       "PhoneBindRequest": {
@@ -3731,6 +3464,33 @@
           }
         },
         "description": "Raw invitation tokens are never returned by the API."
+      },
+      "OAuth2LinkRequest": {
+        "type": "object",
+        "description": "Exactly one fresh proof: current password or a phone login OTP for the phone already bound to the account.",
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "Current BDSPro password"
+          },
+          "phone_code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$",
+            "description": "Fresh OTP from /users/phone/login/start"
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "password"
+            ]
+          },
+          {
+            "required": [
+              "phone_code"
+            ]
+          }
+        ]
       }
     }
   }

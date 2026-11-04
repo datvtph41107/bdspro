@@ -1,0 +1,31 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "R26: intentionally retire Google-specific OAuth2 routes",
+  "notes": [
+    "R01 remains immutable; only these four provider-specific endpoints are retired",
+    "Equivalent generic OAuth2/OIDC routes remain covered by R24 additions and OpenAPI tests",
+    "Removing additional historical routes requires a separate reviewed removal declaration"
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/users/google/callback",
+      "access": "public"
+    },
+    {
+      "method": "GET",
+      "path": "/users/google/login/start",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/google/start",
+      "access": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/phone/google/start",
+      "access": "verified_email"
+    }
+  ]
+}

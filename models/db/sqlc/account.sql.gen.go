@@ -34,30 +34,6 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 	return i, err
 }
 
-const createVerifiedGoogleAccount = `-- name: CreateVerifiedGoogleAccount :one
-INSERT INTO accounts (person_id, email, is_email_verified)
-VALUES ($1, $2, TRUE)
-RETURNING id, person_id, email, created_at, is_email_verified
-`
-
-type CreateVerifiedGoogleAccountParams struct {
-	PersonID int64  `json:"person_id"`
-	Email    string `json:"email"`
-}
-
-func (q *Queries) CreateVerifiedGoogleAccount(ctx context.Context, arg CreateVerifiedGoogleAccountParams) (Account, error) {
-	row := q.db.QueryRow(ctx, createVerifiedGoogleAccount, arg.PersonID, arg.Email)
-	var i Account
-	err := row.Scan(
-		&i.ID,
-		&i.PersonID,
-		&i.Email,
-		&i.CreatedAt,
-		&i.IsEmailVerified,
-	)
-	return i, err
-}
-
 const markEmailVerified = `-- name: MarkEmailVerified :one
 UPDATE accounts SET is_email_verified = TRUE
 WHERE id = $1 AND lower(btrim(email)) = lower(btrim($2))

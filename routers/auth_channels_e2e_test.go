@@ -14,6 +14,7 @@ import (
 	"time"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/jobs"
@@ -149,16 +150,16 @@ func TestPhoneSignupLoginAndBusinessHTTPAcceptance(t *testing.T) {
 	}
 }
 
-func TestPasswordResetAndGoogleCreatedAccountHTTPAcceptance(t *testing.T) {
+func TestPasswordResetAndOAuth2CreatedAccountHTTPAcceptance(t *testing.T) {
 	ctx, pool, server, mailer := authAcceptanceServer(t)
 	store := db.NewStore(pool)
 	email := uuid.NewString() + "@example.test"
-	account, err := account_model.CreateGoogleAccount(ctx, store, email, uuid.NewString())
+	account, err := account_model.CreateOAuth2Account(ctx, store, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: uuid.NewString(), Email: email, EmailVerified: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.GetPasswordHash(ctx, account.ID); err != pgx.ErrNoRows {
-		t.Fatalf("Google account unexpectedly has a password: %v", err)
+		t.Fatalf("OIDC account unexpectedly has a password: %v", err)
 	}
 	status, _ := authAcceptanceCall(t, server, "/users/password/reset/request", http.MethodPost, map[string]string{"email": email}, "")
 	if status != http.StatusAccepted {
@@ -182,7 +183,7 @@ func TestPasswordResetAndGoogleCreatedAccountHTTPAcceptance(t *testing.T) {
 		"email": email, "password": "TestNewPassword123",
 	}, "")
 	if status != http.StatusOK || result["user"].(map[string]any)["account_id"] != float64(account.ID) {
-		t.Fatalf("password sign-in did not preserve Google AccountID: status=%d result=%v", status, result)
+		t.Fatalf("password sign-in did not preserve OIDC AccountID: status=%d result=%v", status, result)
 	}
 	status, _ = authAcceptanceCall(t, server, "/users/password/reset", http.MethodPost, map[string]string{
 		"token": match[1], "password": "TestSecondPassword123",

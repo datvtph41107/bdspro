@@ -27,12 +27,6 @@ type EmailLinkChallenge struct {
 	NextSendAt time.Time `json:"next_send_at"`
 }
 
-type GoogleIdentity struct {
-	GoogleSub string    `json:"google_sub"`
-	AccountID int64     `json:"account_id"`
-	LinkedAt  time.Time `json:"linked_at"`
-}
-
 type JobOutbox struct {
 	ID        int64              `json:"id"`
 	TaskType  string             `json:"task_type"`
@@ -47,6 +41,12 @@ type JobOutbox struct {
 
 type Oauth2Credential struct {
 	Issuer    string    `json:"issuer"`
+	Subject   string    `json:"subject"`
+	AccountID int64     `json:"account_id"`
+	LinkedAt  time.Time `json:"linked_at"`
+}
+
+type Oauth2CredentialsArchive struct {
 	Subject   string    `json:"subject"`
 	AccountID int64     `json:"account_id"`
 	LinkedAt  time.Time `json:"linked_at"`
