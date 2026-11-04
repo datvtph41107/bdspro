@@ -2,15 +2,14 @@ package apiv1
 
 import (
 	"net/http"
-	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 )
 
 // Dependencies are constructed once by the HTTP server; route ownership is in this package.
@@ -20,7 +19,7 @@ type Dependencies struct {
 	OAuth2       *user.OAuth2Handler
 	Phone        *user.PhoneHandler
 	TokenMaker   authcrypto.Maker
-	RateRedis    *redis.Client
+	IPActive     *ipactive.Middleware
 	Store        db.Store
 	InviteKey    string
 }
@@ -34,63 +33,63 @@ func Routes(root *gin.Engine, d Dependencies) {
 
 func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 	route.POST("/users",
-		middleware.IPActiveSource(d.RateRedis, "register", 10, time.Hour),
+		d.IPActive.For(ipactive.Register),
 		d.Auth.Register,
 	)
 	route.POST("/users/login",
 		middleware.LoginAudit(),
-		middleware.IPActiveSource(d.RateRedis, "login", 30, time.Minute),
+		d.IPActive.For(ipactive.Login),
 		d.Auth.Login,
 	)
 	route.GET("/users/verify_email", d.Auth.VerifyEmailPage)
 	route.POST("/users/verify_email",
-		middleware.IPActiveSource(d.RateRedis, "verify_email", 60, time.Minute),
+		d.IPActive.For(ipactive.VerifyEmail),
 		d.Auth.VerifyEmail,
 	)
 	route.POST("/users/verify_email/resend",
-		middleware.IPActiveSource(d.RateRedis, "verify_email_resend", 10, time.Hour),
+		d.IPActive.For(ipactive.ResendVerificationEmail),
 		d.Auth.ResendVerificationEmail,
 	)
 	route.POST("/tokens/renew_access",
-		middleware.IPActiveSource(d.RateRedis, "refresh", 60, time.Minute),
+		d.IPActive.For(ipactive.RenewAccess),
 		d.Auth.Renew,
 	)
 	route.POST("/tokens/revoke",
-		middleware.IPActiveSource(d.RateRedis, "revoke", 60, time.Minute),
+		d.IPActive.For(ipactive.RevokeToken),
 		d.Auth.Revoke,
 	)
 	route.POST("/users/password/reset/request",
-		middleware.IPActiveSource(d.RateRedis, "password_reset", 10, time.Hour),
+		d.IPActive.For(ipactive.RequestPasswordReset),
 		d.Auth.RequestPasswordReset,
 	)
 	route.GET("/users/password/reset", d.Auth.PasswordResetPage)
 	route.POST("/users/password/reset",
-		middleware.IPActiveSource(d.RateRedis, "password_reset_confirm", 20, time.Hour),
+		d.IPActive.For(ipactive.ConfirmPasswordReset),
 		d.Auth.ResetPassword,
 	)
 
 	if d.OAuth2 != nil {
 		route.GET("/users/oauth2/login/start",
-			middleware.IPActiveSource(d.RateRedis, "oauth2_login_start", 20, time.Minute),
+			d.IPActive.For(ipactive.StartOAuth2Login),
 			d.OAuth2.StartLogin,
 		)
 		route.GET("/users/oauth2/callback", d.OAuth2.Callback)
 	}
 	if d.Phone != nil {
 		route.POST("/users/phone/register/start",
-			middleware.IPActiveSource(d.RateRedis, "phone_register_start", 10, time.Hour),
+			d.IPActive.For(ipactive.StartPhoneRegister),
 			d.Phone.StartRegister,
 		)
 		route.POST("/users/phone/register/verify",
-			middleware.IPActiveSource(d.RateRedis, "phone_register_verify", 40, 10*time.Minute),
+			d.IPActive.For(ipactive.VerifyPhoneRegister),
 			d.Phone.VerifyRegister,
 		)
 		route.POST("/users/phone/login/start",
-			middleware.IPActiveSource(d.RateRedis, "phone_login_start", 30, time.Minute),
+			d.IPActive.For(ipactive.StartPhoneLogin),
 			d.Phone.StartLogin,
 		)
 		route.POST("/users/phone/login/verify",
-			middleware.IPActiveSource(d.RateRedis, "phone_login_verify", 40, 10*time.Minute),
+			d.IPActive.For(ipactive.VerifyPhoneLogin),
 			d.Phone.VerifyLogin,
 		)
 	}
@@ -105,11 +104,11 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	route.DELETE("/users/me/sessions/:id", d.Auth.RevokeOwnSession)
 	route.POST("/users/me/sessions/revoke_all", d.Auth.RevokeAllSessions)
 	route.POST("/users/me/email/start",
-		middleware.IPActiveSource(d.RateRedis, "email_link_start", 10, time.Hour),
+		d.IPActive.For(ipactive.StartEmailLink),
 		d.Auth.StartEmailLink,
 	)
 	route.POST("/users/me/email/verify",
-		middleware.IPActiveSource(d.RateRedis, "email_link_verify", 20, time.Hour),
+		d.IPActive.For(ipactive.ConfirmEmailLink),
 		d.Auth.ConfirmEmailLink,
 	)
 
@@ -118,14 +117,14 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 
 	if d.OAuth2 != nil {
 		route.POST("/users/me/oauth2/start",
-			middleware.IPActiveSource(d.RateRedis, "oauth2_link_start", 10, time.Minute),
+			d.IPActive.For(ipactive.StartOAuth2Link),
 			d.OAuth2.StartLink,
 		)
 	}
 	if d.OAuth2 != nil && d.Phone != nil {
 		route.POST("/users/me/phone/oauth2/start",
 			middleware.VerifiedEmail(d.Store),
-			middleware.IPActiveSource(d.RateRedis, "phone_oauth2_bind_start", 10, time.Hour),
+			d.IPActive.For(ipactive.StartOAuth2PhoneBind),
 			d.OAuth2.StartPhoneBind,
 		)
 	}
@@ -149,7 +148,7 @@ func registerOrganizationRoutes(route *gin.RouterGroup, d Dependencies) {
 func registerTeamRoutes(route *gin.RouterGroup, d Dependencies) {
 	teams := org.NewTeamHandler(d.Store, d.InviteKey)
 	route.POST("/invites/accept",
-		middleware.IPActiveSource(d.RateRedis, "team_invite_accept", 40, 10*time.Minute),
+		d.IPActive.For(ipactive.AcceptTeamInvite),
 		teams.AcceptInvite,
 	)
 	route.GET("/:team_id", teams.Get)
@@ -158,7 +157,7 @@ func registerTeamRoutes(route *gin.RouterGroup, d Dependencies) {
 	route.POST("/:team_id/members", teams.AddMember)
 	route.DELETE("/:team_id/members/:person_id", teams.RemoveMember)
 	route.POST("/:team_id/invites",
-		middleware.IPActiveSource(d.RateRedis, "team_invite_issue", 10, time.Hour),
+		d.IPActive.For(ipactive.CreateTeamInvite),
 		teams.CreateInvite,
 	)
 	route.DELETE("/:team_id/invites/:invite_id", teams.RevokeInvite)
@@ -166,11 +165,11 @@ func registerTeamRoutes(route *gin.RouterGroup, d Dependencies) {
 
 func registerPhoneBindRoutes(route *gin.RouterGroup, d Dependencies) {
 	route.POST("/start",
-		middleware.IPActiveSource(d.RateRedis, "phone_bind_start", 10, time.Hour),
+		d.IPActive.For(ipactive.StartPhoneBind),
 		d.Phone.StartBind,
 	)
 	route.POST("/verify",
-		middleware.IPActiveSource(d.RateRedis, "phone_bind_verify", 40, 10*time.Minute),
+		d.IPActive.For(ipactive.VerifyPhoneBind),
 		d.Phone.VerifyBind,
 	)
 }

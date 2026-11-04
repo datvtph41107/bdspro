@@ -5,10 +5,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/datvtph41107/bdspro/modules/ipactive"
 )
 
 // Config holds validated settings loaded from app.ini and process overrides.
 type Config struct {
+	IPActivePolicies     map[ipactive.Action]ipactive.Policy
 	Environment          string
 	LogFormat            string
 	LogLevel             string
@@ -124,6 +127,10 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 		return config, fmt.Errorf("SMTP_AUTH: %w", err)
 	}
 	config.VerifyEmailURL = get("mailer", "VERIFY_EMAIL_URL")
+	config.IPActivePolicies, err = LoadIPActivePolicies(p)
+	if err != nil {
+		return config, err
+	}
 	if config.LogMode != "console" && config.LogMode != "file" &&
 		config.LogMode != "console,file" && config.LogMode != "file,console" {
 		return config, fmt.Errorf("LOG_MODE must be console, file or console,file")
