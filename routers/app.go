@@ -9,8 +9,11 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/ipactive"
+	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
@@ -34,6 +37,7 @@ type Server struct {
 	router              *gin.Engine
 	authRateRedis       *redis.Client
 	authThrottle        *middleware.AuthThrottle
+	ipActive            *ipactive.Middleware
 }
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
@@ -52,6 +56,25 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		authRateRedis: redisClient,
 		authThrottle:  middleware.NewAuthThrottle(redisClient),
 	}
+	policies := cfg.IPActivePolicies
+	if len(policies) == 0 {
+		policies = ipactive.DefaultPolicies()
+	}
+	limiter, err := ipactive.NewRedis(redisClient, policies)
+	if err != nil {
+		return nil, fmt.Errorf("initialize IPActive: %w", err)
+	}
+	server.ipActive = ipactive.NewMiddleware(limiter, func(c *gin.Context, event ipactive.Event, admissionErr error) {
+		if admissionErr != nil {
+			log.Ctx(c.Request.Context()).Error().
+				Str("action", string(event.Action)).
+				Str("error_type", fmt.Sprintf("%T", admissionErr)).
+				Msg("ipactive.admission_unavailable")
+			response.RateLimitUnavailable(c)
+			return
+		}
+		response.RateLimited(c, event.RetryAfter)
+	})
 	server.authHandler = user.NewAuthHandler(auth_service.NewAuthService(store, maker, cfg), server.authThrottle)
 	if len(resetMailers) > 0 {
 		server.authHandler.SetPasswordResetSender(resetMailers[0])
