@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestOAuth2ConfigurationRejectsConcurrentLegacyProvider(t *testing.T) {
+func TestOAuth2ConfigurationRejectsLegacyProviderKeys(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "app.ini")
 	config := `RUN_MODE = development
 [database]
@@ -36,7 +36,7 @@ GOOGLE_REDIRECT_URI = http://localhost:8080/users/google/callback
 		t.Fatal(err)
 	}
 	_, err := LoadConfig(file)
-	if err == nil || !strings.Contains(err.Error(), "cannot be enabled together") {
-		t.Fatalf("legacy and OIDC providers active simultaneously: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "legacy OAuth provider settings are unsupported") {
+		t.Fatalf("legacy OAuth configuration accepted: %v", err)
 	}
 }

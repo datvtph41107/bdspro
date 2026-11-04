@@ -17,7 +17,6 @@ import (
 type Dependencies struct {
 	Auth         *user.AuthHandler
 	Organization *org.Handler
-	Google       *user.GoogleHandler
 	OAuth2       *user.OAuth2Handler
 	Phone        *user.PhoneHandler
 	TokenMaker   token.Maker
@@ -77,13 +76,6 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 		)
 		route.GET("/users/oauth2/callback", d.OAuth2.Callback)
 	}
-	if d.Google != nil {
-		route.GET("/users/google/login/start",
-			middleware.IPActiveSource(d.RateRedis, "google_login_start", 20, time.Minute),
-			d.Google.StartLogin,
-		)
-		route.GET("/users/google/callback", d.Google.Callback)
-	}
 	if d.Phone != nil {
 		route.POST("/users/phone/register/start",
 			middleware.IPActiveSource(d.RateRedis, "phone_register_start", 10, time.Hour),
@@ -130,24 +122,11 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 			d.OAuth2.StartLink,
 		)
 	}
-	if d.Google != nil {
-		route.POST("/users/me/google/start",
-			middleware.IPActiveSource(d.RateRedis, "google_link_start", 10, time.Minute),
-			d.Google.StartLink,
-		)
-	}
 	if d.OAuth2 != nil && d.Phone != nil {
 		route.POST("/users/me/phone/oauth2/start",
 			middleware.VerifiedEmail(d.Store),
 			middleware.IPActiveSource(d.RateRedis, "phone_oauth2_bind_start", 10, time.Hour),
 			d.OAuth2.StartPhoneBind,
-		)
-	}
-	if d.Google != nil && d.Phone != nil {
-		route.POST("/users/me/phone/google/start",
-			middleware.VerifiedEmail(d.Store),
-			middleware.IPActiveSource(d.RateRedis, "phone_google_bind_start", 10, time.Hour),
-			d.Google.StartPhoneBind,
 		)
 	}
 	if d.Phone != nil {

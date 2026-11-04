@@ -59,7 +59,6 @@ func NormalRoutes(server *Server) *gin.Engine {
 	apiv1.Routes(router, apiv1.Dependencies{
 		Auth:         server.authHandler,
 		Organization: server.organizationHandler,
-		Google:       server.googleHandler,
 		OAuth2:       server.oauth2Handler,
 		Phone:        server.phoneHandler,
 		TokenMaker:   server.tokenMaker,

@@ -21,14 +21,14 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	newServer := func(google, phone bool) *Server {
+	newServer := func(oauth2, phone bool) *Server {
 		s := &Server{
 			tokenMaker:          maker,
 			authHandler:         user.NewAuthHandler(nil, nil),
 			organizationHandler: org.NewHandler(nil),
 		}
-		if google {
-			s.googleHandler = user.NewGoogleHandler(nil, setting.Config{}, nil, nil, false)
+		if oauth2 {
+			s.oauth2Handler = user.NewOAuth2Handler(nil, nil, false)
 		}
 		if phone {
 			s.phoneHandler = user.NewPhoneHandler(nil, setting.Config{}, nil, nil)
@@ -72,8 +72,8 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		t.Errorf("enabled route count = %d, want 43", n)
 	}
 	for _, route := range []string{
-		"POST /users/me/google/start", "GET /users/google/login/start",
-		"GET /users/google/callback", "POST /users/me/phone/google/start",
+		"POST /users/me/oauth2/start", "GET /users/oauth2/login/start",
+		"GET /users/oauth2/callback", "POST /users/me/phone/oauth2/start",
 		"POST /users/me/phone/start",
 		"POST /users/me/phone/verify",
 		"POST /users/phone/register/start", "POST /users/phone/register/verify",

@@ -2,7 +2,6 @@ package setting
 
 import (
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -17,9 +16,6 @@ type Config struct {
 	LogRootPath          string
 	LogFileName          string
 	OIDC                 OAuth2Provider
-	GoogleClientID       string
-	GoogleClientSecret   string
-	GoogleRedirectURI    string
 	PhoneDelivery        string
 	SMSGatewayURL        string
 	SMSGatewayToken      string
@@ -105,12 +101,8 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 			return config, err
 		}
 	}
-	config.GoogleClientID = get("oauth", "GOOGLE_CLIENT_ID")
-	config.GoogleClientSecret = get("oauth", "GOOGLE_CLIENT_SECRET")
-	config.GoogleRedirectURI = get("oauth", "GOOGLE_REDIRECT_URI")
-	if config.OIDC.Enabled() && (config.GoogleClientID != "" ||
-		config.GoogleClientSecret != "" || config.GoogleRedirectURI != "") {
-		return config, fmt.Errorf("OAuth2/OIDC and legacy OAuth provider cannot be enabled together")
+	if get("oauth", "GOOGLE_CLIENT_ID") != "" || get("oauth", "GOOGLE_CLIENT_SECRET") != "" || get("oauth", "GOOGLE_REDIRECT_URI") != "" {
+		return config, fmt.Errorf("legacy OAuth provider settings are unsupported; configure [oauth2]")
 	}
 	config.PhoneDelivery = get("phone", "PHONE_DELIVERY")
 	config.SMSGatewayURL = get("phone", "SMS_GATEWAY_URL")
@@ -155,18 +147,6 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 	}
 	if config.AccessTokenDuration <= 0 || config.RefreshTokenDuration <= 0 {
 		return config, fmt.Errorf("token durations must be positive")
-	}
-	if config.GoogleClientID != "" || config.GoogleClientSecret != "" || config.GoogleRedirectURI != "" {
-		if config.GoogleClientID == "" || config.GoogleClientSecret == "" || config.GoogleRedirectURI == "" {
-			return config, fmt.Errorf("Google OAuth requires GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI together")
-		}
-		u, e := url.Parse(config.GoogleRedirectURI)
-		if e != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "/users/google/callback" {
-			return config, fmt.Errorf("GOOGLE_REDIRECT_URI must be the absolute /users/google/callback URL")
-		}
-		if u.Scheme != "https" && !(u.Scheme == "http" && (strings.EqualFold(u.Hostname(), "localhost") || u.Hostname() == "127.0.0.1")) {
-			return config, fmt.Errorf("GOOGLE_REDIRECT_URI requires https outside localhost")
-		}
 	}
 	return config, nil
 }
