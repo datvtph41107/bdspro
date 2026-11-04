@@ -1,9 +1,9 @@
 package routers
 
 import (
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"errors"
 	"fmt"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"net/http"
 	"net/url"
 	"time"
