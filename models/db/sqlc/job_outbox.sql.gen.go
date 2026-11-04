@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -97,5 +98,21 @@ VALUES (
 // The worker generates the one-time proof only when the job is executed.
 func (q *Queries) RecordPasswordResetJob(ctx context.Context, accountID int64) error {
 	_, err := q.db.Exec(ctx, recordPasswordResetJob, accountID)
+	return err
+}
+
+const recordTeamInviteJob = `-- name: RecordTeamInviteJob :exec
+INSERT INTO job_outbox (task_type, payload, queue_name, max_retry, run_at)
+VALUES (
+    'task:send_team_invite',
+    jsonb_build_object('invite_id', $1::uuid),
+    'critical', 10, now()
+)
+`
+
+// Only the invite UUID is durable. The proof is derived inside the worker
+// using the configured signing key, never persisted in plaintext.
+func (q *Queries) RecordTeamInviteJob(ctx context.Context, inviteID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, recordTeamInviteJob, inviteID)
 	return err
 }

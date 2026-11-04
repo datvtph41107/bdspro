@@ -74,7 +74,7 @@ func TestTeamMembershipAndInvitationPostgres(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	proof, err := organization.CreateTeamInvite(ctx, store, owner.ID, team.ID, another.Email, time.Hour)
+	proof, err := organization.CreateTeamInvite(ctx, store, owner.ID, team.ID, another.Email, time.Hour, "01234567890123456789012345678901")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestConcurrentTeamInviteConsumption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	proof, err := organization.CreateTeamInvite(ctx, store, owner.ID, team.ID, invitee.Email, time.Hour)
+	proof, err := organization.CreateTeamInvite(ctx, store, owner.ID, team.ID, invitee.Email, time.Hour, "01234567890123456789012345678901")
 	if err != nil {
 		t.Fatal(err)
 	}

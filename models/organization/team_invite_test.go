@@ -10,7 +10,7 @@ import (
 )
 
 func TestTeamInvitationRejectsInvalidInput(t *testing.T) {
-	_, err := organization.CreateTeamInvite(context.Background(), nil, 1, 2, "invalid-email", time.Hour)
+	_, err := organization.CreateTeamInvite(context.Background(), nil, 1, 2, "invalid-email", time.Hour, "01234567890123456789012345678901")
 	if !errors.Is(err, organization.ErrTeamInviteInvalid) {
 		t.Fatalf("invalid invite email: %v", err)
 	}

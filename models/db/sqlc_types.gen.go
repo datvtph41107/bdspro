@@ -31,6 +31,7 @@ type FindReusableVerifyEmailQueryParams = sqlc.FindReusableVerifyEmailQueryParam
 type GetOrganizationForAccountParams = sqlc.GetOrganizationForAccountParams
 type GetOrganizationForAccountRow = sqlc.GetOrganizationForAccountRow
 type GetTeamForAccountParams = sqlc.GetTeamForAccountParams
+type GetTeamInviteForDeliveryRow = sqlc.GetTeamInviteForDeliveryRow
 type GoogleIdentity = sqlc.GoogleIdentity
 type InsertInvitedTeamUserParams = sqlc.InsertInvitedTeamUserParams
 type JobOutbox = sqlc.JobOutbox

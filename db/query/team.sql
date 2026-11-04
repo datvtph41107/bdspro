@@ -118,6 +118,14 @@ WHERE t.id = sqlc.arg(team_id)
       AND m.organization_id = t.organization_id
       AND m.role = 'owner' AND m.ended_at IS NULL
   )
+  -- A Team invitation is only valid for a verified current Organization member.
+  AND EXISTS (
+    SELECT 1 FROM accounts recipient
+    JOIN organization_members member ON member.person_id = recipient.person_id
+    WHERE recipient.is_email_verified = TRUE
+      AND lower(btrim(recipient.email)) = lower(btrim(sqlc.arg(invited_email)::text))
+      AND member.organization_id = t.organization_id AND member.ended_at IS NULL
+  )
 RETURNING id, team_id, invited_email, invited_by_account_id, token_hash,
           expires_at, accepted_at, revoked_at, created_at;
 
@@ -157,4 +165,20 @@ WHERE ti.id = sqlc.arg(invite_id)
     WHERE a.id = sqlc.arg(actor_account_id)
       AND m.organization_id = t.organization_id
       AND m.role = 'owner' AND m.ended_at IS NULL
+  );
+
+-- name: GetTeamInviteForDelivery :one
+SELECT ti.invited_email, ti.token_hash, ti.expires_at,
+       t.name AS team_name, o.name AS organization_name
+FROM team_invites ti
+JOIN teams t ON t.id = ti.team_id
+JOIN organizations o ON o.party_id = t.organization_id
+WHERE ti.id = sqlc.arg(invite_id)::uuid
+  AND ti.accepted_at IS NULL AND ti.revoked_at IS NULL AND ti.expires_at > now()
+  AND EXISTS (
+    SELECT 1 FROM accounts recipient
+    JOIN organization_members m ON m.person_id = recipient.person_id
+    WHERE recipient.is_email_verified = TRUE
+      AND lower(btrim(recipient.email)) = lower(btrim(ti.invited_email))
+      AND m.organization_id = t.organization_id AND m.ended_at IS NULL
   );

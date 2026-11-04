@@ -123,6 +123,14 @@ WHERE t.id = $6
       AND m.organization_id = t.organization_id
       AND m.role = 'owner' AND m.ended_at IS NULL
   )
+  -- A Team invitation is only valid for a verified current Organization member.
+  AND EXISTS (
+    SELECT 1 FROM accounts recipient
+    JOIN organization_members member ON member.person_id = recipient.person_id
+    WHERE recipient.is_email_verified = TRUE
+      AND lower(btrim(recipient.email)) = lower(btrim($2::text))
+      AND member.organization_id = t.organization_id AND member.ended_at IS NULL
+  )
 RETURNING id, team_id, invited_email, invited_by_account_id, token_hash,
           expires_at, accepted_at, revoked_at, created_at
 `
@@ -187,6 +195,44 @@ func (q *Queries) GetTeamForAccount(ctx context.Context, arg GetTeamForAccountPa
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getTeamInviteForDelivery = `-- name: GetTeamInviteForDelivery :one
+SELECT ti.invited_email, ti.token_hash, ti.expires_at,
+       t.name AS team_name, o.name AS organization_name
+FROM team_invites ti
+JOIN teams t ON t.id = ti.team_id
+JOIN organizations o ON o.party_id = t.organization_id
+WHERE ti.id = $1::uuid
+  AND ti.accepted_at IS NULL AND ti.revoked_at IS NULL AND ti.expires_at > now()
+  AND EXISTS (
+    SELECT 1 FROM accounts recipient
+    JOIN organization_members m ON m.person_id = recipient.person_id
+    WHERE recipient.is_email_verified = TRUE
+      AND lower(btrim(recipient.email)) = lower(btrim(ti.invited_email))
+      AND m.organization_id = t.organization_id AND m.ended_at IS NULL
+  )
+`
+
+type GetTeamInviteForDeliveryRow struct {
+	InvitedEmail     string    `json:"invited_email"`
+	TokenHash        []byte    `json:"token_hash"`
+	ExpiresAt        time.Time `json:"expires_at"`
+	TeamName         string    `json:"team_name"`
+	OrganizationName string    `json:"organization_name"`
+}
+
+func (q *Queries) GetTeamInviteForDelivery(ctx context.Context, inviteID uuid.UUID) (GetTeamInviteForDeliveryRow, error) {
+	row := q.db.QueryRow(ctx, getTeamInviteForDelivery, inviteID)
+	var i GetTeamInviteForDeliveryRow
+	err := row.Scan(
+		&i.InvitedEmail,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.TeamName,
+		&i.OrganizationName,
 	)
 	return i, err
 }
