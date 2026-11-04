@@ -7,6 +7,7 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -66,6 +67,9 @@ func ConsumeChallenge(ctx context.Context, store db.Store, phone, purpose string
 			if err := q.BindPhoneCredentialQuery(ctx, db.BindPhoneCredentialQueryParams{
 				AccountID: accountID, PhoneE164: phone,
 			}); err != nil {
+				if phoneCredentialConflict(err) {
+					return util.WithCause(ErrPhoneUnavailable, err)
+				}
 				return err
 			}
 		case "login":

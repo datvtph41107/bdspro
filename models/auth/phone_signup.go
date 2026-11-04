@@ -7,6 +7,7 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -60,6 +61,9 @@ func CompletePhoneSignup(ctx context.Context, store db.Store, phone string, mac 
 		if err := q.BindPhoneCredentialQuery(ctx, db.BindPhoneCredentialQueryParams{
 			AccountID: created.ID, PhoneE164: phone,
 		}); err != nil {
+			if phoneRegisteredConflict(err) {
+				return util.WithCause(ErrPhoneRegistered, err)
+			}
 			return err
 		}
 		if err := q.DeletePhoneSignup(ctx, phone); err != nil {

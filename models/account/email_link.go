@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -42,7 +43,7 @@ func BeginEmailLink(ctx context.Context, tx Transactioner, accountID int64, emai
 // ConfirmEmailLink consumes the single-use challenge and adds a verified email
 // in one transaction, leaving the existing Account and credentials intact.
 func ConfirmEmailLink(ctx context.Context, tx Transactioner, accountID int64, hash []byte) error {
-	return tx.ExecTx(ctx, func(q *db.Queries) error {
+	err := tx.ExecTx(ctx, func(q *db.Queries) error {
 		email, err := q.ConsumeEmailLinkChallenge(ctx, db.ConsumeEmailLinkChallengeParams{
 			AccountID: accountID, TokenHash: hash,
 		})
@@ -63,4 +64,8 @@ func ConfirmEmailLink(ctx context.Context, tx Transactioner, accountID int64, ha
 		}
 		return nil
 	})
+	if emailLoginTaken(err) {
+		return util.WithCause(ErrEmailLinkTaken, err)
+	}
+	return err
 }

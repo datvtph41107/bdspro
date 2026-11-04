@@ -6,6 +6,7 @@ import (
 	"context"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/util"
 )
 
 // Transactioner retains the model's existing public name; db owns the contract.
@@ -39,6 +40,9 @@ func Register(ctx context.Context, tx Transactioner, arg RegisterParams) (db.Acc
 		return q.RecordEmailVerificationJob(ctx, created.ID)
 	})
 	if err != nil {
+		if emailLoginTaken(err) {
+			return db.Account{}, util.WithCause(ErrEmailRegistered, err)
+		}
 		return db.Account{}, err
 	}
 	return created, nil

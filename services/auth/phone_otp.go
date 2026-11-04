@@ -16,7 +16,6 @@ import (
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var phoneE164 = regexp.MustCompile(`^\+[1-9][0-9]{7,14}$`)
@@ -142,12 +141,7 @@ func (s PhoneOTP) VerifyBind(ctx context.Context, accountID int64, phone, code s
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
 		return auth_model.ErrOTPInvalid
 	}
-	err := auth_model.ConsumeChallenge(ctx, s.Store, phone, "bind", accountID, s.mac(phone, "bind", accountID, code))
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		return auth_model.ErrPhoneUnavailable
-	}
-	return err
+	return auth_model.ConsumeChallenge(ctx, s.Store, phone, "bind", accountID, s.mac(phone, "bind", accountID, code))
 }
 
 // StartRegister sends an OTP before any account is created. A registered
@@ -198,10 +192,6 @@ func (s PhoneOTP) VerifyRegister(ctx context.Context, phone, code, userAgent, cl
 		return empty, auth_model.ErrOTPInvalid
 	}
 	a, err := auth_model.CompletePhoneSignup(ctx, s.Store, phone, s.mac(phone, "register", 0, code))
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		return empty, auth_model.ErrPhoneRegistered
-	}
 	if err != nil {
 		return empty, err
 	}

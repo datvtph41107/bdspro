@@ -5,6 +5,7 @@ import (
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/datvtph41107/bdspro/modules/validation"
 )
 
@@ -44,6 +45,9 @@ func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_mo
 		return err
 	})
 	if err != nil {
+		if emailLoginTaken(err) {
+			return db.Account{}, util.WithCause(ErrEmailRegistered, err)
+		}
 		return db.Account{}, err
 	}
 	return created, nil
