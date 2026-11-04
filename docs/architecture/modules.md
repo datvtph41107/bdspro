@@ -10,12 +10,12 @@ Gitea separates
 [queue](https://github.com/go-gitea/gitea/tree/main/modules/queue) and
 [nosql/manager_redis.go](https://github.com/go-gitea/gitea/blob/main/modules/nosql/manager_redis.go):
 cache semantics, queue semantics, and shared connection ownership.
-BDSPro calls the latter `connection`, because no NoSQL database manager or
+BDSPro calls the latter `conn`, because no NoSQL database manager or
 LevelDB backend exists.
 
 | BDSPro module | Responsibility | Consumer and constraints |
 | --- | --- | --- |
-| `connection` | `manager_redis.go`: verified shared process-level go-redis clients, explicit close | cmd web/worker, Gin security, OIDC state; no auth policy here |
+| `conn` | `manager_redis.go`: verified shared process-level go-redis clients, explicit close | cmd web/worker, Gin security, OIDC state; no auth policy here |
 | `cache` | memory LRU, Redis, Memcached, JSON and request-context memoization; TTL/invalidation/miss/error | opt-in future consumers; **not used for security state** |
 | `queue` | Asynq Redis producer/worker, bounded transient channel backend, worker Manager, logging and config | cmd worker and services/worker; transient channel has **no retry/durability** |
 | `setting` | app.ini config, paths, typed settings, cache defaults | cmd, cache construction, service configuration |
@@ -28,14 +28,14 @@ LevelDB backend exists.
 | `util` | narrow error categories and shared helpers | models/services; no generic app-wide policy |
 
 **Removed:** `modules/redis`. Its only behavior was client constructor +
-PING, now owned by `modules/connection/manager_redis.go`. This is a package
+PING, now owned by `modules/conn/manager_redis.go`. This is a package
 ownership correction, not Redis removal. `modules/errors` was already
 retired; do not document it as current.
 
 ## File organization
 
 ```text
-modules/connection/
+modules/conn/
     manager_redis.go
 modules/cache/
     cache.go

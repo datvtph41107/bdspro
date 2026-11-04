@@ -7,7 +7,7 @@ This is an implementation decision, not a promise to copy all Gitea backends.
 
 | Gitea | What it actually owns | BDSPro R28 |
 | --- | --- | --- |
-| [modules/nosql/manager_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/nosql/manager_redis.go) | shared Redis client registry, reference counting and topology | `modules/connection/manager_redis.go`: process-scoped shared clients with one closing owner; no speculative reference counting |
+| [modules/nosql/manager_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/nosql/manager_redis.go) | shared Redis client registry, reference counting and topology | `modules/conn/manager_redis.go`: process-scoped shared clients with one closing owner; no speculative reference counting |
 | [modules/cache/string_cache.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/cache/string_cache.go) | cache semantics, configuration and backends | `modules/cache`: memory LRU, Redis and Memcached-backed string cache |
 | [modules/cache/cache_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/cache/cache_redis.go) | Redis adapter borrowing shared connection | Redis cache adapter borrows `redis.Cmdable`, never closes it |
 | [modules/queue/base_redis.go](https://github.com/go-gitea/gitea/blob/ab295e62e4c7/modules/queue/base_redis.go) | Redis backend for Gitea's own queue engine | `modules/queue/base_redis.go`: Asynq-based transport, not a second queue engine |
@@ -18,7 +18,7 @@ This is an implementation decision, not a promise to copy all Gitea backends.
 
 ```text
 cmd/web.go, cmd/worker.go
-    -> modules/connection/manager_redis.go  (go-redis connection owner)
+    -> modules/conn/manager_redis.go  (go-redis connection owner)
     -> modules/queue/base_redis.go       (Asynq producer: own client)
     -> modules/queue/workerqueue.go      (Asynq consumer: own connections)
 modules/cache/
@@ -40,7 +40,7 @@ modules/queue/
     logger.go        logging adapter
 ```
 
-The package is called `connection`, not `nosql` or `redis`. It owns shared Redis *connections*, **not** business authorization, cache invalidation or
+The package is called `conn`, not `nosql` or `redis`. It owns shared Redis *connections*, **not** business authorization, cache invalidation or
 queue retry policy. The Redis library is intentionally visible to some
 low-level consumers; this is not a fabricated vendor-independent KV API.
 
@@ -97,7 +97,7 @@ implicitly start the cache because no production endpoint consumes it yet.
 | Backend | Read semantics | Lifecycle and consistency |
 | --- | --- | --- |
 | Memory LRU (`cache_memory.go`) | Cache hit/miss, TTL, capacity-bound eviction | Process-local; cleared on restart; not shared across replicas |
-| Redis (`cache_redis.go`) | `redis.Nil` is a miss; transport errors propagate | Borrows go-redis client from `modules/connection`; does not own its shutdown |
+| Redis (`cache_redis.go`) | `redis.Nil` is a miss; transport errors propagate | Borrows go-redis client from `modules/conn`; does not own its shutdown |
 | Memcached (`cache_memcache.go`) | `memcache.ErrCacheMiss` is a miss; other errors propagate | Memcached TTL rules including absolute expiration above 30 days; bounded 2-second client timeout; actual Memcached integration test |
 | Request context (`context.go`) | Typed, successful-only memoization, manual key invalidation | Lifetime limited to the request / 5 minutes; not a distributed cache or write-through mechanism |
 
@@ -132,7 +132,7 @@ implicitly start the cache because no production endpoint consumes it yet.
 
 | Contract | Evidence in this PR | Remaining integration requirement |
 | --- | --- | --- |
-| Missing Redis address and closed manager | `modules/connection/manager_redis_test.go` | Live Redis PING and restart/close behavior |
+| Missing Redis address and closed manager | `modules/conn/manager_redis_test.go` | Live Redis PING and restart/close behavior |
 | Memory TTL, bounded LRU, cache-aside | `modules/cache/cache_test.go` | Memory pressure and concurrent load |
 | Redis cache nil-client policy | `modules/cache/cache_test.go` + Redis integration test | Live Redis prefix, missing key, outage and TTL |
 | Memcached key/TTL, hit/miss/expiration | `modules/cache/cache_memcache_test.go` | CI Memcached service; protocol failure policy |\n| Request context memoization and invalidate | `modules/cache/context_test.go` | Caller-managed invalidation after writes |\n| Cache config invalid adapter/TTL/size | `modules/setting/cache_test.go` | Environment override precedence |

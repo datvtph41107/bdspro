@@ -8,7 +8,7 @@
 - `migrate`: config path → database-only INI settings → versioned SQL migration.
 
 `models/db.InitStore` owns PostgreSQL pool initialization.
-`modules/connection.RedisManager` owns go-redis connection sharing, PING and
+`modules/conn.RedisManager` owns go-redis connection sharing, PING and
 shutdown. Neither chooses domain-specific failure policies. Web startup currently
 requires Redis because authentication throttling depends on it.
 Separating the worker does not remove this web dependency.

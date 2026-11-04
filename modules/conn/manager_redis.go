@@ -1,6 +1,6 @@
 // Package connection owns Redis client connectivity shared by Redis consumers.
 // Cache and security state use the client; Asynq owns its own Redis connections.
-package connection
+package conn
 
 import (
 	"context"

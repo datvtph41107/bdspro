@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/connection"
+	"github.com/datvtph41107/bdspro/modules/conn"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/queue"
 	"github.com/datvtph41107/bdspro/services/mail"
@@ -34,7 +34,7 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 		return err
 	}
 	defer store.Close()
-	redisManager := connection.NewRedisManager()
+	redisManager := conn.NewRedisManager()
 	_, err = redisManager.Client(ctx, cfg.RedisAddress)
 	if err != nil {
 		return err

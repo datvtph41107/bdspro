@@ -12,7 +12,7 @@ main.go -> cmd/main.go (CLI flags and command dispatch)
   │   ├── modules/setting (paths, INI, validation)
   │   ├── models/db.InitStore -> SQLC store
   │   ├── models/db.MigrateUp (development only)
-  │   ├── modules/connection.RedisManager.Client
+  │   ├── modules/conn.RedisManager.Client
   │   └── routers.InitWebInstalled
   │       └── routers/api/v1.Routes -> routers/api/v1/api.go
   │           ├── routers/common (request ID, CORS)
@@ -20,7 +20,7 @@ main.go -> cmd/main.go (CLI flags and command dispatch)
   │           ├── routers/api/v1/user and org (HTTP handlers)
   │           └── services/auth and models/organization -> models/db
   ├── cmd/worker.go
-  │   ├── modules/connection (Redis startup readiness)
+  │   ├── modules/conn (Redis startup readiness)
   │   ├── modules/queue (Asynq transport, processor, logger)
   │   └── services/worker (outbox dispatcher, job adapters)
   │       └── services/jobs (actual email workflows)

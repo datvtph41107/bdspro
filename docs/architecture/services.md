@@ -40,7 +40,7 @@ persistence invariants. A service owns business operations and cross-model or
 cross-transport orchestration when that work is real, not when it only forwards
 a single SQLC call.
 
-Redis client lifetime is owned by `modules/connection` for go-redis consumers.
+Redis client lifetime is owned by `modules/conn` for go-redis consumers.
 Asynq owns separate internal Redis connections; `modules/queue` provides its
 worker/producer integration. See [cache/queue ownership](cache-queue.md).
 
