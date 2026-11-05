@@ -271,8 +271,8 @@ func TestSessionUserAgentNormalizedBeforePersistence(t *testing.T) {
 	}
 	store := &sessionMemoryStore{account: db.Account{ID: 32}}
 	svc := NewAuthService(store, maker, setting.Config{
-		TokenSymmetricKey: strings.Repeat("k", 32),
-		AccessTokenDuration: time.Minute,
+		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AccessTokenDuration:  time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}, nil)
 	userAgent := strings.Repeat("✓", 2050) + "\x00" + string([]byte{0xff})
