@@ -41,6 +41,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	newServer := func(oauth2, phone bool) *Server {
 		s := &Server{
 			tokenMaker:          maker,
+			store:               routeAccountStore{},
 			authHandler:         user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}), nil),
 			organizationHandler: org.NewHandler(nil),
 		}
