@@ -21,7 +21,7 @@ Observed client IP comes from Gin trusted-proxy resolution, not the JSON body, a
 
 ## Cleanup and operation
 
-The single `services/worker.AuthenticationRetention` lifecycle now deletes both successful connections and rejected proofs independently at startup and hourly, with the same 90-day cutoff, up to 1,000 per batch and 20 batches per table per sweep. SQLC uses `FOR UPDATE SKIP LOCKED` to bound work under multiple workers. If the worker is stopped, database rows do not expire automatically. Backup and restored snapshot retention remain separate operational responsibilities.
+The single `services/worker.AuthenticationRetention` lifecycle now deletes both successful connections and rejected proofs independently at startup and hourly, with the same 90-day cutoff, up to 1,000 per batch and 20 batches per table per sweep. Failure in one table's sweep does not starve the other; both are retried on the next hour. SQLC uses `FOR UPDATE SKIP LOCKED` to bound work under multiple workers. If the worker is stopped, database rows do not expire automatically. Backup and restored snapshot retention remain separate operational responsibilities.
 
 ## Acceptance boundaries
 

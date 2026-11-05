@@ -173,6 +173,9 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	if store.historyCount != 1 {
 		t.Fatalf("session issuance must produce one login history, got %d", store.historyCount)
 	}
+	if len(store.failures) != 1 {
+		t.Fatalf("successful session issuance must not create a rejected-proof event: %+v", store.failures)
+	}
 	if store.session.RefreshToken != auth_model.RefreshTokenDigest(result.RefreshToken) || store.session.RefreshToken == result.RefreshToken {
 		t.Fatal("raw refresh JWT persisted in session storage")
 	}
@@ -274,6 +277,27 @@ func TestRejectedProofAuditFailureKeepsInvalidCredentialResponse(t *testing.T) {
 	}
 	if store.session.ID != uuid.Nil || len(store.failures) != 0 {
 		t.Fatalf("failed rejection must never issue a session: %+v", store.session)
+	}
+}
+
+func TestRejectedOIDCIdentityAuditDoesNotGrantSession(t *testing.T) {
+	store := &sessionMemoryStore{}
+	svc := NewAuthService(store, nil, setting.Config{
+		TokenSymmetricKey: strings.Repeat("k", 32),
+	}, nil)
+	_, err := svc.LoginOIDC(context.Background(), auth_model.OIDCClaims{
+		Issuer: "http://untrusted-issuer.example.test",
+		Subject: "subject-a",
+	}, "", "203.0.113.8")
+	if !errors.Is(err, auth_model.ErrOIDCIssuerInvalid) {
+		t.Fatalf("invalid issuer must remain rejected: %v", err)
+	}
+	if len(store.failures) != 1 || store.failures[0].Method != auth_model.FailureOIDC ||
+		store.failures[0].Reason != auth_model.FailureBadIdentity || store.failures[0].AccountID.Valid {
+		t.Fatalf("invalid OIDC decision missing or misattributed: %+v", store.failures)
+	}
+	if store.session.ID != uuid.Nil {
+		t.Fatal("invalid identity issued a session")
 	}
 }
 

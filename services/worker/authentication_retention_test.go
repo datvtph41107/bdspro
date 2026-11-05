@@ -68,10 +68,10 @@ func TestAuthenticationRetentionCutoffAndBatches(t *testing.T) {
 
 func TestAuthenticationRetentionStopsOnErrorAndCancel(t *testing.T) {
 	failure := errors.New("postgres offline")
-	store := &authenticationRetentionStoreFake{connectionErr: failure}
-	_, err := NewAuthenticationRetention(store).Sweep(context.Background(), time.Now())
-	if !errors.Is(err, failure) || store.connectionCalls != 1 || store.rejectionCalls != 0 {
-		t.Fatalf("failed sweep should stop after first error: %v calls=%d/%d", err, store.connectionCalls, store.rejectionCalls)
+	store := &authenticationRetentionStoreFake{connectionErr: failure, rejectionRows: []int64{2}}
+	n, err := NewAuthenticationRetention(store).Sweep(context.Background(), time.Now())
+	if !errors.Is(err, failure) || n != 2 || store.connectionCalls != 1 || store.rejectionCalls != 1 {
+		t.Fatalf("failure in connection cleanup must not starve rejected-proof cleanup: deleted=%d err=%v calls=%d/%d", n, err, store.connectionCalls, store.rejectionCalls)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -81,7 +81,7 @@ func TestAuthenticationRetentionStopsOnErrorAndCancel(t *testing.T) {
 		t.Fatalf("cancelled sweep should not write: %v calls=%d", err, store.connectionCalls)
 	}
 	store = &authenticationRetentionStoreFake{connectionRows: []int64{2}, rejectionErr: failure}
-	n, err := NewAuthenticationRetention(store).Sweep(context.Background(), time.Now())
+	n, err = NewAuthenticationRetention(store).Sweep(context.Background(), time.Now())
 	if !errors.Is(err, failure) || n != 2 || store.rejectionCalls != 1 {
 		t.Fatalf("partial deletion must be visible: deleted=%d err=%v", n, err)
 	}

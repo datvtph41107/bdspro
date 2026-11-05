@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -35,11 +36,13 @@ func NewAuthenticationRetention(store interface {
 }
 
 // Sweep applies the same cutoff independently to both tables, at most
-// 20,000 rows per table per pass. A partial failure is retried at the next
-// scheduled sweep and never rolls back an earlier committed deletion.
+// 20,000 rows per table per pass. Even if connection cleanup fails, the
+// rejected-proof cleanup is still attempted. Partial failures are retried on
+// the next scheduled sweep and never roll back committed deletions.
 func (w *AuthenticationRetention) Sweep(ctx context.Context, now time.Time) (int64, error) {
 	cutoff := now.UTC().Add(-authenticationRetentionWindow)
 	var deleted int64
+	var connectionErr error
 	for i := 0; i < authenticationRetentionMaxBatches; i++ {
 		if err := ctx.Err(); err != nil {
 			return deleted, err
@@ -49,7 +52,8 @@ func (w *AuthenticationRetention) Sweep(ctx context.Context, now time.Time) (int
 			Take:   authenticationRetentionBatchSize,
 		})
 		if err != nil {
-			return deleted, err
+			connectionErr = err
+			break
 		}
 		deleted += n
 		if n < int64(authenticationRetentionBatchSize) {
@@ -58,21 +62,21 @@ func (w *AuthenticationRetention) Sweep(ctx context.Context, now time.Time) (int
 	}
 	for i := 0; i < authenticationRetentionMaxBatches; i++ {
 		if err := ctx.Err(); err != nil {
-			return deleted, err
+			return deleted, errors.Join(connectionErr, err)
 		}
 		n, err := w.store.DeleteExpiredAuthenticationFailures(ctx, db.DeleteExpiredAuthenticationFailuresParams{
 			Cutoff: cutoff,
 			Take:   authenticationRetentionBatchSize,
 		})
 		if err != nil {
-			return deleted, err
+			return deleted, errors.Join(connectionErr, err)
 		}
 		deleted += n
 		if n < int64(authenticationRetentionBatchSize) {
 			break
 		}
 	}
-	return deleted, nil
+	return deleted, connectionErr
 }
 
 func (w *AuthenticationRetention) Start(ctx context.Context) {
