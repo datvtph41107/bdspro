@@ -1,28 +1,32 @@
-# Database migrations and SQLC
+# Canonical database migrations
 
-The source of schema truth is `db/migration/`. `db/query/` is source SQL,
-and SQLC generates `models/db/`.
+BDSPro source of truth is `db/migration/000001_core.up.sql`: one fresh-install
+baseline defining the final table and index names, including the **OAuth2
+authorization server** and the separate external OIDC credential mapping.
+No transitional mirroring, rename or backfill SQL, and no custom triggers.
 
+`make migrateup` uses the configured database; `make sqlc` regenerates
+SQLC from `db/migration/` and `db/query/`. The `migrate --down`
+command only runs in development and destroys all application data.
+
+**Breaking migration version transition:** historical databases that used
+migration versions 1–21 are NOT compatible with this rewritten ledger.
+The CLI explicitly rejects version >1, and rejects version 1 if the canonical
+schema marker `oauth_clients` is absent. Do not force a version number, delete
+`schema_migrations`, drop old tables, or deploy the new binary against that
+database. Export and verify a data migration into a separately provisioned
+database, including accounts, credentials, sessions and OAuth binding ownership,
+before switching traffic. Backups and restoration are required before cutover.
+
+CI provisions `bdspro_test` from empty, validates table counts, exact current
+names, absence of triggers, and verifies that a simulated v21 database is
+rejected. Tests that modified legacy schema migration versions were removed;
+this baseline change does NOT prove upgrade compatibility for a live database.
+
+Run:
 ```sh
 make config-local
 make migrateup
-make migrateup1
-make migratedown1
-make sqlc
+make sqlc-check
+make test
 ```
-
-`migrateup` is implemented by `bdspro migrate` using the **same INI
-database target** as `bdspro web`; the previous Makefile `DB_URL`
-shortcut was removed. `migratedown` and `migratedown1` require an
-explicit `RUN_MODE = development`. This guard prevents a common mistake,
-not an absolute guarantee that a developer did not select production DB
-credentials while in development mode.
-
-`cmd/migrate.go` loads database-only INI settings (does not initialize Gin,
-Redis, auth or worker). The migration code is in `models/db/migration.go`;
-do not create a second GORM migration owner or run `AutoMigrate` on boot.
-
-CI tests upgrading existing account and outbox rows across schema versions.
-It is not a proof that every deployment can safely roll back after new
-application writes. Migrations need version compatibility and a backup/
-roll-forward plan in real deployments.
