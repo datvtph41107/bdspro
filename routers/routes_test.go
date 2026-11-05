@@ -23,7 +23,7 @@ type routeAccountStore struct{ db.Store }
 
 func (routeAccountStore) GetAccountProfile(_ context.Context, id int64) (db.GetAccountProfileRow, error) {
 	return db.GetAccountProfileRow{AccountID: id, PersonID: id + 1, Email: "route@example.test",
-		CreatedAt: time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC),
+		CreatedAt:       time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC),
 		IsEmailVerified: true, Locale: "vi", Timezone: "UTC", Currency: "VND"}, nil
 }
 

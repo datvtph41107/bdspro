@@ -40,14 +40,14 @@ func TestProfileAndSettingsOwnershipInPostgres(t *testing.T) {
 	store := db.NewStore(pool)
 
 	first, err := account_model.Register(ctx, store, account_model.RegisterParams{
-		Email: uuid.NewString()+"@example.test", PasswordHash: "integration-hash",
+		Email: uuid.NewString() + "@example.test", PasswordHash: "integration-hash",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	second, err := account_model.CreateOAuth2Account(ctx, store, auth_model.OIDCClaims{
 		Issuer: "https://issuer.example.test", Subject: uuid.NewString(),
-		Email: uuid.NewString()+"@example.test", EmailVerified: true,
+		Email: uuid.NewString() + "@example.test", EmailVerified: true,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -92,8 +92,8 @@ func TestProfileAndSettingsOwnershipInPostgres(t *testing.T) {
 	errs := make(chan error, 2)
 	var wg sync.WaitGroup
 	for _, update := range []db.UpdatePersonProfileParams{
-		{AccountID: first.ID, FirstName: pgtype.Text{String:"Concurrent First", Valid: true}},
-		{AccountID: first.ID, LastName: pgtype.Text{String:"Concurrent Last", Valid: true}},
+		{AccountID: first.ID, FirstName: pgtype.Text{String: "Concurrent First", Valid: true}},
+		{AccountID: first.ID, LastName: pgtype.Text{String: "Concurrent Last", Valid: true}},
 	} {
 		wg.Add(1)
 		go func(arg db.UpdatePersonProfileParams) {

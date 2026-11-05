@@ -90,7 +90,7 @@ func TestPhoneChallengeCommitsWrongCodeAndConsumesOnce(t *testing.T) {
 		t.Fatalf("wrong OTP accepted: %v", err)
 	}
 	var attempts int
-	err := pool.QueryRow(ctx, "SELECT failed_attempts FROM phone_otp_challenges WHERE phone_e164=$1 AND purpose='login'", phone).Scan(&attempts)
+	err = pool.QueryRow(ctx, "SELECT failed_attempts FROM phone_otp_challenges WHERE phone_e164=$1 AND purpose='login'", phone).Scan(&attempts)
 	if err != nil || attempts != 1 {
 		t.Fatalf("wrong OTP counter was not committed: attempts=%d err=%v", attempts, err)
 	}

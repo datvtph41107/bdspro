@@ -15,49 +15,72 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type currentProfileStoreFake struct {
 	db.Store
-	profile db.GetAccountProfileRow
-	err error
-	calls int
-	profileUpdate db.UpdatePersonProfileParams
+	profile        db.GetAccountProfileRow
+	err            error
+	calls          int
+	profileUpdate  db.UpdatePersonProfileParams
 	settingsUpdate db.UpdateAccountSettingsParams
 }
 
 func (s *currentProfileStoreFake) GetAccountProfile(_ context.Context, id int64) (db.GetAccountProfileRow, error) {
 	s.calls++
-	if s.err != nil { return db.GetAccountProfileRow{}, s.err }
-	if id != s.profile.AccountID { return db.GetAccountProfileRow{}, pgx.ErrNoRows }
+	if s.err != nil {
+		return db.GetAccountProfileRow{}, s.err
+	}
+	if id != s.profile.AccountID {
+		return db.GetAccountProfileRow{}, pgx.ErrNoRows
+	}
 	return s.profile, nil
 }
 
 func (s *currentProfileStoreFake) UpdatePersonProfile(_ context.Context, arg db.UpdatePersonProfileParams) (int64, error) {
 	s.profileUpdate = arg
-	if arg.AccountID != s.profile.AccountID { return 0, nil }
-	if arg.DisplayName.Valid { s.profile.DisplayName = arg.DisplayName.String }
-	if arg.FirstName.Valid { s.profile.FirstName = arg.FirstName.String }
-	if arg.LastName.Valid { s.profile.LastName = arg.LastName.String }
+	if arg.AccountID != s.profile.AccountID {
+		return 0, nil
+	}
+	if arg.DisplayName.Valid {
+		s.profile.DisplayName = arg.DisplayName.String
+	}
+	if arg.FirstName.Valid {
+		s.profile.FirstName = arg.FirstName.String
+	}
+	if arg.LastName.Valid {
+		s.profile.LastName = arg.LastName.String
+	}
 	return 1, nil
 }
 
 func (s *currentProfileStoreFake) UpdateAccountSettings(_ context.Context, arg db.UpdateAccountSettingsParams) (int64, error) {
 	s.settingsUpdate = arg
-	if arg.AccountID != s.profile.AccountID { return 0, nil }
-	if arg.Locale.Valid { s.profile.Locale = arg.Locale.String }
-	if arg.Timezone.Valid { s.profile.Timezone = arg.Timezone.String }
-	if arg.Currency.Valid { s.profile.Currency = arg.Currency.String }
+	if arg.AccountID != s.profile.AccountID {
+		return 0, nil
+	}
+	if arg.Locale.Valid {
+		s.profile.Locale = arg.Locale.String
+	}
+	if arg.Timezone.Valid {
+		s.profile.Timezone = arg.Timezone.String
+	}
+	if arg.Currency.Valid {
+		s.profile.Currency = arg.Currency.String
+	}
 	return 1, nil
 }
 
 func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	maker, err := authcrypto.NewJWTMaker(strings.Repeat("x", 32))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	access, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeAccess)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	store := &currentProfileStoreFake{profile: db.GetAccountProfileRow{
 		AccountID: 42, PersonID: 67, Email: "verified@example.test",
 		IsEmailVerified: true, CreatedAt: time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC),
@@ -74,8 +97,12 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 
 	request := func(method, path, body, bearer string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
-		if bearer != "" { req.Header.Set("Authorization", "Bearer "+bearer) }
-		if body != "" { req.Header.Set("Content-Type", "application/json") }
+		if bearer != "" {
+			req.Header.Set("Authorization", "Bearer "+bearer)
+		}
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		return w
@@ -84,15 +111,26 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 		t.Fatalf("unauthenticated call reached data store: status=%d calls=%d", w.Code, store.calls)
 	}
 	w := request("GET", "/users/me", "", access)
-	if w.Code != http.StatusOK { t.Fatalf("GET /users/me: %d %s", w.Code, w.Body.String()) }
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /users/me: %d %s", w.Code, w.Body.String())
+	}
 	var got struct {
 		AccountID int64 `json:"account_id"`
-		PersonID int64 `json:"person_id"`
-		Profile struct { DisplayName string `json:"display_name"` } `json:"profile"`
-		Security struct { HasPassword bool `json:"has_password"`; HasOauth2 bool `json:"has_oauth2"` } `json:"security"`
-		Settings struct { Locale string `json:"locale"` } `json:"settings"`
+		PersonID  int64 `json:"person_id"`
+		Profile   struct {
+			DisplayName string `json:"display_name"`
+		} `json:"profile"`
+		Security struct {
+			HasPassword bool `json:"has_password"`
+			HasOauth2   bool `json:"has_oauth2"`
+		} `json:"security"`
+		Settings struct {
+			Locale string `json:"locale"`
+		} `json:"settings"`
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil { t.Fatal(err) }
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
 	if got.AccountID != 42 || got.PersonID != 67 || got.Profile.DisplayName != "Verified" || !got.Security.HasPassword || got.Security.HasOauth2 || got.Settings.Locale != "vi" {
 		t.Fatalf("unexpected account profile: %+v", got)
 	}
@@ -128,4 +166,3 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 	}
 }
 
-var _ = pgtype.Text{}

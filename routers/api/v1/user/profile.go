@@ -24,32 +24,50 @@ func NewProfileHandler(store db.Store) *ProfileHandler {
 
 func (h *ProfileHandler) Show(c *gin.Context) {
 	p, err := h.profile.Show(c.Request.Context(), middleware.AccountID(c))
-	if err != nil { response.Error(c, err); return }
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	c.JSON(http.StatusOK, convert.ToAccountProfile(p))
 }
 
 func (h *ProfileHandler) Update(c *gin.Context) {
 	var req structs.ProfileUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil { response.Invalid(c, err); return }
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
+		return
+	}
 	p, err := h.profile.Update(c.Request.Context(), middleware.AccountID(c), profile_service.ProfilePatch{
 		DisplayName: req.DisplayName, FirstName: req.FirstName, LastName: req.LastName,
 	})
-	if err != nil { response.Error(c, err); return }
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	c.JSON(http.StatusOK, convert.ToAccountProfile(p))
 }
 
 func (h *ProfileHandler) Settings(c *gin.Context) {
 	p, err := h.profile.Show(c.Request.Context(), middleware.AccountID(c))
-	if err != nil { response.Error(c, err); return }
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	c.JSON(http.StatusOK, convert.ToAccountSettings(p))
 }
 
 func (h *ProfileHandler) UpdateSettings(c *gin.Context) {
 	var req structs.SettingsUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil { response.Invalid(c, err); return }
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Invalid(c, err)
+		return
+	}
 	p, err := h.profile.UpdateSettings(c.Request.Context(), middleware.AccountID(c), profile_service.SettingsPatch{
 		Locale: req.Locale, Timezone: req.Timezone, Currency: req.Currency,
 	})
-	if err != nil { response.Error(c, err); return }
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	c.JSON(http.StatusOK, convert.ToAccountSettings(p))
 }

@@ -58,4 +58,3 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, convert.ToLogin(result))
 }
-
