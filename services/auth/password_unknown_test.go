@@ -37,7 +37,7 @@ func TestPasswordLoginMissingCredentialsUseCanonicalFailure(t *testing.T) {
 				account:      db.Account{ID: 11, Email: "account@example.test"},
 				passwordHash: tc.hash,
 			}
-			svc := NewAuthService(store, nil, setting.Config{})
+			svc := NewAuthService(store, nil, setting.Config{}, nil)
 			_, err := svc.Login(context.Background(), tc.email, "wrong-password", "", "")
 			if !errors.Is(err, auth_model.ErrInvalidCredentials) {
 				t.Fatalf("expected canonical public credential error, got %v", err)
