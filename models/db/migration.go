@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/jackc/pgx/v5"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgx/v5"
 )
 
-// validateCanonicalVersion protects installations with the former 21-step
-// migration ledger. A v21 database cannot silently masquerade as an upgraded
-// instance when source control now contains only the single v1 baseline.
+// validateCanonicalVersion prevents reinterpreting a database created with
+// another migration ledger. Each canonical migration creates exactly one table.
+// In the previous ledger, a version could create, rename or drop many tables;
+// a previously applied version 1..21 is therefore NOT automatically compatible.
 func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	version, dirty, err := m.Version()
 	if errors.Is(err, migrate.ErrNilVersion) {
@@ -26,8 +27,8 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	if dirty {
 		return fmt.Errorf("database migration version %d is dirty", version)
 	}
-	if version != 1 {
-		return fmt.Errorf("database uses migration version %d; canonical baseline v1 only supports freshly provisioned databases; export and migrate data explicitly", version)
+	if version == 0 || version > 26 {
+		return fmt.Errorf("unknown migration ledger version %d; provision a fresh canonical database and migrate data explicitly", version)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -36,13 +37,28 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 		return fmt.Errorf("inspect database schema: %w", err)
 	}
 	defer conn.Close(context.Background())
-	var ready bool
-	err = conn.QueryRow(ctx, "SELECT to_regclass('public.oauth_clients') IS NOT NULL AND to_regclass('public.oauth2_credentials') IS NOT NULL").Scan(&ready)
+
+	var tables int
+	var parties, credentials, clients, deprecated bool
+	err = conn.QueryRow(ctx, `SELECT
+		(SELECT count(*)::integer FROM information_schema.tables
+		 WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+		   AND table_name <> 'schema_migrations'),
+		to_regclass('public.parties') IS NOT NULL,
+		to_regclass('public.oauth2_credentials') IS NOT NULL,
+		to_regclass('public.oauth_clients') IS NOT NULL,
+		(to_regclass('public.google_identities') IS NOT NULL
+		 OR to_regclass('public.organization_memberships') IS NOT NULL
+		 OR to_regclass('public.oauth2_credentials_archive') IS NOT NULL
+		 OR to_regclass('public.oauth2_identities') IS NOT NULL)`).Scan(
+		&tables, &parties, &credentials, &clients, &deprecated,
+	)
 	if err != nil {
-		return fmt.Errorf("inspect database baseline: %w", err)
+		return fmt.Errorf("inspect canonical schema: %w", err)
 	}
-	if !ready {
-		return errors.New("database has a pre-baseline v1 schema; it must be migrated or re-provisioned explicitly, not reinterpreted as canonical")
+	if !parties || tables != int(version) || credentials != (version >= 18) ||
+		clients != (version >= 23) || deprecated {
+		return fmt.Errorf("database at migration version %d does not match the canonical schema (tables=%d); use an explicit data migration; refusing reinterpretation", version, tables)
 	}
 	return nil
 }

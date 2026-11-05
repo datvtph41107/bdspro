@@ -24,7 +24,7 @@ BEGIN
      OR to_regclass('public.organization_memberships') IS NOT NULL
      OR to_regclass('public.verification_outbox') IS NOT NULL
      OR EXISTS (SELECT 1 FROM pg_trigger WHERE NOT tgisinternal)
-     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 1 AND NOT dirty) THEN
+     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 26 AND NOT dirty) THEN
     RAISE EXCEPTION 'canonical fresh schema differs from contract (tables=%)', number_of_tables;
   END IF;
 END $check$;

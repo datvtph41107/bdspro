@@ -1,31 +1,33 @@
-# Canonical database migrations
+# Canonical migrations
 
-BDSPro source of truth is `db/migration/000001_core.up.sql`: one fresh-install
-baseline defining the final table and index names, including the **OAuth2
-authorization server** and the separate external OIDC credential mapping.
-No transitional mirroring, rename or backfill SQL, and no custom triggers.
+Each table has its own ordered `db/migration/NNNNNN_table.up.sql` and
+`NNNNNN_table.down.sql`, with associated indexes in the same file. There
+are 26 ordered migrations, ending at `000026_oauth_refresh_tokens`.
+The names and constraints are final at creation: no custom triggers,
+backfill, temporary mirror, rename, or archived credential table.
 
-`make migrateup` uses the configured database; `make sqlc` regenerates
-SQLC from `db/migration/` and `db/query/`. The `migrate --down`
-command only runs in development and destroys all application data.
+`make migrateup` and `make migratedown1` use the database selected by
+`app.ini`. A rollback drops the corresponding table and its data; command
+rollback is restricted to development. It must only be used on a disposable
+database.
 
-**Breaking migration version transition:** historical databases that used
-migration versions 1–21 are NOT compatible with this rewritten ledger.
-The CLI explicitly rejects version >1, and rejects version 1 if the canonical
-schema marker `oauth_clients` is absent. Do not force a version number, delete
-`schema_migrations`, drop old tables, or deploy the new binary against that
-database. Export and verify a data migration into a separately provisioned
-database, including accounts, credentials, sessions and OAuth binding ownership,
-before switching traffic. Backups and restoration are required before cutover.
+**Breaking compatibility boundary:** the old ledger also used versions
+1–21, but a version number from that ledger does not mean the same schema.
+Before each migration, `models/db/migration.go` checks the canonical
+version-to-table count and marker tables. Old databases are rejected, never
+silently stamped as migrated. No existing database records are deleted
+by this work: to change an actual deployment, provision a **new** database,
+export and verify data/identity links, test the conversion and switch traffic
+through a separate reviewed rollout. Do not remove `schema_migrations` or
+force a migration version on an existing DB.
 
-CI provisions `bdspro_test` from empty, validates table counts, exact current
-names, absence of triggers, and verifies that a simulated v21 database is
-rejected. Tests that modified legacy schema migration versions were removed;
-this baseline change does NOT prove upgrade compatibility for a live database.
+SQLC reads only `db/migration/` and `db/query/`. Regenerate `models/db/sqlc/`
+and its facade aliases using `make sqlc`; do not hand edit generated
+code. CI tests fresh PostgreSQL 18 creation, all 26 tables and indexes,
+the absence of obsolete OAuth tables and SQL triggers, and refusal of an
+older migration ledger.
 
-Run:
 ```sh
-make config-local
 make migrateup
 make sqlc-check
 make test
