@@ -43,13 +43,13 @@ func TestPasswordLoginMissingCredentialsUseCanonicalFailure(t *testing.T) {
 			if !errors.Is(err, auth_model.ErrInvalidCredentials) {
 				t.Fatalf("expected canonical public credential error, got %v", err)
 			}
-			if len(store.failures) != 1 || len(store.failures[0].CredentialMac) != 32 {
-				t.Fatalf("one keyed rejection expected: %+v", store.failures)
+			if len(store.auditEvents) != 1 || len(store.auditEvents[0].SubjectMac) != 32 {
+				t.Fatalf("one keyed rejection expected: %+v", store.auditEvents)
 			}
-			if tc.name == "unknown email" && store.failures[0].AccountID.Valid {
+			if tc.name == "unknown email" && store.auditEvents[0].AccountID.Valid {
 				t.Fatal("unknown account audit must not invent identity")
 			}
-			if tc.name != "unknown email" && !store.failures[0].AccountID.Valid {
+			if tc.name != "unknown email" && !store.auditEvents[0].AccountID.Valid {
 				t.Fatal("known account audit lost its account ownership")
 			}
 		})

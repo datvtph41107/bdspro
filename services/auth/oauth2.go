@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
+	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
@@ -57,7 +58,7 @@ func (s *AuthService) LoginOIDC(ctx context.Context, identity auth_model.OIDCCla
 	var empty LoginResult
 	key, err := s.credentialKey(identity)
 	if err != nil {
-		s.recordRejected(ctx, auth_model.FailureOIDC, auth_model.FailureBadIdentity, 0, identity.Issuer+"\x00"+identity.Subject, clientIP)
+		s.recordLoginRejected(ctx, audit_model.LoginRejected{Method: audit_model.MethodOIDC, Reason: audit_model.ReasonInvalidIdentity, Identifier: identity.Issuer+"\x00"+identity.Subject, IP: clientIP})
 		return empty, err
 	}
 	accountID, err := auth_model.GetOAuth2AccountID(ctx, s.store, key)
@@ -67,7 +68,7 @@ func (s *AuthService) LoginOIDC(ctx context.Context, identity auth_model.OIDCCla
 		account, err = s.store.GetAccountByID(ctx, accountID)
 	case errors.Is(err, pgx.ErrNoRows):
 		if !identity.EmailVerified || strings.TrimSpace(identity.Email) == "" {
-			s.recordRejected(ctx, auth_model.FailureOIDC, auth_model.FailureEmailUnverified, 0, key.Issuer+"\x00"+key.Subject, clientIP)
+			s.recordLoginRejected(ctx, audit_model.LoginRejected{Method: audit_model.MethodOIDC, Reason: audit_model.ReasonEmailUnverified, Identifier: key.Issuer+"\x00"+key.Subject, IP: clientIP})
 			return empty, auth_model.ErrOAuth2EmailUnverified
 		}
 		account, err = account_model.CreateOAuth2Account(ctx, s.store, identity)
@@ -76,7 +77,7 @@ func (s *AuthService) LoginOIDC(ctx context.Context, identity auth_model.OIDCCla
 			if lookupErr == nil {
 				account, err = s.store.GetAccountByID(ctx, linkedID)
 			} else if _, emailErr := s.store.GetAccountByEmail(ctx, identity.Email); emailErr == nil {
-				s.recordRejected(ctx, auth_model.FailureOIDC, auth_model.FailureLinkRequired, 0, key.Issuer+"\x00"+key.Subject, clientIP)
+				s.recordLoginRejected(ctx, audit_model.LoginRejected{Method: audit_model.MethodOIDC, Reason: audit_model.ReasonLinkRequired, Identifier: key.Issuer+"\x00"+key.Subject, IP: clientIP})
 				return empty, auth_model.ErrOAuth2EmailAlreadyRegistered
 			}
 		}

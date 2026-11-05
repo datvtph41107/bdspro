@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"strings"
 	"testing"
@@ -25,15 +26,15 @@ type sessionMemoryStore struct {
 	session      db.Session
 	historyCount int
 	historyErr   error
-	failureErr   error
-	failures     []db.InsertAuthenticationFailureParams
+	auditErr   error
+	auditEvents     []db.InsertAuditEventParams
 }
 
-func (s *sessionMemoryStore) InsertAuthenticationFailure(_ context.Context, arg db.InsertAuthenticationFailureParams) error {
-	if s.failureErr != nil {
-		return s.failureErr
+func (s *sessionMemoryStore) InsertAuditEvent(_ context.Context, arg db.InsertAuditEventParams) error {
+	if s.auditErr != nil {
+		return s.auditErr
 	}
-	s.failures = append(s.failures, arg)
+	s.auditEvents = append(s.auditEvents, arg)
 	return nil
 }
 
@@ -155,9 +156,9 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	if _, err := svc.Login(ctx, store.account.Email, "wrong", "", "203.0.113.9"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 		t.Fatalf("invalid password: got %v", err)
 	}
-	if len(store.failures) != 1 || store.failures[0].Reason != auth_model.FailureBadPassword ||
-		!store.failures[0].AccountID.Valid || store.failures[0].AccountID.Int64 != store.account.ID {
-		t.Fatalf("rejected known credential not persisted with account scope: %+v", store.failures)
+	if len(store.auditEvents) != 1 || store.auditEvents[0].Reason != audit_model.ReasonInvalidPassword ||
+		!store.auditEvents[0].AccountID.Valid || store.auditEvents[0].AccountID.Int64 != store.account.ID {
+		t.Fatalf("rejected known credential not persisted with account scope: %+v", store.auditEvents)
 	}
 
 	result, err := svc.Login(ctx, store.account.Email, "correct-password", "test-client", "127.0.0.1")
@@ -173,8 +174,8 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	if store.historyCount != 1 {
 		t.Fatalf("session issuance must produce one login history, got %d", store.historyCount)
 	}
-	if len(store.failures) != 1 {
-		t.Fatalf("successful session issuance must not create a rejected-proof event: %+v", store.failures)
+	if len(store.auditEvents) != 1 {
+		t.Fatalf("successful session issuance must not create a rejected-proof event: %+v", store.auditEvents)
 	}
 	if store.session.RefreshToken != auth_model.RefreshTokenDigest(result.RefreshToken) || store.session.RefreshToken == result.RefreshToken {
 		t.Fatal("raw refresh JWT persisted in session storage")
@@ -266,7 +267,7 @@ func TestRejectedProofAuditFailureKeepsInvalidCredentialResponse(t *testing.T) {
 	store := &sessionMemoryStore{
 		account:      db.Account{ID: 44, Email: "known@example.test"},
 		passwordHash: hash,
-		failureErr:   errors.New("authentication event database unavailable"),
+		auditErr:   errors.New("authentication event database unavailable"),
 	}
 	svc := NewAuthService(store, nil, setting.Config{
 		TokenSymmetricKey: strings.Repeat("k", 32),
@@ -275,7 +276,7 @@ func TestRejectedProofAuditFailureKeepsInvalidCredentialResponse(t *testing.T) {
 	if !errors.Is(err, auth_model.ErrInvalidCredentials) {
 		t.Fatalf("best-effort rejection audit must not change public error: %v", err)
 	}
-	if store.session.ID != uuid.Nil || len(store.failures) != 0 {
+	if store.session.ID != uuid.Nil || len(store.auditEvents) != 0 {
 		t.Fatalf("failed rejection must never issue a session: %+v", store.session)
 	}
 }
@@ -286,15 +287,15 @@ func TestRejectedOIDCIdentityAuditDoesNotGrantSession(t *testing.T) {
 		TokenSymmetricKey: strings.Repeat("k", 32),
 	}, nil)
 	_, err := svc.LoginOIDC(context.Background(), auth_model.OIDCClaims{
-		Issuer: "http://untrusted-issuer.example.test",
+		Issuer:  "http://untrusted-issuer.example.test",
 		Subject: "subject-a",
 	}, "", "203.0.113.8")
 	if !errors.Is(err, auth_model.ErrOIDCIssuerInvalid) {
 		t.Fatalf("invalid issuer must remain rejected: %v", err)
 	}
-	if len(store.failures) != 1 || store.failures[0].Method != auth_model.FailureOIDC ||
-		store.failures[0].Reason != auth_model.FailureBadIdentity || store.failures[0].AccountID.Valid {
-		t.Fatalf("invalid OIDC decision missing or misattributed: %+v", store.failures)
+	if len(store.auditEvents) != 1 || store.auditEvents[0].Method != audit_model.MethodOIDC ||
+		store.auditEvents[0].Reason != audit_model.ReasonInvalidIdentity || store.auditEvents[0].AccountID.Valid {
+		t.Fatalf("invalid OIDC decision missing or misattributed: %+v", store.auditEvents)
 	}
 	if store.session.ID != uuid.Nil {
 		t.Fatal("invalid identity issued a session")
@@ -311,9 +312,9 @@ func TestPhoneLoginInvalidProofWritesNoSession(t *testing.T) {
 	if !errors.Is(err, auth_model.ErrOTPInvalid) {
 		t.Fatalf("invalid OTP input must not authenticate: %v", err)
 	}
-	if len(store.failures) != 1 || store.failures[0].Method != auth_model.FailurePhoneOTP ||
-		store.failures[0].Reason != auth_model.FailureBadOTP {
-		t.Fatalf("bad OTP was not recorded: %+v", store.failures)
+	if len(store.auditEvents) != 1 || store.auditEvents[0].Method != audit_model.MethodPhoneOTP ||
+		store.auditEvents[0].Reason != audit_model.ReasonInvalidOTP {
+		t.Fatalf("bad OTP was not recorded: %+v", store.auditEvents)
 	}
 	if store.session.ID != uuid.Nil {
 		t.Fatal("bad phone OTP issued a session")
