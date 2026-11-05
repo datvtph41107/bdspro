@@ -10,14 +10,14 @@ import (
 )
 
 type authenticationRetentionStoreFake struct {
-	connectionRows   []int64
-	rejectionRows    []int64
-	connectionCalls  int
-	rejectionCalls   int
-	cutoffs          []time.Time
-	takes            []int32
-	connectionErr    error
-	rejectionErr     error
+	connectionRows  []int64
+	rejectionRows   []int64
+	connectionCalls int
+	rejectionCalls  int
+	cutoffs         []time.Time
+	takes           []int32
+	connectionErr   error
+	rejectionErr    error
 }
 
 func (f *authenticationRetentionStoreFake) DeleteExpiredAccountConnectionHistories(_ context.Context, arg db.DeleteExpiredAccountConnectionHistoriesParams) (int64, error) {
@@ -49,7 +49,7 @@ func (f *authenticationRetentionStoreFake) DeleteExpiredAuthenticationFailures(_
 func TestAuthenticationRetentionCutoffAndBatches(t *testing.T) {
 	store := &authenticationRetentionStoreFake{
 		connectionRows: []int64{1000, 1000, 8},
-		rejectionRows: []int64{1000, 5},
+		rejectionRows:  []int64{1000, 5},
 	}
 	now := time.Date(2026, 11, 5, 5, 0, 0, 0, time.UTC)
 	n, err := NewAuthenticationRetention(store).Sweep(context.Background(), now)
@@ -90,7 +90,7 @@ func TestAuthenticationRetentionStopsOnErrorAndCancel(t *testing.T) {
 func TestAuthenticationRetentionCapsWorkPerSweep(t *testing.T) {
 	store := &authenticationRetentionStoreFake{
 		connectionRows: make([]int64, authenticationRetentionMaxBatches),
-		rejectionRows: make([]int64, authenticationRetentionMaxBatches),
+		rejectionRows:  make([]int64, authenticationRetentionMaxBatches),
 	}
 	for i := 0; i < authenticationRetentionMaxBatches; i++ {
 		store.connectionRows[i] = int64(authenticationRetentionBatchSize)

@@ -261,9 +261,9 @@ func TestRejectedProofAuditFailureKeepsInvalidCredentialResponse(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := &sessionMemoryStore{
-		account: db.Account{ID: 44, Email: "known@example.test"},
+		account:      db.Account{ID: 44, Email: "known@example.test"},
 		passwordHash: hash,
-		failureErr: errors.New("authentication event database unavailable"),
+		failureErr:   errors.New("authentication event database unavailable"),
 	}
 	svc := NewAuthService(store, nil, setting.Config{
 		TokenSymmetricKey: strings.Repeat("k", 32),
@@ -281,7 +281,7 @@ func TestPhoneLoginInvalidProofWritesNoSession(t *testing.T) {
 	store := &sessionMemoryStore{}
 	svc := NewAuthService(store, nil, setting.Config{
 		TokenSymmetricKey: strings.Repeat("k", 32),
-		Environment: "development",
+		Environment:       "development",
 	}, nil)
 	_, err := svc.VerifyPhoneLogin(context.Background(), "+84901001001", "wrong-code", "", "203.0.113.10")
 	if !errors.Is(err, auth_model.ErrOTPInvalid) {

@@ -54,17 +54,17 @@ func TestAuthenticationFailuresAnonymousKnownAndRetention(t *testing.T) {
 	}
 	account, err := q.CreateAccount(ctx, db.CreateAccountParams{
 		PersonID: personID,
-		Email: "failure-" + uuid.NewString() + "@example.test",
+		Email:    "failure-" + uuid.NewString() + "@example.test",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	key := strings.Repeat("a", 32)
 	proof := auth_model.RejectedProof{
-		Method: auth_model.FailurePassword,
-		Reason: auth_model.FailureUnknownAccount,
+		Method:     auth_model.FailurePassword,
+		Reason:     auth_model.FailureUnknownAccount,
 		Credential: " Ghost@Example.Test ",
-		ClientIP: "203.0.113.1",
+		ClientIP:   "203.0.113.1",
 	}
 	if err := auth_model.RecordAuthenticationFailure(ctx, q, key, proof); err != nil {
 		t.Fatal(err)

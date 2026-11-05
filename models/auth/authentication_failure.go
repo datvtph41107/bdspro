@@ -62,10 +62,10 @@ func RecordAuthenticationFailure(ctx context.Context, store interface {
 		ipAddress = ip.String()
 	}
 	return store.InsertAuthenticationFailure(ctx, db.InsertAuthenticationFailureParams{
-		AccountID: accountID,
-		Method: proof.Method,
-		Reason: proof.Reason,
+		AccountID:     accountID,
+		Method:        proof.Method,
+		Reason:        proof.Reason,
 		CredentialMac: mac.Sum(nil),
-		IpAddress: ipAddress,
+		IpAddress:     ipAddress,
 	})
 }
