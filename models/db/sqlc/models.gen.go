@@ -19,6 +19,16 @@ type Account struct {
 	IsEmailVerified bool      `json:"is_email_verified"`
 }
 
+type AccountConnectionHistory struct {
+	ID        int64     \`json:"id"\`
+	AccountID int64     \`json:"account_id"\`
+	SessionID uuid.UUID \`json:"session_id"\`
+	Action    string    \`json:"action"\`
+	IpAddress string    \`json:"ip_address"\`
+	UserAgent string    \`json:"user_agent"\`
+	CreatedAt time.Time \`json:"created_at"\`
+}
+
 type AccountSetting struct {
 	AccountID int64     `json:"account_id"`
 	Locale    string    `json:"locale"`

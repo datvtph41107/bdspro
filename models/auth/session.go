@@ -11,7 +11,7 @@ import (
 
 // SessionStore is the persistence capability consumed by session operations.
 type SessionStore interface {
-	CreateSession(context.Context, db.CreateSessionParams) (db.Session, error)
+	CreateSessionWithConnection(context.Context, db.CreateSessionParams) (db.Session, error)
 	GetSession(context.Context, uuid.UUID) (db.Session, error)
 	ListActiveSessions(context.Context, int64) ([]db.ListActiveSessionsRow, error)
 	RevokeOwnedSession(context.Context, db.RevokeOwnedSessionParams) (int64, error)
@@ -19,7 +19,7 @@ type SessionStore interface {
 }
 
 func NewSession(ctx context.Context, store SessionStore, params db.CreateSessionParams) (db.Session, error) {
-	return store.CreateSession(ctx, params)
+	return store.CreateSessionWithConnection(ctx, params)
 }
 
 func ValidRefreshSession(session db.Session, accountID int64, refreshToken string, now time.Time) bool {

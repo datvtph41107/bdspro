@@ -3,7 +3,8 @@
   "commit": "R31: profile/settings owner-scoped API",
   "notes": [
     "Authenticated-only; account id is derived from verified access token",
-    "GET /users/me upgrades its response without adding a route"
+    "GET /users/me upgrades its response without adding a route",
+    "R32: account login event history, owner-scoped, without altering existing session API"
   ],
   "routes": [
     {
@@ -19,6 +20,11 @@
     {
       "method": "PATCH",
       "path": "/users/me/settings",
+      "access": "authenticated"
+    },
+    {
+      "method": "GET",
+      "path": "/users/me/connections",
       "access": "authenticated"
     }
   ]

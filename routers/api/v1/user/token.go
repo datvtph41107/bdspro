@@ -48,6 +48,19 @@ func (h *AuthHandler) Revoke(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// GetConnections is DRX's connection-history API scoped to the verified Account.
+func (h *AuthHandler) GetConnections(c *gin.Context) {
+	connections, err := h.auth.GetConnections(c.Request.Context(), middleware.AccountID(c))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	if connections == nil {
+		connections = []db.ListAccountConnectionHistoriesRow{}
+	}
+	c.JSON(http.StatusOK, gin.H{"connections": connections})
+}
+
 func (h *AuthHandler) ListSessions(c *gin.Context) {
 	sessions, err := h.auth.ListSessions(c.Request.Context(), middleware.AccountID(c))
 	if err != nil {
