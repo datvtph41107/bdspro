@@ -19,6 +19,7 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/validation"
 	"github.com/datvtph41107/bdspro/services/mail"
@@ -95,6 +96,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	account, err := s.store.GetAccountByEmail(ctx, strings.TrimSpace(email))
 	if errors.Is(err, pgx.ErrNoRows) {
 		checkUnknownPassword(password)
+		s.recordRejected(ctx, auth_model.FailurePassword, auth_model.FailureUnknownAccount, 0, email, clientIP)
 		return result, auth_model.ErrInvalidCredentials
 	}
 	if err != nil {
@@ -103,12 +105,14 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	hash, err := s.store.GetPasswordHash(ctx, account.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		checkUnknownPassword(password)
+		s.recordRejected(ctx, auth_model.FailurePassword, auth_model.FailurePasswordUnset, account.ID, email, clientIP)
 		return result, auth_model.ErrInvalidCredentials
 	}
 	if err != nil {
 		return result, err
 	}
 	if err := authcrypto.CheckPassword(password, hash); err != nil {
+		s.recordRejected(ctx, auth_model.FailurePassword, auth_model.FailureBadPassword, account.ID, email, clientIP)
 		return result, auth_model.ErrInvalidCredentials
 	}
 	return s.issueSession(ctx, account, userAgent, clientIP)
@@ -506,10 +510,14 @@ func (s *AuthService) VerifyPhoneLogin(ctx context.Context, phone, code, userAge
 		return empty, err
 	}
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
+		if phoneE164.MatchString(phone) {
+			s.recordRejected(ctx, auth_model.FailurePhoneOTP, auth_model.FailureBadOTP, 0, phone, clientIP)
+		}
 		return empty, auth_model.ErrOTPInvalid
 	}
 	accountID, err := auth_model.AccountIDForPhone(ctx, s.store, phone)
 	if errors.Is(err, pgx.ErrNoRows) {
+		s.recordRejected(ctx, auth_model.FailurePhoneOTP, auth_model.FailureUnknownAccount, 0, phone, clientIP)
 		return empty, auth_model.ErrOTPInvalid
 	}
 	if err != nil {
@@ -517,6 +525,7 @@ func (s *AuthService) VerifyPhoneLogin(ctx context.Context, phone, code, userAge
 	}
 	if err := auth_model.ConsumeChallenge(ctx, s.store, phone, "login", accountID, s.phoneCodeMAC(phone, "login", accountID, code)); err != nil {
 		if errors.Is(err, auth_model.ErrOTPInvalid) {
+			s.recordRejected(ctx, auth_model.FailurePhoneOTP, auth_model.FailureBadOTP, accountID, phone, clientIP)
 			return empty, auth_model.ErrOTPInvalid
 		}
 		return empty, err
@@ -594,4 +603,19 @@ func boundedConnectionUserAgent(value string) string {
 		return value
 	}
 	return string([]rune(value)[:maxRunes])
+}
+
+// recordRejected is deliberately best-effort for a rejected proof: inability
+// to record an unsuccessful login must not convert a 401 into a 5xx or allow
+// a credential to be issued. Successful session-history writes remain atomic.
+func (s *AuthService) recordRejected(ctx context.Context, method, reason string, accountID int64, credential, clientIP string) {
+	if err := auth_model.RecordAuthenticationFailure(ctx, s.store, s.config.TokenSymmetricKey, auth_model.RejectedProof{
+		AccountID: accountID, Method: method, Reason: reason,
+		Credential: credential, ClientIP: clientIP,
+	}); err != nil {
+		log.Ctx(ctx).Warn().
+			Str("method", method).
+			Str("error_type", fmt.Sprintf("%T", err)).
+			Msg("auth.rejected_proof_record_failed")
+	}
 }
