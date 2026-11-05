@@ -165,4 +165,3 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 		t.Fatalf("driver leak: %d %s", w.Code, w.Body.String())
 	}
 }
-
