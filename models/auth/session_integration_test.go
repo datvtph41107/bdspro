@@ -112,4 +112,25 @@ func TestAccountConnectionHistoryAtomicSessionAndIsolation(t *testing.T) {
 	if err != nil || len(history) != 1 || history[0].SessionID != session.ID {
 		t.Fatalf("history did not survive session cleanup: %+v, %v", history, err)
 	}
+
+	// Simulate an expired row inside a rollback-only transaction. The global
+	// retention query must use the cutoff and preserve fresh records.
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	cutoff := time.Now().UTC().Add(-90 * 24 * time.Hour)
+	if _, err := tx.Exec(ctx, "UPDATE account_connection_histories SET created_at=$1 WHERE id=$2", cutoff.Add(-time.Second), history[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	q := db.New(tx)
+	deleted, err := q.DeleteExpiredAccountConnectionHistories(ctx, db.DeleteExpiredAccountConnectionHistoriesParams{Cutoff: cutoff, Take: 1000})
+	if err != nil || deleted != 1 {
+		t.Fatalf("retention query deleted=%d err=%v, want one expired row", deleted, err)
+	}
+	remaining, err := q.ListAccountConnectionHistories(ctx, first.ID)
+	if err != nil || len(remaining) != 0 {
+		t.Fatalf("expired row still visible after retention: %+v err=%v", remaining, err)
+	}
 }
