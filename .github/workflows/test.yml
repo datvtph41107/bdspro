@@ -109,6 +109,12 @@ jobs:
           python3 -c 'import json; assert json.load(open("templates/swagger/openapi.json"))["openapi"] == "3.0.3"'
           git diff --exit-code -- templates/swagger/openapi.json
 
+      - name: Verify cleanup works without Redis
+        env:
+          BDS__DATABASE__DB_SOURCE: postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable
+          BDS__REDIS__ADDR: 127.0.0.1:1
+        run: go run . --config custom/conf/app.example.ini cleanup
+
       - name: Test and compile
         env:
           BDS_TEST_MODE: disposable

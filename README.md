@@ -24,6 +24,8 @@ make config-local                   # copies app.example.ini only if missing
 make migrateup
 make server                         # terminal 1: HTTP API
 make worker                         # terminal 2: Asynq, SQL outbox and retention
+# optional PostgreSQL-only one-shot cleanup, independent of Redis:
+# make cleanup
 curl -i http://127.0.0.1:8080/health
 ```
 
@@ -57,15 +59,14 @@ before changing endpoints.
 ## Runtime and config
 
 ```text
-main.go -> cmd/ (web | worker | migrate)
+main.go -> cmd/ (web | worker | migrate | cleanup)
 web     -> routers/ -> services/ -> models/db/
 worker  -> modules/queue/ -> services/worker/ -> services/jobs/
 migrate -> modules/setting/database.go -> models/db/migration.go
 
 modules/setting/  app.ini path, provider and validation
 modules/log/      structured logs, sinks and close
-modules/auth/     bcrypt primitive
-modules/token/    JWT signing and verification
+modules/auth/     bcrypt and JWT signing/verification
 modules/secret/   crypto-random proof values
 modules/redis/    Redis connectivity
 ```
@@ -73,7 +74,7 @@ modules/redis/    Redis connectivity
 The default local instance config is `custom/conf/app.ini` (ignored).
 `custom/conf/app.example.ini` is the committed template for local setup.
 The Docker runtime config is persisted at `/data/bdspro/conf/app.ini`.
-All three CLI commands use the same selected INI database target; `make`
+All CLI commands use the same selected INI database target; `make`
 does **not** inject hardcoded DB/Redis addresses.
 Use `make server CONFIG=/absolute/path/app.ini` for a custom file.
 
@@ -94,7 +95,8 @@ and [runtime cut-over](docs/architecture/r26-oauth2-runtime-consolidation.md).
 Authentication audit events use [audit] HMAC_KEY, an independent production
 secret, and RETENTION_DAYS in app.ini. See
 [Audit events](docs/architecture/audit-login-events.md) for ownership and
-retention limits. The worker must run for expiration to take effect.
+retention limits. Retention needs the worker or a scheduled `cleanup` invocation; the one-shot
+`cleanup` command operates with PostgreSQL only, independently of Redis.
 
 This is not a claim of production readiness. Current limitations include
 multi-worker outbox concurrency and retry/failure-injection E2E evidence,

@@ -49,7 +49,11 @@ Production overrides use `BDS__AUDIT__HMAC_KEY`.
 and is currently the shared window for successful connection history and
 rejected audit events. It is *a project policy default*, not a legal standard.
 One `services/worker.LoginRetention` lifecycle prunes both datasets at worker
-startup and hourly; each sweep is limited to 20 batches of 1000 per table.
+startup and hourly; the same `Sweep` is available to the one-shot `bdspro
+cleanup` command, which connects directly to PostgreSQL without Redis or
+Asynq. Schedule this command externally if retention must continue during
+a Redis outage. Do not introduce another Redis-backed queue for this task.
+Each sweep is limited to 20 batches of 1000 per table.
 PostgreSQL `SKIP LOCKED` handles multiple workers. One dataset's deletion
 failure cannot starve the other. The only write index is for expiry until
 a concrete investigation read contract and query plan justify more indexes.
@@ -73,3 +77,18 @@ without raw identifier/IP/error text. Successful session/history writes are
 * Retention deletes only primary PostgreSQL data. Backup expiry, restoration,
   DSAR/export policy, device approval and instantaneous JWT revocation are
   separate operational requirements.
+
+## Independent maintenance command
+
+```sh
+./bin/bdspro --config /path/to/app.ini cleanup
+```
+
+`cleanup` is deliberately one-shot, not a second resident worker or
+scheduler. Exit 0 means the bounded sweep completed without a database
+error, **not** that all overdue records were removed: each table is capped
+at 20,000 deletions per run. An error after partial deletion exits nonzero;
+already committed batches are not rolled back and the next invocation can
+resume. Use a periodic external scheduler and alert on nonzero exits and
+unbounded overdue backlog. A worker crash or stopped scheduler means expired
+data can remain past `RETENTION_DAYS`. Expiry of backups is separate.
