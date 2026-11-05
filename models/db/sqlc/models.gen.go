@@ -38,6 +38,16 @@ type AccountSetting struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type AuthenticationFailure struct {
+	ID            int64       `json:"id"`
+	AccountID     pgtype.Int8 `json:"account_id"`
+	Method        string      `json:"method"`
+	Reason        string      `json:"reason"`
+	CredentialMac []byte      `json:"credential_mac"`
+	IpAddress     string      `json:"ip_address"`
+	OccurredAt    time.Time   `json:"occurred_at"`
+}
+
 type EmailLinkChallenge struct {
 	AccountID  int64     `json:"account_id"`
 	Email      string    `json:"email"`
