@@ -46,7 +46,6 @@ func TestAuthFileOwnership(t *testing.T) {
 	}
 }
 
-
 // TestCanonicalAuthOwner rejects duplicate service owners and duplicate
 // issuance functions, even when a new fragment is introduced under a
 // previously unseen file name. Each method uses the same AuthService.
