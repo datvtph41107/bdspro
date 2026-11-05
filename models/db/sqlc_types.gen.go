@@ -26,6 +26,7 @@ type CreateSessionParams = sqlc.CreateSessionParams
 type CreateTeamForOwnerParams = sqlc.CreateTeamForOwnerParams
 type CreateTeamInviteForOwnerParams = sqlc.CreateTeamInviteForOwnerParams
 type CreateVerifyEmailParams = sqlc.CreateVerifyEmailParams
+type DeleteExpiredAccountConnectionHistoriesParams = sqlc.DeleteExpiredAccountConnectionHistoriesParams
 type DBTX = sqlc.DBTX
 type DeletePhoneChallengeQueryParams = sqlc.DeletePhoneChallengeQueryParams
 type EmailLinkChallenge = sqlc.EmailLinkChallenge

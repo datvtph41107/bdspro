@@ -35,8 +35,12 @@ Do not silently rename public paths as part of a persistence migration.
 * This is a successful-login history, not all HTTP requests, online presence,
   or a substitute for IPActive admission.
 * Raw IP and User-Agent require restricted access, logs and exports.
-* **Production blocker:** define retention, periodic deletion, and DSAR /
-  backup procedures. This tranche has no automatic history expiration.
+* R35 retention: while the worker is running, login histories older than 90 days
+  are deleted in bounded SQLC batches, initially and hourly. The cleanup index
+  supports expiry scans; row locks allow concurrent worker processes.
+* Data exports, administrative read access, audit requirements and backup/DSAR
+  expiry still require an operator policy. Deleting primary-table rows does not
+  immediately erase existing backup snapshots.
 
 ## Why not copy DeviceService verbatim?
 
@@ -59,3 +63,16 @@ revocation semantics, and failure recovery. No unused speculative device table.
 ## Integration ownership (R34)
 
 Merged on top of PR #140 AuthService convergence in an independent review branch. History read is owned in the existing `models/account/account.go` / `services/auth/auth.go` / `routers/api/v1/user/auth.go`, not a one-function file per layer. Transactional session-history insertion is owned by `models/auth.NewSession`, which uses `db.WithTxResult` and transaction-scoped SQLC queries. `models/db` owns only the transaction mechanism and generated SQL; the disposable PostgreSQL rollback/isolation test now lives alongside the auth model. This is not proof of traffic capacity or a device identity protocol.
+
+## R35 operational retention
+
+* A 90-day retention window follows the earlier A02 security-history proposal.
+* The worker automatically runs expiry at startup and hourly, in batches of
+  1,000 with a maximum of 20,000 rows per pass. If the worker is disabled,
+  expiry does not run; deployment monitoring must alert on worker absence.
+* Expiry scans use the separate global `(created_at, id)` index introduced by
+  migration 000019, not the account-scoped read index.
+* The cleanup does not expose personal data, change active session state or
+  delete rows that are exactly on the cutoff boundary.
+* Backups need their own bounded lifecycle, retention and DSAR handling; this
+  code only deletes PostgreSQL primary rows.
