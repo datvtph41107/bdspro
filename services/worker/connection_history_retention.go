@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	connectionHistoryRetention   = 90 * 24 * time.Hour
-	connectionHistoryInterval    = time.Hour
-	connectionHistoryBatchSize   = int32(1000)
-	connectionHistoryMaxBatches  = 20
+	connectionHistoryRetention  = 90 * 24 * time.Hour
+	connectionHistoryInterval   = time.Hour
+	connectionHistoryBatchSize  = int32(1000)
+	connectionHistoryMaxBatches = 20
 )
 
 // ConnectionHistoryRetention is an operational worker, not an authentication
@@ -44,7 +44,7 @@ func (w *ConnectionHistoryRetention) Sweep(ctx context.Context, now time.Time) (
 		}
 		n, err := w.store.DeleteExpiredAccountConnectionHistories(ctx, db.DeleteExpiredAccountConnectionHistoriesParams{
 			Cutoff: cutoff,
-			Take: connectionHistoryBatchSize,
+			Take:   connectionHistoryBatchSize,
 		})
 		if err != nil {
 			return deleted, err
