@@ -97,7 +97,7 @@ type UpdateAccountSettingsParams struct {
 	Locale    pgtype.Text `json:"locale"`
 	Timezone  pgtype.Text `json:"timezone"`
 	Currency  pgtype.Text `json:"currency"`
-	AccountID int64  `json:"account_id"`
+	AccountID int64       `json:"account_id"`
 }
 
 func (q *Queries) UpdateAccountSettings(ctx context.Context, arg UpdateAccountSettingsParams) (int64, error) {

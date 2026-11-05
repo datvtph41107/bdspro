@@ -20,10 +20,10 @@ type Account struct {
 }
 
 type AccountSetting struct {
-	AccountID int64 `json:"account_id"`
-	Locale string `json:"locale"`
-	Timezone string `json:"timezone"`
-	Currency string `json:"currency"`
+	AccountID int64     `json:"account_id"`
+	Locale    string    `json:"locale"`
+	Timezone  string    `json:"timezone"`
+	Currency  string    `json:"currency"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -99,12 +99,12 @@ type Person struct {
 }
 
 type PersonProfile struct {
-	PersonID int64 `json:"person_id"`
-	DisplayName string `json:"display_name"`
-	FirstName string `json:"first_name"`
-	LastName string `json:"last_name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	PersonID    int64     `json:"person_id"`
+	DisplayName string    `json:"display_name"`
+	FirstName   string    `json:"first_name"`
+	LastName    string    `json:"last_name"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type PhoneCredential struct {
