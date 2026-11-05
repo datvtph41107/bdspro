@@ -42,7 +42,7 @@ func TestOAuth2OnlyCodeAndRefreshGrant(t *testing.T) {
 	router := oauthHTTPTestRouter(t)
 	for _, tc := range []struct {
 		name, contentType, body string
-		want int
+		want                    int
 	}{
 		{"password grant rejected", "application/x-www-form-urlencoded", "grant_type=password&client_id=abc", http.StatusUnauthorized},
 		{"unsupported grant for UUID client", "application/x-www-form-urlencoded", "grant_type=password&client_id=4df5bcd8-2cd2-496d-9ec1-cd4f99d979ce", http.StatusBadRequest},
@@ -66,7 +66,7 @@ func TestOAuth2OnlyCodeAndRefreshGrant(t *testing.T) {
 
 func TestOAuth2AuthorizeIsAuthenticatedAndUserInfoRejectsInternalJWT(t *testing.T) {
 	router := oauthHTTPTestRouter(t)
-	for _, path := range []string{"/oauth/authorize", "/oauth/authorize?"+url.Values{"response_type":{"code"}}.Encode()} {
+	for _, path := range []string{"/oauth/authorize", "/oauth/authorize?" + url.Values{"response_type": {"code"}}.Encode()} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)

@@ -254,4 +254,3 @@ func (h *Handler) UserInfo(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, out)
 }
-
