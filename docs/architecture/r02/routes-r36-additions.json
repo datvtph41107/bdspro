@@ -1,0 +1,51 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "R36: OAuth2 authorization-server resource contracts",
+  "notes": [
+    "Authorization Code + PKCE S256; no password grant",
+    "GET authorization endpoint is read-only; authenticated POST requires explicit consent",
+    "OAuth access tokens are opaque and scoped; never accepted by application JWT middleware"
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/oauth/authorize",
+      "access": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/authorize",
+      "access": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/token",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/revoke",
+      "access": "public"
+    },
+    {
+      "method": "GET",
+      "path": "/oauth/userinfo",
+      "access": "oauth_scope_profile_read"
+    },
+    {
+      "method": "GET",
+      "path": "/oauth/clients",
+      "access": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/clients",
+      "access": "verified_contact"
+    },
+    {
+      "method": "DELETE",
+      "path": "/oauth/clients/:id",
+      "access": "authenticated"
+    }
+  ]
+}

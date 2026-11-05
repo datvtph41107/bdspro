@@ -8,6 +8,7 @@ import (
 
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
+	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,7 @@ func TestOpenAPICoverage(t *testing.T) {
 		authHandler:         user.NewAuthHandler(nil, nil, nil),
 		organizationHandler: org.NewHandler(nil),
 		oauth2Handler:       user.NewOAuth2Handler(nil, nil, false),
+		authorizationHandler: oauth.NewHandler(nil, nil),
 		phoneEnabled:        true,
 	}
 	// Registration only; no handler is executed and no external services are used.
@@ -43,6 +45,7 @@ func TestOpenAPICoverage(t *testing.T) {
 		Auth:         s.authHandler,
 		Organization: s.organizationHandler,
 		OAuth2:       s.oauth2Handler,
+		Authorization: s.authorizationHandler,
 		PhoneEnabled: s.phoneEnabled,
 		TokenMaker:   s.tokenMaker,
 		Store:        s.store,

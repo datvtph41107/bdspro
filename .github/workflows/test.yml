@@ -113,7 +113,7 @@ jobs:
           ./bin/bdspro migrate --help
 
       - name: Verify unchanged Gin route inventory
-        run: go run ./tools/r02audit -root . -contract docs/architecture/r02/routes-r01.json -additions docs/architecture/r02/routes-r20-additions.json,docs/architecture/r02/routes-r23-additions.json,docs/architecture/r02/routes-r24-additions.json,docs/architecture/r02/routes-r31-additions.json -removals docs/architecture/r02/routes-r26-removals.json
+        run: go run ./tools/r02audit -root . -contract docs/architecture/r02/routes-r01.json -additions docs/architecture/r02/routes-r20-additions.json,docs/architecture/r02/routes-r23-additions.json,docs/architecture/r02/routes-r24-additions.json,docs/architecture/r02/routes-r31-additions.json,docs/architecture/r02/routes-r36-additions.json -removals docs/architecture/r02/routes-r26-removals.json
 
       - name: Benchmark production Gin router
         run: go test ./routers/api -run '^$' -bench '^BenchmarkGinRouting$' -benchmem -count=3
