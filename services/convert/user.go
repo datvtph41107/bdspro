@@ -31,9 +31,9 @@ func ToConnections(rows []db.ListAccountConnectionHistoriesRow) []structs.Connec
 	out := make([]structs.ConnectionResponse, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, structs.ConnectionResponse{
-			ID: row.ID,
+			ID:        row.ID,
 			SessionID: row.SessionID.String(),
-			Action: row.Action,
+			Action:    row.Action,
 			IPAddress: row.IpAddress,
 			UserAgent: row.UserAgent,
 			CreatedAt: row.CreatedAt,

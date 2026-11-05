@@ -7,8 +7,8 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"strings"
 	"testing"
-	"unicode/utf8"
 	"time"
+	"unicode/utf8"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
@@ -247,12 +247,12 @@ func TestSessionHistoryFailureDoesNotReleaseCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := &sessionMemoryStore{
-		account: db.Account{ID: 31},
+		account:    db.Account{ID: 31},
 		historyErr: errors.New("audit insertion unavailable"),
 	}
 	svc := NewAuthService(store, maker, setting.Config{
-		TokenSymmetricKey: strings.Repeat("k", 32),
-		AccessTokenDuration: time.Minute,
+		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AccessTokenDuration:  time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}, nil)
 	result, err := svc.issueSession(context.Background(), store.account, "test agent", "203.0.113.1")
