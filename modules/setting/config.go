@@ -32,6 +32,8 @@ type Config struct {
 	RedisAddress         string
 	HTTPServerAddress    string
 	TokenSymmetricKey    string
+	AuditKey             string
+	AuditRetentionDays   int
 	AccessTokenDuration  time.Duration
 	RefreshTokenDuration time.Duration
 	EmailSenderName      string
@@ -87,6 +89,11 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 	}
 	config.RedisAddress = get("redis", "ADDR")
 	config.TokenSymmetricKey = get("security", "TOKEN_SYMMETRIC_KEY")
+	config.AuditKey = get("audit", "HMAC_KEY")
+	config.AuditRetentionDays, err = strconv.Atoi(p.StringDefault("audit", "RETENTION_DAYS", "90"))
+	if err != nil || config.AuditRetentionDays <= 0 || config.AuditRetentionDays > 3650 {
+		return config, fmt.Errorf("audit RETENTION_DAYS must be between 1 and 3650")
+	}
 	config.AccessTokenDuration, err = time.ParseDuration(get("security", "ACCESS_TOKEN_DURATION"))
 	if err != nil {
 		return config, fmt.Errorf("ACCESS_TOKEN_DURATION: %w", err)
@@ -156,6 +163,17 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 	}
 	if len(config.TokenSymmetricKey) < 32 {
 		return config, fmt.Errorf("TOKEN_SYMMETRIC_KEY must contain at least 32 bytes")
+	}
+	if config.AuditKey == "" && config.Environment == "development" {
+		// Development-only compatibility for in-memory tests and old local INI.
+		// Production requires a separately managed audit key.
+		config.AuditKey = config.TokenSymmetricKey
+	}
+	if len(config.AuditKey) < 32 {
+		return config, fmt.Errorf("[audit] HMAC_KEY must contain at least 32 bytes")
+	}
+	if config.Environment != "development" && config.AuditKey == "abcdef0123456789abcdef0123456789" {
+		return config, fmt.Errorf("production audit key must differ from development example")
 	}
 	if config.AccessTokenDuration <= 0 || config.RefreshTokenDuration <= 0 {
 		return config, fmt.Errorf("token durations must be positive")

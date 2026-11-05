@@ -610,7 +610,7 @@ func boundedConnectionUserAgent(value string) string {
 // to record an unsuccessful login must not convert a 401 into a 5xx or allow
 // a credential to be issued. Successful session-history writes remain atomic.
 func (s *AuthService) recordLoginRejected(ctx context.Context, event audit_model.LoginRejected) {
-	if err := audit_model.RecordLoginRejected(ctx, s.store, s.config.TokenSymmetricKey, event); err != nil {
+	if err := audit_model.RecordLoginRejected(ctx, s.store, s.config.AuditKey, event); err != nil {
 		log.Ctx(ctx).Warn().
 			Str("method", event.Method).
 			Str("error_type", fmt.Sprintf("%T", err)).
