@@ -106,7 +106,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	hash, err := s.store.GetPasswordHash(ctx, account.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		checkUnknownPassword(password)
-		s.recordLoginRejected(ctx, audit_model.LoginRejected{AccountID: account.ID, Method: audit_model.MethodPassword, Reason: audit_model.MethodPasswordUnset, Identifier: email, IP: clientIP})
+		s.recordLoginRejected(ctx, audit_model.LoginRejected{AccountID: account.ID, Method: audit_model.MethodPassword, Reason: audit_model.ReasonPasswordUnset, Identifier: email, IP: clientIP})
 		return result, auth_model.ErrInvalidCredentials
 	}
 	if err != nil {
