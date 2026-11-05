@@ -73,7 +73,7 @@ func (h *AuthHandler) StartPhoneBind(c *gin.Context) {
 	if !h.limiter.Allow(c, "phone_bind_start", req.Phone, 10, 3, time.Hour) {
 		return
 	}
-	if err := h.auth.StartBind(c.Request.Context(), middleware.AccountID(c), req.Password, req.Phone); err != nil {
+	if err := h.auth.StartPhoneBind(c.Request.Context(), middleware.AccountID(c), req.Password, req.Phone); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -89,7 +89,7 @@ func (h *AuthHandler) VerifyPhoneBind(c *gin.Context) {
 	if !h.limiter.Allow(c, "phone_bind_verify", req.Phone, 40, 5, 10*time.Minute) {
 		return
 	}
-	if err := h.auth.VerifyBind(c.Request.Context(), middleware.AccountID(c), req.Phone, req.Code); err != nil {
+	if err := h.auth.VerifyPhoneBind(c.Request.Context(), middleware.AccountID(c), req.Phone, req.Code); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -108,7 +108,7 @@ func (h *AuthHandler) StartPhoneRegister(c *gin.Context) {
 	if !h.limiter.Allow(c, "phone_register_start", req.Phone, 10, 3, time.Hour) {
 		return
 	}
-	if err := h.auth.StartRegister(c.Request.Context(), req.Phone); err != nil {
+	if err := h.auth.StartPhoneRegister(c.Request.Context(), req.Phone); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -123,7 +123,7 @@ func (h *AuthHandler) VerifyPhoneRegister(c *gin.Context) {
 	if !h.limiter.Allow(c, "phone_register_verify", req.Phone, 40, 5, 10*time.Minute) {
 		return
 	}
-	result, err := h.auth.VerifyRegister(c.Request.Context(), req.Phone, req.Code, c.Request.UserAgent(), c.ClientIP())
+	result, err := h.auth.VerifyPhoneRegister(c.Request.Context(), req.Phone, req.Code, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -139,7 +139,7 @@ func (h *AuthHandler) StartPhoneLogin(c *gin.Context) {
 	if !h.limiter.Allow(c, "phone_login_start", req.Phone, 30, 10, 10*time.Minute) {
 		return
 	}
-	if err := h.auth.StartLogin(c.Request.Context(), req.Phone); err != nil {
+	if err := h.auth.StartPhoneLogin(c.Request.Context(), req.Phone); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -154,7 +154,7 @@ func (h *AuthHandler) VerifyPhoneLogin(c *gin.Context) {
 	if !h.limiter.Allow(c, "phone_login_verify", req.Phone, 40, 5, 10*time.Minute) {
 		return
 	}
-	result, err := h.auth.VerifyLogin(c.Request.Context(), req.Phone, req.Code, c.Request.UserAgent(), c.ClientIP())
+	result, err := h.auth.VerifyPhoneLogin(c.Request.Context(), req.Phone, req.Code, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
 		response.Error(c, err)
 		return

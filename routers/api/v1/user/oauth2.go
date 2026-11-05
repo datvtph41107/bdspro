@@ -25,7 +25,7 @@ type OAuth2Handler struct {
 	secure bool
 }
 
-func NewOAuth2Handler(auth *auth_service.OAuth2AuthService, oauth2 *auth_service.OAuth2Client, secure bool) *OAuth2Handler {
+func NewOAuth2Handler(auth *auth_service.AuthService, oauth2 *auth_service.OAuth2Client, secure bool) *OAuth2Handler {
 	return &OAuth2Handler{auth: auth, oauth2: oauth2, secure: secure}
 }
 
