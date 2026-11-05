@@ -11,87 +11,91 @@ import (
 )
 
 const (
-	authenticationRetentionWindow     = 90 * 24 * time.Hour
-	authenticationRetentionInterval   = time.Hour
-	authenticationRetentionBatchSize  = int32(1000)
-	authenticationRetentionMaxBatches = 20
+	loginRetentionInterval   = time.Hour
+	loginRetentionBatchSize  = int32(1000)
+	loginRetentionMaxBatches = 20
 )
 
-// AuthenticationRetention expires successful connection histories and rejected
-// proof events. This is operational maintenance, never a login dependency.
+// LoginRetention expires successful connection histories and rejected
+// audit events. This is operational maintenance, never a login dependency.
 // Multiple workers may run the SQLC SKIP LOCKED deletes concurrently.
-type AuthenticationRetention struct {
+type LoginRetention struct {
 	store interface {
 		DeleteExpiredAccountConnectionHistories(context.Context, db.DeleteExpiredAccountConnectionHistoriesParams) (int64, error)
-		DeleteExpiredAuthenticationFailures(context.Context, db.DeleteExpiredAuthenticationFailuresParams) (int64, error)
+		DeleteOldAuditEvents(context.Context, db.DeleteOldAuditEventsParams) (int64, error)
 	}
+	retention time.Duration
 	done chan struct{}
 }
 
-func NewAuthenticationRetention(store interface {
+func NewLoginRetention(store interface {
 	DeleteExpiredAccountConnectionHistories(context.Context, db.DeleteExpiredAccountConnectionHistoriesParams) (int64, error)
-	DeleteExpiredAuthenticationFailures(context.Context, db.DeleteExpiredAuthenticationFailuresParams) (int64, error)
-}) *AuthenticationRetention {
-	return &AuthenticationRetention{store: store, done: make(chan struct{})}
+	DeleteOldAuditEvents(context.Context, db.DeleteOldAuditEventsParams) (int64, error)
+}, retentionDays int) *LoginRetention {
+	return &LoginRetention{
+		store: store,
+		retention: time.Duration(retentionDays) * 24 * time.Hour,
+		done: make(chan struct{}),
+	}
 }
 
 // Sweep applies the same cutoff independently to both tables, at most
 // 20,000 rows per table per pass. Even if connection cleanup fails, the
 // rejected-proof cleanup is still attempted. Partial failures are retried on
 // the next scheduled sweep and never roll back committed deletions.
-func (w *AuthenticationRetention) Sweep(ctx context.Context, now time.Time) (int64, error) {
-	cutoff := now.UTC().Add(-authenticationRetentionWindow)
+func (w *LoginRetention) Sweep(ctx context.Context, now time.Time) (int64, error) {
+	cutoff := now.UTC().Add(-w.retention)
 	var deleted int64
 	var connectionErr error
-	for i := 0; i < authenticationRetentionMaxBatches; i++ {
+	for i := 0; i < loginRetentionMaxBatches; i++ {
 		if err := ctx.Err(); err != nil {
 			return deleted, err
 		}
 		n, err := w.store.DeleteExpiredAccountConnectionHistories(ctx, db.DeleteExpiredAccountConnectionHistoriesParams{
 			Cutoff: cutoff,
-			Take:   authenticationRetentionBatchSize,
+			Take:   loginRetentionBatchSize,
 		})
 		if err != nil {
 			connectionErr = err
 			break
 		}
 		deleted += n
-		if n < int64(authenticationRetentionBatchSize) {
+		if n < int64(loginRetentionBatchSize) {
 			break
 		}
 	}
-	for i := 0; i < authenticationRetentionMaxBatches; i++ {
+	for i := 0; i < loginRetentionMaxBatches; i++ {
 		if err := ctx.Err(); err != nil {
 			return deleted, errors.Join(connectionErr, err)
 		}
-		n, err := w.store.DeleteExpiredAuthenticationFailures(ctx, db.DeleteExpiredAuthenticationFailuresParams{
+		n, err := w.store.DeleteOldAuditEvents(ctx, db.DeleteOldAuditEventsParams{
 			Cutoff: cutoff,
-			Take:   authenticationRetentionBatchSize,
+			Take:   loginRetentionBatchSize,
 		})
 		if err != nil {
 			return deleted, errors.Join(connectionErr, err)
 		}
 		deleted += n
-		if n < int64(authenticationRetentionBatchSize) {
+		if n < int64(loginRetentionBatchSize) {
 			break
 		}
 	}
 	return deleted, connectionErr
 }
 
-func (w *AuthenticationRetention) Start(ctx context.Context) {
+func (w *LoginRetention) Start(ctx context.Context) {
 	go func() {
 		defer close(w.done)
-		ticker := time.NewTicker(authenticationRetentionInterval)
+		ticker := time.NewTicker(loginRetentionInterval)
 		defer ticker.Stop()
 		for {
 			sweepCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			deleted, err := w.Sweep(sweepCtx, time.Now())
 			cancel()
 			if err != nil && ctx.Err() == nil {
-				log.Ctx(ctx).Error().Str("error_type", fmt.Sprintf("%T", err)).Int64("deleted", deleted).Msg("auth.retention_failed")
+				log.Ctx(ctx).Error().Str("error_type", fmt.Sprintf("%T", err)).Int64("deleted", deleted).Msg("audit.retention_failed")
 			} else if err == nil && deleted > 0 {
-				log.Ctx(ctx).Info().Int64("deleted", deleted).Msg("auth.histories_retained")
+				log.Ctx(ctx).Info().Int64("deleted", deleted).Msg("audit.histories_pruned")
 			}
 			select {
 			case <-ctx.Done():
@@ -102,4 +106,4 @@ func (w *AuthenticationRetention) Start(ctx context.Context) {
 	}()
 }
 
-func (w *AuthenticationRetention) Wait() { <-w.done }
+func (w *LoginRetention) Wait() { <-w.done }

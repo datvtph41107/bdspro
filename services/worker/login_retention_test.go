@@ -9,7 +9,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 )
 
-type authenticationRetentionStoreFake struct {
+type loginRetentionStoreFake struct {
 	connectionRows  []int64
 	rejectionRows   []int64
 	connectionCalls int
@@ -20,7 +20,7 @@ type authenticationRetentionStoreFake struct {
 	rejectionErr    error
 }
 
-func (f *authenticationRetentionStoreFake) DeleteExpiredAccountConnectionHistories(_ context.Context, arg db.DeleteExpiredAccountConnectionHistoriesParams) (int64, error) {
+func (f *loginRetentionStoreFake) DeleteExpiredAccountConnectionHistories(_ context.Context, arg db.DeleteExpiredAccountConnectionHistoriesParams) (int64, error) {
 	f.cutoffs = append(f.cutoffs, arg.Cutoff)
 	f.takes = append(f.takes, arg.Take)
 	f.connectionCalls++
@@ -33,7 +33,7 @@ func (f *authenticationRetentionStoreFake) DeleteExpiredAccountConnectionHistori
 	return 0, nil
 }
 
-func (f *authenticationRetentionStoreFake) DeleteExpiredAuthenticationFailures(_ context.Context, arg db.DeleteExpiredAuthenticationFailuresParams) (int64, error) {
+func (f *loginRetentionStoreFake) DeleteOldAuditEvents(_ context.Context, arg db.DeleteOldAuditEventsParams) (int64, error) {
 	f.cutoffs = append(f.cutoffs, arg.Cutoff)
 	f.takes = append(f.takes, arg.Take)
 	f.rejectionCalls++
@@ -46,13 +46,13 @@ func (f *authenticationRetentionStoreFake) DeleteExpiredAuthenticationFailures(_
 	return 0, nil
 }
 
-func TestAuthenticationRetentionCutoffAndBatches(t *testing.T) {
-	store := &authenticationRetentionStoreFake{
+func TestLoginRetentionCutoffAndBatches(t *testing.T) {
+	store := &loginRetentionStoreFake{
 		connectionRows: []int64{1000, 1000, 8},
 		rejectionRows:  []int64{1000, 5},
 	}
 	now := time.Date(2026, 11, 5, 5, 0, 0, 0, time.UTC)
-	n, err := NewAuthenticationRetention(store).Sweep(context.Background(), now)
+	n, err := NewLoginRetention(store, 90).Sweep(context.Background(), now)
 	if err != nil || n != 3013 || store.connectionCalls != 3 || store.rejectionCalls != 2 {
 		t.Fatalf("unexpected retention: deleted=%d connections=%d rejections=%d err=%v", n, store.connectionCalls, store.rejectionCalls, err)
 	}
@@ -66,40 +66,40 @@ func TestAuthenticationRetentionCutoffAndBatches(t *testing.T) {
 	}
 }
 
-func TestAuthenticationRetentionStopsOnErrorAndCancel(t *testing.T) {
+func TestLoginRetentionStopsOnErrorAndCancel(t *testing.T) {
 	failure := errors.New("postgres offline")
-	store := &authenticationRetentionStoreFake{connectionErr: failure, rejectionRows: []int64{2}}
-	n, err := NewAuthenticationRetention(store).Sweep(context.Background(), time.Now())
+	store := &loginRetentionStoreFake{connectionErr: failure, rejectionRows: []int64{2}}
+	n, err := NewLoginRetention(store, 90).Sweep(context.Background(), time.Now())
 	if !errors.Is(err, failure) || n != 2 || store.connectionCalls != 1 || store.rejectionCalls != 1 {
 		t.Fatalf("failure in connection cleanup must not starve rejected-proof cleanup: deleted=%d err=%v calls=%d/%d", n, err, store.connectionCalls, store.rejectionCalls)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	store.connectionCalls = 0
-	_, err = NewAuthenticationRetention(store).Sweep(ctx, time.Now())
+	_, err = NewLoginRetention(store, 90).Sweep(ctx, time.Now())
 	if !errors.Is(err, context.Canceled) || store.connectionCalls != 0 {
 		t.Fatalf("cancelled sweep should not write: %v calls=%d", err, store.connectionCalls)
 	}
-	store = &authenticationRetentionStoreFake{connectionRows: []int64{2}, rejectionErr: failure}
-	n, err = NewAuthenticationRetention(store).Sweep(context.Background(), time.Now())
+	store = &loginRetentionStoreFake{connectionRows: []int64{2}, rejectionErr: failure}
+	n, err = NewLoginRetention(store, 90).Sweep(context.Background(), time.Now())
 	if !errors.Is(err, failure) || n != 2 || store.rejectionCalls != 1 {
 		t.Fatalf("partial deletion must be visible: deleted=%d err=%v", n, err)
 	}
 }
 
-func TestAuthenticationRetentionCapsWorkPerSweep(t *testing.T) {
-	store := &authenticationRetentionStoreFake{
-		connectionRows: make([]int64, authenticationRetentionMaxBatches),
-		rejectionRows:  make([]int64, authenticationRetentionMaxBatches),
+func TestLoginRetentionCapsWorkPerSweep(t *testing.T) {
+	store := &loginRetentionStoreFake{
+		connectionRows: make([]int64, loginRetentionMaxBatches),
+		rejectionRows:  make([]int64, loginRetentionMaxBatches),
 	}
-	for i := 0; i < authenticationRetentionMaxBatches; i++ {
-		store.connectionRows[i] = int64(authenticationRetentionBatchSize)
-		store.rejectionRows[i] = int64(authenticationRetentionBatchSize)
+	for i := 0; i < loginRetentionMaxBatches; i++ {
+		store.connectionRows[i] = int64(loginRetentionBatchSize)
+		store.rejectionRows[i] = int64(loginRetentionBatchSize)
 	}
-	n, err := NewAuthenticationRetention(store).Sweep(context.Background(), time.Now())
-	if err != nil || store.connectionCalls != authenticationRetentionMaxBatches ||
-		store.rejectionCalls != authenticationRetentionMaxBatches ||
-		n != 2*int64(authenticationRetentionBatchSize)*authenticationRetentionMaxBatches {
+	n, err := NewLoginRetention(store, 90).Sweep(context.Background(), time.Now())
+	if err != nil || store.connectionCalls != loginRetentionMaxBatches ||
+		store.rejectionCalls != loginRetentionMaxBatches ||
+		n != 2*int64(loginRetentionBatchSize)*loginRetentionMaxBatches {
 		t.Fatalf("unbounded retention sweep: deleted=%d calls=%d/%d err=%v", n, store.connectionCalls, store.rejectionCalls, err)
 	}
 }
