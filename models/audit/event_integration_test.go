@@ -1,4 +1,4 @@
-package auth_test
+package audit_test
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,7 +17,7 @@ import (
 // The PostgreSQL test operates in one rollback-only transaction in a
 // disposable database: it proves nullable account ownership, constraints,
 // and independent retention without leaving audit data behind.
-func TestAuthenticationFailuresAnonymousKnownAndRetention(t *testing.T) {
+func TestAuditEventsAnonymousKnownAndRetention(t *testing.T) {
 	source := os.Getenv("BDS_TEST_DB_URL")
 	if source == "" {
 		t.Skip("requires disposable migrated PostgreSQL")
@@ -60,33 +60,33 @@ func TestAuthenticationFailuresAnonymousKnownAndRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := strings.Repeat("a", 32)
-	proof := auth_model.RejectedProof{
-		Method:     auth_model.FailurePassword,
-		Reason:     auth_model.FailureUnknownAccount,
-		Credential: " Ghost@Example.Test ",
-		ClientIP:   "203.0.113.1",
+	proof := audit_model.LoginRejected{
+		Method:     audit_model.MethodPassword,
+		Reason:     audit_model.ReasonUnknownAccount,
+		Identifier: " Ghost@Example.Test ",
+		IP:   "203.0.113.1",
 	}
-	if err := auth_model.RecordAuthenticationFailure(ctx, q, key, proof); err != nil {
+	if err := audit_model.RecordLoginRejected(ctx, q, key, proof); err != nil {
 		t.Fatal(err)
 	}
 	proof.AccountID = account.ID
-	proof.Reason = auth_model.FailureBadPassword
-	proof.Credential = "ghost@example.test"
-	proof.ClientIP = "2001:db8::a"
-	if err := auth_model.RecordAuthenticationFailure(ctx, q, key, proof); err != nil {
+	proof.Reason = audit_model.ReasonInvalidPassword
+	proof.Identifier = "ghost@example.test"
+	proof.IP = "2001:db8::a"
+	if err := audit_model.RecordLoginRejected(ctx, q, key, proof); err != nil {
 		t.Fatal(err)
 	}
 	var anonymousCount, knownCount int
-	if err := tx.QueryRow(ctx, "SELECT count(*) FROM authentication_failures WHERE account_id IS NULL AND method='password' AND ip_address='203.0.113.1'").Scan(&anonymousCount); err != nil {
+	if err := tx.QueryRow(ctx, "SELECT count(*) FROM audit_events WHERE account_id IS NULL AND method='password' AND ip_address='203.0.113.1'").Scan(&anonymousCount); err != nil {
 		t.Fatal(err)
 	}
-	if err := tx.QueryRow(ctx, "SELECT count(*) FROM authentication_failures WHERE account_id=$1", account.ID).Scan(&knownCount); err != nil {
+	if err := tx.QueryRow(ctx, "SELECT count(*) FROM audit_events WHERE account_id=$1", account.ID).Scan(&knownCount); err != nil {
 		t.Fatal(err)
 	}
 	if anonymousCount != 1 || knownCount != 1 {
 		t.Fatalf("wrong account scope: anonymous=%d known=%d", anonymousCount, knownCount)
 	}
-	rows, err := tx.Query(ctx, "SELECT credential_mac, ip_address, account_id FROM authentication_failures WHERE ip_address IN ('203.0.113.1','2001:db8::a') ORDER BY id")
+	rows, err := tx.Query(ctx, "SELECT subject_mac, ip_address, account_id FROM audit_events WHERE ip_address IN ('203.0.113.1','2001:db8::a') ORDER BY id")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,11 +127,11 @@ func TestAuthenticationFailuresAnonymousKnownAndRetention(t *testing.T) {
 	if _, err := tx.Exec(ctx, "SAVEPOINT invalid_security_event"); err != nil {
 		t.Fatal(err)
 	}
-	bad := db.InsertAuthenticationFailureParams{
-		Method: auth_model.FailurePassword, Reason: auth_model.FailureBadOTP,
-		CredentialMac: make([]byte, 32), IpAddress: "203.0.113.2",
+	bad := db.InsertAuditEventParams{
+		Method: audit_model.MethodPassword, Reason: audit_model.ReasonInvalidOTP,
+		SubjectMac: make([]byte, 32), IpAddress: "203.0.113.2",
 	}
-	if err := q.InsertAuthenticationFailure(ctx, bad); err == nil {
+	if err := q.InsertAuditEvent(ctx, bad); err == nil {
 		t.Fatal("invalid method/reason passed PostgreSQL constraint")
 	}
 	if _, err := tx.Exec(ctx, "ROLLBACK TO SAVEPOINT invalid_security_event"); err != nil {
@@ -140,22 +140,22 @@ func TestAuthenticationFailuresAnonymousKnownAndRetention(t *testing.T) {
 
 	cutoff := time.Now().UTC().Add(-90 * 24 * time.Hour)
 	if _, err := tx.Exec(ctx,
-		"UPDATE authentication_failures SET occurred_at=$1 WHERE account_id IS NULL AND ip_address='203.0.113.1'",
+		"UPDATE audit_events SET created_at=$1 WHERE account_id IS NULL AND ip_address='203.0.113.1'",
 		cutoff.Add(-time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	deleted, err := q.DeleteExpiredAuthenticationFailures(ctx, db.DeleteExpiredAuthenticationFailuresParams{Cutoff: cutoff, Take: 1000})
+	deleted, err := q.DeleteOldAuditEvents(ctx, db.DeleteOldAuditEventsParams{Cutoff: cutoff, Take: 1000})
 	if err != nil || deleted < 1 {
 		t.Fatalf("expired anonymous event not deleted: count=%d err=%v", deleted, err)
 	}
 	var remaining int
-	if err := tx.QueryRow(ctx, "SELECT count(*) FROM authentication_failures WHERE account_id=$1", account.ID).Scan(&remaining); err != nil {
+	if err := tx.QueryRow(ctx, "SELECT count(*) FROM audit_events WHERE account_id=$1", account.ID).Scan(&remaining); err != nil {
 		t.Fatal(err)
 	}
 	if remaining != 1 {
 		t.Fatalf("retention removed a recent known-account event: %d", remaining)
 	}
-	if err := tx.QueryRow(ctx, "SELECT count(*) FROM authentication_failures WHERE account_id IS NULL AND ip_address='203.0.113.1'").Scan(&remaining); err != nil {
+	if err := tx.QueryRow(ctx, "SELECT count(*) FROM audit_events WHERE account_id IS NULL AND ip_address='203.0.113.1'").Scan(&remaining); err != nil {
 		t.Fatal(err)
 	}
 	if remaining != 0 {
