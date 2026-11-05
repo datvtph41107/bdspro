@@ -25,6 +25,16 @@ type sessionMemoryStore struct {
 	session      db.Session
 	historyCount int
 	historyErr   error
+	failureErr   error
+	failures     []db.InsertAuthenticationFailureParams
+}
+
+func (s *sessionMemoryStore) InsertAuthenticationFailure(_ context.Context, arg db.InsertAuthenticationFailureParams) error {
+	if s.failureErr != nil {
+		return s.failureErr
+	}
+	s.failures = append(s.failures, arg)
+	return nil
 }
 
 func (s *sessionMemoryStore) GetAccountByEmail(_ context.Context, email string) (db.Account, error) {
@@ -142,8 +152,12 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	svc := NewAuthService(store, maker, cfg, nil)
 	ctx := context.Background()
 
-	if _, err := svc.Login(ctx, store.account.Email, "wrong", "", ""); !errors.Is(err, auth_model.ErrInvalidCredentials) {
+	if _, err := svc.Login(ctx, store.account.Email, "wrong", "", "203.0.113.9"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 		t.Fatalf("invalid password: got %v", err)
+	}
+	if len(store.failures) != 1 || store.failures[0].Reason != auth_model.FailureBadPassword ||
+		!store.failures[0].AccountID.Valid || store.failures[0].AccountID.Int64 != store.account.ID {
+		t.Fatalf("rejected known credential not persisted with account scope: %+v", store.failures)
 	}
 
 	result, err := svc.Login(ctx, store.account.Email, "correct-password", "test-client", "127.0.0.1")
@@ -238,6 +252,47 @@ func TestAuthLegacyRefreshSessionTransition(t *testing.T) {
 	}
 	if _, err := svc.Renew(context.Background(), issued.RefreshToken); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("revoked legacy refresh proof renewed: %v", err)
+	}
+}
+
+func TestRejectedProofAuditFailureKeepsInvalidCredentialResponse(t *testing.T) {
+	hash, err := authcrypto.HashPassword("correct-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &sessionMemoryStore{
+		account: db.Account{ID: 44, Email: "known@example.test"},
+		passwordHash: hash,
+		failureErr: errors.New("authentication event database unavailable"),
+	}
+	svc := NewAuthService(store, nil, setting.Config{
+		TokenSymmetricKey: strings.Repeat("k", 32),
+	}, nil)
+	_, err = svc.Login(context.Background(), "known@example.test", "wrong", "", "203.0.113.9")
+	if !errors.Is(err, auth_model.ErrInvalidCredentials) {
+		t.Fatalf("best-effort rejection audit must not change public error: %v", err)
+	}
+	if store.session.ID != uuid.Nil || len(store.failures) != 0 {
+		t.Fatalf("failed rejection must never issue a session: %+v", store.session)
+	}
+}
+
+func TestPhoneLoginInvalidProofWritesNoSession(t *testing.T) {
+	store := &sessionMemoryStore{}
+	svc := NewAuthService(store, nil, setting.Config{
+		TokenSymmetricKey: strings.Repeat("k", 32),
+		Environment: "development",
+	}, nil)
+	_, err := svc.VerifyPhoneLogin(context.Background(), "+84901001001", "wrong-code", "", "203.0.113.10")
+	if !errors.Is(err, auth_model.ErrOTPInvalid) {
+		t.Fatalf("invalid OTP input must not authenticate: %v", err)
+	}
+	if len(store.failures) != 1 || store.failures[0].Method != auth_model.FailurePhoneOTP ||
+		store.failures[0].Reason != auth_model.FailureBadOTP {
+		t.Fatalf("bad OTP was not recorded: %+v", store.failures)
+	}
+	if store.session.ID != uuid.Nil {
+		t.Fatal("bad phone OTP issued a session")
 	}
 }
 
