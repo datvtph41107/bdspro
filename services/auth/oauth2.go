@@ -5,32 +5,19 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
-	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/jackc/pgx/v5"
 )
 
-// OAuth2AuthService orchestrates account and session operations from
-// cryptographically verified OpenID Connect identity assertions.
-type OAuth2AuthService struct {
-	store db.Store
-	maker authcrypto.Maker
-	cfg   setting.Config
-}
-
-func NewOAuth2AuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config) *OAuth2AuthService {
-	return &OAuth2AuthService{store: store, maker: maker, cfg: cfg}
-}
-
-func (s *OAuth2AuthService) credentialKey(identity auth_model.OIDCClaims) (auth_model.OAuth2CredentialKey, error) {
+// OIDC authentication converges on the canonical AuthService.
+func (s *AuthService) credentialKey(identity auth_model.OIDCClaims) (auth_model.OAuth2CredentialKey, error) {
 	key, err := identity.Key()
 	if err != nil {
 		return key, err
 	}
-	if !s.cfg.OIDC.Enabled() || key.Issuer != s.cfg.OIDC.Issuer {
+	if !s.config.OIDC.Enabled() || key.Issuer != s.config.OIDC.Issuer {
 		return auth_model.OAuth2CredentialKey{}, auth_model.ErrOIDCIssuerInvalid
 	}
 	return key, nil
@@ -38,7 +25,7 @@ func (s *OAuth2AuthService) credentialKey(identity auth_model.OIDCClaims) (auth_
 
 // CheckPassword authenticates the local account before starting a link.
 // A verified external email address cannot authorize linking by itself.
-func (s *OAuth2AuthService) CheckPassword(ctx context.Context, accountID int64, password string) error {
+func (s *AuthService) CheckPassword(ctx context.Context, accountID int64, password string) error {
 	hash, err := s.store.GetPasswordHash(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return auth_model.ErrInvalidCredentials
@@ -52,7 +39,7 @@ func (s *OAuth2AuthService) CheckPassword(ctx context.Context, accountID int64, 
 	return nil
 }
 
-func (s *OAuth2AuthService) Link(ctx context.Context, accountID int64, identity auth_model.OIDCClaims) error {
+func (s *AuthService) LinkOIDC(ctx context.Context, accountID int64, identity auth_model.OIDCClaims) error {
 	if accountID <= 0 {
 		return auth_model.ErrInvalidCredentials
 	}
@@ -65,7 +52,7 @@ func (s *OAuth2AuthService) Link(ctx context.Context, accountID int64, identity 
 
 // Login never automatically links identities to an existing email account.
 // On concurrent first logins it recovers only by the exact issuer/subject key.
-func (s *OAuth2AuthService) Login(ctx context.Context, identity auth_model.OIDCClaims, userAgent, clientIP string) (LoginResult, error) {
+func (s *AuthService) LoginOIDC(ctx context.Context, identity auth_model.OIDCClaims, userAgent, clientIP string) (LoginResult, error) {
 	var empty LoginResult
 	key, err := s.credentialKey(identity)
 	if err != nil {
@@ -95,5 +82,5 @@ func (s *OAuth2AuthService) Login(ctx context.Context, identity auth_model.OIDCC
 	if err != nil {
 		return empty, err
 	}
-	return IssueSession(ctx, s.store, s.maker, s.cfg, account, userAgent, clientIP)
+	return s.issueSession(ctx, account, userAgent, clientIP)
 }

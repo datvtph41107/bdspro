@@ -2,23 +2,28 @@ package auth
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
-	"github.com/datvtph41107/bdspro/modules/validation"
-	"html"
+	"math/big"
+	"regexp"
 	"strings"
 	"time"
 
-	account_model "github.com/datvtph41107/bdspro/models/account"
-	db "github.com/datvtph41107/bdspro/models/db"
-	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/modules/validation"
 	"github.com/datvtph41107/bdspro/services/mail"
+	"github.com/datvtph41107/bdspro/services/notification"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"html"
+	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	db "github.com/datvtph41107/bdspro/models/db"
 )
 
 // AuthService owns registration, credential authentication, email verification,
@@ -28,11 +33,19 @@ type AuthService struct {
 	store  db.Store
 	maker  authcrypto.Maker
 	config setting.Config
+	sender notification.PhoneCodeSender
 }
 
-func NewAuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config) *AuthService {
-	return &AuthService{store: store, maker: maker, config: cfg}
+func NewAuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config, senders ...notification.PhoneCodeSender) *AuthService {
+	var sender notification.PhoneCodeSender
+	if len(senders) > 0 {
+		sender = senders[0]
+	}
+	return &AuthService{store: store, maker: maker, config: cfg, sender: sender}
 }
+
+// HasPhone indicates that the HTTP phone channel is configured.
+func (s *AuthService) HasPhone() bool { return s != nil && s.sender != nil }
 
 func (s *AuthService) Register(ctx context.Context, email, password string) (db.Account, error) {
 	// Gin validates rune length; bcrypt limits passwords to 72 bytes.
@@ -101,7 +114,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	if err := authcrypto.CheckPassword(password, hash); err != nil {
 		return result, auth_model.ErrInvalidCredentials
 	}
-	return IssueSession(ctx, s.store, s.maker, s.config, account, userAgent, clientIP)
+	return s.issueSession(ctx, account, userAgent, clientIP)
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, emailID int64, secretCode string) error {
@@ -166,20 +179,20 @@ func (s *AuthService) Revoke(ctx context.Context, refreshToken string) error {
 	return err
 }
 
-// IssueSession is shared by password, Google and phone login, after the
-// corresponding identity provider has already authenticated the account.
-func IssueSession(ctx context.Context, store db.Store, maker authcrypto.Maker, cfg setting.Config, account db.Account, userAgent, clientIP string) (LoginResult, error) {
+// issueSession is the single issuance point shared by password, OIDC and phone logins.
+// Every caller must authenticate its proof before reaching this operation.
+func (s *AuthService) issueSession(ctx context.Context, account db.Account, userAgent, clientIP string) (LoginResult, error) {
 	var result LoginResult
-	auth := cfg.Authentication()
-	accessToken, accessPayload, err := maker.CreateToken(account.ID, auth.AccessTokenTTL, authcrypto.TokenTypeAccess)
+	auth := s.config.Authentication()
+	accessToken, accessPayload, err := s.maker.CreateToken(account.ID, auth.AccessTokenTTL, authcrypto.TokenTypeAccess)
 	if err != nil {
 		return result, err
 	}
-	refreshToken, refreshPayload, err := maker.CreateToken(account.ID, auth.RefreshTokenTTL, authcrypto.TokenTypeRefresh)
+	refreshToken, refreshPayload, err := s.maker.CreateToken(account.ID, auth.RefreshTokenTTL, authcrypto.TokenTypeRefresh)
 	if err != nil {
 		return result, err
 	}
-	session, err := auth_model.NewSession(ctx, store, db.CreateSessionParams{
+	session, err := auth_model.NewSession(ctx, s.store, db.CreateSessionParams{
 		ID: refreshPayload.ID, AccountID: account.ID, RefreshToken: auth_model.RefreshTokenDigest(refreshToken),
 		UserAgent: userAgent, ClientIp: clientIP, ExpiresAt: refreshPayload.ExpiredAt,
 	})
@@ -294,4 +307,277 @@ func (s *AuthService) ConfirmEmailLink(ctx context.Context, accountID int64, sec
 		return account_model.ErrEmailRegistered
 	}
 	return err
+}
+
+var phoneE164 = regexp.MustCompile(`^\+[1-9][0-9]{7,14}$`)
+var phoneCode = regexp.MustCompile(`^[0-9]{6}$`)
+
+// Phone challenge verification is a method of the canonical AuthService.
+func (s *AuthService) phoneAllowed() error {
+	if s.config.Environment != "development" && s.sender == nil {
+		return errors.New("phone OTP delivery unavailable")
+	}
+	return nil
+}
+func (s *AuthService) generatePhoneCode() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+func (s *AuthService) phoneCodeMAC(phone, purpose string, accountID int64, code string) []byte {
+	h := hmac.New(sha256.New, []byte(s.config.TokenSymmetricKey))
+	_, _ = fmt.Fprintf(h, "bdspro:phone-otp:v1|%s|%s|%d|%s", purpose, phone, accountID, code)
+	return h.Sum(nil)
+}
+func (s *AuthService) startPhoneChallenge(ctx context.Context, phone, purpose string, accountID int64) error {
+	code, err := s.generatePhoneCode()
+	if err != nil {
+		return err
+	}
+	devCode := ""
+	if s.config.Environment == "development" {
+		devCode = code
+	}
+	if err := auth_model.StartChallenge(ctx, s.store, phone, purpose, accountID, s.phoneCodeMAC(phone, purpose, accountID, code), devCode); err != nil {
+		return err
+	}
+	if s.sender == nil {
+		return nil // Only a disposable development database permits this.
+	}
+	return s.sender.SendCode(ctx, phone, code)
+}
+
+// StartBind authenticates an account with its existing BDSPro password.
+// The challenge can only be created after fresh proof of account control.
+func (s *AuthService) StartPhoneBind(ctx context.Context, accountID int64, password, phone string) error {
+	if err := s.phoneAllowed(); err != nil {
+		return err
+	}
+	if !phoneE164.MatchString(phone) {
+		return auth_model.ErrInvalidPhone
+	}
+	hash, err := s.store.GetPasswordHash(ctx, accountID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return auth_model.ErrInvalidCredentials
+	}
+	if err != nil {
+		return err
+	}
+	if authcrypto.CheckPassword(password, hash) != nil {
+		return auth_model.ErrInvalidCredentials
+	}
+	return s.startPhoneBind(ctx, accountID, phone)
+}
+
+// StartOAuth2Bind requires a fresh OIDC assertion whose issuer/subject is
+// already linked to this very account. Matching email never authorizes binding.
+func (s *AuthService) StartOAuth2PhoneBind(ctx context.Context, accountID int64, identity auth_model.OIDCClaims, phone string) error {
+	if err := s.phoneAllowed(); err != nil {
+		return err
+	}
+	if !phoneE164.MatchString(phone) {
+		return auth_model.ErrInvalidPhone
+	}
+	key, err := identity.Key()
+	if err != nil || !s.config.OIDC.Enabled() || key.Issuer != s.config.OIDC.Issuer {
+		return auth_model.ErrInvalidCredentials
+	}
+	linkedID, err := auth_model.GetOAuth2AccountID(ctx, s.store, key)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && linkedID != accountID) {
+		return auth_model.ErrInvalidCredentials
+	}
+	if err != nil {
+		return err
+	}
+	return s.startPhoneBind(ctx, accountID, phone)
+}
+
+func (s *AuthService) startPhoneBind(ctx context.Context, accountID int64, phone string) error {
+	if _, err := s.store.GetAccountByID(ctx, accountID); err != nil {
+		return err
+	}
+	// A previously verified account cannot start binding another number.
+	// The unique account_id constraint remains the concurrency safeguard.
+	if _, lookupErr := s.store.GetPhoneForAccount(ctx, accountID); lookupErr == nil {
+		return auth_model.ErrPhoneUnavailable
+	} else if !errors.Is(lookupErr, pgx.ErrNoRows) {
+		return lookupErr
+	}
+	existing, err := auth_model.AccountIDForPhone(ctx, s.store, phone)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	// Bind is for the first verified number only. Do not reuse it for a
+	// phone-change workflow, even when the number already belongs to us.
+	if err == nil || existing != 0 {
+		return auth_model.ErrPhoneUnavailable
+	}
+	err = s.startPhoneChallenge(ctx, phone, "bind", accountID)
+	return err
+}
+func (s *AuthService) VerifyPhoneBind(ctx context.Context, accountID int64, phone, code string) error {
+	if err := s.phoneAllowed(); err != nil {
+		return err
+	}
+	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
+		return auth_model.ErrOTPInvalid
+	}
+	return auth_model.ConsumeChallenge(ctx, s.store, phone, "bind", accountID, s.phoneCodeMAC(phone, "bind", accountID, code))
+}
+
+// StartRegister sends an OTP before any account is created. A registered
+// phone returns a distinct conflict, while signup remains unique in PostgreSQL.
+func (s *AuthService) StartPhoneRegister(ctx context.Context, phone string) error {
+	if err := s.phoneAllowed(); err != nil {
+		return err
+	}
+	if !phoneE164.MatchString(phone) {
+		return auth_model.ErrInvalidPhone
+	}
+	_, err := auth_model.AccountIDForPhone(ctx, s.store, phone)
+	if err == nil {
+		return auth_model.ErrPhoneRegistered
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	code, err := s.generatePhoneCode()
+	if err != nil {
+		return err
+	}
+	devCode := ""
+	if s.config.Environment == "development" {
+		devCode = code
+	}
+	if err = auth_model.StartPhoneSignup(ctx, s.store, phone, s.phoneCodeMAC(phone, "register", 0, code), devCode); err != nil {
+		if errors.Is(err, auth_model.ErrOTPCooldown) {
+			return auth_model.ErrOTPCooldown
+		}
+		return err
+	}
+	if s.sender == nil {
+		return nil
+	}
+	return s.sender.SendCode(ctx, phone, code)
+}
+
+// VerifyRegister creates a phone-only Account and issues the same session
+// contract used by password and OIDC sign-in. A failed session issuance
+// leaves the verified account accessible through OTP login.
+func (s *AuthService) VerifyPhoneRegister(ctx context.Context, phone, code, userAgent, clientIP string) (LoginResult, error) {
+	var empty LoginResult
+	if err := s.phoneAllowed(); err != nil {
+		return empty, err
+	}
+	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
+		return empty, auth_model.ErrOTPInvalid
+	}
+	a, err := auth_model.CompletePhoneSignup(ctx, s.store, phone, s.phoneCodeMAC(phone, "register", 0, code))
+	if err != nil {
+		return empty, err
+	}
+	return s.issueSession(ctx, a, userAgent, clientIP)
+}
+
+// StartLogin does not reveal whether a number exists. Unknown numbers
+// receive the same accepted response, but no OTP is delivered.
+func (s *AuthService) StartPhoneLogin(ctx context.Context, phone string) error {
+	if err := s.phoneAllowed(); err != nil {
+		return err
+	}
+	if !phoneE164.MatchString(phone) {
+		return auth_model.ErrInvalidPhone
+	}
+	accountID, err := auth_model.AccountIDForPhone(ctx, s.store, phone)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	err = s.startPhoneChallenge(ctx, phone, "login", accountID)
+	if errors.Is(err, auth_model.ErrOTPCooldown) {
+		// An existing number and an unknown number must not be distinguishable.
+		return nil
+	}
+	return err
+}
+func (s *AuthService) VerifyPhoneLogin(ctx context.Context, phone, code, userAgent, clientIP string) (LoginResult, error) {
+	var empty LoginResult
+	if err := s.phoneAllowed(); err != nil {
+		return empty, err
+	}
+	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
+		return empty, auth_model.ErrOTPInvalid
+	}
+	accountID, err := auth_model.AccountIDForPhone(ctx, s.store, phone)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return empty, auth_model.ErrOTPInvalid
+	}
+	if err != nil {
+		return empty, err
+	}
+	if err := auth_model.ConsumeChallenge(ctx, s.store, phone, "login", accountID, s.phoneCodeMAC(phone, "login", accountID, code)); err != nil {
+		if errors.Is(err, auth_model.ErrOTPInvalid) {
+			return empty, auth_model.ErrOTPInvalid
+		}
+		return empty, err
+	}
+	account, err := s.store.GetAccountByID(ctx, accountID)
+	if err != nil {
+		return empty, err
+	}
+	return s.issueSession(ctx, account, userAgent, clientIP)
+}
+
+// AuthorizePhoneProof proves fresh possession of the *already bound* phone.
+// The login OTP is single-use, so it cannot be replayed for OAuth linking.
+// A linked OAuth2 credential is not inferred from a matching email address.
+func (s *AuthService) AuthorizePhoneProof(ctx context.Context, accountID int64, code string) error {
+	if !phoneCode.MatchString(code) {
+		return auth_model.ErrOTPInvalid
+	}
+	phone, err := s.store.GetPhoneForAccount(ctx, accountID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return auth_model.ErrInvalidCredentials
+	}
+	if err != nil {
+		return err
+	}
+	err = auth_model.ConsumeChallenge(ctx, s.store, phone, "login", accountID, s.phoneCodeMAC(phone, "login", accountID, code))
+	if errors.Is(err, auth_model.ErrOTPInvalid) {
+		return auth_model.ErrOTPInvalid
+	}
+	return err
+}
+
+func (s *AuthService) ListSessions(ctx context.Context, accountID int64) ([]db.ListActiveSessionsRow, error) {
+	return auth_model.ListSessions(ctx, s.store, accountID)
+}
+
+func (s *AuthService) RevokeOwnSession(ctx context.Context, accountID int64, sessionID uuid.UUID) error {
+	return auth_model.RevokeOwnedSession(ctx, s.store, accountID, sessionID)
+}
+
+// RevokeAllSessions revokes refresh sessions only; access JWTs expire naturally.
+func (s *AuthService) RevokeAllSessions(ctx context.Context, accountID int64) error {
+	return auth_model.RevokeAllSessions(ctx, s.store, accountID)
+}
+
+// CurrentAccount reads persisted identity instead of echoing a JWT claim.
+// All credentials converge on the same account representation.
+func (s *AuthService) CurrentAccount(ctx context.Context, id int64) (db.Account, error) {
+	return account_model.GetByID(ctx, s.store, id)
+}
+
+// A fixed bcrypt hash at the same cost as freshly issued password hashes.
+// It belongs to no account and is deliberately not a credential or a secret.
+// Missing-account and passwordless-account login attempts must still pay
+// the normal bcrypt verification cost before returning InvalidCredentials.
+const dummyPasswordHash = "$2a$10$jf3HO8nLz6D6fJUAiJ7sB.wHyxxdZneCFqfIxSyWP4t9wbygi36Ya"
+
+func checkUnknownPassword(password string) {
+	_ = authcrypto.CheckPassword(password, dummyPasswordHash)
 }
