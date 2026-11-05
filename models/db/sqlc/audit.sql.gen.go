@@ -80,8 +80,8 @@ VALUES ($1, 'auth.login.rejected', $2, $3, $4, $5)
 
 type InsertAuditEventParams struct {
 	AccountID  pgtype.Int8 `json:"account_id"`
-	Method     string      `json:"method"`
-	Reason     string      `json:"reason"`
+	Method     pgtype.Text `json:"method"`
+	Reason     pgtype.Text `json:"reason"`
 	SubjectMac []byte      `json:"subject_mac"`
 	IpAddress  string      `json:"ip_address"`
 }

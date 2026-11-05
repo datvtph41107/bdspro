@@ -157,7 +157,7 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	if _, err := svc.Login(ctx, store.account.Email, "wrong", "", "203.0.113.9"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 		t.Fatalf("invalid password: got %v", err)
 	}
-	if len(store.auditEvents) != 1 || store.auditEvents[0].Reason != audit_model.ReasonInvalidPassword ||
+	if len(store.auditEvents) != 1 || store.auditEvents[0].Reason.String != audit_model.ReasonInvalidPassword ||
 		!store.auditEvents[0].AccountID.Valid || store.auditEvents[0].AccountID.Int64 != store.account.ID {
 		t.Fatalf("rejected known credential not persisted with account scope: %+v", store.auditEvents)
 	}
@@ -297,8 +297,8 @@ func TestRejectedOIDCIdentityAuditDoesNotGrantSession(t *testing.T) {
 	if !errors.Is(err, auth_model.ErrOIDCIssuerInvalid) {
 		t.Fatalf("invalid issuer must remain rejected: %v", err)
 	}
-	if len(store.auditEvents) != 1 || store.auditEvents[0].Method != audit_model.MethodOIDC ||
-		store.auditEvents[0].Reason != audit_model.ReasonInvalidIdentity || store.auditEvents[0].AccountID.Valid {
+	if len(store.auditEvents) != 1 || store.auditEvents[0].Method.String != audit_model.MethodOIDC ||
+		store.auditEvents[0].Reason.String != audit_model.ReasonInvalidIdentity || store.auditEvents[0].AccountID.Valid {
 		t.Fatalf("invalid OIDC decision missing or misattributed: %+v", store.auditEvents)
 	}
 	if store.session.ID != uuid.Nil {
@@ -317,8 +317,8 @@ func TestPhoneLoginInvalidProofWritesNoSession(t *testing.T) {
 	if !errors.Is(err, auth_model.ErrOTPInvalid) {
 		t.Fatalf("invalid OTP input must not authenticate: %v", err)
 	}
-	if len(store.auditEvents) != 1 || store.auditEvents[0].Method != audit_model.MethodPhoneOTP ||
-		store.auditEvents[0].Reason != audit_model.ReasonInvalidOTP {
+	if len(store.auditEvents) != 1 || store.auditEvents[0].Method.String != audit_model.MethodPhoneOTP ||
+		store.auditEvents[0].Reason.String != audit_model.ReasonInvalidOTP {
 		t.Fatalf("bad OTP was not recorded: %+v", store.auditEvents)
 	}
 	if store.session.ID != uuid.Nil {

@@ -12,6 +12,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // The PostgreSQL test operates in one rollback-only transaction in a
@@ -128,7 +129,7 @@ func TestAuditEventsAnonymousKnownAndRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	bad := db.InsertAuditEventParams{
-		Method: audit_model.MethodPassword, Reason: audit_model.ReasonInvalidOTP,
+		Method: pgtype.Text{String: audit_model.MethodPassword, Valid: true}, Reason: pgtype.Text{String: audit_model.ReasonInvalidOTP, Valid: true},
 		SubjectMac: make([]byte, 32), IpAddress: "203.0.113.2",
 	}
 	if err := q.InsertAuditEvent(ctx, bad); err == nil {
