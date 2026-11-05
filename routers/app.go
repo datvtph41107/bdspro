@@ -15,9 +15,11 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
+	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/gin-gonic/gin"
@@ -30,6 +32,7 @@ type Server struct {
 	authHandler         *user.AuthHandler
 	organizationHandler *org.Handler
 	oauth2Handler       *user.OAuth2Handler
+	authorizationHandler *oauth.Handler
 	phoneEnabled        bool
 	config              setting.Config
 	store               db.Store
@@ -98,6 +101,9 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	server.authHandler = user.NewAuthHandler(authService, server.authThrottle, resetSender)
 	server.phoneEnabled = phoneSender != nil
 	server.organizationHandler = org.NewHandler(store)
+	if oauthStore, ok := store.(db.OAuthServerStore); ok {
+		server.authorizationHandler = oauth.NewHandler(oauth_service.NewService(oauthStore), store)
+	}
 
 	// OIDC owns its browser protocol, but account linking and session
 	// issuance converge on the same AuthService.
