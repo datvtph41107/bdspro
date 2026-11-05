@@ -25,6 +25,7 @@ ALTER TABLE audit_events
             AND actor_account_id IS NULL
             AND scope_type IS NULL AND scope_ref IS NULL
             AND target_type IS NULL AND target_ref IS NULL
+            AND method IS NOT NULL AND reason IS NOT NULL
             AND method IN ('password', 'phone_otp', 'oidc')
             AND subject_mac IS NOT NULL AND octet_length(subject_mac) = 32
             AND (
@@ -36,9 +37,11 @@ ALTER TABLE audit_events
         OR
         (
             action IN ('auth.session.revoked', 'team.member.removed')
-            AND actor_account_id > 0
+            AND actor_account_id IS NOT NULL AND actor_account_id > 0
             AND account_id IS NULL
             AND method IS NULL AND reason IS NULL AND subject_mac IS NULL
+            AND scope_type IS NOT NULL AND scope_ref IS NOT NULL
+            AND target_type IS NOT NULL AND target_ref IS NOT NULL
             AND (
                 (action = 'auth.session.revoked'
                     AND scope_type = 'account' AND scope_ref <> ''

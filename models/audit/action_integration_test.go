@@ -180,6 +180,24 @@ func TestAuditActionsTransactionalAcrossAuthAndTeam(t *testing.T) {
 	if err := organization_model.RemoveTeamUser(ctx, store, owner.ID, team.ID, recipient.PersonID); !errors.Is(err, organization_model.ErrTeamMemberNotFound) {
 		t.Fatalf("duplicate delete not rejected: %v", err)
 	}
+	// PostgreSQL CHECK constraints must reject NULL actor/scope and keep
+	// the old login-proof requirements after the method columns became nullable.
+	for _, malformed := range []string{
+		"INSERT INTO audit_events(action, scope_type, scope_ref, target_type, target_ref, ip_address) VALUES ('team.member.removed', 'team', '8', 'person', '9', '')",
+		"INSERT INTO audit_events(action, actor_account_id, scope_type, target_type, target_ref, ip_address) VALUES ('team.member.removed', 3, 'team', 'person', '9', '')",
+		"INSERT INTO audit_events(action, ip_address) VALUES ('auth.login.rejected', '')",
+	} {
+		if _, err := outer.Exec(ctx, "SAVEPOINT malformed_audit"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := outer.Exec(ctx, malformed); err == nil {
+			t.Fatalf("nullable action payload bypassed audit constraints: %s", malformed)
+		}
+		if _, err := outer.Exec(ctx, "ROLLBACK TO SAVEPOINT malformed_audit"); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	rows, err := outer.Query(ctx, `SELECT action, actor_account_id, scope_type, scope_ref, target_type, target_ref,
 		method, reason, subject_mac
 		FROM audit_events WHERE actor_account_id=$1 ORDER BY id`, owner.ID)
