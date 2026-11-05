@@ -7,6 +7,7 @@ import (
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/gin-gonic/gin"
@@ -14,14 +15,15 @@ import (
 
 // Dependencies are constructed once by the HTTP server; route ownership is in this package.
 type Dependencies struct {
-	Auth         *user.AuthHandler
-	Organization *org.Handler
-	OAuth2       *user.OAuth2Handler
-	PhoneEnabled bool
-	TokenMaker   authcrypto.Maker
-	IPActive     *ipactive.Middleware
-	Store        db.Store
-	InviteKey    string
+	Auth          *user.AuthHandler
+	Organization  *org.Handler
+	OAuth2        *user.OAuth2Handler
+	Authorization *oauth.Handler
+	PhoneEnabled  bool
+	TokenMaker    authcrypto.Maker
+	IPActive      *ipactive.Middleware
+	Store         db.Store
+	InviteKey     string
 }
 
 // Routes declares the existing Gin HTTP surface using Gitea-style file ownership.
@@ -68,6 +70,14 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 		d.Auth.ResetPassword,
 	)
 
+	if d.Authorization != nil {
+		// OAuth2 authorization-server endpoints are distinct from OIDC client login.
+		route.POST("/oauth/token",
+			d.IPActive.For(ipactive.RenewAccess), d.Authorization.Token)
+		route.POST("/oauth/revoke",
+			d.IPActive.For(ipactive.RevokeToken), d.Authorization.Revoke)
+		route.GET("/oauth/userinfo", d.Authorization.UserInfo)
+	}
 	if d.OAuth2 != nil {
 		route.GET("/users/oauth2/login/start",
 			d.IPActive.For(ipactive.StartOAuth2Login),
@@ -100,6 +110,14 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 
 func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	profile := user.NewProfileHandler(d.Store)
+	if d.Authorization != nil {
+		route.GET("/oauth/authorize", d.Authorization.AuthorizePreview)
+		route.POST("/oauth/authorize", d.Authorization.Authorize)
+		route.GET("/oauth/clients", d.Authorization.ListClients)
+		route.POST("/oauth/clients",
+			middleware.VerifiedContact(d.Store), d.Authorization.CreateClient)
+		route.DELETE("/oauth/clients/:id", d.Authorization.DeleteClient)
+	}
 	route.GET("/users/me", profile.Show)
 	route.PATCH("/users/me/profile", profile.Update)
 	route.GET("/users/me/settings", profile.Settings)

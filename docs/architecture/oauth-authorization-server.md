@@ -1,0 +1,13 @@
+# OAuth2 authorization-server contract
+
+BDSPro operates a restricted OAuth2 Authorization Code + PKCE S256 server for registered public clients. It separately consumes OIDC identities from external providers through `oauth2_credentials`; these are not BDSPro-issued grants.
+
+`/oauth/authorize` requires an existing BDSPro JWT and explicit consent. `/oauth/token` supports only `authorization_code` and `refresh_token`, returns opaque random credentials, stores SHA256 digests, and rotates refresh tokens once per use. `/oauth/userinfo` requires a live OAuth access token scoped `profile:read`. Internal JWTs cannot be substituted for OAuth access tokens, or vice versa.
+
+Data tables: `oauth_clients`, `oauth_auth_codes`, `oauth_access_tokens`, `oauth_refresh_tokens`. All four are distinct from `sessions` and `oauth2_credentials`. Each table is created directly in its own ordered up/down migration, with no mirror, trigger or rename.
+
+The authorization endpoint currently requires an API Bearer JWT rather than implementing browser cookie-based login and HTML consent. This is a restricted API-oriented implementation, not a complete third-party browser OAuth user experience. Only `profile:read` is supported. Confidential clients, password grant, arbitrary resources and an OpenID Provider discovery surface are not implemented.
+
+**Migration compatibility:** This 26-file canonical ledger is not equivalent to the previous migration versions 1–21. Never force a version or use it against existing data. Provision a new database and conduct a verified data transfer as a separately accepted cutover.
+
+Evidence: `services/oauth/oauth_test.go` tests S256, exact redirect and code use; `models/db/oauth_server_integration_test.go` tests PostgreSQL single-use, concurrent exchange and refresh replay; `routers/api/v1/oauth/oauth_test.go` tests grant rejection and token-purpose separation. Production acceptance additionally requires consent UX, retention, scope/resource policy and security load testing.

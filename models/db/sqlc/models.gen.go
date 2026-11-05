@@ -81,10 +81,49 @@ type Oauth2Credential struct {
 	LinkedAt  time.Time `json:"linked_at"`
 }
 
-type Oauth2CredentialsArchive struct {
-	Subject   string    `json:"subject"`
-	AccountID int64     `json:"account_id"`
-	LinkedAt  time.Time `json:"linked_at"`
+type OauthAccessToken struct {
+	TokenHash []byte             `json:"token_hash"`
+	ClientID  uuid.UUID          `json:"client_id"`
+	AccountID int64              `json:"account_id"`
+	Scope     string             `json:"scope"`
+	ExpiresAt time.Time          `json:"expires_at"`
+	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt time.Time          `json:"created_at"`
+}
+
+type OauthAuthCode struct {
+	CodeHash      []byte             `json:"code_hash"`
+	ClientID      uuid.UUID          `json:"client_id"`
+	AccountID     int64              `json:"account_id"`
+	RedirectUri   string             `json:"redirect_uri"`
+	Scope         string             `json:"scope"`
+	CodeChallenge string             `json:"code_challenge"`
+	ExpiresAt     time.Time          `json:"expires_at"`
+	UsedAt        pgtype.Timestamptz `json:"used_at"`
+	CreatedAt     time.Time          `json:"created_at"`
+}
+
+type OauthClient struct {
+	ID             uuid.UUID          `json:"id"`
+	OwnerAccountID int64              `json:"owner_account_id"`
+	Name           string             `json:"name"`
+	RedirectUri    string             `json:"redirect_uri"`
+	SecretHash     []byte             `json:"secret_hash"`
+	CreatedAt      time.Time          `json:"created_at"`
+	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type OauthRefreshToken struct {
+	TokenHash       []byte             `json:"token_hash"`
+	AccessTokenHash []byte             `json:"access_token_hash"`
+	ClientID        uuid.UUID          `json:"client_id"`
+	AccountID       int64              `json:"account_id"`
+	FamilyID        uuid.UUID          `json:"family_id"`
+	Scope           string             `json:"scope"`
+	ExpiresAt       time.Time          `json:"expires_at"`
+	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
+	ConsumedAt      pgtype.Timestamptz `json:"consumed_at"`
+	CreatedAt       time.Time          `json:"created_at"`
 }
 
 type Organization struct {

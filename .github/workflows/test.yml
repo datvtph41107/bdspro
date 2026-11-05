@@ -70,29 +70,11 @@ jobs:
           psql -h 127.0.0.1 -U root -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE bdspro_test'
           BDS__DATABASE__DB_SOURCE='postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable' make migrateup
 
-      - name: Test upgrading existing accounts and outbox records
+      - name: Verify canonical fresh schema and refuse historical migration versions
         env:
           PGPASSWORD: secret
           BDS_TEST_MODE: disposable
-        run: bash tests/integration/migrations/accounts-upgrade.sh
-
-      - name: Verify organization member rename preserves existing data
-        env:
-          PGPASSWORD: secret
-          BDS_TEST_MODE: disposable
-        run: bash tests/integration/migrations/organization-members-upgrade.sh
-
-      - name: Verify OAuth2 credential cut-over and rollback
-        env:
-          PGPASSWORD: secret
-          BDS_TEST_MODE: disposable
-        run: bash tests/integration/migrations/oauth2-credentials-upgrade.sh
-
-      - name: Verify profile migration backfill and rollback
-        env:
-          PGPASSWORD: secret
-          BDS_TEST_MODE: disposable
-        run: bash tests/integration/migrations/profile-upgrade.sh
+        run: bash tests/integration/migrations/canonical-schema.sh
 
       - name: Verify Go formatting
         run: |
@@ -131,7 +113,7 @@ jobs:
           ./bin/bdspro migrate --help
 
       - name: Verify unchanged Gin route inventory
-        run: go run ./tools/r02audit -root . -contract docs/architecture/r02/routes-r01.json -additions docs/architecture/r02/routes-r20-additions.json,docs/architecture/r02/routes-r23-additions.json,docs/architecture/r02/routes-r24-additions.json,docs/architecture/r02/routes-r31-additions.json -removals docs/architecture/r02/routes-r26-removals.json
+        run: go run ./tools/r02audit -root . -contract docs/architecture/r02/routes-r01.json -additions docs/architecture/r02/routes-r20-additions.json,docs/architecture/r02/routes-r23-additions.json,docs/architecture/r02/routes-r24-additions.json,docs/architecture/r02/routes-r31-additions.json,docs/architecture/r02/routes-r36-additions.json -removals docs/architecture/r02/routes-r26-removals.json
 
       - name: Benchmark production Gin router
         run: go test ./routers/api -run '^$' -bench '^BenchmarkGinRouting$' -benchmem -count=3

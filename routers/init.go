@@ -58,14 +58,15 @@ func NormalRoutes(server *Server) *gin.Engine {
 	)
 
 	apiv1.Routes(router, apiv1.Dependencies{
-		Auth:         server.authHandler,
-		Organization: server.organizationHandler,
-		OAuth2:       server.oauth2Handler,
-		PhoneEnabled: server.phoneEnabled,
-		TokenMaker:   server.tokenMaker,
-		IPActive:     server.ipActive,
-		Store:        server.store,
-		InviteKey:    server.config.TokenSymmetricKey,
+		Auth:          server.authHandler,
+		Organization:  server.organizationHandler,
+		OAuth2:        server.oauth2Handler,
+		Authorization: server.authorizationHandler,
+		PhoneEnabled:  server.phoneEnabled,
+		TokenMaker:    server.tokenMaker,
+		IPActive:      server.ipActive,
+		Store:         server.store,
+		InviteKey:     server.config.TokenSymmetricKey,
 	})
 	api.RegisterSwagger(router, server.config.Environment)
 

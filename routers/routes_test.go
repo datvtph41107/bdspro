@@ -11,6 +11,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
@@ -40,10 +41,11 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 
 	newServer := func(oauth2, phone bool) *Server {
 		s := &Server{
-			tokenMaker:          maker,
-			store:               routeAccountStore{},
-			authHandler:         user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}, nil), nil, nil),
-			organizationHandler: org.NewHandler(nil),
+			tokenMaker:           maker,
+			store:                routeAccountStore{},
+			authHandler:          user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}, nil), nil, nil),
+			organizationHandler:  org.NewHandler(nil),
+			authorizationHandler: oauth.NewHandler(nil, nil),
 		}
 		if oauth2 {
 			s.oauth2Handler = user.NewOAuth2Handler(nil, nil, false)
@@ -57,6 +59,9 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 
 	base := newServer(false, false)
 	want := []string{
+		"GET /oauth/authorize", "POST /oauth/authorize",
+		"POST /oauth/token", "POST /oauth/revoke", "GET /oauth/userinfo",
+		"GET /oauth/clients", "POST /oauth/clients", "DELETE /oauth/clients/:id",
 		"GET /health", "POST /users", "POST /users/login",
 		"GET /users/verify_email", "POST /users/verify_email", "POST /users/verify_email/resend", "POST /tokens/renew_access",
 		"POST /tokens/revoke", "GET /users/me",
@@ -87,8 +92,8 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	withOptional := newServer(true, true)
-	if n := len(withOptional.router.Routes()); n != 47 {
-		t.Errorf("enabled route count = %d, want 47", n)
+	if n := len(withOptional.router.Routes()); n != 55 {
+		t.Errorf("enabled route count = %d, want 55", n)
 	}
 	for _, route := range []string{
 		"POST /users/me/oauth2/start", "GET /users/oauth2/login/start",

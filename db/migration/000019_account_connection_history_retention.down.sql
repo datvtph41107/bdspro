@@ -1,1 +1,0 @@
-DROP INDEX IF EXISTS account_connection_histories_retention_idx;

@@ -14,12 +14,14 @@ import (
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
+	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
+	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
@@ -27,17 +29,18 @@ import (
 // Server owns initialized HTTP dependencies and the configured Gin application.
 // Listener, readiness, timeouts and graceful shutdown remain in cmd/http.go.
 type Server struct {
-	authHandler         *user.AuthHandler
-	organizationHandler *org.Handler
-	oauth2Handler       *user.OAuth2Handler
-	phoneEnabled        bool
-	config              setting.Config
-	store               db.Store
-	tokenMaker          authcrypto.Maker
-	router              *gin.Engine
-	authRateRedis       *redis.Client
-	authThrottle        *middleware.AuthThrottle
-	ipActive            *ipactive.Middleware
+	authHandler          *user.AuthHandler
+	organizationHandler  *org.Handler
+	oauth2Handler        *user.OAuth2Handler
+	authorizationHandler *oauth.Handler
+	phoneEnabled         bool
+	config               setting.Config
+	store                db.Store
+	tokenMaker           authcrypto.Maker
+	router               *gin.Engine
+	authRateRedis        *redis.Client
+	authThrottle         *middleware.AuthThrottle
+	ipActive             *ipactive.Middleware
 }
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
@@ -98,6 +101,9 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	server.authHandler = user.NewAuthHandler(authService, server.authThrottle, resetSender)
 	server.phoneEnabled = phoneSender != nil
 	server.organizationHandler = org.NewHandler(store)
+	if oauthStore, ok := store.(db.OAuthServerStore); ok {
+		server.authorizationHandler = oauth.NewHandler(oauth_service.NewService(oauthStore), store)
+	}
 
 	// OIDC owns its browser protocol, but account linking and session
 	// issuance converge on the same AuthService.

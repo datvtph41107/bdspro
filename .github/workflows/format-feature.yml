@@ -1,0 +1,31 @@
+name: Feature branch Go formatting
+on:
+  push:
+    branches:
+      - refactor/canonical-schema-oauth-r362-20261105
+permissions:
+  contents: write
+jobs:
+  gofmt:
+    if: github.ref == 'refs/heads/refactor/canonical-schema-oauth-r362-20261105'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/canonical-schema-oauth-r362-20261105
+          persist-credentials: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Apply Go formatter to feature branch
+        run: |
+          gofmt -w models/db/oauth_server.go models/db/migration.go services/oauth/*.go routers/api/v1/oauth/*.go routers/api/v1/api.go routers/app.go routers/init.go routers/routes_test.go routers/swagger_contract_test.go
+          git add -u
+          if git diff --cached --quiet; then
+            echo 'No formatting changes'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'style: format OAuth authorization-server Go source'
+          git push origin HEAD:refs/heads/refactor/canonical-schema-oauth-r362-20261105
