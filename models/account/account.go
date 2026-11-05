@@ -119,5 +119,8 @@ func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_mo
 func GetConnections(ctx context.Context, store interface {
 	ListAccountConnectionHistories(context.Context, int64) ([]db.ListAccountConnectionHistoriesRow, error)
 }, accountID int64) ([]db.ListAccountConnectionHistoriesRow, error) {
+	if accountID <= 0 {
+		return nil, ErrAccountUnavailable
+	}
 	return store.ListAccountConnectionHistories(ctx, accountID)
 }

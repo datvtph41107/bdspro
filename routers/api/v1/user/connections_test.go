@@ -79,6 +79,15 @@ func TestGetConnectionsUsesVerifiedAccountAndSafeErrors(t *testing.T) {
 	if !ok || len(entries) != 1 || entries[0].(map[string]any)["action"] != "login" {
 		t.Fatalf("unexpected history response: %s", w.Body.String())
 	}
+	connection := entries[0].(map[string]any)
+	if _, ok := connection["session_id"].(string); !ok {
+		t.Fatalf("connection session_id must be serialized as stable JSON string: %s", w.Body.String())
+	}
+	for _, forbidden := range []string{"account_id", "refresh_token"} {
+		if _, exists := connection[forbidden]; exists {
+			t.Fatalf("connection leaks field %q: %s", forbidden, w.Body.String())
+		}
+	}
 	store.err = errors.New("sensitive sql details")
 	w = request(access)
 	if w.Code != http.StatusInternalServerError || strings.Contains(w.Body.String(), "sensitive sql details") {

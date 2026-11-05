@@ -23,3 +23,14 @@ type RenewAccessTokenResponse struct {
 	AccessToken          string    `json:"access_token"`
 	AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
 }
+
+// ConnectionResponse is the public wire contract; it intentionally does not
+// embed a generated SQLC row or expose account identifiers or refresh secrets.
+type ConnectionResponse struct {
+	ID        int64     `json:"id"`
+	SessionID string    `json:"session_id"`
+	Action    string    `json:"action"`
+	IPAddress string    `json:"ip_address"`
+	UserAgent string    `json:"user_agent"`
+	CreatedAt time.Time `json:"created_at"`
+}

@@ -7,6 +7,7 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"strings"
 	"testing"
+	"unicode/utf8"
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
@@ -237,5 +238,54 @@ func TestAuthLegacyRefreshSessionTransition(t *testing.T) {
 	}
 	if _, err := svc.Renew(context.Background(), issued.RefreshToken); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("revoked legacy refresh proof renewed: %v", err)
+	}
+}
+
+func TestSessionHistoryFailureDoesNotReleaseCredentials(t *testing.T) {
+	maker, err := authcrypto.NewJWTMaker(strings.Repeat("k", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &sessionMemoryStore{
+		account: db.Account{ID: 31},
+		historyErr: errors.New("audit insertion unavailable"),
+	}
+	svc := NewAuthService(store, maker, setting.Config{
+		TokenSymmetricKey: strings.Repeat("k", 32),
+		AccessTokenDuration: time.Minute,
+		RefreshTokenDuration: time.Hour,
+	}, nil)
+	result, err := svc.issueSession(context.Background(), store.account, "test agent", "203.0.113.1")
+	if err == nil || result.RefreshToken != "" || result.AccessToken != "" {
+		t.Fatalf("history write failure released a token: %+v err=%v", result, err)
+	}
+	if store.session.ID != uuid.Nil || store.historyCount != 0 {
+		t.Fatalf("failed transaction persisted session=%+v histories=%d", store.session, store.historyCount)
+	}
+}
+
+func TestSessionUserAgentNormalizedBeforePersistence(t *testing.T) {
+	maker, err := authcrypto.NewJWTMaker(strings.Repeat("k", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &sessionMemoryStore{account: db.Account{ID: 32}}
+	svc := NewAuthService(store, maker, setting.Config{
+		TokenSymmetricKey: strings.Repeat("k", 32),
+		AccessTokenDuration: time.Minute,
+		RefreshTokenDuration: time.Hour,
+	}, nil)
+	userAgent := strings.Repeat("✓", 2050) + "\x00" + string([]byte{0xff})
+	if _, err := svc.issueSession(context.Background(), store.account, userAgent, "203.0.113.2"); err != nil {
+		t.Fatal(err)
+	}
+	if n := utf8.RuneCountInString(store.session.UserAgent); n != 2048 {
+		t.Fatalf("user agent length = %d, want 2048", n)
+	}
+	if !utf8.ValidString(store.session.UserAgent) || strings.ContainsRune(store.session.UserAgent, '\x00') {
+		t.Fatal("invalid or database-disallowed user-agent persisted")
+	}
+	if store.historyCount != 1 {
+		t.Fatalf("successful session should have one history, got %d", store.historyCount)
 	}
 }

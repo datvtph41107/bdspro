@@ -370,8 +370,5 @@ func (h *AuthHandler) GetConnections(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	if connections == nil {
-		connections = []db.ListAccountConnectionHistoriesRow{}
-	}
-	c.JSON(http.StatusOK, gin.H{"connections": connections})
+	c.JSON(http.StatusOK, gin.H{"connections": convert.ToConnections(connections)})
 }
