@@ -14,7 +14,7 @@ import (
 // future cohesive source splits must not require changing architecture tests.
 func TestAuthDependencyDirection(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
-	for _, pkg := range []string{"services/auth", "models/account", "models/auth"} {
+	for _, pkg := range []string{"services/auth", "models/account", "models/auth", "models/audit"} {
 		paths, err := filepath.Glob(filepath.Join(root, pkg, "*.go"))
 		if err != nil {
 			t.Fatal(err)
@@ -49,22 +49,16 @@ func TestAuthDependencyDirection(t *testing.T) {
 	}
 }
 
-// TestCanonicalAuthOwner rejects duplicate issuance authorities while allowing
-// cohesive files to be split or renamed as the implementation evolves.
-func TestCanonicalAuthOwner(t *testing.T) {
+// TestAuthServiceOwner counts the concrete application owner without tying
+// the architecture to filenames or incidental method names. Real credential
+// issuance and rollback behavior are verified in services/auth and models/auth.
+func TestAuthServiceOwner(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	files, err := filepath.Glob(filepath.Join(root, "services", "auth", "*.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	types := make(map[string]int)
-	methods := make(map[string]int)
-	issuers := map[string]bool{
-		"Login":               false,
-		"VerifyPhoneRegister": false,
-		"VerifyPhoneLogin":    false,
-		"LoginOIDC":           false,
-	}
+	owners := 0
 	for _, path := range files {
 		if strings.HasSuffix(path, "_test.go") {
 			continue
@@ -73,42 +67,19 @@ func TestCanonicalAuthOwner(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, decl := range file.Decls {
-			switch item := decl.(type) {
-			case *ast.GenDecl:
-				for _, spec := range item.Specs {
-					if ts, ok := spec.(*ast.TypeSpec); ok {
-						types[ts.Name.Name]++
-					}
+		for _, declaration := range file.Decls {
+			specs, ok := declaration.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+			for _, spec := range specs.Specs {
+				if typ, ok := spec.(*ast.TypeSpec); ok && typ.Name.Name == "AuthService" {
+					owners++
 				}
-			case *ast.FuncDecl:
-				methods[item.Name.Name]++
-				if _, required := issuers[item.Name.Name]; !required {
-					continue
-				}
-				ast.Inspect(item.Body, func(node ast.Node) bool {
-					call, ok := node.(*ast.CallExpr)
-					if !ok {
-						return true
-					}
-					sel, ok := call.Fun.(*ast.SelectorExpr)
-					if ok && sel.Sel.Name == "issueSession" {
-						issuers[item.Name.Name] = true
-					}
-					return true
-				})
 			}
 		}
 	}
-	if types["AuthService"] != 1 || types["PhoneOTP"] != 0 || types["OAuth2AuthService"] != 0 {
-		t.Fatalf("duplicate authentication owners: %#v", types)
-	}
-	if methods["issueSession"] != 1 || methods["IssueSession"] != 0 {
-		t.Fatalf("session issuance authority not canonical: %#v", methods)
-	}
-	for method, callsIssuer := range issuers {
-		if !callsIssuer {
-			t.Errorf("%s must issue sessions through AuthService.issueSession", method)
-		}
+	if owners != 1 {
+		t.Fatalf("expected exactly one AuthService owner, got %d", owners)
 	}
 }

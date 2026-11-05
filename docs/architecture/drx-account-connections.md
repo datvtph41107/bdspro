@@ -35,7 +35,7 @@ Do not silently rename public paths as part of a persistence migration.
 * This is a successful-login history, not all HTTP requests, online presence,
   or a substitute for IPActive admission.
 * Raw IP and User-Agent require restricted access, logs and exports.
-* R35 retention: while the worker is running, login histories older than 90 days
+* R35 retention: while the worker is running, login histories older than the configured [audit] RETENTION_DAYS window
   are deleted in bounded SQLC batches, initially and hourly. The cleanup index
   supports expiry scans; row locks allow concurrent worker processes.
 * Data exports, administrative read access, audit requirements and backup/DSAR
