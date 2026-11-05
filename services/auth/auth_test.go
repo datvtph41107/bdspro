@@ -142,6 +142,7 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	}
 	cfg := setting.Config{
 		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AuditKey:             strings.Repeat("a", 32),
 		AccessTokenDuration:  15 * time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}
@@ -233,6 +234,7 @@ func TestRegisterPasswordByteLimit(t *testing.T) {
 func TestAuthLegacyRefreshSessionTransition(t *testing.T) {
 	cfg := setting.Config{
 		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AuditKey:             strings.Repeat("a", 32),
 		AccessTokenDuration:  15 * time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}
@@ -271,6 +273,7 @@ func TestRejectedProofAuditFailureKeepsInvalidCredentialResponse(t *testing.T) {
 	}
 	svc := NewAuthService(store, nil, setting.Config{
 		TokenSymmetricKey: strings.Repeat("k", 32),
+		AuditKey:          strings.Repeat("a", 32),
 	}, nil)
 	_, err = svc.Login(context.Background(), "known@example.test", "wrong", "", "203.0.113.9")
 	if !errors.Is(err, auth_model.ErrInvalidCredentials) {
@@ -285,6 +288,7 @@ func TestRejectedOIDCIdentityAuditDoesNotGrantSession(t *testing.T) {
 	store := &sessionMemoryStore{}
 	svc := NewAuthService(store, nil, setting.Config{
 		TokenSymmetricKey: strings.Repeat("k", 32),
+		AuditKey:          strings.Repeat("a", 32),
 	}, nil)
 	_, err := svc.LoginOIDC(context.Background(), auth_model.OIDCClaims{
 		Issuer:  "http://untrusted-issuer.example.test",
@@ -306,6 +310,7 @@ func TestPhoneLoginInvalidProofWritesNoSession(t *testing.T) {
 	store := &sessionMemoryStore{}
 	svc := NewAuthService(store, nil, setting.Config{
 		TokenSymmetricKey: strings.Repeat("k", 32),
+		AuditKey:          strings.Repeat("a", 32),
 		Environment:       "development",
 	}, nil)
 	_, err := svc.VerifyPhoneLogin(context.Background(), "+84901001001", "wrong-code", "", "203.0.113.10")
@@ -332,6 +337,7 @@ func TestSessionHistoryFailureDoesNotReleaseCredentials(t *testing.T) {
 	}
 	svc := NewAuthService(store, maker, setting.Config{
 		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AuditKey:             strings.Repeat("a", 32),
 		AccessTokenDuration:  time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}, nil)
@@ -352,6 +358,7 @@ func TestSessionUserAgentNormalizedBeforePersistence(t *testing.T) {
 	store := &sessionMemoryStore{account: db.Account{ID: 32}}
 	svc := NewAuthService(store, maker, setting.Config{
 		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AuditKey:             strings.Repeat("a", 32),
 		AccessTokenDuration:  time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}, nil)
