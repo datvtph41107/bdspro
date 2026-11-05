@@ -16,7 +16,6 @@ type Transactioner interface {
 // Store exposes SQLC queries and the existing transaction operations.
 type Store interface {
 	Querier
-	CreateSessionWithConnection(context.Context, CreateSessionParams) (Session, error)
 	GetAccountByID(ctx context.Context, id int64) (Account, error)
 	GetAccountByEmail(ctx context.Context, email string) (Account, error)
 	Transactioner

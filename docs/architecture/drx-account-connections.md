@@ -14,7 +14,7 @@ BDSPro dev f5c3f9bf7d0d161d3cc602c91f1da8a3b407a0f7.
 | UserDeviceRegister | AccountDeviceRegister (future protocol) | models/account/device_register.go (not created) |
 | UserSession | Existing Session | models/auth/session.go |
 | UserService::getUserAccessHistories | AuthService.GetConnections | services/auth/auth.go |
-| DeviceService::storeConnection | SQLStore.CreateSessionWithConnection | models/db/account_connection_history.go |
+| DeviceService::storeConnection | auth.NewSession | models/auth/session.go |
 | GET connections | GET /users/me/connections | routers/api/v1/user/auth.go |
 | IPActive::checkTimeActiveLatest | Existing Redis IPActive.Check | modules/ipactive |
 
@@ -58,4 +58,4 @@ revocation semantics, and failure recovery. No unused speculative device table.
 
 ## Integration ownership (R34)
 
-Merged on top of PR #140 AuthService convergence in an independent review branch. History read is owned in the existing `models/account/account.go` / `services/auth/auth.go` / `routers/api/v1/user/auth.go`, not a one-function file per layer. Transactional session-history insertion currently uses the SQLStore capability from PR #139 to preserve tested atomicity; moving that database-specific capability into `models/auth` requires a separate transaction-focused acceptance test. This is not proof of traffic capacity or a device identity protocol.
+Merged on top of PR #140 AuthService convergence in an independent review branch. History read is owned in the existing `models/account/account.go` / `services/auth/auth.go` / `routers/api/v1/user/auth.go`, not a one-function file per layer. Transactional session-history insertion is owned by `models/auth.NewSession`, which uses `db.WithTxResult` and transaction-scoped SQLC queries. `models/db` owns only the transaction mechanism and generated SQL; the disposable PostgreSQL rollback/isolation test now lives alongside the auth model. This is not proof of traffic capacity or a device identity protocol.

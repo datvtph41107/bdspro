@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type sessionMemoryStore struct {
@@ -20,6 +22,8 @@ type sessionMemoryStore struct {
 	account      db.Account
 	passwordHash string
 	session      db.Session
+	historyCount int
+	historyErr   error
 }
 
 func (s *sessionMemoryStore) GetAccountByEmail(_ context.Context, email string) (db.Account, error) {
@@ -36,16 +40,71 @@ func (s *sessionMemoryStore) GetPasswordHash(_ context.Context, id int64) (strin
 	return s.passwordHash, nil
 }
 
-func (s *sessionMemoryStore) CreateSession(_ context.Context, p db.CreateSessionParams) (db.Session, error) {
-	s.session = db.Session{
-		ID: p.ID, AccountID: p.AccountID, RefreshToken: p.RefreshToken,
-		UserAgent: p.UserAgent, ClientIp: p.ClientIp, ExpiresAt: p.ExpiresAt,
-	}
-	return s.session, nil
+// sessionMemoryDBTX provides only the SQLC operations exercised by NewSession.
+// It is intentionally transaction-scoped; no production test bypass is installed.
+type sessionMemoryDBTX struct {
+	store *sessionMemoryStore
 }
 
-func (s *sessionMemoryStore) CreateSessionWithConnection(ctx context.Context, p db.CreateSessionParams) (db.Session, error) {
-	return s.CreateSession(ctx, p)
+type sessionMemoryRow struct {
+	session db.Session
+	err     error
+}
+
+func (r sessionMemoryRow) Scan(dest ...any) error {
+	if r.err != nil {
+		return r.err
+	}
+	if len(dest) != 8 {
+		return fmt.Errorf("unexpected session column count: %d", len(dest))
+	}
+	*dest[0].(*uuid.UUID) = r.session.ID
+	*dest[1].(*int64) = r.session.AccountID
+	*dest[2].(*string) = r.session.RefreshToken
+	*dest[3].(*string) = r.session.UserAgent
+	*dest[4].(*string) = r.session.ClientIp
+	*dest[5].(*bool) = r.session.IsBlocked
+	*dest[6].(*time.Time) = r.session.CreatedAt
+	*dest[7].(*time.Time) = r.session.ExpiresAt
+	return nil
+}
+
+func (tx sessionMemoryDBTX) QueryRow(_ context.Context, query string, args ...any) pgx.Row {
+	if !strings.Contains(query, "INSERT INTO sessions") || len(args) != 7 {
+		return sessionMemoryRow{err: fmt.Errorf("unexpected session query")}
+	}
+	s := db.Session{
+		ID: args[0].(uuid.UUID), AccountID: args[1].(int64),
+		RefreshToken: args[2].(string), UserAgent: args[3].(string),
+		ClientIp: args[4].(string), IsBlocked: args[5].(bool),
+		ExpiresAt: args[6].(time.Time), CreatedAt: time.Now(),
+	}
+	tx.store.session = s
+	return sessionMemoryRow{session: s}
+}
+
+func (tx sessionMemoryDBTX) Exec(_ context.Context, query string, _ ...any) (pgconn.CommandTag, error) {
+	if !strings.Contains(query, "INSERT INTO account_connection_histories") {
+		return pgconn.CommandTag{}, fmt.Errorf("unexpected transaction write")
+	}
+	if tx.store.historyErr != nil {
+		return pgconn.CommandTag{}, tx.store.historyErr
+	}
+	tx.store.historyCount++
+	return pgconn.NewCommandTag("INSERT 0 1"), nil
+}
+
+func (tx sessionMemoryDBTX) Query(_ context.Context, _ string, _ ...any) (pgx.Rows, error) {
+	return nil, fmt.Errorf("unexpected transaction read")
+}
+
+func (s *sessionMemoryStore) ExecTx(ctx context.Context, fn func(*db.Queries) error) error {
+	before, count := s.session, s.historyCount
+	if err := fn(db.New(sessionMemoryDBTX{store: s})); err != nil {
+		s.session, s.historyCount = before, count
+		return err
+	}
+	return nil
 }
 
 func (s *sessionMemoryStore) GetSession(_ context.Context, id uuid.UUID) (db.Session, error) {
@@ -95,6 +154,9 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	}
 	if _, err := maker.VerifyToken(result.RefreshToken, authcrypto.TokenTypeAccess); err == nil {
 		t.Fatal("refresh token must never authenticate as access token")
+	}
+	if store.historyCount != 1 {
+		t.Fatalf("session issuance must produce one login history, got %d", store.historyCount)
 	}
 	if store.session.RefreshToken != auth_model.RefreshTokenDigest(result.RefreshToken) || store.session.RefreshToken == result.RefreshToken {
 		t.Fatal("raw refresh JWT persisted in session storage")

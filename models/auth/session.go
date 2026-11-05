@@ -13,9 +13,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// SessionStore is the persistence capability consumed by session operations.
+// SessionStore provides session reads, revocations and the shared SQLC transaction primitive.
+// Authentication owns the session + connection-history commit invariant.
 type SessionStore interface {
-	CreateSessionWithConnection(context.Context, db.CreateSessionParams) (db.Session, error)
+	db.Transactioner
 	GetSession(context.Context, uuid.UUID) (db.Session, error)
 	ListActiveSessions(context.Context, int64) ([]db.ListActiveSessionsRow, error)
 	RevokeOwnedSession(context.Context, db.RevokeOwnedSessionParams) (int64, error)
@@ -23,7 +24,21 @@ type SessionStore interface {
 }
 
 func NewSession(ctx context.Context, store SessionStore, params db.CreateSessionParams) (db.Session, error) {
-	return store.CreateSessionWithConnection(ctx, params)
+	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.Session, error) {
+		session, err := q.CreateSession(ctx, params)
+		if err != nil {
+			return db.Session{}, err
+		}
+		if err := q.CreateAccountConnectionHistory(ctx, db.CreateAccountConnectionHistoryParams{
+			AccountID: params.AccountID,
+			SessionID: session.ID,
+			IpAddress: params.ClientIp,
+			UserAgent: params.UserAgent,
+		}); err != nil {
+			return db.Session{}, err
+		}
+		return session, nil
+	})
 }
 
 func ValidRefreshSession(session db.Session, accountID int64, refreshToken string, now time.Time) bool {

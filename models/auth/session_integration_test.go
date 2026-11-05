@@ -1,4 +1,4 @@
-package db
+package auth
 
 import (
 	"context"
@@ -7,11 +7,13 @@ import (
 	"testing"
 	"time"
 
+	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// A real PG18 test, refusing to touch anything but a disposable test database.
+// Integration acceptance of the model-owned session + login-history transaction.
+// Requires a disposable migrated PostgreSQL database; never touches development data.
 func TestAccountConnectionHistoryAtomicSessionAndIsolation(t *testing.T) {
 	source := os.Getenv("BDS_TEST_DB_URL")
 	if source == "" {
@@ -37,19 +39,19 @@ func TestAccountConnectionHistoryAtomicSessionAndIsolation(t *testing.T) {
 	if err := pool.Ping(ctx); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(pool)
-	createAccount := func() Account {
+	store := db.NewStore(pool)
+	createAccount := func() db.Account {
 		t.Helper()
-		account, err := WithTxResult(ctx, store, func(q *Queries) (Account, error) {
-			personID, err := CreatePersonWithParty(ctx, q)
+		account, err := db.WithTxResult(ctx, store, func(q *db.Queries) (db.Account, error) {
+			personID, err := db.CreatePersonWithParty(ctx, q)
 			if err != nil {
-				return Account{}, err
+				return db.Account{}, err
 			}
-			account, err := q.CreateAccount(ctx, CreateAccountParams{
+			account, err := q.CreateAccount(ctx, db.CreateAccountParams{
 				PersonID: personID, Email: "history-" + uuid.NewString() + "@example.test",
 			})
 			if err != nil {
-				return Account{}, err
+				return db.Account{}, err
 			}
 			return account, q.CreateAccountSettings(ctx, account.ID)
 		})
@@ -59,13 +61,13 @@ func TestAccountConnectionHistoryAtomicSessionAndIsolation(t *testing.T) {
 		return account
 	}
 	first, second := createAccount(), createAccount()
-	params := CreateSessionParams{
+	params := db.CreateSessionParams{
 		ID: uuid.New(), AccountID: first.ID,
 		RefreshToken: "sha256:" + strings.Repeat("a", 64),
 		UserAgent:    "DRX account-history integration", ClientIp: "203.0.113.9",
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
-	session, err := store.CreateSessionWithConnection(ctx, params)
+	session, err := NewSession(ctx, store, params)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +89,7 @@ func TestAccountConnectionHistoryAtomicSessionAndIsolation(t *testing.T) {
 	bad := params
 	bad.ID = uuid.New()
 	bad.ClientIp = strings.Repeat("x", 46)
-	if _, err := store.CreateSessionWithConnection(ctx, bad); err == nil {
+	if _, err := NewSession(ctx, store, bad); err == nil {
 		t.Fatal("invalid connection history unexpectedly committed")
 	}
 	var count int
