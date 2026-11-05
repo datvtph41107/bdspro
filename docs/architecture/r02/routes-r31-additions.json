@@ -1,0 +1,25 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "R31: profile/settings owner-scoped API",
+  "notes": [
+    "Authenticated-only; account id is derived from verified access token",
+    "GET /users/me upgrades its response without adding a route"
+  ],
+  "routes": [
+    {
+      "method": "PATCH",
+      "path": "/users/me/profile",
+      "access": "authenticated"
+    },
+    {
+      "method": "GET",
+      "path": "/users/me/settings",
+      "access": "authenticated"
+    },
+    {
+      "method": "PATCH",
+      "path": "/users/me/settings",
+      "access": "authenticated"
+    }
+  ]
+}

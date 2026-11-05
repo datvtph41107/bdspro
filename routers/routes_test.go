@@ -21,6 +21,12 @@ import (
 // test remains independent from PostgreSQL.
 type routeAccountStore struct{ db.Store }
 
+func (routeAccountStore) GetAccountProfile(_ context.Context, id int64) (db.GetAccountProfileRow, error) {
+	return db.GetAccountProfileRow{AccountID: id, PersonID: id + 1, Email: "route@example.test",
+		CreatedAt: time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC),
+		IsEmailVerified: true, Locale: "vi", Timezone: "UTC", Currency: "VND"}, nil
+}
+
 func (routeAccountStore) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
 	return db.Account{ID: id, Email: "route@example.test", CreatedAt: time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC), IsEmailVerified: true}, nil
 }
@@ -53,6 +59,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		"GET /health", "POST /users", "POST /users/login",
 		"GET /users/verify_email", "POST /users/verify_email", "POST /users/verify_email/resend", "POST /tokens/renew_access",
 		"POST /tokens/revoke", "GET /users/me",
+		"PATCH /users/me/profile", "GET /users/me/settings", "PATCH /users/me/settings",
 		"POST /users/password/reset/request", "GET /users/password/reset", "POST /users/password/reset",
 		"POST /users/me/email/start", "POST /users/me/email/verify",
 		"GET /users/me/sessions", "DELETE /users/me/sessions/:id", "POST /users/me/sessions/revoke_all",

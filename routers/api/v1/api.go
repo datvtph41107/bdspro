@@ -99,7 +99,11 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 }
 
 func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
-	route.GET("/users/me", d.Auth.Me)
+	profile := user.NewProfileHandler(d.Store)
+	route.GET("/users/me", profile.Show)
+	route.PATCH("/users/me/profile", profile.Update)
+	route.GET("/users/me/settings", profile.Settings)
+	route.PATCH("/users/me/settings", profile.UpdateSettings)
 	route.GET("/users/me/sessions", d.Auth.ListSessions)
 	route.DELETE("/users/me/sessions/:id", d.Auth.RevokeOwnSession)
 	route.POST("/users/me/sessions/revoke_all", d.Auth.RevokeAllSessions)

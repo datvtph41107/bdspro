@@ -59,13 +59,3 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, convert.ToLogin(result))
 }
 
-// Me loads the current account through the model boundary, so a deleted
-// account cannot return a successful profile just because its JWT is valid.
-func (h *AuthHandler) Me(c *gin.Context) {
-	account, err := h.auth.CurrentAccount(c.Request.Context(), middleware.AccountID(c))
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, convert.ToUser(account))
-}
