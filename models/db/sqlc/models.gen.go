@@ -39,14 +39,19 @@ type AccountSetting struct {
 }
 
 type AuditEvent struct {
-	ID         int64       `json:"id"`
-	AccountID  pgtype.Int8 `json:"account_id"`
-	Action     string      `json:"action"`
-	Method     string      `json:"method"`
-	Reason     string      `json:"reason"`
-	SubjectMac []byte      `json:"subject_mac"`
-	IpAddress  string      `json:"ip_address"`
-	CreatedAt  time.Time   `json:"created_at"`
+	ID             int64       `json:"id"`
+	AccountID      pgtype.Int8 `json:"account_id"`
+	Action         string      `json:"action"`
+	Method         pgtype.Text `json:"method"`
+	Reason         pgtype.Text `json:"reason"`
+	SubjectMac     []byte      `json:"subject_mac"`
+	IpAddress      string      `json:"ip_address"`
+	CreatedAt      time.Time   `json:"created_at"`
+	ActorAccountID pgtype.Int8 `json:"actor_account_id"`
+	ScopeType      pgtype.Text `json:"scope_type"`
+	ScopeRef       pgtype.Text `json:"scope_ref"`
+	TargetType     pgtype.Text `json:"target_type"`
+	TargetRef      pgtype.Text `json:"target_ref"`
 }
 
 type EmailLinkChallenge struct {

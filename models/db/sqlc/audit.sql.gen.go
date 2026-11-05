@@ -38,6 +38,41 @@ func (q *Queries) DeleteOldAuditEvents(ctx context.Context, arg DeleteOldAuditEv
 	return result.RowsAffected(), nil
 }
 
+const insertAuditAction = `-- name: InsertAuditAction :exec
+INSERT INTO audit_events (
+    action, actor_account_id, scope_type, scope_ref, target_type, target_ref, ip_address
+) VALUES (
+    $1::text,
+    $2::bigint,
+    $3::text,
+    $4::text,
+    $5::text,
+    $6::text,
+    ''
+)
+`
+
+type InsertAuditActionParams struct {
+	Action         string `json:"action"`
+	ActorAccountID int64  `json:"actor_account_id"`
+	ScopeType      string `json:"scope_type"`
+	ScopeRef       string `json:"scope_ref"`
+	TargetType     string `json:"target_type"`
+	TargetRef      string `json:"target_ref"`
+}
+
+func (q *Queries) InsertAuditAction(ctx context.Context, arg InsertAuditActionParams) error {
+	_, err := q.db.Exec(ctx, insertAuditAction,
+		arg.Action,
+		arg.ActorAccountID,
+		arg.ScopeType,
+		arg.ScopeRef,
+		arg.TargetType,
+		arg.TargetRef,
+	)
+	return err
+}
+
 const insertAuditEvent = `-- name: InsertAuditEvent :exec
 INSERT INTO audit_events (account_id, action, method, reason, subject_mac, ip_address)
 VALUES ($1, 'auth.login.rejected', $2, $3, $4, $5)

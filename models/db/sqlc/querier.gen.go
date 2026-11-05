@@ -53,6 +53,7 @@ type Querier interface {
 	GetSession(ctx context.Context, id uuid.UUID) (Session, error)
 	GetTeamForAccount(ctx context.Context, arg GetTeamForAccountParams) (Team, error)
 	GetTeamInviteForDelivery(ctx context.Context, inviteID uuid.UUID) (GetTeamInviteForDeliveryRow, error)
+	InsertAuditAction(ctx context.Context, arg InsertAuditActionParams) error
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) error
 	InsertInvitedTeamUser(ctx context.Context, arg InsertInvitedTeamUserParams) (TeamMember, error)
 	LinkOAuth2Credential(ctx context.Context, arg LinkOAuth2CredentialParams) (int64, error)
