@@ -60,6 +60,11 @@ server: config-local
 worker: config-local
 	go run . --config "$(CONFIG)" worker
 
+# One-shot PostgreSQL retention; can run even when Redis/Asynq is unavailable.
+.PHONY: cleanup
+cleanup: config-local
+	go run . --config "$(CONFIG)" cleanup
+
 # Reviewed OpenAPI 3 contract is served from templates/swagger/openapi.json.
 # The previous swag init output was not consumed by runtime, and Statik was unused.
 .PHONY: swagger swagger-check

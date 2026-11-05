@@ -21,7 +21,7 @@ func NewMainApp(appVer AppVersion) *cli.Command {
 		&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Value: "", Usage: "Application app.ini path (default: {work-path}/custom/conf/app.ini)"},
 	}
 	webCmd := newWebCommand()
-	subCmdWithConfig := []*cli.Command{webCmd, newWorkerCommand(), newMigrateCommand()}
+	subCmdWithConfig := []*cli.Command{webCmd, newWorkerCommand(), newMigrateCommand(), newCleanupCommand()}
 	app.DefaultCommand = webCmd.Name
 	app.Before = PrepareConsoleLoggerLevel(log.INFO)
 	app.Commands = append(app.Commands, subCmdWithConfig...)
