@@ -86,8 +86,8 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	withOptional := newServer(true, true)
-	if n := len(withOptional.router.Routes()); n != 43 {
-		t.Errorf("enabled route count = %d, want 43", n)
+	if n := len(withOptional.router.Routes()); n != 46 {
+		t.Errorf("enabled route count = %d, want 46", n)
 	}
 	for _, route := range []string{
 		"POST /users/me/oauth2/start", "GET /users/oauth2/login/start",
