@@ -64,7 +64,7 @@ func TestAuditEventsAnonymousKnownAndRetention(t *testing.T) {
 		Method:     audit_model.MethodPassword,
 		Reason:     audit_model.ReasonUnknownAccount,
 		Identifier: " Ghost@Example.Test ",
-		IP:   "203.0.113.1",
+		IP:         "203.0.113.1",
 	}
 	if err := audit_model.RecordLoginRejected(ctx, q, key, proof); err != nil {
 		t.Fatal(err)

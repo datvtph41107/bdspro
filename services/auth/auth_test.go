@@ -26,8 +26,8 @@ type sessionMemoryStore struct {
 	session      db.Session
 	historyCount int
 	historyErr   error
-	auditErr   error
-	auditEvents     []db.InsertAuditEventParams
+	auditErr     error
+	auditEvents  []db.InsertAuditEventParams
 }
 
 func (s *sessionMemoryStore) InsertAuditEvent(_ context.Context, arg db.InsertAuditEventParams) error {
@@ -269,7 +269,7 @@ func TestRejectedProofAuditFailureKeepsInvalidCredentialResponse(t *testing.T) {
 	store := &sessionMemoryStore{
 		account:      db.Account{ID: 44, Email: "known@example.test"},
 		passwordHash: hash,
-		auditErr:   errors.New("authentication event database unavailable"),
+		auditErr:     errors.New("authentication event database unavailable"),
 	}
 	svc := NewAuthService(store, nil, setting.Config{
 		TokenSymmetricKey: strings.Repeat("k", 32),

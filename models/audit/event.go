@@ -15,15 +15,15 @@ import (
 const (
 	MethodPassword = "password"
 	MethodPhoneOTP = "phone_otp"
-	MethodOIDC = "oidc"
+	MethodOIDC     = "oidc"
 
-	ReasonUnknownAccount = "unknown_account"
-	ReasonPasswordUnset = "password_unset"
+	ReasonUnknownAccount  = "unknown_account"
+	ReasonPasswordUnset   = "password_unset"
 	ReasonInvalidPassword = "invalid_password"
-	ReasonInvalidOTP = "invalid_otp"
+	ReasonInvalidOTP      = "invalid_otp"
 	ReasonInvalidIdentity = "invalid_identity"
 	ReasonEmailUnverified = "email_unverified"
-	ReasonLinkRequired = "link_required"
+	ReasonLinkRequired    = "link_required"
 )
 
 var ErrMissingKey = errors.New("audit event key must contain at least 32 bytes")
@@ -31,11 +31,11 @@ var ErrMissingKey = errors.New("audit event key must contain at least 32 bytes")
 // LoginRejected captures a rejected identity proof, not an HTTP status or a
 // successfully issued login session. Identifier is transient and never stored.
 type LoginRejected struct {
-	AccountID int64
-	Method string
-	Reason string
+	AccountID  int64
+	Method     string
+	Reason     string
 	Identifier string
-	IP string
+	IP         string
 }
 
 // RecordLoginRejected owns the audit persistence invariant. Callers decide
@@ -70,10 +70,10 @@ func RecordLoginRejected(ctx context.Context, store interface {
 		ip = parsed.String()
 	}
 	return store.InsertAuditEvent(ctx, db.InsertAuditEventParams{
-		AccountID: accountID,
-		Method: event.Method,
-		Reason: event.Reason,
+		AccountID:  accountID,
+		Method:     event.Method,
+		Reason:     event.Reason,
 		SubjectMac: mac.Sum(nil),
-		IpAddress: ip,
+		IpAddress:  ip,
 	})
 }

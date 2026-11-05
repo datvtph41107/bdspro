@@ -12,7 +12,7 @@ import (
 
 type auditStoreFake struct {
 	entries []db.InsertAuditEventParams
-	err error
+	err     error
 }
 
 func (s *auditStoreFake) InsertAuditEvent(_ context.Context, arg db.InsertAuditEventParams) error {

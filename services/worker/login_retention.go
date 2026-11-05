@@ -25,7 +25,7 @@ type LoginRetention struct {
 		DeleteOldAuditEvents(context.Context, db.DeleteOldAuditEventsParams) (int64, error)
 	}
 	retention time.Duration
-	done chan struct{}
+	done      chan struct{}
 }
 
 func NewLoginRetention(store interface {
@@ -33,9 +33,9 @@ func NewLoginRetention(store interface {
 	DeleteOldAuditEvents(context.Context, db.DeleteOldAuditEventsParams) (int64, error)
 }, retentionDays int) *LoginRetention {
 	return &LoginRetention{
-		store: store,
+		store:     store,
 		retention: time.Duration(retentionDays) * 24 * time.Hour,
-		done: make(chan struct{}),
+		done:      make(chan struct{}),
 	}
 }
 
