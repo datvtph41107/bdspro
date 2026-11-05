@@ -38,6 +38,17 @@ type AccountSetting struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type AuditEvent struct {
+	ID         int64       `json:"id"`
+	AccountID  pgtype.Int8 `json:"account_id"`
+	Action     string      `json:"action"`
+	Method     string      `json:"method"`
+	Reason     string      `json:"reason"`
+	SubjectMac []byte      `json:"subject_mac"`
+	IpAddress  string      `json:"ip_address"`
+	CreatedAt  time.Time   `json:"created_at"`
+}
+
 type EmailLinkChallenge struct {
 	AccountID  int64     `json:"account_id"`
 	Email      string    `json:"email"`

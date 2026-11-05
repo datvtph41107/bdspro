@@ -13,13 +13,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func TestLoginAuditDoesNotDuplicateServerError(t *testing.T) {
+func TestLogLoginResponseDoesNotDuplicateServerError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	var output bytes.Buffer
 	logger := zerolog.New(&output).With().Str("request_id", "req-login-1").Logger()
 
 	router := gin.New()
-	router.POST("/users/login", LoginAudit(), func(c *gin.Context) {
+	router.POST("/users/login", LogLoginResponse(), func(c *gin.Context) {
 		response.RateLimitUnavailable(c)
 	})
 

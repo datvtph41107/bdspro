@@ -23,7 +23,7 @@ make config-local                   # copies app.example.ini only if missing
 # inspect custom/conf/app.ini (disposable local database and auth secrets)
 make migrateup
 make server                         # terminal 1: HTTP API
-make worker                         # terminal 2: Asynq + SQL outbox
+make worker                         # terminal 2: Asynq, SQL outbox and retention
 curl -i http://127.0.0.1:8080/health
 ```
 
@@ -90,6 +90,11 @@ OAuth2/OIDC uses `[oauth2]` in `app.ini`, a single configured issuer,
 and `oauth2_credentials` for persistent account bindings. See
 [OAuth2 model conventions](docs/architecture/r24-oauth2-model-ownership.md)
 and [runtime cut-over](docs/architecture/r26-oauth2-runtime-consolidation.md).
+
+Authentication audit events use [audit] HMAC_KEY, an independent production
+secret, and RETENTION_DAYS in app.ini. See
+[Audit events](docs/architecture/audit-login-events.md) for ownership and
+retention limits. The worker must run for expiration to take effect.
 
 This is not a claim of production readiness. Current limitations include
 multi-worker outbox concurrency and retry/failure-injection E2E evidence,

@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// LoginAudit logs the completed response; it never issues credentials.
-func LoginAudit() gin.HandlerFunc {
+// LogLoginResponse records HTTP outcomes only; it does not infer credential failures.
+func LogLoginResponse() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ctx.Next()
 		status := ctx.Writer.Status()

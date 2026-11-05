@@ -37,7 +37,7 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 		d.Auth.Register,
 	)
 	route.POST("/users/login",
-		middleware.LoginAudit(),
+		middleware.LogLoginResponse(),
 		d.IPActive.For(ipactive.Login),
 		d.Auth.Login,
 	)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"strings"
 	"testing"
@@ -25,6 +26,16 @@ type sessionMemoryStore struct {
 	session      db.Session
 	historyCount int
 	historyErr   error
+	auditErr     error
+	auditEvents  []db.InsertAuditEventParams
+}
+
+func (s *sessionMemoryStore) InsertAuditEvent(_ context.Context, arg db.InsertAuditEventParams) error {
+	if s.auditErr != nil {
+		return s.auditErr
+	}
+	s.auditEvents = append(s.auditEvents, arg)
+	return nil
 }
 
 func (s *sessionMemoryStore) GetAccountByEmail(_ context.Context, email string) (db.Account, error) {
@@ -131,6 +142,7 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	}
 	cfg := setting.Config{
 		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AuditKey:             strings.Repeat("a", 32),
 		AccessTokenDuration:  15 * time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}
@@ -142,8 +154,12 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	svc := NewAuthService(store, maker, cfg, nil)
 	ctx := context.Background()
 
-	if _, err := svc.Login(ctx, store.account.Email, "wrong", "", ""); !errors.Is(err, auth_model.ErrInvalidCredentials) {
+	if _, err := svc.Login(ctx, store.account.Email, "wrong", "", "203.0.113.9"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 		t.Fatalf("invalid password: got %v", err)
+	}
+	if len(store.auditEvents) != 1 || store.auditEvents[0].Reason != audit_model.ReasonInvalidPassword ||
+		!store.auditEvents[0].AccountID.Valid || store.auditEvents[0].AccountID.Int64 != store.account.ID {
+		t.Fatalf("rejected known credential not persisted with account scope: %+v", store.auditEvents)
 	}
 
 	result, err := svc.Login(ctx, store.account.Email, "correct-password", "test-client", "127.0.0.1")
@@ -158,6 +174,9 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	}
 	if store.historyCount != 1 {
 		t.Fatalf("session issuance must produce one login history, got %d", store.historyCount)
+	}
+	if len(store.auditEvents) != 1 {
+		t.Fatalf("successful session issuance must not create a rejected-proof event: %+v", store.auditEvents)
 	}
 	if store.session.RefreshToken != auth_model.RefreshTokenDigest(result.RefreshToken) || store.session.RefreshToken == result.RefreshToken {
 		t.Fatal("raw refresh JWT persisted in session storage")
@@ -215,6 +234,7 @@ func TestRegisterPasswordByteLimit(t *testing.T) {
 func TestAuthLegacyRefreshSessionTransition(t *testing.T) {
 	cfg := setting.Config{
 		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AuditKey:             strings.Repeat("a", 32),
 		AccessTokenDuration:  15 * time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}
@@ -241,6 +261,71 @@ func TestAuthLegacyRefreshSessionTransition(t *testing.T) {
 	}
 }
 
+func TestRejectedProofAuditFailureKeepsInvalidCredentialResponse(t *testing.T) {
+	hash, err := authcrypto.HashPassword("correct-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &sessionMemoryStore{
+		account:      db.Account{ID: 44, Email: "known@example.test"},
+		passwordHash: hash,
+		auditErr:     errors.New("authentication event database unavailable"),
+	}
+	svc := NewAuthService(store, nil, setting.Config{
+		TokenSymmetricKey: strings.Repeat("k", 32),
+		AuditKey:          strings.Repeat("a", 32),
+	}, nil)
+	_, err = svc.Login(context.Background(), "known@example.test", "wrong", "", "203.0.113.9")
+	if !errors.Is(err, auth_model.ErrInvalidCredentials) {
+		t.Fatalf("best-effort rejection audit must not change public error: %v", err)
+	}
+	if store.session.ID != uuid.Nil || len(store.auditEvents) != 0 {
+		t.Fatalf("failed rejection must never issue a session: %+v", store.session)
+	}
+}
+
+func TestRejectedOIDCIdentityAuditDoesNotGrantSession(t *testing.T) {
+	store := &sessionMemoryStore{}
+	svc := NewAuthService(store, nil, setting.Config{
+		TokenSymmetricKey: strings.Repeat("k", 32),
+		AuditKey:          strings.Repeat("a", 32),
+	}, nil)
+	_, err := svc.LoginOIDC(context.Background(), auth_model.OIDCClaims{
+		Issuer:  "http://untrusted-issuer.example.test",
+		Subject: "subject-a",
+	}, "", "203.0.113.8")
+	if !errors.Is(err, auth_model.ErrOIDCIssuerInvalid) {
+		t.Fatalf("invalid issuer must remain rejected: %v", err)
+	}
+	if len(store.auditEvents) != 1 || store.auditEvents[0].Method != audit_model.MethodOIDC ||
+		store.auditEvents[0].Reason != audit_model.ReasonInvalidIdentity || store.auditEvents[0].AccountID.Valid {
+		t.Fatalf("invalid OIDC decision missing or misattributed: %+v", store.auditEvents)
+	}
+	if store.session.ID != uuid.Nil {
+		t.Fatal("invalid identity issued a session")
+	}
+}
+
+func TestPhoneLoginInvalidProofWritesNoSession(t *testing.T) {
+	store := &sessionMemoryStore{}
+	svc := NewAuthService(store, nil, setting.Config{
+		TokenSymmetricKey: strings.Repeat("k", 32),
+		AuditKey:          strings.Repeat("a", 32),
+		Environment:       "development",
+	}, nil)
+	_, err := svc.VerifyPhoneLogin(context.Background(), "+84901001001", "wrong-code", "", "203.0.113.10")
+	if !errors.Is(err, auth_model.ErrOTPInvalid) {
+		t.Fatalf("invalid OTP input must not authenticate: %v", err)
+	}
+	if len(store.auditEvents) != 1 || store.auditEvents[0].Method != audit_model.MethodPhoneOTP ||
+		store.auditEvents[0].Reason != audit_model.ReasonInvalidOTP {
+		t.Fatalf("bad OTP was not recorded: %+v", store.auditEvents)
+	}
+	if store.session.ID != uuid.Nil {
+		t.Fatal("bad phone OTP issued a session")
+	}
+}
+
 func TestSessionHistoryFailureDoesNotReleaseCredentials(t *testing.T) {
 	maker, err := authcrypto.NewJWTMaker(strings.Repeat("k", 32))
 	if err != nil {
@@ -252,6 +337,7 @@ func TestSessionHistoryFailureDoesNotReleaseCredentials(t *testing.T) {
 	}
 	svc := NewAuthService(store, maker, setting.Config{
 		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AuditKey:             strings.Repeat("a", 32),
 		AccessTokenDuration:  time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}, nil)
@@ -272,6 +358,7 @@ func TestSessionUserAgentNormalizedBeforePersistence(t *testing.T) {
 	store := &sessionMemoryStore{account: db.Account{ID: 32}}
 	svc := NewAuthService(store, maker, setting.Config{
 		TokenSymmetricKey:    strings.Repeat("k", 32),
+		AuditKey:             strings.Repeat("a", 32),
 		AccessTokenDuration:  time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}, nil)
