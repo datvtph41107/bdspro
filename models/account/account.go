@@ -31,6 +31,9 @@ func Register(ctx context.Context, tx Transactioner, arg RegisterParams) (db.Acc
 		if err != nil {
 			return db.Account{}, err
 		}
+		if err := q.CreateAccountSettings(ctx, account.ID); err != nil {
+			return db.Account{}, err
+		}
 		if err := q.CreatePasswordCredential(ctx, db.CreatePasswordCredentialParams{
 			AccountID: account.ID, PasswordHash: arg.PasswordHash,
 		}); err != nil {

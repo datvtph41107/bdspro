@@ -21,12 +21,14 @@ type Querier interface {
 	ConsumeTeamInvite(ctx context.Context, arg ConsumeTeamInviteParams) (int64, error)
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
+	CreateAccountSettings(ctx context.Context, accountID int64) error
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	CreateOrganizationMember(ctx context.Context, arg CreateOrganizationMemberParams) (OrganizationMember, error)
 	CreateParty(ctx context.Context) (int64, error)
 	CreatePasswordCredential(ctx context.Context, arg CreatePasswordCredentialParams) error
 	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) error
 	CreatePerson(ctx context.Context, partyID int64) error
+	CreatePersonProfile(ctx context.Context, personID int64) error
 	CreatePhoneOnlyAccount(ctx context.Context, personID int64) (CreatePhoneOnlyAccountRow, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTeamForOwner(ctx context.Context, arg CreateTeamForOwnerParams) (Team, error)
@@ -39,6 +41,7 @@ type Querier interface {
 	EmailLinkAddressTaken(ctx context.Context, btrim string) (bool, error)
 	FailPhoneSignup(ctx context.Context, phoneE164 string) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
+	GetAccountProfile(ctx context.Context, id int64) (GetAccountProfileRow, error)
 	GetOAuth2AccountID(ctx context.Context, arg GetOAuth2AccountIDParams) (int64, error)
 	GetOrganizationForAccount(ctx context.Context, arg GetOrganizationForAccountParams) (GetOrganizationForAccountRow, error)
 	GetPasswordHash(ctx context.Context, accountID int64) (string, error)
@@ -80,7 +83,9 @@ type Querier interface {
 	RevokeExpiredTeamInvites(ctx context.Context, arg RevokeExpiredTeamInvitesParams) error
 	RevokeOwnedSession(ctx context.Context, arg RevokeOwnedSessionParams) (int64, error)
 	RevokeTeamInviteForOwner(ctx context.Context, arg RevokeTeamInviteForOwnerParams) (int64, error)
+	UpdateAccountSettings(ctx context.Context, arg UpdateAccountSettingsParams) (int64, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Organization, error)
+	UpdatePersonProfile(ctx context.Context, arg UpdatePersonProfileParams) (int64, error)
 	UpsertEmailLinkChallenge(ctx context.Context, arg UpsertEmailLinkChallengeParams) (int64, error)
 	UpsertPasswordCredential(ctx context.Context, arg UpsertPasswordCredentialParams) error
 	UpsertPhoneChallengeQuery(ctx context.Context, arg UpsertPhoneChallengeQueryParams) (int64, error)

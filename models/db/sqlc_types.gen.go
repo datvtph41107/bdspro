@@ -5,6 +5,7 @@ package db
 import sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
 
 type Account = sqlc.Account
+type AccountSetting = sqlc.AccountSetting
 type AddOrganizationMemberParams = sqlc.AddOrganizationMemberParams
 type AddTeamUserForOwnerParams = sqlc.AddTeamUserForOwnerParams
 type AttachVerifiedEmailParams = sqlc.AttachVerifiedEmailParams
@@ -27,6 +28,7 @@ type DBTX = sqlc.DBTX
 type DeletePhoneChallengeQueryParams = sqlc.DeletePhoneChallengeQueryParams
 type EmailLinkChallenge = sqlc.EmailLinkChallenge
 type FindReusableVerifyEmailQueryParams = sqlc.FindReusableVerifyEmailQueryParams
+type GetAccountProfileRow = sqlc.GetAccountProfileRow
 type GetOAuth2AccountIDParams = sqlc.GetOAuth2AccountIDParams
 type GetOrganizationForAccountParams = sqlc.GetOrganizationForAccountParams
 type GetOrganizationForAccountRow = sqlc.GetOrganizationForAccountRow
@@ -54,6 +56,7 @@ type Party = sqlc.Party
 type PasswordCredential = sqlc.PasswordCredential
 type PasswordResetToken = sqlc.PasswordResetToken
 type Person = sqlc.Person
+type PersonProfile = sqlc.PersonProfile
 type PhoneCredential = sqlc.PhoneCredential
 type PhoneOtpChallenge = sqlc.PhoneOtpChallenge
 type PhoneSignupChallenge = sqlc.PhoneSignupChallenge
@@ -71,7 +74,9 @@ type Session = sqlc.Session
 type Team = sqlc.Team
 type TeamInvite = sqlc.TeamInvite
 type TeamMember = sqlc.TeamMember
+type UpdateAccountSettingsParams = sqlc.UpdateAccountSettingsParams
 type UpdateOrganizationParams = sqlc.UpdateOrganizationParams
+type UpdatePersonProfileParams = sqlc.UpdatePersonProfileParams
 type UpsertEmailLinkChallengeParams = sqlc.UpsertEmailLinkChallengeParams
 type UpsertPasswordCredentialParams = sqlc.UpsertPasswordCredentialParams
 type UpsertPhoneChallengeQueryParams = sqlc.UpsertPhoneChallengeQueryParams

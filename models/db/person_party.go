@@ -16,5 +16,8 @@ func CreatePersonWithParty(ctx context.Context, q *Queries) (int64, error) {
 	if err := q.CreatePerson(ctx, partyID); err != nil {
 		return 0, fmt.Errorf("create person subtype: %w", err)
 	}
+	if err := q.CreatePersonProfile(ctx, partyID); err != nil {
+		return 0, fmt.Errorf("create person profile: %w", err)
+	}
 	return partyID, nil
 }
