@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
@@ -36,14 +37,18 @@ func ListTeamUsers(ctx context.Context, store db.Store, actorAccountID, teamID i
 }
 
 func RemoveTeamUser(ctx context.Context, store db.Store, actorAccountID, teamID, personID int64) error {
-	count, err := store.RemoveTeamUserForOwner(ctx, db.RemoveTeamUserForOwnerParams{
-		TeamID: teamID, ActorAccountID: actorAccountID, PersonID: personID,
+	// Preserve the existing owner-scoped DELETE and its concurrency locks.
+	// Persist audit evidence before committing the membership removal.
+	return store.ExecTx(ctx, func(q *db.Queries) error {
+		count, err := q.RemoveTeamUserForOwner(ctx, db.RemoveTeamUserForOwnerParams{
+			TeamID: teamID, ActorAccountID: actorAccountID, PersonID: personID,
+		})
+		if err != nil {
+			return err
+		}
+		if count != 1 {
+			return ErrTeamMemberNotFound
+		}
+		return audit_model.RecordTeamMemberRemoved(ctx, q, actorAccountID, teamID, personID)
 	})
-	if err != nil {
-		return err
-	}
-	if count != 1 {
-		return ErrTeamMemberNotFound
-	}
-	return nil
 }
