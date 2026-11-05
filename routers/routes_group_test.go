@@ -23,7 +23,7 @@ func TestOrganizationGroupInheritsAuthentication(t *testing.T) {
 	}
 	server := &Server{
 		tokenMaker:          maker,
-		authHandler:         user.NewAuthHandler(nil, nil),
+		authHandler:         user.NewAuthHandler(nil, nil, nil),
 		organizationHandler: org.NewHandler(nil),
 	}
 	router := gin.New()

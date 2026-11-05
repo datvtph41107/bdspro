@@ -157,7 +157,7 @@ func TestAuthLegacyRefreshSessionTransition(t *testing.T) {
 	}
 	store := &sessionMemoryStore{account: db.Account{ID: 17}}
 	svc := NewAuthService(store, maker, cfg)
-	issued, err := IssueSession(context.Background(), store, maker, cfg, store.account, "", "")
+	issued, err := svc.issueSession(context.Background(), store.account, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
