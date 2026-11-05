@@ -64,7 +64,7 @@ func ValidateRedirectURI(raw string) error {
 			return ErrInvalidRequest
 		}
 	}
-		if u.Scheme == "http" {
+	if u.Scheme == "http" {
 		ip := net.ParseIP(u.Hostname())
 		if !strings.EqualFold(u.Hostname(), "localhost") && (ip == nil || !ip.IsLoopback()) {
 			return ErrInvalidRequest

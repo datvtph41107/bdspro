@@ -16,11 +16,11 @@ import (
 
 type oauthStub struct {
 	db.OAuthServerStore
-	client db.OauthClient
-	inserted int
-	codeHash []byte
+	client    db.OauthClient
+	inserted  int
+	codeHash  []byte
 	challenge string
-	used bool
+	used      bool
 }
 
 func (s *oauthStub) GetOAuthClient(_ context.Context, id uuid.UUID) (db.OauthClient, error) {
@@ -62,8 +62,8 @@ func TestAuthorizePKCEAndOneTimeCode(t *testing.T) {
 		ClientID: id, RedirectURI: store.client.RedirectUri,
 		ResponseType: "code", Scope: ScopeProfile,
 		CodeChallengeMethod: "S256",
-		CodeChallenge: base64.RawURLEncoding.EncodeToString(digest[:]),
-		State: "state_0123456789abcdef",
+		CodeChallenge:       base64.RawURLEncoding.EncodeToString(digest[:]),
+		State:               "state_0123456789abcdef",
 	}
 	invalid := req
 	invalid.CodeChallengeMethod = "plain"
