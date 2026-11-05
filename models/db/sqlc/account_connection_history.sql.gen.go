@@ -12,16 +12,16 @@ import (
 	"github.com/google/uuid"
 )
 
-const createAccountConnectionHistory = \`-- name: CreateAccountConnectionHistory :exec
+const createAccountConnectionHistory = `-- name: CreateAccountConnectionHistory :exec
 INSERT INTO account_connection_histories (account_id, session_id, action, ip_address, user_agent)
 VALUES ($1, $2, 'login', $3, $4)
-\`
+`
 
 type CreateAccountConnectionHistoryParams struct {
-	AccountID int64     \`json:"account_id"\`
-	SessionID uuid.UUID \`json:"session_id"\`
-	IpAddress string    \`json:"ip_address"\`
-	UserAgent string    \`json:"user_agent"\`
+	AccountID int64     `json:"account_id"`
+	SessionID uuid.UUID `json:"session_id"`
+	IpAddress string    `json:"ip_address"`
+	UserAgent string    `json:"user_agent"`
 }
 
 func (q *Queries) CreateAccountConnectionHistory(ctx context.Context, arg CreateAccountConnectionHistoryParams) error {
@@ -34,21 +34,21 @@ func (q *Queries) CreateAccountConnectionHistory(ctx context.Context, arg Create
 	return err
 }
 
-const listAccountConnectionHistories = \`-- name: ListAccountConnectionHistories :many
+const listAccountConnectionHistories = `-- name: ListAccountConnectionHistories :many
 SELECT id, session_id, action, ip_address, user_agent, created_at
 FROM account_connection_histories
 WHERE account_id = $1
 ORDER BY created_at DESC, id DESC
 LIMIT 50
-\`
+`
 
 type ListAccountConnectionHistoriesRow struct {
-	ID        int64     \`json:"id"\`
-	SessionID uuid.UUID \`json:"session_id"\`
-	Action    string    \`json:"action"\`
-	IpAddress string    \`json:"ip_address"\`
-	UserAgent string    \`json:"user_agent"\`
-	CreatedAt time.Time \`json:"created_at"\`
+	ID        int64     `json:"id"`
+	SessionID uuid.UUID `json:"session_id"`
+	Action    string    `json:"action"`
+	IpAddress string    `json:"ip_address"`
+	UserAgent string    `json:"user_agent"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (q *Queries) ListAccountConnectionHistories(ctx context.Context, accountID int64) ([]ListAccountConnectionHistoriesRow, error) {
