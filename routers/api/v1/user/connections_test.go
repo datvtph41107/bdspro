@@ -22,8 +22,8 @@ import (
 type connectionsStoreFake struct {
 	db.Store
 	accountID int64
-	calls []int64
-	err error
+	calls     []int64
+	err       error
 }
 
 func (s *connectionsStoreFake) ListAccountConnectionHistories(_ context.Context, accountID int64) ([]db.ListAccountConnectionHistoriesRow, error) {

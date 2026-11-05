@@ -62,7 +62,7 @@ func TestAccountConnectionHistoryAtomicSessionAndIsolation(t *testing.T) {
 	params := CreateSessionParams{
 		ID: uuid.New(), AccountID: first.ID,
 		RefreshToken: "sha256:" + strings.Repeat("a", 64),
-		UserAgent: "DRX account-history integration", ClientIp: "203.0.113.9",
+		UserAgent:    "DRX account-history integration", ClientIp: "203.0.113.9",
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
 	session, err := store.CreateSessionWithConnection(ctx, params)
