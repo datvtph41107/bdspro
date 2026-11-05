@@ -35,6 +35,7 @@ type Querier interface {
 	CreateTeamForOwner(ctx context.Context, arg CreateTeamForOwnerParams) (Team, error)
 	CreateTeamInviteForOwner(ctx context.Context, arg CreateTeamInviteForOwnerParams) (TeamInvite, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
+	DeleteExpiredAccountConnectionHistories(ctx context.Context, arg DeleteExpiredAccountConnectionHistoriesParams) (int64, error)
 	DeletePasswordResetTokensForAccount(ctx context.Context, accountID int64) error
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
 	DeletePhoneSignup(ctx context.Context, phoneE164 string) error

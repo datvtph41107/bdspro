@@ -34,6 +34,32 @@ func (q *Queries) CreateAccountConnectionHistory(ctx context.Context, arg Create
 	return err
 }
 
+const deleteExpiredAccountConnectionHistories = `-- name: DeleteExpiredAccountConnectionHistories :execrows
+WITH expired AS (
+    SELECT id FROM account_connection_histories
+    WHERE created_at < $1::timestamptz
+    ORDER BY created_at, id
+    LIMIT $2::integer
+    FOR UPDATE SKIP LOCKED
+)
+DELETE FROM account_connection_histories AS history
+USING expired
+WHERE history.id = expired.id
+`
+
+type DeleteExpiredAccountConnectionHistoriesParams struct {
+	Cutoff time.Time `json:"cutoff"`
+	Take   int32     `json:"take"`
+}
+
+func (q *Queries) DeleteExpiredAccountConnectionHistories(ctx context.Context, arg DeleteExpiredAccountConnectionHistoriesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredAccountConnectionHistories, arg.Cutoff, arg.Take)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listAccountConnectionHistories = `-- name: ListAccountConnectionHistories :many
 SELECT id, session_id, action, ip_address, user_agent, created_at
 FROM account_connection_histories

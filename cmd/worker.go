@@ -16,7 +16,7 @@ import (
 
 func newWorkerCommand() *cli.Command {
 	return &cli.Command{
-		Name: "worker", Usage: "Process Asynq tasks and dispatch committed job outbox records",
+		Name: "worker", Usage: "Process Asynq tasks, dispatch outbox records and expire login history",
 		Before: PrepareConsoleLoggerLevel(log.INFO), Action: runWorker,
 	}
 }
@@ -62,8 +62,10 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	dispatchCtx, stopDispatch := context.WithCancel(ctx)
 	dispatcher := worker.NewOutboxDispatcher(store, enqueuer)
 	dispatcher.Start(dispatchCtx)
-	defer func() { stopDispatch(); dispatcher.Wait() }()
-	log.Info("Asynq worker and outbox dispatcher started")
+	retention := worker.NewConnectionHistoryRetention(store)
+	retention.Start(dispatchCtx)
+	defer func() { stopDispatch(); retention.Wait(); dispatcher.Wait() }()
+	log.Info("Asynq worker, outbox dispatcher and connection-history retention started")
 	<-ctx.Done()
 	log.Info("Worker shutdown requested")
 	return nil
