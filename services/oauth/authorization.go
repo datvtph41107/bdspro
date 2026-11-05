@@ -58,7 +58,13 @@ func ValidateRedirectURI(raw string) error {
 		(u.Scheme != "https" && u.Scheme != "http") || u.String() != raw {
 		return ErrInvalidRequest
 	}
-	if u.Scheme == "http" {
+	// Reject encoded control characters in the registered callback path.
+	for _, char := range u.Path {
+		if char < 0x20 || char == 0x7f {
+			return ErrInvalidRequest
+		}
+	}
+		if u.Scheme == "http" {
 		ip := net.ParseIP(u.Hostname())
 		if !strings.EqualFold(u.Hostname(), "localhost") && (ip == nil || !ip.IsLoopback()) {
 			return ErrInvalidRequest
