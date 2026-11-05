@@ -113,6 +113,15 @@ func TestAccountConnectionHistoryAtomicSessionAndIsolation(t *testing.T) {
 		t.Fatalf("history did not survive session cleanup: %+v, %v", history, err)
 	}
 
+	// A recently authenticated second account must survive global expiry.
+	fresh := params
+	fresh.ID = uuid.New()
+	fresh.AccountID = second.ID
+	fresh.RefreshToken = "sha256:" + strings.Repeat("b", 64)
+	if _, err := NewSession(ctx, store, fresh); err != nil {
+		t.Fatal(err)
+	}
+
 	// Simulate an expired row inside a rollback-only transaction. The global
 	// retention query must use the cutoff and preserve fresh records.
 	tx, err := pool.Begin(ctx)
@@ -132,5 +141,9 @@ func TestAccountConnectionHistoryAtomicSessionAndIsolation(t *testing.T) {
 	remaining, err := q.ListAccountConnectionHistories(ctx, first.ID)
 	if err != nil || len(remaining) != 0 {
 		t.Fatalf("expired row still visible after retention: %+v err=%v", remaining, err)
+	}
+	kept, err := q.ListAccountConnectionHistories(ctx, second.ID)
+	if err != nil || len(kept) != 1 || kept[0].SessionID != fresh.ID {
+		t.Fatalf("retention deleted a fresh session event: %+v err=%v", kept, err)
 	}
 }
