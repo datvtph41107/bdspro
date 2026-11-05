@@ -101,7 +101,7 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.oauth2Handler = user.NewOAuth2Handler(auth_service.NewOAuth2AuthService(server.store, server.tokenMaker, cfg), oauth2, false)
+	server.oauth2Handler = user.NewOAuth2Handler(auth_service.NewAuthService(server.store, server.tokenMaker, cfg, nil), oauth2, false)
 	server.router = NormalRoutes(server)
 	gin.SetMode(gin.TestMode)
 

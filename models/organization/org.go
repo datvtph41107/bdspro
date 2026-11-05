@@ -1,5 +1,3 @@
-// Package organization owns persistent organization behavior, not HTTP delivery.
-// SQLC remains the sole query generator and PostgreSQL remains the source of truth.
 package organization
 
 import (
@@ -122,3 +120,10 @@ func UpdateOrganization(ctx context.Context, store db.Store, actorAccountID, org
 	}
 	return updated, err
 }
+
+// Stored role names are constrained by the organization_members table.
+// They identify persisted membership roles, not HTTP permission metadata.
+const (
+	RoleOwner  = "owner"
+	RoleMember = "member"
+)

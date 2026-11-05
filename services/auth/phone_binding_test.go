@@ -59,10 +59,10 @@ func (s *phoneBindingStore) UpsertPhoneChallengeQuery(_ context.Context, arg db.
 func TestOAuth2CredentialMustOwnPhoneBindingAccount(t *testing.T) {
 	ctx := context.Background()
 	store := &phoneBindingStore{accountID: 3, linkedID: 3, linkedSub: "subject-3"}
-	phone := PhoneOTP{Store: store, Config: setting.Config{
+	phone := NewAuthService(store, nil, setting.Config{
 		Environment: "development", TokenSymmetricKey: "01234567890123456789012345678901",
 		OIDC: setting.OAuth2Provider{Issuer: "https://issuer.example.test"},
-	}}
+	}, nil)
 	for _, tc := range []struct {
 		name string
 		id   int64
@@ -72,7 +72,7 @@ func TestOAuth2CredentialMustOwnPhoneBindingAccount(t *testing.T) {
 		{"wrong account", 4, "subject-3"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := phone.StartOAuth2Bind(ctx, tc.id, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: tc.sub}, "+84912345678"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
+			if err := phone.StartOAuth2PhoneBind(ctx, tc.id, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: tc.sub}, "+84912345678"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 				t.Fatalf("expected identity rejection, got %v", err)
 			}
 		})
@@ -80,14 +80,14 @@ func TestOAuth2CredentialMustOwnPhoneBindingAccount(t *testing.T) {
 	if store.issued != 0 {
 		t.Fatal("unverified OAuth2 credential issued an OTP")
 	}
-	if err := phone.StartOAuth2Bind(ctx, 3, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: "subject-3"}, "+84912345678"); err != nil {
+	if err := phone.StartOAuth2PhoneBind(ctx, 3, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: "subject-3"}, "+84912345678"); err != nil {
 		t.Fatal(err)
 	}
 	if store.issued != 1 || len(store.lastCode) != 6 {
 		t.Fatalf("expected exactly one local OTP, got %d", store.issued)
 	}
 	store.existingPhone = 11
-	if err := phone.StartOAuth2Bind(ctx, 3, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: "subject-3"}, "+84912345678"); !errors.Is(err, auth_model.ErrPhoneUnavailable) {
+	if err := phone.StartOAuth2PhoneBind(ctx, 3, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: "subject-3"}, "+84912345678"); !errors.Is(err, auth_model.ErrPhoneUnavailable) {
 		t.Fatalf("already bound number should be unavailable: %v", err)
 	}
 	if store.issued != 1 {
@@ -95,7 +95,7 @@ func TestOAuth2CredentialMustOwnPhoneBindingAccount(t *testing.T) {
 	}
 	store.existingPhone = 0
 	store.alreadyBound = true
-	if err := phone.StartOAuth2Bind(ctx, 3, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: "subject-3"}, "+84912345679"); !errors.Is(err, auth_model.ErrPhoneUnavailable) {
+	if err := phone.StartOAuth2PhoneBind(ctx, 3, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: "subject-3"}, "+84912345679"); !errors.Is(err, auth_model.ErrPhoneUnavailable) {
 		t.Fatalf("already-bound account issued OTP: %v", err)
 	}
 	if store.issued != 1 {

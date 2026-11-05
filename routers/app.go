@@ -30,7 +30,7 @@ type Server struct {
 	authHandler         *user.AuthHandler
 	organizationHandler *org.Handler
 	oauth2Handler       *user.OAuth2Handler
-	phoneHandler        *user.PhoneHandler
+	phoneEnabled        bool
 	config              setting.Config
 	store               db.Store
 	tokenMaker          authcrypto.Maker
@@ -85,12 +85,22 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			Msg("ipactive.rate_limited")
 		response.RateLimited(c, event.RetryAfter)
 	})
-	server.authHandler = user.NewAuthHandler(auth_service.NewAuthService(store, maker, cfg), server.authThrottle)
-	if len(resetMailers) > 0 {
-		server.authHandler.SetPasswordResetSender(resetMailers[0])
+	// Construct a single authentication owner for all credential methods.
+	phoneSender, err := notification.NewPhoneCodeSender(cfg)
+	if err != nil {
+		return nil, err
 	}
+	authService := auth_service.NewAuthService(store, maker, cfg, phoneSender)
+	var resetSender mail.EmailSender
+	if len(resetMailers) > 0 {
+		resetSender = resetMailers[0]
+	}
+	server.authHandler = user.NewAuthHandler(authService, server.authThrottle, resetSender)
+	server.phoneEnabled = phoneSender != nil
 	server.organizationHandler = org.NewHandler(store)
 
+	// OIDC owns its browser protocol, but account linking and session
+	// issuance converge on the same AuthService.
 	if cfg.OIDC.Enabled() {
 		client := &http.Client{Timeout: 10 * time.Second}
 		oauth2, err := auth_service.NewOAuth2Client(cfg.OIDC, redisClient, client)
@@ -98,23 +108,8 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			return nil, fmt.Errorf("configure oauth2: %w", err)
 		}
 		server.oauth2Handler = user.NewOAuth2Handler(
-			auth_service.NewOAuth2AuthService(store, maker, cfg), oauth2,
-			strings.HasPrefix(cfg.OIDC.RedirectURI, "https://"),
+			authService, oauth2, strings.HasPrefix(cfg.OIDC.RedirectURI, "https://"),
 		)
-	}
-	phoneSender, err := notification.NewPhoneCodeSender(cfg)
-	if err != nil {
-		return nil, err
-	}
-	if phoneSender != nil {
-		phone := auth_service.PhoneOTP{Store: store, Config: cfg, Sender: phoneSender}
-		server.phoneHandler = user.NewPhoneHandler(
-			store, cfg, phoneSender, server.authThrottle,
-		)
-		server.phoneHandler.SetTokenMaker(maker)
-		if server.oauth2Handler != nil {
-			server.oauth2Handler.SetPhoneBinding(phone)
-		}
 	}
 
 	server.router = NormalRoutes(server)

@@ -20,18 +20,13 @@ const oauth2StateCookie = "bdspro_oidc_state"
 // OAuth2Handler handles browser transport; verified identity and account
 // binding remain in the auth service and model.
 type OAuth2Handler struct {
-	auth   *auth_service.OAuth2AuthService
+	auth   *auth_service.AuthService
 	oauth2 *auth_service.OAuth2Client
-	phone  *auth_service.PhoneOTP
 	secure bool
 }
 
-func NewOAuth2Handler(auth *auth_service.OAuth2AuthService, oauth2 *auth_service.OAuth2Client, secure bool) *OAuth2Handler {
+func NewOAuth2Handler(auth *auth_service.AuthService, oauth2 *auth_service.OAuth2Client, secure bool) *OAuth2Handler {
 	return &OAuth2Handler{auth: auth, oauth2: oauth2, secure: secure}
-}
-
-func (h *OAuth2Handler) SetPhoneBinding(phone auth_service.PhoneOTP) {
-	h.phone = &phone
 }
 
 func (h *OAuth2Handler) stateCookie(c *gin.Context, state string, maxAge int) {
@@ -64,11 +59,11 @@ func (h *OAuth2Handler) StartLink(c *gin.Context) {
 		return
 	}
 	if req.PhoneCode != "" {
-		if h.phone == nil {
+		if !h.auth.HasPhone() {
 			response.Reject(c, http.StatusForbidden, "oauth2.phone_proof_unavailable", "phone reauthentication unavailable")
 			return
 		}
-		if err := h.phone.AuthorizePhoneProof(c.Request.Context(), accountID, req.PhoneCode); err != nil {
+		if err := h.auth.AuthorizePhoneProof(c.Request.Context(), accountID, req.PhoneCode); err != nil {
 			response.Error(c, err)
 			return
 		}
@@ -89,7 +84,7 @@ func (h *OAuth2Handler) StartLink(c *gin.Context) {
 // StartPhoneBind reauthenticates using an already linked OIDC identity before
 // issuing the phone-verification challenge.
 func (h *OAuth2Handler) StartPhoneBind(c *gin.Context) {
-	if h.phone == nil {
+	if !h.auth.HasPhone() {
 		c.Status(http.StatusNotFound)
 		return
 	}
@@ -150,11 +145,11 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 	}
 	switch pending.Purpose {
 	case "phone_bind":
-		if pending.AccountID <= 0 || h.phone == nil {
+		if pending.AccountID <= 0 || !h.auth.HasPhone() {
 			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
 			return
 		}
-		if err := h.phone.StartOAuth2Bind(c.Request.Context(), pending.AccountID, identity, pending.Phone); err != nil {
+		if err := h.auth.StartOAuth2PhoneBind(c.Request.Context(), pending.AccountID, identity, pending.Phone); err != nil {
 			response.Error(c, err)
 			return
 		}
@@ -164,7 +159,7 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
 			return
 		}
-		if err := h.auth.Link(c.Request.Context(), pending.AccountID, identity); err != nil {
+		if err := h.auth.LinkOIDC(c.Request.Context(), pending.AccountID, identity); err != nil {
 			response.Error(c, err)
 			return
 		}
@@ -174,7 +169,7 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
 			return
 		}
-		result, err := h.auth.Login(c.Request.Context(), identity, c.Request.UserAgent(), c.ClientIP())
+		result, err := h.auth.LoginOIDC(c.Request.Context(), identity, c.Request.UserAgent(), c.ClientIP())
 		if err != nil {
 			response.Error(c, err)
 			return

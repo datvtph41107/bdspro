@@ -42,14 +42,14 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		s := &Server{
 			tokenMaker:          maker,
 			store:               routeAccountStore{},
-			authHandler:         user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}), nil),
+			authHandler:         user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}, nil), nil, nil),
 			organizationHandler: org.NewHandler(nil),
 		}
 		if oauth2 {
 			s.oauth2Handler = user.NewOAuth2Handler(nil, nil, false)
 		}
 		if phone {
-			s.phoneHandler = user.NewPhoneHandler(nil, setting.Config{}, nil, nil)
+			s.phoneEnabled = true
 		}
 		s.router = NormalRoutes(s)
 		return s

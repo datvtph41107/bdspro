@@ -31,7 +31,7 @@ func TestResendEmailVerificationDoesNotEnumerateAccounts(t *testing.T) {
 	store := &resendEmailStore{account: db.Account{
 		ID: 3, Email: "pending@example.test",
 	}}
-	svc := NewAuthService(store, nil, setting.Config{})
+	svc := NewAuthService(store, nil, setting.Config{}, nil)
 	if err := svc.ResendVerificationEmail(ctx, "missing@example.test"); err != nil {
 		t.Fatal(err)
 	}
