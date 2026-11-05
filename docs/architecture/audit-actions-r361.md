@@ -43,9 +43,11 @@ dispatcher, fake interface registry, or per-action service exists.
 ## Scope limitation
 
 This PR does not invent generalized event metadata or a global event bus.
-It does not claim a compliance-grade immutable audit log. Actor identities
-may be set NULL when the originating account is deleted; the scope and
-target references survive without raw personal details. Access-control
+It does not claim a compliance-grade immutable audit log. Actor account IDs are retained as numeric audit references even if the
+account record is deleted. They are deliberately not foreign keys: cascading
+delete would erase evidence and SET NULL would violate the authenticated-
+action invariant. Retention and privacy deletion policy must explicitly
+account for these numeric references. Access-control
 policies and paginated, scoped audit reads are not exposed in HTTP; an
 authorized investigation use case must be approved first.
 

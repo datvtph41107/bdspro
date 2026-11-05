@@ -1,7 +1,7 @@
 -- Evolve the existing security audit table; never create per-action history tables.
 -- Retain all R35.1 rejected-login rows and their scoped HMAC correlation.
 ALTER TABLE audit_events
-    ADD COLUMN actor_account_id bigint REFERENCES accounts(id) ON DELETE SET NULL,
+    ADD COLUMN actor_account_id bigint,
     ADD COLUMN scope_type text,
     ADD COLUMN scope_ref text,
     ADD COLUMN target_type text,
