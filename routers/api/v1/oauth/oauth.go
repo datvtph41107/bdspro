@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
@@ -256,5 +255,3 @@ func (h *Handler) UserInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-// Ensure reserved names are not accidentally shadowed during route additions.
-var _ = time.Second
