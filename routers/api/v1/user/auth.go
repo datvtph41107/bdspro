@@ -361,3 +361,17 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
+
+// GetConnections returns a bounded history of this Account's session issuance.
+// The account identifier is always taken from the authenticated request context.
+func (h *AuthHandler) GetConnections(c *gin.Context) {
+	connections, err := h.auth.GetConnections(c.Request.Context(), middleware.AccountID(c))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	if connections == nil {
+		connections = []db.ListAccountConnectionHistoriesRow{}
+	}
+	c.JSON(http.StatusOK, gin.H{"connections": connections})
+}

@@ -104,6 +104,8 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	route.PATCH("/users/me/profile", profile.Update)
 	route.GET("/users/me/settings", profile.Settings)
 	route.PATCH("/users/me/settings", profile.UpdateSettings)
+	// Recent successful session issuance evidence, scoped to the authenticated Account.
+	route.GET("/users/me/connections", d.Auth.GetConnections)
 	route.GET("/users/me/sessions", d.Auth.ListSessions)
 	route.DELETE("/users/me/sessions/:id", d.Auth.RevokeOwnSession)
 	route.POST("/users/me/sessions/revoke_all", d.Auth.RevokeAllSessions)
