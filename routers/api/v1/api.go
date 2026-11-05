@@ -7,23 +7,23 @@ import (
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
+	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/gin-gonic/gin"
 )
 
 // Dependencies are constructed once by the HTTP server; route ownership is in this package.
 type Dependencies struct {
-	Auth         *user.AuthHandler
-	Organization *org.Handler
-	OAuth2       *user.OAuth2Handler
+	Auth          *user.AuthHandler
+	Organization  *org.Handler
+	OAuth2        *user.OAuth2Handler
 	Authorization *oauth.Handler
-	PhoneEnabled bool
-	TokenMaker   authcrypto.Maker
-	IPActive     *ipactive.Middleware
-	Store        db.Store
-	InviteKey    string
+	PhoneEnabled  bool
+	TokenMaker    authcrypto.Maker
+	IPActive      *ipactive.Middleware
+	Store         db.Store
+	InviteKey     string
 }
 
 // Routes declares the existing Gin HTTP surface using Gitea-style file ownership.

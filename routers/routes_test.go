@@ -11,8 +11,8 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
+	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/gin-gonic/gin"
@@ -41,10 +41,10 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 
 	newServer := func(oauth2, phone bool) *Server {
 		s := &Server{
-			tokenMaker:          maker,
-			store:               routeAccountStore{},
-			authHandler:         user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}, nil), nil, nil),
-			organizationHandler: org.NewHandler(nil),
+			tokenMaker:           maker,
+			store:                routeAccountStore{},
+			authHandler:          user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}, nil), nil, nil),
+			organizationHandler:  org.NewHandler(nil),
 			authorizationHandler: oauth.NewHandler(nil, nil),
 		}
 		if oauth2 {

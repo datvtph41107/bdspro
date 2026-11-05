@@ -30,10 +30,10 @@ type clientRequest struct {
 
 func clientResponse(client db.OauthClient) gin.H {
 	return gin.H{
-		"client_id": client.ID.String(),
-		"name": client.Name,
+		"client_id":    client.ID.String(),
+		"name":         client.Name,
 		"redirect_uri": client.RedirectUri,
-		"created_at": client.CreatedAt,
+		"created_at":   client.CreatedAt,
 	}
 }
 
