@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
@@ -190,7 +191,7 @@ func (s *AuthService) issueSession(ctx context.Context, account db.Account, user
 	}
 	session, err := auth_model.NewSession(ctx, s.store, db.CreateSessionParams{
 		ID: refreshPayload.ID, AccountID: account.ID, RefreshToken: auth_model.RefreshTokenDigest(refreshToken),
-		UserAgent: userAgent, ClientIp: clientIP, ExpiresAt: refreshPayload.ExpiredAt,
+		UserAgent: boundedConnectionUserAgent(userAgent), ClientIp: clientIP, ExpiresAt: refreshPayload.ExpiredAt,
 	})
 	if err != nil {
 		return result, err
@@ -575,4 +576,22 @@ const dummyPasswordHash = "$2a$10$jf3HO8nLz6D6fJUAiJ7sB.wHyxxdZneCFqfIxSyWP4t9wb
 
 func checkUnknownPassword(password string) {
 	_ = authcrypto.CheckPassword(password, dummyPasswordHash)
+}
+
+// GetConnections reads the authenticated Account's latest connection events.
+// The HTTP boundary supplies accountID from verified JWT claims, not request input.
+func (s *AuthService) GetConnections(ctx context.Context, accountID int64) ([]db.ListAccountConnectionHistoriesRow, error) {
+	return account_model.GetConnections(ctx, s.store, accountID)
+}
+
+// boundedConnectionUserAgent preserves valid Unicode while respecting the
+// connection-history column's 2048-character constraint. Invalid UTF-8 and
+// PostgreSQL-disallowed NUL bytes must not turn valid login proofs into 500s.
+func boundedConnectionUserAgent(value string) string {
+	const maxRunes = 2048
+	value = strings.ToValidUTF8(strings.ReplaceAll(value, "\x00", ""), "")
+	if utf8.RuneCountInString(value) <= maxRunes {
+		return value
+	}
+	return string([]rune(value)[:maxRunes])
 }

@@ -113,3 +113,14 @@ func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_mo
 	}
 	return created, err
 }
+
+// GetConnections lists recent login evidence scoped to the owning Account.
+// SQLC enforces AccountID in the WHERE predicate and bounds the result set.
+func GetConnections(ctx context.Context, store interface {
+	ListAccountConnectionHistories(context.Context, int64) ([]db.ListAccountConnectionHistoriesRow, error)
+}, accountID int64) ([]db.ListAccountConnectionHistoriesRow, error) {
+	if accountID <= 0 {
+		return nil, ErrAccountUnavailable
+	}
+	return store.ListAccountConnectionHistories(ctx, accountID)
+}

@@ -5,6 +5,7 @@ package db
 import sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
 
 type Account = sqlc.Account
+type AccountConnectionHistory = sqlc.AccountConnectionHistory
 type AccountSetting = sqlc.AccountSetting
 type AddOrganizationMemberParams = sqlc.AddOrganizationMemberParams
 type AddTeamUserForOwnerParams = sqlc.AddTeamUserForOwnerParams
@@ -14,6 +15,7 @@ type BlockSessionParams = sqlc.BlockSessionParams
 type ConsumeEmailLinkChallengeParams = sqlc.ConsumeEmailLinkChallengeParams
 type ConsumeTeamInviteParams = sqlc.ConsumeTeamInviteParams
 type ConsumeVerifyEmailParams = sqlc.ConsumeVerifyEmailParams
+type CreateAccountConnectionHistoryParams = sqlc.CreateAccountConnectionHistoryParams
 type CreateAccountParams = sqlc.CreateAccountParams
 type CreateOrganizationMemberParams = sqlc.CreateOrganizationMemberParams
 type CreateOrganizationParams = sqlc.CreateOrganizationParams
@@ -37,6 +39,7 @@ type GetTeamInviteForDeliveryRow = sqlc.GetTeamInviteForDeliveryRow
 type InsertInvitedTeamUserParams = sqlc.InsertInvitedTeamUserParams
 type JobOutbox = sqlc.JobOutbox
 type LinkOAuth2CredentialParams = sqlc.LinkOAuth2CredentialParams
+type ListAccountConnectionHistoriesRow = sqlc.ListAccountConnectionHistoriesRow
 type ListActiveSessionsRow = sqlc.ListActiveSessionsRow
 type ListOrganizationMembersForOwnerParams = sqlc.ListOrganizationMembersForOwnerParams
 type ListOrganizationMembersForOwnerRow = sqlc.ListOrganizationMembersForOwnerRow

@@ -26,3 +26,18 @@ func ToLogin(v auth_service.LoginResult) structs.LoginResponse {
 		User:                  ToUser(v.Account),
 	}
 }
+
+func ToConnections(rows []db.ListAccountConnectionHistoriesRow) []structs.ConnectionResponse {
+	out := make([]structs.ConnectionResponse, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, structs.ConnectionResponse{
+			ID:        row.ID,
+			SessionID: row.SessionID.String(),
+			Action:    row.Action,
+			IPAddress: row.IpAddress,
+			UserAgent: row.UserAgent,
+			CreatedAt: row.CreatedAt,
+		})
+	}
+	return out
+}
