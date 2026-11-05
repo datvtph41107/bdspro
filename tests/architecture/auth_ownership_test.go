@@ -1,8 +1,12 @@
 package architecture
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -39,5 +43,46 @@ func TestAuthFileOwnership(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(root, required)); err != nil {
 			t.Errorf("canonical owner missing: %s: %v", required, err)
 		}
+	}
+}
+
+	
+// TestCanonicalAuthOwner rejects duplicate service owners and duplicate
+// issuance functions, even when a new fragment is introduced under a
+// previously unseen file name. Each method uses the same AuthService.
+func TestCanonicalAuthOwner(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	files, err := filepath.Glob(filepath.Join(root, "services", "auth", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	types := make(map[string]int)
+	methods := make(map[string]int)
+	for _, path := range files {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		source, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range source.Decls {
+			switch item := decl.(type) {
+			case *ast.GenDecl:
+				for _, spec := range item.Specs {
+					if ts, ok := spec.(*ast.TypeSpec); ok {
+						types[ts.Name.Name]++
+					}
+				}
+			case *ast.FuncDecl:
+				methods[item.Name.Name]++
+			}
+		}
+	}
+	if types["AuthService"] != 1 || types["PhoneOTP"] != 0 || types["OAuth2AuthService"] != 0 {
+		t.Fatalf("duplicate or fragmented authentication owners: %#v", types)
+	}
+	if methods["issueSession"] != 1 || methods["IssueSession"] != 0 {
+		t.Fatalf("session issuance authority not canonical: %#v", methods)
 	}
 }

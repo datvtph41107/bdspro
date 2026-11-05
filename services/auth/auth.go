@@ -36,11 +36,7 @@ type AuthService struct {
 	sender notification.PhoneCodeSender
 }
 
-func NewAuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config, senders ...notification.PhoneCodeSender) *AuthService {
-	var sender notification.PhoneCodeSender
-	if len(senders) > 0 {
-		sender = senders[0]
-	}
+func NewAuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config, sender notification.PhoneCodeSender) *AuthService {
 	return &AuthService{store: store, maker: maker, config: cfg, sender: sender}
 }
 

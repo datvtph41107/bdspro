@@ -42,7 +42,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		s := &Server{
 			tokenMaker:          maker,
 			store:               routeAccountStore{},
-			authHandler:         user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}), nil, nil),
+			authHandler:         user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}, nil), nil, nil),
 			organizationHandler: org.NewHandler(nil),
 		}
 		if oauth2 {

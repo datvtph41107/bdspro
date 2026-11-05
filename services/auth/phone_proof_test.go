@@ -34,7 +34,7 @@ func TestPhoneProofForOAuth2CredentialLink(t *testing.T) {
 	const phone = "+84901234567"
 	const key = "01234567890123456789012345678901"
 	store := &linkPhoneProofStore{phone: phone}
-	s := NewAuthService(store, nil, setting.Config{Environment: "development", TokenSymmetricKey: key})
+	s := NewAuthService(store, nil, setting.Config{Environment: "development", TokenSymmetricKey: key}, nil)
 	if err := s.AuthorizePhoneProof(context.Background(), 25, "123456"); err != nil {
 		t.Fatal(err)
 	}

@@ -62,7 +62,7 @@ func TestOAuth2CredentialMustOwnPhoneBindingAccount(t *testing.T) {
 	phone := NewAuthService(store, nil, setting.Config{
 		Environment: "development", TokenSymmetricKey: "01234567890123456789012345678901",
 		OIDC: setting.OAuth2Provider{Issuer: "https://issuer.example.test"},
-	})
+	}, nil)
 	for _, tc := range []struct {
 		name string
 		id   int64

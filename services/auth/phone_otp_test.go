@@ -10,7 +10,7 @@ import (
 )
 
 func TestPhoneInputErrorsAreApplicationErrors(t *testing.T) {
-	phone := NewAuthService(nil, nil, setting.Config{Environment: "development", OIDC: setting.OAuth2Provider{Issuer: "https://issuer.example.test"}})
+	phone := NewAuthService(nil, nil, setting.Config{Environment: "development", OIDC: setting.OAuth2Provider{Issuer: "https://issuer.example.test"}}, nil)
 	ctx := context.Background()
 	if err := phone.StartPhoneBind(ctx, 1, "", "bad-phone"); !errors.Is(err, auth_model.ErrInvalidPhone) {
 		t.Fatalf("invalid phone: %v", err)
