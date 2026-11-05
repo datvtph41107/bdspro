@@ -3066,6 +3066,43 @@
           }
         }
       }
+    },
+    "/users/me/connections": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "List account login connection history",
+        "description": "Returns at most 50 newest successful login events for the verified caller. Contains IP addresses and user agents; clients must protect this security data.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current account connection history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connections": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AccountConnectionHistory"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3796,6 +3833,35 @@
               "VND",
               "USD"
             ]
+          }
+        }
+      },
+      "AccountConnectionHistory": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "login"
+            ]
+          },
+          "ip_address": {
+            "type": "string"
+          },
+          "user_agent": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }
