@@ -39,6 +39,7 @@ type GetOrganizationForAccountParams = sqlc.GetOrganizationForAccountParams
 type GetOrganizationForAccountRow = sqlc.GetOrganizationForAccountRow
 type GetTeamForAccountParams = sqlc.GetTeamForAccountParams
 type GetTeamInviteForDeliveryRow = sqlc.GetTeamInviteForDeliveryRow
+type InsertAuditActionParams = sqlc.InsertAuditActionParams
 type InsertAuditEventParams = sqlc.InsertAuditEventParams
 type InsertInvitedTeamUserParams = sqlc.InsertInvitedTeamUserParams
 type JobOutbox = sqlc.JobOutbox

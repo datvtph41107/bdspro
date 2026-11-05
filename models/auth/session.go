@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/timeutil"
 	"github.com/google/uuid"
@@ -51,14 +52,18 @@ func ListSessions(ctx context.Context, store SessionStore, accountID int64) ([]d
 }
 
 func RevokeOwnedSession(ctx context.Context, store SessionStore, accountID int64, id uuid.UUID) error {
-	affected, err := store.RevokeOwnedSession(ctx, db.RevokeOwnedSessionParams{ID: id, AccountID: accountID})
-	if err != nil {
-		return err
-	}
-	if affected != 1 {
-		return ErrSessionNotFound
-	}
-	return nil
+	// The owner-scoped SQL predicate, state change and security evidence are
+	// one transaction. A failed audit insert must not revoke the session.
+	return store.ExecTx(ctx, func(q *db.Queries) error {
+		affected, err := q.RevokeOwnedSession(ctx, db.RevokeOwnedSessionParams{ID: id, AccountID: accountID})
+		if err != nil {
+			return err
+		}
+		if affected != 1 {
+			return ErrSessionNotFound
+		}
+		return audit_model.RecordSessionRevoked(ctx, q, accountID, id)
+	})
 }
 
 func RevokeAllSessions(ctx context.Context, store SessionStore, accountID int64) error {

@@ -71,8 +71,8 @@ func RecordLoginRejected(ctx context.Context, store interface {
 	}
 	return store.InsertAuditEvent(ctx, db.InsertAuditEventParams{
 		AccountID:  accountID,
-		Method:     event.Method,
-		Reason:     event.Reason,
+		Method:     pgtype.Text{String: event.Method, Valid: true},
+		Reason:     pgtype.Text{String: event.Reason, Valid: true},
 		SubjectMac: mac.Sum(nil),
 		IpAddress:  ip,
 	})

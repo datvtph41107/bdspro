@@ -3,6 +3,11 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"testing"
 	"time"
 
@@ -34,9 +39,45 @@ func TestValidRefreshSession(t *testing.T) {
 
 type testSessionStore struct {
 	SessionStore
-	affected int64
-	err      error
-	seen     db.RevokeOwnedSessionParams
+	affected   int64
+	err        error
+	auditErr   error
+	auditCalls int
+	seen       db.RevokeOwnedSessionParams
+}
+
+type testSessionTX struct {
+	store *testSessionStore
+}
+
+func (tx testSessionTX) Exec(_ context.Context, statement string, args ...any) (pgconn.CommandTag, error) {
+	if strings.Contains(statement, "UPDATE sessions SET is_blocked") {
+		tx.store.seen = db.RevokeOwnedSessionParams{ID: args[0].(uuid.UUID), AccountID: args[1].(int64)}
+		if tx.store.err != nil {
+			return pgconn.CommandTag{}, tx.store.err
+		}
+		return pgconn.NewCommandTag(fmt.Sprintf("UPDATE %d", tx.store.affected)), nil
+	}
+	if strings.Contains(statement, "INSERT INTO audit_events") {
+		tx.store.auditCalls++
+		if tx.store.auditErr != nil {
+			return pgconn.CommandTag{}, tx.store.auditErr
+		}
+		return pgconn.NewCommandTag("INSERT 0 1"), nil
+	}
+	return pgconn.CommandTag{}, fmt.Errorf("unexpected transaction SQL")
+}
+
+func (testSessionTX) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, fmt.Errorf("unexpected query")
+}
+
+func (testSessionTX) QueryRow(context.Context, string, ...any) pgx.Row {
+	return nil
+}
+
+func (s *testSessionStore) ExecTx(ctx context.Context, fn func(*db.Queries) error) error {
+	return fn(db.New(testSessionTX{store: s}))
 }
 
 func (s *testSessionStore) RevokeOwnedSession(_ context.Context, arg db.RevokeOwnedSessionParams) (int64, error) {
@@ -62,6 +103,16 @@ func TestRevokeOwnedSession(t *testing.T) {
 	store.affected = 1
 	if err := RevokeOwnedSession(context.Background(), store, 42, id); err != nil {
 		t.Fatalf("owned session cannot be revoked: %v", err)
+	}
+	if store.auditCalls != 1 {
+		t.Fatalf("successful revoke must write exactly one event: %d", store.auditCalls)
+	}
+	store.auditErr = errors.New("failed to audit")
+	if err := RevokeOwnedSession(context.Background(), store, 42, id); !errors.Is(err, store.auditErr) {
+		t.Fatalf("audit failure must fail owning transaction: %v", err)
+	}
+	if store.auditCalls != 2 {
+		t.Fatalf("audit failure call was lost: %d", store.auditCalls)
 	}
 }
 
