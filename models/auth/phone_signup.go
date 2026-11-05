@@ -58,6 +58,9 @@ func CompletePhoneSignup(ctx context.Context, store db.Store, phone string, mac 
 		if err != nil {
 			return err
 		}
+		if err := q.CreateAccountSettings(ctx, created.ID); err != nil {
+			return err
+		}
 		if err := q.BindPhoneCredentialQuery(ctx, db.BindPhoneCredentialQueryParams{
 			AccountID: created.ID, PhoneE164: phone,
 		}); err != nil {

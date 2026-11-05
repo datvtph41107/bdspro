@@ -32,6 +32,9 @@ func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_mo
 		if err != nil {
 			return db.Account{}, err
 		}
+		if err := q.CreateAccountSettings(ctx, account.ID); err != nil {
+			return db.Account{}, err
+		}
 		account, err = q.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{
 			ID: account.ID, Email: email,
 		})
