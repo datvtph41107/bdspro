@@ -576,3 +576,9 @@ const dummyPasswordHash = "$2a$10$jf3HO8nLz6D6fJUAiJ7sB.wHyxxdZneCFqfIxSyWP4t9wb
 func checkUnknownPassword(password string) {
 	_ = authcrypto.CheckPassword(password, dummyPasswordHash)
 }
+
+// GetConnections reads the authenticated Account's latest connection events.
+// The HTTP boundary supplies accountID from verified JWT claims, not request input.
+func (s *AuthService) GetConnections(ctx context.Context, accountID int64) ([]db.ListAccountConnectionHistoriesRow, error) {
+	return account_model.GetConnections(ctx, s.store, accountID)
+}

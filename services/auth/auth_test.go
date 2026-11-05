@@ -44,6 +44,10 @@ func (s *sessionMemoryStore) CreateSession(_ context.Context, p db.CreateSession
 	return s.session, nil
 }
 
+func (s *sessionMemoryStore) CreateSessionWithConnection(ctx context.Context, p db.CreateSessionParams) (db.Session, error) {
+	return s.CreateSession(ctx, p)
+}
+
 func (s *sessionMemoryStore) GetSession(_ context.Context, id uuid.UUID) (db.Session, error) {
 	if s.session.ID != id {
 		return db.Session{}, pgx.ErrNoRows
