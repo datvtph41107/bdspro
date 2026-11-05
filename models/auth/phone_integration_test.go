@@ -75,6 +75,11 @@ func TestPhoneChallengeCommitsWrongCodeAndConsumesOnce(t *testing.T) {
 	ctx, pool, store := phoneTestStore(t)
 	phone := randomPhone(t)
 	account := provisionPhoneAccount(t, ctx, store, phone)
+	profile, err := store.GetAccountProfile(ctx, account.ID)
+	if err != nil || profile.PersonID != account.PersonID || profile.HasPassword || !profile.HasPhone ||
+		profile.Locale != "vi" || profile.HasOauth2 {
+		t.Fatalf("phone-first account missing defaults or wrong credential flags: profile=%+v err=%v", profile, err)
+	}
 	mac := sha256.Sum256([]byte("correct-login:" + phone))
 	wrong := sha256.Sum256([]byte("wrong-login:" + phone))
 

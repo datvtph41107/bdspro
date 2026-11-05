@@ -88,11 +88,18 @@ jobs:
           BDS_TEST_MODE: disposable
         run: bash tests/integration/migrations/oauth2-credentials-upgrade.sh
 
+      - name: Verify profile migration backfill and rollback
+        env:
+          PGPASSWORD: secret
+          BDS_TEST_MODE: disposable
+        run: bash tests/integration/migrations/profile-upgrade.sh
+
       - name: Verify Go formatting
         run: |
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then
             echo "$unformatted"
+            gofmt -d .
             exit 1
           fi
 
