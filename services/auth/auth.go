@@ -266,8 +266,7 @@ func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	proof := PhoneOTP{Store: s.store, Config: s.config}
-	if err := proof.AuthorizePhoneProof(ctx, accountID, phoneCode); err != nil {
+	if err := s.AuthorizePhoneProof(ctx, accountID, phoneCode); err != nil {
 		return err
 	}
 	raw := make([]byte, 32)
