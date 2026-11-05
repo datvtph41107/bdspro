@@ -6,16 +6,16 @@ import (
 	"strings"
 	"time"
 
+	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
+	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/convert"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	auth_service "github.com/datvtph41107/bdspro/services/auth"
-	db "github.com/datvtph41107/bdspro/models/db"
 )
 
 // AuthHandler handles HTTP input and output; authentication operations belong to AuthService.
@@ -95,7 +95,6 @@ func (h *AuthHandler) VerifyPhoneBind(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-
 
 // Phone signup and login are public; no AccountID is available until OTP
 // succeeds. The same IP/credential admission contract applies to each action.
@@ -193,7 +192,6 @@ func (h *AuthHandler) ConfirmEmailLink(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-
 
 func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 	var req structs.PasswordResetRequest

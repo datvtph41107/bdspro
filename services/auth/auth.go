@@ -8,22 +8,22 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"html"
 	"math/big"
 	"regexp"
 	"strings"
 	"time"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	db "github.com/datvtph41107/bdspro/models/db"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/validation"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"html"
-	account_model "github.com/datvtph41107/bdspro/models/account"
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
-	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	db "github.com/datvtph41107/bdspro/models/db"
 )
 
 // AuthService owns registration, credential authentication, email verification,

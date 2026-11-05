@@ -5,11 +5,11 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
-	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/jackc/pgx/v5"
 )
 
 // OIDC authentication converges on the canonical AuthService.

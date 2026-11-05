@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"strings"
 
+	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	db "github.com/datvtph41107/bdspro/models/db"
 )
 
 // OIDCClaims carries identity claims AFTER an OpenID Connect ID token was
