@@ -17,7 +17,7 @@ type Dependencies struct {
 	Auth         *user.AuthHandler
 	Organization *org.Handler
 	OAuth2       *user.OAuth2Handler
-	Phone        *user.PhoneHandler
+	PhoneEnabled bool
 	TokenMaker   authcrypto.Maker
 	IPActive     *ipactive.Middleware
 	Store        db.Store
@@ -75,22 +75,22 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 		)
 		route.GET("/users/oauth2/callback", d.OAuth2.Callback)
 	}
-	if d.Phone != nil {
+	if d.PhoneEnabled {
 		route.POST("/users/phone/register/start",
 			d.IPActive.For(ipactive.StartPhoneRegister),
-			d.Phone.StartRegister,
+			d.Auth.StartPhoneRegister,
 		)
 		route.POST("/users/phone/register/verify",
 			d.IPActive.For(ipactive.VerifyPhoneRegister),
-			d.Phone.VerifyRegister,
+			d.Auth.VerifyPhoneRegister,
 		)
 		route.POST("/users/phone/login/start",
 			d.IPActive.For(ipactive.StartPhoneLogin),
-			d.Phone.StartLogin,
+			d.Auth.StartPhoneLogin,
 		)
 		route.POST("/users/phone/login/verify",
 			d.IPActive.For(ipactive.VerifyPhoneLogin),
-			d.Phone.VerifyLogin,
+			d.Auth.VerifyPhoneLogin,
 		)
 	}
 
@@ -125,14 +125,14 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 			d.OAuth2.StartLink,
 		)
 	}
-	if d.OAuth2 != nil && d.Phone != nil {
+	if d.OAuth2 != nil && d.PhoneEnabled {
 		route.POST("/users/me/phone/oauth2/start",
 			middleware.VerifiedEmail(d.Store),
 			d.IPActive.For(ipactive.StartOAuth2PhoneBind),
 			d.OAuth2.StartPhoneBind,
 		)
 	}
-	if d.Phone != nil {
+	if d.PhoneEnabled {
 		registerPhoneBindRoutes(route.Group("/users/me/phone", middleware.VerifiedEmail(d.Store)), d)
 	}
 }
@@ -170,11 +170,11 @@ func registerTeamRoutes(route *gin.RouterGroup, d Dependencies) {
 func registerPhoneBindRoutes(route *gin.RouterGroup, d Dependencies) {
 	route.POST("/start",
 		d.IPActive.For(ipactive.StartPhoneBind),
-		d.Phone.StartBind,
+		d.Auth.StartPhoneBind,
 	)
 	route.POST("/verify",
 		d.IPActive.For(ipactive.VerifyPhoneBind),
-		d.Phone.VerifyBind,
+		d.Auth.VerifyPhoneBind,
 	)
 }
 
