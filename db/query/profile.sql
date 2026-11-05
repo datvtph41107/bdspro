@@ -28,8 +28,8 @@ WHERE person_id = (SELECT person_id FROM accounts WHERE id = sqlc.arg(account_id
 
 -- name: UpdateAccountSettings :execrows
 UPDATE account_settings
-SET locale = sqlc.arg(locale),
-    timezone = sqlc.arg(timezone),
-    currency = sqlc.arg(currency),
+SET locale = COALESCE(sqlc.narg(locale)::text, locale),
+    timezone = COALESCE(sqlc.narg(timezone)::text, timezone),
+    currency = COALESCE(sqlc.narg(currency)::text, currency),
     updated_at = now()
 WHERE account_id = sqlc.arg(account_id);

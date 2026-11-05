@@ -86,17 +86,17 @@ func (q *Queries) GetAccountProfile(ctx context.Context, id int64) (GetAccountPr
 
 const updateAccountSettings = `-- name: UpdateAccountSettings :execrows
 UPDATE account_settings
-SET locale = $1,
-    timezone = $2,
-    currency = $3,
+SET locale = COALESCE($1::text, locale),
+    timezone = COALESCE($2::text, timezone),
+    currency = COALESCE($3::text, currency),
     updated_at = now()
 WHERE account_id = $4
 `
 
 type UpdateAccountSettingsParams struct {
-	Locale    string `json:"locale"`
-	Timezone  string `json:"timezone"`
-	Currency  string `json:"currency"`
+	Locale    pgtype.Text `json:"locale"`
+	Timezone  pgtype.Text `json:"timezone"`
+	Currency  pgtype.Text `json:"currency"`
 	AccountID int64  `json:"account_id"`
 }
 

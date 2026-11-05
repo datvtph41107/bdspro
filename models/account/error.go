@@ -8,6 +8,8 @@ import (
 )
 
 var (
+	ErrInvalidProfile = util.WithPublic(util.ErrInvalidArgument, "invalid profile", "account.invalid_profile", "invalid profile")
+	ErrInvalidSettings = util.WithPublic(util.ErrInvalidArgument, "invalid account settings", "account.invalid_settings", "invalid account settings")
 	ErrAccountUnavailable   = util.WithPublic(util.ErrUnauthenticated, "account unavailable", "auth.account_unavailable", "account unavailable")
 	ErrEmailRegistered      = util.WithPublic(util.ErrAlreadyExist, "email already registered", "auth.email_registered", "email already registered")
 	ErrEmailAlreadyVerified = errors.New("email already verified")
