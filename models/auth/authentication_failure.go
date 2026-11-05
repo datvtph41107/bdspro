@@ -46,7 +46,17 @@ func RecordAuthenticationFailure(ctx context.Context, store interface {
 	if len(key) < 32 {
 		return errFailureAuditKey
 	}
-	credential := strings.ToLower(strings.TrimSpace(proof.Credential))
+	credential := proof.Credential
+	switch proof.Method {
+	case FailurePassword:
+		// BDSPro stores and looks up email addresses case-insensitively.
+		credential = strings.ToLower(strings.TrimSpace(credential))
+	case FailurePhoneOTP:
+		credential = strings.TrimSpace(credential)
+	case FailureOIDC:
+		// OIDC issuer and subject are protocol-defined and case-sensitive.
+		// Do not collapse subjects that differ only by capitalization.
+	}
 	mac := hmac.New(sha256.New, []byte(key))
 	_, _ = mac.Write([]byte("auth-rejected-proof:v1\x00"))
 	_, _ = mac.Write([]byte(proof.Method))

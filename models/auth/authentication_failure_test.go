@@ -58,6 +58,17 @@ func TestAuthenticationFailureMACNormalizesWithoutPlainCredential(t *testing.T) 
 	if bytes.Equal(first.CredentialMac, store.entries[2].CredentialMac) {
 		t.Fatal("credential MAC must be domain-separated by method")
 	}
+	proof.Credential = "https://issuer.example.test\x00Subject-A"
+	if err := RecordAuthenticationFailure(context.Background(), store, key, proof); err != nil {
+		t.Fatal(err)
+	}
+	proof.Credential = "https://issuer.example.test\x00subject-a"
+	if err := RecordAuthenticationFailure(context.Background(), store, key, proof); err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(store.entries[3].CredentialMac, store.entries[4].CredentialMac) {
+		t.Fatal("OIDC subjects are case-sensitive; MAC must preserve case")
+	}
 }
 
 func TestAuthenticationFailureKeyAndAccountScoping(t *testing.T) {
