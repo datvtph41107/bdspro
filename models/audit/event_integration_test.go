@@ -11,8 +11,8 @@ import (
 	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // The PostgreSQL test operates in one rollback-only transaction in a

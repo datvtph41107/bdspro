@@ -12,7 +12,7 @@ import (
 // Each action is a concrete, reviewable security event, not a generic bus.
 // The database constraint provides the last line of validation.
 const (
-	ActionSessionRevoked   = "auth.session.revoked"
+	ActionSessionRevoked    = "auth.session.revoked"
 	ActionTeamMemberRemoved = "team.member.removed"
 )
 
