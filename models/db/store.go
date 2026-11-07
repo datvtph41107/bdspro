@@ -4,8 +4,8 @@ import (
 	"context"
 
 	sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Transactioner is the sole transaction capability shared by account,
