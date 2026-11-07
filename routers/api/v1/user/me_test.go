@@ -13,6 +13,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 )
@@ -90,10 +91,10 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 	}}
 	h := NewProfileHandler(store)
 	r := gin.New()
-	r.GET("/users/me", middleware.Authenticate(maker), h.Show)
-	r.PATCH("/users/me/profile", middleware.Authenticate(maker), h.Update)
-	r.GET("/users/me/settings", middleware.Authenticate(maker), h.Settings)
-	r.PATCH("/users/me/settings", middleware.Authenticate(maker), h.UpdateSettings)
+	r.GET("/users/me", middleware.Authenticate(maker), appctx.Wrap(h.Show))
+	r.PATCH("/users/me/profile", middleware.Authenticate(maker), appctx.Wrap(h.Update))
+	r.GET("/users/me/settings", middleware.Authenticate(maker), appctx.Wrap(h.Settings))
+	r.PATCH("/users/me/settings", middleware.Authenticate(maker), appctx.Wrap(h.UpdateSettings))
 
 	request := func(method, path, body, bearer string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
