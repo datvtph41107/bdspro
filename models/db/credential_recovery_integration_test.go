@@ -147,7 +147,9 @@ func TestPasswordRecoveryRollbackWhenOAuthRevokeFails(t *testing.T) {
 }
 
 func TestOAuthRefreshCannotEscapeConcurrentPasswordRecovery(t *testing.T) {
-	ctx,_,store:=authChannelsTestStore(t)
+	base, _, store := authChannelsTestStore(t)
+	ctx, cancel := context.WithTimeout(base, 15*time.Second)
+	defer cancel()
 	oauth:=store.(db.OAuthServerStore)
 	owner,err:=account_model.Register(ctx,store,account_model.RegisterParams{
 		Email:uuid.NewString()+"@example.test",PasswordHash:"owner-hash",
