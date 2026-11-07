@@ -132,6 +132,7 @@ func (h *Handler) Authenticate(maker authcrypto.Maker) gin.HandlerFunc {
 				response.InvalidAccessToken(c)
 			} else {
 				failure(c, http.StatusServiceUnavailable, "temporarily_unavailable")
+				c.Abort()
 			}
 			return
 		}
