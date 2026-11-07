@@ -2,6 +2,7 @@ package user
 
 import (
 	"crypto/subtle"
+	"github.com/datvtph41107/bdspro/modules/auth"
 	"errors"
 	"fmt"
 	"net/http"
@@ -19,14 +20,25 @@ const oauth2StateCookie = "bdspro_oidc_state"
 
 // OAuth2Handler handles browser transport; verified identity and account
 // binding remain in the auth service and model.
-type OAuth2Handler struct {
-	auth   *auth_service.AuthService
-	oauth2 *auth_service.OAuth2Client
-	secure bool
+// BrowserLoginCompleter permits the shared, verified OIDC callback to finish
+// a browser login without importing a web router into the identity handler.
+type BrowserLoginCompleter interface {
+	CompleteOIDCLogin(*gin.Context, auth_service.LoginResult, string)
 }
 
-func NewOAuth2Handler(auth *auth_service.AuthService, oauth2 *auth_service.OAuth2Client, secure bool) *OAuth2Handler {
-	return &OAuth2Handler{auth: auth, oauth2: oauth2, secure: secure}
+type OAuth2Handler struct {
+	auth *auth_service.AuthService
+	oauth2 *auth_service.OAuth2Client
+	secure bool
+	browserLogin BrowserLoginCompleter
+}
+
+func NewOAuth2Handler(auth *auth_service.AuthService, oauth2 *auth_service.OAuth2Client, secure bool, browser ...BrowserLoginCompleter) *OAuth2Handler {
+	h := &OAuth2Handler{auth: auth, oauth2: oauth2, secure: secure}
+	if len(browser) > 0 {
+		h.browserLogin = browser[0]
+	}
+	return h
 }
 
 func (h *OAuth2Handler) stateCookie(c *gin.Context, state string, maxAge int) {
@@ -44,6 +56,29 @@ func (h *OAuth2Handler) StartLogin(c *gin.Context) {
 	}
 	h.stateCookie(c, start.State, start.MaxAge)
 	c.Header("Cache-Control", "no-store")
+	c.Redirect(http.StatusFound, start.AuthorizationURL)
+}
+
+// StartBrowserLogin uses the same provider callback and PKCE/nonce verification
+// as the API login. Only a validated local consent target is kept in Redis.
+func (h *OAuth2Handler) StartBrowserLogin(c *gin.Context) {
+	if h.browserLogin == nil || h.oauth2 == nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	next, err := auth.BrowserNextPath(c.Query("next"))
+	if err != nil {
+		response.Reject(c, http.StatusBadRequest, "oauth2.invalid_return_path", "invalid consent return path")
+		return
+	}
+	start, err := h.oauth2.BeginBrowserLogin(c.Request.Context(), next)
+	if err != nil {
+		h.unavailable(c, err)
+		return
+	}
+	h.stateCookie(c, start.State, start.MaxAge)
+	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
 	c.Redirect(http.StatusFound, start.AuthorizationURL)
 }
 
@@ -169,9 +204,17 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
 			return
 		}
+		if pending.ReturnPath != "" && h.browserLogin == nil {
+			response.Reject(c, http.StatusServiceUnavailable, "oauth2.browser_unavailable", "browser OAuth login unavailable")
+			return
+		}
 		result, err := h.auth.LoginOIDC(c.Request.Context(), identity, c.Request.UserAgent(), c.ClientIP())
 		if err != nil {
 			response.Error(c, err)
+			return
+		}
+		if pending.ReturnPath != "" {
+			h.browserLogin.CompleteOIDCLogin(c, result, pending.ReturnPath)
 			return
 		}
 		c.JSON(http.StatusOK, convert.ToLogin(result))

@@ -7,4 +7,6 @@
 <label>Email <input type="email" name="email" autocomplete="username" required maxlength="254"></label>
 <label>Password <input type="password" name="password" autocomplete="current-password" required></label>
 <button type="submit">Continue</button>
-</form></main></body></html>
+</form>
+{{if .OIDCStartURL}}<p><a href="{{.OIDCStartURL}}">Continue with identity provider</a></p>{{end}}
+</main></body></html>
