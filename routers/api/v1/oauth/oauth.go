@@ -2,11 +2,14 @@ package oauth
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
@@ -232,9 +235,13 @@ func (h *Handler) UserInfo(c *gin.Context) {
 		return
 	}
 	access, err := h.service.UserAccess(c.Request.Context(), parts[1])
-	if err != nil {
+	if errors.Is(err, oauth_service.ErrInvalidGrant) {
 		c.Header("WWW-Authenticate", "Bearer")
 		failure(c, http.StatusUnauthorized, "invalid_token")
+		return
+	}
+	if err != nil {
+		userinfoStoreUnavailable(c, err)
 		return
 	}
 	if access.Scope != oauth_service.ScopeProfile {
@@ -242,9 +249,14 @@ func (h *Handler) UserInfo(c *gin.Context) {
 		failure(c, http.StatusForbidden, "insufficient_scope")
 		return
 	}
-	account, err := h.store.GetAccountByID(c.Request.Context(), access.AccountID)
-	if err != nil {
+	account, err := account_model.GetByID(c.Request.Context(), h.store, access.AccountID)
+	if errors.Is(err, account_model.ErrAccountUnavailable) {
+		c.Header("WWW-Authenticate", "Bearer")
 		failure(c, http.StatusUnauthorized, "invalid_token")
+		return
+	}
+	if err != nil {
+		userinfoStoreUnavailable(c, err)
 		return
 	}
 	c.Header("Cache-Control", "no-store")
@@ -253,4 +265,13 @@ func (h *Handler) UserInfo(c *gin.Context) {
 		out["email"] = account.Email
 	}
 	c.JSON(http.StatusOK, out)
+}
+
+// A failed storage operation is not proof of an invalid credential.
+func userinfoStoreUnavailable(c *gin.Context, err error) {
+	log.Ctx(c.Request.Context()).Error().
+		Str("dependency", "postgres").
+		Str("error_type", fmt.Sprintf("%T", err)).
+		Msg("oauth.userinfo_store_unavailable")
+	failure(c, http.StatusServiceUnavailable, "temporarily_unavailable")
 }

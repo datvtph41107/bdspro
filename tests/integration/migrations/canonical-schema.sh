@@ -39,3 +39,38 @@ if BDS__DATABASE__DB_SOURCE='postgres://root:secret@127.0.0.1:5432/bdspro_prebas
   echo 'Pre-baseline migration v21 was incorrectly accepted' >&2
   exit 1
 fi
+
+# A database with application rows but no version must not be adopted.
+psql -h 127.0.0.1 -U root -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE bdspro_unversioned_legacy_test'
+psql -h 127.0.0.1 -U root -d bdspro_unversioned_legacy_test -v ON_ERROR_STOP=1 <<'SQL'
+CREATE TABLE accounts (id bigint PRIMARY KEY);
+INSERT INTO accounts(id) VALUES (42);
+SQL
+if output=$(BDS__DATABASE__DB_SOURCE='postgres://root:secret@127.0.0.1:5432/bdspro_unversioned_legacy_test?sslmode=disable' make migrateup 2>&1); then
+    echo 'Unversioned legacy database was incorrectly accepted' >&2
+    exit 1
+fi
+if [[ "$output" != *'unversioned database contains'* ]]; then
+    echo "Unexpected legacy rejection: $output" >&2
+    exit 1
+fi
+psql -h 127.0.0.1 -U root -d bdspro_unversioned_legacy_test -v ON_ERROR_STOP=1 <<'SQL'
+DO $check$
+BEGIN
+    IF (SELECT count(*) FROM accounts WHERE id=42) <> 1 OR to_regclass('public.parties') IS NOT NULL THEN
+        RAISE EXCEPTION 'migration modified pre-existing unversioned data';
+    END IF;
+END $check$;
+SQL
+
+# Even a view-only public schema must be rejected.
+psql -h 127.0.0.1 -U root -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE bdspro_unversioned_view_test'
+psql -h 127.0.0.1 -U root -d bdspro_unversioned_view_test -v ON_ERROR_STOP=1 -c 'CREATE VIEW legacy_view AS SELECT 42::bigint AS id'
+if output=$(BDS__DATABASE__DB_SOURCE='postgres://root:secret@127.0.0.1:5432/bdspro_unversioned_view_test?sslmode=disable' make migrateup 2>&1); then
+    echo 'Unversioned view-only database was incorrectly accepted' >&2
+    exit 1
+fi
+if [[ "$output" != *'unversioned database contains'* ]]; then
+    echo "Unexpected view rejection: $output" >&2
+    exit 1
+fi
