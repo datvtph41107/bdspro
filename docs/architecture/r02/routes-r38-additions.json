@@ -1,6 +1,6 @@
 {
   "repository": "datvtph41107/bdspro",
-  "commit": "R38: account OAuth authorization management and browser OAuth consent",
+  "commit": "R38: account OAuth authorizations, browser consent and conditional verified OIDC browser login",
   "routes": [
     {
       "method": "GET",
@@ -26,6 +26,11 @@
       "method": "POST",
       "path": "/oauth/logout",
       "access": "browser_session_csrf"
+    },
+    {
+      "method": "GET",
+      "path": "/oauth/login/oidc/start",
+      "access": "browser_public_oidc_configured"
     }
   ]
 }
