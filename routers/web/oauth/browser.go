@@ -165,29 +165,7 @@ func (h *Handler) notAuthenticated(c *gin.Context) {
 // Browser requests must resolve their DB session on EVERY authorization call.
 func (h *Handler) Authenticate(c *gin.Context) {
 	if value := c.GetHeader("Authorization"); value != "" {
-		parts := strings.Fields(value)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			response.BearerRequired(c)
-			c.Abort()
-			return
-		}
-		payload, err := h.Maker.VerifyToken(parts[1], authcrypto.TokenTypeAccess)
-		if err != nil {
-			response.InvalidAccessToken(c)
-			c.Abort()
-			return
-		}
-		if err := auth_model.RequireActiveSession(c.Request.Context(), h.Store, payload.AccountID, payload.SessionID, time.Now()); err != nil {
-			if errors.Is(err, auth_model.ErrSessionUnavailable) {
-				response.InvalidAccessToken(c)
-			} else {
-				response.Reject(c, http.StatusServiceUnavailable, "oauth.session_store_unavailable", "authorization session temporarily unavailable")
-			}
-			c.Abort()
-			return
-		}
-		c.Set(middleware.AuthorizationPayloadKey, payload)
-		c.Next()
+		h.API.Authenticate(h.Maker)(c)
 		return
 	}
 	session, ok := h.loadSession(c)

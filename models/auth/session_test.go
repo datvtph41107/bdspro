@@ -123,3 +123,45 @@ func TestRevokeAllSessionsPreservesStorageError(t *testing.T) {
 		t.Fatalf("database error lost: %v", err)
 	}
 }
+
+// OAuth authorization requires an active session authority even when its JWT
+// signature and expiry are otherwise valid. PostgreSQL outages are not 401s.
+type activeSessionReader struct {
+	session db.Session
+	err error
+}
+func (s activeSessionReader) GetSession(_ context.Context, _ uuid.UUID) (db.Session, error) {
+	return s.session, s.err
+}
+func TestRequireActiveSession(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+	id := uuid.New()
+	live := db.Session{ID:id,AccountID:41,ExpiresAt:now.Add(time.Hour)}
+	if err:=RequireActiveSession(ctx,activeSessionReader{session:live},41,id,now);err!=nil {
+		t.Fatalf("live session rejected: %v",err)
+	}
+	for name, tc := range map[string]struct{
+		session db.Session
+		id uuid.UUID
+		accountID int64
+		err error
+	}{
+		"unbound JWT": {session:live,id:uuid.Nil,accountID:41},
+		"wrong account": {session:live,id:id,accountID:42},
+		"wrong session": {session:live,id:uuid.New(),accountID:41},
+		"blocked": {session:db.Session{ID:id,AccountID:41,IsBlocked:true,ExpiresAt:now.Add(time.Hour)},id:id,accountID:41},
+		"expired": {session:db.Session{ID:id,AccountID:41,ExpiresAt:now.Add(-time.Second)},id:id,accountID:41},
+		"missing": {session:live,id:id,accountID:41,err:pgx.ErrNoRows},
+	} {
+		t.Run(name,func(t *testing.T){
+			if err:=RequireActiveSession(ctx,activeSessionReader{session:tc.session,err:tc.err},tc.accountID,tc.id,now);!errors.Is(err,ErrSessionUnavailable) {
+				t.Fatalf("inactive session accepted: %v",err)
+			}
+		})
+	}
+	unavailable:=errors.New("postgres unavailable")
+	if err:=RequireActiveSession(ctx,activeSessionReader{err:unavailable},41,id,now);!errors.Is(err,unavailable) {
+		t.Fatalf("DB outage was disguised as missing session: %v",err)
+	}
+}
