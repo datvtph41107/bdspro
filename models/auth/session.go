@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"errors"
 	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/timeutil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"errors"
 )
 
 // SessionStore provides session reads, revocations and the shared SQLC transaction primitive.

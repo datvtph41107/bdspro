@@ -71,10 +71,14 @@ func TestJWTLegacyWireClaimsRemainReadable(t *testing.T) {
 // tokens and legacy signed claims remain valid for existing stateless APIs.
 func TestJWTSessionBoundAccessToken(t *testing.T) {
 	maker, err := NewJWTMaker(strings.Repeat("k", 32))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	sid := uuid.New()
 	raw, issued, err := maker.CreateSessionAccessToken(42, time.Minute, sid)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	verified, err := maker.VerifyToken(raw, TokenTypeAccess)
 	if err != nil || verified.SessionID != sid || issued.SessionID != sid || issued.ID == sid {
 		t.Fatalf("bound token lost session identity: %+v, %+v, %v", issued, verified, err)
@@ -83,7 +87,9 @@ func TestJWTSessionBoundAccessToken(t *testing.T) {
 		t.Fatalf("accepted access token without session: %v", err)
 	}
 	legacy, _, err := maker.CreateToken(42, time.Minute, TokenTypeAccess)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	got, err := maker.VerifyToken(legacy, TokenTypeAccess)
 	if err != nil || got.SessionID != uuid.Nil {
 		t.Fatalf("legacy stateless JWT compatibility broken: %+v, %v", got, err)

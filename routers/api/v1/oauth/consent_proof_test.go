@@ -39,7 +39,9 @@ func (s *consentProofHTTPStore) GetOAuthConsentVersion(_ context.Context, _ int6
 }
 func (s *consentProofHTTPStore) ApproveOAuthAuthCode(_ context.Context, _ uuid.UUID, _ int64,
 	_, _, _ string, _ []byte, _ time.Time, v int64, sessionID uuid.UUID) error {
-	if sessionID == uuid.Nil { return db.ErrOAuthSessionInactive }
+	if sessionID == uuid.Nil {
+		return db.ErrOAuthSessionInactive
+	}
 	if v != s.version {
 		return db.ErrOAuthConsentStale
 	}

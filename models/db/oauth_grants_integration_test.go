@@ -15,11 +15,13 @@ func createOAuthTestSession(t *testing.T, ctx context.Context, store *SQLStore, 
 	t.Helper()
 	id := uuid.New()
 	_, err := store.CreateSession(ctx, CreateSessionParams{
-		ID: id, AccountID: accountID, RefreshToken: "oauth-model-"+uuid.NewString(),
+		ID: id, AccountID: accountID, RefreshToken: "oauth-model-" + uuid.NewString(),
 		UserAgent: "oauth-model-test", ClientIp: "127.0.0.1",
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	return id
 }
 
