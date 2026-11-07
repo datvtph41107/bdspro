@@ -19,7 +19,13 @@ type Transactioner = db.Transactioner
 func ResetPassword(ctx context.Context, store db.Store, tokenHash []byte, passwordHash string) error {
 	return store.ExecTxRaw(ctx, func(tx pgx.Tx) error {
 		q := db.New(tx)
-		accountID, err := q.ConsumePasswordResetToken(ctx, tokenHash)
+		// Read the immutable owner of the one-use proof without consuming it.
+		// Lock the account BEFORE deleting any proof: concurrent recovery
+		// requests for different proofs otherwise can deadlock while trying
+		// to delete each other's proof row.
+		var accountID int64
+		err := tx.QueryRow(ctx, `SELECT account_id FROM password_reset_tokens
+			WHERE token_hash=$1 AND expires_at>now()`, tokenHash).Scan(&accountID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrPasswordResetInvalid
 		}
@@ -27,6 +33,13 @@ func ResetPassword(ctx context.Context, store db.Store, tokenHash []byte, passwo
 			return err
 		}
 		if err := db.LockAccountForCredentialRecovery(ctx, tx, accountID); err != nil {
+			return err
+		}
+		consumedID, err := q.ConsumePasswordResetToken(ctx, tokenHash)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && consumedID != accountID) {
+			return ErrPasswordResetInvalid
+		}
+		if err != nil {
 			return err
 		}
 		if err := q.UpsertPasswordCredential(ctx, db.UpsertPasswordCredentialParams{
