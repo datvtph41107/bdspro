@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"encoding/base64"
 	"strings"
 	"testing"
 	"time"
@@ -93,5 +94,28 @@ func TestJWTSessionBoundAccessToken(t *testing.T) {
 	got, err := maker.VerifyToken(legacy, TokenTypeAccess)
 	if err != nil || got.SessionID != uuid.Nil {
 		t.Fatalf("legacy stateless JWT compatibility broken: %+v, %v", got, err)
+	}
+}
+
+func TestJWTSessionClaimIsAbsentFromRefreshWirePayload(t *testing.T) {
+	maker, err := NewJWTMaker(strings.Repeat("k", 32))
+	if err != nil { t.Fatal(err) }
+	refresh, _, err := maker.CreateToken(42, time.Hour, TokenTypeRefresh)
+	if err != nil { t.Fatal(err) }
+	parts := strings.Split(refresh, ".")
+	if len(parts) != 3 { t.Fatal("malformed signed JWT") }
+	payloadJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil { t.Fatal(err) }
+	if strings.Contains(string(payloadJSON), "session_id") {
+		t.Fatalf("unbound refresh token unexpectedly changed wire format: %s",payloadJSON)
+	}
+	sessionID := uuid.New()
+	access, _, err := maker.CreateSessionAccessToken(42, time.Hour, sessionID)
+	if err != nil { t.Fatal(err) }
+	fields := strings.Split(access, ".")
+	accessJSON, err := base64.RawURLEncoding.DecodeString(fields[1])
+	if err != nil { t.Fatal(err) }
+	if !strings.Contains(string(accessJSON), sessionID.String()) {
+		t.Fatalf("bound access token omitted signed session identity: %s",accessJSON)
 	}
 }
