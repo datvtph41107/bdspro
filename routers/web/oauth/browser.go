@@ -41,6 +41,7 @@ type Config struct {
 	Codec        *authcrypto.BrowserSessionCodec
 	PublicOrigin string
 	Throttle     *middleware.AuthThrottle
+	OIDCEnabled  bool
 }
 
 type Handler struct {
@@ -320,9 +321,13 @@ func (h *Handler) LoginPage(c *gin.Context) {
 		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
 		MaxAge: loginNonceMaxAge,
 	})
+	link := ""
+	if h.OIDCEnabled {
+		link = "/oauth/login/oidc/start?next=" + url.QueryEscape(next)
+	}
 	browserHeaders(c)
 	c.Status(http.StatusOK)
-	_ = templates.OAuthLoginPage.Execute(c.Writer, struct{ Next, CSRF string }{next, csrf})
+	_ = templates.OAuthLoginPage.Execute(c.Writer, struct{ Next, CSRF, OIDCStartURL string }{next, csrf, link})
 }
 
 func (h *Handler) Login(c *gin.Context) {
@@ -363,6 +368,28 @@ func (h *Handler) Login(c *gin.Context) {
 		} else {
 			c.AbortWithStatus(http.StatusServiceUnavailable)
 		}
+		return
+	}
+	h.completeSessionLogin(c, result, next)
+}
+
+// CompleteOIDCLogin finishes an already verified OIDC identity with the
+// canonical browser session cookie, without returning any JWT in the response.
+func (h *Handler) CompleteOIDCLogin(c *gin.Context, result auth_service.LoginResult, next string) {
+	if !h.OIDCEnabled || !h.sameHost(c) {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+	if _, err := authcrypto.BrowserNextPath(next); err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	h.completeSessionLogin(c, result, next)
+}
+
+func (h *Handler) completeSessionLogin(c *gin.Context, result auth_service.LoginResult, next string) {
+	if result.Session.ID == uuid.Nil || result.Session.AccountID <= 0 {
+		c.AbortWithStatus(http.StatusServiceUnavailable)
 		return
 	}
 	now := time.Now()

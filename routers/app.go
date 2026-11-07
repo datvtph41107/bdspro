@@ -103,6 +103,11 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	server.authHandler = user.NewAuthHandler(authService, server.authThrottle, resetSender)
 	server.phoneEnabled = phoneSender != nil
 	server.organizationHandler = org.NewHandler(store)
+	// Provider callback and browser origin must coincide before offering the
+	// browser OIDC option. Mismatched deployments retain their existing API OIDC
+	// callback and password-based browser consent without a misleading link.
+	browserOIDC := cfg.OIDC.Enabled() && cfg.BrowserPublicOrigin != "" &&
+		cfg.OIDC.RedirectURI == cfg.BrowserPublicOrigin+"/users/oauth2/callback"
 	if oauthStore, ok := store.(db.OAuthServerStore); ok {
 		proofs, err := oauth_service.NewConsentProofs(cfg.Authentication().JWTSecret)
 		if err != nil {
@@ -122,6 +127,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 				Store: store, OAuth: oauthService, API: server.authorizationHandler,
 				Proofs: proofs, Login: authService.Login, Maker: maker, Codec: codec,
 				PublicOrigin: cfg.BrowserPublicOrigin, Throttle: server.authThrottle,
+				OIDCEnabled: browserOIDC,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("configure browser OAuth: %w", err)
@@ -137,8 +143,12 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		if err != nil {
 			return nil, fmt.Errorf("configure oauth2: %w", err)
 		}
+		var browserCompletion user.BrowserLoginCompleter
+		if browserOIDC {
+			browserCompletion = server.browserHandler
+		}
 		server.oauth2Handler = user.NewOAuth2Handler(
-			authService, oauth2, strings.HasPrefix(cfg.OIDC.RedirectURI, "https://"),
+			authService, oauth2, strings.HasPrefix(cfg.OIDC.RedirectURI, "https://"), browserCompletion,
 		)
 	}
 

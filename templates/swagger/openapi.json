@@ -3420,6 +3420,39 @@
         }
       }
     },
+    "/oauth/login/oidc/start": {
+      "get": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "Start existing OIDC provider login for browser OAuth consent",
+        "description": "Conditional: offered only when OIDC redirect_uri exactly matches PUBLIC_ORIGIN + /users/oauth2/callback. Requires a validated local next=/oauth/authorize?... path. Uses existing PKCE/nonce + one-time Redis state and callback, then creates a DB-backed browser session.",
+        "parameters": [
+          {
+            "name": "next",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to configured OIDC provider; one-time state cookie issued"
+          },
+          "400": {
+            "description": "Invalid consent return path"
+          },
+          "404": {
+            "description": "OIDC browser login not enabled"
+          },
+          "503": {
+            "description": "Identity provider or state store unavailable"
+          }
+        }
+      }
+    },
     "/oauth/logout": {
       "post": {
         "tags": [
