@@ -10,7 +10,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 )
@@ -31,7 +31,7 @@ func oauthHTTPTestRouter(t *testing.T) *gin.Engine {
 	if err != nil {
 		t.Fatal(err)
 	}
-	protected := r.Group("", middleware.Authenticate(maker))
+	protected := r.Group("", appctx.Authenticate(maker))
 	protected.GET("/oauth/authorize", handler.AuthorizePreview)
 	protected.POST("/oauth/authorize", handler.Authorize)
 	_ = time.Second

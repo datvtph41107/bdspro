@@ -16,7 +16,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -59,7 +59,7 @@ func TestOAuthAuthorizeBearerMustHaveLiveSession(t *testing.T) {
 	router.GET("/oauth/authorize", handler.Authenticate(maker), handler.AuthorizePreview)
 	router.POST("/oauth/authorize", handler.Authenticate(maker), handler.Authorize)
 	// This endpoint deliberately retains the ordinary stateless access JWT policy.
-	router.GET("/api/account", middleware.Authenticate(maker), func(c *gin.Context) { c.Status(http.StatusOK) })
+	router.GET("/api/account", appctx.Authenticate(maker), func(c *gin.Context) { c.Status(http.StatusOK) })
 	challenge := sha256.Sum256([]byte(strings.Repeat("x", 43)))
 	query := url.Values{
 		"client_id": {clientID.String()}, "redirect_uri": {oauthStore.client.RedirectUri},

@@ -15,7 +15,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -64,7 +64,7 @@ func TestOAuthConsentProofBindsHTTPPreviewAndApproval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	grp := r.Group("", middleware.Authenticate(maker))
+	grp := r.Group("", appctx.Authenticate(maker))
 	grp.GET("/oauth/authorize", handler.AuthorizePreview)
 	grp.POST("/oauth/authorize", handler.Authorize)
 	bearer, _, err := maker.CreateSessionAccessToken(42, time.Minute, uuid.New())
