@@ -1,40 +1,43 @@
 # Routers — request boundaries, not the whole web application
 
-Gitea currently has `routers/init.go`, `routers/common`,
-`routers/api`, `routers/web`, `routers/private`,
-`routers/install` and `routers/utils`. These are different
-HTTP surfaces and common helpers, not folders every backend needs.
+Gitea separates its router surfaces, request context, services and technical
+modules. BDSPro retains one Gin REST engine plus browser OAuth endpoints,
+without adopting another routing framework.
 
-- `routers/init.go`: installation/runtime initialization and composition.
-- `routers/common`: HTTP protocol behavior reusable between transports.
-- `routers/api`: external machine-oriented API, validation and contract.
-- `routers/web`: independently rendered Gitea website.
-- `routers/private`: internal authenticated endpoints for Git/SSH plumbing.
-- `routers/install`: first-time web setup flows.
-
-BDSPro has **one external REST transport** and two tiny HTML forms.
-Keep `routers/init.go`, `routers/common` and `routers/api` only.
-Static templates belong to `templates/`; they do not justify
-`routers/web` or an extra router framework.
+- `routers/app.go` builds HTTP dependencies and the initialized Gin engine.
+- `routers/init.go` installs the shared ingress chain and recovery.
+- `routers/common` provides request ID and CORS.
+- `routers/api/v1/api.go` declares endpoint method/path pairs once.
+- `routers/api/v1/{user,org,oauth}` handles protocol input and representations.
+- `routers/web/oauth` owns the real browser OAuth pages and cookie transport.
+- `services/context` owns JWT principal, verified contact admission,
+  APIContext, binding/error responses, and request body cap.
+- `services/security` owns HTTP auth throttle, denied-request observation,
+  and login outcome logging.
+- `modules/ipactive` implements action-based rate-limit admission.
 
 ```text
-Gin router (routers/api/server.go)
-  -> routers/common.RequestID
-  -> access log + Recovery
-  -> API RequestMonitor/RequestIngress
-  -> routers/api/v1/api.go
-     -> security middleware Authenticate / rate-limit
-     -> routers/api/v1/user or org
-         parse -> model operation or service -> conversion -> response
+Gin (routers.NormalRoutes)
+ -> routers/common.RequestID
+ -> access log + Gin recovery
+ -> security.RequestMonitor -> context.RequestIngress
+ -> routers/api/v1/api.go
+    -> context.Authenticate / VerifiedContact (route-specific)
+    -> IPActive and security.AuthThrottle (operation-specific)
+    -> endpoint -> service or model -> response contract
 ```
 
-Where Gitea groups controllers by web/API and domain, BDSPro keeps Gin and organizes HTTP endpoints under
-`routers/api/v1/user` and `routers/api/v1/org`. The directory name `v1` does not add a URL prefix. Avoid duplicate dispatchers, reflective registries and unnecessary per-route wrappers.
+`APIContext` wraps the existing Gin request context without another router or
+middleware executor. `Doer` contains verified first-party access JWT claims,
+not a fresh database account record; live state checks are explicit.
 
-All new routes must be discoverable in one route declaration file and
-must have a method/path test and corresponding
-`templates/swagger/openapi.json` operation.
+SQL owner/membership predicates, transaction locks, OAuth token handling,
+and public method/path, error code and response contracts must not change
+because of package reorganization. The directory name `v1` does not
+automatically add a URL prefix.
 
-Sources: [Gitea routers/init.go](https://github.com/go-gitea/gitea/blob/main/routers/init.go),
-[routers/api](https://github.com/go-gitea/gitea/tree/main/routers/api),
-[routers/common](https://github.com/go-gitea/gitea/tree/main/routers/common).
+New public routes need the route inventory and matching
+`templates/swagger/openapi.json` operations. See [HTTP ownership](http.md).
+
+References: [Gitea routers](https://github.com/go-gitea/gitea/tree/main/routers),
+[Gitea context](https://github.com/go-gitea/gitea/tree/main/services/context).

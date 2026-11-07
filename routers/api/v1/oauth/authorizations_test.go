@@ -11,7 +11,7 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -42,7 +42,7 @@ func TestOAuthAuthorizationsHTTPBoundToJWTAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	group := r.Group("", middleware.Authenticate(maker))
+	group := r.Group("", appctx.Authenticate(maker))
 	group.GET("/users/me/oauth/authorizations", h.ListAuthorizations)
 	group.DELETE("/users/me/oauth/authorizations/:client_id", h.RevokeAuthorization)
 	call := func(method, path, bearer string) *httptest.ResponseRecorder {

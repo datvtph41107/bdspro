@@ -13,8 +13,8 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -54,7 +54,7 @@ func TestGetConnectionsUsesVerifiedAccountAndSafeErrors(t *testing.T) {
 	store := &connectionsStoreFake{accountID: 42}
 	handler := NewAuthHandler(auth_service.NewAuthService(store, maker, setting.Config{}, nil), nil, nil)
 	router := gin.New()
-	router.GET("/users/me/connections", middleware.Authenticate(maker), handler.GetConnections)
+	router.GET("/users/me/connections", appctx.Authenticate(maker), handler.GetConnections)
 	request := func(bearer string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/users/me/connections?account_id=777", nil)
 		if bearer != "" {

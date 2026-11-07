@@ -8,11 +8,11 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/structs"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
 	"github.com/datvtph41107/bdspro/services/mail"
+	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,11 +21,11 @@ import (
 // AuthHandler handles HTTP input and output; authentication operations belong to AuthService.
 type AuthHandler struct {
 	auth        *auth_service.AuthService
-	limiter     *middleware.AuthThrottle
+	limiter     *security.AuthThrottle
 	resetSender mail.EmailSender
 }
 
-func NewAuthHandler(auth *auth_service.AuthService, limiter *middleware.AuthThrottle, sender mail.EmailSender) *AuthHandler {
+func NewAuthHandler(auth *auth_service.AuthService, limiter *security.AuthThrottle, sender mail.EmailSender) *AuthHandler {
 	return &AuthHandler{auth: auth, limiter: limiter, resetSender: sender}
 }
 
@@ -73,7 +73,7 @@ func (h *AuthHandler) StartPhoneBind(c *gin.Context) {
 	if !h.limiter.Allow(c, "phone_bind_start", req.Phone, 10, 3, time.Hour) {
 		return
 	}
-	if err := h.auth.StartPhoneBind(c.Request.Context(), middleware.AccountID(c), req.Password, req.Phone); err != nil {
+	if err := h.auth.StartPhoneBind(c.Request.Context(), appctx.AccountID(c), req.Password, req.Phone); err != nil {
 		appctx.Error(c, err)
 		return
 	}
@@ -89,7 +89,7 @@ func (h *AuthHandler) VerifyPhoneBind(c *gin.Context) {
 	if !h.limiter.Allow(c, "phone_bind_verify", req.Phone, 40, 5, 10*time.Minute) {
 		return
 	}
-	if err := h.auth.VerifyPhoneBind(c.Request.Context(), middleware.AccountID(c), req.Phone, req.Code); err != nil {
+	if err := h.auth.VerifyPhoneBind(c.Request.Context(), appctx.AccountID(c), req.Phone, req.Code); err != nil {
 		appctx.Error(c, err)
 		return
 	}
@@ -170,7 +170,7 @@ func (h *AuthHandler) StartEmailLink(c *gin.Context) {
 	if !h.limiter.Allow(c, "email_link_start", req.Email, 10, 3, time.Hour) {
 		return
 	}
-	if err := h.auth.StartEmailLink(c.Request.Context(), middleware.AccountID(c), req.Email, req.PhoneCode, h.resetSender); err != nil {
+	if err := h.auth.StartEmailLink(c.Request.Context(), appctx.AccountID(c), req.Email, req.PhoneCode, h.resetSender); err != nil {
 		appctx.Error(c, err)
 		return
 	}
@@ -186,7 +186,7 @@ func (h *AuthHandler) ConfirmEmailLink(c *gin.Context) {
 	if !h.limiter.Allow(c, "email_link_verify", req.Token, 20, 5, time.Hour) {
 		return
 	}
-	if err := h.auth.ConfirmEmailLink(c.Request.Context(), middleware.AccountID(c), req.Token); err != nil {
+	if err := h.auth.ConfirmEmailLink(c.Request.Context(), appctx.AccountID(c), req.Token); err != nil {
 		appctx.Error(c, err)
 		return
 	}
@@ -330,7 +330,7 @@ func (h *AuthHandler) Revoke(c *gin.Context) {
 }
 
 func (h *AuthHandler) ListSessions(c *gin.Context) {
-	sessions, err := h.auth.ListSessions(c.Request.Context(), middleware.AccountID(c))
+	sessions, err := h.auth.ListSessions(c.Request.Context(), appctx.AccountID(c))
 	if err != nil {
 		appctx.Error(c, err)
 		return
@@ -347,7 +347,7 @@ func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {
 		appctx.Reject(c, http.StatusBadRequest, "invalid_session_id", "invalid session id")
 		return
 	}
-	if err := h.auth.RevokeOwnSession(c.Request.Context(), middleware.AccountID(c), id); err != nil {
+	if err := h.auth.RevokeOwnSession(c.Request.Context(), appctx.AccountID(c), id); err != nil {
 		appctx.Error(c, err)
 		return
 	}
@@ -355,7 +355,7 @@ func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {
 }
 
 func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
-	if err := h.auth.RevokeAllSessions(c.Request.Context(), middleware.AccountID(c)); err != nil {
+	if err := h.auth.RevokeAllSessions(c.Request.Context(), appctx.AccountID(c)); err != nil {
 		appctx.Error(c, err)
 		return
 	}
@@ -365,7 +365,7 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 // GetConnections returns a bounded history of this Account's session issuance.
 // The account identifier is always taken from the authenticated request context.
 func (h *AuthHandler) GetConnections(c *gin.Context) {
-	connections, err := h.auth.GetConnections(c.Request.Context(), middleware.AccountID(c))
+	connections, err := h.auth.GetConnections(c.Request.Context(), appctx.AccountID(c))
 	if err != nil {
 		appctx.Error(c, err)
 		return

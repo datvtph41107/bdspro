@@ -12,7 +12,6 @@ import (
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
@@ -23,6 +22,7 @@ import (
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
+	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
@@ -41,7 +41,7 @@ type Server struct {
 	tokenMaker           authcrypto.Maker
 	router               *gin.Engine
 	authRateRedis        *redis.Client
-	authThrottle         *middleware.AuthThrottle
+	authThrottle         *security.AuthThrottle
 	ipActive             *ipactive.Middleware
 }
 
@@ -62,7 +62,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		store:         store,
 		tokenMaker:    maker,
 		authRateRedis: redisClient,
-		authThrottle:  middleware.NewAuthThrottle(redisClient),
+		authThrottle:  security.NewAuthThrottle(redisClient),
 	}
 	policies := cfg.IPActivePolicies
 	if len(policies) == 0 {

@@ -6,12 +6,12 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
+	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/gin-gonic/gin"
 )
 
@@ -42,7 +42,7 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 		d.Auth.Register,
 	)
 	route.POST("/users/login",
-		middleware.LogLoginResponse(),
+		security.LogLoginResponse(),
 		d.IPActive.For(ipactive.Login),
 		d.Auth.Login,
 	)
@@ -131,7 +131,7 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 	}
 
 	// Authentication is applied once to this group, before every child group.
-	registerAuthenticatedRoutes(route.Group("", middleware.Authenticate(d.TokenMaker)), d)
+	registerAuthenticatedRoutes(route.Group("", appctx.Authenticate(d.TokenMaker)), d)
 }
 
 func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
@@ -139,7 +139,7 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	if d.Authorization != nil {
 		route.GET("/oauth/clients", d.Authorization.ListClients)
 		route.POST("/oauth/clients",
-			middleware.VerifiedContact(d.Store), d.Authorization.CreateClient)
+			appctx.VerifiedContact(d.Store), d.Authorization.CreateClient)
 		route.DELETE("/oauth/clients/:id", d.Authorization.DeleteClient)
 		// Existing user authorizations, not application ownership.
 		route.GET("/users/me/oauth/authorizations", d.Authorization.ListAuthorizations)
@@ -163,8 +163,8 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 		d.Auth.ConfirmEmailLink,
 	)
 
-	registerOrganizationRoutes(route.Group("/organizations", middleware.VerifiedContact(d.Store)), d)
-	registerTeamRoutes(route.Group("/teams", middleware.VerifiedContact(d.Store)), d)
+	registerOrganizationRoutes(route.Group("/organizations", appctx.VerifiedContact(d.Store)), d)
+	registerTeamRoutes(route.Group("/teams", appctx.VerifiedContact(d.Store)), d)
 
 	if d.OAuth2 != nil {
 		route.POST("/users/me/oauth2/start",
@@ -174,13 +174,13 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	}
 	if d.OAuth2 != nil && d.PhoneEnabled {
 		route.POST("/users/me/phone/oauth2/start",
-			middleware.VerifiedEmail(d.Store),
+			appctx.VerifiedEmail(d.Store),
 			d.IPActive.For(ipactive.StartOAuth2PhoneBind),
 			d.OAuth2.StartPhoneBind,
 		)
 	}
 	if d.PhoneEnabled {
-		registerPhoneBindRoutes(route.Group("/users/me/phone", middleware.VerifiedEmail(d.Store)), d)
+		registerPhoneBindRoutes(route.Group("/users/me/phone", appctx.VerifiedEmail(d.Store)), d)
 	}
 }
 
