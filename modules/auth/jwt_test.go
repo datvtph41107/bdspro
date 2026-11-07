@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
@@ -64,5 +65,69 @@ func TestJWTLegacyWireClaimsRemainReadable(t *testing.T) {
 	}
 	if _, err := maker.VerifyToken(expired, TokenTypeRefresh); !errors.Is(err, ErrExpiredToken) {
 		t.Fatalf("expired JWT accepted: %v", err)
+	}
+}
+
+// OAuth authorization requires a session-bound access token. Generic access
+// tokens and legacy signed claims remain valid for existing stateless APIs.
+func TestJWTSessionBoundAccessToken(t *testing.T) {
+	maker, err := NewJWTMaker(strings.Repeat("k", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sid := uuid.New()
+	raw, issued, err := maker.CreateSessionAccessToken(42, time.Minute, sid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verified, err := maker.VerifyToken(raw, TokenTypeAccess)
+	if err != nil || verified.SessionID != sid || issued.SessionID != sid || issued.ID == sid {
+		t.Fatalf("bound token lost session identity: %+v, %+v, %v", issued, verified, err)
+	}
+	if _, _, err := maker.CreateSessionAccessToken(42, time.Minute, uuid.Nil); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("accepted access token without session: %v", err)
+	}
+	legacy, _, err := maker.CreateToken(42, time.Minute, TokenTypeAccess)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := maker.VerifyToken(legacy, TokenTypeAccess)
+	if err != nil || got.SessionID != uuid.Nil {
+		t.Fatalf("legacy stateless JWT compatibility broken: %+v, %v", got, err)
+	}
+}
+
+func TestJWTSessionClaimIsAbsentFromRefreshWirePayload(t *testing.T) {
+	maker, err := NewJWTMaker(strings.Repeat("k", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	refresh, _, err := maker.CreateToken(42, time.Hour, TokenTypeRefresh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := strings.Split(refresh, ".")
+	if len(parts) != 3 {
+		t.Fatal("malformed signed JWT")
+	}
+	payloadJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(payloadJSON), "session_id") {
+		t.Fatalf("unbound refresh token unexpectedly changed wire format: %s", payloadJSON)
+	}
+	sessionID := uuid.New()
+	access, _, err := maker.CreateSessionAccessToken(42, time.Hour, sessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields := strings.Split(access, ".")
+	accessJSON, err := base64.RawURLEncoding.DecodeString(fields[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(accessJSON), sessionID.String()) {
+		t.Fatalf("bound access token omitted signed session identity: %s", accessJSON)
 	}
 }

@@ -10,6 +10,7 @@ import (
 )
 
 var ErrOAuthConsentStale = errors.New("OAuth consent version is stale")
+var ErrOAuthSessionInactive = errors.New("OAuth authorizing session is missing or revoked")
 
 // GetOAuthConsentVersion is a read-only consent-preview operation. Zero means
 // no prior decision; revoked rows retain their version as a durable tombstone.
@@ -28,7 +29,10 @@ func (s *SQLStore) GetOAuthConsentVersion(ctx context.Context, accountID int64, 
 // Both approve and revoke hold the account/client advisory lock before rows.
 func (s *SQLStore) ApproveOAuthAuthCode(ctx context.Context, clientID uuid.UUID,
 	accountID int64, redirect, scope, challenge string, hash []byte,
-	expires time.Time, expectedVersion int64) error {
+	expires time.Time, expectedVersion int64, sessionID uuid.UUID) error {
+	if sessionID == uuid.Nil {
+		return ErrOAuthSessionInactive
+	}
 	if expectedVersion < 0 || accountID <= 0 || clientID == uuid.Nil || scope != "profile:read" {
 		return ErrOAuthConsentStale
 	}
@@ -36,8 +40,21 @@ func (s *SQLStore) ApproveOAuthAuthCode(ctx context.Context, clientID uuid.UUID,
 		if err := lockOAuthAuthorization(ctx, tx, accountID, clientID); err != nil {
 			return err
 		}
+		// RevokeOwnedSession, RevokeAllAccountSessions and password reset
+		// UPDATE this row. FOR SHARE makes their transaction and this code
+		// issuance linearizable: revoked sessions cannot create new codes.
+		var lockedSession uuid.UUID
+		err := tx.QueryRow(ctx, `SELECT id FROM sessions
+			WHERE id=$1 AND account_id=$2 AND is_blocked=FALSE AND expires_at>clock_timestamp()
+			FOR SHARE`, sessionID, accountID).Scan(&lockedSession)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrOAuthSessionInactive
+		}
+		if err != nil {
+			return err
+		}
 		var current int64
-		err := tx.QueryRow(ctx, `SELECT version FROM oauth_grants
+		err = tx.QueryRow(ctx, `SELECT version FROM oauth_grants
             WHERE account_id=$1 AND client_id=$2`, accountID, clientID).Scan(&current)
 		if errors.Is(err, pgx.ErrNoRows) {
 			current = 0

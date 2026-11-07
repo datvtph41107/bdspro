@@ -77,7 +77,7 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 		// configured, the existing Bearer-JWT-only contract remains unchanged.
 		preview := d.Authorization.AuthorizePreview
 		approve := d.Authorization.Authorize
-		authenticate := middleware.Authenticate(d.TokenMaker)
+		authenticate := d.Authorization.Authenticate(d.TokenMaker)
 		if d.Browser != nil {
 			preview = d.Browser.AuthorizePreview
 			approve = d.Browser.Authorize

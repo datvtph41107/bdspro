@@ -3110,7 +3110,7 @@
           "OAuth2"
         ],
         "summary": "Review authorization request without issuing a code",
-        "description": "API Bearer JWT gives a JSON preview; when browser OAuth is enabled, an authenticated browser cookie gives a consent HTML form, and an unauthenticated HTML navigation redirects to /oauth/login.",
+        "description": "Requires a live DB-backed issuing session. Session-bound API Bearer JWT gives a JSON consent preview; browser OAuth accepts a live signed session cookie for HTML consent. Legacy unbound access JWTs must be renewed or replaced by login.",
         "security": [
           {
             "bearerAuth": []
@@ -3240,7 +3240,7 @@
           "OAuth2"
         ],
         "summary": "Approve or deny OAuth2 Authorization Code grant",
-        "description": "API Bearer JWT OR a validated DB-backed browser session (trusted Origin + session-bound CSRF) can approve. Both require consent_version and request-bound consent_proof from preview.",
+        "description": "Only a session-bound Bearer JWT or DB-backed browser cookie (trusted Origin + session CSRF) may approve. The transaction locks the issuing session against concurrent revoke. Both paths require consent_version and signed request-bound consent_proof.",
         "security": [
           {
             "bearerAuth": []

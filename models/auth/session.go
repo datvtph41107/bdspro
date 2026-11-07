@@ -8,10 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"errors"
 	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/timeutil"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // SessionStore provides session reads, revocations and the shared SQLC transaction primitive.
@@ -93,4 +95,26 @@ func MatchesRefreshToken(stored, raw string) bool {
 		expected = RefreshTokenDigest(raw)
 	}
 	return subtle.ConstantTimeCompare([]byte(stored), []byte(expected)) == 1
+}
+
+// RequireActiveSession validates the persisted authority of a session-bound
+// access JWT for OAuth authorization, without changing normal JWT-only APIs.
+func RequireActiveSession(ctx context.Context, reader interface {
+	GetSession(context.Context, uuid.UUID) (db.Session, error)
+}, accountID int64, sessionID uuid.UUID, now time.Time) error {
+	if accountID <= 0 || sessionID == uuid.Nil {
+		return ErrSessionUnavailable
+	}
+	session, err := reader.GetSession(ctx, sessionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrSessionUnavailable
+	}
+	if err != nil {
+		return err
+	}
+	if session.ID != sessionID || session.AccountID != accountID || session.IsBlocked ||
+		!session.ExpiresAt.After(now) {
+		return ErrSessionUnavailable
+	}
+	return nil
 }

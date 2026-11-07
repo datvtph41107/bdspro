@@ -10,9 +10,12 @@ import (
 	"time"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	"github.com/datvtph41107/bdspro/routers/api/response"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -108,6 +111,36 @@ func (h *Handler) DeleteClient(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// Authenticate is the high-trust OAuth authorization boundary. Unlike
+// ordinary API authentication, it resolves the access JWT's issuing session
+// from PostgreSQL on every request and fails closed if the session is gone.
+func (h *Handler) Authenticate(maker authcrypto.Maker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		parts := strings.Fields(c.GetHeader("Authorization"))
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			response.BearerRequired(c)
+			return
+		}
+		payload, err := maker.VerifyToken(parts[1], authcrypto.TokenTypeAccess)
+		if err != nil {
+			response.InvalidAccessToken(c)
+			return
+		}
+		if err := auth_model.RequireActiveSession(c.Request.Context(), h.store,
+			payload.AccountID, payload.SessionID, time.Now()); err != nil {
+			if errors.Is(err, auth_model.ErrSessionUnavailable) {
+				response.InvalidAccessToken(c)
+			} else {
+				failure(c, http.StatusServiceUnavailable, "temporarily_unavailable")
+				c.Abort()
+			}
+			return
+		}
+		c.Set(middleware.AuthorizationPayloadKey, payload)
+		c.Next()
+	}
+}
+
 func authorizationRequest(values url.Values) (oauth_service.AuthorizationRequest, error) {
 	return oauth_service.ParseAuthorizationRequest(values)
 }
@@ -197,7 +230,9 @@ func (h *Handler) Authorize(c *gin.Context) {
 		c.Redirect(http.StatusFound, target.String())
 		return
 	}
-	redirect, err := h.service.Authorize(c.Request.Context(), middleware.AccountID(c), request)
+	// The DB transaction locks this exact issuing session against revoke.
+	payload := c.MustGet(middleware.AuthorizationPayloadKey).(*authcrypto.Payload)
+	redirect, err := h.service.Authorize(c.Request.Context(), middleware.AccountID(c), payload.SessionID, request)
 	if err != nil {
 		serviceFailure(c, err)
 		return

@@ -46,7 +46,7 @@ type OAuthServerStore interface {
 	ListOAuthClients(context.Context, int64) ([]OauthClient, error)
 	RevokeOAuthClient(context.Context, int64, uuid.UUID) (bool, error)
 	GetOAuthConsentVersion(context.Context, int64, uuid.UUID) (int64, error)
-	ApproveOAuthAuthCode(context.Context, uuid.UUID, int64, string, string, string, []byte, time.Time, int64) error
+	ApproveOAuthAuthCode(context.Context, uuid.UUID, int64, string, string, string, []byte, time.Time, int64, uuid.UUID) error
 	RedeemOAuthAuthCode(context.Context, uuid.UUID, []byte, string, string, []byte, []byte, time.Time, time.Time, uuid.UUID) (OAuthGrant, error)
 	RotateOAuthRefreshToken(context.Context, uuid.UUID, []byte, []byte, []byte, time.Time) (OAuthGrant, error)
 	ResolveOAuthAccessToken(context.Context, []byte) (OAuthAccess, error)

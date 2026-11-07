@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 const minSecretKeySize = 32
@@ -34,6 +35,24 @@ func (maker *JWTMaker) CreateToken(
 		return "", nil, err
 	}
 
+	return maker.sign(payload)
+}
+
+// CreateSessionAccessToken only creates a JWT when its session identity is
+// explicit and non-zero. The signing format is otherwise unchanged.
+func (maker *JWTMaker) CreateSessionAccessToken(accountID int64, duration time.Duration, sessionID uuid.UUID) (string, *Payload, error) {
+	if sessionID == uuid.Nil {
+		return "", nil, ErrInvalidToken
+	}
+	payload, err := NewPayload(accountID, duration, TokenTypeAccess)
+	if err != nil {
+		return "", nil, err
+	}
+	payload.SessionID = sessionID
+	return maker.sign(payload)
+}
+
+func (maker *JWTMaker) sign(payload *Payload) (string, *Payload, error) {
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, payload)
 	token, err := jwtToken.SignedString([]byte(maker.secretKey))
 	if err != nil {

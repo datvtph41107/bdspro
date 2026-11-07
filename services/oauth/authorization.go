@@ -176,8 +176,8 @@ func (s *Service) ReviewConsent(ctx context.Context, accountID int64, req Author
 	return client, version, err
 }
 
-func (s *Service) Authorize(ctx context.Context, accountID int64, req AuthorizationRequest) (string, error) {
-	if accountID <= 0 {
+func (s *Service) Authorize(ctx context.Context, accountID int64, sessionID uuid.UUID, req AuthorizationRequest) (string, error) {
+	if accountID <= 0 || sessionID == uuid.Nil {
 		return "", ErrAccessDenied
 	}
 	if _, err := s.ReviewAuthorization(ctx, req); err != nil {
@@ -189,12 +189,15 @@ func (s *Service) Authorize(ctx context.Context, accountID int64, req Authorizat
 	}
 	digest := sha256.Sum256([]byte(code))
 	if err := s.store.ApproveOAuthAuthCode(ctx, req.ClientID, accountID,
-		req.RedirectURI, req.Scope, req.CodeChallenge, digest[:], time.Now().Add(AuthCodeTTL), req.ConsentVersion); err != nil {
+		req.RedirectURI, req.Scope, req.CodeChallenge, digest[:], time.Now().Add(AuthCodeTTL), req.ConsentVersion, sessionID); err != nil {
 		if errors.Is(err, db.ErrOAuthConsentStale) {
 			return "", ErrInvalidRequest
 		}
 		if errors.Is(err, db.ErrOAuthClientMissing) {
 			return "", ErrInvalidClient
+		}
+		if errors.Is(err, db.ErrOAuthSessionInactive) {
+			return "", ErrAccessDenied
 		}
 		return "", err
 	}

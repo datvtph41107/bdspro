@@ -165,20 +165,7 @@ func (h *Handler) notAuthenticated(c *gin.Context) {
 // Browser requests must resolve their DB session on EVERY authorization call.
 func (h *Handler) Authenticate(c *gin.Context) {
 	if value := c.GetHeader("Authorization"); value != "" {
-		parts := strings.Fields(value)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			response.BearerRequired(c)
-			c.Abort()
-			return
-		}
-		payload, err := h.Maker.VerifyToken(parts[1], authcrypto.TokenTypeAccess)
-		if err != nil {
-			response.InvalidAccessToken(c)
-			c.Abort()
-			return
-		}
-		c.Set(middleware.AuthorizationPayloadKey, payload)
-		c.Next()
+		h.API.Authenticate(h.Maker)(c)
 		return
 	}
 	session, ok := h.loadSession(c)
@@ -187,7 +174,7 @@ func (h *Handler) Authenticate(c *gin.Context) {
 		return
 	}
 	c.Set(middleware.AuthorizationPayloadKey, &authcrypto.Payload{
-		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess,
+		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess, SessionID: session.ID,
 	})
 	c.Set(browserSessionKey, session.ID.String())
 	c.Next()
@@ -200,7 +187,7 @@ func (h *Handler) RequireBrowserSession(c *gin.Context) {
 		return
 	}
 	c.Set(middleware.AuthorizationPayloadKey, &authcrypto.Payload{
-		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess,
+		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess, SessionID: session.ID,
 	})
 	c.Set(browserSessionKey, session.ID.String())
 	c.Next()

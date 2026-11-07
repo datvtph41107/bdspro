@@ -38,7 +38,10 @@ func (s *consentProofHTTPStore) GetOAuthConsentVersion(_ context.Context, _ int6
 	return s.version, nil
 }
 func (s *consentProofHTTPStore) ApproveOAuthAuthCode(_ context.Context, _ uuid.UUID, _ int64,
-	_, _, _ string, _ []byte, _ time.Time, v int64) error {
+	_, _, _ string, _ []byte, _ time.Time, v int64, sessionID uuid.UUID) error {
+	if sessionID == uuid.Nil {
+		return db.ErrOAuthSessionInactive
+	}
 	if v != s.version {
 		return db.ErrOAuthConsentStale
 	}
@@ -64,11 +67,11 @@ func TestOAuthConsentProofBindsHTTPPreviewAndApproval(t *testing.T) {
 	grp := r.Group("", middleware.Authenticate(maker))
 	grp.GET("/oauth/authorize", handler.AuthorizePreview)
 	grp.POST("/oauth/authorize", handler.Authorize)
-	bearer, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeAccess)
+	bearer, _, err := maker.CreateSessionAccessToken(42, time.Minute, uuid.New())
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrongBearer, _, err := maker.CreateToken(43, time.Minute, authcrypto.TokenTypeAccess)
+	wrongBearer, _, err := maker.CreateSessionAccessToken(43, time.Minute, uuid.New())
 	if err != nil {
 		t.Fatal(err)
 	}

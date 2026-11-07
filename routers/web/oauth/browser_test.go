@@ -62,7 +62,10 @@ func (s *browserOAuthStore) GetOAuthConsentVersion(_ context.Context, _ int64, _
 	return s.version, nil
 }
 func (s *browserOAuthStore) ApproveOAuthAuthCode(_ context.Context, _ uuid.UUID, account int64,
-	_, _, _ string, _ []byte, _ time.Time, version int64) error {
+	_, _, _ string, _ []byte, _ time.Time, version int64, sessionID uuid.UUID) error {
+	if sessionID == uuid.Nil {
+		return db.ErrOAuthSessionInactive
+	}
 	if version != s.version {
 		return db.ErrOAuthConsentStale
 	}
@@ -271,7 +274,7 @@ func TestBrowserLoginConsentAndRevokedSession(t *testing.T) {
 	if expRec.Code != http.StatusUnauthorized {
 		t.Fatalf("invalid bearer fell back to cookie: %d", expRec.Code)
 	}
-	bearer, _, err := maker.CreateToken(84, time.Minute, authcrypto.TokenTypeAccess)
+	bearer, _, err := maker.CreateSessionAccessToken(42, time.Minute, store.session.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
