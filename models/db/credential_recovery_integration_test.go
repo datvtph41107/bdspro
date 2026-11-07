@@ -215,3 +215,51 @@ func TestConcurrentPasswordRecoveryProofsOnOneAccountDoNotDeadlock(t *testing.T)
 		t.Fatalf("concurrent recovery accepted=%d denied=%d, want one of each",accepted,denied)
 	}
 }
+
+func TestPasswordLoginSessionCannotSlipPastCommittedRecovery(t *testing.T) {
+	base,pool,store:=authChannelsTestStore(t)
+	ctx,cancel:=context.WithTimeout(base,10*time.Second)
+	defer cancel()
+	account,err:=account_model.Register(ctx,store,account_model.RegisterParams{
+		Email:uuid.NewString()+"@example.test",PasswordHash:"verified-old-hash",
+	})
+	if err!=nil {t.Fatal(err)}
+	blocker,err:=pool.Begin(ctx)
+	if err!=nil {t.Fatal(err)}
+	defer blocker.Rollback(ctx)
+	var id int64
+	if err:=blocker.QueryRow(ctx,"SELECT id FROM accounts WHERE id=$1 FOR UPDATE",account.ID).Scan(&id);err!=nil {t.Fatal(err)}
+	sessionID:=uuid.New()
+	finished:=make(chan error,1)
+	go func(){
+		_,err:=auth_model.NewSession(ctx,store,db.CreateSessionParams{
+			ID:sessionID,AccountID:account.ID,RefreshToken:"login-"+uuid.NewString(),
+			UserAgent:"old-login-race-test",ClientIp:"127.0.0.1",ExpiresAt:time.Now().Add(time.Hour),
+		},"verified-old-hash")
+		finished<-err
+	}()
+	select {
+	case err:=<-finished:
+		t.Fatalf("login session was inserted despite account recovery row lock: %v",err)
+	case <-time.After(150*time.Millisecond):
+	}
+	if _,err:=blocker.Exec(ctx,"UPDATE password_credentials SET password_hash=$2 WHERE account_id=$1",
+		account.ID,"recovered-new-hash");err!=nil {t.Fatal(err)}
+	if err:=blocker.Commit(ctx);err!=nil {t.Fatal(err)}
+	select {
+	case err:=<-finished:
+		if !errors.Is(err,auth_model.ErrInvalidCredentials) {
+			t.Fatalf("old password hash produced a committed session after recovery: %v",err)
+		}
+	case <-time.After(3*time.Second):
+		t.Fatal("login remained blocked after account recovery committed")
+	}
+	if _,err:=store.GetSession(ctx,sessionID);!errors.Is(err,pgx.ErrNoRows) {
+		t.Fatalf("failed password proof persisted session: %v",err)
+	}
+	var histories int
+	if err:=pool.QueryRow(ctx,"SELECT count(*) FROM account_connection_histories WHERE session_id=$1",
+		sessionID).Scan(&histories);err!=nil||histories!=0 {
+		t.Fatalf("failed password proof persisted connection history: %d %v",histories,err)
+	}
+}
