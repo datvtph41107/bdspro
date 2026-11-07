@@ -26,6 +26,7 @@ type sessionMemoryStore struct {
 	session      db.Session
 	historyCount int
 	historyErr   error
+	beforeSessionInsert func(*sessionMemoryStore)
 	auditErr     error
 	auditEvents  []db.InsertAuditEventParams
 }
@@ -102,6 +103,9 @@ func (tx sessionMemoryDBTX) QueryRow(_ context.Context, query string, args ...an
 	}
 	if !strings.Contains(query, "INSERT INTO sessions") || len(args) != 7 {
 		return sessionMemoryRow{err: fmt.Errorf("unexpected session query")}
+	}
+	if tx.store.beforeSessionInsert != nil {
+		tx.store.beforeSessionInsert(tx.store)
 	}
 	s := db.Session{
 		ID: args[0].(uuid.UUID), AccountID: args[1].(int64),
@@ -421,5 +425,22 @@ func TestLoginRejectsStaleVerifiedPasswordHashInsideSessionTransaction(t *testin
 		t.Fatalf("stale password issued a session: %v",err)
 	}
 	if store.session.ID!=uuid.Nil||store.historyCount!=0 {t.Fatal("stale credential persisted session/history")}
-	_ = maker
+	// End-to-end service call: after bcrypt succeeds but before the session
+	// is inserted, a recovery transitions the credential to a new hash.
+	store.passwordHash = old
+	store.beforeSessionInsert = func(m *sessionMemoryStore) {
+		m.passwordHash = newHash
+	}
+	cfg := setting.Config{TokenSymmetricKey: strings.Repeat("k", 32), AuditKey: strings.Repeat("a", 32),
+		AccessTokenDuration: 15 * time.Minute, RefreshTokenDuration: time.Hour}
+	maker, err := authcrypto.NewJWTMaker(cfg.TokenSymmetricKey)
+	if err != nil { t.Fatal(err) }
+	service := NewAuthService(store, maker, cfg, nil)
+	if _, err := service.Login(context.Background(), store.account.Email, "old-password", "agent", "127.0.0.1");
+		!errors.Is(err, auth_model.ErrInvalidCredentials) {
+		t.Fatalf("late password reset did not abort login: %v", err)
+	}
+	if store.session.ID != uuid.Nil || store.historyCount != 0 {
+		t.Fatal("late password reset left session/history writes")
+	}
 }
