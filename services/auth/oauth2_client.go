@@ -35,11 +35,11 @@ var (
 // OAuth2Pending is server-side state, consumed exactly once before exchanging
 // the code. Cookie/HTTP behavior belongs to the caller, not this service.
 type OAuth2Pending struct {
-	Issuer    string `json:"issuer"`
-	Purpose   string `json:"purpose"`
-	AccountID int64  `json:"account_id"`
-	Verifier  string `json:"verifier"`
-	Nonce     string `json:"nonce"`
+	Issuer     string `json:"issuer"`
+	Purpose    string `json:"purpose"`
+	AccountID  int64  `json:"account_id"`
+	Verifier   string `json:"verifier"`
+	Nonce      string `json:"nonce"`
 	Phone      string `json:"phone,omitempty"`
 	ReturnPath string `json:"return_path,omitempty"`
 }

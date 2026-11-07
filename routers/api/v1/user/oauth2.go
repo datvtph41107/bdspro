@@ -2,9 +2,9 @@ package user
 
 import (
 	"crypto/subtle"
-	"github.com/datvtph41107/bdspro/modules/auth"
 	"errors"
 	"fmt"
+	"github.com/datvtph41107/bdspro/modules/auth"
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/log"
@@ -27,9 +27,9 @@ type BrowserLoginCompleter interface {
 }
 
 type OAuth2Handler struct {
-	auth *auth_service.AuthService
-	oauth2 *auth_service.OAuth2Client
-	secure bool
+	auth         *auth_service.AuthService
+	oauth2       *auth_service.OAuth2Client
+	secure       bool
 	browserLogin BrowserLoginCompleter
 }
 

@@ -302,33 +302,35 @@ func TestCompleteOIDCLoginIssuesBrowserSessionNotJWT(t *testing.T) {
 		ID: uuid.MustParse(browserTestID), AccountID: 55, ExpiresAt: time.Now().Add(time.Hour),
 	}}
 	codec, err := authcrypto.NewBrowserSessionCodec(strings.Repeat("s", 32))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	h := &Handler{Config: Config{Codec: codec, PublicOrigin: browserTestOrigin, OIDCEnabled: true},
 		originHost: "auth.example.test", secure: true}
 	r := gin.New()
 	r.GET("/oidc/done", func(c *gin.Context) {
 		h.CompleteOIDCLogin(c, auth_service.LoginResult{Session: store.session,
-			AccessToken:"jwt-must-not-appear", RefreshToken:"refresh-must-not-appear"},
+			AccessToken: "jwt-must-not-appear", RefreshToken: "refresh-must-not-appear"},
 			"/oauth/authorize?state=abcdef1234567890")
 	})
-	rec := req(t,r,http.MethodGet,"/oidc/done",nil)
+	rec := req(t, r, http.MethodGet, "/oidc/done", nil)
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/oauth/authorize?state=abcdef1234567890" {
-		t.Fatalf("browser completion failed: %d %s",rec.Code,rec.Header().Get("Location"))
+		t.Fatalf("browser completion failed: %d %s", rec.Code, rec.Header().Get("Location"))
 	}
-	if strings.Contains(rec.Body.String(),"jwt-must-not-appear") ||
-		strings.Contains(rec.Header().Get("Set-Cookie"),"refresh-must-not-appear") {
+	if strings.Contains(rec.Body.String(), "jwt-must-not-appear") ||
+		strings.Contains(rec.Header().Get("Set-Cookie"), "refresh-must-not-appear") {
 		t.Fatal("server leaked an internal JWT to browser")
 	}
-	cookie := cookieNamed(t,rec,"__Host-bdspro-browser")
-	if _,err:=codec.ReadCookie(cookie.Value,time.Now());err!=nil {
-		t.Fatalf("invalid browser completion cookie: %v",err)
+	cookie := cookieNamed(t, rec, "__Host-bdspro-browser")
+	if _, err := codec.ReadCookie(cookie.Value, time.Now()); err != nil {
+		t.Fatalf("invalid browser completion cookie: %v", err)
 	}
 	bad := gin.New()
-	bad.GET("/oidc/done",func(c *gin.Context){
-		h.CompleteOIDCLogin(c,auth_service.LoginResult{Session:store.session},"https://evil.example/")
+	bad.GET("/oidc/done", func(c *gin.Context) {
+		h.CompleteOIDCLogin(c, auth_service.LoginResult{Session: store.session}, "https://evil.example/")
 	})
-	badRec:=req(t,bad,http.MethodGet,"/oidc/done",nil)
+	badRec := req(t, bad, http.MethodGet, "/oidc/done", nil)
 	if badRec.Code != http.StatusBadRequest || badRec.Header().Get("Set-Cookie") != "" {
-		t.Fatalf("external OIDC return path accepted: %d",badRec.Code)
+		t.Fatalf("external OIDC return path accepted: %d", badRec.Code)
 	}
 }

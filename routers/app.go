@@ -107,7 +107,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	// browser OIDC option. Mismatched deployments retain their existing API OIDC
 	// callback and password-based browser consent without a misleading link.
 	browserOIDC := cfg.OIDC.Enabled() && cfg.BrowserPublicOrigin != "" &&
-		cfg.OIDC.RedirectURI == cfg.BrowserPublicOrigin + "/users/oauth2/callback"
+		cfg.OIDC.RedirectURI == cfg.BrowserPublicOrigin+"/users/oauth2/callback"
 	if oauthStore, ok := store.(db.OAuthServerStore); ok {
 		proofs, err := oauth_service.NewConsentProofs(cfg.Authentication().JWTSecret)
 		if err != nil {

@@ -161,15 +161,17 @@ func TestOAuth2BrowserLoginRetainsOnlyValidatedConsentReturnPath(t *testing.T) {
 		t.Skip("Redis required for state integration")
 	}
 	provider := setting.OAuth2Provider{
-		Issuer: "https://issuer.example",
+		Issuer:           "https://issuer.example",
 		AuthorizationURL: "https://issuer.example/authorize",
-		TokenURL: "https://issuer.example/token",
-		JWKSURL: "https://issuer.example/keys",
-		ClientID: "client", ClientSecret: "secret",
+		TokenURL:         "https://issuer.example/token",
+		JWKSURL:          "https://issuer.example/keys",
+		ClientID:         "client", ClientSecret: "secret",
 		RedirectURI: "https://auth.example.test/users/oauth2/callback",
 	}
 	flow, err := NewOAuth2Client(provider, client, http.DefaultClient)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, bad := range []string{"", "//attacker.example", "https://evil.example/oauth/authorize", "/users/me", "/oauth/%61uthorize", "/oauth/authorize#fragment"} {
 		if _, err := flow.BeginBrowserLogin(ctx, bad); !errors.Is(err, ErrOAuth2StateInvalid) {
 			t.Errorf("accepted browser OIDC return target %q: %v", bad, err)
@@ -177,7 +179,9 @@ func TestOAuth2BrowserLoginRetainsOnlyValidatedConsentReturnPath(t *testing.T) {
 	}
 	path := "/oauth/authorize?client_id=42&response_type=code&state=abcdef"
 	start, err := flow.BeginBrowserLogin(ctx, path)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	pending, err := flow.Consume(ctx, start.State)
 	if err != nil || pending.Purpose != "login" || pending.ReturnPath != path || pending.AccountID != 0 {
 		t.Fatalf("browser OIDC state mismatch %+v %v", pending, err)
@@ -186,7 +190,9 @@ func TestOAuth2BrowserLoginRetainsOnlyValidatedConsentReturnPath(t *testing.T) {
 		t.Fatalf("replayed browser state was accepted: %v", err)
 	}
 	regular, err := flow.Begin(ctx, "login", 0, "")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	previous, err := flow.Consume(ctx, regular.State)
 	if err != nil || previous.ReturnPath != "" {
 		t.Fatalf("regular API OIDC login was changed: %+v %v", previous, err)
