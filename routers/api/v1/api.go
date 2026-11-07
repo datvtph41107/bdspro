@@ -83,11 +83,11 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 			approve = d.Browser.Authorize
 			authenticate = d.Browser.Authenticate
 			route.GET("/oauth/login", d.Browser.LoginPage)
+			loginHandlers := []gin.HandlerFunc{d.Browser.Login}
 			if d.IPActive != nil {
-				route.POST("/oauth/login", d.IPActive.For(ipactive.Login), d.Browser.Login)
-			} else {
-				route.POST("/oauth/login", d.Browser.Login)
+				loginHandlers = append([]gin.HandlerFunc{d.IPActive.For(ipactive.Login)}, loginHandlers...)
 			}
+			route.POST("/oauth/login", loginHandlers...)
 			route.POST("/oauth/logout", d.Browser.RequireBrowserSession, d.Browser.Logout)
 		}
 		route.GET("/oauth/authorize", authenticate, preview)
