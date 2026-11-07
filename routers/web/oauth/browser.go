@@ -5,10 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -389,5 +387,3 @@ func (h *Handler) Logout(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// A valid login target is a same-origin authorization request, not a client callback.
-func (h *Handler) String() string { return fmt.Sprintf("browser OAuth at %s", h.PublicOrigin) }
