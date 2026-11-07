@@ -12,6 +12,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -104,7 +105,7 @@ func TestStoreOrganizationHTTP(t *testing.T) {
 	organizations := NewHandler(store)
 	router := gin.New()
 	router.Use(middleware.RequestIngress())
-	router.POST("/organizations", middleware.Authenticate(maker), organizations.Create)
+	router.POST("/organizations", middleware.Authenticate(maker), appctx.Wrap(organizations.Create))
 
 	send := func(body, bearer string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, "/organizations", strings.NewReader(body))

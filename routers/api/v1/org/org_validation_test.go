@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,9 +16,9 @@ func TestOrganizationInvalidRequestsStopBeforeService(t *testing.T) {
 	// A nil service proves invalid HTTP input never reaches the operation.
 	h := NewHandler(nil)
 	router := gin.New()
-	router.POST("/organizations", h.Create)
-	router.PATCH("/organizations/:id", h.Edit)
-	router.POST("/organizations/:id/members", h.AddMember)
+	router.POST("/organizations", appctx.Wrap(h.Create))
+	router.PATCH("/organizations/:id", appctx.Wrap(h.Edit))
+	router.POST("/organizations/:id/members", appctx.Wrap(h.AddMember))
 
 	cases := []struct {
 		name   string

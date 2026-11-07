@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,7 +19,7 @@ func TestTeamInviteHandlersRejectMalformedRequests(t *testing.T) {
 		path    string
 		pattern string
 		body    string
-		handle  gin.HandlerFunc
+		handle  appctx.APIHandler
 	}{
 		{"missing email", http.MethodPost, "/teams/1/invites", "/teams/:team_id/invites", "{}", h.CreateInvite},
 		{"invalid email", http.MethodPost, "/teams/1/invites", "/teams/:team_id/invites", `{"email":"bad"}`, h.CreateInvite},
@@ -29,7 +30,7 @@ func TestTeamInviteHandlersRejectMalformedRequests(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			router := gin.New()
-			router.Handle(tt.method, tt.pattern, tt.handle)
+			router.Handle(tt.method, tt.pattern, appctx.Wrap(tt.handle))
 			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			if tt.body != "" {
 				req.Header.Set("Content-Type", "application/json")

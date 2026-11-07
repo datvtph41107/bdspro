@@ -8,10 +8,8 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/structs"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/response"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
-	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
@@ -22,72 +20,72 @@ func NewHandler(store db.Store) *Handler {
 	return &Handler{store: store}
 }
 
-func (h *Handler) List(c *gin.Context) {
-	organizations, err := organization_model.ListForAccount(c.Request.Context(), h.store, middleware.AccountID(c))
+func (h *Handler) List(c *appctx.APIContext) {
+	organizations, err := organization_model.ListForAccount(c.Request.Context(), h.store, c.Doer.AccountID)
 	if err != nil {
-		response.Error(c, err)
+		c.APIErrorAuto(err)
 		return
 	}
 	c.JSON(http.StatusOK, convert.ToOrganizationAccessList(organizations))
 }
 
-func (h *Handler) Get(c *gin.Context) {
+func (h *Handler) Get(c *appctx.APIContext) {
 	id, ok := organizationID(c)
 	if !ok {
 		return
 	}
-	organization, err := organization_model.GetForAccount(c.Request.Context(), h.store, middleware.AccountID(c), id)
+	organization, err := organization_model.GetForAccount(c.Request.Context(), h.store, c.Doer.AccountID, id)
 	if err != nil {
-		response.Error(c, err)
+		c.APIErrorAuto(err)
 		return
 	}
 	c.JSON(http.StatusOK, convert.ToOrganizationAccess(organization))
 }
 
-func (h *Handler) Create(c *gin.Context) {
+func (h *Handler) Create(c *appctx.APIContext) {
 	var req structs.CreateOrgOption
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Validation(c, err, &req)
+		appctx.Validation(c.Context, err, &req)
 		return
 	}
 	if strings.TrimSpace(req.Name) == "" {
-		response.FieldError(c, "name", "required", "name is required")
+		appctx.FieldError(c.Context, "name", "required", "name is required")
 		return
 	}
-	organization, err := organization_model.CreateOrganization(c.Request.Context(), h.store, middleware.AccountID(c), req.Name)
+	organization, err := organization_model.CreateOrganization(c.Request.Context(), h.store, c.Doer.AccountID, req.Name)
 	if err != nil {
-		response.Error(c, err)
+		c.APIErrorAuto(err)
 		return
 	}
 	c.JSON(http.StatusCreated, convert.ToOrganization(organization))
 }
 
-func (h *Handler) Edit(c *gin.Context) {
+func (h *Handler) Edit(c *appctx.APIContext) {
 	id, ok := organizationID(c)
 	if !ok {
 		return
 	}
 	var req structs.EditOrgOption
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Validation(c, err, &req)
+		appctx.Validation(c.Context, err, &req)
 		return
 	}
 	if req.Name == nil || strings.TrimSpace(*req.Name) == "" {
-		response.FieldError(c, "name", "required", "name is required")
+		appctx.FieldError(c.Context, "name", "required", "name is required")
 		return
 	}
-	organization, err := organization_model.UpdateOrganization(c.Request.Context(), h.store, middleware.AccountID(c), id, *req.Name)
+	organization, err := organization_model.UpdateOrganization(c.Request.Context(), h.store, c.Doer.AccountID, id, *req.Name)
 	if err != nil {
-		response.Error(c, err)
+		c.APIErrorAuto(err)
 		return
 	}
 	c.JSON(http.StatusOK, convert.ToOrganization(organization))
 }
 
-func organizationID(c *gin.Context) (int64, bool) {
+func organizationID(c *appctx.APIContext) (int64, bool) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
-		response.Error(c, organization_model.ErrInvalidOrganization)
+		c.APIErrorAuto(organization_model.ErrInvalidOrganization)
 		return 0, false
 	}
 	return id, true
