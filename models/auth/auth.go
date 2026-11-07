@@ -11,19 +11,22 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// ResetPassword consumes the one-use proof, updates the password and removes
-// reset proofs and refresh sessions in the same PostgreSQL transaction.
-// Access JWTs continue to expire according to the existing stateless policy.
-// Transactioner retains the model's existing public name; db owns the contract.
+// ResetPassword is a credential-recovery transaction: the reset token,
+// password, sessions and third-party OAuth grants commit or roll back together.
+// Internal stateless access JWTs still follow the existing expiry policy.
 type Transactioner = db.Transactioner
 
-func ResetPassword(ctx context.Context, tx Transactioner, tokenHash []byte, passwordHash string) error {
-	return tx.ExecTx(ctx, func(q *db.Queries) error {
+func ResetPassword(ctx context.Context, store db.Store, tokenHash []byte, passwordHash string) error {
+	return store.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+		q := db.New(tx)
 		accountID, err := q.ConsumePasswordResetToken(ctx, tokenHash)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrPasswordResetInvalid
 		}
 		if err != nil {
+			return err
+		}
+		if err := db.LockAccountForCredentialRecovery(ctx, tx, accountID); err != nil {
 			return err
 		}
 		if err := q.UpsertPasswordCredential(ctx, db.UpsertPasswordCredentialParams{
@@ -34,7 +37,10 @@ func ResetPassword(ctx context.Context, tx Transactioner, tokenHash []byte, pass
 		if err := q.DeletePasswordResetTokensForAccount(ctx, accountID); err != nil {
 			return err
 		}
-		return q.DeleteSessionsForAccount(ctx, accountID)
+		if err := q.DeleteSessionsForAccount(ctx, accountID); err != nil {
+			return err
+		}
+		return db.RevokeOAuthForCredentialRecovery(ctx, tx, accountID)
 	})
 }
 
