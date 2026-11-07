@@ -21,13 +21,14 @@ import (
 
 type sessionMemoryStore struct {
 	db.Store
-	account      db.Account
-	passwordHash string
-	session      db.Session
-	historyCount int
-	historyErr   error
-	auditErr     error
-	auditEvents  []db.InsertAuditEventParams
+	account             db.Account
+	passwordHash        string
+	session             db.Session
+	historyCount        int
+	historyErr          error
+	beforeSessionInsert func(*sessionMemoryStore)
+	auditErr            error
+	auditEvents         []db.InsertAuditEventParams
 }
 
 func (s *sessionMemoryStore) InsertAuditEvent(_ context.Context, arg db.InsertAuditEventParams) error {
@@ -81,9 +82,30 @@ func (r sessionMemoryRow) Scan(dest ...any) error {
 	return nil
 }
 
+type sessionMemoryPasswordRow struct {
+	hash string
+}
+
+func (r sessionMemoryPasswordRow) Scan(dest ...any) error {
+	if len(dest) != 1 {
+		return fmt.Errorf("unexpected credential query shape")
+	}
+	*dest[0].(*string) = r.hash
+	return nil
+}
+
 func (tx sessionMemoryDBTX) QueryRow(_ context.Context, query string, args ...any) pgx.Row {
+	if strings.Contains(query, "SELECT password_hash") && len(args) == 1 {
+		if args[0].(int64) != tx.store.account.ID || tx.store.passwordHash == "" {
+			return sessionMemoryRow{err: pgx.ErrNoRows}
+		}
+		return sessionMemoryPasswordRow{hash: tx.store.passwordHash}
+	}
 	if !strings.Contains(query, "INSERT INTO sessions") || len(args) != 7 {
 		return sessionMemoryRow{err: fmt.Errorf("unexpected session query")}
+	}
+	if tx.store.beforeSessionInsert != nil {
+		tx.store.beforeSessionInsert(tx.store)
 	}
 	s := db.Session{
 		ID: args[0].(uuid.UUID), AccountID: args[1].(int64),
@@ -379,5 +401,49 @@ func TestSessionUserAgentNormalizedBeforePersistence(t *testing.T) {
 	}
 	if store.historyCount != 1 {
 		t.Fatalf("successful session should have one history, got %d", store.historyCount)
+	}
+}
+
+func TestLoginRejectsStaleVerifiedPasswordHashInsideSessionTransaction(t *testing.T) {
+	old, err := authcrypto.HashPassword("old-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	newHash, err := authcrypto.HashPassword("new-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &sessionMemoryStore{account: db.Account{ID: 77, PersonID: 88, Email: "stale@example.test"}, passwordHash: old}
+	cfg := setting.Config{TokenSymmetricKey: strings.Repeat("k", 32), AuditKey: strings.Repeat("a", 32),
+		AccessTokenDuration: 15 * time.Minute, RefreshTokenDuration: time.Hour}
+	maker, err := authcrypto.NewJWTMaker(cfg.TokenSymmetricKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Password was verified against 'old'; recovery commits a new password
+	// before session issuance reaches the transaction.
+	store.passwordHash = newHash
+	_, err = auth_model.NewSession(context.Background(), store, db.CreateSessionParams{
+		ID: uuid.New(), AccountID: 77, RefreshToken: "stale-test",
+		UserAgent: "stale-test", ClientIp: "127.0.0.1", ExpiresAt: time.Now().Add(time.Hour),
+	}, old)
+	if !errors.Is(err, auth_model.ErrInvalidCredentials) {
+		t.Fatalf("stale password issued a session: %v", err)
+	}
+	if store.session.ID != uuid.Nil || store.historyCount != 0 {
+		t.Fatal("stale credential persisted session/history")
+	}
+	// End-to-end service call: after bcrypt succeeds but before the session
+	// is inserted, a recovery transitions the credential to a new hash.
+	store.passwordHash = old
+	store.beforeSessionInsert = func(m *sessionMemoryStore) {
+		m.passwordHash = newHash
+	}
+	service := NewAuthService(store, maker, cfg, nil)
+	if _, err := service.Login(context.Background(), store.account.Email, "old-password", "agent", "127.0.0.1"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
+		t.Fatalf("late password reset did not abort login: %v", err)
+	}
+	if store.session.ID != uuid.Nil || store.historyCount != 0 {
+		t.Fatal("late password reset left session/history writes")
 	}
 }

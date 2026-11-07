@@ -343,9 +343,8 @@ func (s *SQLStore) RevokeOAuthBearer(ctx context.Context, clientID uuid.UUID, ha
 	})
 }
 
-// ExecTxRaw is reserved for the OAuth authorization-server protocol, whose
-// atomic grant consumption/replay handling require row-level locks on pgx.Tx.
-// Existing application operations continue to use SQLC's ExecTx.
+// ExecTxRaw supports OAuth protocol transactions and atomic password recovery
+// that revokes delegated OAuth grants. SQLC remains the default query layer.
 func (s *SQLStore) ExecTxRaw(ctx context.Context, fn func(pgx.Tx) error) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

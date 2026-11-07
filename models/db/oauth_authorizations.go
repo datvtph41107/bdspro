@@ -25,7 +25,14 @@ func oauthAuthorizationKey(accountID int64, clientID uuid.UUID) int64 {
 // lock before any row lock; refreshing also acquires the family lock second.
 func lockOAuthAuthorization(ctx context.Context, tx pgx.Tx, accountID int64, clientID uuid.UUID) error {
 	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1::bigint)`, oauthAuthorizationKey(accountID, clientID))
-	return err
+	if err != nil {
+		return err
+	}
+	// Password recovery locks the account row FOR UPDATE before revoking
+	// grants. OAuth writers lock it FOR SHARE after their pair advisory lock.
+	// This serializes recovery against code issuance and refresh rotation.
+	var id int64
+	return tx.QueryRow(ctx, `SELECT id FROM accounts WHERE id=$1 FOR SHARE`, accountID).Scan(&id)
 }
 
 // ListOAuthAuthorizations lists active, persistently approved grants even if

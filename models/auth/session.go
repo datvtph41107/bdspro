@@ -26,7 +26,13 @@ type SessionStore interface {
 	RevokeAllAccountSessions(context.Context, int64) (int64, error)
 }
 
-func NewSession(ctx context.Context, store SessionStore, params db.CreateSessionParams) (db.Session, error) {
+// When expectedPasswordHash is supplied, the credential must still match
+// inside the session transaction. The session FK holds KEY SHARE on accounts;
+// recovery's account FOR UPDATE lock serializes password reset with issuance.
+func NewSession(ctx context.Context, store SessionStore, params db.CreateSessionParams, expectedPasswordHash ...string) (db.Session, error) {
+	if len(expectedPasswordHash) > 1 {
+		return db.Session{}, ErrInvalidCredentials
+	}
 	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.Session, error) {
 		session, err := q.CreateSession(ctx, params)
 		if err != nil {
@@ -39,6 +45,18 @@ func NewSession(ctx context.Context, store SessionStore, params db.CreateSession
 			UserAgent: params.UserAgent,
 		}); err != nil {
 			return db.Session{}, err
+		}
+		if len(expectedPasswordHash) == 1 {
+			current, err := q.GetPasswordHash(ctx, params.AccountID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return db.Session{}, ErrInvalidCredentials
+			}
+			if err != nil {
+				return db.Session{}, err
+			}
+			if subtle.ConstantTimeCompare([]byte(current), []byte(expectedPasswordHash[0])) != 1 {
+				return db.Session{}, ErrInvalidCredentials
+			}
 		}
 		return session, nil
 	})

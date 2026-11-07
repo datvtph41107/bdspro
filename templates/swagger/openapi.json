@@ -1372,7 +1372,7 @@
         "tags": [
           "Authentication"
         ],
-        "summary": "Set password and revoke refresh sessions",
+        "summary": "Recover password and revoke sessions and OAuth authorizations atomically",
         "requestBody": {
           "required": true,
           "content": {
@@ -1385,7 +1385,7 @@
         },
         "responses": {
           "204": {
-            "description": "Success"
+            "description": "Password, reset proofs, first-party sessions, unused OAuth codes and delegated OAuth access/refresh tokens revoked atomically; ordinary stateless access JWTs expire normally"
           },
           "400": {
             "description": "Invalid or expired token"
@@ -1560,7 +1560,7 @@
         ],
         "responses": {
           "204": {
-            "description": "All refresh sessions revoked; access tokens expire normally"
+            "description": "Only first-party refresh sessions revoked; delegated third-party OAuth grants and tokens are unaffected; internal stateless access JWTs expire normally"
           }
         }
       }

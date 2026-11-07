@@ -4,6 +4,7 @@ import (
 	"context"
 
 	sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,6 +20,9 @@ type Store interface {
 	GetAccountByID(ctx context.Context, id int64) (Account, error)
 	GetAccountByEmail(ctx context.Context, email string) (Account, error)
 	Transactioner
+	// Cross-protocol recovery needs one PostgreSQL transaction for SQLC
+	// credential/session writes and OAuth grant invalidation.
+	ExecTxRaw(context.Context, func(pgx.Tx) error) error
 }
 
 type SQLStore struct {
