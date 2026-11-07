@@ -33,6 +33,13 @@ type OAuthAccess struct {
 	Scope     string
 }
 
+// OAuthAuthorizedClient represents an active account/client relationship.
+// It is NOT an immutable record of historic consent.
+type OAuthAuthorizedClient struct {
+	ClientID uuid.UUID
+	Name     string
+}
+
 type OAuthServerStore interface {
 	CreateOAuthClient(context.Context, OauthClient) (OauthClient, error)
 	GetOAuthClient(context.Context, uuid.UUID) (OauthClient, error)
@@ -43,6 +50,8 @@ type OAuthServerStore interface {
 	RotateOAuthRefreshToken(context.Context, uuid.UUID, []byte, []byte, []byte, time.Time) (OAuthGrant, error)
 	ResolveOAuthAccessToken(context.Context, []byte) (OAuthAccess, error)
 	RevokeOAuthBearer(context.Context, uuid.UUID, []byte) error
+	ListOAuthAuthorizations(context.Context, int64) ([]OAuthAuthorizedClient, error)
+	RevokeOAuthAuthorization(context.Context, int64, uuid.UUID) error
 }
 
 func (s *SQLStore) CreateOAuthClient(ctx context.Context, input OauthClient) (OauthClient, error) {
@@ -100,19 +109,24 @@ func (s *SQLStore) RevokeOAuthClient(ctx context.Context, owner int64, id uuid.U
 }
 
 func (s *SQLStore) CreateOAuthAuthCode(ctx context.Context, clientID uuid.UUID, accountID int64, redirect, scope, challenge string, hash []byte, expires time.Time) error {
-	tag, err := s.pool.Exec(ctx, `INSERT INTO oauth_auth_codes
-		(code_hash,client_id,account_id,redirect_uri,scope,code_challenge,expires_at)
-		SELECT $1,c.id,a.id,$4,$5,$6,$7
-		FROM oauth_clients c JOIN accounts a ON a.id=$3
-		WHERE c.id=$2 AND c.revoked_at IS NULL AND c.redirect_uri=$4`,
-		hash, clientID, accountID, redirect, scope, challenge, expires)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() != 1 {
-		return ErrOAuthClientMissing
-	}
-	return nil
+	return s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+		if err := lockOAuthAuthorization(ctx, tx, accountID, clientID); err != nil {
+			return err
+		}
+		tag, err := tx.Exec(ctx, `INSERT INTO oauth_auth_codes
+			(code_hash,client_id,account_id,redirect_uri,scope,code_challenge,expires_at)
+			SELECT $1,c.id,a.id,$4,$5,$6,$7
+			FROM oauth_clients c JOIN accounts a ON a.id=$3
+			WHERE c.id=$2 AND c.revoked_at IS NULL AND c.redirect_uri=$4`,
+			hash, clientID, accountID, redirect, scope, challenge, expires)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() != 1 {
+			return ErrOAuthClientMissing
+		}
+		return nil
+	})
 }
 
 // RedeemOAuthAuthCode serializes contenders on one code_hash with row locking.
@@ -121,14 +135,29 @@ func (s *SQLStore) CreateOAuthAuthCode(ctx context.Context, clientID uuid.UUID, 
 func (s *SQLStore) RedeemOAuthAuthCode(ctx context.Context, clientID uuid.UUID, codeHash []byte, redirect, challenge string, accessHash, refreshHash []byte, accessExpiry, refreshExpiry time.Time, family uuid.UUID) (OAuthGrant, error) {
 	var grant OAuthGrant
 	err := s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+		// Read the immutable account lock key without a row lock, then
+		// re-check the code under the shared account/client serialization.
 		var accountID int64
+		err := tx.QueryRow(ctx, `SELECT account_id FROM oauth_auth_codes
+			WHERE code_hash=$1 AND client_id=$2 AND redirect_uri=$3`,
+			codeHash, clientID, redirect).Scan(&accountID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrOAuthGrantInvalid
+		}
+		if err != nil {
+			return err
+		}
+		if err := lockOAuthAuthorization(ctx, tx, accountID, clientID); err != nil {
+			return err
+		}
+		var lockedAccountID int64
 		var scope, expected string
-		err := tx.QueryRow(ctx, `SELECT a.account_id,a.scope,a.code_challenge
+		err = tx.QueryRow(ctx, `SELECT a.account_id,a.scope,a.code_challenge
 			FROM oauth_auth_codes a JOIN oauth_clients c ON c.id=a.client_id
 			WHERE a.code_hash=$1 AND a.client_id=$2 AND a.redirect_uri=$3
 			AND a.used_at IS NULL AND a.expires_at>now() AND c.revoked_at IS NULL
-			FOR UPDATE OF a`, codeHash, clientID, redirect).Scan(&accountID, &scope, &expected)
-		if errors.Is(err, pgx.ErrNoRows) {
+			FOR UPDATE OF a`, codeHash, clientID, redirect).Scan(&lockedAccountID, &scope, &expected)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && lockedAccountID != accountID) {
 			return ErrOAuthGrantInvalid
 		}
 		if err != nil {
@@ -169,16 +198,20 @@ func (s *SQLStore) RotateOAuthRefreshToken(ctx context.Context, clientID uuid.UU
 	var replay bool
 	err := s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
 		var family uuid.UUID
-		// Read the immutable family identifier without a row lock. Locking a
-		// token row first can deadlock against a concurrent family revocation.
-		err := tx.QueryRow(ctx, `SELECT t.family_id
+		var accountID int64
+		// Look up immutable lock keys without a row lock. Neither read
+		// grants authority: the state is checked again under both locks.
+		err := tx.QueryRow(ctx, `SELECT t.family_id,t.account_id
 			FROM oauth_refresh_tokens t JOIN oauth_clients c ON c.id=t.client_id
 			WHERE t.token_hash=$1 AND t.client_id=$2 AND c.revoked_at IS NULL`,
-			oldHash, clientID).Scan(&family)
+			oldHash, clientID).Scan(&family, &accountID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrOAuthGrantInvalid
 		}
 		if err != nil {
+			return err
+		}
+		if err = lockOAuthAuthorization(ctx, tx, accountID, clientID); err != nil {
 			return err
 		}
 		if err = lockOAuthFamily(ctx, tx, family); err != nil {
@@ -194,7 +227,7 @@ func (s *SQLStore) RotateOAuthRefreshToken(ctx context.Context, clientID uuid.UU
 			FROM oauth_refresh_tokens t JOIN oauth_clients c ON c.id=t.client_id
 			WHERE t.token_hash=$1 AND t.client_id=$2 AND c.revoked_at IS NULL
 			FOR UPDATE OF t`, oldHash, clientID).Scan(&grant.AccountID, &grant.Scope, &lockedFamily, &expires, &consumed, &revoked)
-		if errors.Is(err, pgx.ErrNoRows) || (err == nil && lockedFamily != family) {
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && (lockedFamily != family || grant.AccountID != accountID)) {
 			return ErrOAuthGrantInvalid
 		}
 		if err != nil {
@@ -275,22 +308,28 @@ func (s *SQLStore) ResolveOAuthAccessToken(ctx context.Context, hash []byte) (OA
 func (s *SQLStore) RevokeOAuthBearer(ctx context.Context, clientID uuid.UUID, hash []byte) error {
 	return s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
 		var family uuid.UUID
-		err := tx.QueryRow(ctx, `SELECT family_id FROM oauth_refresh_tokens
-			WHERE token_hash=$1 AND client_id=$2`, hash, clientID).Scan(&family)
+		var accountID int64
+		err := tx.QueryRow(ctx, `SELECT family_id,account_id FROM oauth_refresh_tokens
+			WHERE token_hash=$1 AND client_id=$2`, hash, clientID).Scan(&family, &accountID)
 		if err == nil {
+			// All writes follow account/client -> family -> token row order.
+			if err = lockOAuthAuthorization(ctx, tx, accountID, clientID); err != nil {
+				return err
+			}
 			if err = lockOAuthFamily(ctx, tx, family); err != nil {
 				return err
 			}
 			var lockedFamily uuid.UUID
-			err = tx.QueryRow(ctx, `SELECT family_id FROM oauth_refresh_tokens
-				WHERE token_hash=$1 AND client_id=$2 FOR UPDATE`, hash, clientID).Scan(&lockedFamily)
+			var lockedAccountID int64
+			err = tx.QueryRow(ctx, `SELECT family_id,account_id FROM oauth_refresh_tokens
+				WHERE token_hash=$1 AND client_id=$2 FOR UPDATE`, hash, clientID).Scan(&lockedFamily, &lockedAccountID)
 			if errors.Is(err, pgx.ErrNoRows) {
-				return nil // token vanished while awaiting the family lock
+				return nil // credential was removed during lock acquisition
 			}
 			if err != nil {
 				return err
 			}
-			if lockedFamily != family {
+			if lockedFamily != family || lockedAccountID != accountID {
 				return ErrOAuthGrantInvalid
 			}
 			return revokeOAuthFamily(ctx, tx, family)
@@ -298,8 +337,20 @@ func (s *SQLStore) RevokeOAuthBearer(ctx context.Context, clientID uuid.UUID, ha
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
+		// Access-only revoke uses the same account/client serialization.
+		err = tx.QueryRow(ctx, `SELECT account_id FROM oauth_access_tokens
+			WHERE token_hash=$1 AND client_id=$2`, hash, clientID).Scan(&accountID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := lockOAuthAuthorization(ctx, tx, accountID, clientID); err != nil {
+			return err
+		}
 		_, err = tx.Exec(ctx, `UPDATE oauth_access_tokens SET revoked_at=now()
-			WHERE token_hash=$1 AND client_id=$2 AND revoked_at IS NULL`, hash, clientID)
+			WHERE token_hash=$1 AND client_id=$2 AND account_id=$3 AND revoked_at IS NULL`, hash, clientID, accountID)
 		return err
 	})
 }

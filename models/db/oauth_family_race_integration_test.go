@@ -74,9 +74,11 @@ func TestOAuthRefreshFamilySerializesRotationAndReplay(t *testing.T) {
 	}()
 	<-started
 	<-started
-	// Do not infer lock acquisition from a timer. Confirm both PostgreSQL
-	// backends are actually waiting for this exact advisory-lock key.
-	waitForOAuthFamilyWaiters(t, ctx, store, family, 2)
+	// Account/client serialization precedes family locking. One request
+	// holds the account/client lock and waits on family; the second waits
+	// on the account/client key, not on family. Verify both server-side.
+	waitForOAuthFamilyWaiters(t, ctx, store, family, 1)
+	waitForOAuthAuthorizationWaiters(t, ctx, store, accountID, clientID, 1)
 	select {
 	case result := <-completed:
 		t.Fatalf("%s escaped the held family lock: %v", result.op, result.err)
@@ -218,6 +220,38 @@ func waitForOAuthFamilyWaiters(t *testing.T, ctx context.Context, store *SQLStor
 			t.Fatalf("waiting for advisory lock waiters: %v", ctx.Err())
 		case <-deadline.C:
 			t.Fatalf("expected %d PostgreSQL advisory lock waiters, observed %d", want, blocked)
+		case <-ticker.C:
+		}
+	}
+}
+
+// waitForOAuthAuthorizationWaiters verifies blocked PostgreSQL sessions on the
+// exact bigint advisory lock for (account,client), rather than sleeping.
+func waitForOAuthAuthorizationWaiters(t *testing.T, ctx context.Context, store *SQLStore, accountID int64, clientID uuid.UUID, want int) {
+	t.Helper()
+	key := uint64(oauthAuthorizationKey(accountID, clientID))
+	high, low := int64(uint32(key>>32)), int64(uint32(key))
+	deadline := time.NewTimer(5 * time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		var blocked int
+		err := store.pool.QueryRow(ctx, `SELECT count(*) FROM pg_catalog.pg_locks
+			WHERE locktype='advisory' AND NOT granted AND mode='ExclusiveLock'
+			AND objsubid=1 AND classid::bigint=$1 AND objid::bigint=$2
+			AND database=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())`, high, low).Scan(&blocked)
+		if err != nil {
+			t.Fatalf("inspect account authorization lock waiters: %v", err)
+		}
+		if blocked >= want {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("authorization lock wait cancelled: %v", ctx.Err())
+		case <-deadline.C:
+			t.Fatalf("expected %d authorization lock waiters, saw %d", want, blocked)
 		case <-ticker.C:
 		}
 	}
