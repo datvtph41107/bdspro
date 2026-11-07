@@ -3183,19 +3183,20 @@
         ],
         "responses": {
           "200": {
-            "description": "Client details and current consent_version; GET never grants consent",
+            "description": "Consent preview: client, scope, consent_version and signed five-minute consent_proof",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["client_id", "name", "redirect_uri", "scope", "consent_required", "consent_version"],
+                  "required": ["client_id", "name", "redirect_uri", "scope", "consent_required", "consent_version", "consent_proof"],
                   "properties": {
                     "client_id": {"type": "string", "format": "uuid"},
                     "name": {"type": "string"},
                     "redirect_uri": {"type": "string"},
                     "scope": {"type": "string"},
                     "consent_required": {"type": "boolean"},
-                    "consent_version": {"type": "integer", "format": "int64", "minimum": 0}
+                    "consent_version": {"type": "integer", "format": "int64", "minimum": 0},
+                    "consent_proof": {"type": "string"}
                   }
                 }
               }
@@ -3288,6 +3289,10 @@
                     "format": "int64",
                     "minimum": 0,
                     "description": "Required when approve=true; must echo the version from GET /oauth/authorize"
+                  },
+                  "consent_proof": {
+                    "type": "string",
+                    "description": "Signed five-minute consent preview proof; required when approve=true; binds account, request, PKCE, state and version"
                   }
                 }
               }

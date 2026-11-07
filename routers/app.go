@@ -102,7 +102,11 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	server.phoneEnabled = phoneSender != nil
 	server.organizationHandler = org.NewHandler(store)
 	if oauthStore, ok := store.(db.OAuthServerStore); ok {
-		server.authorizationHandler = oauth.NewHandler(oauth_service.NewService(oauthStore), store)
+		proofs, err := oauth_service.NewConsentProofs(cfg.Authentication().JWTSecret)
+		if err != nil {
+			return nil, fmt.Errorf("configure OAuth consent proof: %w", err)
+		}
+		server.authorizationHandler = oauth.NewHandler(oauth_service.NewService(oauthStore), store, proofs)
 	}
 
 	// OIDC owns its browser protocol, but account linking and session
