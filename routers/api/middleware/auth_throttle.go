@@ -9,7 +9,7 @@ import (
 
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/timeutil"
-	"github.com/datvtph41107/bdspro/routers/api/response"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
@@ -35,7 +35,7 @@ return 1
 
 func (l *AuthThrottle) Allow(ctx *gin.Context, operation, credential string, perIP, perCredential int64, window time.Duration) bool {
 	if l == nil || l.client == nil || perIP <= 0 || perCredential <= 0 || timeutil.SecondsCeil(window) == 0 {
-		response.RateLimitUnavailable(ctx)
+		appctx.RateLimitUnavailable(ctx)
 		return false
 	}
 	namespace := authThrottleKeyPrefix + operation + ":"
@@ -49,11 +49,11 @@ func (l *AuthThrottle) Allow(ctx *gin.Context, operation, credential string, per
 			Str("dependency", "redis").
 			Str("error_type", fmt.Sprintf("%T", err)).
 			Msg("auth.rate_limit_unavailable")
-		response.RateLimitUnavailable(ctx)
+		appctx.RateLimitUnavailable(ctx)
 		return false
 	}
 	if allowed != 1 {
-		response.RateLimited(ctx, timeutil.SecondsCeil(window))
+		appctx.RateLimited(ctx, timeutil.SecondsCeil(window))
 		return false
 	}
 	return true

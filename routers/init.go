@@ -11,9 +11,9 @@ import (
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/response"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/common"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -49,7 +49,7 @@ func NormalRoutes(server *Server) *gin.Engine {
 			Str("path", path).
 			Str("panic_type", fmt.Sprintf("%T", recovered)).
 			Msg("http.panic")
-		response.InternalError(ctx)
+		appctx.InternalError(ctx)
 	}))
 
 	router.Use(
@@ -88,7 +88,7 @@ func accessLogger() gin.HandlerFunc {
 			path = "<unmatched>"
 		}
 		event := log.Ctx(ctx.Request.Context()).Info()
-		if code := ctx.GetString(response.ErrorCodeKey); code != "" {
+		if code := ctx.GetString(appctx.ErrorCodeKey); code != "" {
 			event = event.Str("error_code", code)
 		}
 		event.Str("method", ctx.Request.Method).

@@ -13,13 +13,13 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/response"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
 	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
@@ -78,7 +78,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 				Str("action", string(event.Action)).
 				Str("error_type", fmt.Sprintf("%T", admissionErr)).
 				Msg("ipactive.admission_unavailable")
-			response.RateLimitUnavailable(c)
+			appctx.RateLimitUnavailable(c)
 			return
 		}
 		// Log the actual admission-decision time, not a later handler timestamp.
@@ -88,7 +88,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			Int64("occurred_at_unix", int64(event.OccurredAt)).
 			Int64("attempts", event.Attempts).
 			Msg("ipactive.rate_limited")
-		response.RateLimited(c, event.RetryAfter)
+		appctx.RateLimited(c, event.RetryAfter)
 	})
 	// Construct a single authentication owner for all credential methods.
 	phoneSender, err := notification.NewPhoneCodeSender(cfg)

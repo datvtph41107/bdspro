@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"net/http"
 
-	"github.com/datvtph41107/bdspro/routers/api/response"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,7 +15,7 @@ const maxRequestBodyBytes int64 = 1 << 20
 func RequestIngress() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if ctx.Request.ContentLength > maxRequestBodyBytes {
-			response.Reject(ctx, http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
+			appctx.Reject(ctx, http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
 			return
 		}
 		ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, maxRequestBodyBytes)

@@ -9,8 +9,8 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/response"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/templates"
@@ -32,7 +32,7 @@ func NewAuthHandler(auth *auth_service.AuthService, limiter *middleware.AuthThro
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req structs.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "register", req.Email, 10, 3, time.Hour) {
@@ -40,7 +40,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 	account, err := h.auth.Register(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, convert.ToUser(account))
@@ -49,7 +49,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req structs.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "login", req.Email, 30, 10, time.Minute) {
@@ -58,7 +58,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	result, err := h.auth.Login(c.Request.Context(),
 		req.Email, req.Password, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, convert.ToLogin(result))
@@ -67,14 +67,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) StartPhoneBind(c *gin.Context) {
 	var req structs.PhoneBindRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "phone_bind_start", req.Phone, 10, 3, time.Hour) {
 		return
 	}
 	if err := h.auth.StartPhoneBind(c.Request.Context(), middleware.AccountID(c), req.Password, req.Phone); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusAccepted)
@@ -83,14 +83,14 @@ func (h *AuthHandler) StartPhoneBind(c *gin.Context) {
 func (h *AuthHandler) VerifyPhoneBind(c *gin.Context) {
 	var req structs.PhoneVerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "phone_bind_verify", req.Phone, 40, 5, 10*time.Minute) {
 		return
 	}
 	if err := h.auth.VerifyPhoneBind(c.Request.Context(), middleware.AccountID(c), req.Phone, req.Code); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -101,14 +101,14 @@ func (h *AuthHandler) VerifyPhoneBind(c *gin.Context) {
 func (h *AuthHandler) StartPhoneRegister(c *gin.Context) {
 	var req structs.PhoneStartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "phone_register_start", req.Phone, 10, 3, time.Hour) {
 		return
 	}
 	if err := h.auth.StartPhoneRegister(c.Request.Context(), req.Phone); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusAccepted)
@@ -116,7 +116,7 @@ func (h *AuthHandler) StartPhoneRegister(c *gin.Context) {
 func (h *AuthHandler) VerifyPhoneRegister(c *gin.Context) {
 	var req structs.PhoneVerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "phone_register_verify", req.Phone, 40, 5, 10*time.Minute) {
@@ -124,7 +124,7 @@ func (h *AuthHandler) VerifyPhoneRegister(c *gin.Context) {
 	}
 	result, err := h.auth.VerifyPhoneRegister(c.Request.Context(), req.Phone, req.Code, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, convert.ToLogin(result))
@@ -132,14 +132,14 @@ func (h *AuthHandler) VerifyPhoneRegister(c *gin.Context) {
 func (h *AuthHandler) StartPhoneLogin(c *gin.Context) {
 	var req structs.PhoneStartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "phone_login_start", req.Phone, 30, 10, 10*time.Minute) {
 		return
 	}
 	if err := h.auth.StartPhoneLogin(c.Request.Context(), req.Phone); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusAccepted)
@@ -147,7 +147,7 @@ func (h *AuthHandler) StartPhoneLogin(c *gin.Context) {
 func (h *AuthHandler) VerifyPhoneLogin(c *gin.Context) {
 	var req structs.PhoneVerifyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "phone_login_verify", req.Phone, 40, 5, 10*time.Minute) {
@@ -155,7 +155,7 @@ func (h *AuthHandler) VerifyPhoneLogin(c *gin.Context) {
 	}
 	result, err := h.auth.VerifyPhoneLogin(c.Request.Context(), req.Phone, req.Code, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, convert.ToLogin(result))
@@ -164,14 +164,14 @@ func (h *AuthHandler) VerifyPhoneLogin(c *gin.Context) {
 func (h *AuthHandler) StartEmailLink(c *gin.Context) {
 	var req structs.EmailLinkStartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "email_link_start", req.Email, 10, 3, time.Hour) {
 		return
 	}
 	if err := h.auth.StartEmailLink(c.Request.Context(), middleware.AccountID(c), req.Email, req.PhoneCode, h.resetSender); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusAccepted)
@@ -180,14 +180,14 @@ func (h *AuthHandler) StartEmailLink(c *gin.Context) {
 func (h *AuthHandler) ConfirmEmailLink(c *gin.Context) {
 	var req structs.EmailLinkConfirmRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "email_link_verify", req.Token, 20, 5, time.Hour) {
 		return
 	}
 	if err := h.auth.ConfirmEmailLink(c.Request.Context(), middleware.AccountID(c), req.Token); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -196,14 +196,14 @@ func (h *AuthHandler) ConfirmEmailLink(c *gin.Context) {
 func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 	var req structs.PasswordResetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "password_reset", req.Email, 10, 3, time.Hour) {
 		return
 	}
 	if err := h.auth.RequestPasswordReset(c.Request.Context(), req.Email); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusAccepted)
@@ -213,7 +213,7 @@ func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 func (h *AuthHandler) PasswordResetPage(c *gin.Context) {
 	token := c.Query("token")
 	if len(token) != 43 {
-		response.Reject(c, http.StatusBadRequest, "invalid_reset_token", "invalid or expired reset token")
+		appctx.Reject(c, http.StatusBadRequest, "invalid_reset_token", "invalid or expired reset token")
 		return
 	}
 	c.Header("Cache-Control", "no-store")
@@ -232,14 +232,14 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		err = c.ShouldBind(&req)
 	}
 	if err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "password_reset_confirm", req.Token, 20, 6, time.Hour) {
 		return
 	}
 	if err := h.auth.ResetPassword(c.Request.Context(), req.Token, req.Password); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -250,14 +250,14 @@ func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
 		Email string `json:"email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "verify_email_resend", req.Email, 10, 2, time.Hour) {
 		return
 	}
 	if err := h.auth.ResendVerificationEmail(c.Request.Context(), req.Email); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusAccepted)
@@ -267,7 +267,7 @@ func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
 func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
 	var req structs.VerifyEmailQuery
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
+		appctx.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
 	}
 	c.Header("Cache-Control", "no-store")
@@ -280,14 +280,14 @@ func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
 func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	var req structs.VerifyEmailQuery
 	if err := c.ShouldBind(&req); err != nil {
-		response.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
+		appctx.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
 	}
 	if !h.limiter.Allow(c, "verify_email", strconv.FormatInt(req.EmailID, 10), 60, 10, time.Minute) {
 		return
 	}
 	if err := h.auth.VerifyEmail(c.Request.Context(), req.EmailID, req.SecretCode); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"verified": true})
@@ -296,7 +296,7 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 func (h *AuthHandler) Renew(c *gin.Context) {
 	var req structs.TokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "refresh", req.RefreshToken, 60, 20, time.Minute) {
@@ -304,7 +304,7 @@ func (h *AuthHandler) Renew(c *gin.Context) {
 	}
 	result, err := h.auth.Renew(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, structs.RenewAccessTokenResponse{
@@ -316,14 +316,14 @@ func (h *AuthHandler) Renew(c *gin.Context) {
 func (h *AuthHandler) Revoke(c *gin.Context) {
 	var req structs.TokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	if !h.limiter.Allow(c, "revoke", req.RefreshToken, 60, 20, time.Minute) {
 		return
 	}
 	if err := h.auth.Revoke(c.Request.Context(), req.RefreshToken); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -332,7 +332,7 @@ func (h *AuthHandler) Revoke(c *gin.Context) {
 func (h *AuthHandler) ListSessions(c *gin.Context) {
 	sessions, err := h.auth.ListSessions(c.Request.Context(), middleware.AccountID(c))
 	if err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	if sessions == nil {
@@ -344,11 +344,11 @@ func (h *AuthHandler) ListSessions(c *gin.Context) {
 func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		response.Reject(c, http.StatusBadRequest, "invalid_session_id", "invalid session id")
+		appctx.Reject(c, http.StatusBadRequest, "invalid_session_id", "invalid session id")
 		return
 	}
 	if err := h.auth.RevokeOwnSession(c.Request.Context(), middleware.AccountID(c), id); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -356,7 +356,7 @@ func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {
 
 func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 	if err := h.auth.RevokeAllSessions(c.Request.Context(), middleware.AccountID(c)); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -367,7 +367,7 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 func (h *AuthHandler) GetConnections(c *gin.Context) {
 	connections, err := h.auth.GetConnections(c.Request.Context(), middleware.AccountID(c))
 	if err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"connections": convert.ToConnections(connections)})

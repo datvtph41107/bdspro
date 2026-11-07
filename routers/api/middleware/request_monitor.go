@@ -6,7 +6,7 @@ import (
 
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/timeutil"
-	"github.com/datvtph41107/bdspro/routers/api/response"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
@@ -26,7 +26,7 @@ func RequestMonitor(redisClient *redis.Client) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ctx.Next()
 		status := ctx.Writer.Status()
-		code := ctx.GetString(response.ErrorCodeKey)
+		code := ctx.GetString(appctx.ErrorCodeKey)
 		var reason string
 		if code == "auth.otp_invalid" || code == "auth.otp_cooldown" {
 			reason = "otp_verification"

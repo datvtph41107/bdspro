@@ -52,8 +52,8 @@ func TestSourcePackageOwnership(t *testing.T) {
 					if owner == "models" && (isRouter || isService || dep == "net/http" || dep == "github.com/gin-gonic/gin") {
 						t.Errorf("%s: persistence imports HTTP/business %q", rel, dep)
 					}
-					if strings.HasPrefix(filepath.ToSlash(rel), "routers/api/response/") && isModel {
-						t.Errorf("%s: generic HTTP responses must not register domain model errors %q", rel, dep)
+					if dep == modulePath+"/routers/api/response" {
+						t.Errorf("%s: removed HTTP response compatibility package was imported", rel)
 					}
 					if owner == "services" && dep == "github.com/jackc/pgx/v5/pgconn" {
 						t.Errorf("%s: PostgreSQL constraints must be classified by owning models, not services", rel)
