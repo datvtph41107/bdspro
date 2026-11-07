@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"sync/atomic"
 	"strings"
 	"testing"
 	"time"
@@ -66,7 +67,9 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 	}
 	email := "oidc-browser-" + uuid.NewString() + "@example.test"
 	subject := "subject-" + uuid.NewString()
-	var issuer, nonce string
+	const issuer = "https://identity.example.test"
+	var nonce atomic.Value
+	nonce.Store("")
 	providerHTTP := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/keys":
@@ -92,7 +95,7 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 				"iss": issuer, "sub": subject, "aud": "oidc-browser-test",
 				"iat": time.Now().Add(-time.Minute).Unix(),
 				"exp": time.Now().Add(5*time.Minute).Unix(),
-				"nonce": nonce, "email": email, "email_verified": true,
+				"nonce": nonce.Load().(string), "email": email, "email_verified": true,
 			})
 			tok.Header["kid"] = "browser-test-key"
 			signed, signErr := tok.SignedString(key)
@@ -108,10 +111,9 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 		}
 	}))
 	defer providerHTTP.Close()
-	issuer = providerHTTP.URL
 	provider := setting.OAuth2Provider{
-		Issuer: issuer, AuthorizationURL: issuer + "/authorize",
-		TokenURL: issuer + "/token", JWKSURL: issuer + "/keys",
+		Issuer: issuer, AuthorizationURL: providerHTTP.URL + "/authorize",
+		TokenURL: providerHTTP.URL + "/token", JWKSURL: providerHTTP.URL + "/keys",
 		ClientID: "oidc-browser-test", ClientSecret: "test-secret",
 		RedirectURI: browserTestOrigin + "/users/oauth2/callback",
 	}
@@ -170,12 +172,12 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if location.Host != strings.TrimPrefix(issuer, "https://") {
+	if location.Host != strings.TrimPrefix(providerHTTP.URL, "https://") {
 		t.Fatalf("OIDC redirect went to wrong host: %s",location)
 	}
 	state := location.Query().Get("state")
-	nonce = location.Query().Get("nonce")
-	if state == "" || nonce == "" || state != stateCookie.Value ||
+	nonce.Store(location.Query().Get("nonce"))
+	if state == "" || nonce.Load().(string) == "" || state != stateCookie.Value ||
 		location.Query().Get("code_challenge_method") != "S256" {
 		t.Fatalf("incorrect OIDC authorization request: %s",location.RawQuery)
 	}
