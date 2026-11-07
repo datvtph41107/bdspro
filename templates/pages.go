@@ -13,4 +13,6 @@ var pages embed.FS
 var (
 	VerifyEmailPage   = template.Must(template.ParseFS(pages, "auth/verify_email.html"))
 	PasswordResetPage = template.Must(template.ParseFS(pages, "auth/password_reset.html"))
+	OAuthLoginPage    = template.Must(template.ParseFS(pages, "auth/oauth_login.html"))
+	OAuthConsentPage  = template.Must(template.ParseFS(pages, "auth/oauth_consent.html"))
 )

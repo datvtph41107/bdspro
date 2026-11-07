@@ -1,6 +1,6 @@
 {
   "repository": "datvtph41107/bdspro",
-  "commit": "R38: account-owned OAuth authorization management",
+  "commit": "R38: account OAuth authorization management and browser OAuth consent",
   "routes": [
     {
       "method": "GET",
@@ -11,6 +11,21 @@
       "method": "DELETE",
       "path": "/users/me/oauth/authorizations/:client_id",
       "access": "authenticated"
+    },
+    {
+      "method": "GET",
+      "path": "/oauth/login",
+      "access": "browser_public"
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/login",
+      "access": "browser_public_csrf"
+    },
+    {
+      "method": "POST",
+      "path": "/oauth/logout",
+      "access": "browser_session_csrf"
     }
   ]
 }

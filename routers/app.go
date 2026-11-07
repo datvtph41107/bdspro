@@ -18,6 +18,7 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
+	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
@@ -33,6 +34,7 @@ type Server struct {
 	organizationHandler  *org.Handler
 	oauth2Handler        *user.OAuth2Handler
 	authorizationHandler *oauth.Handler
+	browserHandler       *weboauth.Handler
 	phoneEnabled         bool
 	config               setting.Config
 	store                db.Store
@@ -106,7 +108,25 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		if err != nil {
 			return nil, fmt.Errorf("configure OAuth consent proof: %w", err)
 		}
-		server.authorizationHandler = oauth.NewHandler(oauth_service.NewService(oauthStore), store, proofs)
+		oauthService := oauth_service.NewService(oauthStore)
+		server.authorizationHandler = oauth.NewHandler(oauthService, store, proofs)
+		if cfg.BrowserPublicOrigin != "" {
+			if err := setting.ValidateBrowserPublicOrigin(cfg.BrowserPublicOrigin, cfg.Environment); err != nil {
+				return nil, err
+			}
+			codec, err := authcrypto.NewBrowserSessionCodec(cfg.TokenSymmetricKey)
+			if err != nil {
+				return nil, fmt.Errorf("configure browser session: %w", err)
+			}
+			server.browserHandler, err = weboauth.NewHandler(weboauth.Config{
+				Store: store, OAuth: oauthService, API: server.authorizationHandler,
+				Proofs: proofs, Login: authService.Login, Maker: maker, Codec: codec,
+				PublicOrigin: cfg.BrowserPublicOrigin, Throttle: server.authThrottle,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("configure browser OAuth: %w", err)
+			}
+		}
 	}
 
 	// OIDC owns its browser protocol, but account linking and session

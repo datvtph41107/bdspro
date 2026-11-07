@@ -109,19 +109,7 @@ func (h *Handler) DeleteClient(c *gin.Context) {
 }
 
 func authorizationRequest(values url.Values) (oauth_service.AuthorizationRequest, error) {
-	id, err := uuid.Parse(values.Get("client_id"))
-	if err != nil {
-		return oauth_service.AuthorizationRequest{}, oauth_service.ErrInvalidRequest
-	}
-	return oauth_service.AuthorizationRequest{
-		ClientID:            id,
-		RedirectURI:         values.Get("redirect_uri"),
-		ResponseType:        values.Get("response_type"),
-		CodeChallenge:       values.Get("code_challenge"),
-		CodeChallengeMethod: values.Get("code_challenge_method"),
-		Scope:               values.Get("scope"),
-		State:               values.Get("state"),
-	}, nil
+	return oauth_service.ParseAuthorizationRequest(values)
 }
 
 // consentProofFields binds a preview to the authenticated Account and every

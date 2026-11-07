@@ -49,6 +49,20 @@ type AuthorizationRequest struct {
 	ConsentVersion      int64
 }
 
+// ParseAuthorizationRequest is the sole route-independent decoding of an OAuth authorization query.
+func ParseAuthorizationRequest(values url.Values) (AuthorizationRequest, error) {
+	id, err := uuid.Parse(values.Get("client_id"))
+	if err != nil {
+		return AuthorizationRequest{}, ErrInvalidRequest
+	}
+	return AuthorizationRequest{
+		ClientID: id, RedirectURI: values.Get("redirect_uri"),
+		ResponseType: values.Get("response_type"), Scope: values.Get("scope"),
+		State: values.Get("state"), CodeChallenge: values.Get("code_challenge"),
+		CodeChallengeMethod: values.Get("code_challenge_method"),
+	}, nil
+}
+
 func ValidateRedirectURI(raw string) error {
 	if len(raw) > 2048 || len(raw) == 0 {
 		return ErrInvalidRequest

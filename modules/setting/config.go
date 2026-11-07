@@ -31,6 +31,7 @@ type Config struct {
 	MigrationURL         string
 	RedisAddress         string
 	HTTPServerAddress    string
+	BrowserPublicOrigin  string
 	TokenSymmetricKey    string
 	AuditKey             string
 	AuditRetentionDays   int
@@ -83,6 +84,10 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 	config.DBSource = get("database", "DB_SOURCE")
 	config.MigrationURL = get("database", "MIGRATION_URL")
 	config.HTTPServerAddress = get("server", "HTTP_SERVER_ADDRESS")
+	config.BrowserPublicOrigin = get("server", "PUBLIC_ORIGIN")
+	if err := ValidateBrowserPublicOrigin(config.BrowserPublicOrigin, config.Environment); err != nil {
+		return config, err
+	}
 	config.TrustedProxies, err = ParseTrustedProxies(get("server", "TRUSTED_PROXIES"))
 	if err != nil {
 		return config, err
