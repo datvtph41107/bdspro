@@ -19,7 +19,7 @@ import (
 func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	version, dirty, err := m.Version()
 	if errors.Is(err, migrate.ErrNilVersion) {
-		return nil
+		return validateUnversionedDatabase(databaseURL)
 	}
 	if err != nil {
 		return fmt.Errorf("read database migration version: %w", err)
@@ -59,6 +59,33 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	if !parties || tables != int(version) || credentials != (version >= 18) ||
 		clients != (version >= 23) || deprecated {
 		return fmt.Errorf("database at migration version %d does not match the canonical schema (tables=%d); use an explicit data migration; refusing reinterpretation", version, tables)
+	}
+	return nil
+}
+
+// validateUnversionedDatabase refuses to adopt a populated public schema as
+// the canonical migration ledger. The migrate driver may create its own
+// schema_migrations bookkeeping table before reaching this check.
+func validateUnversionedDatabase(databaseURL string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err := pgx.Connect(ctx, databaseURL)
+	if err != nil {
+		return fmt.Errorf("inspect unversioned database schema: %w", err)
+	}
+	defer conn.Close(context.Background())
+
+	var existing int
+	err = conn.QueryRow(ctx, `SELECT count(*) FROM pg_catalog.pg_class c
+		JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+		WHERE n.nspname = 'public'
+		  AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
+		  AND c.relname <> 'schema_migrations'`).Scan(&existing)
+	if err != nil {
+		return fmt.Errorf("inspect unversioned database objects: %w", err)
+	}
+	if existing != 0 {
+		return fmt.Errorf("unversioned database contains %d public objects; refusing canonical migration; provision a fresh database", existing)
 	}
 	return nil
 }

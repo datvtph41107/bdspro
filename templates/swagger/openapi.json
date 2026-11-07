@@ -3530,6 +3530,10 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Temporary identity store outage",
+            "content": {"application/json": {"schema": {"type": "object", "properties": {"error": {"type": "string"}}}}}
           }
         }
       }
