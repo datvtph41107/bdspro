@@ -116,7 +116,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 		s.recordLoginRejected(ctx, audit_model.LoginRejected{AccountID: account.ID, Method: audit_model.MethodPassword, Reason: audit_model.ReasonInvalidPassword, Identifier: email, IP: clientIP})
 		return result, auth_model.ErrInvalidCredentials
 	}
-	return s.issueSession(ctx, account, userAgent, clientIP)
+	return s.issueSession(ctx, account, userAgent, clientIP, hash)
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, emailID int64, secretCode string) error {
@@ -183,7 +183,7 @@ func (s *AuthService) Revoke(ctx context.Context, refreshToken string) error {
 
 // issueSession is the single issuance point shared by password, OIDC and phone logins.
 // Every caller must authenticate its proof before reaching this operation.
-func (s *AuthService) issueSession(ctx context.Context, account db.Account, userAgent, clientIP string) (LoginResult, error) {
+func (s *AuthService) issueSession(ctx context.Context, account db.Account, userAgent, clientIP string, expectedPasswordHash ...string) (LoginResult, error) {
 	var result LoginResult
 	auth := s.config.Authentication()
 	refreshToken, refreshPayload, err := s.maker.CreateToken(account.ID, auth.RefreshTokenTTL, authcrypto.TokenTypeRefresh)
@@ -197,7 +197,7 @@ func (s *AuthService) issueSession(ctx context.Context, account db.Account, user
 	session, err := auth_model.NewSession(ctx, s.store, db.CreateSessionParams{
 		ID: refreshPayload.ID, AccountID: account.ID, RefreshToken: auth_model.RefreshTokenDigest(refreshToken),
 		UserAgent: boundedConnectionUserAgent(userAgent), ClientIp: clientIP, ExpiresAt: refreshPayload.ExpiredAt,
-	})
+	}, expectedPasswordHash...)
 	if err != nil {
 		return result, err
 	}
