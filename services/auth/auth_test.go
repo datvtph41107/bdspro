@@ -439,12 +439,6 @@ func TestLoginRejectsStaleVerifiedPasswordHashInsideSessionTransaction(t *testin
 	store.beforeSessionInsert = func(m *sessionMemoryStore) {
 		m.passwordHash = newHash
 	}
-	cfg := setting.Config{TokenSymmetricKey: strings.Repeat("k", 32), AuditKey: strings.Repeat("a", 32),
-		AccessTokenDuration: 15 * time.Minute, RefreshTokenDuration: time.Hour}
-	maker, err := authcrypto.NewJWTMaker(cfg.TokenSymmetricKey)
-	if err != nil {
-		t.Fatal(err)
-	}
 	service := NewAuthService(store, maker, cfg, nil)
 	if _, err := service.Login(context.Background(), store.account.Email, "old-password", "agent", "127.0.0.1"); !errors.Is(err, auth_model.ErrInvalidCredentials) {
 		t.Fatalf("late password reset did not abort login: %v", err)
