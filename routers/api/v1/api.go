@@ -11,6 +11,7 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
@@ -144,10 +145,10 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 		route.GET("/users/me/oauth/authorizations", d.Authorization.ListAuthorizations)
 		route.DELETE("/users/me/oauth/authorizations/:client_id", d.Authorization.RevokeAuthorization)
 	}
-	route.GET("/users/me", profile.Show)
-	route.PATCH("/users/me/profile", profile.Update)
-	route.GET("/users/me/settings", profile.Settings)
-	route.PATCH("/users/me/settings", profile.UpdateSettings)
+	route.GET("/users/me", appctx.Wrap(profile.Show))
+	route.PATCH("/users/me/profile", appctx.Wrap(profile.Update))
+	route.GET("/users/me/settings", appctx.Wrap(profile.Settings))
+	route.PATCH("/users/me/settings", appctx.Wrap(profile.UpdateSettings))
 	// Recent successful session issuance evidence, scoped to the authenticated Account.
 	route.GET("/users/me/connections", d.Auth.GetConnections)
 	route.GET("/users/me/sessions", d.Auth.ListSessions)

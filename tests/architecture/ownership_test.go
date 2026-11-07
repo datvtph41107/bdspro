@@ -58,7 +58,9 @@ func TestSourcePackageOwnership(t *testing.T) {
 					if owner == "services" && dep == "github.com/jackc/pgx/v5/pgconn" {
 						t.Errorf("%s: PostgreSQL constraints must be classified by owning models, not services", rel)
 					}
-					if owner == "services" && (isRouter || dep == "github.com/gin-gonic/gin") {
+					// Gin is allowed only in the HTTP-specific context adapter, not business services.
+					httpAdapter := strings.HasPrefix(filepath.ToSlash(rel), "services/context/")
+					if owner == "services" && (isRouter || (dep == "github.com/gin-gonic/gin" && !httpAdapter)) {
 						t.Errorf("%s: business service depends on HTTP delivery %q", rel, dep)
 					}
 					if strings.HasPrefix(filepath.ToSlash(rel), "routers/common/") && (isModel || isService) {

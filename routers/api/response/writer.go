@@ -1,75 +1,45 @@
+// Package response provides temporary compatibility shims during API migration.
 package response
 
 import (
-	"errors"
-	"fmt"
-	"net/http"
-
-	"github.com/datvtph41107/bdspro/modules/log"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
-const ErrorCodeKey = "public_error_code"
+const ErrorCodeKey = appctx.ErrorCodeKey
 
-// Reject emits the public JSON error shape; underlying errors are never serialized.
 func Reject(c *gin.Context, status int, code, message string) {
-	c.Set(ErrorCodeKey, code)
-	c.AbortWithStatusJSON(status, gin.H{"error": message, "code": code})
+	appctx.Reject(c, status, code, message)
 }
 
 func Invalid(c *gin.Context, err error) {
-	var size *http.MaxBytesError
-	if errors.As(err, &size) {
-		Reject(c, http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
-		return
-	}
-	Reject(c, http.StatusBadRequest, "invalid_request", "invalid request")
+	appctx.Invalid(c, err)
 }
 
 func Error(c *gin.Context, err error) {
-	if result, ok := getErrorResponse(err); ok {
-		Reject(c, result.Status, result.Code, result.Message)
-		return
-	}
-	// Do not serialize or log arbitrary err.Error(): driver and provider errors
-	// may contain credentials, tokens, URLs or other sensitive values.
-	event := log.Ctx(c.Request.Context()).Error().
-		Str("error_type", fmt.Sprintf("%T", err))
-	event.Msg("http.application_error")
-	InternalError(c)
+	appctx.Error(c, err)
 }
 
-// BearerRequired responds to requests without a valid Bearer credential.
 func BearerRequired(c *gin.Context) {
-	c.Header("WWW-Authenticate", "Bearer")
-	Reject(c, http.StatusUnauthorized, "unauthenticated", "missing or invalid bearer token")
+	appctx.BearerRequired(c)
 }
 
-// InvalidAccessToken rejects an invalid access JWT using the Bearer challenge.
 func InvalidAccessToken(c *gin.Context) {
-	c.Header("WWW-Authenticate", `Bearer error="invalid_token"`)
-	Reject(c, http.StatusUnauthorized, "invalid_access_token", "invalid access token")
+	appctx.InvalidAccessToken(c)
 }
 
-// AuthenticationRequired responds when the verified principal is no longer available.
 func AuthenticationRequired(c *gin.Context) {
-	c.Header("WWW-Authenticate", "Bearer")
-	Reject(c, http.StatusUnauthorized, "unauthenticated", "authentication required")
+	appctx.AuthenticationRequired(c)
 }
 
-// RateLimitUnavailable fails closed when admission cannot be enforced.
 func RateLimitUnavailable(c *gin.Context) {
-	Reject(c, http.StatusServiceUnavailable, "rate_limit_unavailable", "authentication temporarily unavailable")
+	appctx.RateLimitUnavailable(c)
 }
 
-// RateLimited emits a 429 with the policy's Retry-After window in seconds.
 func RateLimited(c *gin.Context, retryAfterSeconds int64) {
-	c.Header("Retry-After", fmt.Sprint(retryAfterSeconds))
-	Reject(c, http.StatusTooManyRequests, "rate_limited", "too many requests")
+	appctx.RateLimited(c, retryAfterSeconds)
 }
 
-// InternalError is the safe HTTP response to a failure already diagnosed
-// at the operation or recovery boundary.
 func InternalError(c *gin.Context) {
-	Reject(c, http.StatusInternalServerError, "internal_error", "internal server error")
+	appctx.InternalError(c)
 }

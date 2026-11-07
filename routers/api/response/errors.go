@@ -1,42 +1,17 @@
 package response
 
-import (
-	"errors"
-	"net/http"
+import appctx "github.com/datvtph41107/bdspro/services/context"
 
-	"github.com/datvtph41107/bdspro/modules/util"
-)
-
-// errorResponse contains the HTTP status and safe client message for a Go error.
+// errorResponse supports legacy tests; the classifier now has one owner.
 type errorResponse struct {
 	Status  int
 	Code    string
 	Message string
 }
 
-// getErrorResponse exposes only explicitly declared model failures.
-// Models own stable client identities; the HTTP boundary maps error categories
-// to transport status codes, without a registry of domain errors.
 func getErrorResponse(err error) (errorResponse, bool) {
-	category, code, message, ok := util.ErrorForClient(err)
+	status, code, message, ok := appctx.PublicError(err)
 	if !ok {
-		return errorResponse{}, false
-	}
-	var status int
-	switch {
-	case errors.Is(category, util.ErrInvalidArgument):
-		status = http.StatusBadRequest
-	case errors.Is(category, util.ErrUnauthenticated):
-		status = http.StatusUnauthorized
-	case errors.Is(category, util.ErrPermissionDenied):
-		status = http.StatusForbidden
-	case errors.Is(category, util.ErrNotExist):
-		status = http.StatusNotFound
-	case errors.Is(category, util.ErrAlreadyExist):
-		status = http.StatusConflict
-	case errors.Is(category, util.ErrRateLimited):
-		status = http.StatusTooManyRequests
-	default:
 		return errorResponse{}, false
 	}
 	return errorResponse{Status: status, Code: code, Message: message}, true
