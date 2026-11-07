@@ -14,6 +14,7 @@ import (
 	"time"
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/json"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/go-redis/redis/v8"
@@ -39,7 +40,8 @@ type OAuth2Pending struct {
 	AccountID int64  `json:"account_id"`
 	Verifier  string `json:"verifier"`
 	Nonce     string `json:"nonce"`
-	Phone     string `json:"phone,omitempty"`
+	Phone      string `json:"phone,omitempty"`
+	ReturnPath string `json:"return_path,omitempty"`
 }
 
 type OAuth2Start struct {
@@ -74,6 +76,20 @@ func oauth2Random() (string, error) {
 }
 
 func (f *OAuth2Client) Begin(ctx context.Context, purpose string, accountID int64, phone string) (OAuth2Start, error) {
+	return f.begin(ctx, purpose, accountID, phone, "")
+}
+
+// BeginBrowserLogin reuses the verified OIDC login flow, retaining only a
+// validated same-origin OAuth consent path in one-time server-side state.
+func (f *OAuth2Client) BeginBrowserLogin(ctx context.Context, next string) (OAuth2Start, error) {
+	path, err := authcrypto.BrowserNextPath(next)
+	if err != nil {
+		return OAuth2Start{}, ErrOAuth2StateInvalid
+	}
+	return f.begin(ctx, "login", 0, "", path)
+}
+
+func (f *OAuth2Client) begin(ctx context.Context, purpose string, accountID int64, phone, returnPath string) (OAuth2Start, error) {
 	var empty OAuth2Start
 	switch purpose {
 	case "login":
@@ -101,7 +117,7 @@ func (f *OAuth2Client) Begin(ctx context.Context, purpose string, accountID int6
 	}
 	pending := OAuth2Pending{
 		Issuer: f.provider.Issuer, Purpose: purpose, AccountID: accountID,
-		Verifier: verifier, Nonce: nonce, Phone: phone,
+		Verifier: verifier, Nonce: nonce, Phone: phone, ReturnPath: returnPath,
 	}
 	data, err := json.Marshal(pending)
 	if err != nil {
@@ -141,6 +157,15 @@ func (f *OAuth2Client) Consume(ctx context.Context, state string) (OAuth2Pending
 	if json.Unmarshal(data, &pending) != nil || pending.Issuer != f.provider.Issuer ||
 		pending.Verifier == "" || pending.Nonce == "" {
 		return empty, ErrOAuth2StateInvalid
+	}
+	// Defensive validation before any caller uses a redirect preserved in Redis.
+	if pending.ReturnPath != "" {
+		if pending.Purpose != "login" {
+			return empty, ErrOAuth2StateInvalid
+		}
+		if _, err := authcrypto.BrowserNextPath(pending.ReturnPath); err != nil {
+			return empty, ErrOAuth2StateInvalid
+		}
 	}
 	return pending, nil
 }
