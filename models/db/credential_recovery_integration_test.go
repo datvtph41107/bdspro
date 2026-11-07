@@ -177,3 +177,41 @@ func TestOAuthRefreshCannotEscapeConcurrentPasswordRecovery(t *testing.T) {
 		}
 	}
 }
+
+func TestConcurrentPasswordRecoveryProofsOnOneAccountDoNotDeadlock(t *testing.T) {
+	ctx,_,store:=authChannelsTestStore(t)
+	account,err:=account_model.Register(ctx,store,account_model.RegisterParams{
+		Email:uuid.NewString()+"@example.test",PasswordHash:"original-hash",
+	})
+	if err!=nil {t.Fatal(err)}
+	first:=resetRecoveryProof(t,ctx,store,account.ID)
+	second:=resetRecoveryProof(t,ctx,store,account.ID)
+	start:=make(chan struct{})
+	results:=make(chan error,2)
+	var wg sync.WaitGroup
+	for i,proof:=range [][]byte{first,second} {
+		wg.Add(1)
+		go func(i int, proof []byte) {
+			defer wg.Done()
+			<-start
+			attemptCtx,cancel:=context.WithTimeout(ctx,5*time.Second)
+			defer cancel()
+			if i==0 {results<-auth_model.ResetPassword(attemptCtx,store,proof,"first-password")}
+			else {results<-auth_model.ResetPassword(attemptCtx,store,proof,"second-password")}
+		}(i,proof)
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	var accepted,denied int
+	for err:=range results {
+		switch {
+		case err==nil:accepted++
+		case errors.Is(err,auth_model.ErrPasswordResetInvalid):denied++
+		default:t.Fatalf("concurrent proof error (possible deadlock): %v",err)
+		}
+	}
+	if accepted!=1||denied!=1 {
+		t.Fatalf("concurrent recovery accepted=%d denied=%d, want one of each",accepted,denied)
+	}
+}
