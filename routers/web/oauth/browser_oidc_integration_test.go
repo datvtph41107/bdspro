@@ -11,8 +11,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"sync/atomic"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -88,13 +88,13 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 			}
 			if r.Form.Get("grant_type") != "authorization_code" ||
 				r.Form.Get("code") != "test-code" || r.Form.Get("code_verifier") == "" ||
-				 r.Form.Get("redirect_uri") != browserTestOrigin+"/users/oauth2/callback" {
+				r.Form.Get("redirect_uri") != browserTestOrigin+"/users/oauth2/callback" {
 				t.Error("provider exchange did not use the configured callback and PKCE")
 			}
 			tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 				"iss": issuer, "sub": subject, "aud": "oidc-browser-test",
-				"iat": time.Now().Add(-time.Minute).Unix(),
-				"exp": time.Now().Add(5*time.Minute).Unix(),
+				"iat":   time.Now().Add(-time.Minute).Unix(),
+				"exp":   time.Now().Add(5 * time.Minute).Unix(),
 				"nonce": nonce.Load().(string), "email": email, "email_verified": true,
 			})
 			tok.Header["kid"] = "browser-test-key"
@@ -137,7 +137,7 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 	store := db.NewStore(pool)
 	authService := auth_service.NewAuthService(store, maker, setting.Config{
 		OIDC: provider, TokenSymmetricKey: secret, AuditKey: strings.Repeat("a", 32),
-		AccessTokenDuration: 15*time.Minute, RefreshTokenDuration: 24*time.Hour,
+		AccessTokenDuration: 15 * time.Minute, RefreshTokenDuration: 24 * time.Hour,
 	}, nil)
 	clientStore := &browserOAuthStore{client: db.OauthClient{
 		ID: uuid.New(), Name: "OIDC browser client", RedirectUri: "https://client.example.test/callback",
@@ -160,11 +160,11 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 	router.GET("/oauth/authorize", browser.Authenticate, browser.AuthorizePreview)
 
 	next := "/oauth/authorize?" + oauthForm(clientStore).Encode()
-	start := req(t,router,http.MethodGet,"/oauth/login/oidc/start?next="+url.QueryEscape(next),nil)
+	start := req(t, router, http.MethodGet, "/oauth/login/oidc/start?next="+url.QueryEscape(next), nil)
 	if start.Code != http.StatusFound {
-		t.Fatalf("OIDC browser start failed: %d %s",start.Code,start.Body.String())
+		t.Fatalf("OIDC browser start failed: %d %s", start.Code, start.Body.String())
 	}
-	stateCookie := cookieNamed(t,start,"bdspro_oidc_state")
+	stateCookie := cookieNamed(t, start, "bdspro_oidc_state")
 	if !stateCookie.HttpOnly || !stateCookie.Secure || stateCookie.Path != "/users/oauth2/callback" {
 		t.Fatalf("unsafe OIDC state cookie: %+v", stateCookie)
 	}
@@ -173,24 +173,24 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	if location.Host != strings.TrimPrefix(providerHTTP.URL, "https://") {
-		t.Fatalf("OIDC redirect went to wrong host: %s",location)
+		t.Fatalf("OIDC redirect went to wrong host: %s", location)
 	}
 	state := location.Query().Get("state")
 	nonce.Store(location.Query().Get("nonce"))
 	if state == "" || nonce.Load().(string) == "" || state != stateCookie.Value ||
 		location.Query().Get("code_challenge_method") != "S256" {
-		t.Fatalf("incorrect OIDC authorization request: %s",location.RawQuery)
+		t.Fatalf("incorrect OIDC authorization request: %s", location.RawQuery)
 	}
 
-	callbackPath := "/users/oauth2/callback?state="+url.QueryEscape(state)+"&code=test-code"
-	callback := req(t,router,http.MethodGet,callbackPath,nil,stateCookie)
+	callbackPath := "/users/oauth2/callback?state=" + url.QueryEscape(state) + "&code=test-code"
+	callback := req(t, router, http.MethodGet, callbackPath, nil, stateCookie)
 	if callback.Code != http.StatusSeeOther || callback.Header().Get("Location") != next {
-		t.Fatalf("OIDC browser callback failed: %d %s",callback.Code,callback.Body.String())
+		t.Fatalf("OIDC browser callback failed: %d %s", callback.Code, callback.Body.String())
 	}
-	if strings.Contains(callback.Body.String(),"access_token") || strings.Contains(callback.Body.String(),"refresh_token") {
+	if strings.Contains(callback.Body.String(), "access_token") || strings.Contains(callback.Body.String(), "refresh_token") {
 		t.Fatal("OIDC callback disclosed internal JWT credentials")
 	}
-	browserCookie := cookieNamed(t,callback,"__Host-bdspro-browser")
+	browserCookie := cookieNamed(t, callback, "__Host-bdspro-browser")
 	idText, err := codec.ReadCookie(browserCookie.Value, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -199,16 +199,16 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	session, err := store.GetSession(ctx,id)
+	session, err := store.GetSession(ctx, id)
 	if err != nil || session.AccountID <= 0 || session.IsBlocked {
-		t.Fatalf("OIDC callback did not create live DB session: %+v %v",session,err)
+		t.Fatalf("OIDC callback did not create live DB session: %+v %v", session, err)
 	}
-	preview := req(t,router,http.MethodGet,next,nil,browserCookie)
-	if preview.Code != http.StatusOK || !strings.Contains(preview.Body.String(),"OIDC browser client") {
-		t.Fatalf("fresh browser OIDC session cannot review consent: %d %s",preview.Code,preview.Body.String())
+	preview := req(t, router, http.MethodGet, next, nil, browserCookie)
+	if preview.Code != http.StatusOK || !strings.Contains(preview.Body.String(), "OIDC browser client") {
+		t.Fatalf("fresh browser OIDC session cannot review consent: %d %s", preview.Code, preview.Body.String())
 	}
-	replay := req(t,router,http.MethodGet,callbackPath,nil,stateCookie)
+	replay := req(t, router, http.MethodGet, callbackPath, nil, stateCookie)
 	if replay.Code != http.StatusBadRequest {
-		t.Fatalf("replayed OIDC state accepted: %d",replay.Code)
+		t.Fatalf("replayed OIDC state accepted: %d", replay.Code)
 	}
 }
