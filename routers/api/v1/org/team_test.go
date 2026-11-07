@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,7 +18,7 @@ func TestTeamHandlersRejectMalformedInputsWithoutDatabase(t *testing.T) {
 		path   string
 		bind   string
 		body   string
-		serve  gin.HandlerFunc
+		serve  appctx.APIHandler
 	}{
 		{http.MethodGet, "/organizations/invalid/teams", "/organizations/:id/teams", "", handler.List},
 		{http.MethodGet, "/organizations/1/teams?page=invalid", "/organizations/:id/teams", "", handler.List},
@@ -30,7 +31,7 @@ func TestTeamHandlersRejectMalformedInputsWithoutDatabase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
 			router := gin.New()
-			router.Handle(tt.method, tt.bind, tt.serve)
+			router.Handle(tt.method, tt.bind, appctx.Wrap(tt.serve))
 			var body *strings.Reader
 			if tt.body != "" {
 				body = strings.NewReader(tt.body)

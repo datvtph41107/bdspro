@@ -185,33 +185,33 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 }
 
 func registerOrganizationRoutes(route *gin.RouterGroup, d Dependencies) {
-	route.GET("", d.Organization.List)
-	route.GET("/:id", d.Organization.Get)
-	route.POST("", d.Organization.Create)
-	route.PATCH("/:id", d.Organization.Edit)
-	route.GET("/:id/members", d.Organization.Members)
-	route.POST("/:id/members", d.Organization.AddMember)
+	route.GET("", appctx.Wrap(d.Organization.List))
+	route.GET("/:id", appctx.Wrap(d.Organization.Get))
+	route.POST("", appctx.Wrap(d.Organization.Create))
+	route.PATCH("/:id", appctx.Wrap(d.Organization.Edit))
+	route.GET("/:id/members", appctx.Wrap(d.Organization.Members))
+	route.POST("/:id/members", appctx.Wrap(d.Organization.AddMember))
 	teams := org.NewTeamHandler(d.Store, d.InviteKey)
-	route.GET("/:id/teams", teams.List)
-	route.POST("/:id/teams", teams.Create)
+	route.GET("/:id/teams", appctx.Wrap(teams.List))
+	route.POST("/:id/teams", appctx.Wrap(teams.Create))
 }
 
 func registerTeamRoutes(route *gin.RouterGroup, d Dependencies) {
 	teams := org.NewTeamHandler(d.Store, d.InviteKey)
 	route.POST("/invites/accept",
 		d.IPActive.For(ipactive.AcceptTeamInvite),
-		teams.AcceptInvite,
+		appctx.Wrap(teams.AcceptInvite),
 	)
-	route.GET("/:team_id", teams.Get)
-	route.PATCH("/:team_id", teams.Edit)
-	route.GET("/:team_id/members", teams.Members)
-	route.POST("/:team_id/members", teams.AddMember)
-	route.DELETE("/:team_id/members/:person_id", teams.RemoveMember)
+	route.GET("/:team_id", appctx.Wrap(teams.Get))
+	route.PATCH("/:team_id", appctx.Wrap(teams.Edit))
+	route.GET("/:team_id/members", appctx.Wrap(teams.Members))
+	route.POST("/:team_id/members", appctx.Wrap(teams.AddMember))
+	route.DELETE("/:team_id/members/:person_id", appctx.Wrap(teams.RemoveMember))
 	route.POST("/:team_id/invites",
 		d.IPActive.For(ipactive.CreateTeamInvite),
-		teams.CreateInvite,
+		appctx.Wrap(teams.CreateInvite),
 	)
-	route.DELETE("/:team_id/invites/:invite_id", teams.RevokeInvite)
+	route.DELETE("/:team_id/invites/:invite_id", appctx.Wrap(teams.RevokeInvite))
 }
 
 func registerPhoneBindRoutes(route *gin.RouterGroup, d Dependencies) {

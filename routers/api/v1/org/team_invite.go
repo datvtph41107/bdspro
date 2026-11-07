@@ -6,31 +6,29 @@ import (
 
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/structs"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/response"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 // CreateInvite atomically persists the hashed proof and a durable Asynq intent.
 // The HTTP response never returns the secret; it is delivered by SMTP.
-func (h *TeamHandler) CreateInvite(c *gin.Context) {
+func (h *TeamHandler) CreateInvite(c *appctx.APIContext) {
 	teamID, ok := positivePathID(c, "team_id")
 	if !ok {
 		return
 	}
 	var req structs.CreateTeamInviteOption
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Validation(c, err, &req)
+		appctx.Validation(c.Context, err, &req)
 		return
 	}
 	created, err := organization_model.CreateTeamInvite(
-		c.Request.Context(), h.store, middleware.AccountID(c), teamID,
+		c.Request.Context(), h.store, c.Doer.AccountID, teamID,
 		req.Email, 7*24*time.Hour, h.signingKey,
 	)
 	if err != nil {
-		response.Error(c, err)
+		c.APIErrorAuto(err)
 		return
 	}
 	c.JSON(http.StatusAccepted, structs.IssuedTeamInvite{
@@ -41,33 +39,33 @@ func (h *TeamHandler) CreateInvite(c *gin.Context) {
 
 // AcceptInvite requires an authenticated, verified account whose current
 // organization membership and email match the invitation's SQL predicates.
-func (h *TeamHandler) AcceptInvite(c *gin.Context) {
+func (h *TeamHandler) AcceptInvite(c *appctx.APIContext) {
 	var req structs.AcceptTeamInviteOption
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Validation(c, err, &req)
+		appctx.Validation(c.Context, err, &req)
 		return
 	}
-	member, err := organization_model.AcceptTeamInvite(c.Request.Context(), h.store, middleware.AccountID(c), req.Token)
+	member, err := organization_model.AcceptTeamInvite(c.Request.Context(), h.store, c.Doer.AccountID, req.Token)
 	if err != nil {
-		response.Error(c, err)
+		c.APIErrorAuto(err)
 		return
 	}
 	c.JSON(http.StatusCreated, convert.ToTeamMember(member))
 }
 
-func (h *TeamHandler) RevokeInvite(c *gin.Context) {
+func (h *TeamHandler) RevokeInvite(c *appctx.APIContext) {
 	teamID, ok := positivePathID(c, "team_id")
 	if !ok {
 		return
 	}
 	inviteID, err := uuid.Parse(c.Param("invite_id"))
 	if err != nil {
-		response.Invalid(c, err)
+		c.APIInvalid(err)
 		return
 	}
 	// RevokeTeamInvite checks that the actor owns the invitation's team.
-	if err := organization_model.RevokeTeamInvite(c.Request.Context(), h.store, middleware.AccountID(c), teamID, inviteID); err != nil {
-		response.Error(c, err)
+	if err := organization_model.RevokeTeamInvite(c.Request.Context(), h.store, c.Doer.AccountID, teamID, inviteID); err != nil {
+		c.APIErrorAuto(err)
 		return
 	}
 	c.Status(http.StatusNoContent)
