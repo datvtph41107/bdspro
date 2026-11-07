@@ -117,6 +117,9 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 		route.POST("/oauth/clients",
 			middleware.VerifiedContact(d.Store), d.Authorization.CreateClient)
 		route.DELETE("/oauth/clients/:id", d.Authorization.DeleteClient)
+		// Existing user authorizations, not application ownership.
+		route.GET("/users/me/oauth/authorizations", d.Authorization.ListAuthorizations)
+		route.DELETE("/users/me/oauth/authorizations/:client_id", d.Authorization.RevokeAuthorization)
 	}
 	route.GET("/users/me", profile.Show)
 	route.PATCH("/users/me/profile", profile.Update)

@@ -1,0 +1,16 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "R38: account-owned OAuth authorization management",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/users/me/oauth/authorizations",
+      "access": "authenticated"
+    },
+    {
+      "method": "DELETE",
+      "path": "/users/me/oauth/authorizations/:client_id",
+      "access": "authenticated"
+    }
+  ]
+}

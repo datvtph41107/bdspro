@@ -3550,6 +3550,25 @@
         }
       }
     },
+    "/users/me/oauth/authorizations": {
+      "get": {
+        "tags": ["OAuth2"],
+        "summary": "List active third-party client authorizations for current account",
+        "description": "Account-scoped; includes active access, refresh or pending authorization codes; not historical consents.",
+        "security": [{"bearerAuth": []}],
+        "responses": {"200": {"description": "Active authorizations, maximum 100"}, "401": {"description": "Authentication required"}, "500": {"description": "Store unavailable"}}
+      }
+    },
+    "/users/me/oauth/authorizations/{client_id}": {
+      "delete": {
+        "tags": ["OAuth2"],
+        "summary": "Revoke current account authorization for an OAuth client",
+        "description": "Idempotently revoke current account credentials and unused codes; does not delete the application.",
+        "parameters": [{"name":"client_id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],
+        "security": [{"bearerAuth": []}],
+        "responses": {"204": {"description": "Authorization revoked or absent"}, "400": {"description": "Invalid client ID"}, "401": {"description": "Authentication required"}, "500": {"description": "Store unavailable"}}
+      }
+    },
     "/oauth/clients": {
       "get": {
         "tags": [
