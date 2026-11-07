@@ -14,7 +14,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/response"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	api_oauth "github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
@@ -28,7 +28,7 @@ const browserSessionKey = "oauth_browser_session"
 const loginNonceMaxAge = int(authcrypto.BrowserCSRFTokenTTL / time.Second)
 
 // Login uses the existing credential service: it must create a normal DB session.
-// The result's JWTs must never be exposed to a browser cookie or HTML response.
+// The result's JWTs must never be exposed to a browser cookie or HTML appctx.
 type LoginFunc func(context.Context, string, string, string, string) (auth_service.LoginResult, error)
 
 type Config struct {
@@ -156,7 +156,7 @@ func (h *Handler) notAuthenticated(c *gin.Context) {
 			return
 		}
 	}
-	response.BearerRequired(c)
+	appctx.BearerRequired(c)
 	c.Abort()
 }
 
@@ -361,7 +361,7 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 // CompleteOIDCLogin finishes an already verified OIDC identity with the
-// canonical browser session cookie, without returning any JWT in the response.
+// canonical browser session cookie, without returning any JWT in the appctx.
 func (h *Handler) CompleteOIDCLogin(c *gin.Context, result auth_service.LoginResult, next string) {
 	if !h.OIDCEnabled || !h.sameHost(c) {
 		c.AbortWithStatus(http.StatusForbidden)

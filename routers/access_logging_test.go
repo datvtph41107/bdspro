@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/datvtph41107/bdspro/routers/api/response"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
@@ -23,7 +23,7 @@ func TestAccessLogIsSafeInfoOutcome(t *testing.T) {
 	router := gin.New()
 	router.Use(accessLogger())
 	router.GET("/organizations/:id", func(c *gin.Context) {
-		response.InternalError(c)
+		appctx.InternalError(c)
 	})
 
 	request := httptest.NewRequest(http.MethodGet, "/organizations/42?token=private-query-value", nil)
@@ -61,7 +61,7 @@ func TestUnexpectedErrorProducesOneDiagnosticAndOneOutcome(t *testing.T) {
 	router := gin.New()
 	router.Use(accessLogger())
 	router.GET("/fail", func(c *gin.Context) {
-		response.Error(c, errors.New("provider-token-that-must-stay-private"))
+		appctx.Error(c, errors.New("provider-token-that-must-stay-private"))
 	})
 
 	request := httptest.NewRequest(http.MethodGet, "/fail", nil)

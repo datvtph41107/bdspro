@@ -15,7 +15,7 @@ import (
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/response"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -118,18 +118,18 @@ func (h *Handler) Authenticate(maker authcrypto.Maker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		parts := strings.Fields(c.GetHeader("Authorization"))
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			response.BearerRequired(c)
+			appctx.BearerRequired(c)
 			return
 		}
 		payload, err := maker.VerifyToken(parts[1], authcrypto.TokenTypeAccess)
 		if err != nil {
-			response.InvalidAccessToken(c)
+			appctx.InvalidAccessToken(c)
 			return
 		}
 		if err := auth_model.RequireActiveSession(c.Request.Context(), h.store,
 			payload.AccountID, payload.SessionID, time.Now()); err != nil {
 			if errors.Is(err, auth_model.ErrSessionUnavailable) {
-				response.InvalidAccessToken(c)
+				appctx.InvalidAccessToken(c)
 			} else {
 				failure(c, http.StatusServiceUnavailable, "temporarily_unavailable")
 				c.Abort()

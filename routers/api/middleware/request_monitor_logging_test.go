@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/datvtph41107/bdspro/routers/api/response"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
@@ -20,7 +20,7 @@ func TestRequestMonitorDoesNotWarnOnSingleMalformedRequest(t *testing.T) {
 	router := gin.New()
 	router.Use(RequestMonitor(nil))
 	router.GET("/test", func(c *gin.Context) {
-		response.Reject(c, http.StatusBadRequest, "invalid_request", "invalid request")
+		appctx.Reject(c, http.StatusBadRequest, "invalid_request", "invalid request")
 	})
 	request := httptest.NewRequest(http.MethodGet, "/test", nil)
 	recorder := httptest.NewRecorder()
@@ -42,7 +42,7 @@ func TestRequestMonitorWarnsOnDeniedAuthentication(t *testing.T) {
 	router := gin.New()
 	router.Use(RequestMonitor(nil))
 	router.GET("/me", func(c *gin.Context) {
-		response.BearerRequired(c)
+		appctx.BearerRequired(c)
 	})
 	request := httptest.NewRequest(http.MethodGet, "/me", nil)
 	recorder := httptest.NewRecorder()

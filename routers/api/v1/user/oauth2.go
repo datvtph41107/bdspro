@@ -10,7 +10,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/response"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/services/convert"
 	"github.com/gin-gonic/gin"
@@ -68,7 +68,7 @@ func (h *OAuth2Handler) StartBrowserLogin(c *gin.Context) {
 	}
 	next, err := auth.BrowserNextPath(c.Query("next"))
 	if err != nil {
-		response.Reject(c, http.StatusBadRequest, "oauth2.invalid_return_path", "invalid consent return path")
+		appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_return_path", "invalid consent return path")
 		return
 	}
 	start, err := h.oauth2.BeginBrowserLogin(c.Request.Context(), next)
@@ -85,25 +85,25 @@ func (h *OAuth2Handler) StartBrowserLogin(c *gin.Context) {
 func (h *OAuth2Handler) StartLink(c *gin.Context) {
 	var req structs.OAuth2LinkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	accountID := middleware.AccountID(c)
 	if (req.Password == "") == (req.PhoneCode == "") {
-		response.Reject(c, http.StatusBadRequest, "oauth2.invalid_link_proof", "provide exactly one reauthentication method")
+		appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_link_proof", "provide exactly one reauthentication method")
 		return
 	}
 	if req.PhoneCode != "" {
 		if !h.auth.HasPhone() {
-			response.Reject(c, http.StatusForbidden, "oauth2.phone_proof_unavailable", "phone reauthentication unavailable")
+			appctx.Reject(c, http.StatusForbidden, "oauth2.phone_proof_unavailable", "phone reauthentication unavailable")
 			return
 		}
 		if err := h.auth.AuthorizePhoneProof(c.Request.Context(), accountID, req.PhoneCode); err != nil {
-			response.Error(c, err)
+			appctx.Error(c, err)
 			return
 		}
 	} else if err := h.auth.CheckPassword(c.Request.Context(), accountID, req.Password); err != nil {
-		response.Error(c, err)
+		appctx.Error(c, err)
 		return
 	}
 	start, err := h.oauth2.Begin(c.Request.Context(), "link", accountID, "")
@@ -127,7 +127,7 @@ func (h *OAuth2Handler) StartPhoneBind(c *gin.Context) {
 		Phone string `json:"phone" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Invalid(c, err)
+		appctx.Invalid(c, err)
 		return
 	}
 	start, err := h.oauth2.Begin(c.Request.Context(), "phone_bind", middleware.AccountID(c), req.Phone)
@@ -147,26 +147,26 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 	cookie, err := c.Request.Cookie(oauth2StateCookie)
 	if err != nil || len(state) != 43 ||
 		subtle.ConstantTimeCompare([]byte(state), []byte(cookie.Value)) != 1 {
-		response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
+		appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
 		return
 	}
 	h.stateCookie(c, "", -1)
 	pending, err := h.oauth2.Consume(c.Request.Context(), state)
 	if err != nil {
 		if errors.Is(err, auth_service.ErrOAuth2StateExpired) || errors.Is(err, auth_service.ErrOAuth2StateInvalid) {
-			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "expired or invalid authorization state")
+			appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "expired or invalid authorization state")
 		} else {
 			h.unavailable(c, err)
 		}
 		return
 	}
 	if c.Query("error") != "" || c.Query("code") == "" {
-		response.Reject(c, http.StatusUnauthorized, "oauth2.authorization_declined", "authorization declined")
+		appctx.Reject(c, http.StatusUnauthorized, "oauth2.authorization_declined", "authorization declined")
 		return
 	}
 	idToken, err := h.oauth2.Exchange(c.Request.Context(), c.Query("code"), pending.Verifier)
 	if errors.Is(err, auth_service.ErrOAuth2AuthorizationFailed) {
-		response.Reject(c, http.StatusUnauthorized, "oauth2.authorization_failed", "authorization code rejected")
+		appctx.Reject(c, http.StatusUnauthorized, "oauth2.authorization_failed", "authorization code rejected")
 		return
 	}
 	if err != nil {
@@ -175,42 +175,42 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 	}
 	identity, err := h.oauth2.Verify(c.Request.Context(), idToken, pending.Nonce)
 	if err != nil {
-		response.Reject(c, http.StatusUnauthorized, "oauth2.invalid_identity", "invalid identity assertion")
+		appctx.Reject(c, http.StatusUnauthorized, "oauth2.invalid_identity", "invalid identity assertion")
 		return
 	}
 	switch pending.Purpose {
 	case "phone_bind":
 		if pending.AccountID <= 0 || !h.auth.HasPhone() {
-			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
+			appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
 			return
 		}
 		if err := h.auth.StartOAuth2PhoneBind(c.Request.Context(), pending.AccountID, identity, pending.Phone); err != nil {
-			response.Error(c, err)
+			appctx.Error(c, err)
 			return
 		}
 		c.JSON(http.StatusAccepted, gin.H{"phone_verification_started": true})
 	case "link":
 		if pending.AccountID <= 0 {
-			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
+			appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
 			return
 		}
 		if err := h.auth.LinkOIDC(c.Request.Context(), pending.AccountID, identity); err != nil {
-			response.Error(c, err)
+			appctx.Error(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"linked": true})
 	case "login":
 		if pending.AccountID != 0 {
-			response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
+			appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
 			return
 		}
 		if pending.ReturnPath != "" && h.browserLogin == nil {
-			response.Reject(c, http.StatusServiceUnavailable, "oauth2.browser_unavailable", "browser OAuth login unavailable")
+			appctx.Reject(c, http.StatusServiceUnavailable, "oauth2.browser_unavailable", "browser OAuth login unavailable")
 			return
 		}
 		result, err := h.auth.LoginOIDC(c.Request.Context(), identity, c.Request.UserAgent(), c.ClientIP())
 		if err != nil {
-			response.Error(c, err)
+			appctx.Error(c, err)
 			return
 		}
 		if pending.ReturnPath != "" {
@@ -219,7 +219,7 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 		}
 		c.JSON(http.StatusOK, convert.ToLogin(result))
 	default:
-		response.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "unsupported authorization purpose")
+		appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "unsupported authorization purpose")
 	}
 }
 
@@ -228,5 +228,5 @@ func (h *OAuth2Handler) unavailable(c *gin.Context, err error) {
 		Str("dependency", "openid_connect").
 		Str("error_type", fmt.Sprintf("%T", err)).
 		Msg("auth.provider_unavailable")
-	response.Reject(c, http.StatusServiceUnavailable, "oauth2.unavailable", "identity provider unavailable")
+	appctx.Reject(c, http.StatusServiceUnavailable, "oauth2.unavailable", "identity provider unavailable")
 }
