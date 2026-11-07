@@ -3491,7 +3491,7 @@
           "OAuth2"
         ],
         "summary": "Read account identity with a scoped OAuth2 token",
-        "description": "Requires an opaque access token with profile:read; application JWTs are rejected.",
+        "description": "Requires an opaque access token with profile:read; returns subject only, not email or email_verified. Application JWTs are rejected.",
         "security": [
           {
             "oauthAccessToken": []
@@ -3499,7 +3499,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Authenticated subject, verified email if available"
+            "description": "Authenticated subject only; contact details are not released"
           },
           "401": {
             "description": "OAuth2 protocol error",
@@ -3532,8 +3532,20 @@
             }
           },
           "503": {
-            "description": "Temporary identity store outage",
-            "content": {"application/json": {"schema": {"type": "object", "properties": {"error": {"type": "string"}}}}}
+            "description": "OAuth identity store temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": ["temporarily_unavailable"]
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

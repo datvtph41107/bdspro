@@ -260,14 +260,12 @@ func (h *Handler) UserInfo(c *gin.Context) {
 		return
 	}
 	c.Header("Cache-Control", "no-store")
-	out := gin.H{"sub": account.ID, "email_verified": account.IsEmailVerified}
-	if account.IsEmailVerified {
-		out["email"] = account.Email
-	}
-	c.JSON(http.StatusOK, out)
+	// The sole current OAuth scope, profile:read, grants a subject identifier;
+	// contact data requires a separate explicit scope and consent policy.
+	c.JSON(http.StatusOK, gin.H{"sub": account.ID})
 }
 
-// A failed storage operation is not proof of an invalid credential.
+// Do not disguise a failed PostgreSQL lookup as a rejected OAuth credential.
 func userinfoStoreUnavailable(c *gin.Context, err error) {
 	log.Ctx(c.Request.Context()).Error().
 		Str("dependency", "postgres").

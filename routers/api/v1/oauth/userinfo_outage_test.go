@@ -53,7 +53,7 @@ func TestUserInfoSeparatesCredentialRejectionFromPostgresFailure(t *testing.T) {
 		{"token lookup outage", unavailable, nil, http.StatusServiceUnavailable, `"error":"temporarily_unavailable"`},
 		{"missing account", nil, pgx.ErrNoRows, http.StatusUnauthorized, `"error":"invalid_token"`},
 		{"account lookup outage", nil, unavailable, http.StatusServiceUnavailable, `"error":"temporarily_unavailable"`},
-		{"valid token and account", nil, nil, http.StatusOK, `"email_verified":true`},
+		{"valid token and account", nil, nil, http.StatusOK, `"sub":41`},
 	}
 	bearer := base64.RawURLEncoding.EncodeToString([]byte(strings.Repeat("x", 32)))
 	for _, tc := range cases {
@@ -70,6 +70,9 @@ func TestUserInfoSeparatesCredentialRejectionFromPostgresFailure(t *testing.T) {
 			}
 			if resp.Header().Get("Cache-Control") != "no-store" {
 				t.Fatal("OAuth userinfo response must not be cached")
+			}
+			if tc.status == http.StatusOK && (strings.Contains(resp.Body.String(), `"email"`) || strings.Contains(resp.Body.String(), `"email_verified"`) || strings.Contains(resp.Body.String(), "verified@example.test")) {
+				t.Fatalf("profile:read leaked contact claims: %s", resp.Body.String())
 			}
 		})
 	}
