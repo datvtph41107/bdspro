@@ -26,7 +26,7 @@ func TestOAuthGrantWritesRollbackOnTokenInsertFailure(t *testing.T) {
 	newCode := func() []byte {
 		t.Helper()
 		code := hashOAuthTest(uuid.NewString())
-		if err := store.CreateOAuthAuthCode(ctx, clientID, accountID, redirect,
+		if err := issueOAuthCodeForTest(t, ctx, store, clientID, accountID, redirect,
 			"profile:read", challenge, code, time.Now().Add(time.Minute)); err != nil {
 			t.Fatal(err)
 		}

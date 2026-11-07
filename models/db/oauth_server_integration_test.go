@@ -75,7 +75,7 @@ func TestOAuthCodeSingleUseAndRefreshReplay(t *testing.T) {
 	if len(challenge) != 43 {
 		t.Fatal("test challenge must be 43 chars")
 	}
-	if err := store.CreateOAuthAuthCode(ctx, id, accountID, redirect,
+	if err := issueOAuthCodeForTest(t, ctx, store, id, accountID, redirect,
 		"profile:read", challenge, code, time.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestOAuthAuthorizationCodeConcurrentExchange(t *testing.T) {
 	}
 	code := hashOAuthTest(uuid.NewString())
 	challenge := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
-	if err := store.CreateOAuthAuthCode(ctx, id, accountID, redirect,
+	if err := issueOAuthCodeForTest(t, ctx, store, id, accountID, redirect,
 		"profile:read", challenge, code, time.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}

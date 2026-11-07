@@ -60,6 +60,7 @@ type Oauth2Credential = sqlc.Oauth2Credential
 type OauthAccessToken = sqlc.OauthAccessToken
 type OauthAuthCode = sqlc.OauthAuthCode
 type OauthClient = sqlc.OauthClient
+type OauthGrant = sqlc.OauthGrant
 type OauthRefreshToken = sqlc.OauthRefreshToken
 type Organization = sqlc.Organization
 type OrganizationMember = sqlc.OrganizationMember

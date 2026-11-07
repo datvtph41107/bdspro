@@ -113,6 +113,17 @@ type OauthClient struct {
 	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
 }
 
+type OauthGrant struct {
+	AccountID  int64              `json:"account_id"`
+	ClientID   uuid.UUID          `json:"client_id"`
+	Scope      string             `json:"scope"`
+	Version    int64              `json:"version"`
+	ApprovedAt pgtype.Timestamptz `json:"approved_at"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt  time.Time          `json:"created_at"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
 type OauthRefreshToken struct {
 	TokenHash       []byte             `json:"token_hash"`
 	AccessTokenHash []byte             `json:"access_token_hash"`

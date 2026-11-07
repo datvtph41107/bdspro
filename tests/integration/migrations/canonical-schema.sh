@@ -12,7 +12,8 @@ BEGIN
   FROM information_schema.tables
   WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
     AND table_name <> 'schema_migrations';
-  IF number_of_tables <> 26
+  IF number_of_tables <> 27
+     OR to_regclass('public.oauth_grants') IS NULL
      OR to_regclass('public.oauth_clients') IS NULL
      OR to_regclass('public.oauth_auth_codes') IS NULL
      OR to_regclass('public.oauth_access_tokens') IS NULL
@@ -24,7 +25,7 @@ BEGIN
      OR to_regclass('public.organization_memberships') IS NOT NULL
      OR to_regclass('public.verification_outbox') IS NOT NULL
      OR EXISTS (SELECT 1 FROM pg_trigger WHERE NOT tgisinternal)
-     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 26 AND NOT dirty) THEN
+     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 27 AND NOT dirty) THEN
     RAISE EXCEPTION 'canonical fresh schema differs from contract (tables=%)', number_of_tables;
   END IF;
 END $check$;

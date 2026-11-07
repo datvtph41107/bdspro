@@ -34,7 +34,7 @@ func TestOAuthCleanupPreservesLiveRefreshAndReclaimsExpiredRows(t *testing.T) {
 	challenge := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
 
 	unusedCode := hashOAuthTest(uuid.NewString())
-	if err := store.CreateOAuthAuthCode(ctx, clientID, accountID,
+	if err := issueOAuthCodeForTest(t, ctx, store, clientID, accountID,
 		redirect, "profile:read", challenge, unusedCode, old); err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestOAuthCleanupPreservesLiveRefreshAndReclaimsExpiredRows(t *testing.T) {
 	newGrant := func(refreshExpiry time.Time) (access, refresh []byte) {
 		t.Helper()
 		code := hashOAuthTest(uuid.NewString())
-		if err := store.CreateOAuthAuthCode(ctx, clientID, accountID,
+		if err := issueOAuthCodeForTest(t, ctx, store, clientID, accountID,
 			redirect, "profile:read", challenge, code, time.Now().Add(time.Minute)); err != nil {
 			t.Fatal(err)
 		}

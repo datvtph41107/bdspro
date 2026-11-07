@@ -36,7 +36,7 @@ func TestOAuthAuthorizationsAreUserScopedAndRevoked(t *testing.T) {
 	}
 	challenge := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
 	code := hashOAuthTest(uuid.NewString())
-	if err := store.CreateOAuthAuthCode(ctx, client, user, redirect, "profile:read", challenge, code, time.Now().Add(time.Minute)); err != nil {
+	if err := issueOAuthCodeForTest(t, ctx, store, client, user, redirect, "profile:read", challenge, code, time.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	access, refresh := hashOAuthTest(uuid.NewString()), hashOAuthTest(uuid.NewString())
@@ -45,7 +45,7 @@ func TestOAuthAuthorizationsAreUserScopedAndRevoked(t *testing.T) {
 		t.Fatal(err)
 	}
 	pending := hashOAuthTest(uuid.NewString())
-	if err := store.CreateOAuthAuthCode(ctx, client, user, redirect, "profile:read", challenge, pending, time.Now().Add(time.Minute)); err != nil {
+	if err := issueOAuthCodeForTest(t, ctx, store, client, user, redirect, "profile:read", challenge, pending, time.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	mine, err := store.ListOAuthAuthorizations(ctx, user)
@@ -97,7 +97,7 @@ func TestOAuthRevokeVsRefreshNeverLeavesLiveToken(t *testing.T) {
 	}
 	challenge := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
 	code := hashOAuthTest(uuid.NewString())
-	if err := store.CreateOAuthAuthCode(ctx, client, user, redirect, "profile:read", challenge, code, time.Now().Add(time.Minute)); err != nil {
+	if err := issueOAuthCodeForTest(t, ctx, store, client, user, redirect, "profile:read", challenge, code, time.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	access, refresh := hashOAuthTest(uuid.NewString()), hashOAuthTest(uuid.NewString())
