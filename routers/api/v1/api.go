@@ -73,8 +73,15 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 	)
 
 	if d.Authorization != nil {
-		// Browser login and consent reuse DB sessions and the same OAuth service.
+		// One canonical method/route declaration. When browser OAuth is not
+		// configured, the existing Bearer-JWT-only contract remains unchanged.
+		preview := d.Authorization.AuthorizePreview
+		approve := d.Authorization.Authorize
+		authenticate := middleware.Authenticate(d.TokenMaker)
 		if d.Browser != nil {
+			preview = d.Browser.AuthorizePreview
+			approve = d.Browser.Authorize
+			authenticate = d.Browser.Authenticate
 			route.GET("/oauth/login", d.Browser.LoginPage)
 			if d.IPActive != nil {
 				route.POST("/oauth/login", d.IPActive.For(ipactive.Login), d.Browser.Login)
@@ -82,9 +89,9 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 				route.POST("/oauth/login", d.Browser.Login)
 			}
 			route.POST("/oauth/logout", d.Browser.RequireBrowserSession, d.Browser.Logout)
-			route.GET("/oauth/authorize", d.Browser.Authenticate, d.Browser.AuthorizePreview)
-			route.POST("/oauth/authorize", d.Browser.Authenticate, d.Browser.Authorize)
 		}
+		route.GET("/oauth/authorize", authenticate, preview)
+		route.POST("/oauth/authorize", authenticate, approve)
 		// OAuth2 authorization-server endpoints are distinct from OIDC client login.
 		route.POST("/oauth/token",
 			d.IPActive.For(ipactive.RenewAccess), d.Authorization.Token)
@@ -125,10 +132,6 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	profile := user.NewProfileHandler(d.Store)
 	if d.Authorization != nil {
-		if d.Browser == nil {
-			route.GET("/oauth/authorize", d.Authorization.AuthorizePreview)
-			route.POST("/oauth/authorize", d.Authorization.Authorize)
-		}
 		route.GET("/oauth/clients", d.Authorization.ListClients)
 		route.POST("/oauth/clients",
 			middleware.VerifiedContact(d.Store), d.Authorization.CreateClient)
