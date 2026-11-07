@@ -144,8 +144,14 @@ func TestBrowserPostgresLoginAndLogoutRevokeSession(t *testing.T) {
 	if logout.Code != http.StatusForbidden {
 		t.Fatalf("consent CSRF incorrectly authorized logout: %d", logout.Code)
 	}
+	pageHTML := consent.Body.String()
+	logoutStart := strings.Index(pageHTML, `action="/oauth/logout"`)
+	if logoutStart == -1 {
+		t.Fatal("logout form was not rendered")
+	}
+	logoutCSRF := hiddenValue(t, pageHTML[logoutStart:], "csrf")
 	logout = req(t, router, http.MethodPost, "/oauth/logout", url.Values{
-		"csrf": {hiddenValue(t, consent.Body.String(), "logout_csrf")},
+		"csrf": {logoutCSRF},
 	}, sessionCookie)
 	if logout.Code != http.StatusNoContent {
 		t.Fatalf("logout transaction failed: %d %s", logout.Code, logout.Body.String())
