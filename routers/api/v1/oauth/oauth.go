@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
@@ -20,10 +21,15 @@ import (
 type Handler struct {
 	service *oauth_service.Service
 	store   db.Store
+	proofs  *oauth_service.ConsentProofs
 }
 
-func NewHandler(service *oauth_service.Service, store db.Store) *Handler {
-	return &Handler{service: service, store: store}
+func NewHandler(service *oauth_service.Service, store db.Store, proofs ...*oauth_service.ConsentProofs) *Handler {
+	h := &Handler{service: service, store: store}
+	if len(proofs) > 0 {
+		h.proofs = proofs[0]
+	}
+	return h
 }
 
 type clientRequest struct {
@@ -118,6 +124,17 @@ func authorizationRequest(values url.Values) (oauth_service.AuthorizationRequest
 	}, nil
 }
 
+// consentProofFields binds a preview to the authenticated Account and every
+// OAuth request attribute. Never take AccountID from user-submitted data.
+func consentProofFields(accountID int64, req oauth_service.AuthorizationRequest) oauth_service.ConsentProofFields {
+	return oauth_service.ConsentProofFields{
+		AccountID: accountID, ClientID: req.ClientID.String(),
+		RedirectURI: req.RedirectURI, Scope: req.Scope, ResponseType: req.ResponseType,
+		CodeChallenge: req.CodeChallenge, CodeChallengeMethod: req.CodeChallengeMethod,
+		State: req.State, ConsentVersion: req.ConsentVersion,
+	}
+}
+
 // AuthorizePreview supplies consent text to an already-authenticated browser
 // frontend; it never issues a code as a side effect of GET.
 func (h *Handler) AuthorizePreview(c *gin.Context) {
@@ -131,11 +148,23 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 		serviceFailure(c, err)
 		return
 	}
+	if h.proofs == nil {
+		failure(c, http.StatusServiceUnavailable, "temporarily_unavailable")
+		return
+	}
+	request.ConsentVersion = version
+	proof, err := h.proofs.Issue(consentProofFields(middleware.AccountID(c), request), time.Now())
+	if err != nil {
+		serviceFailure(c, err)
+		return
+	}
 	c.Header("Cache-Control", "no-store")
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("X-Frame-Options", "DENY")
 	c.JSON(http.StatusOK, gin.H{
 		"client_id": client.ID.String(), "name": client.Name,
 		"redirect_uri": client.RedirectUri, "scope": request.Scope,
-		"consent_required": true, "consent_version": version,
+		"consent_required": true, "consent_version": version, "consent_proof": proof,
 	})
 }
 
@@ -159,6 +188,11 @@ func (h *Handler) Authorize(c *gin.Context) {
 			return
 		}
 		request.ConsentVersion = version
+		if h.proofs == nil || h.proofs.Verify(c.Request.PostForm.Get("consent_proof"),
+			consentProofFields(middleware.AccountID(c), request), time.Now()) != nil {
+			failure(c, http.StatusBadRequest, "invalid_request")
+			return
+		}
 	}
 	if _, err := h.service.ReviewAuthorization(c.Request.Context(), request); err != nil {
 		serviceFailure(c, err)
@@ -171,6 +205,7 @@ func (h *Handler) Authorize(c *gin.Context) {
 		q.Set("state", request.State)
 		target.RawQuery = q.Encode()
 		c.Header("Cache-Control", "no-store")
+		c.Header("Referrer-Policy", "no-referrer")
 		c.Redirect(http.StatusFound, target.String())
 		return
 	}

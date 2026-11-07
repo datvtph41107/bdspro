@@ -35,3 +35,20 @@ reached a lock wait. These tests still do not replace fault-injection or
 production lock-wait monitoring.
 
 **Rolling-upgrade constraint:** all pre-existing OAuth tokens/codes from the 26-table version lack durable grants. This candidate intentionally rejects those tokens once the new grant checks deploy. Operators must plan a coordinated cutover and client reauthorization; do not apply this patch as an invisible in-place schema change.
+
+## R38.3a — Request-bound consent proof (API only)
+
+The authenticated `GET /oauth/authorize` response includes a five-minute
+`consent_proof` HMAC binding the account, client, redirect, scope, PKCE,
+`state` and consent epoch. `POST /oauth/authorize` with `approve=true`
+requires both `consent_version` and the proof. The proof key is domain-
+separated from the application's JWT secret; the proof is neither an OAuth
+access token nor a login credential. The versioned grant transaction in R38.2
+rejects successful approval replay and stale versions.
+
+**Not a browser OAuth session:** API Bearer JWTs are still required on both
+routes. The proof cannot replace server-side browser authentication, a
+same-origin CSRF defense for cookie-authenticated forms, reauthentication,
+or accessible UI showing the application's identity and exact disclosures.
+Do not expose this as a completed HTML consent/login feature. Separate browser
+routes must be designed and tested before third-party client release.
