@@ -177,6 +177,15 @@ func (h *Handler) Authenticate(c *gin.Context) {
 			c.Abort()
 			return
 		}
+		if err := auth_model.RequireActiveSession(c.Request.Context(), h.Store, payload.AccountID, payload.SessionID, time.Now()); err != nil {
+			if errors.Is(err, auth_model.ErrSessionUnavailable) {
+				response.InvalidAccessToken(c)
+			} else {
+				response.Reject(c, http.StatusServiceUnavailable, "oauth.session_store_unavailable", "authorization session temporarily unavailable")
+			}
+			c.Abort()
+			return
+		}
 		c.Set(middleware.AuthorizationPayloadKey, payload)
 		c.Next()
 		return
@@ -187,7 +196,7 @@ func (h *Handler) Authenticate(c *gin.Context) {
 		return
 	}
 	c.Set(middleware.AuthorizationPayloadKey, &authcrypto.Payload{
-		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess,
+		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess, SessionID: session.ID,
 	})
 	c.Set(browserSessionKey, session.ID.String())
 	c.Next()
@@ -200,7 +209,7 @@ func (h *Handler) RequireBrowserSession(c *gin.Context) {
 		return
 	}
 	c.Set(middleware.AuthorizationPayloadKey, &authcrypto.Payload{
-		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess,
+		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess, SessionID: session.ID,
 	})
 	c.Set(browserSessionKey, session.ID.String())
 	c.Next()

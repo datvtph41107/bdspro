@@ -12,6 +12,7 @@ import (
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
@@ -197,7 +198,9 @@ func (h *Handler) Authorize(c *gin.Context) {
 		c.Redirect(http.StatusFound, target.String())
 		return
 	}
-	redirect, err := h.service.Authorize(c.Request.Context(), middleware.AccountID(c), request)
+	// The DB transaction locks this exact issuing session against revoke.
+	payload := c.MustGet(middleware.AuthorizationPayloadKey).(*authcrypto.Payload)
+	redirect, err := h.service.Authorize(c.Request.Context(), middleware.AccountID(c), payload.SessionID, request)
 	if err != nil {
 		serviceFailure(c, err)
 		return

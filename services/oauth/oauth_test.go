@@ -58,6 +58,7 @@ func TestAuthorizePKCEAndOneTimeCode(t *testing.T) {
 	digest := sha256.Sum256([]byte(verifier))
 	store := &oauthStub{client: db.OauthClient{ID: id, RedirectUri: "https://client.example.test/callback"}}
 	service := NewService(store)
+	sessionID := uuid.New()
 	req := AuthorizationRequest{
 		ClientID: id, RedirectURI: store.client.RedirectUri,
 		ResponseType: "code", Scope: ScopeProfile,
@@ -67,20 +68,20 @@ func TestAuthorizePKCEAndOneTimeCode(t *testing.T) {
 	}
 	invalid := req
 	invalid.CodeChallengeMethod = "plain"
-	if _, err := service.Authorize(ctx, 41, invalid); !errors.Is(err, ErrInvalidRequest) || store.inserted != 0 {
+	if _, err := service.Authorize(ctx, 41, sessionID, invalid); !errors.Is(err, ErrInvalidRequest) || store.inserted != 0 {
 		t.Fatalf("plain PKCE accepted, err=%v, writes=%d", err, store.inserted)
 	}
 	invalid = req
 	invalid.RedirectURI = "https://attacker.example.test/steal"
-	if _, err := service.Authorize(ctx, 41, invalid); !errors.Is(err, ErrInvalidClient) || store.inserted != 0 {
+	if _, err := service.Authorize(ctx, 41, sessionID, invalid); !errors.Is(err, ErrInvalidClient) || store.inserted != 0 {
 		t.Fatalf("unregistered redirect accepted: %v", err)
 	}
 	invalid = req
 	invalid.Scope = "admin"
-	if _, err := service.Authorize(ctx, 41, invalid); !errors.Is(err, ErrInvalidRequest) {
+	if _, err := service.Authorize(ctx, 41, sessionID, invalid); !errors.Is(err, ErrInvalidRequest) {
 		t.Fatalf("unapproved scope accepted: %v", err)
 	}
-	location, err := service.Authorize(ctx, 41, req)
+	location, err := service.Authorize(ctx, 41, sessionID, req)
 	if err != nil {
 		t.Fatal(err)
 	}
