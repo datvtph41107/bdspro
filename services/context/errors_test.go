@@ -1,4 +1,4 @@
-package response
+package context
 
 import (
 	"bytes"
@@ -65,12 +65,12 @@ func TestApplicationErrorResponses(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, ok := getErrorResponse(tt.err)
+			status, code, message, ok := PublicError(tt.err)
 			if !ok {
 				t.Fatal("application failure not classified")
 			}
-			if result.Status != tt.status || result.Code != tt.code || result.Message != tt.message {
-				t.Fatalf("got %+v, want status=%d code=%q message=%q", result, tt.status, tt.code, tt.message)
+			if status != tt.status || code != tt.code || message != tt.message {
+				t.Fatalf("got status=%d code=%q message=%q, want status=%d code=%q message=%q", status, code, message, tt.status, tt.code, tt.message)
 			}
 		})
 	}
@@ -82,11 +82,11 @@ func TestWrappedApplicationErrorResponse(t *testing.T) {
 	if !errors.Is(err, organization_model.ErrMembershipExists) || !errors.Is(err, cause) {
 		t.Fatalf("both error identities must be preserved: %v", err)
 	}
-	result, ok := getErrorResponse(err)
-	if !ok || result.Status != http.StatusConflict || result.Code != "organization.membership_exists" {
-		t.Fatalf("incorrect public contract: %+v, ok=%t", result, ok)
+	status, code, _, ok := PublicError(err)
+	if !ok || status != http.StatusConflict || code != "organization.membership_exists" {
+		t.Fatalf("incorrect public contract: status=%d code=%q ok=%t", status, code, ok)
 	}
-	if _, ok := getErrorResponse(errors.New("unknown database error")); ok {
+	if _, _, _, ok := PublicError(errors.New("unknown database error")); ok {
 		t.Fatal("unexpected errors must not be public")
 	}
 }
@@ -118,7 +118,7 @@ func TestUnexpectedErrorDoesNotLeakIntoClientOrLog(t *testing.T) {
 }
 
 func TestGenericCategoryDoesNotExposeRawError(t *testing.T) {
-	if result, ok := getErrorResponse(util.ErrNotExist); ok {
-		t.Fatalf("unowned error exposed through API: %+v", result)
+	if status, code, message, ok := PublicError(util.ErrNotExist); ok {
+		t.Fatalf("unowned error exposed through API: status=%d code=%q message=%q", status, code, message)
 	}
 }
