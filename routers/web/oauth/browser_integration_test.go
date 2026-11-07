@@ -55,7 +55,7 @@ func TestBrowserPostgresLoginAndLogoutRevokeSession(t *testing.T) {
 	if _, err := pool.Exec(ctx, "INSERT INTO persons(party_id) VALUES($1)", personID); err != nil {
 		t.Fatal(err)
 	}
-	email := "oauth-browser-"+uuid.NewString()+"@example.test"
+	email := "oauth-browser-" + uuid.NewString() + "@example.test"
 	if err := pool.QueryRow(ctx, "INSERT INTO accounts(person_id,email) VALUES($1,$2) RETURNING id", personID, email).Scan(&accountID); err != nil {
 		t.Fatal(err)
 	}
@@ -83,9 +83,9 @@ func TestBrowserPostgresLoginAndLogoutRevokeSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	auth := auth_service.NewAuthService(store, maker, setting.Config{
-		TokenSymmetricKey: secret,
-		AccessTokenDuration: 15*time.Minute,
-		RefreshTokenDuration: 24*time.Hour,
+		TokenSymmetricKey:    secret,
+		AccessTokenDuration:  15 * time.Minute,
+		RefreshTokenDuration: 24 * time.Hour,
 	}, nil)
 	oauthStore := &browserOAuthStore{client: db.OauthClient{
 		ID: uuid.New(), Name: "Database session client", RedirectUri: "https://client.example.test/callback",
@@ -107,7 +107,7 @@ func TestBrowserPostgresLoginAndLogoutRevokeSession(t *testing.T) {
 	router.GET("/oauth/authorize", browser.Authenticate, browser.AuthorizePreview)
 	router.POST("/oauth/logout", browser.RequireBrowserSession, browser.Logout)
 
-	next := "/oauth/authorize?"+oauthForm(oauthStore).Encode()
+	next := "/oauth/authorize?" + oauthForm(oauthStore).Encode()
 	loginPage := req(t, router, http.MethodGet, "/oauth/login?next="+url.QueryEscape(next), nil)
 	if loginPage.Code != http.StatusOK {
 		t.Fatalf("login page %d: %s", loginPage.Code, loginPage.Body.String())
