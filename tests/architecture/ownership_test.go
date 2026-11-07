@@ -55,11 +55,15 @@ func TestSourcePackageOwnership(t *testing.T) {
 					if dep == modulePath+"/routers/api/response" {
 						t.Errorf("%s: removed HTTP response compatibility package was imported", rel)
 					}
+					if dep == modulePath+"/routers/api/middleware" {
+						t.Errorf("%s: removed HTTP middleware compatibility package was imported", rel)
+					}
 					if owner == "services" && dep == "github.com/jackc/pgx/v5/pgconn" {
 						t.Errorf("%s: PostgreSQL constraints must be classified by owning models, not services", rel)
 					}
 					// Gin is allowed only in the HTTP-specific context adapter, not business services.
-					httpAdapter := strings.HasPrefix(filepath.ToSlash(rel), "services/context/")
+					httpAdapter := strings.HasPrefix(filepath.ToSlash(rel), "services/context/") ||
+						strings.HasPrefix(filepath.ToSlash(rel), "services/security/")
 					if owner == "services" && (isRouter || (dep == "github.com/gin-gonic/gin" && !httpAdapter)) {
 						t.Errorf("%s: business service depends on HTTP delivery %q", rel, dep)
 					}
