@@ -10,6 +10,7 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
+	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,6 +20,7 @@ type Dependencies struct {
 	Organization  *org.Handler
 	OAuth2        *user.OAuth2Handler
 	Authorization *oauth.Handler
+	Browser *weboauth.Handler
 	PhoneEnabled  bool
 	TokenMaker    authcrypto.Maker
 	IPActive      *ipactive.Middleware
@@ -71,6 +73,18 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 	)
 
 	if d.Authorization != nil {
+		// Browser login and consent reuse DB sessions and the same OAuth service.
+		if d.Browser != nil {
+			route.GET("/oauth/login", d.Browser.LoginPage)
+			if d.IPActive != nil {
+				route.POST("/oauth/login", d.IPActive.For(ipactive.Login), d.Browser.Login)
+			} else {
+				route.POST("/oauth/login", d.Browser.Login)
+			}
+			route.POST("/oauth/logout", d.Browser.RequireBrowserSession, d.Browser.Logout)
+			route.GET("/oauth/authorize", d.Browser.Authenticate, d.Browser.AuthorizePreview)
+			route.POST("/oauth/authorize", d.Browser.Authenticate, d.Browser.Authorize)
+		}
 		// OAuth2 authorization-server endpoints are distinct from OIDC client login.
 		route.POST("/oauth/token",
 			d.IPActive.For(ipactive.RenewAccess), d.Authorization.Token)
@@ -111,8 +125,10 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	profile := user.NewProfileHandler(d.Store)
 	if d.Authorization != nil {
-		route.GET("/oauth/authorize", d.Authorization.AuthorizePreview)
-		route.POST("/oauth/authorize", d.Authorization.Authorize)
+		if d.Browser == nil {
+			route.GET("/oauth/authorize", d.Authorization.AuthorizePreview)
+			route.POST("/oauth/authorize", d.Authorization.Authorize)
+		}
 		route.GET("/oauth/clients", d.Authorization.ListClients)
 		route.POST("/oauth/clients",
 			middleware.VerifiedContact(d.Store), d.Authorization.CreateClient)

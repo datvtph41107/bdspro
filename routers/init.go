@@ -62,6 +62,7 @@ func NormalRoutes(server *Server) *gin.Engine {
 		Organization:  server.organizationHandler,
 		OAuth2:        server.oauth2Handler,
 		Authorization: server.authorizationHandler,
+		Browser: server.browserHandler,
 		PhoneEnabled:  server.phoneEnabled,
 		TokenMaker:    server.tokenMaker,
 		IPActive:      server.ipActive,
