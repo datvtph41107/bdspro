@@ -30,7 +30,10 @@ func (s *SQLStore) GetOAuthConsentVersion(ctx context.Context, accountID int64, 
 func (s *SQLStore) ApproveOAuthAuthCode(ctx context.Context, clientID uuid.UUID,
 	accountID int64, redirect, scope, challenge string, hash []byte,
 	expires time.Time, expectedVersion int64, sessionID uuid.UUID) error {
-	if expectedVersion < 0 || accountID <= 0 || clientID == uuid.Nil || scope != "profile:read" || sessionID == uuid.Nil {
+	if sessionID == uuid.Nil {
+		return ErrOAuthSessionInactive
+	}
+	if expectedVersion < 0 || accountID <= 0 || clientID == uuid.Nil || scope != "profile:read" {
 		return ErrOAuthConsentStale
 	}
 	return s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
@@ -42,7 +45,7 @@ func (s *SQLStore) ApproveOAuthAuthCode(ctx context.Context, clientID uuid.UUID,
 		// issuance linearizable: revoked sessions cannot create new codes.
 		var lockedSession uuid.UUID
 		err := tx.QueryRow(ctx, `SELECT id FROM sessions
-			WHERE id=$1 AND account_id=$2 AND is_blocked=FALSE AND expires_at>now()
+			WHERE id=$1 AND account_id=$2 AND is_blocked=FALSE AND expires_at>clock_timestamp()
 			FOR SHARE`, sessionID, accountID).Scan(&lockedSession)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrOAuthSessionInactive

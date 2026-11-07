@@ -85,7 +85,7 @@ func TestOAuthCodeIssuanceCannotRaceSessionRevocation(t *testing.T) {
 	}
 }
 
-func TestOAuthCodeIssuanceFailsClosedOnSessionDatabaseError(t *testing.T) {
+func TestOAuthCodeIssuanceRejectsExpiredSession(t *testing.T) {
 	ctx, store, accountID := oauthTestStore(t)
 	sessionID := createOAuthTestSession(t, ctx, store, accountID)
 	clientID := uuid.New()
