@@ -16,7 +16,7 @@ import (
 func newCleanupCommand() *cli.Command {
 	return &cli.Command{
 		Name:   "cleanup",
-		Usage:  "Expire login history and audit events using PostgreSQL only",
+		Usage:  "Expire login, audit and OAuth records using PostgreSQL only",
 		Before: PrepareConsoleLoggerLevel(log.INFO),
 		Action: runCleanup,
 	}
@@ -39,10 +39,18 @@ func runCleanup(ctx context.Context, command *cli.Command) error {
 	}
 	defer store.Close()
 
-	deleted, err := worker.NewLoginRetention(store, cfg.AuditRetentionDays).Sweep(cleanupCtx, time.Now())
+	now := time.Now()
+	deleted, err := worker.NewLoginRetention(store, cfg.AuditRetentionDays).Sweep(cleanupCtx, now)
 	if err != nil {
 		return fmt.Errorf("cleanup login/audit history after %d deletions: %w", deleted, err)
 	}
 	log.Info("Login and audit cleanup completed, deleted=%d", deleted)
+
+	oauthCounts, err := store.CleanupExpiredOAuth(cleanupCtx, now)
+	if err != nil {
+		return fmt.Errorf("cleanup OAuth records: %w", err)
+	}
+	log.Info("OAuth cleanup completed, auth_codes=%d refresh_tokens=%d access_tokens=%d",
+		oauthCounts.AuthCodes, oauthCounts.RefreshTokens, oauthCounts.AccessTokens)
 	return nil
 }

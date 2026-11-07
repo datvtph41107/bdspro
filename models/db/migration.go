@@ -63,9 +63,10 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	return nil
 }
 
-// validateUnversionedDatabase refuses to adopt a populated public schema as
-// the canonical migration ledger. The migrate driver may create its own
-// schema_migrations bookkeeping table before reaching this check.
+// An unversioned database is not necessarily an empty one. Refuse to stamp
+// a pre-existing schema with the canonical ledger, even if schema_migrations
+// has no rows. The migration driver may create that bookkeeping table first.
+// No migration SQL runs until this check succeeds.
 func validateUnversionedDatabase(databaseURL string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -75,6 +76,8 @@ func validateUnversionedDatabase(databaseURL string) error {
 	}
 	defer conn.Close(context.Background())
 
+	// Include views and sequences as well as tables: a fresh canonical
+	// installation must not adopt any existing public application objects.
 	var existing int
 	err = conn.QueryRow(ctx, `SELECT count(*) FROM pg_catalog.pg_class c
 		JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
@@ -84,8 +87,8 @@ func validateUnversionedDatabase(databaseURL string) error {
 	if err != nil {
 		return fmt.Errorf("inspect unversioned database objects: %w", err)
 	}
-	if existing != 0 {
-		return fmt.Errorf("unversioned database contains %d public objects; refusing canonical migration; provision a fresh database", existing)
+	if existing > 0 {
+		return fmt.Errorf("unversioned database contains %d existing public objects; refusing canonical migration; provision a fresh database and migrate data explicitly", existing)
 	}
 	return nil
 }

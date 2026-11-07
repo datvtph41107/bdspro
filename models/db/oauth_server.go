@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
@@ -167,13 +169,32 @@ func (s *SQLStore) RotateOAuthRefreshToken(ctx context.Context, clientID uuid.UU
 	var replay bool
 	err := s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
 		var family uuid.UUID
+		// Read the immutable family identifier without a row lock. Locking a
+		// token row first can deadlock against a concurrent family revocation.
+		err := tx.QueryRow(ctx, `SELECT t.family_id
+			FROM oauth_refresh_tokens t JOIN oauth_clients c ON c.id=t.client_id
+			WHERE t.token_hash=$1 AND t.client_id=$2 AND c.revoked_at IS NULL`,
+			oldHash, clientID).Scan(&family)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrOAuthGrantInvalid
+		}
+		if err != nil {
+			return err
+		}
+		if err = lockOAuthFamily(ctx, tx, family); err != nil {
+			return err
+		}
+
+		// Re-read under the family lock and lock the token row. The first
+		// read is only a lock-key lookup, never an authorization decision.
+		var lockedFamily uuid.UUID
 		var expires time.Time
 		var consumed, revoked pgtype.Timestamptz
-		err := tx.QueryRow(ctx, `SELECT t.account_id,t.scope,t.family_id,t.expires_at,t.consumed_at,t.revoked_at
+		err = tx.QueryRow(ctx, `SELECT t.account_id,t.scope,t.family_id,t.expires_at,t.consumed_at,t.revoked_at
 			FROM oauth_refresh_tokens t JOIN oauth_clients c ON c.id=t.client_id
 			WHERE t.token_hash=$1 AND t.client_id=$2 AND c.revoked_at IS NULL
-			FOR UPDATE OF t`, oldHash, clientID).Scan(&grant.AccountID, &grant.Scope, &family, &expires, &consumed, &revoked)
-		if errors.Is(err, pgx.ErrNoRows) {
+			FOR UPDATE OF t`, oldHash, clientID).Scan(&grant.AccountID, &grant.Scope, &lockedFamily, &expires, &consumed, &revoked)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && lockedFamily != family) {
 			return ErrOAuthGrantInvalid
 		}
 		if err != nil {
@@ -212,6 +233,17 @@ func (s *SQLStore) RotateOAuthRefreshToken(ctx context.Context, clientID uuid.UU
 	return grant, nil
 }
 
+// lockOAuthFamily serializes refresh issuance and family revocation. The
+// truncated SHA-256 key may collide only at the cost of extra serialization;
+// no identity, credential or authority is inferred from the lock key. Always
+// acquire it before token row locks. PostgreSQL releases it on commit/rollback.
+func lockOAuthFamily(ctx context.Context, tx pgx.Tx, family uuid.UUID) error {
+	digest := sha256.Sum256(family[:])
+	key := int64(binary.BigEndian.Uint64(digest[:8]))
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1::bigint)`, key)
+	return err
+}
+
 func revokeOAuthFamily(ctx context.Context, tx pgx.Tx, family uuid.UUID) error {
 	if _, err := tx.Exec(ctx, `UPDATE oauth_refresh_tokens SET revoked_at=now()
 		WHERE family_id=$1 AND revoked_at IS NULL`, family); err != nil {
@@ -244,8 +276,23 @@ func (s *SQLStore) RevokeOAuthBearer(ctx context.Context, clientID uuid.UUID, ha
 	return s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
 		var family uuid.UUID
 		err := tx.QueryRow(ctx, `SELECT family_id FROM oauth_refresh_tokens
-			WHERE token_hash=$1 AND client_id=$2 FOR UPDATE`, hash, clientID).Scan(&family)
+			WHERE token_hash=$1 AND client_id=$2`, hash, clientID).Scan(&family)
 		if err == nil {
+			if err = lockOAuthFamily(ctx, tx, family); err != nil {
+				return err
+			}
+			var lockedFamily uuid.UUID
+			err = tx.QueryRow(ctx, `SELECT family_id FROM oauth_refresh_tokens
+				WHERE token_hash=$1 AND client_id=$2 FOR UPDATE`, hash, clientID).Scan(&lockedFamily)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil // token vanished while awaiting the family lock
+			}
+			if err != nil {
+				return err
+			}
+			if lockedFamily != family {
+				return ErrOAuthGrantInvalid
+			}
 			return revokeOAuthFamily(ctx, tx, family)
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
