@@ -2,7 +2,7 @@
 
 Each table has its own ordered `db/migration/NNNNNN_table.up.sql` and
 `NNNNNN_table.down.sql`, with associated indexes in the same file. There
-are 26 ordered migrations, ending at `000026_oauth_refresh_tokens`.
+are 27 ordered migrations, ending at `000027_oauth_grants`.
 The names and constraints are final at creation: no custom triggers,
 backfill, temporary mirror, rename, or archived credential table.
 
@@ -23,7 +23,7 @@ force a migration version on an existing DB.
 
 SQLC reads only `db/migration/` and `db/query/`. Regenerate `models/db/sqlc/`
 and its facade aliases using `make sqlc`; do not hand edit generated
-code. CI tests fresh PostgreSQL 18 creation, all 26 tables and indexes,
+code. CI tests fresh PostgreSQL 18 creation, all 27 tables and indexes,
 the absence of obsolete OAuth tables and SQL triggers, and refusal of an
 older migration ledger.
 
@@ -32,3 +32,5 @@ make migrateup
 make sqlc-check
 make test
 ```
+
+**OAuth grant compatibility:** v27 introduces versioned consent; existing v26-issued tokens have no matching grant and require a coordinated reauthorization cutover. Never silently backfill approvals.

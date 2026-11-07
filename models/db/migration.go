@@ -27,7 +27,7 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	if dirty {
 		return fmt.Errorf("database migration version %d is dirty", version)
 	}
-	if version == 0 || version > 26 {
+	if version == 0 || version > 27 {
 		return fmt.Errorf("unknown migration ledger version %d; provision a fresh canonical database and migrate data explicitly", version)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

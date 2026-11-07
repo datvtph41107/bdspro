@@ -46,6 +46,7 @@ type AuthorizationRequest struct {
 	CodeChallengeMethod string
 	Scope               string
 	State               string
+	ConsentVersion      int64
 }
 
 func ValidateRedirectURI(raw string) error {
@@ -147,6 +148,20 @@ func (s *Service) ReviewAuthorization(ctx context.Context, req AuthorizationRequ
 	return client, nil
 }
 
+// ReviewConsent leaves GET /oauth/authorize read-only. The version is not
+// a credential: it prevents approvals based on an obsolete consent preview.
+func (s *Service) ReviewConsent(ctx context.Context, accountID int64, req AuthorizationRequest) (db.OauthClient, int64, error) {
+	if accountID <= 0 {
+		return db.OauthClient{}, 0, ErrAccessDenied
+	}
+	client, err := s.ReviewAuthorization(ctx, req)
+	if err != nil {
+		return db.OauthClient{}, 0, err
+	}
+	version, err := s.store.GetOAuthConsentVersion(ctx, accountID, req.ClientID)
+	return client, version, err
+}
+
 func (s *Service) Authorize(ctx context.Context, accountID int64, req AuthorizationRequest) (string, error) {
 	if accountID <= 0 {
 		return "", ErrAccessDenied
@@ -159,8 +174,11 @@ func (s *Service) Authorize(ctx context.Context, accountID int64, req Authorizat
 		return "", err
 	}
 	digest := sha256.Sum256([]byte(code))
-	if err := s.store.CreateOAuthAuthCode(ctx, req.ClientID, accountID,
-		req.RedirectURI, req.Scope, req.CodeChallenge, digest[:], time.Now().Add(AuthCodeTTL)); err != nil {
+	if err := s.store.ApproveOAuthAuthCode(ctx, req.ClientID, accountID,
+		req.RedirectURI, req.Scope, req.CodeChallenge, digest[:], time.Now().Add(AuthCodeTTL), req.ConsentVersion); err != nil {
+		if errors.Is(err, db.ErrOAuthConsentStale) {
+			return "", ErrInvalidRequest
+		}
 		if errors.Is(err, db.ErrOAuthClientMissing) {
 			return "", ErrInvalidClient
 		}

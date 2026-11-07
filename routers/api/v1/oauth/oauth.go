@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
@@ -125,7 +126,7 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 		serviceFailure(c, err)
 		return
 	}
-	client, err := h.service.ReviewAuthorization(c.Request.Context(), request)
+	client, version, err := h.service.ReviewConsent(c.Request.Context(), middleware.AccountID(c), request)
 	if err != nil {
 		serviceFailure(c, err)
 		return
@@ -134,7 +135,7 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"client_id": client.ID.String(), "name": client.Name,
 		"redirect_uri": client.RedirectUri, "scope": request.Scope,
-		"consent_required": true,
+		"consent_required": true, "consent_version": version,
 	})
 }
 
@@ -150,6 +151,14 @@ func (h *Handler) Authorize(c *gin.Context) {
 	if err != nil {
 		serviceFailure(c, err)
 		return
+	}
+	if c.Request.PostForm.Get("approve") == "true" {
+		version, err := strconv.ParseInt(c.Request.PostForm.Get("consent_version"), 10, 64)
+		if err != nil || version < 0 {
+			failure(c, http.StatusBadRequest, "invalid_request")
+			return
+		}
+		request.ConsentVersion = version
 	}
 	if _, err := h.service.ReviewAuthorization(c.Request.Context(), request); err != nil {
 		serviceFailure(c, err)

@@ -28,23 +28,13 @@ func lockOAuthAuthorization(ctx context.Context, tx pgx.Tx, accountID int64, cli
 	return err
 }
 
-// ListOAuthAuthorizations lists current authorizations, not historical consent.
-// The owner of an OAuth client is deliberately NOT considered an authorizer.
+// ListOAuthAuthorizations lists active, persistently approved grants even if
+// their access tokens have expired. Application owner != authorizing account.
 func (s *SQLStore) ListOAuthAuthorizations(ctx context.Context, accountID int64) ([]OAuthAuthorizedClient, error) {
-	rows, err := s.pool.Query(ctx, `SELECT c.id, c.name
-		FROM oauth_clients c
-		WHERE c.revoked_at IS NULL AND (
-			EXISTS (SELECT 1 FROM oauth_auth_codes ac
-				WHERE ac.account_id=$1 AND ac.client_id=c.id
-				  AND ac.used_at IS NULL AND ac.expires_at>now())
-			OR EXISTS (SELECT 1 FROM oauth_access_tokens a
-				WHERE a.account_id=$1 AND a.client_id=c.id
-				  AND a.revoked_at IS NULL AND a.expires_at>now())
-			OR EXISTS (SELECT 1 FROM oauth_refresh_tokens r
-				WHERE r.account_id=$1 AND r.client_id=c.id
-				  AND r.consumed_at IS NULL AND r.revoked_at IS NULL AND r.expires_at>now())
-		)
-		ORDER BY c.created_at DESC, c.id LIMIT 100`, accountID)
+	rows, err := s.pool.Query(ctx, `SELECT c.id,c.name FROM oauth_grants g
+        JOIN oauth_clients c ON c.id=g.client_id
+        WHERE g.account_id=$1 AND g.revoked_at IS NULL AND c.revoked_at IS NULL
+        ORDER BY g.approved_at DESC,c.id LIMIT 100`, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +56,17 @@ func (s *SQLStore) ListOAuthAuthorizations(ctx context.Context, accountID int64)
 func (s *SQLStore) RevokeOAuthAuthorization(ctx context.Context, accountID int64, clientID uuid.UUID) error {
 	return s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
 		if err := lockOAuthAuthorization(ctx, tx, accountID, clientID); err != nil {
+			return err
+		}
+		// Keep a versioned tombstone even when no previous grant exists.
+		// This prevents an old approval preview from re-authorizing afterward.
+		if _, err := tx.Exec(ctx, `INSERT INTO oauth_grants
+			(account_id,client_id,scope,version,approved_at,revoked_at)
+			SELECT $1,c.id,'profile:read',1,NULL,now() FROM oauth_clients c
+			JOIN accounts a ON a.id=$1 WHERE c.id=$2
+			ON CONFLICT (account_id,client_id) DO UPDATE SET
+			version=oauth_grants.version+1,revoked_at=now(),updated_at=now()`,
+			accountID, clientID); err != nil {
 			return err
 		}
 		// No revoked_at on auth codes in the canonical schema. Unused codes

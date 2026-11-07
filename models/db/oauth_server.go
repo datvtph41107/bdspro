@@ -45,7 +45,8 @@ type OAuthServerStore interface {
 	GetOAuthClient(context.Context, uuid.UUID) (OauthClient, error)
 	ListOAuthClients(context.Context, int64) ([]OauthClient, error)
 	RevokeOAuthClient(context.Context, int64, uuid.UUID) (bool, error)
-	CreateOAuthAuthCode(context.Context, uuid.UUID, int64, string, string, string, []byte, time.Time) error
+	GetOAuthConsentVersion(context.Context, int64, uuid.UUID) (int64, error)
+	ApproveOAuthAuthCode(context.Context, uuid.UUID, int64, string, string, string, []byte, time.Time, int64) error
 	RedeemOAuthAuthCode(context.Context, uuid.UUID, []byte, string, string, []byte, []byte, time.Time, time.Time, uuid.UUID) (OAuthGrant, error)
 	RotateOAuthRefreshToken(context.Context, uuid.UUID, []byte, []byte, []byte, time.Time) (OAuthGrant, error)
 	ResolveOAuthAccessToken(context.Context, []byte) (OAuthAccess, error)
@@ -108,27 +109,6 @@ func (s *SQLStore) RevokeOAuthClient(ctx context.Context, owner int64, id uuid.U
 	return result.RowsAffected() == 1, nil
 }
 
-func (s *SQLStore) CreateOAuthAuthCode(ctx context.Context, clientID uuid.UUID, accountID int64, redirect, scope, challenge string, hash []byte, expires time.Time) error {
-	return s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
-		if err := lockOAuthAuthorization(ctx, tx, accountID, clientID); err != nil {
-			return err
-		}
-		tag, err := tx.Exec(ctx, `INSERT INTO oauth_auth_codes
-			(code_hash,client_id,account_id,redirect_uri,scope,code_challenge,expires_at)
-			SELECT $1,c.id,a.id,$4,$5,$6,$7
-			FROM oauth_clients c JOIN accounts a ON a.id=$3
-			WHERE c.id=$2 AND c.revoked_at IS NULL AND c.redirect_uri=$4`,
-			hash, clientID, accountID, redirect, scope, challenge, expires)
-		if err != nil {
-			return err
-		}
-		if tag.RowsAffected() != 1 {
-			return ErrOAuthClientMissing
-		}
-		return nil
-	})
-}
-
 // RedeemOAuthAuthCode serializes contenders on one code_hash with row locking.
 // An invalid verifier/redirect never consumes a code. The code is consumed
 // only if access (and optional refresh) persistence commits in the same tx.
@@ -154,6 +134,8 @@ func (s *SQLStore) RedeemOAuthAuthCode(ctx context.Context, clientID uuid.UUID, 
 		var scope, expected string
 		err = tx.QueryRow(ctx, `SELECT a.account_id,a.scope,a.code_challenge
 			FROM oauth_auth_codes a JOIN oauth_clients c ON c.id=a.client_id
+            JOIN oauth_grants g ON g.account_id=a.account_id AND g.client_id=a.client_id
+                AND g.revoked_at IS NULL AND g.scope=a.scope
 			WHERE a.code_hash=$1 AND a.client_id=$2 AND a.redirect_uri=$3
 			AND a.used_at IS NULL AND a.expires_at>now() AND c.revoked_at IS NULL
 			FOR UPDATE OF a`, codeHash, clientID, redirect).Scan(&lockedAccountID, &scope, &expected)
@@ -203,6 +185,8 @@ func (s *SQLStore) RotateOAuthRefreshToken(ctx context.Context, clientID uuid.UU
 		// grants authority: the state is checked again under both locks.
 		err := tx.QueryRow(ctx, `SELECT t.family_id,t.account_id
 			FROM oauth_refresh_tokens t JOIN oauth_clients c ON c.id=t.client_id
+            JOIN oauth_grants g ON g.account_id=t.account_id AND g.client_id=t.client_id
+                AND g.revoked_at IS NULL AND g.scope=t.scope
 			WHERE t.token_hash=$1 AND t.client_id=$2 AND c.revoked_at IS NULL`,
 			oldHash, clientID).Scan(&family, &accountID)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -225,6 +209,8 @@ func (s *SQLStore) RotateOAuthRefreshToken(ctx context.Context, clientID uuid.UU
 		var consumed, revoked pgtype.Timestamptz
 		err = tx.QueryRow(ctx, `SELECT t.account_id,t.scope,t.family_id,t.expires_at,t.consumed_at,t.revoked_at
 			FROM oauth_refresh_tokens t JOIN oauth_clients c ON c.id=t.client_id
+            JOIN oauth_grants g ON g.account_id=t.account_id AND g.client_id=t.client_id
+                AND g.revoked_at IS NULL AND g.scope=t.scope
 			WHERE t.token_hash=$1 AND t.client_id=$2 AND c.revoked_at IS NULL
 			FOR UPDATE OF t`, oldHash, clientID).Scan(&grant.AccountID, &grant.Scope, &lockedFamily, &expires, &consumed, &revoked)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && (lockedFamily != family || grant.AccountID != accountID)) {
@@ -295,6 +281,8 @@ func (s *SQLStore) ResolveOAuthAccessToken(ctx context.Context, hash []byte) (OA
 	err := s.pool.QueryRow(ctx, `SELECT t.account_id,t.scope FROM oauth_access_tokens t
 		JOIN oauth_clients c ON c.id=t.client_id
 		JOIN accounts a ON a.id=t.account_id
+        JOIN oauth_grants g ON g.account_id=t.account_id AND g.client_id=t.client_id
+            AND g.revoked_at IS NULL AND g.scope=t.scope
 		WHERE t.token_hash=$1 AND t.expires_at>now() AND t.revoked_at IS NULL
 		AND c.revoked_at IS NULL`, hash).Scan(&access.AccountID, &access.Scope)
 	if errors.Is(err, pgx.ErrNoRows) {
