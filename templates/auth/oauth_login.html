@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in — BDSPro</title></head><body>
+<main><h1>Sign in to BDSPro</h1><p>Sign in before reviewing access requested by a third-party application.</p>
+<form method="post" action="/oauth/login">
+<input type="hidden" name="next" value="{{.Next}}">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<label>Email <input type="email" name="email" autocomplete="username" required maxlength="254"></label>
+<label>Password <input type="password" name="password" autocomplete="current-password" required></label>
+<button type="submit">Continue</button>
+</form></main></body></html>
