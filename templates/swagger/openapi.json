@@ -3110,7 +3110,7 @@
           "OAuth2"
         ],
         "summary": "Review authorization request without issuing a code",
-        "description": "Requires an existing BDSPro access JWT; the caller must obtain explicit user consent before POST.",
+        "description": "API Bearer JWT gives a JSON preview; when browser OAuth is enabled, an authenticated browser cookie gives a consent HTML form, and an unauthenticated HTML navigation redirects to /oauth/login.",
         "security": [
           {
             "bearerAuth": []
@@ -3199,7 +3199,8 @@
                     "consent_proof": {"type": "string"}
                   }
                 }
-              }
+              },
+              "text/html": {"schema": {"type": "string", "description": "Browser consent form"}}
             }
           },
           "400": {
@@ -3239,7 +3240,7 @@
           "OAuth2"
         ],
         "summary": "Approve or deny OAuth2 Authorization Code grant",
-        "description": "Uses a BDSPro access JWT and explicit approve=true. Only a registered exact-match redirect may receive an authorization code.",
+        "description": "API Bearer JWT OR a validated DB-backed browser session (trusted Origin + session-bound CSRF) can approve. Both require consent_version and request-bound consent_proof from preview.",
         "security": [
           {
             "bearerAuth": []
@@ -3332,6 +3333,127 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/oauth/login": {
+      "get": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "Show OAuth browser login form",
+        "description": "Only active when server PUBLIC_ORIGIN is configured; requires a validated same-origin next=/oauth/authorize?... return path.",
+        "parameters": [
+          {
+            "name": "next",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "HTML login form with CSRF proof",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid return path"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "Sign in to the existing BDSPro session for OAuth consent",
+        "description": "Form CSRF and exact Origin required. Reuses AuthService.Login, not a separate credential store. Sets an HttpOnly browser session reference cookie.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password"
+                  },
+                  "next": {
+                    "type": "string"
+                  },
+                  "csrf": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password",
+                  "next",
+                  "csrf"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "303": {
+            "description": "Session cookie issued; redirect to validated authorization path"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          },
+          "403": {
+            "description": "Invalid Origin or CSRF"
+          }
+        }
+      }
+    },
+    "/oauth/logout": {
+      "post": {
+        "tags": [
+          "OAuth2"
+        ],
+        "summary": "Revoke current browser OAuth session",
+        "description": "Requires a live DB-backed browser session, same Origin and session-bound logout CSRF token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "csrf": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "csrf"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Session revoked and cookie cleared"
+          },
+          "401": {
+            "description": "Invalid session"
+          },
+          "403": {
+            "description": "Invalid Origin or CSRF"
           }
         }
       }

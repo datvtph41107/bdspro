@@ -44,7 +44,7 @@ func TestBrowserNextPath(t *testing.T) {
 			t.Fatalf("%q => %q %v", p, got, err)
 		}
 	}
-	for _, p := range []string{"", "//evil.test/oauth/authorize", "https://evil.test/oauth/authorize", "/oauth/authorize", "/oauth/browser/%61uthorize", "/oauth/authorize#fragment", "/oauth/authorize?x=%zz", "/oauth/authorize\nLocation: https://evil.test"} {
+	for _, p := range []string{"", "//evil.test/oauth/authorize", "https://evil.test/oauth/authorize", "/oauth/browser/authorize", "/oauth/%61uthorize", "/oauth/authorize#fragment", "/oauth/authorize?x=%zz", "/oauth/authorize\nLocation: https://evil.test"} {
 		if _, err := BrowserNextPath(p); err == nil {
 			t.Errorf("accepted return path %q", p)
 		}
