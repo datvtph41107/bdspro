@@ -3,14 +3,14 @@ package oauth
 import (
 	"net/http"
 
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 // ListAuthorizations is distinct from ListClients: ownership != consent.
 func (h *Handler) ListAuthorizations(c *gin.Context) {
-	grants, err := h.service.ListAuthorizations(c.Request.Context(), middleware.AccountID(c))
+	grants, err := h.service.ListAuthorizations(c.Request.Context(), appctx.AccountID(c))
 	if err != nil {
 		serviceFailure(c, err)
 		return
@@ -32,7 +32,7 @@ func (h *Handler) RevokeAuthorization(c *gin.Context) {
 		failure(c, http.StatusBadRequest, "invalid_request")
 		return
 	}
-	if err := h.service.RevokeAuthorization(c.Request.Context(), middleware.AccountID(c), clientID); err != nil {
+	if err := h.service.RevokeAuthorization(c.Request.Context(), appctx.AccountID(c), clientID); err != nil {
 		serviceFailure(c, err)
 		return
 	}

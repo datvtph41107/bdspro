@@ -9,7 +9,6 @@ import (
 
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/structs"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
@@ -88,7 +87,7 @@ func (h *OAuth2Handler) StartLink(c *gin.Context) {
 		appctx.Invalid(c, err)
 		return
 	}
-	accountID := middleware.AccountID(c)
+	accountID := appctx.AccountID(c)
 	if (req.Password == "") == (req.PhoneCode == "") {
 		appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_link_proof", "provide exactly one reauthentication method")
 		return
@@ -130,7 +129,7 @@ func (h *OAuth2Handler) StartPhoneBind(c *gin.Context) {
 		appctx.Invalid(c, err)
 		return
 	}
-	start, err := h.oauth2.Begin(c.Request.Context(), "phone_bind", middleware.AccountID(c), req.Phone)
+	start, err := h.oauth2.Begin(c.Request.Context(), "phone_bind", appctx.AccountID(c), req.Phone)
 	if err != nil {
 		h.unavailable(c, err)
 		return

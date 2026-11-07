@@ -14,7 +14,6 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
@@ -77,7 +76,7 @@ func (h *Handler) CreateClient(c *gin.Context) {
 		return
 	}
 	client, err := h.service.RegisterClient(c.Request.Context(),
-		middleware.AccountID(c), request.Name, request.RedirectURI)
+		appctx.AccountID(c), request.Name, request.RedirectURI)
 	if err != nil {
 		serviceFailure(c, err)
 		return
@@ -86,7 +85,7 @@ func (h *Handler) CreateClient(c *gin.Context) {
 }
 
 func (h *Handler) ListClients(c *gin.Context) {
-	clients, err := h.service.ListClients(c.Request.Context(), middleware.AccountID(c))
+	clients, err := h.service.ListClients(c.Request.Context(), appctx.AccountID(c))
 	if err != nil {
 		serviceFailure(c, err)
 		return
@@ -104,7 +103,7 @@ func (h *Handler) DeleteClient(c *gin.Context) {
 		failure(c, http.StatusBadRequest, "invalid_request")
 		return
 	}
-	if err := h.service.DeleteClient(c.Request.Context(), middleware.AccountID(c), id); err != nil {
+	if err := h.service.DeleteClient(c.Request.Context(), appctx.AccountID(c), id); err != nil {
 		serviceFailure(c, err)
 		return
 	}
@@ -136,7 +135,7 @@ func (h *Handler) Authenticate(maker authcrypto.Maker) gin.HandlerFunc {
 			}
 			return
 		}
-		c.Set(middleware.AuthorizationPayloadKey, payload)
+		c.Set(appctx.AuthorizationPayloadKey, payload)
 		c.Next()
 	}
 }
@@ -164,7 +163,7 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 		serviceFailure(c, err)
 		return
 	}
-	client, version, err := h.service.ReviewConsent(c.Request.Context(), middleware.AccountID(c), request)
+	client, version, err := h.service.ReviewConsent(c.Request.Context(), appctx.AccountID(c), request)
 	if err != nil {
 		serviceFailure(c, err)
 		return
@@ -174,7 +173,7 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 		return
 	}
 	request.ConsentVersion = version
-	proof, err := h.proofs.Issue(consentProofFields(middleware.AccountID(c), request), time.Now())
+	proof, err := h.proofs.Issue(consentProofFields(appctx.AccountID(c), request), time.Now())
 	if err != nil {
 		serviceFailure(c, err)
 		return
@@ -210,7 +209,7 @@ func (h *Handler) Authorize(c *gin.Context) {
 		}
 		request.ConsentVersion = version
 		if h.proofs == nil || h.proofs.Verify(c.Request.PostForm.Get("consent_proof"),
-			consentProofFields(middleware.AccountID(c), request), time.Now()) != nil {
+			consentProofFields(appctx.AccountID(c), request), time.Now()) != nil {
 			failure(c, http.StatusBadRequest, "invalid_request")
 			return
 		}
@@ -231,8 +230,8 @@ func (h *Handler) Authorize(c *gin.Context) {
 		return
 	}
 	// The DB transaction locks this exact issuing session against revoke.
-	payload := c.MustGet(middleware.AuthorizationPayloadKey).(*authcrypto.Payload)
-	redirect, err := h.service.Authorize(c.Request.Context(), middleware.AccountID(c), payload.SessionID, request)
+	payload := c.MustGet(appctx.AuthorizationPayloadKey).(*authcrypto.Payload)
+	redirect, err := h.service.Authorize(c.Request.Context(), appctx.AccountID(c), payload.SessionID, request)
 	if err != nil {
 		serviceFailure(c, err)
 		return

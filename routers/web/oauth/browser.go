@@ -13,11 +13,11 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	api_oauth "github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
+	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -40,7 +40,7 @@ type Config struct {
 	Maker        authcrypto.Maker
 	Codec        *authcrypto.BrowserSessionCodec
 	PublicOrigin string
-	Throttle     *middleware.AuthThrottle
+	Throttle     *security.AuthThrottle
 	OIDCEnabled  bool
 }
 
@@ -173,7 +173,7 @@ func (h *Handler) Authenticate(c *gin.Context) {
 		h.notAuthenticated(c)
 		return
 	}
-	c.Set(middleware.AuthorizationPayloadKey, &authcrypto.Payload{
+	c.Set(appctx.AuthorizationPayloadKey, &authcrypto.Payload{
 		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess, SessionID: session.ID,
 	})
 	c.Set(browserSessionKey, session.ID.String())
@@ -186,7 +186,7 @@ func (h *Handler) RequireBrowserSession(c *gin.Context) {
 		h.notAuthenticated(c)
 		return
 	}
-	c.Set(middleware.AuthorizationPayloadKey, &authcrypto.Payload{
+	c.Set(appctx.AuthorizationPayloadKey, &authcrypto.Payload{
 		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess, SessionID: session.ID,
 	})
 	c.Set(browserSessionKey, session.ID.String())
@@ -204,7 +204,7 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	client, version, err := h.OAuth.ReviewConsent(c.Request.Context(), middleware.AccountID(c), request)
+	client, version, err := h.OAuth.ReviewConsent(c.Request.Context(), appctx.AccountID(c), request)
 	if err != nil {
 		if errors.Is(err, oauth_service.ErrInvalidRequest) || errors.Is(err, oauth_service.ErrInvalidClient) {
 			c.AbortWithStatus(http.StatusBadRequest)
@@ -216,7 +216,7 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 	request.ConsentVersion = version
 	now := time.Now()
 	proof, err := h.Proofs.Issue(oauth_service.ConsentProofFields{
-		AccountID:           middleware.AccountID(c),
+		AccountID:           appctx.AccountID(c),
 		ClientID:            request.ClientID.String(),
 		RedirectURI:         request.RedirectURI,
 		Scope:               request.Scope,
@@ -412,7 +412,7 @@ func (h *Handler) Logout(c *gin.Context) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-	if err := auth_model.RevokeOwnedSession(c.Request.Context(), h.Store, middleware.AccountID(c), id); err != nil {
+	if err := auth_model.RevokeOwnedSession(c.Request.Context(), h.Store, appctx.AccountID(c), id); err != nil {
 		c.AbortWithStatus(http.StatusServiceUnavailable)
 		return
 	}

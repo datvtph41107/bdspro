@@ -10,11 +10,11 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/common"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/mail"
+	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
@@ -53,8 +53,8 @@ func NormalRoutes(server *Server) *gin.Engine {
 	}))
 
 	router.Use(
-		middleware.RequestMonitor(server.authRateRedis),
-		middleware.RequestIngress(),
+		security.RequestMonitor(server.authRateRedis),
+		appctx.RequestIngress(),
 	)
 
 	apiv1.Routes(router, apiv1.Dependencies{
