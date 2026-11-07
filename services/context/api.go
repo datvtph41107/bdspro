@@ -1,12 +1,19 @@
 // Package context owns the Gin-specific API response contract.
 package context
 
-import "github.com/gin-gonic/gin"
+import (
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/gin-gonic/gin"
+)
 
 // APIContext is a request-local view over Gin. It adds no middleware executor
 // or global dependency registry; the existing principal policy is unchanged.
 type APIContext struct {
 	*gin.Context
+
+	// Doer is the signed access JWT payload, not a live account record.
+	// Session and account status require explicit domain authorization checks.
+	Doer *authcrypto.Payload
 }
 
 // APIHandler is the terminal endpoint signature.
@@ -15,7 +22,8 @@ type APIHandler func(*APIContext)
 // Wrap constructs a request-local context, preserving Gin's normal chain.
 func Wrap(handler APIHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		handler(&APIContext{Context: c})
+		doer, _ := AuthorizationPayload(c)
+		handler(&APIContext{Context: c, Doer: doer})
 	}
 }
 

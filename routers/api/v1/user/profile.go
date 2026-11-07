@@ -5,7 +5,6 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/structs"
-	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
 	profile_service "github.com/datvtph41107/bdspro/services/profile"
@@ -22,7 +21,7 @@ func NewProfileHandler(store db.Store) *ProfileHandler {
 }
 
 func (h *ProfileHandler) Show(c *appctx.APIContext) {
-	p, err := h.profile.Show(c.Request.Context(), middleware.AccountID(c.Context))
+	p, err := h.profile.Show(c.Request.Context(), c.Doer.AccountID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -36,7 +35,7 @@ func (h *ProfileHandler) Update(c *appctx.APIContext) {
 		c.APIInvalid(err)
 		return
 	}
-	p, err := h.profile.Update(c.Request.Context(), middleware.AccountID(c.Context), profile_service.ProfilePatch{
+	p, err := h.profile.Update(c.Request.Context(), c.Doer.AccountID, profile_service.ProfilePatch{
 		DisplayName: req.DisplayName, FirstName: req.FirstName, LastName: req.LastName,
 	})
 	if err != nil {
@@ -47,7 +46,7 @@ func (h *ProfileHandler) Update(c *appctx.APIContext) {
 }
 
 func (h *ProfileHandler) Settings(c *appctx.APIContext) {
-	p, err := h.profile.Show(c.Request.Context(), middleware.AccountID(c.Context))
+	p, err := h.profile.Show(c.Request.Context(), c.Doer.AccountID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -61,7 +60,7 @@ func (h *ProfileHandler) UpdateSettings(c *appctx.APIContext) {
 		c.APIInvalid(err)
 		return
 	}
-	p, err := h.profile.UpdateSettings(c.Request.Context(), middleware.AccountID(c.Context), profile_service.SettingsPatch{
+	p, err := h.profile.UpdateSettings(c.Request.Context(), c.Doer.AccountID, profile_service.SettingsPatch{
 		Locale: req.Locale, Timezone: req.Timezone, Currency: req.Currency,
 	})
 	if err != nil {
