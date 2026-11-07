@@ -196,8 +196,11 @@ func TestConcurrentPasswordRecoveryProofsOnOneAccountDoNotDeadlock(t *testing.T)
 			<-start
 			attemptCtx,cancel:=context.WithTimeout(ctx,5*time.Second)
 			defer cancel()
-			if i==0 {results<-auth_model.ResetPassword(attemptCtx,store,proof,"first-password")}
-			else {results<-auth_model.ResetPassword(attemptCtx,store,proof,"second-password")}
+			if i == 0 {
+				results <- auth_model.ResetPassword(attemptCtx, store, proof, "first-password")
+			} else {
+				results <- auth_model.ResetPassword(attemptCtx, store, proof, "second-password")
+			}
 		}(i,proof)
 	}
 	close(start)
