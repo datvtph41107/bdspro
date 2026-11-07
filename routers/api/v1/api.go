@@ -101,7 +101,8 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 	}
 	if d.OAuth2 != nil {
 		if d.Browser != nil && d.Browser.OIDCEnabled {
-			route.GET("/oauth/login/oidc/start", d.OAuth2.StartBrowserLogin)
+			route.GET("/oauth/login/oidc/start",
+				d.IPActive.For(ipactive.StartOAuth2Login), d.OAuth2.StartBrowserLogin)
 		}
 		route.GET("/users/oauth2/login/start",
 			d.IPActive.For(ipactive.StartOAuth2Login),
