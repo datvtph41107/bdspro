@@ -54,3 +54,5 @@ same-origin CSRF defense for cookie-authenticated forms, reauthentication,
 or accessible UI showing the application's identity and exact disclosures.
 Do not expose this as a completed HTML consent/login feature. Separate browser
 routes must be designed and tested before third-party client release.
+
+**Browser CSP interoperability:** the consent HTML form POSTs to /oauth/authorize, which redirects to the exact registered client callback on success. Chromium may apply CSP form-action to this redirect; therefore the consent page allows `'self'` and **only that registered callback origin** in form-action, while the browser login page stays restricted to `'self'`. Do not use a wildcard or an unvalidated Origin/Host header. See MDN's form-action redirect note and Django OAuth Toolkit's documented OAuth authorization form behavior.

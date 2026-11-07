@@ -76,6 +76,18 @@ func browserHeaders(c *gin.Context) {
 	c.Header("Content-Type", "text/html; charset=utf-8")
 }
 
+// consentHeaders permits only the registered callback origin as a possible
+// redirect after the same-origin consent POST. Chromium checks form-action
+// against redirects, not just the HTML form action. Never allow arbitrary hosts.
+func consentHeaders(c *gin.Context, registeredRedirect string) {
+	u, err := url.Parse(registeredRedirect)
+	if err != nil || u == nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self' "+u.Scheme+"://"+u.Host+"; base-uri 'none'; frame-ancestors 'none'")
+}
+
 func loginCookieName(secure bool) string {
 	if secure {
 		return "__Host-bdspro-login"
@@ -241,6 +253,10 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 		return
 	}
 	browserHeaders(c)
+	consentHeaders(c, client.RedirectUri)
+	if c.IsAborted() {
+		return
+	}
 	c.Status(http.StatusOK)
 	if err := templates.OAuthConsentPage.Execute(c.Writer, struct {
 		ClientName, ClientID, RedirectURI, ResponseType, Scope, State      string

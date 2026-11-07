@@ -202,8 +202,10 @@ func TestBrowserLoginConsentAndRevokedSession(t *testing.T) {
 	if preview.Code != http.StatusOK || !strings.Contains(preview.Body.String(), "Partner integration") {
 		t.Fatalf("HTML preview=%d %s", preview.Code, preview.Body.String())
 	}
-	if preview.Header().Get("Content-Security-Policy") == "" || preview.Header().Get("Cache-Control") != "no-store" {
-		t.Fatal("missing secure HTML headers")
+	policy := preview.Header().Get("Content-Security-Policy")
+	if !strings.Contains(policy, "form-action 'self' https://client.example.test;") ||
+		preview.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("invalid consent CSP or cache headers: %s, %v", policy, preview.Header())
 	}
 	approve := url.Values{}
 	for k, v := range form {
