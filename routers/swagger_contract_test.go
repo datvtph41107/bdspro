@@ -38,7 +38,7 @@ func TestOpenAPICoverage(t *testing.T) {
 		organizationHandler:  org.NewHandler(nil),
 		oauth2Handler:        user.NewOAuth2Handler(nil, nil, false),
 		authorizationHandler: oauth.NewHandler(nil, nil),
-		browserHandler:       &weboauth.Handler{},
+		browserHandler:       &weboauth.Handler{Config: weboauth.Config{OIDCEnabled: true}},
 		phoneEnabled:         true,
 	}
 	// Registration only; no handler is executed and no external services are used.
