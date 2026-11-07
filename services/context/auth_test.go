@@ -42,7 +42,7 @@ func TestAuthenticateAndRequestLocalDoer(t *testing.T) {
 
 	cases := []struct {
 		name, authorization, code, challenge string
-		status int
+		status                               int
 	}{
 		{name: "missing", status: 401, code: "unauthenticated", challenge: "Bearer"},
 		{name: "wrong scheme", authorization: "Basic abc", status: 401, code: "unauthenticated", challenge: "Bearer"},
