@@ -166,8 +166,9 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := maker.VerifyToken(result.AccessToken, authcrypto.TokenTypeAccess); err != nil {
-		t.Fatalf("access token invalid: %v", err)
+	accessPayload, err := maker.VerifyToken(result.AccessToken, authcrypto.TokenTypeAccess)
+	if err != nil || accessPayload.SessionID != result.Session.ID {
+		t.Fatalf("access token not bound to its persisted session: %+v %v", accessPayload, err)
 	}
 	if _, err := maker.VerifyToken(result.RefreshToken, authcrypto.TokenTypeAccess); err == nil {
 		t.Fatal("refresh token must never authenticate as access token")
@@ -184,6 +185,10 @@ func TestAuthLoginRenewRevoke(t *testing.T) {
 	renewal, err := svc.Renew(ctx, result.RefreshToken)
 	if err != nil || renewal.AccessToken == "" {
 		t.Fatalf("renew failed: %v", err)
+	}
+	renewedPayload, err := maker.VerifyToken(renewal.AccessToken, authcrypto.TokenTypeAccess)
+	if err != nil || renewedPayload.SessionID != result.Session.ID {
+		t.Fatalf("renewal lost original session authority: %+v %v", renewedPayload, err)
 	}
 	if err := svc.Revoke(ctx, result.RefreshToken); err != nil {
 		t.Fatal(err)

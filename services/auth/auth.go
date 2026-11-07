@@ -150,8 +150,8 @@ func (s *AuthService) Renew(ctx context.Context, refreshToken string) (RenewResu
 	if !auth_model.ValidRefreshSession(session, payload.AccountID, refreshToken, time.Now()) {
 		return result, auth_model.ErrSessionUnavailable
 	}
-	access, tokenPayload, err := s.maker.CreateToken(
-		payload.AccountID, s.config.Authentication().AccessTokenTTL, authcrypto.TokenTypeAccess,
+	access, tokenPayload, err := s.maker.CreateSessionAccessToken(
+		payload.AccountID, s.config.Authentication().AccessTokenTTL, session.ID,
 	)
 	if err != nil {
 		return result, err
@@ -186,11 +186,11 @@ func (s *AuthService) Revoke(ctx context.Context, refreshToken string) error {
 func (s *AuthService) issueSession(ctx context.Context, account db.Account, userAgent, clientIP string) (LoginResult, error) {
 	var result LoginResult
 	auth := s.config.Authentication()
-	accessToken, accessPayload, err := s.maker.CreateToken(account.ID, auth.AccessTokenTTL, authcrypto.TokenTypeAccess)
+	refreshToken, refreshPayload, err := s.maker.CreateToken(account.ID, auth.RefreshTokenTTL, authcrypto.TokenTypeRefresh)
 	if err != nil {
 		return result, err
 	}
-	refreshToken, refreshPayload, err := s.maker.CreateToken(account.ID, auth.RefreshTokenTTL, authcrypto.TokenTypeRefresh)
+	accessToken, accessPayload, err := s.maker.CreateSessionAccessToken(account.ID, auth.AccessTokenTTL, refreshPayload.ID)
 	if err != nil {
 		return result, err
 	}

@@ -17,6 +17,7 @@ var (
 // Payload contains the identity, purpose and lifetime of a JWT.
 type Payload struct {
 	ID        uuid.UUID `json:"id"`
+	SessionID uuid.UUID `json:"session_id,omitempty"`
 	AccountID int64     `json:"account_id"`
 	TokenType TokenType `json:"token_type"`
 	IssuedAt  time.Time `json:"issued_at"`

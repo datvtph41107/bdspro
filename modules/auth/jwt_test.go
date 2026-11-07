@@ -66,3 +66,26 @@ func TestJWTLegacyWireClaimsRemainReadable(t *testing.T) {
 		t.Fatalf("expired JWT accepted: %v", err)
 	}
 }
+
+// OAuth authorization requires a session-bound access token. Generic access
+// tokens and legacy signed claims remain valid for existing stateless APIs.
+func TestJWTSessionBoundAccessToken(t *testing.T) {
+	maker, err := NewJWTMaker(strings.Repeat("k", 32))
+	if err != nil { t.Fatal(err) }
+	sid := uuid.New()
+	raw, issued, err := maker.CreateSessionAccessToken(42, time.Minute, sid)
+	if err != nil { t.Fatal(err) }
+	verified, err := maker.VerifyToken(raw, TokenTypeAccess)
+	if err != nil || verified.SessionID != sid || issued.SessionID != sid || issued.ID == sid {
+		t.Fatalf("bound token lost session identity: %+v, %+v, %v", issued, verified, err)
+	}
+	if _, _, err := maker.CreateSessionAccessToken(42, time.Minute, uuid.Nil); !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("accepted access token without session: %v", err)
+	}
+	legacy, _, err := maker.CreateToken(42, time.Minute, TokenTypeAccess)
+	if err != nil { t.Fatal(err) }
+	got, err := maker.VerifyToken(legacy, TokenTypeAccess)
+	if err != nil || got.SessionID != uuid.Nil {
+		t.Fatalf("legacy stateless JWT compatibility broken: %+v, %v", got, err)
+	}
+}
