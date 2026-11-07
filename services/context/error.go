@@ -13,7 +13,7 @@ func PublicError(err error) (status int, code, message string, ok bool) {
 	if !ok {
 		return 0, "", "", false
 	}
-		switch {
+	switch {
 	case errors.Is(category, util.ErrInvalidArgument):
 		status = http.StatusBadRequest
 	case errors.Is(category, util.ErrUnauthenticated):

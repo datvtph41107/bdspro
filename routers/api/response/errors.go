@@ -4,8 +4,8 @@ import appctx "github.com/datvtph41107/bdspro/services/context"
 
 // errorResponse supports legacy tests; the classifier now has one owner.
 type errorResponse struct {
-	Status int
-	Code string
+	Status  int
+	Code    string
 	Message string
 }
 

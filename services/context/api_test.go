@@ -29,7 +29,7 @@ func TestWrapPreservesGinAbortAndPublicError(t *testing.T) {
 		t.Fatalf("status=%d want=500", w.Code)
 	}
 	var body struct {
-		Code string `json:"code"`
+		Code  string `json:"code"`
 		Error string `json:"error"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
