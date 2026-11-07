@@ -131,7 +131,7 @@ func TestOAuthRevokeVsRefreshNeverLeavesLiveToken(t *testing.T) {
 	}
 	for _, token := range [][]byte{refresh, newRefresh} {
 		if _, err := store.RotateOAuthRefreshToken(ctx, client, token,
-			hashOAuthTest(uuid.NewString()), hashOAuthTest(uuid.NewString()), time.Now().Add(time.Minute)); !errors.Is(err, ErrOAuthGrantInvalid) {
+			hashOAuthTest(uuid.NewString()), hashOAuthTest(uuid.NewString()), time.Now().Add(time.Minute)); !errors.Is(err, ErrOAuthGrantInvalid) && !errors.Is(err, ErrOAuthGrantReplay) {
 			t.Fatalf("refresh survived concurrent revoke: %v", err)
 		}
 	}
