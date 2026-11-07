@@ -16,7 +16,9 @@ main.go -> cmd/main.go (CLI flags and command dispatch)
   │   └── routers.InitWebInstalled
   │       └── routers/api/v1.Routes -> routers/api/v1/api.go
   │           ├── routers/common (request ID, CORS)
-  │           ├── routers/api/middleware (security/request admission)
+  │           ├── services/context (JWT principal, HTTP errors, ingress)
+  │           ├── services/security (throttle, monitoring, login outcomes)
+  │           ├── modules/ipactive (per-action admission)
   │           ├── routers/api/v1/user and org (HTTP handlers)
   │           └── services/auth and models/organization -> models/db
   ├── cmd/worker.go

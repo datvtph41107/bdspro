@@ -19,4 +19,3 @@ func RequestIngress() gin.HandlerFunc {
 		ctx.Next()
 	}
 }
-

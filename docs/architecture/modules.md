@@ -21,8 +21,8 @@ LevelDB backend exists.
 | `queue` | Asynq Redis producer/worker, bounded transient channel backend, worker Manager, logging and config | cmd worker and services/worker; transient channel has **no retry/durability** |
 | `setting` | app.ini config, paths, typed settings, cache defaults | cmd, cache construction, service configuration |
 | `log` | structured logs, console/file writers and close behavior | runtime and adapters; redact credentials |
-| `auth` | password hash/check and JWT access/refresh maker/claims | services/auth, Gin authentication middleware, HTTP startup; no DB sessions here |
-| `timeutil` | SecondsCeil (Redis rate limit TTL) and Expired (JWT and DB sessions) | routers/api/middleware, models/auth, modules/auth; no second DB timestamp type |
+| `auth` | password hash/check and JWT access/refresh maker/claims | services/auth, services/context, HTTP startup; no DB sessions here |
+| `timeutil` | SecondsCeil (Redis rate limit TTL) and Expired (JWT and DB sessions) | services/security, models/auth, modules/auth; no second DB timestamp type |
 | `secret` | cryptographic random/derived proof primitives | verification and jobs |
 | `validation` | shared email/password input rules | routers and services, not domain authorization |
 | `structs` | shared external API option/response structures | routers and services/convert |
