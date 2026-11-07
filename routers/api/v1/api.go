@@ -20,7 +20,7 @@ type Dependencies struct {
 	Organization  *org.Handler
 	OAuth2        *user.OAuth2Handler
 	Authorization *oauth.Handler
-	Browser *weboauth.Handler
+	Browser       *weboauth.Handler
 	PhoneEnabled  bool
 	TokenMaker    authcrypto.Maker
 	IPActive      *ipactive.Middleware

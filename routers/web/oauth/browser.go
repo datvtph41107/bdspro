@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/routers/api/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/response"
@@ -32,21 +32,21 @@ const loginNonceMaxAge = int(authcrypto.BrowserCSRFTokenTTL / time.Second)
 type LoginFunc func(context.Context, string, string, string, string) (auth_service.LoginResult, error)
 
 type Config struct {
-	Store db.Store
-	OAuth *oauth_service.Service
-	API *api_oauth.Handler
-	Proofs *oauth_service.ConsentProofs
-	Login LoginFunc
-	Maker authcrypto.Maker
-	Codec *authcrypto.BrowserSessionCodec
+	Store        db.Store
+	OAuth        *oauth_service.Service
+	API          *api_oauth.Handler
+	Proofs       *oauth_service.ConsentProofs
+	Login        LoginFunc
+	Maker        authcrypto.Maker
+	Codec        *authcrypto.BrowserSessionCodec
 	PublicOrigin string
-	Throttle *middleware.AuthThrottle
+	Throttle     *middleware.AuthThrottle
 }
 
 type Handler struct {
 	Config
 	originHost string
-	secure bool
+	secure     bool
 }
 
 func NewHandler(cfg Config) (*Handler, error) {
@@ -77,7 +77,9 @@ func browserHeaders(c *gin.Context) {
 }
 
 func loginCookieName(secure bool) string {
-	if secure { return "__Host-bdspro-login" }
+	if secure {
+		return "__Host-bdspro-login"
+	}
 	return "bdspro_login_dev"
 }
 
@@ -130,7 +132,9 @@ func (h *Handler) loadSession(c *gin.Context) (db.Session, bool) {
 }
 
 func (h *Handler) notAuthenticated(c *gin.Context) {
-	if c.IsAborted() { return }
+	if c.IsAborted() {
+		return
+	}
 	if c.Request.Method == http.MethodGet && wantsHTML(c) {
 		next, err := authcrypto.BrowserNextPath(c.Request.URL.RequestURI())
 		if err == nil {
@@ -212,15 +216,15 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 	request.ConsentVersion = version
 	now := time.Now()
 	proof, err := h.Proofs.Issue(oauth_service.ConsentProofFields{
-		AccountID: middleware.AccountID(c),
-		ClientID: request.ClientID.String(),
-		RedirectURI: request.RedirectURI,
-		Scope: request.Scope,
-		ResponseType: request.ResponseType,
-		CodeChallenge: request.CodeChallenge,
+		AccountID:           middleware.AccountID(c),
+		ClientID:            request.ClientID.String(),
+		RedirectURI:         request.RedirectURI,
+		Scope:               request.Scope,
+		ResponseType:        request.ResponseType,
+		CodeChallenge:       request.CodeChallenge,
 		CodeChallengeMethod: request.CodeChallengeMethod,
-		State: request.State,
-		ConsentVersion: version,
+		State:               request.State,
+		ConsentVersion:      version,
 	}, now)
 	if err != nil {
 		c.AbortWithStatus(http.StatusServiceUnavailable)
@@ -239,16 +243,16 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 	browserHeaders(c)
 	c.Status(http.StatusOK)
 	if err := templates.OAuthConsentPage.Execute(c.Writer, struct {
-		ClientName, ClientID, RedirectURI, ResponseType, Scope, State string
+		ClientName, ClientID, RedirectURI, ResponseType, Scope, State      string
 		CodeChallenge, CodeChallengeMethod, ConsentProof, CSRF, LogoutCSRF string
-		ConsentVersion int64
+		ConsentVersion                                                     int64
 	}{
 		ClientName: client.Name, ClientID: client.ID.String(),
 		RedirectURI: request.RedirectURI, ResponseType: request.ResponseType,
 		Scope: request.Scope, State: request.State,
-		CodeChallenge: request.CodeChallenge,
+		CodeChallenge:       request.CodeChallenge,
 		CodeChallengeMethod: request.CodeChallengeMethod,
-		ConsentProof: proof, CSRF: csrf, LogoutCSRF: logoutCSRF,
+		ConsentProof:        proof, CSRF: csrf, LogoutCSRF: logoutCSRF,
 		ConsentVersion: version,
 	}); err != nil {
 		// Never log the sensitive authorization query string.
@@ -386,4 +390,3 @@ func (h *Handler) Logout(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Status(http.StatusNoContent)
 }
-

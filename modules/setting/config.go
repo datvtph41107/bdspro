@@ -31,7 +31,7 @@ type Config struct {
 	MigrationURL         string
 	RedisAddress         string
 	HTTPServerAddress    string
-	BrowserPublicOrigin string
+	BrowserPublicOrigin  string
 	TokenSymmetricKey    string
 	AuditKey             string
 	AuditRetentionDays   int

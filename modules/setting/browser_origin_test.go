@@ -5,7 +5,7 @@ import "testing"
 func TestBrowserPublicOrigin(t *testing.T) {
 	for _, tc := range []struct {
 		origin, environment string
-		ok bool
+		ok                  bool
 	}{
 		{"", "production", true},
 		{"https://auth.example.test", "production", true},

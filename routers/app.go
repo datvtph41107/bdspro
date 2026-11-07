@@ -34,7 +34,7 @@ type Server struct {
 	organizationHandler  *org.Handler
 	oauth2Handler        *user.OAuth2Handler
 	authorizationHandler *oauth.Handler
-	browserHandler *weboauth.Handler
+	browserHandler       *weboauth.Handler
 	phoneEnabled         bool
 	config               setting.Config
 	store                db.Store
