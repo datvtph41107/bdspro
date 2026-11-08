@@ -82,4 +82,3 @@ func TestDoctorOwnerlessResultIsBoundedAndOrdered(t *testing.T) {
 		}
 	}
 }
-
