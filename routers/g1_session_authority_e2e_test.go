@@ -75,7 +75,14 @@ func TestG12SessionRevokeDeniesRefreshButNotExistingAccessHTTP(t *testing.T) {
 	g12RequireHTTPStatus(t, server, "/tokens/renew_access", http.MethodPost,
 		map[string]string{"refresh_token": firstRefresh}, "", http.StatusUnauthorized)
 	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, firstAccess, http.StatusOK)
-	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, secondAccess, http.StatusOK)
+	// An access token whose refresh session was revoked can still MUTATE the
+	// profile under today's stateless route policy, not merely read it.
+	g12RequireHTTPStatus(t, server, "/users/me/profile", http.MethodPatch,
+		map[string]string{"display_name": "Changed by revoked session"}, firstAccess, http.StatusOK)
+	profile := g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, secondAccess, http.StatusOK)
+	if profile["profile"].(map[string]any)["display_name"] != "Changed by revoked session" {
+		t.Fatalf("revoked JWT profile mutation not persisted: %+v", profile)
+	}
 	g12RequireHTTPStatus(t, server, "/tokens/renew_access", http.MethodPost,
 		map[string]string{"refresh_token": secondRefresh}, "", http.StatusOK)
 	g12RequireHTTPStatus(t, server, "/tokens/renew_access", http.MethodPost,
