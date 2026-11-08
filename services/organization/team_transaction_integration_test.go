@@ -47,7 +47,7 @@ func membershipTestDB(t *testing.T) (context.Context, *pgxpool.Pool, *db.SQLStor
 
 type teamCase struct {
 	accountID, orgID, teamID, recipientPersonID int64
-	sessionID uuid.UUID
+	sessionID                                   uuid.UUID
 }
 
 func newTeamCase(t *testing.T, ctx context.Context, store db.Store) teamCase {
@@ -173,33 +173,45 @@ func TestTeamMembershipCannotOutliveActingSession(t *testing.T) {
 				}
 			}
 			revoker, err := pool.Acquire(ctx)
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
 			defer revoker.Release()
 			writer, err := pool.Acquire(ctx)
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
 			defer writer.Release()
 			tx, err := revoker.Begin(ctx)
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
 			defer tx.Rollback(ctx)
 			if _, err := tx.Exec(ctx, "UPDATE sessions SET is_blocked=TRUE WHERE id=$1", data.sessionID); err != nil {
 				t.Fatal(err)
 			}
 			done := make(chan error, 1)
-			go func() { done <- teamMembershipMutation(ctx, NewTeamService(teamPinnedStore{Store:store,conn:writer}), data, kind) }()
+			go func() {
+				done <- teamMembershipMutation(ctx, NewTeamService(teamPinnedStore{Store: store, conn: writer}), data, kind)
+			}()
 			waitTeamBlocking(t, ctx, pool, revoker, writer, done)
-			if err := tx.Commit(ctx); err != nil { t.Fatal(err) }
+			if err := tx.Commit(ctx); err != nil {
+				t.Fatal(err)
+			}
 			select {
 			case err := <-done:
 				if !errors.Is(err, auth_model.ErrSessionUnavailable) {
 					t.Fatalf("revoked actor unexpectedly authorized: %v", err)
 				}
-			case <-time.After(5*time.Second):
+			case <-time.After(5 * time.Second):
 				t.Fatal("membership transaction failed to resume")
 			}
 			expected := 0
-			if kind == "remove" { expected = 1 }
-			if got := membershipCount(t,ctx,pool,data); got != expected {
-				t.Fatalf("stale actor modified membership: got=%d expected=%d",got,expected)
+			if kind == "remove" {
+				expected = 1
+			}
+			if got := membershipCount(t, ctx, pool, data); got != expected {
+				t.Fatalf("stale actor modified membership: got=%d expected=%d", got, expected)
 			}
 		})
 	}
@@ -219,75 +231,95 @@ func TestTeamMembershipCommitPrecedesRevocation(t *testing.T) {
 				}
 			}
 			blocker, err := pool.Acquire(ctx)
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
 			defer blocker.Release()
 			writer, err := pool.Acquire(ctx)
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
 			defer writer.Release()
 			revoker, err := pool.Acquire(ctx)
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
 			defer revoker.Release()
 			tx, err := blocker.Begin(ctx)
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
 			defer tx.Rollback(ctx)
 			var membershipID int64
 			if err := tx.QueryRow(ctx, `SELECT m.id FROM organization_members m
 				JOIN accounts a ON a.person_id=m.person_id
 				WHERE a.id=$1 AND m.organization_id=$2 AND m.ended_at IS NULL
-				FOR UPDATE OF m`,data.accountID,data.orgID).Scan(&membershipID); err != nil {
+				FOR UPDATE OF m`, data.accountID, data.orgID).Scan(&membershipID); err != nil {
 				t.Fatal(err)
 			}
-			writeDone := make(chan error,1)
-			go func(){writeDone <- teamMembershipMutation(ctx,NewTeamService(teamPinnedStore{Store:store,conn:writer}),data,kind)}()
-			waitTeamBlocking(t,ctx,pool,blocker,writer,writeDone)
-			revokeDone := make(chan error,1)
-			go func(){
-				revokeDone <- auth_model.RevokeOwnedSession(ctx,teamPinnedStore{Store:store,conn:revoker},data.accountID,data.sessionID,data.sessionID)
+			writeDone := make(chan error, 1)
+			go func() {
+				writeDone <- teamMembershipMutation(ctx, NewTeamService(teamPinnedStore{Store: store, conn: writer}), data, kind)
 			}()
-			waitTeamBlocking(t,ctx,pool,writer,revoker,revokeDone)
-			if err := tx.Commit(ctx); err != nil {t.Fatal(err)}
+			waitTeamBlocking(t, ctx, pool, blocker, writer, writeDone)
+			revokeDone := make(chan error, 1)
+			go func() {
+				revokeDone <- auth_model.RevokeOwnedSession(ctx, teamPinnedStore{Store: store, conn: revoker}, data.accountID, data.sessionID, data.sessionID)
+			}()
+			waitTeamBlocking(t, ctx, pool, writer, revoker, revokeDone)
+			if err := tx.Commit(ctx); err != nil {
+				t.Fatal(err)
+			}
 			select {
 			case err := <-writeDone:
-				if err != nil {t.Fatalf("valid write did not commit first: %v",err)}
-			case <-time.After(5*time.Second):
+				if err != nil {
+					t.Fatalf("valid write did not commit first: %v", err)
+				}
+			case <-time.After(5 * time.Second):
 				t.Fatal("writer did not commit after lock release")
 			}
 			select {
 			case err := <-revokeDone:
-				if err != nil {t.Fatalf("session revoke failed after write: %v",err)}
-			case <-time.After(5*time.Second):
+				if err != nil {
+					t.Fatalf("session revoke failed after write: %v", err)
+				}
+			case <-time.After(5 * time.Second):
 				t.Fatal("revoker did not complete after write")
 			}
-			expected:=1
-			if kind=="remove" {expected=0}
-			if got:=membershipCount(t,ctx,pool,data); got!=expected {
-				t.Fatalf("unexpected committed membership after %s: got=%d expected=%d",kind,got,expected)
+			expected := 1
+			if kind == "remove" {
+				expected = 0
+			}
+			if got := membershipCount(t, ctx, pool, data); got != expected {
+				t.Fatalf("unexpected committed membership after %s: got=%d expected=%d", kind, got, expected)
 			}
 		})
 	}
 }
 
 func TestTeamMembershipServiceRequiresSignedActorAndOwner(t *testing.T) {
-	ctx,pool,store:=membershipTestDB(t)
-	data:=newTeamCase(t,ctx,store)
-	svc:=NewTeamService(store)
-	if _,err:=svc.AddTeamUser(ctx,data.accountID,uuid.Nil,data.teamID,data.recipientPersonID); !errors.Is(err,auth_model.ErrSessionUnavailable){
-		t.Fatalf("nil session authorized: %v",err)
+	ctx, pool, store := membershipTestDB(t)
+	data := newTeamCase(t, ctx, store)
+	svc := NewTeamService(store)
+	if _, err := svc.AddTeamUser(ctx, data.accountID, uuid.Nil, data.teamID, data.recipientPersonID); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+		t.Fatalf("nil session authorized: %v", err)
 	}
-	if _,err:=svc.AddTeamUser(ctx,data.accountID+1,data.sessionID,data.teamID,data.recipientPersonID); !errors.Is(err,auth_model.ErrSessionUnavailable){
-		t.Fatalf("mismatched session/account authorized: %v",err)
+	if _, err := svc.AddTeamUser(ctx, data.accountID+1, data.sessionID, data.teamID, data.recipientPersonID); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+		t.Fatalf("mismatched session/account authorized: %v", err)
 	}
-	if _,err:=svc.AddTeamUser(ctx,data.accountID,data.sessionID,data.teamID,data.recipientPersonID); err!=nil {
-		t.Fatalf("valid member addition rejected: %v",err)
+	if _, err := svc.AddTeamUser(ctx, data.accountID, data.sessionID, data.teamID, data.recipientPersonID); err != nil {
+		t.Fatalf("valid member addition rejected: %v", err)
 	}
-	if _,err:=svc.AddTeamUser(ctx,data.accountID,data.sessionID,data.teamID,data.recipientPersonID); !errors.Is(err,organization_model.ErrTeamMemberExists){
-		t.Fatalf("duplicate membership not rejected: %v",err)
+	if _, err := svc.AddTeamUser(ctx, data.accountID, data.sessionID, data.teamID, data.recipientPersonID); !errors.Is(err, organization_model.ErrTeamMemberExists) {
+		t.Fatalf("duplicate membership not rejected: %v", err)
 	}
-	if err:=svc.RemoveTeamUser(ctx,data.accountID,data.sessionID,data.teamID,data.recipientPersonID); err!=nil{
-		t.Fatalf("valid removal failed: %v",err)
+	if err := svc.RemoveTeamUser(ctx, data.accountID, data.sessionID, data.teamID, data.recipientPersonID); err != nil {
+		t.Fatalf("valid removal failed: %v", err)
 	}
-	if n:=membershipCount(t,ctx,pool,data); n!=0 {t.Fatalf("remove did not commit: %d",n)}
-	if _,err:=svc.AddTeamUser(ctx,data.accountID,data.sessionID,9223372036854775807,data.recipientPersonID); !errors.Is(err,organization_model.ErrTeamOwnerRequired){
-		t.Fatalf("missing team escaped owner predicate: %v",err)
+	if n := membershipCount(t, ctx, pool, data); n != 0 {
+		t.Fatalf("remove did not commit: %d", n)
+	}
+	if _, err := svc.AddTeamUser(ctx, data.accountID, data.sessionID, 9223372036854775807, data.recipientPersonID); !errors.Is(err, organization_model.ErrTeamOwnerRequired) {
+		t.Fatalf("missing team escaped owner predicate: %v", err)
 	}
 }
