@@ -18,13 +18,27 @@ type CreateTeamOptions struct {
 	Description    string
 }
 
+// TeamWriter is the two SQLC mutations shared by direct model callers and
+// transaction-bound service calls. It is not a new transaction abstraction.
+type TeamWriter interface {
+	CreateTeamForOwner(context.Context, db.CreateTeamForOwnerParams) (db.Team, error)
+	RenameTeamForOwner(context.Context, db.RenameTeamForOwnerParams) (db.Team, error)
+}
+
+// ValidTeamName is a DB-free preflight check shared by HTTP service
+// orchestration and the standalone model entry point.
+func ValidTeamName(name string) bool {
+	name = strings.TrimSpace(name)
+	return name != "" && utf8.RuneCountInString(name) <= 100
+}
+
 // CreateTeam checks the owner role atomically in the SQL INSERT.
-func CreateTeam(ctx context.Context, store db.Store, opts CreateTeamOptions) (db.Team, error) {
+func CreateTeam(ctx context.Context, writer TeamWriter, opts CreateTeamOptions) (db.Team, error) {
 	name := strings.TrimSpace(opts.Name)
-	if name == "" || utf8.RuneCountInString(name) > 100 {
+	if !ValidTeamName(name) {
 		return db.Team{}, ErrTeamNameInvalid
 	}
-	team, err := store.CreateTeamForOwner(ctx, db.CreateTeamForOwnerParams{
+	team, err := writer.CreateTeamForOwner(ctx, db.CreateTeamForOwnerParams{
 		OrganizationID: opts.OrganizationID,
 		ActorAccountID: opts.ActorAccountID,
 		Name:           name,
@@ -44,12 +58,12 @@ func GetTeam(ctx context.Context, store db.Store, actorAccountID, teamID int64) 
 	return team, err
 }
 
-func RenameTeam(ctx context.Context, store db.Store, actorAccountID, teamID int64, name string) (db.Team, error) {
+func RenameTeam(ctx context.Context, writer TeamWriter, actorAccountID, teamID int64, name string) (db.Team, error) {
 	name = strings.TrimSpace(name)
-	if name == "" || utf8.RuneCountInString(name) > 100 {
+	if !ValidTeamName(name) {
 		return db.Team{}, ErrTeamNameInvalid
 	}
-	team, err := store.RenameTeamForOwner(ctx, db.RenameTeamForOwnerParams{
+	team, err := writer.RenameTeamForOwner(ctx, db.RenameTeamForOwnerParams{
 		TeamID: teamID, ActorAccountID: actorAccountID, Name: name,
 	})
 	return team, teamWriteError(err)
