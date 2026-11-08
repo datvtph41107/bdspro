@@ -146,15 +146,15 @@ func (q profileHTTPDBTX) Exec(ctx context.Context, sql string, args ...any) (pgc
 	case strings.Contains(sql, "-- name: UpdatePersonProfile"):
 		affected, err = q.store.UpdatePersonProfile(ctx, db.UpdatePersonProfileParams{
 			DisplayName: args[0].(pgtype.Text),
-			FirstName: args[1].(pgtype.Text),
-			LastName: args[2].(pgtype.Text),
-			AccountID: args[3].(int64),
+			FirstName:   args[1].(pgtype.Text),
+			LastName:    args[2].(pgtype.Text),
+			AccountID:   args[3].(int64),
 		})
 	case strings.Contains(sql, "-- name: UpdateAccountSettings"):
 		affected, err = q.store.UpdateAccountSettings(ctx, db.UpdateAccountSettingsParams{
-			Locale: args[0].(pgtype.Text),
-			Timezone: args[1].(pgtype.Text),
-			Currency: args[2].(pgtype.Text),
+			Locale:    args[0].(pgtype.Text),
+			Timezone:  args[1].(pgtype.Text),
+			Currency:  args[2].(pgtype.Text),
 			AccountID: args[3].(int64),
 		})
 	default:
