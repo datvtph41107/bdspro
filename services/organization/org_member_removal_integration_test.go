@@ -126,24 +126,26 @@ func TestRemoveOrganizationMemberRejectsOwnerOutsiderReplayAndRevokedActor(t *te
 	ctx, pool, store := membershipTestDB(t)
 	d := newTeamCase(t, ctx, store)
 	var ownerPersonID int64
-	if err := pool.QueryRow(ctx,"SELECT person_id FROM accounts WHERE id=$1",d.accountID).Scan(&ownerPersonID);err!=nil {
+	if err := pool.QueryRow(ctx, "SELECT person_id FROM accounts WHERE id=$1", d.accountID).Scan(&ownerPersonID); err != nil {
 		t.Fatal(err)
 	}
 	if err := RemoveOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, ownerPersonID); !errors.Is(err, org_model.ErrOrganizationMemberNotFound) {
 		t.Fatalf("owner role was removable: %v", err)
 	}
 	var owners int
-	if err := pool.QueryRow(ctx,`SELECT count(*) FROM organization_members
-		WHERE organization_id=$1 AND role='owner' AND ended_at IS NULL`,d.orgID).Scan(&owners);err!=nil||owners!=1 {
-		t.Fatalf("last owner lost: owners=%d err=%v",owners,err)
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM organization_members
+		WHERE organization_id=$1 AND role='owner' AND ended_at IS NULL`, d.orgID).Scan(&owners); err != nil || owners != 1 {
+		t.Fatalf("last owner lost: owners=%d err=%v", owners, err)
 	}
-	outsiderID:=accountIDForPerson(t,ctx,pool,d.recipientPersonID)
-	sessionID:=uuid.New()
-	if _,err:=store.CreateSession(ctx,db.CreateSessionParams{
-		ID:sessionID,AccountID:outsiderID,
-		RefreshToken:"test-"+uuid.NewString(),UserAgent:"org-member",ClientIp:"203.0.113.42",
-		ExpiresAt:time.Now().Add(time.Hour),
-	});err!=nil {t.Fatal(err)}
+	outsiderID := accountIDForPerson(t, ctx, pool, d.recipientPersonID)
+	sessionID := uuid.New()
+	if _, err := store.CreateSession(ctx, db.CreateSessionParams{
+		ID: sessionID, AccountID: outsiderID,
+		RefreshToken: "test-" + uuid.NewString(), UserAgent: "org-member", ClientIp: "203.0.113.42",
+		ExpiresAt: time.Now().Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := RemoveOrganizationMember(ctx, store, outsiderID, sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOrganizationMemberNotFound) {
 		t.Fatalf("regular member revoked membership: %v", err)
 	}
@@ -156,68 +158,94 @@ func TestRemoveOrganizationMemberRejectsOwnerOutsiderReplayAndRevokedActor(t *te
 	if err := RemoveOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOrganizationMemberNotFound) {
 		t.Fatalf("replayed removal result: %v", err)
 	}
-	if _,err:=store.RevokeOwnedSession(ctx,db.RevokeOwnedSessionParams{
-		ID:d.sessionID,AccountID:d.accountID,
-	});err!=nil {t.Fatal(err)}
+	if _, err := store.RevokeOwnedSession(ctx, db.RevokeOwnedSessionParams{
+		ID: d.sessionID, AccountID: d.accountID,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := RemoveOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, auth_model.ErrSessionUnavailable) {
-		t.Fatalf("revoked actor reached mutation: %v",err)
+		t.Fatalf("revoked actor reached mutation: %v", err)
 	}
 }
 
 var errAuditUnavailable = errors.New("audit storage unavailable in test")
 
-type auditRejectDB struct { db.DBTX }
-func (w auditRejectDB) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag,error) {
+type auditRejectDB struct{ db.DBTX }
+
+func (w auditRejectDB) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 	if strings.Contains(sql, "-- name: InsertAuditAction") {
 		return pgconn.CommandTag{}, errAuditUnavailable
 	}
-	return w.DBTX.Exec(ctx,sql,args...)
+	return w.DBTX.Exec(ctx, sql, args...)
 }
+
 type auditRejectStore struct {
 	db.Store
 	pool *pgxpool.Pool
 }
+
 func (s auditRejectStore) ExecTx(ctx context.Context, action func(*db.Queries) error) error {
-	tx,err:=s.pool.Begin(ctx)
-	if err!=nil{return err}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback(ctx)
-	if err:=action(db.New(auditRejectDB{DBTX:tx}));err!=nil{return err}
+	if err := action(db.New(auditRejectDB{DBTX: tx})); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 func TestOrganizationMemberRemovalAuditFailureRollsBack(t *testing.T) {
-	ctx,pool,store:=membershipTestDB(t)
-	d:=newTeamCase(t,ctx,store)
-	if _,err:=org_model.AddTeamUser(ctx,store,d.accountID,d.teamID,d.recipientPersonID);err!=nil {t.Fatal(err)}
-	broken:=auditRejectStore{Store:store,pool:pool}
-	if err:=RemoveOrganizationMember(ctx,broken,d.accountID,d.sessionID,d.orgID,d.recipientPersonID); !errors.Is(err,errAuditUnavailable) {
-		t.Fatalf("audit failure not propagated: %v",err)
+	ctx, pool, store := membershipTestDB(t)
+	d := newTeamCase(t, ctx, store)
+	if _, err := org_model.AddTeamUser(ctx, store, d.accountID, d.teamID, d.recipientPersonID); err != nil {
+		t.Fatal(err)
 	}
-	verifyRemovedMember(t,ctx,pool,d,false)
+	broken := auditRejectStore{Store: store, pool: pool}
+	if err := RemoveOrganizationMember(ctx, broken, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, errAuditUnavailable) {
+		t.Fatalf("audit failure not propagated: %v", err)
+	}
+	verifyRemovedMember(t, ctx, pool, d, false)
 }
 
 func TestConcurrentTeamInsertCannotOutliveOrganizationRemoval(t *testing.T) {
-	ctx,pool,store:=membershipTestDB(t)
-	d:=newTeamCase(t,ctx,store)
-	teamWriter,err:=pool.Acquire(ctx)
-	if err!=nil {t.Fatal(err)}
-	defer teamWriter.Release()
-	remover,err:=pool.Acquire(ctx)
-	if err!=nil {t.Fatal(err)}
-	defer remover.Release()
-	tx,err:=teamWriter.Begin(ctx)
-	if err!=nil {t.Fatal(err)}
-	defer tx.Rollback(ctx)
-	if _,err:=db.New(tx).AddTeamUserForOwner(ctx,db.AddTeamUserForOwnerParams{
-		TeamID:d.teamID,ActorAccountID:d.accountID,PersonID:d.recipientPersonID,
-	});err!=nil {t.Fatal(err)}
-	done:=make(chan error,1)
-	go func(){done<-RemoveOrganizationMember(ctx,teamPinnedStore{Store:store,conn:remover},d.accountID,d.sessionID,d.orgID,d.recipientPersonID)}()
-	waitTeamBlocking(t,ctx,pool,teamWriter,remover,done)
-	if err:=tx.Commit(ctx);err!=nil {t.Fatal(err)}
-	select {
-	case err:=<-done:
-		if err!=nil {t.Fatal(err)}
-	case <-time.After(5*time.Second):t.Fatal("member removal did not finish after team commit")
+	ctx, pool, store := membershipTestDB(t)
+	d := newTeamCase(t, ctx, store)
+	teamWriter, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
-	verifyRemovedMember(t,ctx,pool,d,true)
+	defer teamWriter.Release()
+	remover, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer remover.Release()
+	tx, err := teamWriter.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := db.New(tx).AddTeamUserForOwner(ctx, db.AddTeamUserForOwnerParams{
+		TeamID: d.teamID, ActorAccountID: d.accountID, PersonID: d.recipientPersonID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- RemoveOrganizationMember(ctx, teamPinnedStore{Store: store, conn: remover}, d.accountID, d.sessionID, d.orgID, d.recipientPersonID)
+	}()
+	waitTeamBlocking(t, ctx, pool, teamWriter, remover, done)
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("member removal did not finish after team commit")
+	}
+	verifyRemovedMember(t, ctx, pool, d, true)
 }

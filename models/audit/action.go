@@ -12,8 +12,8 @@ import (
 // Each action is a concrete, reviewable security event, not a generic bus.
 // The database constraint provides the last line of validation.
 const (
-	ActionSessionRevoked    = "auth.session.revoked"
-	ActionTeamMemberRemoved = "team.member.removed"
+	ActionSessionRevoked            = "auth.session.revoked"
+	ActionTeamMemberRemoved         = "team.member.removed"
 	ActionOrganizationMemberRemoved = "organization.member.removed"
 )
 
@@ -60,11 +60,11 @@ func RecordOrganizationMemberRemoved(ctx context.Context, q actionWriter, actorA
 		return fmt.Errorf("invalid organization removal audit identity")
 	}
 	return q.InsertAuditAction(ctx, db.InsertAuditActionParams{
-		Action: ActionOrganizationMemberRemoved,
+		Action:         ActionOrganizationMemberRemoved,
 		ActorAccountID: actorAccountID,
-		ScopeType: "organization",
-		ScopeRef: strconv.FormatInt(organizationID, 10),
-		TargetType: "person",
-		TargetRef: strconv.FormatInt(personID, 10),
+		ScopeType:      "organization",
+		ScopeRef:       strconv.FormatInt(organizationID, 10),
+		TargetType:     "person",
+		TargetRef:      strconv.FormatInt(personID, 10),
 	})
 }
