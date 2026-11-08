@@ -83,7 +83,7 @@ func g12cSessions(t *testing.T, ctx context.Context, store *db.SQLStore) (int64,
 		if _, err := store.CreateSession(ctx, db.CreateSessionParams{
 			ID: id, AccountID: account.ID,
 			RefreshToken: "sha256:" + strings.Repeat("a", 64) + uuid.NewString(),
-			UserAgent: "g1-2c-revoke", ClientIp: "203.0.113.23",
+			UserAgent:    "g1-2c-revoke", ClientIp: "203.0.113.23",
 			ExpiresAt: time.Now().Add(time.Hour),
 		}); err != nil {
 			t.Fatal(err)
