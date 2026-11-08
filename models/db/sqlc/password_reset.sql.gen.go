@@ -9,6 +9,18 @@ import (
 	"context"
 )
 
+const bumpPasswordResetVersion = `-- name: BumpPasswordResetVersion :exec
+UPDATE accounts
+SET password_reset_version = password_reset_version + 1
+WHERE id = $1
+`
+
+// Called after consuming a reset proof while holding accounts FOR UPDATE.
+func (q *Queries) BumpPasswordResetVersion(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, bumpPasswordResetVersion, id)
+	return err
+}
+
 const consumePasswordResetToken = `-- name: ConsumePasswordResetToken :one
 DELETE FROM password_reset_tokens
 WHERE token_hash = $1 AND expires_at > now()
@@ -53,6 +65,32 @@ DELETE FROM sessions WHERE account_id = $1
 func (q *Queries) DeleteSessionsForAccount(ctx context.Context, accountID int64) error {
 	_, err := q.db.Exec(ctx, deleteSessionsForAccount, accountID)
 	return err
+}
+
+const issuePasswordResetTokenIfCurrentVersion = `-- name: IssuePasswordResetTokenIfCurrentVersion :execrows
+INSERT INTO password_reset_tokens (token_hash, account_id, expires_at)
+SELECT $1::bytea, id, now() + interval '15 minutes'
+FROM accounts
+WHERE id = $2::bigint
+  AND password_reset_version = $3::bigint
+  AND is_email_verified
+FOR SHARE
+`
+
+type IssuePasswordResetTokenIfCurrentVersionParams struct {
+	TokenHash    []byte `json:"token_hash"`
+	AccountID    int64  `json:"account_id"`
+	ResetVersion int64  `json:"reset_version"`
+}
+
+// FOR SHARE serializes issuance with recovery's accounts FOR UPDATE.
+// The returning row count is zero for stale or unverified intents.
+func (q *Queries) IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, arg IssuePasswordResetTokenIfCurrentVersionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, issuePasswordResetTokenIfCurrentVersion, arg.TokenHash, arg.AccountID, arg.ResetVersion)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertPasswordCredential = `-- name: UpsertPasswordCredential :exec
