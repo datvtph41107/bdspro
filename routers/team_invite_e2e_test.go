@@ -40,8 +40,7 @@ func TestTeamInvitationAuthorizationAndReplayHTTP(t *testing.T) {
 		t.Fatalf("create team: %d %v", status, team)
 	}
 	teamID := int64(team["id"].(float64))
-	empty, emptyStatus := any(nil), 0
-	emptyStatus, empty = organizationGetJSON(t, server,
+	emptyStatus, empty := organizationGetJSON(t, server,
 		fmt.Sprintf("/teams/%d/members", teamID), ownerBearer)
 	if emptyStatus != http.StatusOK || len(empty.([]any)) != 0 {
 		t.Fatalf("authorized empty membership list: status=%d members=%v", emptyStatus, empty)
