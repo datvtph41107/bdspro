@@ -14,14 +14,12 @@ import (
 )
 
 // PasswordResetStore is the minimal data needed to fulfill a reset intent.
-// The Asynq payload is an account id only, never the reset proof.
+// The Asynq payload carries account ID and a non-secret recovery version.
 type PasswordResetStore interface {
 	GetAccountByID(ctx context.Context, id int64) (db.Account, error)
 	IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, arg db.IssuePasswordResetTokenIfCurrentVersionParams) (int64, error)
 }
 
-// SendPasswordResetEmail issues a proof only for the recovery version captured
-// when the durable job was requested. Provider failures remain retryable.
 // SendPasswordResetEmail retains the pre-versioned entry point for callers
 // operating on a never-recovered account (generation zero). Worker transport
 // MUST use SendPasswordResetEmailForVersion with the persisted generation.
@@ -29,7 +27,8 @@ func SendPasswordResetEmail(ctx context.Context, store PasswordResetStore, sende
 	return SendPasswordResetEmailForVersion(ctx, store, sender, verifyURL, accountID, 0)
 }
 
-// SendPasswordResetEmailForVersion only issues proofs for a live request generation.
+// SendPasswordResetEmailForVersion only issues proofs for the recovery version
+// captured when the durable job was requested. Provider failures remain retryable.
 func SendPasswordResetEmailForVersion(ctx context.Context, store PasswordResetStore, sender mail.EmailSender, verifyURL string, accountID, resetVersion int64) error {
 	account, err := store.GetAccountByID(ctx, accountID)
 	if err != nil {
