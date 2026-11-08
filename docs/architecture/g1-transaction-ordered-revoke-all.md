@@ -23,9 +23,10 @@ initiated it is active in the same transaction.**
 `models/auth.RevokeAllSessions` now accepts the signed acting session ID
 alongside the account ID. The transaction takes two locks in order:
 
-1. `LockSessionRevocationAccount` locks `accounts(id)` **FOR UPDATE**.
-   This serializes concurrent account-wide revocations and session issuance
-   through the existing `sessions.account_id` FK KEY SHARE behavior.
+1. `LockSessionRevocationAccount` locks `accounts(id)` **FOR NO KEY UPDATE**.
+   This serializes concurrent account-wide revocations but remains compatible
+   with FK KEY SHARE used by login/session issuance and OAuth consent. It does
+   **not** serialize new session creation with revoke-all.
 2. `LockActingSession` locks the specific session **FOR UPDATE** and
    enforces account ownership, not blocked, not expired, at query time.
 3. `RevokeAllAccountSessions` updates all remaining live refresh sessions
