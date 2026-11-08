@@ -10,10 +10,6 @@ import (
 )
 
 const listOrganizationsWithoutActiveOwner = `-- name: ListOrganizationsWithoutActiveOwner :many
--- Operator diagnostic, not a hot-path authorization check.
--- An existing organization can lose its last owner through privileged raw SQL.
--- Returning at most 21 IDs supports capped output without scanning all rows
--- into application memory. Do not change this to COUNT(*) + unbounded listing.
 SELECT o.party_id
 FROM organizations AS o
 WHERE NOT EXISTS (
@@ -27,6 +23,10 @@ ORDER BY o.party_id
 LIMIT 21
 `
 
+// Operator diagnostic, not a hot-path authorization check.
+// An existing organization can lose its last owner through privileged raw SQL.
+// Returning at most 21 IDs supports capped output without scanning all rows
+// into application memory. Do not change this to COUNT(*) + unbounded listing.
 func (q *Queries) ListOrganizationsWithoutActiveOwner(ctx context.Context) ([]int64, error) {
 	rows, err := q.db.Query(ctx, listOrganizationsWithoutActiveOwner)
 	if err != nil {
@@ -35,11 +35,11 @@ func (q *Queries) ListOrganizationsWithoutActiveOwner(ctx context.Context) ([]in
 	defer rows.Close()
 	var items []int64
 	for rows.Next() {
-		var i int64
-		if err := rows.Scan(&i); err != nil {
+		var party_id int64
+		if err := rows.Scan(&party_id); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, party_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
