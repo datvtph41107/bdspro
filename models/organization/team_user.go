@@ -11,8 +11,10 @@ import (
 )
 
 // AddTeamUser requires an active Organization owner and an active Organization member.
-func AddTeamUser(ctx context.Context, store db.Store, actorAccountID, teamID, personID int64) (db.TeamMember, error) {
-	member, err := store.AddTeamUserForOwner(ctx, db.AddTeamUserForOwnerParams{
+func AddTeamUser(ctx context.Context, writer interface {
+	AddTeamUserForOwner(context.Context, db.AddTeamUserForOwnerParams) (db.TeamMember, error)
+}, actorAccountID, teamID, personID int64) (db.TeamMember, error) {
+	member, err := writer.AddTeamUserForOwner(ctx, db.AddTeamUserForOwnerParams{
 		TeamID: teamID, ActorAccountID: actorAccountID, PersonID: personID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -45,19 +47,26 @@ func ListTeamUsers(ctx context.Context, store db.Store, actorAccountID, teamID i
 	return members, nil
 }
 
+// RemoveTeamUser retains the standalone transaction contract for model callers.
+// API writes use the service-owned transaction to include session authority.
 func RemoveTeamUser(ctx context.Context, store db.Store, actorAccountID, teamID, personID int64) error {
-	// Preserve the existing owner-scoped DELETE and its concurrency locks.
-	// Persist audit evidence before committing the membership removal.
 	return store.ExecTx(ctx, func(q *db.Queries) error {
-		count, err := q.RemoveTeamUserForOwner(ctx, db.RemoveTeamUserForOwnerParams{
-			TeamID: teamID, ActorAccountID: actorAccountID, PersonID: personID,
-		})
-		if err != nil {
-			return err
-		}
-		if count != 1 {
-			return ErrTeamMemberNotFound
-		}
-		return audit_model.RecordTeamMemberRemoved(ctx, q, actorAccountID, teamID, personID)
+		return RemoveTeamUserTx(ctx, q, actorAccountID, teamID, personID)
 	})
+}
+
+// RemoveTeamUserTx owns owner-scoped SQLC deletion and its audit evidence.
+// The caller must execute it inside a transaction; both operations roll back
+// together if either fails.
+func RemoveTeamUserTx(ctx context.Context, q *db.Queries, actorAccountID, teamID, personID int64) error {
+	count, err := q.RemoveTeamUserForOwner(ctx, db.RemoveTeamUserForOwnerParams{
+		TeamID: teamID, ActorAccountID: actorAccountID, PersonID: personID,
+	})
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return ErrTeamMemberNotFound
+	}
+	return audit_model.RecordTeamMemberRemoved(ctx, q, actorAccountID, teamID, personID)
 }

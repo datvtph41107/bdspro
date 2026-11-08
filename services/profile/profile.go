@@ -4,7 +4,6 @@ package profile
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -13,7 +12,6 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -48,7 +46,7 @@ func (s *Service) Update(ctx context.Context, accountID int64, actingSessionID u
 		return db.GetAccountProfileRow{}, err
 	}
 	return db.WithTxResult(ctx, s.store, func(q *db.Queries) (db.GetAccountProfileRow, error) {
-		if err := requireActingSession(ctx, q, accountID, actingSessionID); err != nil {
+		if err := auth_model.RequireActingSession(ctx, q, accountID, actingSessionID); err != nil {
 			return db.GetAccountProfileRow{}, err
 		}
 		if err := account_model.UpdateProfile(ctx, q, db.UpdatePersonProfileParams{
@@ -97,7 +95,7 @@ func (s *Service) UpdateSettings(ctx context.Context, accountID int64, actingSes
 		return db.GetAccountProfileRow{}, account_model.ErrInvalidSettings
 	}
 	return db.WithTxResult(ctx, s.store, func(q *db.Queries) (db.GetAccountProfileRow, error) {
-		if err := requireActingSession(ctx, q, accountID, actingSessionID); err != nil {
+		if err := auth_model.RequireActingSession(ctx, q, accountID, actingSessionID); err != nil {
 			return db.GetAccountProfileRow{}, err
 		}
 		if err := account_model.UpdateSettings(ctx, q, db.UpdateAccountSettingsParams{
@@ -119,21 +117,4 @@ func option(p *string, allowed ...string) (pgtype.Text, bool) {
 		}
 	}
 	return pgtype.Text{}, false
-}
-
-// requireActingSession holds a row lock until the profile transaction
-// commits. Revocation and password recovery therefore cannot commit between
-// this check and the profile write. This is a model transaction boundary,
-// not an extra Gin middleware or a process-global authorization cache.
-func requireActingSession(ctx context.Context, q *db.Queries, accountID int64, sessionID uuid.UUID) error {
-	if accountID <= 0 || sessionID == uuid.Nil {
-		return auth_model.ErrSessionUnavailable
-	}
-	_, err := q.LockActingSession(ctx, db.LockActingSessionParams{
-		AccountID: accountID, SessionID: sessionID,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return auth_model.ErrSessionUnavailable
-	}
-	return err
 }
