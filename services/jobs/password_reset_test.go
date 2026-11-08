@@ -77,7 +77,7 @@ func TestPasswordResetJobPropagatesDatabaseFailure(t *testing.T) {
 	boom := errors.New("postgres unavailable")
 	store := &passwordResetStoreFake{account: db.Account{ID: 5, Email: "verified@example.test", IsEmailVerified: true}, insertErr: boom}
 	sender := &fakeMailSender{}
-	if err := SendPasswordResetEmailForVersion(context.Background(), store, sender, "https://example.test/users/verify_email", 5); !errors.Is(err, boom) {
+	if err := SendPasswordResetEmailForVersion(context.Background(), store, sender, "https://example.test/users/verify_email", 5, 0); !errors.Is(err, boom) {
 		t.Fatalf("database failure not retryable: %v", err)
 	}
 	if len(sender.content) != 0 {
