@@ -78,8 +78,8 @@ type Querier interface {
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
 	LockPhoneOnlyEmailAccount(ctx context.Context, id int64) (int64, error)
 	LockPhoneSignup(ctx context.Context, phoneE164 string) (LockPhoneSignupRow, error)
-	// Account FOR UPDATE serializes concurrent revoke-all requests and login
-	// session creation (the session FK takes KEY SHARE on accounts).
+	// Account FOR NO KEY UPDATE serializes concurrent revoke-all requests but
+	// stays compatible with FK KEY SHARE during login and OAuth consent.
 	LockSessionRevocationAccount(ctx context.Context, accountID int64) (int64, error)
 	LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
