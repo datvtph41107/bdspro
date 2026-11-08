@@ -195,3 +195,77 @@ func TestConcurrentRevokeAllSerializesWithoutDeadlock(t *testing.T) {
 		}
 	}
 }
+
+
+func TestRevokeAllAccountLockPermitsForeignKeyKeyShare(t *testing.T) {
+	ctx, pool, store := g12cStore(t)
+	accountID, actingID, _ := g12cSessions(t, ctx, store)
+	consent, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer consent.Release()
+	writer, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer writer.Release()
+	consentPID := int32(consent.Conn().PgConn().PID())
+	writerPID := int32(writer.Conn().PgConn().PID())
+	tx, err := consent.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	var id uuid.UUID
+	// OAuth code issuance holds FOR SHARE on the acting session before
+	// inserting grants with an accounts FK KEY SHARE requirement.
+	if err := tx.QueryRow(ctx, "SELECT id FROM sessions WHERE id=$1 FOR SHARE", actingID).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	result := make(chan error, 1)
+	go func() {
+		result <- RevokeAllSessions(ctx, sessionRevokeOnConn{SessionStore: store, conn: writer}, accountID, actingID)
+	}()
+	// Confirm revoke-all acquired the account lock and is blocked on the
+	// consent session row, then test FK's KEY SHARE without a lock cycle.
+	tick := time.NewTicker(20 * time.Millisecond)
+	defer tick.Stop()
+	timeout := time.NewTimer(5 * time.Second)
+	defer timeout.Stop()
+	waiting := false
+	for !waiting {
+		select {
+		case err := <-result:
+			t.Fatalf("revoke-all unexpectedly completed while consent held session FOR SHARE: %v", err)
+		case <-tick.C:
+			if err := pool.QueryRow(ctx,
+				"SELECT $1::integer=ANY(pg_blocking_pids($2::integer))",
+				consentPID, writerPID,
+			).Scan(&waiting); err != nil {
+				t.Fatal(err)
+			}
+		case <-timeout.C:
+			t.Fatal("revoke-all did not wait on OAuth session FOR SHARE")
+		}
+	}
+	keyCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	var account int64
+	if err := tx.QueryRow(keyCtx,
+		"SELECT id FROM accounts WHERE id=$1 FOR KEY SHARE", accountID,
+	).Scan(&account); err != nil || account != accountID {
+		t.Fatalf("account lock blocked OAuth/foreign-key KEY SHARE: id=%d err=%v", account, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatalf("revoke-all did not commit after consent released row: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("revoke-all deadlocked with OAuth session authority")
+	}
+}
