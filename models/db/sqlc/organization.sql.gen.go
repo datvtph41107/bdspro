@@ -25,7 +25,7 @@ WHERE EXISTS (
     AND owner.ended_at IS NULL
   FOR SHARE OF owner
 )
-RETURNING id, organization_id, person_id, role, joined_at, ended_at
+RETURNING id, organization_id, person_id, role, joined_at, ended_at, owner_person_id
 `
 
 type AddOrganizationMemberParams struct {
@@ -44,6 +44,7 @@ func (q *Queries) AddOrganizationMember(ctx context.Context, arg AddOrganization
 		&i.Role,
 		&i.JoinedAt,
 		&i.EndedAt,
+		&i.OwnerPersonID,
 	)
 	return i, err
 }
@@ -81,9 +82,9 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 }
 
 const createOrganizationMember = `-- name: CreateOrganizationMember :one
-INSERT INTO organization_members (organization_id, person_id, role)
-VALUES ($1, $2, $3)
-RETURNING id, organization_id, person_id, role, joined_at, ended_at
+INSERT INTO organization_members (organization_id, person_id, role, owner_person_id)
+VALUES ($1, $2, $3, CASE WHEN $3 = 'owner' THEN $2 ELSE NULL END)
+RETURNING id, organization_id, person_id, role, joined_at, ended_at, owner_person_id
 `
 
 type CreateOrganizationMemberParams struct {
@@ -102,6 +103,7 @@ func (q *Queries) CreateOrganizationMember(ctx context.Context, arg CreateOrgani
 		&i.Role,
 		&i.JoinedAt,
 		&i.EndedAt,
+		&i.OwnerPersonID,
 	)
 	return i, err
 }
@@ -129,11 +131,11 @@ func (q *Queries) DeleteOrgMemberTeamLinks(ctx context.Context, arg DeleteOrgMem
 
 const demoteOrganizationOwner = `-- name: DemoteOrganizationOwner :one
 UPDATE organization_members AS m
-SET role = 'member'
+SET role = 'member', owner_person_id = NULL
 WHERE m.organization_id = $1
   AND m.person_id = $2
   AND m.role = 'owner' AND m.ended_at IS NULL
-RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at
+RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at, m.owner_person_id
 `
 
 type DemoteOrganizationOwnerParams struct {
@@ -153,6 +155,7 @@ func (q *Queries) DemoteOrganizationOwner(ctx context.Context, arg DemoteOrganiz
 		&i.Role,
 		&i.JoinedAt,
 		&i.EndedAt,
+		&i.OwnerPersonID,
 	)
 	return i, err
 }
@@ -173,7 +176,7 @@ WHERE target.organization_id = $1
     FOR SHARE OF owner
   )
 RETURNING target.id, target.organization_id, target.person_id,
-          target.role, target.joined_at, target.ended_at
+          target.role, target.joined_at, target.ended_at, target.owner_person_id
 `
 
 type EndOrdinaryOrganizationMemberForOwnerParams struct {
@@ -192,6 +195,7 @@ func (q *Queries) EndOrdinaryOrganizationMemberForOwner(ctx context.Context, arg
 		&i.Role,
 		&i.JoinedAt,
 		&i.EndedAt,
+		&i.OwnerPersonID,
 	)
 	return i, err
 }
@@ -393,7 +397,7 @@ func (q *Queries) LockOrganizationRoleChanges(ctx context.Context, organizationI
 
 const promoteOrganizationMember = `-- name: PromoteOrganizationMember :one
 UPDATE organization_members AS m
-SET role = 'owner'
+SET role = 'owner', owner_person_id = m.person_id
 WHERE m.organization_id = $1
   AND m.person_id = $2
   AND m.role = 'member' AND m.ended_at IS NULL
@@ -409,7 +413,7 @@ WHERE m.organization_id = $1
       )
     FOR KEY SHARE OF recipient
   )
-RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at
+RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at, m.owner_person_id
 `
 
 type PromoteOrganizationMemberParams struct {
@@ -431,6 +435,7 @@ func (q *Queries) PromoteOrganizationMember(ctx context.Context, arg PromoteOrga
 		&i.Role,
 		&i.JoinedAt,
 		&i.EndedAt,
+		&i.OwnerPersonID,
 	)
 	return i, err
 }
