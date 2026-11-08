@@ -80,7 +80,7 @@ func (testSessionTX) Query(context.Context, string, ...any) (pgx.Rows, error) {
 }
 
 type testSessionRow struct {
-	id any
+	id  any
 	err error
 }
 
