@@ -1,0 +1,21 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "G1.2c.8b organization owner lifecycle",
+  "routes": [
+    {
+      "method": "PUT",
+      "path": "/organizations/:id/owners/:person_id",
+      "access": "authenticated_verified_contact_owner"
+    },
+    {
+      "method": "DELETE",
+      "path": "/organizations/:id/owners/:person_id",
+      "access": "authenticated_verified_contact_owner"
+    },
+    {
+      "method": "POST",
+      "path": "/organizations/:id/owners/transfer",
+      "access": "authenticated_verified_contact_owner"
+    }
+  ]
+}
