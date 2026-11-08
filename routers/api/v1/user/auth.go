@@ -347,7 +347,12 @@ func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {
 		appctx.Reject(c, http.StatusBadRequest, "invalid_session_id", "invalid session id")
 		return
 	}
-	if err := h.auth.RevokeOwnSession(c.Request.Context(), appctx.AccountID(c), id); err != nil {
+	payload, ok := appctx.AuthorizationPayload(c)
+	if !ok {
+		appctx.AuthenticationRequired(c)
+		return
+	}
+	if err := h.auth.RevokeOwnSession(c.Request.Context(), payload.AccountID, payload.SessionID, id); err != nil {
 		appctx.Error(c, err)
 		return
 	}

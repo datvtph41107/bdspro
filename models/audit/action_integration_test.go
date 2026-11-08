@@ -121,7 +121,7 @@ func TestAuditActionsTransactionalAcrossAuthAndTeam(t *testing.T) {
 		return id
 	}
 	revoked := newSession()
-	if err := auth_model.RevokeOwnedSession(ctx, store, owner.ID, revoked); err != nil {
+	if err := auth_model.RevokeOwnedSession(ctx, store, owner.ID, revoked, revoked); err != nil {
 		t.Fatalf("revoke session + audit: %v", err)
 	}
 	session, err := q.GetSession(ctx, revoked)
@@ -131,7 +131,7 @@ func TestAuditActionsTransactionalAcrossAuthAndTeam(t *testing.T) {
 	// A second session must remain live when the audit insert fails.
 	notRevoked := newSession()
 	store.rejectLog = true
-	if err := auth_model.RevokeOwnedSession(ctx, store, owner.ID, notRevoked); !errors.Is(err, errAuditUnavailable) {
+	if err := auth_model.RevokeOwnedSession(ctx, store, owner.ID, notRevoked, notRevoked); !errors.Is(err, errAuditUnavailable) {
 		t.Fatalf("missing rollback on audit write error: %v", err)
 	}
 	session, err = q.GetSession(ctx, notRevoked)
