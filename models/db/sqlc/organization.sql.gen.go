@@ -48,6 +48,20 @@ func (q *Queries) AddOrganizationMember(ctx context.Context, arg AddOrganization
 	return i, err
 }
 
+const countActiveOrganizationOwners = `-- name: CountActiveOrganizationOwners :one
+SELECT count(*)::bigint
+FROM organization_members
+WHERE organization_id = $1
+  AND role = 'owner' AND ended_at IS NULL
+`
+
+func (q *Queries) CountActiveOrganizationOwners(ctx context.Context, organizationID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveOrganizationOwners, organizationID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createOrganization = `-- name: CreateOrganization :one
 INSERT INTO organizations (party_id, name)
 VALUES ($1, $2)
@@ -111,6 +125,36 @@ func (q *Queries) DeleteOrgMemberTeamLinks(ctx context.Context, arg DeleteOrgMem
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const demoteOrganizationOwner = `-- name: DemoteOrganizationOwner :one
+UPDATE organization_members AS m
+SET role = 'member'
+WHERE m.organization_id = $1
+  AND m.person_id = $2
+  AND m.role = 'owner' AND m.ended_at IS NULL
+RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at
+`
+
+type DemoteOrganizationOwnerParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	PersonID       int64 `json:"person_id"`
+}
+
+// The transaction owns both authorization and the last-owner policy.
+// Never use this query alone outside that transaction.
+func (q *Queries) DemoteOrganizationOwner(ctx context.Context, arg DemoteOrganizationOwnerParams) (OrganizationMember, error) {
+	row := q.db.QueryRow(ctx, demoteOrganizationOwner, arg.OrganizationID, arg.PersonID)
+	var i OrganizationMember
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.PersonID,
+		&i.Role,
+		&i.JoinedAt,
+		&i.EndedAt,
+	)
+	return i, err
 }
 
 const endOrdinaryOrganizationMemberForOwner = `-- name: EndOrdinaryOrganizationMemberForOwner :one
@@ -293,6 +337,30 @@ func (q *Queries) ListOrganizationsForAccount(ctx context.Context, accountID int
 	return items, nil
 }
 
+const lockActingOrganizationOwner = `-- name: LockActingOrganizationOwner :one
+SELECT m.person_id
+FROM organization_members m
+JOIN accounts a ON a.person_id = m.person_id
+WHERE m.organization_id = $1
+  AND a.id = $2
+  AND m.role = 'owner' AND m.ended_at IS NULL
+FOR SHARE OF m
+`
+
+type LockActingOrganizationOwnerParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ActorAccountID int64 `json:"actor_account_id"`
+}
+
+// Obtain the acting owner's person ID under a role-stable FOR SHARE lock.
+// The service holds the organization lock first; do not reverse this order.
+func (q *Queries) LockActingOrganizationOwner(ctx context.Context, arg LockActingOrganizationOwnerParams) (int64, error) {
+	row := q.db.QueryRow(ctx, lockActingOrganizationOwner, arg.OrganizationID, arg.ActorAccountID)
+	var person_id int64
+	err := row.Scan(&person_id)
+	return person_id, err
+}
+
 const lockOrganizationCreator = `-- name: LockOrganizationCreator :one
 SELECT person_id
 FROM accounts
@@ -305,6 +373,66 @@ func (q *Queries) LockOrganizationCreator(ctx context.Context, actorAccountID in
 	var person_id int64
 	err := row.Scan(&person_id)
 	return person_id, err
+}
+
+const lockOrganizationRoleChanges = `-- name: LockOrganizationRoleChanges :one
+SELECT party_id
+FROM organizations
+WHERE party_id = $1
+FOR NO KEY UPDATE
+`
+
+// The non-key row lock serializes all owner changes by organization, while
+// remaining compatible with FK KEY SHARE acquired by team/member inserts.
+func (q *Queries) LockOrganizationRoleChanges(ctx context.Context, organizationID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, lockOrganizationRoleChanges, organizationID)
+	var party_id int64
+	err := row.Scan(&party_id)
+	return party_id, err
+}
+
+const promoteOrganizationMember = `-- name: PromoteOrganizationMember :one
+UPDATE organization_members AS m
+SET role = 'owner'
+WHERE m.organization_id = $1
+  AND m.person_id = $2
+  AND m.role = 'member' AND m.ended_at IS NULL
+  AND EXISTS (
+    SELECT 1
+    FROM accounts recipient
+    WHERE recipient.person_id = m.person_id
+      AND (
+        recipient.is_email_verified = TRUE OR EXISTS (
+          SELECT 1 FROM phone_credentials pc
+          WHERE pc.account_id = recipient.id AND pc.verified_at IS NOT NULL
+        )
+      )
+    FOR KEY SHARE OF recipient
+  )
+RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at
+`
+
+type PromoteOrganizationMemberParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	PersonID       int64 `json:"person_id"`
+}
+
+// This query is called only inside the role-service transaction after
+// LockOrganizationRoleChanges and LockActingOrganizationOwner.
+// A new owner must be an actual account with a verified contact, not an
+// orphan Person or a plain unverified account.
+func (q *Queries) PromoteOrganizationMember(ctx context.Context, arg PromoteOrganizationMemberParams) (OrganizationMember, error) {
+	row := q.db.QueryRow(ctx, promoteOrganizationMember, arg.OrganizationID, arg.PersonID)
+	var i OrganizationMember
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.PersonID,
+		&i.Role,
+		&i.JoinedAt,
+		&i.EndedAt,
+	)
+	return i, err
 }
 
 const updateOrganization = `-- name: UpdateOrganization :one
