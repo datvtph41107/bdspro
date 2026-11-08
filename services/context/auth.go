@@ -9,9 +9,9 @@ import (
 
 const AuthorizationPayloadKey = "authorization_payload"
 
-// Authenticate verifies only the first-party access JWT. It does not assert
-// that the account or session remains active in PostgreSQL.
-// Authorization and resource ownership remain in domain operations.
+// Authenticate verifies only the first-party access JWT signature and claims.
+// Protected first-party routes then invoke RequireSession against PostgreSQL.
+// Resource ownership stays in domain operations.
 func Authenticate(maker authcrypto.Maker) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		parts := strings.Fields(ctx.GetHeader("Authorization"))
