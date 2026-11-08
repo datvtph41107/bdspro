@@ -1,0 +1,11 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "G1.2c.8a ordinary organization membership removal",
+  "routes": [
+    {
+      "method": "DELETE",
+      "path": "/organizations/:id/members/:person_id",
+      "access": "authenticated_verified_contact_owner"
+    }
+  ]
+}

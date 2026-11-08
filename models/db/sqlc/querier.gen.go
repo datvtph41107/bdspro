@@ -39,11 +39,13 @@ type Querier interface {
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	DeleteExpiredAccountConnectionHistories(ctx context.Context, arg DeleteExpiredAccountConnectionHistoriesParams) (int64, error)
 	DeleteOldAuditEvents(ctx context.Context, arg DeleteOldAuditEventsParams) (int64, error)
+	DeleteOrgMemberTeamLinks(ctx context.Context, arg DeleteOrgMemberTeamLinksParams) (int64, error)
 	DeletePasswordResetTokensForAccount(ctx context.Context, accountID int64) error
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
 	DeletePhoneSignup(ctx context.Context, phoneE164 string) error
 	DeleteSessionsForAccount(ctx context.Context, accountID int64) error
 	EmailLinkAddressTaken(ctx context.Context, btrim string) (bool, error)
+	EndOrdinaryOrganizationMemberForOwner(ctx context.Context, arg EndOrdinaryOrganizationMemberForOwnerParams) (OrganizationMember, error)
 	FailPhoneSignup(ctx context.Context, phoneE164 string) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
 	GetAccountProfile(ctx context.Context, id int64) (GetAccountProfileRow, error)

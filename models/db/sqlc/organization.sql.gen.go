@@ -92,6 +92,66 @@ func (q *Queries) CreateOrganizationMember(ctx context.Context, arg CreateOrgani
 	return i, err
 }
 
+const deleteOrgMemberTeamLinks = `-- name: DeleteOrgMemberTeamLinks :execrows
+DELETE FROM team_members AS tm
+USING teams AS t
+WHERE t.organization_id = $1
+  AND tm.person_id = $2
+  AND tm.team_id = t.id
+`
+
+type DeleteOrgMemberTeamLinksParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	PersonID       int64 `json:"person_id"`
+}
+
+func (q *Queries) DeleteOrgMemberTeamLinks(ctx context.Context, arg DeleteOrgMemberTeamLinksParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOrgMemberTeamLinks, arg.OrganizationID, arg.PersonID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const endOrdinaryOrganizationMemberForOwner = `-- name: EndOrdinaryOrganizationMemberForOwner :one
+UPDATE organization_members AS target
+SET ended_at = clock_timestamp()
+WHERE target.organization_id = $1
+  AND target.person_id = $2
+  AND target.role = 'member'
+  AND target.ended_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM organization_members AS owner
+    JOIN accounts AS a ON a.person_id = owner.person_id
+    WHERE owner.organization_id = target.organization_id
+      AND a.id = $3
+      AND owner.role = 'owner' AND owner.ended_at IS NULL
+    FOR SHARE OF owner
+  )
+RETURNING target.id, target.organization_id, target.person_id,
+          target.role, target.joined_at, target.ended_at
+`
+
+type EndOrdinaryOrganizationMemberForOwnerParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	PersonID       int64 `json:"person_id"`
+	ActorAccountID int64 `json:"actor_account_id"`
+}
+
+func (q *Queries) EndOrdinaryOrganizationMemberForOwner(ctx context.Context, arg EndOrdinaryOrganizationMemberForOwnerParams) (OrganizationMember, error) {
+	row := q.db.QueryRow(ctx, endOrdinaryOrganizationMemberForOwner, arg.OrganizationID, arg.PersonID, arg.ActorAccountID)
+	var i OrganizationMember
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.PersonID,
+		&i.Role,
+		&i.JoinedAt,
+		&i.EndedAt,
+	)
+	return i, err
+}
+
 const getOrganizationForAccount = `-- name: GetOrganizationForAccount :one
 SELECT o.party_id, o.name, o.created_at,
        m.id AS membership_id, m.role, m.joined_at

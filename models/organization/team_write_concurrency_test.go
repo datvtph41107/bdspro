@@ -264,8 +264,18 @@ func TestTeamWriteMembershipRevocationRace(t *testing.T) {
 				if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.PartyID, recipient.PersonID); err != nil {
 					t.Fatal(err)
 				}
-				if _, err := organization.AcceptTeamInvite(ctx, store, recipient.ID, proof.Token); err != nil {
-					t.Fatalf("restored membership must allow original proof: %v", err)
+				// A rejoin must never restore a proof from the previous
+				// organization membership generation.
+				if _, err := organization.AcceptTeamInvite(ctx, store, recipient.ID, proof.Token); !errors.Is(err, organization.ErrTeamInviteInvalid) {
+					t.Fatalf("old invitation proof reactivated after rejoin: %v", err)
+				}
+				fresh, err := organization.CreateTeamInvite(ctx, store, owner.ID, team.ID,
+					recipient.Email, time.Hour, "01234567890123456789012345678901")
+				if err != nil {
+					t.Fatalf("old open proof blocked a new invitation: %v", err)
+				}
+				if _, err := organization.AcceptTeamInvite(ctx, store, recipient.ID, fresh.Token); err != nil {
+					t.Fatalf("valid new-generation proof rejected: %v", err)
 				}
 			}
 		})

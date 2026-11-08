@@ -36,6 +36,7 @@ func TestOrganizationGroupInheritsAuthentication(t *testing.T) {
 		{http.MethodPatch, "/organizations/1"},
 		{http.MethodGet, "/organizations/1/members"},
 		{http.MethodPost, "/organizations/1/members"},
+		{http.MethodDelete, "/organizations/1/members/2"},
 		{http.MethodGet, "/organizations/1/teams"},
 		{http.MethodPost, "/organizations/1/teams"},
 		{http.MethodGet, "/teams/1"},

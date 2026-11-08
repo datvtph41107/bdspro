@@ -14,7 +14,7 @@ import (
 
 // validateCanonicalVersion prevents reinterpreting a database created with
 // another migration ledger. Versions 1–27 each create one canonical table;
-// version 28 adds the password-reset generation column.
+// version 28 adds the password-reset generation column; version 29 extends audit actions.
 // In the previous ledger, a version could create, rename or drop many tables;
 // a previously applied version 1..21 is therefore NOT automatically compatible.
 func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
@@ -28,7 +28,7 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	if dirty {
 		return fmt.Errorf("database migration version %d is dirty", version)
 	}
-	if version == 0 || version > 28 {
+	if version == 0 || version > 29 {
 		return fmt.Errorf("unknown migration ledger version %d; provision a fresh canonical database and migrate data explicitly", version)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -64,7 +64,7 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	}
 	expectedTables := int(version)
 	if version >= 28 {
-		expectedTables = 27 // Version 28 adds an account column, not a table.
+		expectedTables = 27 // Versions 28-29 add no new tables.
 	}
 	if !parties || tables != expectedTables || credentials != (version >= 18) ||
 		clients != (version >= 23) || resetGeneration != (version >= 28) || deprecated {
