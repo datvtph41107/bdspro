@@ -32,7 +32,7 @@ func TestVerificationRedeliveryKeepsTheSameProofAfterAmbiguousSMTP(t *testing.T)
 		record: db.VerifyEmail{
 			ID: 29, AccountID: 18, Email: "verify@example.test",
 			SecretCode: "persisted-verification-proof",
-			ExpiredAt: time.Now().Add(time.Hour),
+			ExpiredAt:  time.Now().Add(time.Hour),
 		},
 	}
 	mailer := &ambiguousAcceptanceMailer{}
@@ -58,10 +58,10 @@ func TestInvitationRedeliveryKeepsTheSameProofAfterAmbiguousSMTP(t *testing.T) {
 	}
 	digest := sha256.Sum256([]byte(proof))
 	store := &inviteDeliveryStore{row: db.GetTeamInviteForDeliveryRow{
-		InvitedEmail: "invite@example.test",
-		TokenHash: digest[:],
-		ExpiresAt: time.Now().Add(time.Hour),
-		TeamName: "Engineering",
+		InvitedEmail:     "invite@example.test",
+		TokenHash:        digest[:],
+		ExpiresAt:        time.Now().Add(time.Hour),
+		TeamName:         "Engineering",
 		OrganizationName: "BDSPro",
 	}}
 	mailer := &ambiguousAcceptanceMailer{}
