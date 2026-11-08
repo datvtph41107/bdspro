@@ -12,6 +12,8 @@ import (
 
 type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
+	// Materialized CTE dependency, rather than independent WHERE EXISTS,
+	// fixes the owner-then-recipient row-lock order under PostgreSQL plans.
 	AddTeamUserForOwner(ctx context.Context, arg AddTeamUserForOwnerParams) (TeamMember, error)
 	AttachVerifiedEmail(ctx context.Context, arg AttachVerifiedEmailParams) (int64, error)
 	BindPhoneCredentialQuery(ctx context.Context, arg BindPhoneCredentialQueryParams) error
@@ -36,6 +38,9 @@ type Querier interface {
 	CreatePhoneOnlyAccount(ctx context.Context, personID int64) (CreatePhoneOnlyAccountRow, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTeamForOwner(ctx context.Context, arg CreateTeamForOwnerParams) (Team, error)
+	// Authorizing owner lock must precede recipient membership lock. Independent
+	// EXISTS predicates can be reordered by the SQL optimizer and deadlock with
+	// a concurrent owner transfer (donor update then recipient update).
 	CreateTeamInviteForOwner(ctx context.Context, arg CreateTeamInviteForOwnerParams) (TeamInvite, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	DeleteExpiredAccountConnectionHistories(ctx context.Context, arg DeleteExpiredAccountConnectionHistoriesParams) (int64, error)

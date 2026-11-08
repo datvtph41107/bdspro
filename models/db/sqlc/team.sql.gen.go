@@ -13,35 +13,41 @@ import (
 )
 
 const addTeamUserForOwner = `-- name: AddTeamUserForOwner :one
+WITH owner_scope AS MATERIALIZED (
+  SELECT m.organization_id
+  FROM teams t
+  JOIN organization_members m ON m.organization_id = t.organization_id
+  JOIN accounts a ON a.person_id = m.person_id
+  WHERE t.id = $1
+    AND a.id = $2
+    AND m.role = 'owner' AND m.ended_at IS NULL
+  FOR SHARE OF m
+),
+recipient_scope AS MATERIALIZED (
+  SELECT m.organization_id, m.person_id
+  FROM owner_scope owner
+  JOIN organization_members m ON m.organization_id = owner.organization_id
+  WHERE m.person_id = $3 AND m.ended_at IS NULL
+  FOR SHARE OF m
+)
 INSERT INTO team_members (team_id, person_id)
-SELECT t.id, $1::bigint FROM teams t
-WHERE t.id = $2
-  AND EXISTS (
-    SELECT 1 FROM accounts a
-    JOIN organization_members m ON m.person_id = a.person_id
-    WHERE a.id = $3
-      AND m.organization_id = t.organization_id
-      AND m.role = 'owner' AND m.ended_at IS NULL
-    FOR SHARE OF m
-  )
-  AND EXISTS (
-    SELECT 1 FROM organization_members m
-    WHERE m.person_id = $1
-      AND m.organization_id = t.organization_id
-      AND m.ended_at IS NULL
-    FOR SHARE OF m
-  )
+SELECT t.id, recipient.person_id
+FROM recipient_scope recipient
+JOIN teams t ON t.organization_id = recipient.organization_id
+WHERE t.id = $1
 RETURNING team_id, person_id, joined_at
 `
 
 type AddTeamUserForOwnerParams struct {
-	PersonID       int64 `json:"person_id"`
 	TeamID         int64 `json:"team_id"`
 	ActorAccountID int64 `json:"actor_account_id"`
+	PersonID       int64 `json:"person_id"`
 }
 
+// Materialized CTE dependency, rather than independent WHERE EXISTS,
+// fixes the owner-then-recipient row-lock order under PostgreSQL plans.
 func (q *Queries) AddTeamUserForOwner(ctx context.Context, arg AddTeamUserForOwnerParams) (TeamMember, error) {
-	row := q.db.QueryRow(ctx, addTeamUserForOwner, arg.PersonID, arg.TeamID, arg.ActorAccountID)
+	row := q.db.QueryRow(ctx, addTeamUserForOwner, arg.TeamID, arg.ActorAccountID, arg.PersonID)
 	var i TeamMember
 	err := row.Scan(&i.TeamID, &i.PersonID, &i.JoinedAt)
 	return i, err
@@ -115,32 +121,34 @@ func (q *Queries) CreateTeamForOwner(ctx context.Context, arg CreateTeamForOwner
 }
 
 const createTeamInviteForOwner = `-- name: CreateTeamInviteForOwner :one
+WITH owner_scope AS MATERIALIZED (
+  SELECT t.id AS team_id, t.organization_id
+  FROM teams t
+  JOIN organization_members m ON m.organization_id = t.organization_id
+  JOIN accounts a ON a.person_id = m.person_id
+  WHERE t.id = $6
+    AND a.id = $3
+    AND m.role = 'owner' AND m.ended_at IS NULL
+  FOR SHARE OF m
+),
+recipient_scope AS MATERIALIZED (
+  SELECT owner.team_id, recipient.person_id
+  FROM owner_scope owner
+  JOIN organization_members member ON member.organization_id = owner.organization_id
+  JOIN accounts recipient ON recipient.person_id = member.person_id
+  WHERE recipient.is_email_verified = TRUE
+    AND lower(btrim(recipient.email)) = lower(btrim($2::text))
+    AND member.ended_at IS NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM team_members tm
+      WHERE tm.team_id = owner.team_id AND tm.person_id = recipient.person_id
+    )
+  FOR SHARE OF member
+)
 INSERT INTO team_invites (id, team_id, invited_email, invited_by_account_id, token_hash, expires_at)
-SELECT $1::uuid, t.id, lower(btrim($2::text)), $3::bigint,
-       $4::bytea, $5::timestamptz
-FROM teams t
-WHERE t.id = $6
-  AND EXISTS (
-    SELECT 1 FROM accounts a
-    JOIN organization_members m ON m.person_id = a.person_id
-    WHERE a.id = $3
-      AND m.organization_id = t.organization_id
-      AND m.role = 'owner' AND m.ended_at IS NULL
-    FOR SHARE OF m
-  )
-  -- A Team invitation is only valid for a verified current Organization member.
-  AND EXISTS (
-    SELECT 1 FROM accounts recipient
-    JOIN organization_members member ON member.person_id = recipient.person_id
-    WHERE recipient.is_email_verified = TRUE
-      AND lower(btrim(recipient.email)) = lower(btrim($2::text))
-      AND member.organization_id = t.organization_id AND member.ended_at IS NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM team_members tm
-        WHERE tm.team_id = t.id AND tm.person_id = recipient.person_id
-      )
-    FOR SHARE OF member
-  )
+SELECT $1::uuid, recipient.team_id, lower(btrim($2::text)),
+       $3::bigint, $4::bytea, $5::timestamptz
+FROM recipient_scope recipient
 RETURNING id, team_id, invited_email, invited_by_account_id, token_hash,
           expires_at, accepted_at, revoked_at, created_at
 `
@@ -154,6 +162,9 @@ type CreateTeamInviteForOwnerParams struct {
 	TeamID         int64     `json:"team_id"`
 }
 
+// Authorizing owner lock must precede recipient membership lock. Independent
+// EXISTS predicates can be reordered by the SQL optimizer and deadlock with
+// a concurrent owner transfer (donor update then recipient update).
 func (q *Queries) CreateTeamInviteForOwner(ctx context.Context, arg CreateTeamInviteForOwnerParams) (TeamInvite, error) {
 	row := q.db.QueryRow(ctx, createTeamInviteForOwner,
 		arg.ID,
