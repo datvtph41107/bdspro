@@ -10,10 +10,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// AddTeamUser requires an active Organization owner and an active Organization member.
-func AddTeamUser(ctx context.Context, writer interface {
+// TeamMemberWriter is the one SQLC mutation needed by the team model.
+// A regular store and transaction-bound Queries both satisfy it.
+type TeamMemberWriter interface {
 	AddTeamUserForOwner(context.Context, db.AddTeamUserForOwnerParams) (db.TeamMember, error)
-}, actorAccountID, teamID, personID int64) (db.TeamMember, error) {
+}
+
+// AddTeamUser requires an active Organization owner and an active Organization member.
+func AddTeamUser(ctx context.Context, writer TeamMemberWriter, actorAccountID, teamID, personID int64) (db.TeamMember, error) {
 	member, err := writer.AddTeamUserForOwner(ctx, db.AddTeamUserForOwnerParams{
 		TeamID: teamID, ActorAccountID: actorAccountID, PersonID: personID,
 	})
