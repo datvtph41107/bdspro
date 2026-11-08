@@ -112,6 +112,14 @@ jobs:
           test -x bin/bdspro
           ./bin/bdspro migrate --help
 
+      - name: Verify Asynq worker crash and automatic lease recovery
+        env:
+          BDS_G1_PROCESS_TEST: "1"
+          BDS_TEST_MODE: disposable
+          BDS_TEST_DB_URL: postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable
+          BDS_TEST_REDIS_ADDR: 127.0.0.1:6379
+        run: go test ./services/worker -run '^TestG1WorkerCrashAfterMailDeliveryAndAutomaticRecovery$' -count=1 -timeout=5m -v
+
       - name: Verify unchanged Gin route inventory
         run: go run ./tools/r02audit -root . -contract docs/architecture/r02/routes-r01.json -additions docs/architecture/r02/routes-r20-additions.json,docs/architecture/r02/routes-r23-additions.json,docs/architecture/r02/routes-r24-additions.json,docs/architecture/r02/routes-r31-additions.json,docs/architecture/r02/routes-r36-additions.json,docs/architecture/r02/routes-r38-additions.json -removals docs/architecture/r02/routes-r26-removals.json
 
