@@ -22,7 +22,7 @@ func (h *TeamHandler) CreateInvite(c *appctx.APIContext) {
 		appctx.Validation(c.Context, err, &req)
 		return
 	}
-	created, err := 	h.team.CreateTeamInvite(
+	created, err := h.team.CreateTeamInvite(
 		c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, teamID,
 		req.Email, 7*24*time.Hour, h.signingKey,
 	)
