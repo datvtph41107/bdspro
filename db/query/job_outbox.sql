@@ -20,14 +20,15 @@ SET queued_at = now()
 WHERE id = $1 AND queued_at IS NULL;
 
 -- name: RecordPasswordResetJob :exec
--- The payload identifies the account, never a reset token or password.
--- The worker generates the one-time proof only when the job is executed.
+-- Snapshot the account's recovery version under its row lock.
+-- Never serialize a reset proof into the outbox.
 INSERT INTO job_outbox (task_type, payload, queue_name, max_retry, run_at)
-VALUES (
-    'task:send_password_reset',
-    jsonb_build_object('account_id', sqlc.arg(account_id)::bigint),
-    'critical', 10, now()
-);
+SELECT 'task:send_password_reset',
+       jsonb_build_object('account_id', id, 'reset_version', password_reset_version),
+       'critical', 10, now()
+FROM accounts
+WHERE id = sqlc.arg(account_id)::bigint AND is_email_verified
+FOR SHARE;
 
 -- name: RecordTeamInviteJob :exec
 -- Only the invite UUID is durable. The proof is derived inside the worker
