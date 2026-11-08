@@ -5,10 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
-
 	db "github.com/datvtph41107/bdspro/models/db"
 	organization "github.com/datvtph41107/bdspro/models/organization"
+	"github.com/jackc/pgx/v5"
 )
 
 func TestListTeamsRejectsUnboundedOptions(t *testing.T) {
