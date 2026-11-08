@@ -36,14 +36,14 @@ func TestPasswordResetJobGeneratesProofInWorkerAndRetriesSMTP(t *testing.T) {
 	store := &passwordResetStoreFake{account: db.Account{ID: 42, Email: "verified@example.test", IsEmailVerified: true}}
 	sender := &fakeMailSender{fail: errors.New("SMTP unavailable")}
 	url := "https://example.test/users/verify_email"
-	if err := SendPasswordResetEmail(ctx, store, sender, url, 42, 0); err == nil {
+	if err := SendPasswordResetEmailForVersion(ctx, store, sender, url, 42, 0); err == nil {
 		t.Fatal("SMTP failure must be retryable")
 	}
 	if len(store.hashes) != 1 || len(sender.content) != 0 {
 		t.Fatal("failed SMTP did not persist token hash")
 	}
 	sender.fail = nil
-	if err := SendPasswordResetEmail(ctx, store, sender, url, 42, 0); err != nil {
+	if err := SendPasswordResetEmailForVersion(ctx, store, sender, url, 42, 0); err != nil {
 		t.Fatal(err)
 	}
 	if len(sender.content) != 1 || len(store.hashes) != 2 {
@@ -66,7 +66,7 @@ func TestPasswordResetJobGeneratesProofInWorkerAndRetriesSMTP(t *testing.T) {
 func TestPasswordResetJobSkipsUnverifiedAccounts(t *testing.T) {
 	store := &passwordResetStoreFake{account: db.Account{ID: 9, Email: "unverified@example.test"}}
 	sender := &fakeMailSender{}
-	if err := SendPasswordResetEmail(context.Background(), store, sender, "https://example.test/users/verify_email", 9, 0); err != nil {
+	if err := SendPasswordResetEmailForVersion(context.Background(), store, sender, "https://example.test/users/verify_email", 9, 0); err != nil {
 		t.Fatal(err)
 	}
 	if len(store.hashes) != 0 || len(sender.content) != 0 {
@@ -77,7 +77,7 @@ func TestPasswordResetJobPropagatesDatabaseFailure(t *testing.T) {
 	boom := errors.New("postgres unavailable")
 	store := &passwordResetStoreFake{account: db.Account{ID: 5, Email: "verified@example.test", IsEmailVerified: true}, insertErr: boom}
 	sender := &fakeMailSender{}
-	if err := SendPasswordResetEmail(context.Background(), store, sender, "https://example.test/users/verify_email", 5); !errors.Is(err, boom) {
+	if err := SendPasswordResetEmailForVersion(context.Background(), store, sender, "https://example.test/users/verify_email", 5); !errors.Is(err, boom) {
 		t.Fatalf("database failure not retryable: %v", err)
 	}
 	if len(sender.content) != 0 {
