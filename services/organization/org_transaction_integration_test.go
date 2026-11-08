@@ -269,7 +269,7 @@ func TestOrganizationServiceAuthorizationAndPreflight(t *testing.T) {
 		t.Fatalf("nonexistent account created organization: %v",err)
 	}
 	var recipientID int64
-	if err:=pool.QueryRow(ctx,"SELECT id FROM accounts WHERE person_id=$1",d.teamCase.personID).
+	if err:=pool.QueryRow(ctx,"SELECT id FROM accounts WHERE person_id=$1",d.teamCase.recipientPersonID).
 		Scan(&recipientID);err!=nil {t.Fatal(err)}
 	recipientSession:=uuid.New()
 	if _,err:=store.CreateSession(ctx,db.CreateSessionParams{
