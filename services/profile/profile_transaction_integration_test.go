@@ -17,8 +17,8 @@ import (
 
 type pinnedProfileStore struct {
 	db.Store
-	conn *pgxpool.Conn
-	ready chan<- struct{}
+	conn    *pgxpool.Conn
+	ready   chan<- struct{}
 	release <-chan struct{}
 }
 
@@ -78,7 +78,7 @@ func newProfileSession(t *testing.T, ctx context.Context, store *db.SQLStore, ac
 	_, err := store.CreateSession(ctx, db.CreateSessionParams{
 		ID: sessionID, AccountID: accountID,
 		RefreshToken: "sha256:" + strings.Repeat("e", 64) + uuid.NewString(),
-		UserAgent: "profile-transaction-acceptance", ClientIp: "203.0.113.65",
+		UserAgent:    "profile-transaction-acceptance", ClientIp: "203.0.113.65",
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
 	if err != nil {
