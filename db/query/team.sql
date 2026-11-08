@@ -109,7 +109,20 @@ UPDATE team_invites
 SET revoked_at = now()
 WHERE team_id = sqlc.arg(team_id)
   AND invited_email = sqlc.arg(invited_email)
-  AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at <= now();
+  AND accepted_at IS NULL AND revoked_at IS NULL
+  AND (
+    expires_at <= now()
+    OR EXISTS (
+      SELECT 1 FROM teams t
+      JOIN organization_members m ON m.organization_id = t.organization_id
+      JOIN accounts recipient ON recipient.person_id = m.person_id
+      WHERE t.id = team_invites.team_id
+        AND m.ended_at IS NULL
+        AND recipient.is_email_verified = TRUE
+        AND lower(btrim(recipient.email)) = lower(btrim(team_invites.invited_email))
+        AND team_invites.created_at < m.joined_at
+    )
+  );
 
 -- name: CreateTeamInviteForOwner :one
 INSERT INTO team_invites (id, team_id, invited_email, invited_by_account_id, token_hash, expires_at)
@@ -152,6 +165,7 @@ WHERE ti.token_hash = sqlc.arg(token_hash)
   AND lower(btrim(a.email)) = lower(btrim(ti.invited_email))
   AND m.organization_id = t.organization_id
   AND m.person_id = a.person_id AND m.ended_at IS NULL
+  AND ti.created_at >= m.joined_at
 RETURNING ti.team_id;
 
 -- name: InsertInvitedTeamUser :one
@@ -196,4 +210,5 @@ WHERE ti.id = sqlc.arg(invite_id)::uuid
     WHERE recipient.is_email_verified = TRUE
       AND lower(btrim(recipient.email)) = lower(btrim(ti.invited_email))
       AND m.organization_id = t.organization_id AND m.ended_at IS NULL
+      AND ti.created_at >= m.joined_at
   );

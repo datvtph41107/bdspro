@@ -56,3 +56,18 @@ func AddOrganizationMember(ctx context.Context, store db.Store, actorAccountID i
 		return organization_model.AddOrgUser(ctx, q, actorAccountID, organizationID, personID)
 	})
 }
+
+// RemoveOrganizationMember coordinates the authenticated actor, owner-scoped
+// ordinary member closure, team access cleanup and durable audit in one commit.
+// Role changes and owner removal intentionally have a separate contract.
+func RemoveOrganizationMember(ctx context.Context, store db.Store, actorAccountID int64, actingSessionID uuid.UUID, organizationID, personID int64) error {
+	if organizationID <= 0 || personID <= 0 {
+		return organization_model.ErrInvalidOrganization
+	}
+	return store.ExecTx(ctx, func(q *db.Queries) error {
+		if err := auth_model.RequireActingSession(ctx, q, actorAccountID, actingSessionID); err != nil {
+			return err
+		}
+		return organization_model.RemoveOrdinaryOrgMemberTx(ctx, q, actorAccountID, organizationID, personID)
+	})
+}

@@ -22,6 +22,7 @@ var (
 	ErrOrganizationNotFound      = util.WithPublic(util.ErrNotExist, "organization not found", "organization.not_found", "organization not found")
 	ErrOrganizationOwnerRequired = util.WithPublic(util.ErrPermissionDenied, "organization owner required", "organization.owner_required", "organization owner required")
 	ErrMembershipExists          = util.WithPublic(util.ErrAlreadyExist, "membership already exists", "organization.membership_exists", "membership already exists")
+	ErrOrganizationMemberNotFound = util.WithPublic(util.ErrNotExist, "organization member not found or not removable", "organization.member_not_found", "organization member not found")
 	ErrPersonUnavailable         = util.WithPublic(util.ErrNotExist, "person unavailable", "organization.person_unavailable", "person unavailable")
 )
 

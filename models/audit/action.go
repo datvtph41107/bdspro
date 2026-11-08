@@ -14,6 +14,7 @@ import (
 const (
 	ActionSessionRevoked    = "auth.session.revoked"
 	ActionTeamMemberRemoved = "team.member.removed"
+	ActionOrganizationMemberRemoved = "organization.member.removed"
 )
 
 type actionWriter interface {
@@ -49,5 +50,21 @@ func RecordTeamMemberRemoved(ctx context.Context, q actionWriter, actorID, teamI
 		ScopeRef:       strconv.FormatInt(teamID, 10),
 		TargetType:     "person",
 		TargetRef:      strconv.FormatInt(personID, 10),
+	})
+}
+
+// RecordOrganizationMemberRemoved keeps revocation evidence atomic with its
+// membership and team-link mutations. No PII or bearer secret is logged.
+func RecordOrganizationMemberRemoved(ctx context.Context, q actionWriter, actorAccountID, organizationID, personID int64) error {
+	if actorAccountID <= 0 || organizationID <= 0 || personID <= 0 {
+		return fmt.Errorf("invalid organization removal audit identity")
+	}
+	return q.InsertAuditAction(ctx, db.InsertAuditActionParams{
+		Action: ActionOrganizationMemberRemoved,
+		ActorAccountID: actorAccountID,
+		ScopeType: "organization",
+		ScopeRef: strconv.FormatInt(organizationID, 10),
+		TargetType: "person",
+		TargetRef: strconv.FormatInt(personID, 10),
 	})
 }

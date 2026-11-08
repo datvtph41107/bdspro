@@ -79,3 +79,28 @@ WHERE o.party_id = sqlc.arg(organization_id)
     FOR SHARE OF m
   )
 RETURNING o.party_id, o.name, o.created_at;
+
+-- name: EndOrdinaryOrganizationMemberForOwner :one
+UPDATE organization_members AS target
+SET ended_at = clock_timestamp()
+WHERE target.organization_id = sqlc.arg(organization_id)
+  AND target.person_id = sqlc.arg(person_id)
+  AND target.role = 'member'
+  AND target.ended_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM organization_members AS owner
+    JOIN accounts AS a ON a.person_id = owner.person_id
+    WHERE owner.organization_id = target.organization_id
+      AND a.id = sqlc.arg(actor_account_id)
+      AND owner.role = 'owner' AND owner.ended_at IS NULL
+    FOR SHARE OF owner
+  )
+RETURNING target.id, target.organization_id, target.person_id,
+          target.role, target.joined_at, target.ended_at;
+
+-- name: DeleteOrgMemberTeamLinks :execrows
+DELETE FROM team_members AS tm
+USING teams AS t
+WHERE t.organization_id = sqlc.arg(organization_id)
+  AND tm.person_id = sqlc.arg(person_id)
+  AND tm.team_id = t.id;
