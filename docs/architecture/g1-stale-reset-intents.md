@@ -40,9 +40,14 @@ queries require the version-28 schema before deployment. The canonical
 migration guard now accepts 27 existing tables at schema version 28 and checks
 that the new column exists. It refuses older ledger mismatches.
 
-Legacy Asynq payloads with only `account_id` decode with reset_version=0.
-They can still deliver before an account's first versioned recovery, but are
-discarded after version advances. No secret is stored in the payload.
+Legacy Asynq payloads containing only `account_id` cannot establish
+whether a password recovery completed *before this migration existed*.
+The worker therefore treats a **missing** `reset_version` as an obsolete
+task, records a privacy-safe warning and acknowledges it without issuing a
+proof. This intentionally drops pending pre-migration reset emails; users can
+request a fresh link. Explicit version zero from a new, versioned outbox
+intent remains valid until the account's first versioned recovery. No
+secret is stored in the payload.
 
 Do not roll back the schema while newer workers or pending versioned jobs
 are running; restoring an older worker also restores its unsafe stale-task
