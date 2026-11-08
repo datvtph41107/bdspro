@@ -3,6 +3,7 @@ package routers
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -87,6 +88,11 @@ func authAcceptanceCall(t *testing.T, server *Server, path, method string, reque
 		t.Fatal(err)
 	}
 	r := httptest.NewRequest(method, path, bytes.NewReader(body))
+	// Give every test a stable, isolated documentation-range source IP.
+	// Within one test its requests still share rate-limit state, so actual
+	// IPActive behavior remains testable without cross-test key collisions.
+	source := sha256.Sum256([]byte(t.Name()))
+	r.RemoteAddr = fmt.Sprintf("198.%d.%d.%d:43210", 18+int(source[0]&1), source[1], source[2])
 	r.Header.Set("Content-Type", "application/json")
 	if bearer != "" {
 		r.Header.Set("Authorization", "Bearer "+bearer)
