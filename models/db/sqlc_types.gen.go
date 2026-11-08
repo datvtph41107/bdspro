@@ -53,6 +53,7 @@ type ListOrganizationsForAccountRow = sqlc.ListOrganizationsForAccountRow
 type ListPendingJobOutboxRow = sqlc.ListPendingJobOutboxRow
 type ListTeamUsersForAccountParams = sqlc.ListTeamUsersForAccountParams
 type ListTeamsForAccountParams = sqlc.ListTeamsForAccountParams
+type LockActingSessionParams = sqlc.LockActingSessionParams
 type LockPhoneChallengeQueryParams = sqlc.LockPhoneChallengeQueryParams
 type LockPhoneChallengeQueryRow = sqlc.LockPhoneChallengeQueryRow
 type LockPhoneSignupRow = sqlc.LockPhoneSignupRow

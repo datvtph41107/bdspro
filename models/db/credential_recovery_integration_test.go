@@ -144,7 +144,7 @@ func TestRevokeAllFirstPartySessionsPreservesDelegatedOAuthGrants(t *testing.T) 
 		t.Fatal(err)
 	}
 	fx := makeRecoveryFixture(t, ctx, store, oauth, owner.ID)
-	if err := auth_model.RevokeAllSessions(ctx, store, fx.accountID); err != nil {
+	if err := auth_model.RevokeAllSessions(ctx, store, fx.accountID, fx.session); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := oauth.ResolveOAuthAccessToken(ctx, fx.access); err != nil {

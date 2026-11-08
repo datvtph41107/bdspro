@@ -86,9 +86,31 @@ func RevokeOwnedSession(ctx context.Context, store SessionStore, accountID int64
 	})
 }
 
-func RevokeAllSessions(ctx context.Context, store SessionStore, accountID int64) error {
-	_, err := store.RevokeAllAccountSessions(ctx, accountID)
-	return err
+// RevokeAllSessions is authorized at commit time, not only at the HTTP
+// boundary. An account-level NO KEY UPDATE lock serializes concurrent
+// revoke-all requests; the acting session is then locked before any updates.
+func RevokeAllSessions(ctx context.Context, store SessionStore, accountID int64, actingSessionID uuid.UUID) error {
+	if accountID <= 0 || actingSessionID == uuid.Nil {
+		return ErrSessionUnavailable
+	}
+	return store.ExecTx(ctx, func(q *db.Queries) error {
+		if _, err := q.LockSessionRevocationAccount(ctx, accountID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrSessionUnavailable
+			}
+			return err
+		}
+		if _, err := q.LockActingSession(ctx, db.LockActingSessionParams{
+			SessionID: actingSessionID, AccountID: accountID,
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrSessionUnavailable
+			}
+			return err
+		}
+		_, err := q.RevokeAllAccountSessions(ctx, accountID)
+		return err
+	})
 }
 
 const refreshTokenDigestPrefix = "sha256:"

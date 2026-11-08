@@ -53,6 +53,43 @@ func (q *Queries) ListActiveSessions(ctx context.Context, accountID int64) ([]Li
 	return items, nil
 }
 
+const lockActingSession = `-- name: LockActingSession :one
+SELECT id FROM sessions
+WHERE id = $1::uuid
+  AND account_id = $2::bigint
+  AND is_blocked = FALSE AND expires_at > clock_timestamp()
+FOR UPDATE
+`
+
+type LockActingSessionParams struct {
+	SessionID uuid.UUID `json:"session_id"`
+	AccountID int64     `json:"account_id"`
+}
+
+// Run only inside the same transaction after LockSessionRevocationAccount.
+// Recheck the caller's session while holding its row lock until commit.
+func (q *Queries) LockActingSession(ctx context.Context, arg LockActingSessionParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockActingSession, arg.SessionID, arg.AccountID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const lockSessionRevocationAccount = `-- name: LockSessionRevocationAccount :one
+SELECT id FROM accounts
+WHERE id = $1::bigint
+FOR NO KEY UPDATE
+`
+
+// Account FOR NO KEY UPDATE serializes concurrent revoke-all requests but
+// stays compatible with FK KEY SHARE during login and OAuth consent.
+func (q *Queries) LockSessionRevocationAccount(ctx context.Context, accountID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, lockSessionRevocationAccount, accountID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const revokeAllAccountSessions = `-- name: RevokeAllAccountSessions :execrows
 UPDATE sessions SET is_blocked = TRUE
 WHERE account_id = $1 AND is_blocked = FALSE AND expires_at > now()

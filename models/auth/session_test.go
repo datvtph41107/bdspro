@@ -51,6 +51,13 @@ type testSessionTX struct {
 }
 
 func (tx testSessionTX) Exec(_ context.Context, statement string, args ...any) (pgconn.CommandTag, error) {
+	if strings.Contains(statement, "UPDATE sessions SET is_blocked = TRUE") &&
+		strings.Contains(statement, "WHERE account_id = $1") {
+		if tx.store.err != nil {
+			return pgconn.CommandTag{}, tx.store.err
+		}
+		return pgconn.NewCommandTag(fmt.Sprintf("UPDATE %d", tx.store.affected)), nil
+	}
 	if strings.Contains(statement, "UPDATE sessions SET is_blocked") {
 		tx.store.seen = db.RevokeOwnedSessionParams{ID: args[0].(uuid.UUID), AccountID: args[1].(int64)}
 		if tx.store.err != nil {
@@ -72,8 +79,34 @@ func (testSessionTX) Query(context.Context, string, ...any) (pgx.Rows, error) {
 	return nil, fmt.Errorf("unexpected query")
 }
 
-func (testSessionTX) QueryRow(context.Context, string, ...any) pgx.Row {
+type testSessionRow struct {
+	id  any
+	err error
+}
+
+func (r testSessionRow) Scan(dest ...any) error {
+	if r.err != nil {
+		return r.err
+	}
+	switch out := dest[0].(type) {
+	case *int64:
+		*out = r.id.(int64)
+	case *uuid.UUID:
+		*out = r.id.(uuid.UUID)
+	default:
+		return fmt.Errorf("unexpected session row destination")
+	}
 	return nil
+}
+
+func (tx testSessionTX) QueryRow(_ context.Context, statement string, args ...any) pgx.Row {
+	if strings.Contains(statement, "SELECT id FROM accounts") {
+		return testSessionRow{id: args[0].(int64)}
+	}
+	if strings.Contains(statement, "SELECT id FROM sessions") {
+		return testSessionRow{id: args[0].(uuid.UUID)}
+	}
+	return testSessionRow{err: fmt.Errorf("unexpected session query")}
 }
 
 func (s *testSessionStore) ExecTx(ctx context.Context, fn func(*db.Queries) error) error {
@@ -119,7 +152,7 @@ func TestRevokeOwnedSession(t *testing.T) {
 func TestRevokeAllSessionsPreservesStorageError(t *testing.T) {
 	databaseErr := errors.New("database unavailable")
 	store := &testSessionStore{err: databaseErr}
-	if err := RevokeAllSessions(context.Background(), store, 42); !errors.Is(err, databaseErr) {
+	if err := RevokeAllSessions(context.Background(), store, 42, uuid.New()); !errors.Is(err, databaseErr) {
 		t.Fatalf("database error lost: %v", err)
 	}
 }

@@ -569,9 +569,10 @@ func (s *AuthService) RevokeOwnSession(ctx context.Context, accountID int64, ses
 	return auth_model.RevokeOwnedSession(ctx, s.store, accountID, sessionID)
 }
 
-// RevokeAllSessions revokes refresh sessions only; access JWTs expire naturally.
-func (s *AuthService) RevokeAllSessions(ctx context.Context, accountID int64) error {
-	return auth_model.RevokeAllSessions(ctx, s.store, accountID)
+// RevokeAllSessions serializes the acting session's authority with the
+// account-wide revoke transaction, after the HTTP live-session gate.
+func (s *AuthService) RevokeAllSessions(ctx context.Context, accountID int64, actingSessionID uuid.UUID) error {
+	return auth_model.RevokeAllSessions(ctx, s.store, accountID, actingSessionID)
 }
 
 // CurrentAccount reads persisted identity instead of echoing a JWT claim.
