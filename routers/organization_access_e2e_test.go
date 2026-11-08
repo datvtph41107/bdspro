@@ -39,7 +39,7 @@ func organizationTestVerifiedAccount(t *testing.T, ctx context.Context, pool *pg
 	_, err = db.NewStore(pool).CreateSession(ctx, db.CreateSessionParams{
 		ID: sessionID, AccountID: account.ID,
 		RefreshToken: "org-acceptance-" + uuid.NewString(),
-		UserAgent: "organization-acceptance", ClientIp: "198.19.0.1",
+		UserAgent:    "organization-acceptance", ClientIp: "198.19.0.1",
 		ExpiresAt: time.Now().Add(time.Hour),
 	})
 	if err != nil {
