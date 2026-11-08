@@ -10,13 +10,43 @@ import (
 	"github.com/google/uuid"
 )
 
-// TeamService combines first-party session authority with team membership
-// changes. Resource permissions and audit remain owned by the SQLC model.
+// TeamService coordinates acting-session authority with team lifecycle and
+// membership changes. Resource permissions and audit remain owned by SQLC.
 type TeamService struct {
 	store db.Store
 }
 
 func NewTeamService(store db.Store) *TeamService { return &TeamService{store: store} }
+
+// CreateTeam is a cross-model write: a live session and the SQLC owner
+// membership predicate must stay valid in the same committing transaction.
+// Validate name before opening a transaction; the model validates it again
+// when called directly without a service.
+func (s *TeamService) CreateTeam(ctx context.Context, actingSessionID uuid.UUID, opts organization_model.CreateTeamOptions) (db.Team, error) {
+	if !organization_model.ValidTeamName(opts.Name) {
+		return db.Team{}, organization_model.ErrTeamNameInvalid
+	}
+	return db.WithTxResult(ctx, s.store, func(q *db.Queries) (db.Team, error) {
+		if err := auth_model.RequireActingSession(ctx, q, opts.ActorAccountID, actingSessionID); err != nil {
+			return db.Team{}, err
+		}
+		return organization_model.CreateTeam(ctx, q, opts)
+	})
+}
+
+// RenameTeam preserves the owner-scoped SQLC UPDATE and its permission lock;
+// the acting session row is locked first in the same transaction.
+func (s *TeamService) RenameTeam(ctx context.Context, actorAccountID int64, actingSessionID uuid.UUID, teamID int64, name string) (db.Team, error) {
+	if !organization_model.ValidTeamName(name) {
+		return db.Team{}, organization_model.ErrTeamNameInvalid
+	}
+	return db.WithTxResult(ctx, s.store, func(q *db.Queries) (db.Team, error) {
+		if err := auth_model.RequireActingSession(ctx, q, actorAccountID, actingSessionID); err != nil {
+			return db.Team{}, err
+		}
+		return organization_model.RenameTeam(ctx, q, actorAccountID, teamID, name)
+	})
+}
 
 func (s *TeamService) AddTeamUser(ctx context.Context, actorAccountID int64, actingSessionID uuid.UUID, teamID, personID int64) (db.TeamMember, error) {
 	return db.WithTxResult(ctx, s.store, func(q *db.Queries) (db.TeamMember, error) {

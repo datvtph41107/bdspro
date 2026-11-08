@@ -33,7 +33,7 @@ func (h *TeamHandler) Create(c *appctx.APIContext) {
 		appctx.Validation(c.Context, err, &req)
 		return
 	}
-	team, err := organization_model.CreateTeam(c.Request.Context(), h.store, organization_model.CreateTeamOptions{
+	team, err := h.team.CreateTeam(c.Request.Context(), c.Doer.SessionID, organization_model.CreateTeamOptions{
 		OrganizationID: orgID, ActorAccountID: c.Doer.AccountID,
 		Name: req.Name, Description: req.Description,
 	})
@@ -84,7 +84,7 @@ func (h *TeamHandler) Edit(c *appctx.APIContext) {
 		appctx.Validation(c.Context, err, &req)
 		return
 	}
-	team, err := organization_model.RenameTeam(c.Request.Context(), h.store, c.Doer.AccountID, id, req.Name)
+	team, err := h.team.RenameTeam(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, id, req.Name)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
