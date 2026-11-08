@@ -39,7 +39,7 @@ func g12RequireHTTPStatus(t *testing.T, server *Server, path, method string, req
 	return body
 }
 
-func TestG12SessionRevokeDeniesRefreshButNotExistingAccessHTTP(t *testing.T) {
+func TestG12LiveSessionRevokeDeniesAccessAndRefreshHTTP(t *testing.T) {
 	_, pool, server, _ := authAcceptanceServer(t)
 	email, first := g12RegisterAndLogin(t, server)
 	_, unrelated := g12RegisterAndLogin(t, server)
@@ -74,33 +74,34 @@ func TestG12SessionRevokeDeniesRefreshButNotExistingAccessHTTP(t *testing.T) {
 	}
 	g12RequireHTTPStatus(t, server, "/tokens/renew_access", http.MethodPost,
 		map[string]string{"refresh_token": firstRefresh}, "", http.StatusUnauthorized)
-	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, firstAccess, http.StatusOK)
-	// An access token whose refresh session was revoked can still MUTATE the
-	// profile under today's stateless route policy, not merely read it.
+	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, firstAccess, http.StatusUnauthorized)
+	// A revoked access JWT cannot change profile data, even with a valid
+	// signature and a later expiry timestamp.
 	g12RequireHTTPStatus(t, server, "/users/me/profile", http.MethodPatch,
-		map[string]string{"display_name": "Changed by revoked session"}, firstAccess, http.StatusOK)
-	profile := g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, secondAccess, http.StatusOK)
-	if profile["profile"].(map[string]any)["display_name"] != "Changed by revoked session" {
-		t.Fatalf("revoked JWT profile mutation not persisted: %+v", profile)
-	}
+		map[string]string{"display_name": "Stolen token attempt"}, firstAccess, http.StatusUnauthorized)
+	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, secondAccess, http.StatusOK)
 	g12RequireHTTPStatus(t, server, "/tokens/renew_access", http.MethodPost,
 		map[string]string{"refresh_token": secondRefresh}, "", http.StatusOK)
 	g12RequireHTTPStatus(t, server, "/tokens/renew_access", http.MethodPost,
 		map[string]string{"refresh_token": otherRefresh}, "", http.StatusOK)
 
-	// Security implication of the current stateless contract: the old access
-	// JWT can still invoke an account-wide session revocation operation.
+	// The revoked JWT cannot revoke the surviving session.
 	g12RequireHTTPStatus(t, server, "/users/me/sessions/revoke_all", http.MethodPost,
-		nil, firstAccess, http.StatusNoContent)
+		nil, firstAccess, http.StatusUnauthorized)
+	g12RequireHTTPStatus(t, server, "/tokens/renew_access", http.MethodPost,
+		map[string]string{"refresh_token": secondRefresh}, "", http.StatusOK)
+	// A live session may revoke all, after which its own JWT also fails.
+	g12RequireHTTPStatus(t, server, "/users/me/sessions/revoke_all", http.MethodPost,
+		nil, secondAccess, http.StatusNoContent)
 	g12RequireHTTPStatus(t, server, "/tokens/renew_access", http.MethodPost,
 		map[string]string{"refresh_token": secondRefresh}, "", http.StatusUnauthorized)
-	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, firstAccess, http.StatusOK)
-	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, secondAccess, http.StatusOK)
+	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, firstAccess, http.StatusUnauthorized)
+	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, secondAccess, http.StatusUnauthorized)
 	g12RequireHTTPStatus(t, server, "/tokens/renew_access", http.MethodPost,
 		map[string]string{"refresh_token": otherRefresh}, "", http.StatusOK)
 }
 
-func TestG12PasswordRecoveryRevokesRefreshNotIssuedAccessHTTP(t *testing.T) {
+func TestG12PasswordRecoveryRevokesBothRefreshAndIssuedAccessHTTP(t *testing.T) {
 	ctx, pool, server, _ := authAcceptanceServer(t)
 	email, login := g12RegisterAndLogin(t, server)
 	accountID := int64(login["user"].(map[string]any)["account_id"].(float64))
@@ -124,8 +125,8 @@ func TestG12PasswordRecoveryRevokesRefreshNotIssuedAccessHTTP(t *testing.T) {
 		map[string]string{"token": proof, "password": replacement}, "", http.StatusNoContent)
 	g12RequireHTTPStatus(t, server, "/tokens/renew_access", http.MethodPost,
 		map[string]string{"refresh_token": refresh}, "", http.StatusUnauthorized)
-	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, access, http.StatusOK)
-	g12RequireHTTPStatus(t, server, "/users/me/settings", http.MethodGet, nil, access, http.StatusOK)
+	g12RequireHTTPStatus(t, server, "/users/me", http.MethodGet, nil, access, http.StatusUnauthorized)
+	g12RequireHTTPStatus(t, server, "/users/me/settings", http.MethodGet, nil, access, http.StatusUnauthorized)
 	g12RequireHTTPStatus(t, server, "/users/login", http.MethodPost,
 		map[string]string{"email": email, "password": g12Password}, "", http.StatusUnauthorized)
 	fresh := g12RequireHTTPStatus(t, server, "/users/login", http.MethodPost,
