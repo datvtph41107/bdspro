@@ -355,7 +355,12 @@ func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {
 }
 
 func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
-	if err := h.auth.RevokeAllSessions(c.Request.Context(), appctx.AccountID(c)); err != nil {
+	payload, ok := appctx.AuthorizationPayload(c)
+	if !ok {
+		appctx.AuthenticationRequired(c)
+		return
+	}
+	if err := h.auth.RevokeAllSessions(c.Request.Context(), payload.AccountID, payload.SessionID); err != nil {
 		appctx.Error(c, err)
 		return
 	}
