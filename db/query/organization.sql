@@ -6,7 +6,7 @@ RETURNING party_id, name, created_at;
 -- name: CreateOrganizationMember :one
 INSERT INTO organization_members (organization_id, person_id, role, owner_person_id)
 VALUES ($1, $2, $3, CASE WHEN $3 = 'owner' THEN $2 ELSE NULL END)
-RETURNING id, organization_id, person_id, role, joined_at, ended_at;
+RETURNING id, organization_id, person_id, role, joined_at, ended_at, owner_person_id;
 
 -- name: ListOrganizationsForAccount :many
 SELECT o.party_id, o.name, o.created_at,
@@ -56,7 +56,7 @@ WHERE EXISTS (
     AND owner.ended_at IS NULL
   FOR SHARE OF owner
 )
-RETURNING id, organization_id, person_id, role, joined_at, ended_at;
+RETURNING id, organization_id, person_id, role, joined_at, ended_at, owner_person_id;
 
 -- name: LockOrganizationCreator :one
 SELECT person_id
@@ -96,7 +96,7 @@ WHERE target.organization_id = sqlc.arg(organization_id)
     FOR SHARE OF owner
   )
 RETURNING target.id, target.organization_id, target.person_id,
-          target.role, target.joined_at, target.ended_at;
+          target.role, target.joined_at, target.ended_at, target.owner_person_id;
 
 -- name: DeleteOrgMemberTeamLinks :execrows
 DELETE FROM team_members AS tm
@@ -152,7 +152,7 @@ WHERE m.organization_id = sqlc.arg(organization_id)
       )
     FOR KEY SHARE OF recipient
   )
-RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at;
+RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at, m.owner_person_id;
 
 -- name: DemoteOrganizationOwner :one
 -- The transaction owns both authorization and the last-owner policy.
@@ -162,4 +162,4 @@ SET role = 'member', owner_person_id = NULL
 WHERE m.organization_id = sqlc.arg(organization_id)
   AND m.person_id = sqlc.arg(person_id)
   AND m.role = 'owner' AND m.ended_at IS NULL
-RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at;
+RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at, m.owner_person_id;

@@ -151,6 +151,7 @@ type OrganizationMember struct {
 	Role           string             `json:"role"`
 	JoinedAt       time.Time          `json:"joined_at"`
 	EndedAt        pgtype.Timestamptz `json:"ended_at"`
+	OwnerPersonID  pgtype.Int8        `json:"owner_person_id"`
 }
 
 type Party struct {
