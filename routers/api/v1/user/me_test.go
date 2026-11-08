@@ -177,7 +177,12 @@ func (s *currentProfileStoreFake) ExecTx(ctx context.Context, fn func(*db.Querie
 	s.txCalls++
 	// Stage changes in a copy to model transaction rollback and commit.
 	staged := *s
-	if err := fn(db.New(profileHTTPDBTX{store: &staged})); err != nil {
+	err := fn(db.New(profileHTTPDBTX{store: &staged}))
+	// Attempted reads/locks are observable even if the DB transaction
+	// rolls back; data changes are published only after commit.
+	s.lockCalls = staged.lockCalls
+	s.calls = staged.calls
+	if err != nil {
 		return err
 	}
 	if s.commitErr != nil {
@@ -186,8 +191,6 @@ func (s *currentProfileStoreFake) ExecTx(ctx context.Context, fn func(*db.Querie
 	s.profile = staged.profile
 	s.profileUpdate = staged.profileUpdate
 	s.settingsUpdate = staged.settingsUpdate
-	s.lockCalls = staged.lockCalls
-	s.calls = staged.calls
 	return nil
 }
 
