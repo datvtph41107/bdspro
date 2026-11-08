@@ -168,8 +168,11 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 		d.Auth.ConfirmEmailLink,
 	)
 
-	registerOrganizationRoutes(route.Group("/organizations", appctx.VerifiedContact(d.Store)), d)
-	registerTeamRoutes(route.Group("/teams", appctx.VerifiedContact(d.Store)), d)
+	// One team handler owns the immutable store/signing dependencies for both
+	// organization-scoped and team-scoped routes; no request-time assembly.
+	teams := org.NewTeamHandler(d.Store, d.InviteKey)
+	registerOrganizationRoutes(route.Group("/organizations", appctx.VerifiedContact(d.Store)), d, teams)
+	registerTeamRoutes(route.Group("/teams", appctx.VerifiedContact(d.Store)), d, teams)
 
 	if d.OAuth2 != nil {
 		route.POST("/users/me/oauth2/start",
@@ -189,20 +192,18 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	}
 }
 
-func registerOrganizationRoutes(route *gin.RouterGroup, d Dependencies) {
+func registerOrganizationRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHandler) {
 	route.GET("", appctx.Wrap(d.Organization.List))
 	route.GET("/:id", appctx.Wrap(d.Organization.Get))
 	route.POST("", appctx.Wrap(d.Organization.Create))
 	route.PATCH("/:id", appctx.Wrap(d.Organization.Edit))
 	route.GET("/:id/members", appctx.Wrap(d.Organization.Members))
 	route.POST("/:id/members", appctx.Wrap(d.Organization.AddMember))
-	teams := org.NewTeamHandler(d.Store, d.InviteKey)
 	route.GET("/:id/teams", appctx.Wrap(teams.List))
 	route.POST("/:id/teams", appctx.Wrap(teams.Create))
 }
 
-func registerTeamRoutes(route *gin.RouterGroup, d Dependencies) {
-	teams := org.NewTeamHandler(d.Store, d.InviteKey)
+func registerTeamRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHandler) {
 	route.POST("/invites/accept",
 		d.IPActive.For(ipactive.AcceptTeamInvite),
 		appctx.Wrap(teams.AcceptInvite),
