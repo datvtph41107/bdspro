@@ -11,10 +11,10 @@ import (
 )
 
 type passwordResetStoreFake struct {
-	account    db.Account
-	accountErr error
-	insertErr  error
-	hashes     [][]byte
+	account      db.Account
+	accountErr   error
+	insertErr    error
+	hashes       [][]byte
 	resetVersion int64
 }
 
