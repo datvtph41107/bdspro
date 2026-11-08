@@ -64,20 +64,31 @@ func (h *Handler) RemoveMember(c *appctx.APIContext) {
 // PromoteOwner grants owner rights to a verified current organization member.
 func (h *Handler) PromoteOwner(c *appctx.APIContext) {
 	id, ok := organizationID(c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	personID, ok := positivePathID(c, "person_id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	member, err := organization_service.PromoteOrganizationOwner(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID)
-	if err != nil { c.APIErrorAuto(err); return }
+	if err != nil {
+		c.APIErrorAuto(err)
+		return
+	}
 	c.JSON(http.StatusOK, convert.ToOrganizationMember(member))
 }
 
 // DemoteOwner removes owner privileges while retaining organization membership.
 func (h *Handler) DemoteOwner(c *appctx.APIContext) {
 	id, ok := organizationID(c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	personID, ok := positivePathID(c, "person_id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if err := organization_service.DemoteOrganizationOwner(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID); err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -89,13 +100,18 @@ func (h *Handler) DemoteOwner(c *appctx.APIContext) {
 // member's privileges in one transaction; never two independent API calls.
 func (h *Handler) TransferOwner(c *appctx.APIContext) {
 	id, ok := organizationID(c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	var req structs.TransferOrganizationOwnerOption
 	if err := c.ShouldBindJSON(&req); err != nil {
 		appctx.Validation(c.Context, err, &req)
 		return
 	}
 	member, err := organization_service.TransferOrganizationOwner(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
-	if err != nil { c.APIErrorAuto(err); return }
+	if err != nil {
+		c.APIErrorAuto(err)
+		return
+	}
 	c.JSON(http.StatusOK, convert.ToOrganizationMember(member))
 }

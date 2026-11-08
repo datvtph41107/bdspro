@@ -3,8 +3,8 @@ package organization
 import (
 	"context"
 
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	audit_model "github.com/datvtph41107/bdspro/models/audit"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/google/uuid"

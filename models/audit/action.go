@@ -12,11 +12,11 @@ import (
 // Each action is a concrete, reviewable security event, not a generic bus.
 // The database constraint provides the last line of validation.
 const (
-	ActionSessionRevoked            = "auth.session.revoked"
-	ActionTeamMemberRemoved         = "team.member.removed"
-	ActionOrganizationMemberRemoved = "organization.member.removed"
-	ActionOrganizationOwnerPromoted = "organization.owner.promoted"
-	ActionOrganizationOwnerDemoted = "organization.owner.demoted"
+	ActionSessionRevoked               = "auth.session.revoked"
+	ActionTeamMemberRemoved            = "team.member.removed"
+	ActionOrganizationMemberRemoved    = "organization.member.removed"
+	ActionOrganizationOwnerPromoted    = "organization.owner.promoted"
+	ActionOrganizationOwnerDemoted     = "organization.owner.demoted"
 	ActionOrganizationOwnerTransferred = "organization.owner.transferred"
 )
 
@@ -85,11 +85,11 @@ func RecordOrganizationOwnerRoleChanged(ctx context.Context, q actionWriter, act
 		return fmt.Errorf("unsupported organization owner audit action")
 	}
 	return q.InsertAuditAction(ctx, db.InsertAuditActionParams{
-		Action: action,
+		Action:         action,
 		ActorAccountID: actorAccountID,
-		ScopeType: "organization",
-		ScopeRef: strconv.FormatInt(organizationID, 10),
-		TargetType: "person",
-		TargetRef: strconv.FormatInt(targetPersonID, 10),
+		ScopeType:      "organization",
+		ScopeRef:       strconv.FormatInt(organizationID, 10),
+		TargetType:     "person",
+		TargetRef:      strconv.FormatInt(targetPersonID, 10),
 	})
 }
