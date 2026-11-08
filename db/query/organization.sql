@@ -5,7 +5,7 @@ RETURNING party_id, name, created_at;
 
 -- name: CreateOrganizationMember :one
 INSERT INTO organization_members (organization_id, person_id, role, owner_person_id)
-VALUES ($1::bigint, $2::bigint, $3::text, CASE WHEN $3::text = 'owner' THEN $2::bigint ELSE NULL::bigint END)
+VALUES (sqlc.arg(organization_id)::bigint, sqlc.arg(person_id)::bigint, sqlc.arg(role)::text, CASE WHEN sqlc.arg(role)::text = 'owner' THEN sqlc.arg(person_id)::bigint ELSE NULL::bigint END)
 RETURNING id, organization_id, person_id, role, joined_at, ended_at, owner_person_id;
 
 -- name: ListOrganizationsForAccount :many
