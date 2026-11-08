@@ -187,7 +187,6 @@ WHERE t.id = $1
     JOIN organization_members m ON m.person_id = a.person_id
     WHERE a.id = $2
       AND m.organization_id = t.organization_id AND m.ended_at IS NULL
-      AND ti.created_at >= m.joined_at
   )
 `
 
@@ -224,6 +223,7 @@ WHERE ti.id = $1::uuid
     WHERE recipient.is_email_verified = TRUE
       AND lower(btrim(recipient.email)) = lower(btrim(ti.invited_email))
       AND m.organization_id = t.organization_id AND m.ended_at IS NULL
+      AND ti.created_at >= m.joined_at
   )
 `
 
