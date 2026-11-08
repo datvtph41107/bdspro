@@ -70,7 +70,13 @@ type Querier interface {
 	ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error)
 	ListTeamUsersForAccount(ctx context.Context, arg ListTeamUsersForAccountParams) ([]TeamMember, error)
 	ListTeamsForAccount(ctx context.Context, arg ListTeamsForAccountParams) ([]Team, error)
+	// Run only inside the same transaction after LockSessionRevocationAccount.
+	// Recheck the caller's session while holding its row lock until commit.
+	LockActingSession(ctx context.Context, arg LockActingSessionParams) (uuid.UUID, error)
 	LockOrganizationCreator(ctx context.Context, actorAccountID int64) (int64, error)
+	// Account FOR UPDATE serializes concurrent revoke-all requests and login
+	// session creation (the session FK takes KEY SHARE on accounts).
+	LockSessionRevocationAccount(ctx context.Context, accountID int64) (int64, error)
 	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
 	LockPhoneOnlyEmailAccount(ctx context.Context, id int64) (int64, error)
