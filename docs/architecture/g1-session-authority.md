@@ -1,5 +1,13 @@
 # G1.2a — First-party access JWT and session authority acceptance
 
+> **Historical G1.2a baseline only.** This document records the JWT-only
+> HTTP authorization behavior proven on dev@1e96fbb4. G1.2b adopts
+> PostgreSQL live session checks on protected first-party routes; see
+> [g1-live-session-authority.md](g1-live-session-authority.md) for the
+> replacement behavior, migration implications and concurrency limits.
+> Do not treat the below 200-after-revoke assertions as current policy.
+
+
 Baseline `dev@9ca594ff80a31cf55ec8ff7127152a37a7600778`.
 This checkpoint **documents and tests the currently deployed semantics**;
 it does not silently introduce immediate access-token revocation.
