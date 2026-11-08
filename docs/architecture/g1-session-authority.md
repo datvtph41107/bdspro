@@ -35,8 +35,8 @@ disposable PostgreSQL and Redis and the real Gin route tree:
 1. Register account A and issue two sessions; issue one session for account B.
 2. Revoke A's first refresh session via `/tokens/revoke`. Verify session row
    is blocked and that its refresh JWT cannot renew (401). The *already-issued*
-   access JWT still reads `/users/me` (200), while the other sessions remain
-   unaffected.
+   access JWT still reads `/users/me` (200) and **mutates** `/users/me/profile`
+   (200, persisted), while the other sessions remain unaffected.
 3. With the just-revoked first session's access JWT, call
    `/users/me/sessions/revoke_all` (204). This **currently succeeds** and
    invalidates account A's remaining refresh session; its access JWT still
