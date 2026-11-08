@@ -35,7 +35,17 @@ func organizationTestVerifiedAccount(t *testing.T, ctx context.Context, pool *pg
 	if err != nil {
 		t.Fatal(err)
 	}
-	access, _, err := maker.CreateToken(account.ID, time.Minute, authcrypto.TokenTypeAccess)
+	sessionID := uuid.New()
+	_, err = db.NewStore(pool).CreateSession(ctx, db.CreateSessionParams{
+		ID: sessionID, AccountID: account.ID,
+		RefreshToken: "org-acceptance-" + uuid.NewString(),
+		UserAgent: "organization-acceptance", ClientIp: "198.19.0.1",
+		ExpiresAt: time.Now().Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	access, _, err := maker.CreateSessionAccessToken(account.ID, time.Minute, sessionID)
 	if err != nil {
 		t.Fatal(err)
 	}
