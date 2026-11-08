@@ -68,7 +68,7 @@ func g1RequestedVersion(t *testing.T, ctx context.Context, pool *pgxpool.Pool, a
 func TestG1StalePasswordResetJobCannotReissueProofAfterRecovery(t *testing.T) {
 	ctx, pool, store := g1ResetStore(t)
 	account, err := account_model.Register(ctx, store, account_model.RegisterParams{
-		Email: uuid.NewString() + "@example.test",
+		Email:        uuid.NewString() + "@example.test",
 		PasswordHash: "initial-test-hash",
 	})
 	if err != nil {
