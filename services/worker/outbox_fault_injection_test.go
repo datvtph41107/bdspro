@@ -11,6 +11,7 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/queue"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
@@ -238,5 +239,62 @@ func TestOutboxConcurrentDispatchSkipsClaimedRow(t *testing.T) {
 	}
 	if !outboxQueued(t, ctx, pool, id) {
 		t.Fatal("first dispatcher did not durably mark its row after release")
+	}
+}
+
+// TestOutboxRealRedisOutageThenRecovery exercises the production Asynq
+// producer rather than a fake. No durable outbox intent may be acknowledged
+// while Redis is unreachable; the same intent must publish after recovery.
+// Redis DB 15 and a unique queue/task ID avoid touching normal queues.
+func TestOutboxRealRedisOutageThenRecovery(t *testing.T) {
+	redisAddr := os.Getenv("BDS_TEST_REDIS_ADDR")
+	if redisAddr == "" {
+		t.Skip("requires disposable Redis and migrated PostgreSQL")
+	}
+	pool := isolatedOutboxPool(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	taskID := "g0-outbox-" + uuid.NewString()
+	queueName := "g0_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	var id int64
+	err := pool.QueryRow(ctx, `
+        INSERT INTO job_outbox (task_type, payload, queue_name, max_retry, run_at, task_id)
+        VALUES ('task:test:redis-recovery', '{}'::jsonb, $1, 0, now(), $2)
+        RETURNING id`, queueName, taskID).Scan(&id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := db.NewStore(pool)
+	unavailable := queue.NewRedisEnqueuer(asynq.RedisClientOpt{Addr: "127.0.0.1:1", DB: 15})
+	defer unavailable.Close()
+	count, err := NewOutboxDispatcher(store, unavailable).Dispatch(ctx)
+	if err == nil || count != 0 {
+		t.Fatalf("Redis outage was acknowledged: count=%d err=%v", count, err)
+	}
+	if outboxQueued(t, ctx, pool, id) {
+		t.Fatal("Redis outage committed queued_at")
+	}
+	recovered := queue.NewRedisEnqueuer(asynq.RedisClientOpt{Addr: redisAddr, DB: 15})
+	defer recovered.Close()
+	count, err = NewOutboxDispatcher(store, recovered).Dispatch(ctx)
+	if err != nil || count != 1 || !outboxQueued(t, ctx, pool, id) {
+		t.Fatalf("outbox did not recover: count=%d err=%v", count, err)
+	}
+	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: redisAddr, DB: 15})
+	defer func() {
+		if err := inspector.DeleteTask(queueName, taskID); err != nil {
+			t.Errorf("remove disposable Redis task: %v", err)
+		}
+		if err := inspector.Close(); err != nil {
+			t.Errorf("close Redis inspector: %v", err)
+		}
+	}()
+	info, err := inspector.GetTaskInfo(queueName, taskID)
+	if err != nil || info == nil || info.Type != "task:test:redis-recovery" {
+		t.Fatalf("Redis did not retain expected task: info=%+v err=%v", info, err)
+	}
+	count, err = NewOutboxDispatcher(store, recovered).Dispatch(ctx)
+	if err != nil || count != 0 {
+		t.Fatalf("committed outbox intent was dispatched again: count=%d err=%v", count, err)
 	}
 }
