@@ -82,7 +82,6 @@ func (q *Queries) ReadAccountByEmail(ctx context.Context, btrim string) (ReadAcc
 		&i.Email,
 		&i.CreatedAt,
 		&i.IsEmailVerified,
-		&i.PasswordResetVersion,
 	)
 	return i, err
 }
@@ -109,7 +108,6 @@ func (q *Queries) ReadAccountByID(ctx context.Context, id int64) (ReadAccountByI
 		&i.Email,
 		&i.CreatedAt,
 		&i.IsEmailVerified,
-		&i.PasswordResetVersion,
 	)
 	return i, err
 }
