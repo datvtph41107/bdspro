@@ -47,17 +47,10 @@ func (h *TeamHandler) List(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-	if err != nil || page < 1 {
-		c.APIInvalid(err)
+	opts, ok := teamListOptions(c)
+	if !ok {
 		return
 	}
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	if err != nil || limit < 1 {
-		c.APIInvalid(err)
-		return
-	}
-	opts := db.NewListOptions(page, limit, 20, 100)
 	teams, err := organization_model.ListTeams(c.Request.Context(), h.store, c.Doer.AccountID, orgID, opts)
 	if err != nil {
 		c.APIErrorAuto(err)
@@ -138,4 +131,20 @@ func positivePathID(c *appctx.APIContext, key string) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+// teamListOptions is the HTTP pagination policy for team lists and team
+// membership lists. Model operations still validate offsets before SQLC.
+func teamListOptions(c *appctx.APIContext) (db.ListOptions, bool) {
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 {
+		c.APIInvalid(err)
+		return db.ListOptions{}, false
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	if err != nil || limit < 1 {
+		c.APIInvalid(err)
+		return db.ListOptions{}, false
+	}
+	return db.NewListOptions(page, limit, 20, 100), true
 }

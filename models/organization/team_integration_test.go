@@ -27,6 +27,41 @@ func TestTeamMembershipAndInvitationPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Empty visible resources remain 200 [] at the HTTP boundary; invisible
+	// resources must return 404, even when the corresponding SELECT is empty.
+	emptyMembers, err := organization.ListTeamUsers(ctx, store, owner.ID, team.ID,
+		db.NewListOptions(1, 20, 20, 100))
+	if err != nil || len(emptyMembers) != 0 {
+		t.Fatalf("visible empty team members: count=%d err=%v", len(emptyMembers), err)
+	}
+	if _, err := organization.ListTeamUsers(ctx, store, outsider.ID, team.ID,
+		db.NewListOptions(1, 20, 20, 100)); !errors.Is(err, organization.ErrTeamNotFound) {
+		t.Fatalf("outsider list must hide team existence: %v", err)
+	}
+	if _, err := organization.ListTeamUsers(ctx, store, owner.ID, 9223372036854775807,
+		db.NewListOptions(1, 20, 20, 100)); !errors.Is(err, organization.ErrTeamNotFound) {
+		t.Fatalf("missing team list must return not found: %v", err)
+	}
+	// Out-of-range pages are legitimate empty lists for authorized callers.
+	outOfRange, err := organization.ListTeams(ctx, store, owner.ID, org.PartyID,
+		db.NewListOptions(99, 20, 20, 100))
+	if err != nil || len(outOfRange) != 0 {
+		t.Fatalf("authorized empty team page: count=%d err=%v", len(outOfRange), err)
+	}
+	emptyOrg, err := organization.CreateOrganization(ctx, store, owner.ID,
+		"Empty team listing "+uuid.NewString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	emptyTeams, err := organization.ListTeams(ctx, store, owner.ID, emptyOrg.PartyID,
+		db.NewListOptions(1, 20, 20, 100))
+	if err != nil || len(emptyTeams) != 0 {
+		t.Fatalf("valid empty organization teams: count=%d err=%v", len(emptyTeams), err)
+	}
+	if _, err := organization.ListTeams(ctx, store, outsider.ID, emptyOrg.PartyID,
+		db.NewListOptions(1, 20, 20, 100)); !errors.Is(err, organization.ErrOrganizationNotFound) {
+		t.Fatalf("outsider enumerated empty organization: %v", err)
+	}
 	if _, err := organization.CreateTeam(ctx, store, organization.CreateTeamOptions{
 		OrganizationID: org.PartyID, ActorAccountID: owner.ID, Name: "engineering",
 	}); !errors.Is(err, organization.ErrTeamAlreadyExists) {
@@ -61,8 +96,8 @@ func TestTeamMembershipAndInvitationPostgres(t *testing.T) {
 		t.Fatalf("member team listing: %d / %v", len(teams), err)
 	}
 	teams, err = organization.ListTeams(ctx, store, outsider.ID, org.PartyID, db.NewListOptions(1, 20, 20, 100))
-	if err != nil || len(teams) != 0 {
-		t.Fatalf("outsider learned private teams: %d / %v", len(teams), err)
+	if !errors.Is(err, organization.ErrOrganizationNotFound) || len(teams) != 0 {
+		t.Fatalf("outsider must receive not found for private teams: %d / %v", len(teams), err)
 	}
 
 	another := makeActor(t, ctx, store)

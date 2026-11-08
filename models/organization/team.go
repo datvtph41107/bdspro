@@ -71,10 +71,20 @@ func ListTeams(ctx context.Context, store db.Store, actorAccountID, organization
 	if !ok {
 		return nil, ErrTeamPaginationInvalid
 	}
-	return store.ListTeamsForAccount(ctx, db.ListTeamsForAccountParams{
+	teams, err := store.ListTeamsForAccount(ctx, db.ListTeamsForAccountParams{
 		ActorAccountID: actorAccountID,
 		OrganizationID: organizationID,
 		Take:           take,
 		Skip:           skip,
 	})
+	if err != nil || len(teams) != 0 {
+		return teams, err
+	}
+	// Filtering returns no rows for both an empty page and an organization
+	// invisible to this account. Resolve visibility only for empty results:
+	// the normal non-empty path still uses one SQL round-trip.
+	if _, err := GetForAccount(ctx, store, actorAccountID, organizationID); err != nil {
+		return nil, err
+	}
+	return teams, nil
 }

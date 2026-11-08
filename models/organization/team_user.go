@@ -30,10 +30,19 @@ func ListTeamUsers(ctx context.Context, store db.Store, actorAccountID, teamID i
 	if !ok {
 		return nil, ErrTeamPaginationInvalid
 	}
-	return store.ListTeamUsersForAccount(ctx, db.ListTeamUsersForAccountParams{
+	members, err := store.ListTeamUsersForAccount(ctx, db.ListTeamUsersForAccountParams{
 		ActorAccountID: actorAccountID, TeamID: teamID,
 		Take: take, Skip: skip,
 	})
+	if err != nil || len(members) != 0 {
+		return members, err
+	}
+	// A zero-row SELECT cannot distinguish an empty team from an invisible
+	// team. Check resource visibility only in the empty-result case.
+	if _, err := GetTeam(ctx, store, actorAccountID, teamID); err != nil {
+		return nil, err
+	}
+	return members, nil
 }
 
 func RemoveTeamUser(ctx context.Context, store db.Store, actorAccountID, teamID, personID int64) error {

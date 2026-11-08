@@ -2,9 +2,7 @@ package org
 
 import (
 	"net/http"
-	"strconv"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
@@ -16,19 +14,12 @@ func (h *TeamHandler) Members(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-	if err != nil || page < 1 {
-		c.APIInvalid(err)
-		return
-	}
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	if err != nil || limit < 1 {
-		c.APIInvalid(err)
+	opts, ok := teamListOptions(c)
+	if !ok {
 		return
 	}
 	members, err := organization_model.ListTeamUsers(
-		c.Request.Context(), h.store, c.Doer.AccountID, teamID,
-		db.NewListOptions(page, limit, 20, 100),
+		c.Request.Context(), h.store, c.Doer.AccountID, teamID, opts,
 	)
 	if err != nil {
 		c.APIErrorAuto(err)
