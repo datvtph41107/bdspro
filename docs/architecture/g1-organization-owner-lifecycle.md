@@ -50,6 +50,23 @@ Existing `CreateOrganization` remains account-first then session-first
 to avoid deadlock with password reset. Owner changes never take an
 acting-account lock *after* the session lock.
 
+## Finding from the PostgreSQL race suite
+
+An early design used two independent SQL `EXISTS` predicates to lock owner
+and recipient memberships during team user insertion. PostgreSQL is free to
+reorder independent predicates. A deliberately staged transfer and team
+write reproduced deadlock `40P01`, even though the SQL text listed owner
+first. This invalidated that assumed lock order.
+
+`AddTeamUserForOwner` and `CreateTeamInviteForOwner` now use MATERIALIZED
+CTEs where `recipient_scope` depends on `owner_scope`. The dependent
+recipient row lock cannot begin before the owner authorization CTE has
+produced its rows. The transfer likewise demotes donor before promoting
+recipient; both paths obey owner → recipient, without globally serializing
+all unrelated team writes via an organization lock. Retain the race tests
+as a regression barrier. PostgreSQL 18 row locks:
+https://www.postgresql.org/docs/18/explicit-locking.html
+
 ## Proving the invariants
 
 Require a disposable PostgreSQL 18 with pinned connections, lock evidence
@@ -58,7 +75,8 @@ via pg_blocking_pids, and tests of:
 - self-demotion with two owners vs sole-owner rejection
 - transfer to missing, unverified or ended member rolls back donor
 - direct team insertion vs transfer: no deadlock, correct order
-- ordinary member removal vs promotion: role change serializes on org row
+- ordinary member removal vs transfer in both commit orders: role change
+  serializes on the organization row
 - acting session revocation before/after role transaction
 - audit failure rolls back all role changes
 - verified email and verified phone eligible, and owner/outsider denied

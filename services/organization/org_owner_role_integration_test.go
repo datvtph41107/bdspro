@@ -352,3 +352,162 @@ func TestOwnerTransferCannotOutliveRevokedActorSession(t *testing.T) {
 	requireRole(t, ctx, pool, d.orgID, d.actorPersonID, org_model.RoleOwner)
 	requireRole(t, ctx, pool, d.orgID, d.recipientPersonID, org_model.RoleMember)
 }
+
+// When the transfer wins the per-organization lock, a simultaneous ordinary
+// member removal may not erase the newly promoted owner. The second caller
+// uses a distinct acting session so it reaches the organization lock rather
+// than waiting on the shared caller session.
+func TestOwnerTransferWinsOverOrdinaryMemberRemoval(t *testing.T) {
+	ctx, pool, store := membershipTestDB(t)
+	data := newOwnerRoleCase(t, ctx, pool, store, true)
+	otherSession := uuid.New()
+	if _, err := store.CreateSession(ctx, db.CreateSessionParams{
+		ID: otherSession, AccountID: data.accountID, RefreshToken: "owner-race-" + uuid.NewString(),
+		UserAgent: "G1.2c.8b", ClientIp: "203.0.113.32", ExpiresAt: time.Now().Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	blocker, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blocker.Release()
+	transferrer, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer transferrer.Release()
+	remover, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer remover.Release()
+	tx, err := blocker.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	var id int64
+	if err := tx.QueryRow(ctx, `SELECT m.id FROM organization_members m
+		JOIN accounts a ON a.person_id=m.person_id
+		WHERE a.id=$1 AND m.organization_id=$2 AND m.role='owner' AND m.ended_at IS NULL
+		FOR UPDATE OF m`, data.accountID, data.orgID).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	transferDone := make(chan error, 1)
+	go func() {
+		_, err := TransferOrganizationOwner(ctx,
+			teamPinnedStore{Store: store, conn: transferrer},
+			data.accountID, data.sessionID, data.orgID, data.recipientPersonID)
+		transferDone <- err
+	}()
+	waitTeamBlocking(t, ctx, pool, blocker, transferrer, transferDone)
+	removeDone := make(chan error, 1)
+	go func() {
+		removeDone <- RemoveOrganizationMember(ctx,
+			teamPinnedStore{Store: store, conn: remover},
+			data.accountID, otherSession, data.orgID, data.recipientPersonID)
+	}()
+	waitTeamBlocking(t, ctx, pool, transferrer, remover, removeDone)
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-transferDone:
+		if err != nil {
+			t.Fatalf("transfer failed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("transfer failed to acquire owner row")
+	}
+	select {
+	case err := <-removeDone:
+		if !errors.Is(err, org_model.ErrOrganizationMemberNotFound) {
+			t.Fatalf("removal modified a promoted owner: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("removal stuck after transfer")
+	}
+	requireRole(t, ctx, pool, data.orgID, data.recipientPersonID, org_model.RoleOwner)
+	requireOwnerCount(t, ctx, pool, data.orgID, 1)
+}
+
+// If ordinary removal has committed first, the same Person cannot be made
+// owner just by possessing a verified account. It must first rejoin as a new
+// active organization member.
+func TestOrdinaryMemberRemovalWinsOverOwnerTransfer(t *testing.T) {
+	ctx, pool, store := membershipTestDB(t)
+	data := newOwnerRoleCase(t, ctx, pool, store, true)
+	if _, err := org_model.AddTeamUser(ctx, store, data.accountID, data.teamID, data.recipientPersonID); err != nil {
+		t.Fatal(err)
+	}
+	otherSession := uuid.New()
+	if _, err := store.CreateSession(ctx, db.CreateSessionParams{
+		ID: otherSession, AccountID: data.accountID, RefreshToken: "owner-race-" + uuid.NewString(),
+		UserAgent: "G1.2c.8b", ClientIp: "203.0.113.33", ExpiresAt: time.Now().Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	blocker, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blocker.Release()
+	remover, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer remover.Release()
+	transferrer, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer transferrer.Release()
+	tx, err := blocker.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	var teamID int64
+	if err := tx.QueryRow(ctx, `SELECT team_id FROM team_members
+		WHERE team_id=$1 AND person_id=$2 FOR UPDATE`,
+		data.teamID, data.recipientPersonID).Scan(&teamID); err != nil {
+		t.Fatal(err)
+	}
+	removeDone := make(chan error, 1)
+	go func() {
+		removeDone <- RemoveOrganizationMember(ctx,
+			teamPinnedStore{Store: store, conn: remover},
+			data.accountID, otherSession, data.orgID, data.recipientPersonID)
+	}()
+	waitTeamBlocking(t, ctx, pool, blocker, remover, removeDone)
+	transferDone := make(chan error, 1)
+	go func() {
+		_, err := TransferOrganizationOwner(ctx,
+			teamPinnedStore{Store: store, conn: transferrer},
+			data.accountID, data.sessionID, data.orgID, data.recipientPersonID)
+		transferDone <- err
+	}()
+	waitTeamBlocking(t, ctx, pool, remover, transferrer, transferDone)
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-removeDone:
+		if err != nil {
+			t.Fatalf("ordinary member removal failed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("removal stuck on team link cleanup")
+	}
+	select {
+	case err := <-transferDone:
+		if !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
+			t.Fatalf("transfer authorized ended member: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("transfer stuck after member removal")
+	}
+	requireRole(t, ctx, pool, data.orgID, data.actorPersonID, org_model.RoleOwner)
+	requireOwnerCount(t, ctx, pool, data.orgID, 1)
+}
