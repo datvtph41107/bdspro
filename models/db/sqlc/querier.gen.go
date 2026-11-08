@@ -12,6 +12,8 @@ import (
 
 type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
+	// Materialized CTE dependency, rather than independent WHERE EXISTS,
+	// fixes the owner-then-recipient row-lock order under PostgreSQL plans.
 	AddTeamUserForOwner(ctx context.Context, arg AddTeamUserForOwnerParams) (TeamMember, error)
 	AttachVerifiedEmail(ctx context.Context, arg AttachVerifiedEmailParams) (int64, error)
 	BindPhoneCredentialQuery(ctx context.Context, arg BindPhoneCredentialQueryParams) error
@@ -22,6 +24,7 @@ type Querier interface {
 	ConsumePasswordResetToken(ctx context.Context, tokenHash []byte) (int64, error)
 	ConsumeTeamInvite(ctx context.Context, arg ConsumeTeamInviteParams) (int64, error)
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
+	CountActiveOrganizationOwners(ctx context.Context, organizationID int64) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateAccountConnectionHistory(ctx context.Context, arg CreateAccountConnectionHistoryParams) error
 	CreateAccountSettings(ctx context.Context, accountID int64) error
@@ -35,6 +38,9 @@ type Querier interface {
 	CreatePhoneOnlyAccount(ctx context.Context, personID int64) (CreatePhoneOnlyAccountRow, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTeamForOwner(ctx context.Context, arg CreateTeamForOwnerParams) (Team, error)
+	// Authorizing owner lock must precede recipient membership lock. Independent
+	// EXISTS predicates can be reordered by the SQL optimizer and deadlock with
+	// a concurrent owner transfer (donor update then recipient update).
 	CreateTeamInviteForOwner(ctx context.Context, arg CreateTeamInviteForOwnerParams) (TeamInvite, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	DeleteExpiredAccountConnectionHistories(ctx context.Context, arg DeleteExpiredAccountConnectionHistoriesParams) (int64, error)
@@ -44,6 +50,9 @@ type Querier interface {
 	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
 	DeletePhoneSignup(ctx context.Context, phoneE164 string) error
 	DeleteSessionsForAccount(ctx context.Context, accountID int64) error
+	// The transaction owns both authorization and the last-owner policy.
+	// Never use this query alone outside that transaction.
+	DemoteOrganizationOwner(ctx context.Context, arg DemoteOrganizationOwnerParams) (OrganizationMember, error)
 	EmailLinkAddressTaken(ctx context.Context, btrim string) (bool, error)
 	EndOrdinaryOrganizationMemberForOwner(ctx context.Context, arg EndOrdinaryOrganizationMemberForOwnerParams) (OrganizationMember, error)
 	FailPhoneSignup(ctx context.Context, phoneE164 string) error
@@ -72,10 +81,16 @@ type Querier interface {
 	ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error)
 	ListTeamUsersForAccount(ctx context.Context, arg ListTeamUsersForAccountParams) ([]TeamMember, error)
 	ListTeamsForAccount(ctx context.Context, arg ListTeamsForAccountParams) ([]Team, error)
+	// Obtain the acting owner's person ID under a role-stable FOR SHARE lock.
+	// The service holds the organization lock first; do not reverse this order.
+	LockActingOrganizationOwner(ctx context.Context, arg LockActingOrganizationOwnerParams) (int64, error)
 	// Run only inside the same transaction after LockSessionRevocationAccount.
 	// Recheck the caller's session while holding its row lock until commit.
 	LockActingSession(ctx context.Context, arg LockActingSessionParams) (uuid.UUID, error)
 	LockOrganizationCreator(ctx context.Context, actorAccountID int64) (int64, error)
+	// The non-key row lock serializes all owner changes by organization, while
+	// remaining compatible with FK KEY SHARE acquired by team/member inserts.
+	LockOrganizationRoleChanges(ctx context.Context, organizationID int64) (int64, error)
 	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
 	LockPhoneOnlyEmailAccount(ctx context.Context, id int64) (int64, error)
@@ -86,6 +101,11 @@ type Querier interface {
 	LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
 	MarkJobOutboxQueued(ctx context.Context, id int64) error
+	// This query is called only inside the role-service transaction after
+	// LockOrganizationRoleChanges and LockActingOrganizationOwner.
+	// A new owner must be an actual account with a verified contact, not an
+	// orphan Person or a plain unverified account.
+	PromoteOrganizationMember(ctx context.Context, arg PromoteOrganizationMemberParams) (OrganizationMember, error)
 	ReadAccountByEmail(ctx context.Context, btrim string) (ReadAccountByEmailRow, error)
 	ReadAccountByID(ctx context.Context, id int64) (ReadAccountByIDRow, error)
 	RecordEmailVerificationJob(ctx context.Context, accountID int64) error

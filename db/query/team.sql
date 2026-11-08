@@ -50,24 +50,30 @@ WHERE t.id = sqlc.arg(team_id)
 RETURNING t.id, t.organization_id, t.name, t.description, t.created_at, t.updated_at;
 
 -- name: AddTeamUserForOwner :one
+-- Materialized CTE dependency, rather than independent WHERE EXISTS,
+-- fixes the owner-then-recipient row-lock order under PostgreSQL plans.
+WITH owner_scope AS MATERIALIZED (
+  SELECT m.organization_id
+  FROM teams t
+  JOIN organization_members m ON m.organization_id = t.organization_id
+  JOIN accounts a ON a.person_id = m.person_id
+  WHERE t.id = sqlc.arg(team_id)
+    AND a.id = sqlc.arg(actor_account_id)
+    AND m.role = 'owner' AND m.ended_at IS NULL
+  FOR SHARE OF m
+),
+recipient_scope AS MATERIALIZED (
+  SELECT m.organization_id, m.person_id
+  FROM owner_scope owner
+  JOIN organization_members m ON m.organization_id = owner.organization_id
+  WHERE m.person_id = sqlc.arg(person_id) AND m.ended_at IS NULL
+  FOR SHARE OF m
+)
 INSERT INTO team_members (team_id, person_id)
-SELECT t.id, sqlc.arg(person_id)::bigint FROM teams t
+SELECT t.id, recipient.person_id
+FROM recipient_scope recipient
+JOIN teams t ON t.organization_id = recipient.organization_id
 WHERE t.id = sqlc.arg(team_id)
-  AND EXISTS (
-    SELECT 1 FROM accounts a
-    JOIN organization_members m ON m.person_id = a.person_id
-    WHERE a.id = sqlc.arg(actor_account_id)
-      AND m.organization_id = t.organization_id
-      AND m.role = 'owner' AND m.ended_at IS NULL
-    FOR SHARE OF m
-  )
-  AND EXISTS (
-    SELECT 1 FROM organization_members m
-    WHERE m.person_id = sqlc.arg(person_id)
-      AND m.organization_id = t.organization_id
-      AND m.ended_at IS NULL
-    FOR SHARE OF m
-  )
 RETURNING team_id, person_id, joined_at;
 
 -- name: RemoveTeamUserForOwner :execrows
@@ -125,32 +131,37 @@ WHERE team_id = sqlc.arg(team_id)
   );
 
 -- name: CreateTeamInviteForOwner :one
+-- Authorizing owner lock must precede recipient membership lock. Independent
+-- EXISTS predicates can be reordered by the SQL optimizer and deadlock with
+-- a concurrent owner transfer (donor update then recipient update).
+WITH owner_scope AS MATERIALIZED (
+  SELECT t.id AS team_id, t.organization_id
+  FROM teams t
+  JOIN organization_members m ON m.organization_id = t.organization_id
+  JOIN accounts a ON a.person_id = m.person_id
+  WHERE t.id = sqlc.arg(team_id)
+    AND a.id = sqlc.arg(actor_account_id)
+    AND m.role = 'owner' AND m.ended_at IS NULL
+  FOR SHARE OF m
+),
+recipient_scope AS MATERIALIZED (
+  SELECT owner.team_id, recipient.person_id
+  FROM owner_scope owner
+  JOIN organization_members member ON member.organization_id = owner.organization_id
+  JOIN accounts recipient ON recipient.person_id = member.person_id
+  WHERE recipient.is_email_verified = TRUE
+    AND lower(btrim(recipient.email)) = lower(btrim(sqlc.arg(invited_email)::text))
+    AND member.ended_at IS NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM team_members tm
+      WHERE tm.team_id = owner.team_id AND tm.person_id = recipient.person_id
+    )
+  FOR SHARE OF member
+)
 INSERT INTO team_invites (id, team_id, invited_email, invited_by_account_id, token_hash, expires_at)
-SELECT sqlc.arg(id)::uuid, t.id, lower(btrim(sqlc.arg(invited_email)::text)), sqlc.arg(actor_account_id)::bigint,
-       sqlc.arg(token_hash)::bytea, sqlc.arg(expires_at)::timestamptz
-FROM teams t
-WHERE t.id = sqlc.arg(team_id)
-  AND EXISTS (
-    SELECT 1 FROM accounts a
-    JOIN organization_members m ON m.person_id = a.person_id
-    WHERE a.id = sqlc.arg(actor_account_id)
-      AND m.organization_id = t.organization_id
-      AND m.role = 'owner' AND m.ended_at IS NULL
-    FOR SHARE OF m
-  )
-  -- A Team invitation is only valid for a verified current Organization member.
-  AND EXISTS (
-    SELECT 1 FROM accounts recipient
-    JOIN organization_members member ON member.person_id = recipient.person_id
-    WHERE recipient.is_email_verified = TRUE
-      AND lower(btrim(recipient.email)) = lower(btrim(sqlc.arg(invited_email)::text))
-      AND member.organization_id = t.organization_id AND member.ended_at IS NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM team_members tm
-        WHERE tm.team_id = t.id AND tm.person_id = recipient.person_id
-      )
-    FOR SHARE OF member
-  )
+SELECT sqlc.arg(id)::uuid, recipient.team_id, lower(btrim(sqlc.arg(invited_email)::text)),
+       sqlc.arg(actor_account_id)::bigint, sqlc.arg(token_hash)::bytea, sqlc.arg(expires_at)::timestamptz
+FROM recipient_scope recipient
 RETURNING id, team_id, invited_email, invited_by_account_id, token_hash,
           expires_at, accepted_at, revoked_at, created_at;
 

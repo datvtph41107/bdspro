@@ -24,6 +24,9 @@ var (
 	ErrMembershipExists           = util.WithPublic(util.ErrAlreadyExist, "membership already exists", "organization.membership_exists", "membership already exists")
 	ErrOrganizationMemberNotFound = util.WithPublic(util.ErrNotExist, "organization member not found or not removable", "organization.member_not_found", "organization member not found")
 	ErrPersonUnavailable          = util.WithPublic(util.ErrNotExist, "person unavailable", "organization.person_unavailable", "person unavailable")
+	ErrOwnerCandidateInvalid      = util.WithPublic(util.ErrAlreadyExist, "owner candidate must be an active member with verified account", "organization.owner_candidate_invalid", "owner candidate is not eligible")
+	ErrOwnerNotFound              = util.WithPublic(util.ErrNotExist, "active owner not found", "organization.owner_not_found", "owner not found")
+	ErrLastOrganizationOwner      = util.WithPublic(util.ErrAlreadyExist, "last organization owner cannot be demoted", "organization.last_owner", "cannot remove last organization owner")
 )
 
 // isPGConstraint recognizes an exact database invariant owned by this model.

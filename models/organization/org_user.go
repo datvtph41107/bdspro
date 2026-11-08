@@ -62,3 +62,52 @@ func RemoveOrdinaryOrgMemberTx(ctx context.Context, q *db.Queries, actorAccountI
 	}
 	return audit_model.RecordOrganizationMemberRemoved(ctx, q, actorAccountID, organizationID, personID)
 }
+
+// LockRoleChangeOrganization provides the shared serialization point for
+// owner role mutations and ordinary member removal. The organization row is
+// FOR NO KEY UPDATE, not FOR UPDATE: team/member inserts still need FK
+// KEY SHARE of the organization and must not be trapped in a lock cycle.
+func LockRoleChangeOrganization(ctx context.Context, q *db.Queries, organizationID int64) error {
+	_, err := q.LockOrganizationRoleChanges(ctx, organizationID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrOrganizationNotFound
+	}
+	return err
+}
+
+// RequireRoleChangeOwner resolves an acting Account to an active owner Person
+// in the *same transaction* that holds the organization and session locks.
+// FOR SHARE prevents an owner demotion from passing a stale authorization.
+func RequireRoleChangeOwner(ctx context.Context, q *db.Queries, organizationID, actorAccountID int64) (int64, error) {
+	personID, err := q.LockActingOrganizationOwner(ctx, db.LockActingOrganizationOwnerParams{
+		OrganizationID: organizationID, ActorAccountID: actorAccountID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrOrganizationOwnerRequired
+	}
+	return personID, err
+}
+
+// PromoteOwnerTx changes a verified, active ordinary member to an owner.
+// Call only after RequireRoleChangeOwner under the same organization lock.
+func PromoteOwnerTx(ctx context.Context, q *db.Queries, organizationID, personID int64) (db.OrganizationMember, error) {
+	member, err := q.PromoteOrganizationMember(ctx, db.PromoteOrganizationMemberParams{
+		OrganizationID: organizationID, PersonID: personID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.OrganizationMember{}, ErrOwnerCandidateInvalid
+	}
+	return member, err
+}
+
+// DemoteOwnerTx never deletes organization membership or team grants.
+// The caller must serialize owner changes and protect the last owner.
+func DemoteOwnerTx(ctx context.Context, q *db.Queries, organizationID, personID int64) (db.OrganizationMember, error) {
+	member, err := q.DemoteOrganizationOwner(ctx, db.DemoteOrganizationOwnerParams{
+		OrganizationID: organizationID, PersonID: personID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.OrganizationMember{}, ErrOwnerNotFound
+	}
+	return member, err
+}

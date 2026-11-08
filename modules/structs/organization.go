@@ -51,3 +51,7 @@ type ActiveOrganizationMember struct {
 	Role           string    `json:"role"`
 	JoinedAt       time.Time `json:"joined_at"`
 }
+
+type TransferOrganizationOwnerOption struct {
+	PersonID int64 `json:"person_id" binding:"required,min=1"`
+}
