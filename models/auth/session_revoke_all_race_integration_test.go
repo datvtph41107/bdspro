@@ -196,7 +196,6 @@ func TestConcurrentRevokeAllSerializesWithoutDeadlock(t *testing.T) {
 	}
 }
 
-
 func TestRevokeAllAccountLockPermitsForeignKeyKeyShare(t *testing.T) {
 	ctx, pool, store := g12cStore(t)
 	accountID, actingID, _ := g12cSessions(t, ctx, store)
