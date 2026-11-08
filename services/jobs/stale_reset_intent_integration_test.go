@@ -7,7 +7,6 @@ import (
 	"errors"
 	"os"
 	"regexp"
-	"strings"
 	"testing"
 	"time"
 
@@ -202,7 +201,7 @@ func TestG1LegacyResetPayloadVersionZero(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{"account_id":11}`), &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.AccountID != 11 || payload.ResetVersion != 0 || strings.Contains("ignored", "reset_version") {
+	if payload.AccountID != 11 || payload.ResetVersion != 0 {
 		t.Fatal("legacy job did not map safely to version zero")
 	}
 }
