@@ -29,6 +29,13 @@ func newOwnerRoleCase(t *testing.T, ctx context.Context, pool *pgxpool.Pool, sto
 	if err := pool.QueryRow(ctx, "SELECT person_id FROM accounts WHERE id=$1", d.accountID).Scan(&ownerPersonID); err != nil {
 		t.Fatal(err)
 	}
+	owner, err := store.GetAccountByID(ctx, d.accountID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{ID: owner.ID, Email: owner.Email}); err != nil {
+		t.Fatal(err)
+	}
 	recipientID := accountIDForPerson(t, ctx, pool, d.recipientPersonID)
 	if verifyTarget {
 		recipient, err := store.GetAccountByID(ctx, recipientID)
@@ -199,11 +206,13 @@ func TestConcurrentOrganizationOwnerDemotionsPreserveLastOwner(t *testing.T) {
 	go func() {
 		doneA <- DemoteOrganizationOwner(ctx, teamPinnedStore{Store: store, conn: wa}, d.accountID, d.sessionID, d.orgID, d.actorPersonID)
 	}()
+	waitTeamBlocking(t, ctx, pool, blocker, wa, doneA)
 	go func() {
 		doneB <- DemoteOrganizationOwner(ctx, teamPinnedStore{Store: store, conn: wb}, d.recipientAccountID, d.recipientSessionID, d.orgID, d.recipientPersonID)
 	}()
-	waitTeamBlocking(t, ctx, pool, blocker, wa, doneA)
-	waitTeamBlocking(t, ctx, pool, blocker, wb, doneB)
+	// PostgreSQL's lock queue can make the first waiting writer (wa) the
+	// blocker of the second (wb), not necessarily the original holder.
+	waitTeamBlocking(t, ctx, pool, wa, wb, doneB)
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
