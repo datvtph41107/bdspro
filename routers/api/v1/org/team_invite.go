@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
@@ -23,8 +22,8 @@ func (h *TeamHandler) CreateInvite(c *appctx.APIContext) {
 		appctx.Validation(c.Context, err, &req)
 		return
 	}
-	created, err := organization_model.CreateTeamInvite(
-		c.Request.Context(), h.store, c.Doer.AccountID, teamID,
+	created, err := 	h.team.CreateTeamInvite(
+		c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, teamID,
 		req.Email, 7*24*time.Hour, h.signingKey,
 	)
 	if err != nil {
@@ -45,7 +44,7 @@ func (h *TeamHandler) AcceptInvite(c *appctx.APIContext) {
 		appctx.Validation(c.Context, err, &req)
 		return
 	}
-	member, err := organization_model.AcceptTeamInvite(c.Request.Context(), h.store, c.Doer.AccountID, req.Token)
+	member, err := h.team.AcceptTeamInvite(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, req.Token)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -64,7 +63,7 @@ func (h *TeamHandler) RevokeInvite(c *appctx.APIContext) {
 		return
 	}
 	// RevokeTeamInvite checks that the actor owns the invitation's team.
-	if err := organization_model.RevokeTeamInvite(c.Request.Context(), h.store, c.Doer.AccountID, teamID, inviteID); err != nil {
+	if err := h.team.RevokeTeamInvite(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, teamID, inviteID); err != nil {
 		c.APIErrorAuto(err)
 		return
 	}

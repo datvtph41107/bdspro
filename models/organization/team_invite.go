@@ -25,76 +25,104 @@ type CreatedTeamInvite struct {
 // The same secret can be recovered by the worker from the random invitation ID
 // and the signing key, without storing a plaintext proof in the outbox.
 func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamID int64, email string, ttl time.Duration, signingKey string) (CreatedTeamInvite, error) {
-	var result CreatedTeamInvite
+	// Reject obviously invalid invitations before acquiring a connection.
+	if _, valid := validation.EmailAddress(email); !valid || ttl <= 0 {
+		return CreatedTeamInvite{}, ErrTeamInviteInvalid
+	}
+	return db.WithTxResult(ctx, store, func(q *db.Queries) (CreatedTeamInvite, error) {
+		return CreateTeamInviteTx(ctx, q, actorAccountID, teamID, email, ttl, signingKey)
+	})
+}
+
+// CreateTeamInviteTx stores proof metadata and its durable outbox intent
+// together. The caller owns the transaction; do not call ExecTx here.
+func CreateTeamInviteTx(ctx context.Context, q *db.Queries, actorAccountID, teamID int64, email string, ttl time.Duration, signingKey string) (CreatedTeamInvite, error) {
 	email, valid := validation.EmailAddress(email)
 	if !valid || ttl <= 0 {
-		return result, ErrTeamInviteInvalid
+		return CreatedTeamInvite{}, ErrTeamInviteInvalid
 	}
 	inviteID := uuid.New()
 	token, err := secret.DeriveToken(signingKey, "team-invite:v1", inviteID[:])
 	if err != nil {
-		return result, err
+		return CreatedTeamInvite{}, err
 	}
 	hash := sha256.Sum256([]byte(token))
-	invite, err := db.WithTxResult(ctx, store, func(q *db.Queries) (db.TeamInvite, error) {
-		if err := q.RevokeExpiredTeamInvites(ctx, db.RevokeExpiredTeamInvitesParams{
-			TeamID: teamID, InvitedEmail: email,
-		}); err != nil {
-			return db.TeamInvite{}, err
-		}
-		record, err := q.CreateTeamInviteForOwner(ctx, db.CreateTeamInviteForOwnerParams{
-			ID: inviteID, TeamID: teamID, ActorAccountID: actorAccountID,
-			InvitedEmail: email, TokenHash: hash[:], ExpiresAt: time.Now().Add(ttl),
-		})
-		if err != nil {
-			return db.TeamInvite{}, err
-		}
-		return record, q.RecordTeamInviteJob(ctx, record.ID)
+	if err := q.RevokeExpiredTeamInvites(ctx, db.RevokeExpiredTeamInvitesParams{
+		TeamID: teamID, InvitedEmail: email,
+	}); err != nil {
+		return CreatedTeamInvite{}, err
+	}
+	record, err := q.CreateTeamInviteForOwner(ctx, db.CreateTeamInviteForOwnerParams{
+		ID: inviteID, TeamID: teamID, ActorAccountID: actorAccountID,
+		InvitedEmail: email, TokenHash: hash[:], ExpiresAt: time.Now().Add(ttl),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return result, util.WithCause(ErrTeamOwnerRequired, err)
+		return CreatedTeamInvite{}, util.WithCause(ErrTeamOwnerRequired, err)
 	}
 	if isPGConstraint(err, "23505", "team_invites_open_uq") {
-		return result, util.WithCause(ErrTeamInviteExists, err)
+		return CreatedTeamInvite{}, util.WithCause(ErrTeamInviteExists, err)
 	}
 	if err != nil {
-		return result, err
+		return CreatedTeamInvite{}, err
 	}
-	return CreatedTeamInvite{Invite: invite, Token: token}, nil
+	if err := q.RecordTeamInviteJob(ctx, record.ID); err != nil {
+		return CreatedTeamInvite{}, err
+	}
+	return CreatedTeamInvite{Invite: record, Token: token}, nil
 }
 
 // AcceptTeamInvite commits proof consumption and membership creation together.
 // A second use, expired proof, or wrong verified email cannot succeed.
-func AcceptTeamInvite(ctx context.Context, store db.Store, accountID int64, token string) (db.TeamMember, error) {
+// ValidTeamInviteProof checks only proof encoding. It grants no authority:
+// SQLC verifies recipient identity, active membership, expiry and single use.
+func ValidTeamInviteProof(token string) bool {
 	raw, err := hex.DecodeString(token)
-	if err != nil || len(raw) != 32 {
+	return err == nil && len(raw) == 32
+}
+
+func AcceptTeamInvite(ctx context.Context, store db.Store, accountID int64, token string) (db.TeamMember, error) {
+	if !ValidTeamInviteProof(token) {
 		return db.TeamMember{}, ErrTeamInviteInvalid
 	}
-	hash := sha256.Sum256([]byte(token))
 	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.TeamMember, error) {
-		teamID, err := q.ConsumeTeamInvite(ctx, db.ConsumeTeamInviteParams{
-			TokenHash: hash[:], AccountID: accountID,
-		})
-		if errors.Is(err, pgx.ErrNoRows) {
-			return db.TeamMember{}, ErrTeamInviteInvalid
-		}
-		if err != nil {
-			return db.TeamMember{}, err
-		}
-		member, err := q.InsertInvitedTeamUser(ctx, db.InsertInvitedTeamUserParams{
-			AccountID: accountID, TeamID: teamID,
-		})
-		if errors.Is(err, pgx.ErrNoRows) {
-			// Membership may have been revoked after the proof lookup.
-			// Rolling back this transaction also restores the proof.
-			return db.TeamMember{}, ErrTeamInviteInvalid
-		}
-		return member, err
+		return AcceptTeamInviteTx(ctx, q, accountID, token)
 	})
 }
 
-func RevokeTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamID int64, inviteID uuid.UUID) error {
-	n, err := store.RevokeTeamInviteForOwner(ctx, db.RevokeTeamInviteForOwnerParams{
+// AcceptTeamInviteTx consumes the proof and creates membership in the same
+// transaction owned by its caller. On any failure, proof consumption rolls back.
+func AcceptTeamInviteTx(ctx context.Context, q *db.Queries, accountID int64, token string) (db.TeamMember, error) {
+	if !ValidTeamInviteProof(token) {
+		return db.TeamMember{}, ErrTeamInviteInvalid
+	}
+	hash := sha256.Sum256([]byte(token))
+	teamID, err := q.ConsumeTeamInvite(ctx, db.ConsumeTeamInviteParams{
+		TokenHash: hash[:], AccountID: accountID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.TeamMember{}, ErrTeamInviteInvalid
+	}
+	if err != nil {
+		return db.TeamMember{}, err
+	}
+	member, err := q.InsertInvitedTeamUser(ctx, db.InsertInvitedTeamUserParams{
+		AccountID: accountID, TeamID: teamID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// A revoked organization membership invalidates the invitation.
+		return db.TeamMember{}, ErrTeamInviteInvalid
+	}
+	return member, err
+}
+
+// TeamInviteRevoker is consumed by the model. Both a top-level store and
+// transaction-bound SQLC Queries implement this single operation.
+type TeamInviteRevoker interface {
+	RevokeTeamInviteForOwner(context.Context, db.RevokeTeamInviteForOwnerParams) (int64, error)
+}
+
+func RevokeTeamInvite(ctx context.Context, writer TeamInviteRevoker, actorAccountID, teamID int64, inviteID uuid.UUID) error {
+	n, err := writer.RevokeTeamInviteForOwner(ctx, db.RevokeTeamInviteForOwnerParams{
 		InviteID: inviteID, ActorAccountID: actorAccountID, TeamID: teamID,
 	})
 	if err != nil {
