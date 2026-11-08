@@ -7,7 +7,6 @@ import (
 	"time"
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
-	db "github.com/datvtph41107/bdspro/models/db"
 	org_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
