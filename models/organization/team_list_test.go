@@ -22,15 +22,15 @@ func TestListTeamsRejectsUnboundedOptions(t *testing.T) {
 type teamVisibilityStore struct {
 	db.Store
 
-	teams        []db.Team
-	members      []db.TeamMember
-	listErr      error
-	orgErr       error
-	teamErr      error
-	listTeams    int
-	listMembers  int
-	checkOrg     int
-	checkTeam    int
+	teams       []db.Team
+	members     []db.TeamMember
+	listErr     error
+	orgErr      error
+	teamErr     error
+	listTeams   int
+	listMembers int
+	checkOrg    int
+	checkTeam   int
 }
 
 func (s *teamVisibilityStore) ListTeamsForAccount(_ context.Context, _ db.ListTeamsForAccountParams) ([]db.Team, error) {
@@ -59,11 +59,11 @@ func TestTeamListResourceVisibilityAndQueryBudget(t *testing.T) {
 	opts := db.NewListOptions(1, 20, 20, 100)
 	databaseErr := errors.New("database offline")
 	for _, tt := range []struct {
-		name string
-		store teamVisibilityStore
-		wantCount int
+		name       string
+		store      teamVisibilityStore
+		wantCount  int
 		wantChecks int
-		wantErr error
+		wantErr    error
 	}{
 		{name: "visible nonempty one query", store: teamVisibilityStore{teams: []db.Team{{ID: 91}}}, wantCount: 1},
 		{name: "visible empty two queries", store: teamVisibilityStore{}, wantChecks: 1},
@@ -90,11 +90,11 @@ func TestTeamMemberListResourceVisibilityAndQueryBudget(t *testing.T) {
 	opts := db.NewListOptions(1, 20, 20, 100)
 	databaseErr := errors.New("database offline")
 	for _, tt := range []struct {
-		name string
-		store teamVisibilityStore
-		wantCount int
+		name       string
+		store      teamVisibilityStore
+		wantCount  int
 		wantChecks int
-		wantErr error
+		wantErr    error
 	}{
 		{name: "visible nonempty one query", store: teamVisibilityStore{members: []db.TeamMember{{TeamID: 91, PersonID: 2}}}, wantCount: 1},
 		{name: "visible empty two queries", store: teamVisibilityStore{}, wantChecks: 1},
