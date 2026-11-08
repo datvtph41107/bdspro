@@ -14,7 +14,10 @@ import (
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type currentProfileStoreFake struct {
@@ -24,6 +27,12 @@ type currentProfileStoreFake struct {
 	calls          int
 	profileUpdate  db.UpdatePersonProfileParams
 	settingsUpdate db.UpdateAccountSettingsParams
+	sessionID      uuid.UUID
+	sessionBlocked bool
+	sessionErr     error
+	lockCalls      int
+	txCalls        int
+	commitErr      error
 }
 
 func (s *currentProfileStoreFake) GetAccountProfile(_ context.Context, id int64) (db.GetAccountProfileRow, error) {
@@ -71,17 +80,129 @@ func (s *currentProfileStoreFake) UpdateAccountSettings(_ context.Context, arg d
 	return 1, nil
 }
 
+// Recording SQLC DBTX keeps the HTTP test faithful to the transactional
+// service: it does not bypass the acting-session lookup or emulate a second
+// non-transactional profile read.
+type profileHTTPDBTX struct{ store *currentProfileStoreFake }
+
+type profileHTTPRow struct {
+	profile db.GetAccountProfileRow
+	session uuid.UUID
+	err     error
+}
+
+func (r profileHTTPRow) Scan(dest ...any) error {
+	if r.err != nil {
+		return r.err
+	}
+	if len(dest) == 1 {
+		*dest[0].(*uuid.UUID) = r.session
+		return nil
+	}
+	if len(dest) != 14 {
+		return errors.New("invalid profile query result")
+	}
+	p := r.profile
+	*dest[0].(*int64) = p.AccountID
+	*dest[1].(*int64) = p.PersonID
+	*dest[2].(*string) = p.Email
+	*dest[3].(*bool) = p.IsEmailVerified
+	*dest[4].(*time.Time) = p.CreatedAt
+	*dest[5].(*string) = p.DisplayName
+	*dest[6].(*string) = p.FirstName
+	*dest[7].(*string) = p.LastName
+	*dest[8].(*string) = p.Locale
+	*dest[9].(*string) = p.Timezone
+	*dest[10].(*string) = p.Currency
+	*dest[11].(*bool) = p.HasPassword
+	*dest[12].(*bool) = p.HasPhone
+	*dest[13].(*bool) = p.HasOauth2
+	return nil
+}
+
+func (q profileHTTPDBTX) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	switch {
+	case strings.Contains(sql, "-- name: LockActingSession"):
+		q.store.lockCalls++
+		if q.store.sessionErr != nil {
+			return profileHTTPRow{err: q.store.sessionErr}
+		}
+		if args[0] != q.store.sessionID || args[1] != q.store.profile.AccountID || q.store.sessionBlocked {
+			return profileHTTPRow{err: pgx.ErrNoRows}
+		}
+		return profileHTTPRow{session: q.store.sessionID}
+	case strings.Contains(sql, "-- name: GetAccountProfile"):
+		p, err := q.store.GetAccountProfile(ctx, args[0].(int64))
+		return profileHTTPRow{profile: p, err: err}
+	default:
+		return profileHTTPRow{err: errors.New("unexpected SQLC profile query")}
+	}
+}
+
+func (q profileHTTPDBTX) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	var affected int64
+	var err error
+	switch {
+	case strings.Contains(sql, "-- name: UpdatePersonProfile"):
+		affected, err = q.store.UpdatePersonProfile(ctx, db.UpdatePersonProfileParams{
+			DisplayName: args[0].(pgtype.Text),
+			FirstName: args[1].(pgtype.Text),
+			LastName: args[2].(pgtype.Text),
+			AccountID: args[3].(int64),
+		})
+	case strings.Contains(sql, "-- name: UpdateAccountSettings"):
+		affected, err = q.store.UpdateAccountSettings(ctx, db.UpdateAccountSettingsParams{
+			Locale: args[0].(pgtype.Text),
+			Timezone: args[1].(pgtype.Text),
+			Currency: args[2].(pgtype.Text),
+			AccountID: args[3].(int64),
+		})
+	default:
+		return pgconn.CommandTag{}, errors.New("unexpected SQLC profile update")
+	}
+	if err != nil {
+		return pgconn.CommandTag{}, err
+	}
+	if affected == 1 {
+		return pgconn.NewCommandTag("UPDATE 1"), nil
+	}
+	return pgconn.NewCommandTag("UPDATE 0"), nil
+}
+
+func (profileHTTPDBTX) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, errors.New("unexpected profile list query")
+}
+
+func (s *currentProfileStoreFake) ExecTx(ctx context.Context, fn func(*db.Queries) error) error {
+	s.txCalls++
+	// Stage changes in a copy to model transaction rollback and commit.
+	staged := *s
+	if err := fn(db.New(profileHTTPDBTX{store: &staged})); err != nil {
+		return err
+	}
+	if s.commitErr != nil {
+		return s.commitErr
+	}
+	s.profile = staged.profile
+	s.profileUpdate = staged.profileUpdate
+	s.settingsUpdate = staged.settingsUpdate
+	s.lockCalls = staged.lockCalls
+	s.calls = staged.calls
+	return nil
+}
+
 func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	maker, err := authcrypto.NewJWTMaker(strings.Repeat("x", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	access, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeAccess)
+	sessionID := uuid.New()
+	access, _, err := maker.CreateSessionAccessToken(42, time.Minute, sessionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := &currentProfileStoreFake{profile: db.GetAccountProfileRow{
+	store := &currentProfileStoreFake{sessionID: sessionID, profile: db.GetAccountProfileRow{
 		AccountID: 42, PersonID: 67, Email: "verified@example.test",
 		IsEmailVerified: true, CreatedAt: time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC),
 		DisplayName: "Verified", FirstName: "Lin", LastName: "Ng",
@@ -154,6 +275,38 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "account.invalid_settings") {
 		t.Fatalf("invalid currency accepted: %d %s", w.Code, w.Body.String())
 	}
+	// A signed JWT is not sufficient to authorize a PATCH after session
+	// revocation. Even a request which passed HTTP Authenticate must fail
+	// at the transaction boundary without modifying profile or settings.
+	stale, _, err := maker.CreateSessionAccessToken(42, time.Minute, uuid.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := store.profile
+	w = request("PATCH", "/users/me/profile", `{"display_name":"hijacked"}`, stale)
+	if w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), "auth.session_unavailable") || store.profile != before {
+		t.Fatalf("stale session changed profile: status=%d body=%s", w.Code, w.Body.String())
+	}
+	w = request("PATCH", "/users/me/settings", `{"locale":"en"}`, stale)
+	if w.Code != http.StatusUnauthorized || store.profile != before {
+		t.Fatalf("stale session changed settings: status=%d body=%s", w.Code, w.Body.String())
+	}
+	store.sessionBlocked = true
+	w = request("PATCH", "/users/me/profile", `{"first_name":"changed"}`, access)
+	if w.Code != http.StatusUnauthorized || store.profile != before {
+		t.Fatalf("revoked session changed profile: status=%d body=%s", w.Code, w.Body.String())
+	}
+	store.sessionBlocked = false
+	store.commitErr = errors.New("private: failed commit")
+	w = request("PATCH", "/users/me/settings", `{"locale":"en"}`, access)
+	if w.Code != http.StatusInternalServerError || strings.Contains(w.Body.String(), "private: failed commit") || store.profile != before {
+		t.Fatalf("failed commit exposed or applied profile: status=%d body=%s", w.Code, w.Body.String())
+	}
+	store.commitErr = nil
+	if store.lockCalls < 3 || store.txCalls < 4 {
+		t.Fatalf("PATCH did not use transaction session checks: locks=%d tx=%d", store.lockCalls, store.txCalls)
+	}
+
 	store.err = pgx.ErrNoRows
 	w = request("GET", "/users/me", "", access)
 	if w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), "auth.account_unavailable") {
