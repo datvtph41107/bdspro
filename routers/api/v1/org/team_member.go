@@ -2,9 +2,6 @@ package org
 
 import (
 	"net/http"
-	"strconv"
-
-	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
