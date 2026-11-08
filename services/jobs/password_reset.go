@@ -22,7 +22,15 @@ type PasswordResetStore interface {
 
 // SendPasswordResetEmail issues a proof only for the recovery version captured
 // when the durable job was requested. Provider failures remain retryable.
-func SendPasswordResetEmail(ctx context.Context, store PasswordResetStore, sender mail.EmailSender, verifyURL string, accountID, resetVersion int64) error {
+// SendPasswordResetEmail retains the pre-versioned entry point for callers
+// operating on a never-recovered account (generation zero). Worker transport
+// MUST use SendPasswordResetEmailForVersion with the persisted generation.
+func SendPasswordResetEmail(ctx context.Context, store PasswordResetStore, sender mail.EmailSender, verifyURL string, accountID int64) error {
+	return SendPasswordResetEmailForVersion(ctx, store, sender, verifyURL, accountID, 0)
+}
+
+// SendPasswordResetEmailForVersion only issues proofs for a live request generation.
+func SendPasswordResetEmailForVersion(ctx context.Context, store PasswordResetStore, sender mail.EmailSender, verifyURL string, accountID, resetVersion int64) error {
 	account, err := store.GetAccountByID(ctx, accountID)
 	if err != nil {
 		return err
