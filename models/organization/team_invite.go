@@ -29,6 +29,11 @@ func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamI
 	if _, valid := validation.EmailAddress(email); !valid || ttl <= 0 {
 		return CreatedTeamInvite{}, ErrTeamInviteInvalid
 	}
+	// Validate the signing-key contract before acquiring a DB transaction.
+	// The transactional variant still validates through DeriveToken.
+	if !secret.ValidDerivationKey(signingKey) {
+		return CreatedTeamInvite{}, ErrTeamInviteInvalid
+	}
 	return db.WithTxResult(ctx, store, func(q *db.Queries) (CreatedTeamInvite, error) {
 		return CreateTeamInviteTx(ctx, q, actorAccountID, teamID, email, ttl, signingKey)
 	})
