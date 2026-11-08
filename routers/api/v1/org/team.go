@@ -47,17 +47,10 @@ func (h *TeamHandler) List(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-	if err != nil || page < 1 {
-		c.APIInvalid(err)
+	opts, ok := teamListOptions(c)
+	if !ok {
 		return
 	}
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	if err != nil || limit < 1 {
-		c.APIInvalid(err)
-		return
-	}
-	opts := db.NewListOptions(page, limit, 20, 100)
 	teams, err := organization_model.ListTeams(c.Request.Context(), h.store, c.Doer.AccountID, orgID, opts)
 	if err != nil {
 		c.APIErrorAuto(err)
