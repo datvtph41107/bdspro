@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -58,6 +59,22 @@ func TestOrganizationRoleWriteOwnership(t *testing.T) {
 			if err != nil {
 				return err
 			}
+			// A Gin handler may call the session-aware service function with
+			// the same name as a generated SQLC method. Distinguish
+			// that import rather than condemning an authorized service call.
+			serviceAlias := ""
+			for _, imp := range file.Imports {
+				importPath, err := strconv.Unquote(imp.Path.Value)
+				if err != nil {
+					return err
+				}
+				if importPath == modulePath+"/services/organization" {
+					serviceAlias = "organization"
+					if imp.Name != nil {
+						serviceAlias = imp.Name.Name
+					}
+				}
+			}
 			ast.Inspect(file, func(n ast.Node) bool {
 				call, ok := n.(*ast.CallExpr)
 				if !ok {
@@ -69,6 +86,13 @@ func TestOrganizationRoleWriteOwnership(t *testing.T) {
 				}
 				name := selector.Sel.Name
 				if modelWrite[name] {
+					// Service-owned lifecycle is allowed at HTTP callsites;
+					// direct invocation through a db.Queries receiver is not.
+					if name == "DemoteOrganizationOwner" && serviceAlias != "" {
+						if ident, ok := selector.X.(*ast.Ident); ok && ident.Name == serviceAlias {
+							return true
+						}
+					}
 					seenModel++
 					if !strings.HasPrefix(rel, "models/organization/") {
 						t.Errorf("%s calls low-level %s outside models/organization", rel, name)
