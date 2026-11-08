@@ -190,18 +190,17 @@ func TestG1ProofIssuanceWaitsForCredentialRecoveryAccountLock(t *testing.T) {
 	}
 }
 
-// Older already-queued tasks have only account_id in JSON. Decoding zero
-// defaults to generation 0: they remain valid before the first recovery,
-// and automatically become stale after it.
-func TestG1LegacyResetPayloadVersionZero(t *testing.T) {
+// A pre-versioned payload is distinguishable from a versioned request at
+// generation zero. The Asynq handler rejects it without issuing a proof.
+func TestG1LegacyResetPayloadHasNoVersion(t *testing.T) {
 	var payload struct {
-		AccountID    int64 `json:"account_id"`
-		ResetVersion int64 `json:"reset_version"`
+		AccountID    int64  `json:"account_id"`
+		ResetVersion *int64 `json:"reset_version"`
 	}
 	if err := json.Unmarshal([]byte(`{"account_id":11}`), &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.AccountID != 11 || payload.ResetVersion != 0 {
-		t.Fatal("legacy job did not map safely to version zero")
+	if payload.AccountID != 11 || payload.ResetVersion != nil {
+		t.Fatal("pre-versioned job must be recognized as missing its generation")
 	}
 }
