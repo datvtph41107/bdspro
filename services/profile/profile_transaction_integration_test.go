@@ -214,19 +214,18 @@ func TestProfileMutationSerializedWithSessionRevocation(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("profile transaction did not reach pre-commit hold")
 	}
+	revokeConn, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer revokeConn.Release()
 	revokeFinished := make(chan error, 1)
 	go func() {
-		_, err := pool.Exec(ctx, "UPDATE sessions SET is_blocked=TRUE WHERE id=$1", nextSession)
+		_, err := revokeConn.Exec(ctx, "UPDATE sessions SET is_blocked=TRUE WHERE id=$1", nextSession)
 		revokeFinished <- err
 	}()
-	// The revocation's backend connection is not pinned, so only the
-	// transaction order is asserted here: the profile transaction commits
-	// first and the blocked revocation completes afterward.
-	select {
-	case err := <-revokeFinished:
-		t.Fatalf("revocation bypassed the held profile session lock: %v", err)
-	case <-time.After(100 * time.Millisecond):
-	}
+	// Prove the lock edge using pinned PostgreSQL backends, not a sleep.
+	waitProfileSessionBlock(t, ctx, pool, held.Conn().PgConn().PID(), revokeConn.Conn().PgConn().PID())
 	close(release)
 	select {
 	case err := <-done:
