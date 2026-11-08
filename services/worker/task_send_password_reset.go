@@ -30,6 +30,6 @@ func NewPasswordResetHandler(store jobs.PasswordResetStore, sender mail.EmailSen
 		if payload.AccountID <= 0 || payload.ResetVersion < 0 {
 			return fmt.Errorf("invalid password reset account: %w", asynq.SkipRetry)
 		}
-		return jobs.SendPasswordResetEmail(ctx, store, sender, verifyURL, payload.AccountID, payload.ResetVersion)
+		return jobs.SendPasswordResetEmailForVersion(ctx, store, sender, verifyURL, payload.AccountID, payload.ResetVersion)
 	})
 }
