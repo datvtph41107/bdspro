@@ -58,6 +58,7 @@ WHERE ti.token_hash = $1
   AND lower(btrim(a.email)) = lower(btrim(ti.invited_email))
   AND m.organization_id = t.organization_id
   AND m.person_id = a.person_id AND m.ended_at IS NULL
+  AND ti.created_at >= m.joined_at
 RETURNING ti.team_id
 `
 
@@ -186,6 +187,7 @@ WHERE t.id = $1
     JOIN organization_members m ON m.person_id = a.person_id
     WHERE a.id = $2
       AND m.organization_id = t.organization_id AND m.ended_at IS NULL
+      AND ti.created_at >= m.joined_at
   )
 `
 
@@ -445,7 +447,20 @@ UPDATE team_invites
 SET revoked_at = now()
 WHERE team_id = $1
   AND invited_email = $2
-  AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at <= now()
+  AND accepted_at IS NULL AND revoked_at IS NULL
+  AND (
+    expires_at <= now()
+    OR EXISTS (
+      SELECT 1 FROM teams t
+      JOIN organization_members m ON m.organization_id = t.organization_id
+      JOIN accounts recipient ON recipient.person_id = m.person_id
+      WHERE t.id = team_invites.team_id
+        AND m.ended_at IS NULL
+        AND recipient.is_email_verified = TRUE
+        AND lower(btrim(recipient.email)) = lower(btrim(team_invites.invited_email))
+        AND team_invites.created_at < m.joined_at
+    )
+  )
 `
 
 type RevokeExpiredTeamInvitesParams struct {
