@@ -22,5 +22,4 @@ ALTER TABLE audit_events ADD CONSTRAINT audit_events_payload_check CHECK (
              (action='team.member.removed' AND scope_type='team' AND scope_ref <> '' AND target_type='person' AND target_ref <> '') OR
              (action='organization.member.removed' AND scope_type='organization' AND scope_ref <> '' AND target_type='person' AND target_ref <> ''))
         )
-    )
 );

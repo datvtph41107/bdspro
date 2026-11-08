@@ -40,3 +40,23 @@ func (h *Handler) AddMember(c *appctx.APIContext) {
 	}
 	c.JSON(http.StatusCreated, convert.ToOrganizationMember(member))
 }
+
+// RemoveMember revokes only an ordinary organization membership. Owner role
+// changes must use a separate owner-management operation.
+func (h *Handler) RemoveMember(c *appctx.APIContext) {
+	id, ok := organizationID(c)
+	if !ok {
+		return
+	}
+	personID, ok := positivePathID(c, "person_id")
+	if !ok {
+		return
+	}
+	if err := organization_service.RemoveOrganizationMember(
+		c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID,
+	); err != nil {
+		c.APIErrorAuto(err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
