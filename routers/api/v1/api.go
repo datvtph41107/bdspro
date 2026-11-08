@@ -200,6 +200,9 @@ func registerOrganizationRoutes(route *gin.RouterGroup, d Dependencies, teams *o
 	route.GET("/:id/members", appctx.Wrap(d.Organization.Members))
 	route.POST("/:id/members", appctx.Wrap(d.Organization.AddMember))
 	route.DELETE("/:id/members/:person_id", appctx.Wrap(d.Organization.RemoveMember))
+	route.PUT("/:id/owners/:person_id", appctx.Wrap(d.Organization.PromoteOwner))
+	route.DELETE("/:id/owners/:person_id", appctx.Wrap(d.Organization.DemoteOwner))
+	route.POST("/:id/owners/transfer", appctx.Wrap(d.Organization.TransferOwner))
 	route.GET("/:id/teams", appctx.Wrap(teams.List))
 	route.POST("/:id/teams", appctx.Wrap(teams.Create))
 }

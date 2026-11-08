@@ -104,3 +104,62 @@ USING teams AS t
 WHERE t.organization_id = sqlc.arg(organization_id)
   AND tm.person_id = sqlc.arg(person_id)
   AND tm.team_id = t.id;
+
+-- name: LockOrganizationRoleChanges :one
+-- The non-key row lock serializes all owner changes by organization, while
+-- remaining compatible with FK KEY SHARE acquired by team/member inserts.
+SELECT party_id
+FROM organizations
+WHERE party_id = sqlc.arg(organization_id)
+FOR NO KEY UPDATE;
+
+-- name: LockActingOrganizationOwner :one
+-- Obtain the acting owner's person ID under a role-stable FOR SHARE lock.
+-- The service holds the organization lock first; do not reverse this order.
+SELECT m.person_id
+FROM organization_members m
+JOIN accounts a ON a.person_id = m.person_id
+WHERE m.organization_id = sqlc.arg(organization_id)
+  AND a.id = sqlc.arg(actor_account_id)
+  AND m.role = 'owner' AND m.ended_at IS NULL
+FOR SHARE OF m;
+
+-- name: CountActiveOrganizationOwners :one
+SELECT count(*)::bigint
+FROM organization_members
+WHERE organization_id = sqlc.arg(organization_id)
+  AND role = 'owner' AND ended_at IS NULL;
+
+-- name: PromoteOrganizationMember :one
+-- This query is called only inside the role-service transaction after
+-- LockOrganizationRoleChanges and LockActingOrganizationOwner.
+-- A new owner must be an actual account with a verified contact, not an
+-- orphan Person or a plain unverified account.
+UPDATE organization_members AS m
+SET role = 'owner'
+WHERE m.organization_id = sqlc.arg(organization_id)
+  AND m.person_id = sqlc.arg(person_id)
+  AND m.role = 'member' AND m.ended_at IS NULL
+  AND EXISTS (
+    SELECT 1
+    FROM accounts recipient
+    WHERE recipient.person_id = m.person_id
+      AND (
+        recipient.is_email_verified = TRUE OR EXISTS (
+          SELECT 1 FROM phone_credentials pc
+          WHERE pc.account_id = recipient.id AND pc.verified_at IS NOT NULL
+        )
+      )
+    FOR KEY SHARE OF recipient
+  )
+RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at;
+
+-- name: DemoteOrganizationOwner :one
+-- The transaction owns both authorization and the last-owner policy.
+-- Never use this query alone outside that transaction.
+UPDATE organization_members AS m
+SET role = 'member'
+WHERE m.organization_id = sqlc.arg(organization_id)
+  AND m.person_id = sqlc.arg(person_id)
+  AND m.role = 'owner' AND m.ended_at IS NULL
+RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at;

@@ -15,6 +15,9 @@ const (
 	ActionSessionRevoked            = "auth.session.revoked"
 	ActionTeamMemberRemoved         = "team.member.removed"
 	ActionOrganizationMemberRemoved = "organization.member.removed"
+	ActionOrganizationOwnerPromoted = "organization.owner.promoted"
+	ActionOrganizationOwnerDemoted = "organization.owner.demoted"
+	ActionOrganizationOwnerTransferred = "organization.owner.transferred"
 )
 
 type actionWriter interface {
@@ -66,5 +69,27 @@ func RecordOrganizationMemberRemoved(ctx context.Context, q actionWriter, actorA
 		ScopeRef:       strconv.FormatInt(organizationID, 10),
 		TargetType:     "person",
 		TargetRef:      strconv.FormatInt(personID, 10),
+	})
+}
+
+// RecordOrganizationOwnerRoleChanged records only a concrete and reviewed
+// owner lifecycle action. Transferred means actor relinquished their owner
+// role in the same transaction in which the target gained it.
+func RecordOrganizationOwnerRoleChanged(ctx context.Context, q actionWriter, action string, actorAccountID, organizationID, targetPersonID int64) error {
+	if actorAccountID <= 0 || organizationID <= 0 || targetPersonID <= 0 {
+		return fmt.Errorf("invalid organization owner audit identity")
+	}
+	switch action {
+	case ActionOrganizationOwnerPromoted, ActionOrganizationOwnerDemoted, ActionOrganizationOwnerTransferred:
+	default:
+		return fmt.Errorf("unsupported organization owner audit action")
+	}
+	return q.InsertAuditAction(ctx, db.InsertAuditActionParams{
+		Action: action,
+		ActorAccountID: actorAccountID,
+		ScopeType: "organization",
+		ScopeRef: strconv.FormatInt(organizationID, 10),
+		TargetType: "person",
+		TargetRef: strconv.FormatInt(targetPersonID, 10),
 	})
 }
