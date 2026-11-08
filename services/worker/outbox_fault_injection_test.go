@@ -281,6 +281,19 @@ func TestOutboxRealRedisOutageThenRecovery(t *testing.T) {
 	if err != nil || count != 1 || !outboxQueued(t, ctx, pool, id) {
 		t.Fatalf("outbox did not recover: count=%d err=%v", count, err)
 	}
+	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: redisAddr, DB: 15})
+	defer func() {
+		if err := inspector.DeleteTask(queueName, taskID); err != nil {
+			t.Errorf("remove disposable Redis task: %v", err)
+		}
+		if err := inspector.Close(); err != nil {
+			t.Errorf("close Redis inspector: %v", err)
+		}
+	}()
+	info, err := inspector.GetTaskInfo(queueName, taskID)
+	if err != nil || info.Type != "task:test:redis-recovery" {
+		t.Fatalf("Redis did not retain expected task: info=%+v err=%v", info, err)
+	}
 	count, err = NewOutboxDispatcher(store, recovered).Dispatch(ctx)
 	if err != nil || count != 0 {
 		t.Fatalf("committed outbox intent was dispatched again: count=%d err=%v", count, err)
