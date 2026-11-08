@@ -40,6 +40,22 @@ func TestTeamInvitationAuthorizationAndReplayHTTP(t *testing.T) {
 		t.Fatalf("create team: %d %v", status, team)
 	}
 	teamID := int64(team["id"].(float64))
+	empty, emptyStatus := any(nil), 0
+	emptyStatus, empty = organizationGetJSON(t, server,
+		fmt.Sprintf("/teams/%d/members", teamID), ownerBearer)
+	if emptyStatus != http.StatusOK || len(empty.([]any)) != 0 {
+		t.Fatalf("authorized empty membership list: status=%d members=%v", emptyStatus, empty)
+	}
+	emptyStatus, empty = organizationGetJSON(t, server,
+		fmt.Sprintf("/organizations/%d/teams?page=9999", orgID), ownerBearer)
+	if emptyStatus != http.StatusOK || len(empty.([]any)) != 0 {
+		t.Fatalf("authorized empty teams page: status=%d teams=%v", emptyStatus, empty)
+	}
+	emptyStatus, _ = organizationGetJSON(t, server,
+		fmt.Sprintf("/organizations/%d/teams", orgID), outsiderBearer)
+	if emptyStatus != http.StatusNotFound {
+		t.Fatalf("nonmember must not list organization teams: status=%d", emptyStatus)
+	}
 	invitePath := fmt.Sprintf("/teams/%d/invites", teamID)
 
 	status, denied := authAcceptanceCall(t, server, invitePath, http.MethodPost,
@@ -94,8 +110,8 @@ func TestTeamInvitationAuthorizationAndReplayHTTP(t *testing.T) {
 	}
 	status, outsiders := organizationGetJSON(t, server,
 		fmt.Sprintf("/teams/%d/members?page=1&limit=20", teamID), outsiderBearer)
-	if status != http.StatusOK || len(outsiders.([]any)) != 0 {
-		t.Fatalf("outsider could read private membership: %d %v", status, outsiders)
+	if status != http.StatusNotFound {
+		t.Fatalf("outsider must not see private team membership endpoint: %d %v", status, outsiders)
 	}
 	// A JWT principal never grants ownership by itself; database membership
 	// controls all team operations throughout the request.
