@@ -17,6 +17,7 @@ const TaskSendPasswordReset = "task:send_password_reset"
 
 type PayloadSendPasswordReset struct {
 	AccountID int64 `json:"account_id"`
+	ResetVersion int64 `json:"reset_version"`
 }
 
 // NewPasswordResetHandler adapts the business job to native Asynq.
@@ -26,9 +27,9 @@ func NewPasswordResetHandler(store jobs.PasswordResetStore, sender mail.EmailSen
 		if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 			return fmt.Errorf("decode password reset task: %w", errors.Join(err, asynq.SkipRetry))
 		}
-		if payload.AccountID <= 0 {
+		if payload.AccountID <= 0 || payload.ResetVersion < 0 {
 			return fmt.Errorf("invalid password reset account: %w", asynq.SkipRetry)
 		}
-		return jobs.SendPasswordResetEmail(ctx, store, sender, verifyURL, payload.AccountID)
+		return jobs.SendPasswordResetEmail(ctx, store, sender, verifyURL, payload.AccountID, payload.ResetVersion)
 	})
 }
