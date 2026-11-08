@@ -17,7 +17,7 @@ import (
 const TaskSendPasswordReset = "task:send_password_reset"
 
 type PayloadSendPasswordReset struct {
-	AccountID     int64  `json:"account_id"`
+	AccountID    int64  `json:"account_id"`
 	ResetVersion *int64 `json:"reset_version"`
 }
 
