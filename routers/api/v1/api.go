@@ -130,8 +130,13 @@ func registerPublicRoutes(route *gin.RouterGroup, d Dependencies) {
 		)
 	}
 
-	// Authentication is applied once to this group, before every child group.
-	registerAuthenticatedRoutes(route.Group("", appctx.Authenticate(d.TokenMaker)), d)
+	// Check the signed access principal and its live PostgreSQL session once
+	// at ingress. Domain ownership and in-transaction authorization stay in
+	// models/services; no parallel middleware executor is introduced.
+	registerAuthenticatedRoutes(route.Group("",
+		appctx.Authenticate(d.TokenMaker),
+		appctx.RequireSession(d.Store),
+	), d)
 }
 
 func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
