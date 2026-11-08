@@ -22,7 +22,9 @@ type Access struct {
 	JoinedAt     time.Time
 }
 
-func organizationName(name string) (string, error) {
+// OrganizationName normalizes the canonical organization name. Both the
+// standalone model entry point and HTTP service use this DB-free validator.
+func OrganizationName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", ErrNameRequired
@@ -30,41 +32,75 @@ func organizationName(name string) (string, error) {
 	return name, nil
 }
 
-// CreateOrganization creates the party, organization, and initial owner in
-// one PostgreSQL transaction. This is the equivalent of Gitea's
-// models/organization.CreateOrganization, but using SQLC instead of XORM.
+// LockedCreator is an opaque account-to-person authorization obtained under
+// the account's PostgreSQL FOR KEY SHARE lock. Its unexported value prevents
+// a caller from inventing a positive PersonID and bypassing the account check.
+// It is valid ONLY in the transaction in which LockCreator acquired the lock.
+type LockedCreator struct {
+	personID int64
+}
+
+// LockCreator must run before RequireActingSession when creating organizations.
+// Password reset locks the account FOR UPDATE before deleting sessions; locking
+// the session first here would invert that order and permit deadlocks.
+// FOR KEY SHARE also prevents account deletion during owner creation.
+func LockCreator(ctx context.Context, q *db.Queries, actorAccountID int64) (LockedCreator, error) {
+	if actorAccountID <= 0 {
+		return LockedCreator{}, account_model.ErrAccountUnavailable
+	}
+	personID, err := q.LockOrganizationCreator(ctx, actorAccountID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return LockedCreator{}, account_model.ErrAccountUnavailable
+	}
+	if err != nil {
+		return LockedCreator{}, err
+	}
+	return LockedCreator{personID: personID}, nil
+}
+
+// CreateOrganizationForCreator completes the party/organization/owner write
+// in the transaction that already holds the account lock. The session-aware
+// service holds its session lock as well. There is no nested transaction.
+func CreateOrganizationForCreator(ctx context.Context, q *db.Queries, creator LockedCreator, name string) (db.Organization, error) {
+	name, err := OrganizationName(name)
+	if err != nil {
+		return db.Organization{}, err
+	}
+	if creator.personID <= 0 {
+		return db.Organization{}, account_model.ErrAccountUnavailable
+	}
+	partyID, err := q.CreateParty(ctx)
+	if err != nil {
+		return db.Organization{}, fmt.Errorf("create party: %w", err)
+	}
+	organization, err := q.CreateOrganization(ctx, db.CreateOrganizationParams{
+		PartyID: partyID, Name: name,
+	})
+	if err != nil {
+		return db.Organization{}, fmt.Errorf("create organization: %w", err)
+	}
+	if _, err := q.CreateOrganizationMember(ctx, db.CreateOrganizationMemberParams{
+		OrganizationID: partyID, PersonID: creator.personID, Role: RoleOwner,
+	}); err != nil {
+		return db.Organization{}, fmt.Errorf("create owner membership: %w", err)
+	}
+	return organization, nil
+}
+
+// CreateOrganization preserves the trusted standalone model API. Production
+// first-party HTTP calls the service, which additionally checks/locks session
+// authority within this same account-first transaction.
 func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int64, name string) (db.Organization, error) {
-	name, err := organizationName(name)
+	name, err := OrganizationName(name)
 	if err != nil {
 		return db.Organization{}, err
 	}
 	created, err := db.WithTxResult(ctx, store, func(q *db.Queries) (db.Organization, error) {
-		// Lock the originating account until this owner membership commits.
-		// A surviving Person row must not authorize a deleted Account.
-		actorPersonID, err := q.LockOrganizationCreator(ctx, actorAccountID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return db.Organization{}, account_model.ErrAccountUnavailable
-		}
+		creator, err := LockCreator(ctx, q, actorAccountID)
 		if err != nil {
 			return db.Organization{}, err
 		}
-		partyID, err := q.CreateParty(ctx)
-		if err != nil {
-			return db.Organization{}, fmt.Errorf("create party: %w", err)
-		}
-		organization, err := q.CreateOrganization(ctx, db.CreateOrganizationParams{
-			PartyID: partyID, Name: name,
-		})
-		if err != nil {
-			return db.Organization{}, fmt.Errorf("create organization: %w", err)
-		}
-		_, err = q.CreateOrganizationMember(ctx, db.CreateOrganizationMemberParams{
-			OrganizationID: partyID, PersonID: actorPersonID, Role: RoleOwner,
-		})
-		if err != nil {
-			return db.Organization{}, fmt.Errorf("create owner membership: %w", err)
-		}
-		return organization, nil
+		return CreateOrganizationForCreator(ctx, q, creator, name)
 	})
 	if err != nil {
 		return db.Organization{}, fmt.Errorf("create organization: %w", err)
@@ -104,14 +140,22 @@ func GetForAccount(ctx context.Context, store db.Store, actorAccountID, organiza
 	}, nil
 }
 
+// OrganizationWriter is implemented by both SQLStore and transaction-bound
+// *db.Queries. There is no need for an outer store when the service already
+// owns the transaction.
+type OrganizationWriter interface {
+	UpdateOrganization(context.Context, db.UpdateOrganizationParams) (db.Organization, error)
+	AddOrganizationMember(context.Context, db.AddOrganizationMemberParams) (db.OrganizationMember, error)
+}
+
 // UpdateOrganization must keep the owner-guarded atomic SQLC UPDATE; replacing
 // this with a separate "check permission, then update" introduces a race.
-func UpdateOrganization(ctx context.Context, store db.Store, actorAccountID, organizationID int64, name string) (db.Organization, error) {
-	name, err := organizationName(name)
+func UpdateOrganization(ctx context.Context, writer OrganizationWriter, actorAccountID, organizationID int64, name string) (db.Organization, error) {
+	name, err := OrganizationName(name)
 	if err != nil {
 		return db.Organization{}, err
 	}
-	updated, err := store.UpdateOrganization(ctx, db.UpdateOrganizationParams{
+	updated, err := writer.UpdateOrganization(ctx, db.UpdateOrganizationParams{
 		OrganizationID: organizationID, ActorAccountID: actorAccountID,
 		Name: pgtype.Text{String: name, Valid: true},
 	})

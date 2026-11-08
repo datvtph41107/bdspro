@@ -13,6 +13,7 @@ import (
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -22,7 +23,10 @@ type organizationHTTPStoreFake struct {
 	creates    int
 	lastName   string
 	accountErr error
+	sessionErr error
 	createErr  error
+	sessionID  uuid.UUID
+	lockOrder  []string
 }
 
 // The fake runs the actual SQLC methods through a small recording DBTX.
@@ -66,7 +70,20 @@ func (r organizationHTTPRow) Scan(dest ...any) error {
 		if r.store.accountErr != nil {
 			return r.store.accountErr
 		}
+		r.store.lockOrder = append(r.store.lockOrder, "account")
 		*dest[0].(*int64) = 99
+	case strings.Contains(r.sql, "-- name: LockActingSession"):
+		if len(r.args) != 2 || r.args[0] != r.store.sessionID || r.args[1] != int64(42) {
+			return errors.New("unexpected acting session/account")
+		}
+		if len(r.store.lockOrder) == 0 || r.store.lockOrder[len(r.store.lockOrder)-1] != "account" {
+			return errors.New("acting session locked before creator account")
+		}
+		if r.store.sessionErr != nil {
+			return r.store.sessionErr
+		}
+		r.store.lockOrder = append(r.store.lockOrder, "session")
+		*dest[0].(*uuid.UUID) = r.store.sessionID
 	case strings.Contains(r.sql, "INSERT INTO parties DEFAULT VALUES"):
 		*dest[0].(*int64) = 123
 	case strings.Contains(r.sql, "INSERT INTO organizations (party_id, name)"):
@@ -95,12 +112,13 @@ func TestStoreOrganizationHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	access, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeAccess)
+	sessionID := uuid.New()
+	access, _, err := maker.CreateSessionAccessToken(42, time.Minute, sessionID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	store := &organizationHTTPStoreFake{}
+	store := &organizationHTTPStoreFake{sessionID: sessionID}
 	organizations := NewHandler(store)
 	router := gin.New()
 	router.Use(appctx.RequestIngress())
@@ -138,12 +156,21 @@ func TestStoreOrganizationHTTP(t *testing.T) {
 	if store.creates != 1 || store.lastName != "Example" {
 		t.Fatalf("unexpected DB creation: calls=%d name=%q", store.creates, store.lastName)
 	}
+	if len(store.lockOrder) != 2 || store.lockOrder[0] != "account" || store.lockOrder[1] != "session" {
+		t.Fatalf("wrong account/session lock order: %v", store.lockOrder)
+	}
 
 	store.accountErr = pgx.ErrNoRows
 	if w := send(`{"name":"Example"}`, access); w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), "account unavailable") {
 		t.Fatalf("deleted account status=%d body=%s", w.Code, w.Body.String())
 	}
 	store.accountErr = nil
+
+	store.sessionErr = pgx.ErrNoRows
+	if w := send(`{"name":"Example"}`, access); w.Code != http.StatusUnauthorized {
+		t.Fatalf("revoked acting session status=%d body=%s", w.Code, w.Body.String())
+	}
+	store.sessionErr = nil
 
 	store.createErr = errors.New("postgres credential must not be sent")
 	if w := send(`{"name":"Example"}`, access); w.Code != http.StatusInternalServerError ||
