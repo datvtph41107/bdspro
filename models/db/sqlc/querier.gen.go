@@ -78,6 +78,11 @@ type Querier interface {
 	ListOAuth2CredentialsForAccount(ctx context.Context, accountID int64) ([]Oauth2Credential, error)
 	ListOrganizationMembersForOwner(ctx context.Context, arg ListOrganizationMembersForOwnerParams) ([]ListOrganizationMembersForOwnerRow, error)
 	ListOrganizationsForAccount(ctx context.Context, accountID int64) ([]ListOrganizationsForAccountRow, error)
+	// Operator diagnostic, not a hot-path authorization check.
+	// An existing organization can lose its last owner through privileged raw SQL.
+	// Returning at most 21 IDs supports capped output without scanning all rows
+	// into application memory. Do not change this to COUNT(*) + unbounded listing.
+	ListOrganizationsWithoutActiveOwner(ctx context.Context) ([]int64, error)
 	ListPendingJobOutbox(ctx context.Context, limit int32) ([]ListPendingJobOutboxRow, error)
 	ListTeamUsersForAccount(ctx context.Context, arg ListTeamUsersForAccountParams) ([]TeamMember, error)
 	ListTeamsForAccount(ctx context.Context, arg ListTeamsForAccountParams) ([]Team, error)
