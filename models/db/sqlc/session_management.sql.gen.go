@@ -78,11 +78,11 @@ func (q *Queries) LockActingSession(ctx context.Context, arg LockActingSessionPa
 const lockSessionRevocationAccount = `-- name: LockSessionRevocationAccount :one
 SELECT id FROM accounts
 WHERE id = $1::bigint
-FOR UPDATE
+FOR NO KEY UPDATE
 `
 
-// Account FOR UPDATE serializes concurrent revoke-all requests and login
-// session creation (the session FK takes KEY SHARE on accounts).
+// Account FOR NO KEY UPDATE serializes concurrent revoke-all requests but
+// stays compatible with FK KEY SHARE during login and OAuth consent.
 func (q *Queries) LockSessionRevocationAccount(ctx context.Context, accountID int64) (int64, error) {
 	row := q.db.QueryRow(ctx, lockSessionRevocationAccount, accountID)
 	var id int64
