@@ -7,6 +7,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/structs"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
+	organization_service "github.com/datvtph41107/bdspro/services/organization"
 )
 
 func (h *Handler) Members(c *appctx.APIContext) {
@@ -32,7 +33,7 @@ func (h *Handler) AddMember(c *appctx.APIContext) {
 		appctx.Validation(c.Context, err, &req)
 		return
 	}
-	member, err := organization_model.AddOrgUser(c.Request.Context(), h.store, c.Doer.AccountID, id, req.PersonID)
+	member, err := organization_service.AddOrganizationMember(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return

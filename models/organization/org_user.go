@@ -25,8 +25,8 @@ func GetOrgMembers(ctx context.Context, store db.Store, actorAccountID, organiza
 
 // AddOrgUser delegates the authorization check to the single SQL INSERT WHERE
 // EXISTS, while interpreting PostgreSQL constraints as model failures.
-func AddOrgUser(ctx context.Context, store db.Store, actorAccountID, organizationID, personID int64) (db.OrganizationMember, error) {
-	member, err := store.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
+func AddOrgUser(ctx context.Context, writer OrganizationWriter, actorAccountID, organizationID, personID int64) (db.OrganizationMember, error) {
+	member, err := writer.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
 		OrganizationID: organizationID, PersonID: personID, ActorAccountID: actorAccountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {

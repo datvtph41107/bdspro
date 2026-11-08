@@ -10,6 +10,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/structs"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
+	organization_service "github.com/datvtph41107/bdspro/services/organization"
 )
 
 type Handler struct {
@@ -52,7 +53,7 @@ func (h *Handler) Create(c *appctx.APIContext) {
 		appctx.FieldError(c.Context, "name", "required", "name is required")
 		return
 	}
-	organization, err := organization_model.CreateOrganization(c.Request.Context(), h.store, c.Doer.AccountID, req.Name)
+	organization, err := organization_service.CreateOrganization(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, req.Name)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -74,7 +75,7 @@ func (h *Handler) Edit(c *appctx.APIContext) {
 		appctx.FieldError(c.Context, "name", "required", "name is required")
 		return
 	}
-	organization, err := organization_model.UpdateOrganization(c.Request.Context(), h.store, c.Doer.AccountID, id, *req.Name)
+	organization, err := organization_service.UpdateOrganization(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, *req.Name)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
