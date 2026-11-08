@@ -11,8 +11,9 @@ import (
 type APIContext struct {
 	*gin.Context
 
-	// Doer is the signed access JWT payload, not a live account record.
-	// Session and account status require explicit domain authorization checks.
+	// Doer is the signed JWT principal, not a live account record.
+	// Protected routes resolve session authority before invoking the handler;
+	// account status and domain permissions are independent decisions.
 	Doer *authcrypto.Payload
 }
 

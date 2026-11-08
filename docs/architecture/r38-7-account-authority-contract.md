@@ -1,5 +1,11 @@
 # R38.7 — Account authority and credential lifecycle (contract checkpoint)
 
+> **Historical R38.7 baseline.** G1.2b supersedes first-party protected
+> HTTP access-JWT acceptance after session revocation or password recovery.
+> The OAuth delegation and account-suspension boundaries remain separately
+> defined. See [g1-live-session-authority.md](g1-live-session-authority.md).
+
+
 ## Current supported authority
 
 The current account row does **not** have a canonical suspended/disabled state. Do not claim account-wide lockout. Do not silently add one without defining its transition authority, status checks, and recovery path.

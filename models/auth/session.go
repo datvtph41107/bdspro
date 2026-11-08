@@ -115,8 +115,8 @@ func MatchesRefreshToken(stored, raw string) bool {
 	return subtle.ConstantTimeCompare([]byte(stored), []byte(expected)) == 1
 }
 
-// RequireActiveSession validates the persisted authority of a session-bound
-// access JWT for OAuth authorization, without changing normal JWT-only APIs.
+// RequireActiveSession validates persisted session authority for session-bound
+// access JWTs, including first-party protected API admission and OAuth consent.
 func RequireActiveSession(ctx context.Context, reader interface {
 	GetSession(context.Context, uuid.UUID) (db.Session, error)
 }, accountID int64, sessionID uuid.UUID, now time.Time) error {

@@ -1,5 +1,12 @@
 # R36.0 — Access and refresh token revocation contract
 
+> **Historical R36 behavior (2026-11-05).** Ordinary protected first-party
+> HTTP routes now require a live PostgreSQL session under G1.2b; signed JWTs
+> from revoked/deleted sessions are rejected on newly admitted requests.
+> See [g1-live-session-authority.md](g1-live-session-authority.md).
+> The remainder describes the earlier stateless baseline for audit comparison.
+
+
 ## Confirmed source behavior (2026-11-05)
 
 BDSPro currently issues two purpose-separated HS256 JWTs through
