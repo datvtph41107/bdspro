@@ -88,7 +88,7 @@ func RevokeOwnedSession(ctx context.Context, store SessionStore, accountID int64
 
 // RevokeAllSessions is authorized at commit time, not only at the HTTP
 // boundary. The accounts row serializes concurrent revoke-all operations and
-// session creation; the acting session is then locked before blocking others.
+// the two revoke-all operations; the acting session is then locked before blocking others.
 func RevokeAllSessions(ctx context.Context, store SessionStore, accountID int64, actingSessionID uuid.UUID) error {
 	if accountID <= 0 || actingSessionID == uuid.Nil {
 		return ErrSessionUnavailable
