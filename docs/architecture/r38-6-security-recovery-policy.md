@@ -1,5 +1,11 @@
 # R38.6 — Password recovery and delegated OAuth credentials
 
+> **Historical R38.6 behavior.** The original stateless first-party access
+> policy is superseded for protected Gin APIs by G1.2b's live session check.
+> Recovery still revokes OAuth delegations transactionally.
+> See [g1-live-session-authority.md](g1-live-session-authority.md).
+
+
 ## Policy decision
 
 **Ordinary session logout** (`POST /users/me/sessions/revoke_all`) invalidates first-party refresh sessions and browser cookies backed by those sessions. It deliberately does not invalidate independent OAuth grants issued to external applications; this is part of the API contract, not a failure of the current token service.
