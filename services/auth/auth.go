@@ -227,7 +227,8 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 
 // ResetPassword consumes its token transactionally and revokes refresh sessions.
 // Recovery also revokes delegated OAuth authorizations and existing OAuth
-// bearer credentials. Internal stateless access JWTs expire normally.
+// bearer credentials. Old access JWTs remain cryptographically valid but
+// newly admitted protected API requests reject their deleted sessions.
 func (s *AuthService) ResetPassword(ctx context.Context, secret, password string) error {
 	if !validation.PasswordLength(password) {
 		return auth_model.ErrInvalidPassword
