@@ -16,6 +16,7 @@ type Querier interface {
 	AttachVerifiedEmail(ctx context.Context, arg AttachVerifiedEmailParams) (int64, error)
 	BindPhoneCredentialQuery(ctx context.Context, arg BindPhoneCredentialQueryParams) error
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
+	// Called after consuming a reset proof while holding accounts FOR UPDATE.
 	BumpPasswordResetVersion(ctx context.Context, id int64) error
 	ConsumeEmailLinkChallenge(ctx context.Context, arg ConsumeEmailLinkChallengeParams) (string, error)
 	ConsumePasswordResetToken(ctx context.Context, tokenHash []byte) (int64, error)
@@ -55,9 +56,11 @@ type Querier interface {
 	GetTeamForAccount(ctx context.Context, arg GetTeamForAccountParams) (Team, error)
 	GetTeamInviteForDelivery(ctx context.Context, inviteID uuid.UUID) (GetTeamInviteForDeliveryRow, error)
 	InsertAuditAction(ctx context.Context, arg InsertAuditActionParams) error
-	IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, arg IssuePasswordResetTokenIfCurrentVersionParams) (int64, error)
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) error
 	InsertInvitedTeamUser(ctx context.Context, arg InsertInvitedTeamUserParams) (TeamMember, error)
+	// FOR SHARE serializes issuance with recovery's accounts FOR UPDATE.
+	// The returning row count is zero for stale or unverified intents.
+	IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, arg IssuePasswordResetTokenIfCurrentVersionParams) (int64, error)
 	LinkOAuth2Credential(ctx context.Context, arg LinkOAuth2CredentialParams) (int64, error)
 	ListAccountConnectionHistories(ctx context.Context, accountID int64) ([]ListAccountConnectionHistoriesRow, error)
 	ListActiveSessions(ctx context.Context, accountID int64) ([]ListActiveSessionsRow, error)
@@ -78,8 +81,8 @@ type Querier interface {
 	ReadAccountByEmail(ctx context.Context, btrim string) (ReadAccountByEmailRow, error)
 	ReadAccountByID(ctx context.Context, id int64) (ReadAccountByIDRow, error)
 	RecordEmailVerificationJob(ctx context.Context, accountID int64) error
-	// The payload identifies the account, never a reset token or password.
-	// The worker generates the one-time proof only when the job is executed.
+	// Snapshot the account's recovery version under its row lock.
+	// Never serialize a reset proof into the outbox.
 	RecordPasswordResetJob(ctx context.Context, accountID int64) error
 	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	// Only the invite UUID is durable. The proof is derived inside the worker
