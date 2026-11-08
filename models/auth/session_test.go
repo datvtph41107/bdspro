@@ -44,6 +44,9 @@ type testSessionStore struct {
 	auditErr   error
 	auditCalls int
 	seen       db.RevokeOwnedSessionParams
+	actingID   uuid.UUID
+	actingAcct int64
+	actorGone  bool
 }
 
 type testSessionTX struct {
@@ -104,7 +107,12 @@ func (tx testSessionTX) QueryRow(_ context.Context, statement string, args ...an
 		return testSessionRow{id: args[0].(int64)}
 	}
 	if strings.Contains(statement, "SELECT id FROM sessions") {
-		return testSessionRow{id: args[0].(uuid.UUID)}
+		tx.store.actingID = args[0].(uuid.UUID)
+		tx.store.actingAcct = args[1].(int64)
+		if tx.store.actorGone {
+			return testSessionRow{err: pgx.ErrNoRows}
+		}
+		return testSessionRow{id: tx.store.actingID}
 	}
 	return testSessionRow{err: fmt.Errorf("unexpected session query")}
 }
@@ -123,29 +131,54 @@ func (s *testSessionStore) RevokeAllAccountSessions(_ context.Context, _ int64) 
 }
 
 func TestRevokeOwnedSession(t *testing.T) {
-	id := uuid.New()
+	actingID, targetID := uuid.New(), uuid.New()
 	store := &testSessionStore{}
-	err := RevokeOwnedSession(context.Background(), store, 42, id)
+	err := RevokeOwnedSession(context.Background(), store, 42, actingID, targetID)
 	if !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("unknown account session accepted: %v", err)
 	}
-	if store.seen.AccountID != 42 || store.seen.ID != id {
+	if store.seen.AccountID != 42 || store.seen.ID != targetID {
 		t.Fatalf("incorrect ownership predicate: %+v", store.seen)
+	}
+	if store.actingID != actingID || store.actingAcct != 42 {
+		t.Fatalf("wrong acting session authority: %v account=%d", store.actingID, store.actingAcct)
 	}
 
 	store.affected = 1
-	if err := RevokeOwnedSession(context.Background(), store, 42, id); err != nil {
+	store.actorGone = true
+	if err := RevokeOwnedSession(context.Background(), store, 42, actingID, targetID); !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf("revoked actor was accepted: %v", err)
+	}
+	if store.auditCalls != 0 {
+		t.Fatal("revoked actor recorded a successful revoke")
+	}
+	store.actorGone = false
+	if err := RevokeOwnedSession(context.Background(), store, 42, actingID, targetID); err != nil {
 		t.Fatalf("owned session cannot be revoked: %v", err)
 	}
 	if store.auditCalls != 1 {
 		t.Fatalf("successful revoke must write exactly one event: %d", store.auditCalls)
 	}
 	store.auditErr = errors.New("failed to audit")
-	if err := RevokeOwnedSession(context.Background(), store, 42, id); !errors.Is(err, store.auditErr) {
+	if err := RevokeOwnedSession(context.Background(), store, 42, actingID, targetID); !errors.Is(err, store.auditErr) {
 		t.Fatalf("audit failure must fail owning transaction: %v", err)
 	}
 	if store.auditCalls != 2 {
 		t.Fatalf("audit failure call was lost: %d", store.auditCalls)
+	}
+	for _, tc := range []struct {
+		accountID int64
+		actingID  uuid.UUID
+		targetID  uuid.UUID
+		want      error
+	}{
+		{0, actingID, targetID, ErrSessionUnavailable},
+		{42, uuid.Nil, targetID, ErrSessionUnavailable},
+		{42, actingID, uuid.Nil, ErrSessionNotFound},
+	} {
+		if err := RevokeOwnedSession(context.Background(), store, tc.accountID, tc.actingID, tc.targetID); !errors.Is(err, tc.want) {
+			t.Fatalf("invalid authority or target not rejected: %v", err)
+		}
 	}
 }
 

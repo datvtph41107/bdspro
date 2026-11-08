@@ -412,8 +412,12 @@ func (h *Handler) Logout(c *gin.Context) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-	if err := auth_model.RevokeOwnedSession(c.Request.Context(), h.Store, appctx.AccountID(c), id); err != nil {
-		c.AbortWithStatus(http.StatusServiceUnavailable)
+	if err := auth_model.RevokeOwnedSession(c.Request.Context(), h.Store, appctx.AccountID(c), id, id); err != nil {
+		if errors.Is(err, auth_model.ErrSessionUnavailable) || errors.Is(err, auth_model.ErrSessionNotFound) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+		} else {
+			c.AbortWithStatus(http.StatusServiceUnavailable)
+		}
 		return
 	}
 	h.clearCookie(c, authcrypto.BrowserCookieName(h.secure))

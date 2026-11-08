@@ -71,18 +71,44 @@ func ListSessions(ctx context.Context, store SessionStore, accountID int64) ([]d
 	return store.ListActiveSessions(ctx, accountID)
 }
 
-func RevokeOwnedSession(ctx context.Context, store SessionStore, accountID int64, id uuid.UUID) error {
-	// The owner-scoped SQL predicate, state change and security evidence are
-	// one transaction. A failed audit insert must not revoke the session.
+// RevokeOwnedSession commits only while the session which initiated this
+// action is still active. Always lock the account before the acting session:
+// concurrent A->B and B->A revocations otherwise create a row-lock cycle.
+// Target ownership and state are enforced by the SQLC UPDATE predicate.
+func RevokeOwnedSession(ctx context.Context, store SessionStore, accountID int64, actingSessionID, targetSessionID uuid.UUID) error {
+	if accountID <= 0 || actingSessionID == uuid.Nil {
+		return ErrSessionUnavailable
+	}
+	if targetSessionID == uuid.Nil {
+		return ErrSessionNotFound
+	}
 	return store.ExecTx(ctx, func(q *db.Queries) error {
-		affected, err := q.RevokeOwnedSession(ctx, db.RevokeOwnedSessionParams{ID: id, AccountID: accountID})
+		if _, err := q.LockSessionRevocationAccount(ctx, accountID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrSessionUnavailable
+			}
+			return err
+		}
+		if _, err := q.LockActingSession(ctx, db.LockActingSessionParams{
+			SessionID: actingSessionID, AccountID: accountID,
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrSessionUnavailable
+			}
+			return err
+		}
+		// Mutation and security evidence belong to the same transaction.
+		// Missing/foreign/previously-revoked targets share one domain error.
+		affected, err := q.RevokeOwnedSession(ctx, db.RevokeOwnedSessionParams{
+			ID: targetSessionID, AccountID: accountID,
+		})
 		if err != nil {
 			return err
 		}
 		if affected != 1 {
 			return ErrSessionNotFound
 		}
-		return audit_model.RecordSessionRevoked(ctx, q, accountID, id)
+		return audit_model.RecordSessionRevoked(ctx, q, accountID, targetSessionID)
 	})
 }
 

@@ -565,8 +565,10 @@ func (s *AuthService) ListSessions(ctx context.Context, accountID int64) ([]db.L
 	return auth_model.ListSessions(ctx, s.store, accountID)
 }
 
-func (s *AuthService) RevokeOwnSession(ctx context.Context, accountID int64, sessionID uuid.UUID) error {
-	return auth_model.RevokeOwnedSession(ctx, s.store, accountID, sessionID)
+// RevokeOwnSession delegates the atomic acting-session check, targeted
+// revocation and audit to the auth model. Both IDs are signed server context.
+func (s *AuthService) RevokeOwnSession(ctx context.Context, accountID int64, actingSessionID, targetSessionID uuid.UUID) error {
+	return auth_model.RevokeOwnedSession(ctx, s.store, accountID, actingSessionID, targetSessionID)
 }
 
 // RevokeAllSessions serializes the acting session's authority with the
