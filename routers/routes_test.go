@@ -16,11 +16,23 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // The registered route reads a real account through AuthService, while this
 // test remains independent from PostgreSQL.
-type routeAccountStore struct{ db.Store }
+type routeAccountStore struct {
+	db.Store
+	sessionID uuid.UUID
+}
+
+func (s routeAccountStore) GetSession(_ context.Context, id uuid.UUID) (db.Session, error) {
+	if id != s.sessionID {
+		return db.Session{}, pgx.ErrNoRows
+	}
+	return db.Session{ID: id, AccountID: 42, ExpiresAt: time.Now().Add(time.Hour)}, nil
+}
 
 func (routeAccountStore) GetAccountProfile(_ context.Context, id int64) (db.GetAccountProfileRow, error) {
 	return db.GetAccountProfileRow{AccountID: id, PersonID: id + 1, Email: "route@example.test",
@@ -39,11 +51,13 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	sid := uuid.New()
 	newServer := func(oauth2, phone bool) *Server {
+		store := routeAccountStore{sessionID: sid}
 		s := &Server{
 			tokenMaker:           maker,
-			store:                routeAccountStore{},
-			authHandler:          user.NewAuthHandler(auth_service.NewAuthService(routeAccountStore{}, nil, setting.Config{}, nil), nil, nil),
+			store:                store,
+			authHandler:          user.NewAuthHandler(auth_service.NewAuthService(store, nil, setting.Config{}, nil), nil, nil),
 			organizationHandler:  org.NewHandler(nil),
 			authorizationHandler: oauth.NewHandler(nil, nil),
 		}
@@ -123,7 +137,7 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		}
 	}
 
-	access, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeAccess)
+	access, _, err := maker.CreateSessionAccessToken(42, time.Minute, sid)
 	if err != nil {
 		t.Fatal(err)
 	}
