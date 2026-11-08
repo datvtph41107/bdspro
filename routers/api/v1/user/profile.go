@@ -35,7 +35,7 @@ func (h *ProfileHandler) Update(c *appctx.APIContext) {
 		c.APIInvalid(err)
 		return
 	}
-	p, err := h.profile.Update(c.Request.Context(), c.Doer.AccountID, profile_service.ProfilePatch{
+	p, err := h.profile.Update(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, profile_service.ProfilePatch{
 		DisplayName: req.DisplayName, FirstName: req.FirstName, LastName: req.LastName,
 	})
 	if err != nil {
@@ -60,7 +60,7 @@ func (h *ProfileHandler) UpdateSettings(c *appctx.APIContext) {
 		c.APIInvalid(err)
 		return
 	}
-	p, err := h.profile.UpdateSettings(c.Request.Context(), c.Doer.AccountID, profile_service.SettingsPatch{
+	p, err := h.profile.UpdateSettings(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, profile_service.SettingsPatch{
 		Locale: req.Locale, Timezone: req.Timezone, Currency: req.Currency,
 	})
 	if err != nil {
