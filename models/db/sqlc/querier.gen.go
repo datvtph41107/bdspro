@@ -16,6 +16,7 @@ type Querier interface {
 	AttachVerifiedEmail(ctx context.Context, arg AttachVerifiedEmailParams) (int64, error)
 	BindPhoneCredentialQuery(ctx context.Context, arg BindPhoneCredentialQueryParams) error
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
+	BumpPasswordResetVersion(ctx context.Context, id int64) error
 	ConsumeEmailLinkChallenge(ctx context.Context, arg ConsumeEmailLinkChallengeParams) (string, error)
 	ConsumePasswordResetToken(ctx context.Context, tokenHash []byte) (int64, error)
 	ConsumeTeamInvite(ctx context.Context, arg ConsumeTeamInviteParams) (int64, error)
@@ -54,6 +55,7 @@ type Querier interface {
 	GetTeamForAccount(ctx context.Context, arg GetTeamForAccountParams) (Team, error)
 	GetTeamInviteForDelivery(ctx context.Context, inviteID uuid.UUID) (GetTeamInviteForDeliveryRow, error)
 	InsertAuditAction(ctx context.Context, arg InsertAuditActionParams) error
+	IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, arg IssuePasswordResetTokenIfCurrentVersionParams) (int64, error)
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) error
 	InsertInvitedTeamUser(ctx context.Context, arg InsertInvitedTeamUserParams) (TeamMember, error)
 	LinkOAuth2Credential(ctx context.Context, arg LinkOAuth2CredentialParams) (int64, error)
