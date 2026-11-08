@@ -242,7 +242,6 @@ func TestOutboxConcurrentDispatchSkipsClaimedRow(t *testing.T) {
 	}
 }
 
-
 // TestOutboxRealRedisOutageThenRecovery exercises the production Asynq
 // producer rather than a fake. No durable outbox intent may be acknowledged
 // while Redis is unreachable; the same intent must publish after recovery.
