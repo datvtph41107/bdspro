@@ -348,11 +348,28 @@ func TestSessionOwnershipRevocationAndRefreshDenial(t *testing.T) {
 		t.Fatalf("revoked refresh still renewed: %d", status)
 	}
 	status, _ = authAcceptanceCall(t, server, "/users/me/sessions/revoke_all", http.MethodPost, nil, firstToken)
-	if status != http.StatusNoContent {
-		t.Fatalf("revoke all: %d", status)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("revoked first session was still authorized to revoke all: %d", status)
 	}
-	status, list = authAcceptanceCall(t, server, "/users/me/sessions", http.MethodGet, nil, firstToken)
-	if status != http.StatusOK || len(list["sessions"].([]any)) != 0 {
+	secondToken := secondLogin["access_token"].(string)
+	status, _ = authAcceptanceCall(t, server, "/users/me/sessions/revoke_all", http.MethodPost, nil, secondToken)
+	if status != http.StatusNoContent {
+		t.Fatalf("revoke all using live second session: %d", status)
+	}
+	status, _ = authAcceptanceCall(t, server, "/users/me/sessions", http.MethodGet, nil, secondToken)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("revoked second session still read sessions: %d", status)
+	}
+	status, _ = authAcceptanceCall(t, server, "/users/me", http.MethodGet, nil, otherToken)
+	if status != http.StatusOK {
+		t.Fatalf("revoke all crossed account boundary: %d", status)
+	}
+	status, relogin := authAcceptanceCall(t, server, "/users/login", http.MethodPost, map[string]string{"email": email, "password": "AReallyStrongPassword123"}, "")
+	if status != http.StatusOK {
+		t.Fatalf("fresh session after revoke all: %d %v", status, relogin)
+	}
+	status, list = authAcceptanceCall(t, server, "/users/me/sessions", http.MethodGet, nil, relogin["access_token"].(string))
+	if status != http.StatusOK || len(list["sessions"].([]any)) != 1 {
 		t.Fatalf("revoke all failed: %d %v", status, list)
 	}
 }
