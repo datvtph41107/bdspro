@@ -50,6 +50,9 @@ It is intentionally not implemented as a Redis distributed lock.
   actor cannot block another session.
 - A concurrent two-device revoke-all test requires exactly one commit and
   one `ErrSessionUnavailable`, with no deadlock.
+- A real transaction holding a session `FOR SHARE` may acquire account
+  `FOR KEY SHARE` even while revoke-all holds account `FOR NO KEY UPDATE`.
+  This guards against lock inversion with OAuth consent / account FKs.
 - Existing HTTP G1.2b, OAuth, credential recovery, and Asynq crash tests
   must remain green; SQLC regeneration, Go race, Docker, HTTP smoke are
   full acceptance gates.
