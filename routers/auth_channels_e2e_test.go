@@ -370,7 +370,7 @@ func assertPasswordResetIntent(t *testing.T, ctx context.Context, pool *pgxpool.
 	if err := json.Unmarshal(payload, &data); err != nil {
 		t.Fatal(err)
 	}
-	if len(data) != 1 || data["account_id"] != float64(accountID) {
-		t.Fatalf("reset intent must carry only AccountID: %v", data)
+	if len(data) != 2 || data["account_id"] != float64(accountID) || data["reset_version"] != float64(0) {
+		t.Fatalf("new account reset intent must carry account ID and generation zero only: %v", data)
 	}
 }

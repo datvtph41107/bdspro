@@ -13,7 +13,7 @@ import (
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (person_id, email)
 VALUES ($1, $2)
-RETURNING id, person_id, email, created_at, is_email_verified
+RETURNING id, person_id, email, created_at, is_email_verified, password_reset_version
 `
 
 type CreateAccountParams struct {
@@ -30,6 +30,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.Email,
 		&i.CreatedAt,
 		&i.IsEmailVerified,
+		&i.PasswordResetVersion,
 	)
 	return i, err
 }
@@ -37,7 +38,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 const markEmailVerified = `-- name: MarkEmailVerified :one
 UPDATE accounts SET is_email_verified = TRUE
 WHERE id = $1 AND lower(btrim(email)) = lower(btrim($2))
-RETURNING id, person_id, email, created_at, is_email_verified
+RETURNING id, person_id, email, created_at, is_email_verified, password_reset_version
 `
 
 type MarkEmailVerifiedParams struct {
@@ -54,6 +55,7 @@ func (q *Queries) MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedPa
 		&i.Email,
 		&i.CreatedAt,
 		&i.IsEmailVerified,
+		&i.PasswordResetVersion,
 	)
 	return i, err
 }

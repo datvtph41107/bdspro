@@ -12,11 +12,12 @@ import (
 )
 
 type Account struct {
-	ID              int64     `json:"id"`
-	PersonID        int64     `json:"person_id"`
-	Email           string    `json:"email"`
-	CreatedAt       time.Time `json:"created_at"`
-	IsEmailVerified bool      `json:"is_email_verified"`
+	ID                   int64     `json:"id"`
+	PersonID             int64     `json:"person_id"`
+	Email                string    `json:"email"`
+	CreatedAt            time.Time `json:"created_at"`
+	IsEmailVerified      bool      `json:"is_email_verified"`
+	PasswordResetVersion int64     `json:"password_reset_version"`
 }
 
 type AccountConnectionHistory struct {

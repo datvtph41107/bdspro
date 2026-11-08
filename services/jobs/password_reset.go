@@ -14,15 +14,22 @@ import (
 )
 
 // PasswordResetStore is the minimal data needed to fulfill a reset intent.
-// The Asynq payload is an account id only, never the reset proof.
+// The Asynq payload carries account ID and a non-secret recovery version.
 type PasswordResetStore interface {
 	GetAccountByID(ctx context.Context, id int64) (db.Account, error)
-	CreatePasswordResetToken(ctx context.Context, arg db.CreatePasswordResetTokenParams) error
+	IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, arg db.IssuePasswordResetTokenIfCurrentVersionParams) (int64, error)
 }
 
-// SendPasswordResetEmail issues the proof when executing a durable job.
-// Provider failures return an error for native Asynq retry.
+// SendPasswordResetEmail retains the pre-versioned entry point for callers
+// operating on a never-recovered account (generation zero). Worker transport
+// MUST use SendPasswordResetEmailForVersion with the persisted generation.
 func SendPasswordResetEmail(ctx context.Context, store PasswordResetStore, sender mail.EmailSender, verifyURL string, accountID int64) error {
+	return SendPasswordResetEmailForVersion(ctx, store, sender, verifyURL, accountID, 0)
+}
+
+// SendPasswordResetEmailForVersion only issues proofs for the recovery version
+// captured when the durable job was requested. Provider failures remain retryable.
+func SendPasswordResetEmailForVersion(ctx context.Context, store PasswordResetStore, sender mail.EmailSender, verifyURL string, accountID, resetVersion int64) error {
 	account, err := store.GetAccountByID(ctx, accountID)
 	if err != nil {
 		return err
@@ -42,10 +49,14 @@ func SendPasswordResetEmail(ctx context.Context, store PasswordResetStore, sende
 	}
 	link.Path = "/users/password/reset"
 	link.RawQuery = url.Values{"token": {secret}}.Encode()
-	if err := store.CreatePasswordResetToken(ctx, db.CreatePasswordResetTokenParams{
-		TokenHash: digest[:], AccountID: account.ID,
-	}); err != nil {
+	affected, err := store.IssuePasswordResetTokenIfCurrentVersion(ctx, db.IssuePasswordResetTokenIfCurrentVersionParams{
+		TokenHash: digest[:], AccountID: account.ID, ResetVersion: resetVersion,
+	})
+	if err != nil {
 		return err
+	}
+	if affected != 1 {
+		return nil // Revoked generation, missing account or unverified email.
 	}
 	content := fmt.Sprintf("Set or reset your BDSPro password within 15 minutes: <a href=%q>Set password</a>", html.EscapeString(link.String()))
 	return sender.SendEmail("Reset your BDSPro password", content, []string{account.Email}, nil, nil, nil)

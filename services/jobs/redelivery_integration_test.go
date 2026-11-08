@@ -57,10 +57,10 @@ func TestPasswordResetRedeliveryCannotLeaveAnotherUsableProofAfterRecovery(t *te
 		t.Fatal(err)
 	}
 	mailer := &ambiguousAcceptanceMailer{}
-	if err := SendPasswordResetEmail(ctx, store, mailer, "https://example.test", account.ID); err == nil {
+	if err := SendPasswordResetEmailForVersion(ctx, store, mailer, "https://example.test", account.ID, 0); err == nil {
 		t.Fatal("ambiguous SMTP acceptance must remain retryable")
 	}
-	if err := SendPasswordResetEmail(ctx, store, mailer, "https://example.test", account.ID); err != nil {
+	if err := SendPasswordResetEmailForVersion(ctx, store, mailer, "https://example.test", account.ID, 0); err != nil {
 		t.Fatal(err)
 	}
 	if len(mailer.messages) != 2 {

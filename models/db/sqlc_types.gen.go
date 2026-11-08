@@ -42,6 +42,7 @@ type GetTeamInviteForDeliveryRow = sqlc.GetTeamInviteForDeliveryRow
 type InsertAuditActionParams = sqlc.InsertAuditActionParams
 type InsertAuditEventParams = sqlc.InsertAuditEventParams
 type InsertInvitedTeamUserParams = sqlc.InsertInvitedTeamUserParams
+type IssuePasswordResetTokenIfCurrentVersionParams = sqlc.IssuePasswordResetTokenIfCurrentVersionParams
 type JobOutbox = sqlc.JobOutbox
 type LinkOAuth2CredentialParams = sqlc.LinkOAuth2CredentialParams
 type ListAccountConnectionHistoriesRow = sqlc.ListAccountConnectionHistoriesRow

@@ -13,7 +13,8 @@ import (
 )
 
 // validateCanonicalVersion prevents reinterpreting a database created with
-// another migration ledger. Each canonical migration creates exactly one table.
+// another migration ledger. Versions 1–27 each create one canonical table;
+// version 28 adds the password-reset generation column.
 // In the previous ledger, a version could create, rename or drop many tables;
 // a previously applied version 1..21 is therefore NOT automatically compatible.
 func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
@@ -27,7 +28,7 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	if dirty {
 		return fmt.Errorf("database migration version %d is dirty", version)
 	}
-	if version == 0 || version > 27 {
+	if version == 0 || version > 28 {
 		return fmt.Errorf("unknown migration ledger version %d; provision a fresh canonical database and migrate data explicitly", version)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -39,7 +40,7 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	defer conn.Close(context.Background())
 
 	var tables int
-	var parties, credentials, clients, deprecated bool
+	var parties, credentials, clients, deprecated, resetGeneration bool
 	err = conn.QueryRow(ctx, `SELECT
 		(SELECT count(*)::integer FROM information_schema.tables
 		 WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
@@ -50,14 +51,23 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 		(to_regclass('public.google_identities') IS NOT NULL
 		 OR to_regclass('public.organization_memberships') IS NOT NULL
 		 OR to_regclass('public.oauth2_credentials_archive') IS NOT NULL
-		 OR to_regclass('public.oauth2_identities') IS NOT NULL)`).Scan(
-		&tables, &parties, &credentials, &clients, &deprecated,
+		 OR to_regclass('public.oauth2_identities') IS NOT NULL),
+		EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema='public' AND table_name='accounts'
+			  AND column_name='password_reset_version'
+		)`).Scan(
+		&tables, &parties, &credentials, &clients, &deprecated, &resetGeneration,
 	)
 	if err != nil {
 		return fmt.Errorf("inspect canonical schema: %w", err)
 	}
-	if !parties || tables != int(version) || credentials != (version >= 18) ||
-		clients != (version >= 23) || deprecated {
+	expectedTables := int(version)
+	if version >= 28 {
+		expectedTables = 27 // Version 28 adds an account column, not a table.
+	}
+	if !parties || tables != expectedTables || credentials != (version >= 18) ||
+		clients != (version >= 23) || resetGeneration != (version >= 28) || deprecated {
 		return fmt.Errorf("database at migration version %d does not match the canonical schema (tables=%d); use an explicit data migration; refusing reinterpretation", version, tables)
 	}
 	return nil

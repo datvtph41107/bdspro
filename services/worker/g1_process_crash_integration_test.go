@@ -202,7 +202,7 @@ func TestG1WorkerCrashAfterMailDeliveryAndAutomaticRecovery(t *testing.T) {
 	var outboxID int64
 	err = pool.QueryRow(ctx, `
 		INSERT INTO job_outbox(task_type, payload, queue_name, max_retry, run_at, task_id)
-		VALUES ('task:send_password_reset', jsonb_build_object('account_id', $1::bigint),
+		VALUES ('task:send_password_reset', jsonb_build_object('account_id', $1::bigint, 'reset_version', 0),
 			$2, 3, now(), $3)
 		RETURNING id`, account.ID, queueName, taskID).Scan(&outboxID)
 	if err != nil {

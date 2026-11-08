@@ -47,6 +47,11 @@ func ResetPassword(ctx context.Context, store db.Store, tokenHash []byte, passwo
 		}); err != nil {
 			return err
 		}
+		// Invalidate queued and in-flight password-reset intents from the old generation.
+		// A proof insertion holds FOR SHARE on this same account row.
+		if err := q.BumpPasswordResetVersion(ctx, accountID); err != nil {
+			return err
+		}
 		if err := q.DeletePasswordResetTokensForAccount(ctx, accountID); err != nil {
 			return err
 		}
