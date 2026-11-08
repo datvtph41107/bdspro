@@ -162,7 +162,7 @@ func TestTeamWriteMembershipRevocationRace(t *testing.T) {
 				t.Fatal(err)
 			}
 			if _, err := tx.Exec(ctx,
-				"UPDATE organization_members SET ended_at=now() WHERE id=$1",
+				"UPDATE organization_members SET ended_at=now(), owner_person_id=NULL WHERE id=$1",
 				ownerMembership,
 			); err != nil {
 				t.Fatal(err)
