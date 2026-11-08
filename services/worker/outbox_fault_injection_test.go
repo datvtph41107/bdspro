@@ -291,7 +291,7 @@ func TestOutboxRealRedisOutageThenRecovery(t *testing.T) {
 		}
 	}()
 	info, err := inspector.GetTaskInfo(queueName, taskID)
-	if err != nil || info.Type != "task:test:redis-recovery" {
+	if err != nil || info == nil || info.Type != "task:test:redis-recovery" {
 		t.Fatalf("Redis did not retain expected task: info=%+v err=%v", info, err)
 	}
 	count, err = NewOutboxDispatcher(store, recovered).Dispatch(ctx)
