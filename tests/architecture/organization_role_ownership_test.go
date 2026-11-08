@@ -21,21 +21,21 @@ func TestOrganizationRoleWriteOwnership(t *testing.T) {
 	// These functions exist at the SQLC boundary. Only models/organization
 	// may call them from production (generated sqlc itself is excluded).
 	modelWrite := map[string]bool{
-		"CreateOrganizationMember": true,
-		"PromoteOrganizationMember": true,
-		"DemoteOrganizationOwner": true,
+		"CreateOrganizationMember":              true,
+		"PromoteOrganizationMember":             true,
+		"DemoteOrganizationOwner":               true,
 		"EndOrdinaryOrganizationMemberForOwner": true,
-		"DeleteOrgMemberTeamLinks": true,
+		"DeleteOrgMemberTeamLinks":              true,
 	}
 	// Transaction-bound model operations may be orchestrated only by the
 	// organization service, not directly by Gin handlers or technical modules.
 	serviceWrite := map[string]bool{
-		"PromoteOwnerTx": true,
-		"DemoteOwnerTx": true,
-		"RemoveOrdinaryOrgMemberTx": true,
+		"PromoteOwnerTx":                true,
+		"DemoteOwnerTx":                 true,
+		"RemoveOrdinaryOrgMemberTx":     true,
 		"CountActiveOrganizationOwners": true,
-		"LockRoleChangeOrganization": true,
-		"RequireRoleChangeOwner": true,
+		"LockRoleChangeOrganization":    true,
+		"RequireRoleChangeOwner":        true,
 	}
 	seenModel, seenService := 0, 0
 	for _, dir := range []string{"cmd", "modules", "models", "services", "routers"} {
