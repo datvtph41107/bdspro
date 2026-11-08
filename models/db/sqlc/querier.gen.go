@@ -74,13 +74,13 @@ type Querier interface {
 	// Recheck the caller's session while holding its row lock until commit.
 	LockActingSession(ctx context.Context, arg LockActingSessionParams) (uuid.UUID, error)
 	LockOrganizationCreator(ctx context.Context, actorAccountID int64) (int64, error)
-	// Account FOR UPDATE serializes concurrent revoke-all requests and login
-	// session creation (the session FK takes KEY SHARE on accounts).
-	LockSessionRevocationAccount(ctx context.Context, accountID int64) (int64, error)
 	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
 	LockPhoneOnlyEmailAccount(ctx context.Context, id int64) (int64, error)
 	LockPhoneSignup(ctx context.Context, phoneE164 string) (LockPhoneSignupRow, error)
+	// Account FOR UPDATE serializes concurrent revoke-all requests and login
+	// session creation (the session FK takes KEY SHARE on accounts).
+	LockSessionRevocationAccount(ctx context.Context, accountID int64) (int64, error)
 	LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
 	MarkJobOutboxQueued(ctx context.Context, id int64) error
