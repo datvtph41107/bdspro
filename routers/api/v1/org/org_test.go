@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type organizationHTTPStoreFake struct {
@@ -91,7 +92,7 @@ func (r organizationHTTPRow) Scan(dest ...any) error {
 		*dest[0].(*int64) = 123
 		*dest[1].(*string) = r.store.lastName
 		*dest[2].(*time.Time) = time.Now()
-	case strings.Contains(r.sql, "INSERT INTO organization_members (organization_id, person_id, role)"):
+	case strings.Contains(r.sql, "INSERT INTO organization_members (organization_id, person_id, role, owner_person_id)"):
 		if r.args[0] != int64(123) || r.args[1] != int64(99) || r.args[2] != "owner" {
 			return errors.New("unexpected owner membership arguments")
 		}
@@ -100,6 +101,7 @@ func (r organizationHTTPRow) Scan(dest ...any) error {
 		*dest[2].(*int64) = 99
 		*dest[3].(*string) = "owner"
 		*dest[4].(*time.Time) = time.Now()
+		*dest[6].(*pgtype.Int8) = pgtype.Int8{Int64: 99, Valid: true}
 	default:
 		return errors.New("unexpected SQLC statement")
 	}

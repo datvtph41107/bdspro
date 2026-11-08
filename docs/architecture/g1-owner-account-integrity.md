@@ -25,7 +25,7 @@ all live owners, then apply two CHECK clauses:
 
 The owner person column is a foreign key to the **unique**
 `accounts.person_id` with ON DELETE RESTRICT. Thus a raw delete of
-an active owner's Account fails with SQLSTATE 23503 instead of
+an active owner's Account fails with SQLSTATE 23001 (restrict_violation) instead of
 leaving an owner without a live Account. If an existing owner
 has no Account at migration, the migration fails rather than
 fabricating data. Ordinary `Person` membership without Account stays
@@ -61,7 +61,7 @@ in one explicit operation; a bare SQL DELETE is not a business flow.
 ## Acceptance
 
 Disposable PostgreSQL, SQLC parity, canonical migration v31:
-- delete active owner's Account fails 23503 with owner-account FK;
+- delete active owner's Account fails 23001 with owner-account FK;
 - attempt to construct an owner for an orphan Person fails CHECK/FK;
 - mismatched owner_person_id is rejected;
 - ordinary orphan Person may still join as member;

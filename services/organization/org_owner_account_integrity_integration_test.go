@@ -51,7 +51,7 @@ func TestOwnerAccountDeleteBlockedByDatabaseForeignKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := pool.Exec(ctx, "DELETE FROM accounts WHERE id=$1", d.accountID)
-	requirePGConstraint(t, err, "23503", "organization_members_owner_account_fkey")
+	requirePGConstraint(t, err, "23001", "organization_members_owner_account_fkey")
 	requireOwnerCount(t, ctx, pool, d.orgID, 1)
 	requireOwnerPersonLink(t, ctx, pool, d.orgID, d.actorPersonID, true)
 
@@ -130,7 +130,7 @@ func TestOwnerAccountLinkFollowsTransferAndDemotion(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = pool.Exec(ctx, "DELETE FROM accounts WHERE id=$1", d.recipientAccountID)
-	requirePGConstraint(t, err, "23503", "organization_members_owner_account_fkey")
+	requirePGConstraint(t, err, "23001", "organization_members_owner_account_fkey")
 	requireOwnerPersonLink(t, ctx, pool, d.orgID, d.recipientPersonID, true)
 }
 

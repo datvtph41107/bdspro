@@ -110,7 +110,7 @@ func TestOwnerRevocationSerializesOrganizationWrites(t *testing.T) {
 			}
 			defer tx.Rollback(ctx)
 			if _, err := tx.Exec(ctx,
-				"UPDATE organization_members SET ended_at=now() WHERE id=$1",
+				"UPDATE organization_members SET ended_at=now(), owner_person_id=NULL WHERE id=$1",
 				members[0].ID,
 			); err != nil {
 				t.Fatal(err)
