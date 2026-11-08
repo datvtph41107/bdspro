@@ -1,9 +1,9 @@
 -- name: LockSessionRevocationAccount :one
--- Account FOR UPDATE serializes concurrent revoke-all requests and login
--- session creation (the session FK takes KEY SHARE on accounts).
+-- Account FOR NO KEY UPDATE serializes concurrent revoke-all requests but
+-- stays compatible with FK KEY SHARE during login and OAuth consent.
 SELECT id FROM accounts
 WHERE id = sqlc.arg(account_id)::bigint
-FOR UPDATE;
+FOR NO KEY UPDATE;
 
 -- name: LockActingSession :one
 -- Run only inside the same transaction after LockSessionRevocationAccount.
