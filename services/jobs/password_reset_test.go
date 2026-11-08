@@ -15,31 +15,35 @@ type passwordResetStoreFake struct {
 	accountErr error
 	insertErr  error
 	hashes     [][]byte
+	resetVersion int64
 }
 
 func (s *passwordResetStoreFake) GetAccountByID(_ context.Context, _ int64) (db.Account, error) {
 	return s.account, s.accountErr
 }
-func (s *passwordResetStoreFake) CreatePasswordResetToken(_ context.Context, arg db.CreatePasswordResetTokenParams) error {
+func (s *passwordResetStoreFake) IssuePasswordResetTokenIfCurrentVersion(_ context.Context, arg db.IssuePasswordResetTokenIfCurrentVersionParams) (int64, error) {
 	if s.insertErr != nil {
-		return s.insertErr
+		return 0, s.insertErr
+	}
+	if !s.account.IsEmailVerified || s.resetVersion != arg.ResetVersion {
+		return 0, nil
 	}
 	s.hashes = append(s.hashes, append([]byte(nil), arg.TokenHash...))
-	return nil
+	return 1, nil
 }
 func TestPasswordResetJobGeneratesProofInWorkerAndRetriesSMTP(t *testing.T) {
 	ctx := context.Background()
 	store := &passwordResetStoreFake{account: db.Account{ID: 42, Email: "verified@example.test", IsEmailVerified: true}}
 	sender := &fakeMailSender{fail: errors.New("SMTP unavailable")}
 	url := "https://example.test/users/verify_email"
-	if err := SendPasswordResetEmail(ctx, store, sender, url, 42); err == nil {
+	if err := SendPasswordResetEmail(ctx, store, sender, url, 42, 0); err == nil {
 		t.Fatal("SMTP failure must be retryable")
 	}
 	if len(store.hashes) != 1 || len(sender.content) != 0 {
 		t.Fatal("failed SMTP did not persist token hash")
 	}
 	sender.fail = nil
-	if err := SendPasswordResetEmail(ctx, store, sender, url, 42); err != nil {
+	if err := SendPasswordResetEmail(ctx, store, sender, url, 42, 0); err != nil {
 		t.Fatal(err)
 	}
 	if len(sender.content) != 1 || len(store.hashes) != 2 {
@@ -62,7 +66,7 @@ func TestPasswordResetJobGeneratesProofInWorkerAndRetriesSMTP(t *testing.T) {
 func TestPasswordResetJobSkipsUnverifiedAccounts(t *testing.T) {
 	store := &passwordResetStoreFake{account: db.Account{ID: 9, Email: "unverified@example.test"}}
 	sender := &fakeMailSender{}
-	if err := SendPasswordResetEmail(context.Background(), store, sender, "https://example.test/users/verify_email", 9); err != nil {
+	if err := SendPasswordResetEmail(context.Background(), store, sender, "https://example.test/users/verify_email", 9, 0); err != nil {
 		t.Fatal(err)
 	}
 	if len(store.hashes) != 0 || len(sender.content) != 0 {
