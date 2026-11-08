@@ -25,7 +25,7 @@ BEGIN
      OR to_regclass('public.organization_memberships') IS NOT NULL
      OR to_regclass('public.verification_outbox') IS NOT NULL
      OR EXISTS (SELECT 1 FROM pg_trigger WHERE NOT tgisinternal)
-     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 30 AND NOT dirty)
+     OR NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version = 31 AND NOT dirty)
      OR NOT EXISTS (SELECT 1 FROM information_schema.columns
            WHERE table_schema='public' AND table_name='accounts'
              AND column_name='password_reset_version') THEN

@@ -4,8 +4,8 @@ VALUES ($1, $2)
 RETURNING party_id, name, created_at;
 
 -- name: CreateOrganizationMember :one
-INSERT INTO organization_members (organization_id, person_id, role)
-VALUES ($1, $2, $3)
+INSERT INTO organization_members (organization_id, person_id, role, owner_person_id)
+VALUES ($1, $2, $3, CASE WHEN $3 = 'owner' THEN $2 ELSE NULL END)
 RETURNING id, organization_id, person_id, role, joined_at, ended_at;
 
 -- name: ListOrganizationsForAccount :many
@@ -136,7 +136,7 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- A new owner must be an actual account with a verified contact, not an
 -- orphan Person or a plain unverified account.
 UPDATE organization_members AS m
-SET role = 'owner'
+SET role = 'owner', owner_person_id = m.person_id
 WHERE m.organization_id = sqlc.arg(organization_id)
   AND m.person_id = sqlc.arg(person_id)
   AND m.role = 'member' AND m.ended_at IS NULL
@@ -158,7 +158,7 @@ RETURNING m.id, m.organization_id, m.person_id, m.role, m.joined_at, m.ended_at;
 -- The transaction owns both authorization and the last-owner policy.
 -- Never use this query alone outside that transaction.
 UPDATE organization_members AS m
-SET role = 'member'
+SET role = 'member', owner_person_id = NULL
 WHERE m.organization_id = sqlc.arg(organization_id)
   AND m.person_id = sqlc.arg(person_id)
   AND m.role = 'owner' AND m.ended_at IS NULL

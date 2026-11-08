@@ -82,8 +82,13 @@ via pg_blocking_pids, and tests of:
 - verified email and verified phone eligible, and owner/outsider denied
 - HTTP, canonical migration, SQLC, Gin route inventory, Docker, Asynq CI
 
-The BDSPro database does not currently constrain the owner-count invariant
-for **out-of-band direct SQL writers**. It is a service transaction policy,
-and direct SQLC mutation bypasses it. A separate account deletion policy
-must also prevent deleting the last usable owner. Do not claim global
-invariance or measured p95/p99 latency without those contracts/tests.
+The BDSPro database does not constrain the **owner-count** invariant for
+out-of-band direct SQL writers. It is a service transaction policy;
+direct SQLC demotion can bypass owner count and must be prohibited outside
+the lifecycle service. G1.2c.9 adds a narrower database guarantee: a live
+owner cannot exist without an Account attached to the same Person, and
+account deletion is blocked while its owner membership is active. This is
+independent of account login/credential availability and does not prove
+that a verified or functioning contact method remains accessible. Do not
+claim global owner-count invariance or measured p95/p99 without further
+contracts and test evidence.
