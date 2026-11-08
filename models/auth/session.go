@@ -163,6 +163,22 @@ func MatchesRefreshToken(stored, raw string) bool {
 	return subtle.ConstantTimeCompare([]byte(stored), []byte(expected)) == 1
 }
 
+// RequireActingSession holds the caller's persisted session row FOR UPDATE
+// through a protected write transaction. Call only inside the same transaction
+// as the subsequent mutation; HTTP admission is not a commit-time guarantee.
+func RequireActingSession(ctx context.Context, q *db.Queries, accountID int64, sessionID uuid.UUID) error {
+	if accountID <= 0 || sessionID == uuid.Nil {
+		return ErrSessionUnavailable
+	}
+	_, err := q.LockActingSession(ctx, db.LockActingSessionParams{
+		AccountID: accountID, SessionID: sessionID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrSessionUnavailable
+	}
+	return err
+}
+
 // RequireActiveSession validates persisted session authority for session-bound
 // access JWTs, including first-party protected API admission and OAuth consent.
 func RequireActiveSession(ctx context.Context, reader interface {

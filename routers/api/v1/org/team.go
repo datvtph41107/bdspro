@@ -9,16 +9,18 @@ import (
 	"github.com/datvtph41107/bdspro/modules/structs"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
+	org_service "github.com/datvtph41107/bdspro/services/organization"
 )
 
 // TeamHandler keeps HTTP parsing separate from Team persistence and permissions.
 type TeamHandler struct {
 	store      db.Store
+	team       *org_service.TeamService
 	signingKey string
 }
 
 func NewTeamHandler(store db.Store, signingKey string) *TeamHandler {
-	return &TeamHandler{store: store, signingKey: signingKey}
+	return &TeamHandler{store: store, team: org_service.NewTeamService(store), signingKey: signingKey}
 }
 
 func (h *TeamHandler) Create(c *appctx.APIContext) {
@@ -100,7 +102,7 @@ func (h *TeamHandler) AddMember(c *appctx.APIContext) {
 		appctx.Validation(c.Context, err, &req)
 		return
 	}
-	member, err := organization_model.AddTeamUser(c.Request.Context(), h.store, c.Doer.AccountID, id, req.PersonID)
+	member, err := h.team.AddTeamUser(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -117,7 +119,7 @@ func (h *TeamHandler) RemoveMember(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	if err := organization_model.RemoveTeamUser(c.Request.Context(), h.store, c.Doer.AccountID, teamID, personID); err != nil {
+	if err := h.team.RemoveTeamUser(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, teamID, personID); err != nil {
 		c.APIErrorAuto(err)
 		return
 	}
