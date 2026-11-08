@@ -1,5 +1,10 @@
 # Refresh-session token storage: migration-safe digest
 
+> **Historical storage-rollout discussion.** G1.2b now resolves the live
+> first-party access session on protected HTTP routes. Refresh digest storage
+> is unchanged; see [g1-live-session-authority.md](g1-live-session-authority.md).
+
+
 The API issues a signed access JWT and a signed refresh JWT to clients. The
 refresh JWT remains a bearer credential. PostgreSQL `sessions.refresh_token`
 previously stored that raw credential.
