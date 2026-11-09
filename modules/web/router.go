@@ -1,6 +1,12 @@
 package web
 
-import "github.com/gin-gonic/gin"
+import (
+	"fmt"
+	"reflect"
+
+	"github.com/datvtph41107/bdspro/modules/reqctx"
+	"github.com/gin-gonic/gin"
+)
 
 // Router maps typed HTTP actions into Gin at registration time. Gin remains
 // the only middleware executor. Do not mutate this router after startup.
@@ -55,4 +61,39 @@ func (r *Router[T]) Patch(path string, actions ...func(T)) {
 }
 func (r *Router[T]) Delete(path string, actions ...func(T)) {
 	r.group.DELETE(path, r.handlers(actions)...)
+}
+
+// FormStore owns request-local data through reqctx; web does not manage a
+// separate registry or a global cache. The form is exposed only after binding.
+type FormStore = reqctx.ContextDataProvider
+
+const formKey = "__form"
+
+type JSONFormContext interface {
+	FormStore
+	BindJSON(value any) error
+}
+
+// BindJSON is the single owner of typed JSON decoding and form publication.
+// The API boundary remains responsible for reporting validation failures.
+func BindJSON[T any](ctx JSONFormContext) (*T, error) {
+	form := new(T)
+	if err := ctx.BindJSON(form); err != nil {
+		return form, err
+	}
+	SetForm(ctx, form)
+	return form, nil
+}
+
+func SetForm(store FormStore, value any) {
+	store.GetData()[formKey] = value
+}
+
+func GetForm[T any](store FormStore) T {
+	value := store.GetData()[formKey]
+	form, ok := value.(T)
+	if !ok {
+		panic(fmt.Errorf("web: bound form %T does not match requested %s", value, reflect.TypeFor[T]()))
+	}
+	return form
 }
