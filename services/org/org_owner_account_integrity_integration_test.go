@@ -108,8 +108,7 @@ func TestOwnerAccountLinkRejectsForgedAndOrphanedOwnerButAllowsOrdinaryPerson(t 
 func TestOwnerAccountLinkFollowsTransferAndDemotion(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	d := newOwnerRoleCase(t, ctx, pool, store, true)
-	if _, err := TransferOrganizationOwner(ctx, store, d.accountID, d.sessionID,
-		d.orgID, d.recipientPersonID); err != nil {
+	if _, err := TransferOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); err != nil {
 		t.Fatal(err)
 	}
 	requireOwnerPersonLink(t, ctx, pool, d.orgID, d.actorPersonID, false)
@@ -162,9 +161,7 @@ func TestOwnerPromotionCannotOutliveAccountDeletion(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() {
-		_, err := PromoteOrganizationOwner(ctx,
-			teamPinnedStore{Store: store, conn: promoter},
-			d.accountID, d.sessionID, d.orgID, d.recipientPersonID)
+		_, err := PromoteOwner(organizationActorContext(ctx, teamPinnedStore{Store: store, conn: promoter}, d.accountID, d.sessionID), d.orgID, d.recipientPersonID)
 		done <- err
 	}()
 	waitTeamBlocking(t, ctx, pool, deleter, promoter, done)
