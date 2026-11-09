@@ -91,4 +91,3 @@ func parityRouter(typed bool) (*gin.Engine, *[]string) {
 	teams.POST("", owner, create)
 	return engine, steps
 }
-
