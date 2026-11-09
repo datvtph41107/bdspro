@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
 // actingOrganization resolves the live-session actor and request Store once
 // per operation. It is a source of dependencies, never a grant of permission:
 // the SQLC owner predicates and session row locks remain authoritative.

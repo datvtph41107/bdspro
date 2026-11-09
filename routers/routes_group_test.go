@@ -21,8 +21,8 @@ func TestOrganizationGroupInheritsAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 	server := &Server{
-		tokenMaker:          maker,
-		authHandler:         user.NewAuthHandler(nil, nil, nil),
+		tokenMaker:  maker,
+		authHandler: user.NewAuthHandler(nil, nil, nil),
 	}
 	router := gin.New()
 	apiv1.Routes(router, apiv1.Dependencies{Auth: server.authHandler, TokenMaker: server.tokenMaker, Store: server.store})
