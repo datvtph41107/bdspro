@@ -15,8 +15,8 @@ import (
 func GetAuthenticatedUser(ctx *context.APIContext) {
 	row, err := profile_service.GetAuthenticatedUser(ctx)
 	if err != nil {
-	    ctx.APIErrorAuto(err)
-	    return
+		ctx.APIErrorAuto(err)
+		return
 	}
 	ctx.JSON(http.StatusOK, convert.ToAccountProfile(row))
 }
@@ -26,13 +26,13 @@ func GetAuthenticatedUser(ctx *context.APIContext) {
 func UpdateProfile(ctx *context.APIContext) {
 	form := web.GetForm[*api.ProfileUpdateRequest](ctx)
 	row, err := profile_service.UpdateCurrentProfile(ctx, profile_service.ProfilePatch{
-	    DisplayName: form.DisplayName,
-	    FirstName:   form.FirstName,
-	    LastName:    form.LastName,
+		DisplayName: form.DisplayName,
+		FirstName:   form.FirstName,
+		LastName:    form.LastName,
 	})
 	if err != nil {
-	    ctx.APIErrorAuto(err)
-	    return
+		ctx.APIErrorAuto(err)
+		return
 	}
 	ctx.JSON(http.StatusOK, convert.ToAccountProfile(row))
 }
@@ -41,8 +41,8 @@ func UpdateProfile(ctx *context.APIContext) {
 func GetUserSettings(ctx *context.APIContext) {
 	row, err := profile_service.GetAuthenticatedUser(ctx)
 	if err != nil {
-	    ctx.APIErrorAuto(err)
-	    return
+		ctx.APIErrorAuto(err)
+		return
 	}
 	ctx.JSON(http.StatusOK, convert.ToAccountSettings(row))
 }
@@ -52,13 +52,13 @@ func GetUserSettings(ctx *context.APIContext) {
 func UpdateUserSettings(ctx *context.APIContext) {
 	form := web.GetForm[*api.SettingsUpdateRequest](ctx)
 	row, err := profile_service.UpdateCurrentSettings(ctx, profile_service.SettingsPatch{
-	    Locale:   form.Locale,
-	    Timezone: form.Timezone,
-	    Currency: form.Currency,
+		Locale:   form.Locale,
+		Timezone: form.Timezone,
+		Currency: form.Currency,
 	})
 	if err != nil {
-	    ctx.APIErrorAuto(err)
-	    return
+		ctx.APIErrorAuto(err)
+		return
 	}
 	ctx.JSON(http.StatusOK, convert.ToAccountSettings(row))
 }

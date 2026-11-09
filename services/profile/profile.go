@@ -21,11 +21,11 @@ import (
 func actingProfile(ctx context.Context) (auth_model.Actor, db.Store, error) {
 	actor, ok := auth_model.ActorFromContext(ctx)
 	if !ok {
-	    return auth_model.Actor{}, nil, auth_model.ErrSessionUnavailable
+		return auth_model.Actor{}, nil, auth_model.ErrSessionUnavailable
 	}
 	store, err := db.StoreFromContext(ctx)
 	if err != nil {
-	    return auth_model.Actor{}, nil, err
+		return auth_model.Actor{}, nil, err
 	}
 	return actor, store, nil
 }
@@ -35,7 +35,7 @@ func actingProfile(ctx context.Context) (auth_model.Actor, db.Store, error) {
 func GetAuthenticatedUser(ctx context.Context) (db.GetAccountProfileRow, error) {
 	actor, store, err := actingProfile(ctx)
 	if err != nil {
-	    return db.GetAccountProfileRow{}, err
+		return db.GetAccountProfileRow{}, err
 	}
 	return NewService(store).Show(ctx, actor.AccountID)
 }
@@ -45,7 +45,7 @@ func GetAuthenticatedUser(ctx context.Context) (db.GetAccountProfileRow, error) 
 func UpdateCurrentProfile(ctx context.Context, patch ProfilePatch) (db.GetAccountProfileRow, error) {
 	actor, store, err := actingProfile(ctx)
 	if err != nil {
-	    return db.GetAccountProfileRow{}, err
+		return db.GetAccountProfileRow{}, err
 	}
 	return NewService(store).Update(ctx, actor.AccountID, actor.SessionID, patch)
 }
@@ -54,7 +54,7 @@ func UpdateCurrentProfile(ctx context.Context, patch ProfilePatch) (db.GetAccoun
 func UpdateCurrentSettings(ctx context.Context, patch SettingsPatch) (db.GetAccountProfileRow, error) {
 	actor, store, err := actingProfile(ctx)
 	if err != nil {
-	    return db.GetAccountProfileRow{}, err
+		return db.GetAccountProfileRow{}, err
 	}
 	return NewService(store).UpdateSettings(ctx, actor.AccountID, actor.SessionID, patch)
 }
