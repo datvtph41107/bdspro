@@ -7,18 +7,30 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
 func TestOrganizationInvalidRequestsStopBeforeService(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	// A nil service proves invalid HTTP input never reaches the operation.
-	h := NewHandler(nil)
+	// Invalid public requests must be rejected before any model/DB access.
 	router := gin.New()
-	router.POST("/orgs", appctx.Wrap(h.Create))
-	router.PATCH("/orgs/:id", appctx.Wrap(h.Edit))
-	router.POST("/orgs/:id/members", appctx.Wrap(h.AddMember))
+	m := web.NewRouter[*appctx.APIContext](router.Group(""), appctx.GetAPIContext)
+	m.Post("/orgs", func(c *appctx.APIContext) {
+		form, err := web.BindJSON[structs.CreateOrgOption](c)
+		if err != nil {
+			c.Validation(err, form)
+		}
+	}, Create)
+	m.Patch("/orgs/:id", func(c *appctx.APIContext) {
+		form, err := web.BindJSON[structs.EditOrgOption](c)
+		if err != nil {
+			c.Validation(err, form)
+		}
+	}, Edit)
+	m.Post("/orgs/:id/members", AddMember)
 
 	cases := []struct {
 		name   string

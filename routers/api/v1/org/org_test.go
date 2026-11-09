@@ -9,8 +9,11 @@ import (
 	"testing"
 	"time"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -121,10 +124,32 @@ func TestStoreOrganizationHTTP(t *testing.T) {
 	}
 
 	store := &organizationHTTPStoreFake{sessionID: sessionID}
-	organizations := NewHandler(store)
 	router := gin.New()
-	router.Use(appctx.RequestIngress())
-	router.POST("/orgs", appctx.Authenticate(maker), appctx.Wrap(organizations.Create))
+	router.Use(appctx.RequestIngress(), appctx.APIContexter())
+	router.POST("/orgs", appctx.Authenticate(maker), func(c *gin.Context) {
+		payload, ok := appctx.AuthorizationPayload(c)
+		if !ok {
+			appctx.AuthenticationRequired(c)
+			return
+		}
+		scope := db.WithStore(c.Request.Context(), store)
+		scope = auth_model.WithActor(scope, auth_model.Actor{
+			AccountID: payload.AccountID, SessionID: payload.SessionID,
+		})
+		c.Request = c.Request.WithContext(scope)
+		api := appctx.GetAPIContext(c)
+		api.IsSigned = true
+		api.Doer = payload
+		c.Next()
+	}, func(c *gin.Context) {
+		api := appctx.GetAPIContext(c)
+		form, err := web.BindJSON[structs.CreateOrgOption](api)
+		if err != nil {
+			api.Validation(err, form)
+			return
+		}
+		c.Next()
+	}, appctx.Wrap(Create))
 
 	send := func(body, bearer string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, "/orgs", strings.NewReader(body))

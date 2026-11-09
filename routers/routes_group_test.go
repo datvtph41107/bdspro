@@ -8,7 +8,6 @@ import (
 
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
-	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/gin-gonic/gin"
 )
@@ -24,7 +23,6 @@ func TestOrganizationGroupInheritsAuthentication(t *testing.T) {
 	server := &Server{
 		tokenMaker:          maker,
 		authHandler:         user.NewAuthHandler(nil, nil, nil),
-		organizationHandler: org.NewHandler(nil),
 	}
 	router := gin.New()
 	apiv1.Routes(router, apiv1.Dependencies{Auth: server.authHandler, Organization: server.organizationHandler, TokenMaker: server.tokenMaker, Store: server.store})
