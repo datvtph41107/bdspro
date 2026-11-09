@@ -17,10 +17,10 @@ type SettingsPatch struct {
 
 // UpdateUserSettings coordinates validation, current-session authority, a
 // model-owned SQLC update, and the projection read within one transaction.
-func UpdateUserSettings(ctx context.Context, patch SettingsPatch) (db.GetAccountProfileRow, error) {
+func UpdateUserSettings(ctx context.Context, patch SettingsPatch) (*account_model.Profile, error) {
 	actor, store, err := actingUser(ctx)
 	if err != nil {
-		return db.GetAccountProfileRow{}, err
+		return nil, err
 	}
 	opts := account_model.SettingsUpdateOptions{
 		Locale:   patch.Locale,
@@ -28,14 +28,14 @@ func UpdateUserSettings(ctx context.Context, patch SettingsPatch) (db.GetAccount
 		Currency: patch.Currency,
 	}
 	if err := opts.Validate(); err != nil {
-		return db.GetAccountProfileRow{}, err
+		return nil, err
 	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.GetAccountProfileRow, error) {
+	return db.WithTxResult(ctx, store, func(q *db.Queries) (*account_model.Profile, error) {
 		if err := auth_model.RequireActingSession(ctx, q, actor.AccountID, actor.SessionID); err != nil {
-			return db.GetAccountProfileRow{}, err
+			return nil, err
 		}
 		if err := account_model.UpdateSettings(ctx, q, actor.AccountID, opts); err != nil {
-			return db.GetAccountProfileRow{}, err
+			return nil, err
 		}
 		return account_model.GetProfile(ctx, q, actor.AccountID)
 	})
