@@ -28,6 +28,7 @@ var legacyGroupPrefix = map[string]string{
 	"registerPublicRoutes":        "",
 	"registerAuthenticatedRoutes": "",
 	"registerOrganizationRoutes":  "/organizations",
+	"registerOrgRoutes":           "/orgs",
 	"registerTeamRoutes":          "/teams",
 	"registerPhoneBindRoutes":     "/users/me/phone",
 	"registerSwagger":             "",
