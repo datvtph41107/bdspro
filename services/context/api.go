@@ -5,19 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/gin-gonic/gin"
 )
-
-// Base is the transition HTTP boundary. Its Gin embedding is retained for
-// legacy consumers; typed API actions should use Base and APIContext methods.
-type Base struct {
-	*gin.Context
-	Data map[string]any
-}
 
 type APIContext struct {
 	*Base
@@ -41,7 +33,7 @@ func GetAPIContext(c *gin.Context) *APIContext {
 		panic("context: APIContext type mismatch")
 	}
 	api := &APIContext{
-		Base: &Base{Context: c, Data: make(map[string]any)},
+		Base: NewBaseContext(c),
 		Org:  &APIOrganization{},
 	}
 	c.Set(apiContextKey, api)
@@ -54,28 +46,6 @@ func APIContexter() gin.HandlerFunc {
 		GetAPIContext(c)
 		c.Next()
 	}
-}
-
-func (c *APIContext) GetData() map[string]any {
-	return c.Data
-}
-
-// Forward context.Context to the current HTTP request, including its
-// transaction and verified-actor values installed after APIContexter runs.
-func (c *APIContext) Deadline() (time.Time, bool) {
-	return c.Request.Context().Deadline()
-}
-
-func (c *APIContext) Done() <-chan struct{} {
-	return c.Request.Context().Done()
-}
-
-func (c *APIContext) Err() error {
-	return c.Request.Context().Err()
-}
-
-func (c *APIContext) Value(key any) any {
-	return c.Request.Context().Value(key)
 }
 
 func Wrap(handler APIHandler) gin.HandlerFunc {
