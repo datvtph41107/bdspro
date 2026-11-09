@@ -3,10 +3,13 @@ package web
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/datvtph41107/bdspro/modules/reqctx"
 )
 
-// FormStore belongs to one HTTP request. It is not a global registry.
-type FormStore interface{ GetData() map[string]any }
+// FormStore is exactly the request-data capability created by modules/reqctx.
+// No second form registry or global map is owned by modules/web.
+type FormStore = reqctx.ContextDataProvider
 
 const formKey = "__form"
 

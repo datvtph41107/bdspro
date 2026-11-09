@@ -3,6 +3,8 @@ package context
 import (
 	"net/http"
 
+	"github.com/datvtph41107/bdspro/modules/reqctx"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -43,6 +45,16 @@ func GetAPIContext(c *gin.Context) *APIContext {
 
 func APIContexter() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Request-local data and cleanup belong to modules/reqctx.
+		// Preserve an existing scope if an outer ingress installed one.
+		if reqctx.FromContext(c.Request.Context()) != nil {
+			GetAPIContext(c)
+			c.Next()
+			return
+		}
+		scoped, finished := reqctx.NewRequestContext(c.Request.Context())
+		c.Request = c.Request.WithContext(scoped)
+		defer finished()
 		GetAPIContext(c)
 		c.Next()
 	}
