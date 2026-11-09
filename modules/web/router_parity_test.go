@@ -3,7 +3,7 @@ package web
 import (
 	"net/http"
 	"net/http/httptest"
-	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -44,7 +44,7 @@ func TestTypedRouterNativeGinParity(t *testing.T) {
 				t.Fatalf("response drift: native=%q typed=%q",
 					nativeResponse.Body.String(), typedResponse.Body.String())
 			}
-			if !reflect.DeepEqual(*nativeOrder, tc.order) || !reflect.DeepEqual(*typedOrder, tc.order) {
+			if !slices.Equal(*nativeOrder, tc.order) || !slices.Equal(*typedOrder, tc.order) {
 				t.Fatalf("middleware order native=%v typed=%v want=%v", *nativeOrder, *typedOrder, tc.order)
 			}
 		})
