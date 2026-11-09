@@ -195,8 +195,7 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 }
 
 func registerOrgRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHandler) {
-	route.GET("", appctx.Wrap(d.Organization.List))
-	route.GET("/:id", appctx.Wrap(d.Organization.Get))
+	route.GET("", appctx.Wrap(org.List))
 	route.POST("", appctx.Wrap(d.Organization.Create))
 	route.PATCH("/:id", appctx.Wrap(d.Organization.Edit))
 	route.GET("/:id/members", appctx.Wrap(d.Organization.Members))
@@ -208,10 +207,13 @@ func registerOrgRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHa
 	route.GET("/:id/teams", appctx.Wrap(teams.List))
 	m := web.NewRouter[*appctx.APIContext](route, appctx.GetAPIContext)
 	m.Group("/:id", func() {
+		m.Get("", reqToken(), org.Get)
+	}, orgAssignment(false))
+	m.Group("/:id", func() {
 		m.Group("/teams", func() {
 			m.Post("", reqToken(), reqOrgMembership(), reqOrgOwnership(), bind(api.CreateTeamOption{}), org.CreateTeam)
 		})
-	}, orgAssignment())
+	}, orgAssignment(true))
 }
 
 func registerTeamRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHandler) {

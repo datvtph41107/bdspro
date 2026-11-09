@@ -8,6 +8,7 @@ import (
 	"time"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -37,6 +38,20 @@ func (a Access) OrganizationModel() *Organization {
 		Name:      a.Organization.Name,
 		CreatedAt: a.Organization.CreatedAt,
 	}
+}
+
+// ListForDoer is the account-scoped model read for a verified request.
+// Worker/CLI callers explicitly install the acting principal in their context.
+func ListForDoer(ctx context.Context) ([]Access, error) {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return nil, auth_model.ErrSessionUnavailable
+	}
+	store, err := db.StoreFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ListForAccount(ctx, store, actor.AccountID)
 }
 
 // OrganizationName normalizes the canonical organization name. Both the
