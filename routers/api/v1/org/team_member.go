@@ -6,6 +6,7 @@ import (
 	org_model "github.com/datvtph41107/bdspro/models/organization"
 	api "github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/routers/api/v1/utils"
 	"github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
 	org_service "github.com/datvtph41107/bdspro/services/org"
@@ -19,8 +20,9 @@ func ListTeamMembers(ctx *context.APIContext) {
 		ctx.APIInvalid(err)
 		return
 	}
-	options, ok := teamListOptions(ctx)
-	if !ok {
+	options, err := utils.GetListOptions(ctx)
+	if err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
 	members, err := org_model.ListTeamUsersForDoer(ctx, teamID, options)
