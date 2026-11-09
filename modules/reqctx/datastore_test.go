@@ -2,7 +2,6 @@ package reqctx
 
 import (
 	"context"
-	"errors"
 	"io"
 	"sync"
 	"testing"
@@ -72,5 +71,4 @@ func TestRequestStoreConcurrentCleanupRegistration(t *testing.T) {
 	if called != 10 {
 		t.Fatalf("cleanup count=%d", called)
 	}
-	_ = errors.New("test sentinel")
 }
