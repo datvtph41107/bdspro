@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 )
@@ -104,3 +105,25 @@ func TestModelRejectsMissingAccountOrUncommittedWrite(t *testing.T) {
 }
 
 func ptrString(value string) *string { return &value }
+
+func TestProfileFromDBKeepsEveryAccountProjectionField(t *testing.T) {
+	created := time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
+	row := db.GetAccountProfileRow{
+		AccountID: 11, PersonID: 12, Email: "user@example.test",
+		IsEmailVerified: true, CreatedAt: created,
+		DisplayName: "Visible", FirstName: "First", LastName: "Last",
+		Locale: "vi", Timezone: "Asia/Ho_Chi_Minh", Currency: "VND",
+		HasPassword: true, HasPhone: false, HasOauth2: true,
+	}
+	got := ProfileFromDB(row)
+	want := Profile{
+		AccountID: 11, PersonID: 12, Email: "user@example.test",
+		IsEmailVerified: true, CreatedAt: created,
+		DisplayName: "Visible", FirstName: "First", LastName: "Last",
+		Locale: "vi", Timezone: "Asia/Ho_Chi_Minh", Currency: "VND",
+		HasPassword: true, HasPhone: false, HasOAuth2: true,
+	}
+	if got == nil || *got != want {
+		t.Fatalf("generated SQLC projection leaked or changed fields: got=%+v want=%+v", got, want)
+	}
+}

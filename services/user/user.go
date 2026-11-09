@@ -24,10 +24,10 @@ func actingUser(ctx context.Context) (auth_model.Actor, db.Store, error) {
 }
 
 // GetAuthenticatedUser loads the currently signed-in account projection.
-func GetAuthenticatedUser(ctx context.Context) (db.GetAccountProfileRow, error) {
+func GetAuthenticatedUser(ctx context.Context) (*account_model.Profile, error) {
 	actor, store, err := actingUser(ctx)
 	if err != nil {
-		return db.GetAccountProfileRow{}, err
+		return nil, err
 	}
 	return account_model.GetProfile(ctx, store, actor.AccountID)
 }

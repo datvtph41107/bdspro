@@ -60,7 +60,7 @@ func TestProfileAndSettingsOwnershipInPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	if p1.PersonID != first.PersonID || p2.PersonID != second.PersonID ||
-		!p1.HasPassword || p1.HasOauth2 || !p2.HasOauth2 || p2.HasPassword ||
+		!p1.HasPassword || p1.HasOAuth2 || !p2.HasOAuth2 || p2.HasPassword ||
 		p1.DisplayName != "" || p1.Locale != "vi" || p2.Currency != "VND" {
 		t.Fatalf("incorrect profile/credential projection: first=%+v second=%+v", p1, p2)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -11,6 +12,46 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// Profile is the account model exposed to services. It is distinct from
+// the SQLC-generated GetAccountProfileRow and from HTTP response structs.
+// The model package owns the single conversion from persistence data.
+type Profile struct {
+	AccountID       int64
+	PersonID        int64
+	Email           string
+	IsEmailVerified bool
+	CreatedAt       time.Time
+	DisplayName     string
+	FirstName       string
+	LastName        string
+	Locale          string
+	Timezone        string
+	Currency        string
+	HasPassword     bool
+	HasPhone        bool
+	HasOAuth2       bool
+}
+
+// ProfileFromDB translates the generated SQL projection at the model boundary.
+func ProfileFromDB(row db.GetAccountProfileRow) *Profile {
+	return &Profile{
+		AccountID:       row.AccountID,
+		PersonID:        row.PersonID,
+		Email:           row.Email,
+		IsEmailVerified: row.IsEmailVerified,
+		CreatedAt:       row.CreatedAt,
+		DisplayName:     row.DisplayName,
+		FirstName:       row.FirstName,
+		LastName:        row.LastName,
+		Locale:          row.Locale,
+		Timezone:        row.Timezone,
+		Currency:        row.Currency,
+		HasPassword:     row.HasPassword,
+		HasPhone:        row.HasPhone,
+		HasOAuth2:       row.HasOauth2,
+	}
+}
 
 // ProfileQueries is the SQLC capability for account profile persistence.
 // The caller's verified account ID must never be replaced with client input.
@@ -90,15 +131,18 @@ func settingText(value *string) pgtype.Text {
 	return pgtype.Text{String: *value, Valid: true}
 }
 
-func GetProfile(ctx context.Context, q ProfileQueries, accountID int64) (db.GetAccountProfileRow, error) {
+func GetProfile(ctx context.Context, q ProfileQueries, accountID int64) (*Profile, error) {
 	if accountID <= 0 {
-		return db.GetAccountProfileRow{}, ErrAccountUnavailable
+		return nil, ErrAccountUnavailable
 	}
-	profile, err := q.GetAccountProfile(ctx, accountID)
+	row, err := q.GetAccountProfile(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.GetAccountProfileRow{}, ErrAccountUnavailable
+		return nil, ErrAccountUnavailable
 	}
-	return profile, err
+	if err != nil {
+		return nil, err
+	}
+	return ProfileFromDB(row), nil
 }
 
 // UpdateProfile owns SQLC-specific field mapping and row-count validation.
