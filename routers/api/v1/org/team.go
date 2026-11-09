@@ -65,4 +65,3 @@ func ListTeams(ctx *context.APIContext) {
 	}
 	ctx.JSON(http.StatusOK, convert.ToTeams(teams))
 }
-
