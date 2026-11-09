@@ -40,6 +40,7 @@ Their code is not interchangeable just because they are siblings.
 - [Business services](services.md): business operations, queue adapters and transaction ownership.
 - [Routers and transports](routers.md): Gin protocol, handlers and API public contracts.
 - [C03.1 — Typed Team list and form ownership](c03-typed-team-actions.md): preserve Gin and SQLC while migrating one endpoint to Gitea-style actions.
+- [C03.2 — Team membership actions](c03-team-membership-actions.md): preserve session and owner transaction authority while removing HTTP receivers.
 
 - [Database](data.md): SQLC, migrations and connection lifecycle.
 - [HTTP request path](http.md): admission, middleware and response.

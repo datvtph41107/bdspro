@@ -183,3 +183,72 @@ func TestTeamInvitationRevokeHTTP(t *testing.T) {
 		t.Fatalf("revoked invitation accepted: %d %v", status, rejected)
 	}
 }
+
+func TestTeamMembershipActionsPreserveOwnerAndSQLCContracts(t *testing.T) {
+	ctx, pool, server, _ := authAcceptanceServer(t)
+	_, ownerBearer := organizationTestVerifiedAccount(t, ctx, pool)
+	recipientID, recipientBearer := organizationTestVerifiedAccount(t, ctx, pool)
+	_, outsiderBearer := organizationTestVerifiedAccount(t, ctx, pool)
+	store := db.NewStore(pool)
+	recipient, err := store.GetAccountByID(ctx, recipientID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, org := authAcceptanceCall(t, server, "/orgs", http.MethodPost,
+		map[string]string{"name": "Membership HTTP " + uuid.NewString()}, ownerBearer)
+	if status != http.StatusCreated {
+		t.Fatalf("create org: %d %v", status, org)
+	}
+	orgID := int64(org["party_id"].(float64))
+	status, _ = authAcceptanceCall(t, server, fmt.Sprintf("/orgs/%d/members", orgID),
+		http.MethodPost, map[string]int64{"person_id": recipient.PersonID}, ownerBearer)
+	if status != http.StatusCreated {
+		t.Fatalf("recipient must join Organization: %d", status)
+	}
+	status, team := authAcceptanceCall(t, server, fmt.Sprintf("/orgs/%d/teams", orgID),
+		http.MethodPost, map[string]string{"name": "Backend"}, ownerBearer)
+	if status != http.StatusCreated {
+		t.Fatalf("create team: %d %v", status, team)
+	}
+	teamID := int64(team["id"].(float64))
+	path := fmt.Sprintf("/teams/%d/members", teamID)
+	add := map[string]int64{"person_id": recipient.PersonID}
+	status, denied := authAcceptanceCall(t, server, path, http.MethodPost, add, recipientBearer)
+	if status != http.StatusForbidden || denied["code"] != "organization.team_owner_required" {
+		t.Fatalf("non-owner created membership: %d %v", status, denied)
+	}
+	status, created := authAcceptanceCall(t, server, path, http.MethodPost, add, ownerBearer)
+	if status != http.StatusCreated || int64(created["person_id"].(float64)) != recipient.PersonID {
+		t.Fatalf("owner could not add member: %d %v", status, created)
+	}
+	status, duplicate := authAcceptanceCall(t, server, path, http.MethodPost, add, ownerBearer)
+	if status != http.StatusConflict || duplicate["code"] != "organization.team_member_exists" {
+		t.Fatalf("duplicate insertion not rejected: %d %v", status, duplicate)
+	}
+	status, members := organizationGetJSON(t, server, path+"?page=1&limit=20", recipientBearer)
+	if status != http.StatusOK || len(members.([]any)) != 1 {
+		t.Fatalf("member cannot read Team: %d %v", status, members)
+	}
+	status, _ = organizationGetJSON(t, server, path, outsiderBearer)
+	if status != http.StatusNotFound {
+		t.Fatalf("outsider leaked Team member data: %d", status)
+	}
+	deletePath := fmt.Sprintf("%s/%d", path, recipient.PersonID)
+	status, denied = authAcceptanceCall(t, server, deletePath, http.MethodDelete, nil, recipientBearer)
+	if status != http.StatusForbidden || denied["code"] != "organization.team_owner_required" {
+		t.Fatalf("nonowner removed member: %d %v", status, denied)
+	}
+	status, _ = authAcceptanceCall(t, server, deletePath, http.MethodDelete, nil, ownerBearer)
+	if status != http.StatusNoContent {
+		t.Fatalf("owner could not remove member: %d", status)
+	}
+	var count int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM team_members WHERE team_id=$1 AND person_id=$2",
+		teamID, recipient.PersonID).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("membership survived deletion: count=%d err=%v", count, err)
+	}
+	status, _ = authAcceptanceCall(t, server, deletePath, http.MethodDelete, nil, ownerBearer)
+	if status != http.StatusNotFound {
+		t.Fatalf("duplicate deletion must fail: %d", status)
+	}
+}

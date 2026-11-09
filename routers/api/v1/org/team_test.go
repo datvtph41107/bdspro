@@ -20,13 +20,9 @@ func TestTeamHandlersRejectMalformedInputsWithoutDatabase(t *testing.T) {
 		body   string
 		serve  appctx.APIHandler
 	}{
-		{http.MethodGet, "/teams/1/members?page=invalid", "/teams/:team_id/members", "", handler.Members},
-		{http.MethodGet, "/teams/1/members?limit=-1", "/teams/:team_id/members", "", handler.Members},
 		{http.MethodPost, "/orgs/1/teams", "/orgs/:id/teams", "{}", handler.Create},
 		{http.MethodGet, "/teams/invalid", "/teams/:team_id", "", handler.Get},
 		{http.MethodPatch, "/teams/1", "/teams/:team_id", "{}", handler.Edit},
-		{http.MethodPost, "/teams/1/members", "/teams/:team_id/members", "{}", handler.AddMember},
-		{http.MethodDelete, "/teams/1/members/invalid", "/teams/:team_id/members/:person_id", "", handler.RemoveMember},
 	}
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
