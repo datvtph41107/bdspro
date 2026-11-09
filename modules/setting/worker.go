@@ -11,17 +11,17 @@ import (
 // CORS and JWT access/refresh TTL configuration.
 type WorkerSettings struct {
 	DatabaseCommandSettings
-	Environment string
-	RedisAddress string
-	TokenSymmetricKey string
+	Environment        string
+	RedisAddress       string
+	TokenSymmetricKey  string
 	AuditRetentionDays int
 
-	EmailSenderName string
-	EmailSenderAddress string
+	EmailSenderName     string
+	EmailSenderAddress  string
 	EmailSenderPassword string
-	SMTPAddress string
-	SMTPAuth bool
-	VerifyEmailURL string
+	SMTPAddress         string
+	SMTPAuth            bool
+	VerifyEmailURL      string
 }
 
 func LoadWorkerSettings(filename string) (WorkerSettings, error) {
@@ -35,14 +35,14 @@ func LoadWorkerSettings(filename string) (WorkerSettings, error) {
 	}
 	cfg := WorkerSettings{
 		DatabaseCommandSettings: database,
-		Environment: LoadCommonSettings(provider).RunMode,
-		RedisAddress: provider.String("redis", "ADDR"),
-		TokenSymmetricKey: provider.String("security", "TOKEN_SYMMETRIC_KEY"),
-		EmailSenderName: provider.String("mailer", "EMAIL_SENDER_NAME"),
-		EmailSenderAddress: provider.String("mailer", "EMAIL_SENDER_ADDRESS"),
-		EmailSenderPassword: provider.String("mailer", "EMAIL_SENDER_PASSWORD"),
-		SMTPAddress: provider.String("mailer", "SMTP_ADDRESS"),
-		VerifyEmailURL: provider.String("mailer", "VERIFY_EMAIL_URL"),
+		Environment:             LoadCommonSettings(provider).RunMode,
+		RedisAddress:            provider.String("redis", "ADDR"),
+		TokenSymmetricKey:       provider.String("security", "TOKEN_SYMMETRIC_KEY"),
+		EmailSenderName:         provider.String("mailer", "EMAIL_SENDER_NAME"),
+		EmailSenderAddress:      provider.String("mailer", "EMAIL_SENDER_ADDRESS"),
+		EmailSenderPassword:     provider.String("mailer", "EMAIL_SENDER_PASSWORD"),
+		SMTPAddress:             provider.String("mailer", "SMTP_ADDRESS"),
+		VerifyEmailURL:          provider.String("mailer", "VERIFY_EMAIL_URL"),
 	}
 	if cfg.RedisAddress == "" {
 		return cfg, fmt.Errorf("redis.ADDR is required for worker")

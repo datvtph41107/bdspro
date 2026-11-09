@@ -49,7 +49,7 @@ func TestWorkerCannotBypassSigningKeyValidation(t *testing.T) {
 }
 
 func TestWorkerValidatesOwnDependencies(t *testing.T) {
-	for _, tc := range []struct { name, raw, want string }{
+	for _, tc := range []struct{ name, raw, want string }{
 		{"missing_database", strings.Replace(minimumWorkerConfig, "DB_SOURCE = postgres://user:secret@localhost:5432/bdspro", "", 1), "DB_SOURCE"},
 		{"missing_redis", strings.Replace(minimumWorkerConfig, "ADDR = 127.0.0.1:6379", "", 1), "redis.ADDR"},
 		{"invalid_audit", minimumWorkerConfig + "[audit]\nRETENTION_DAYS = 5000\n", "RETENTION_DAYS"},
