@@ -2,7 +2,6 @@ package org
 
 import (
 	"net/http"
-	"strconv"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
@@ -42,23 +41,6 @@ func (h *TeamHandler) Create(c *appctx.APIContext) {
 		return
 	}
 	c.JSON(http.StatusCreated, convert.ToTeam(team))
-}
-
-func (h *TeamHandler) List(c *appctx.APIContext) {
-	orgID, ok := organizationID(c)
-	if !ok {
-		return
-	}
-	opts, ok := teamListOptions(c)
-	if !ok {
-		return
-	}
-	teams, err := organization_model.ListTeams(c, h.store, c.Doer.AccountID, orgID, opts)
-	if err != nil {
-		c.APIErrorAuto(err)
-		return
-	}
-	c.JSON(http.StatusOK, convert.ToTeams(teams))
 }
 
 func (h *TeamHandler) Get(c *appctx.APIContext) {
@@ -135,18 +117,3 @@ func positivePathID(c *appctx.APIContext, key string) (int64, bool) {
 	return id, true
 }
 
-// teamListOptions is the HTTP pagination policy for team lists and team
-// membership lists. Model operations still validate offsets before SQLC.
-func teamListOptions(c *appctx.APIContext) (db.ListOptions, bool) {
-	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-	if err != nil || page < 1 {
-		c.APIInvalid(err)
-		return db.ListOptions{}, false
-	}
-	limit, err := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	if err != nil || limit < 1 {
-		c.APIInvalid(err)
-		return db.ListOptions{}, false
-	}
-	return db.NewListOptions(page, limit, 20, 100), true
-}

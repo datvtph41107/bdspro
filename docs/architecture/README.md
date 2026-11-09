@@ -4,6 +4,8 @@
 `services/`, `models/db/`, `db/`, `templates/`.
 Former `internal/` references live in [historical records](../archive/README.md).
 
+- [C03.1 — Typed Team list and form ownership](c03-typed-team-actions.md): preserve Gin and SQLC while migrating one endpoint to Gitea-style actions.
+
 ## Execution paths
 
 ```text

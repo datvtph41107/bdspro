@@ -20,11 +20,6 @@ func TestTeamHandlersRejectMalformedInputsWithoutDatabase(t *testing.T) {
 		body   string
 		serve  appctx.APIHandler
 	}{
-		{http.MethodGet, "/orgs/invalid/teams", "/orgs/:id/teams", "", handler.List},
-		{http.MethodGet, "/orgs/1/teams?page=invalid", "/orgs/:id/teams", "", handler.List},
-		{http.MethodGet, "/orgs/1/teams?limit=0", "/orgs/:id/teams", "", handler.List},
-		{http.MethodGet, "/orgs/1/teams?page=-1", "/orgs/:id/teams", "", handler.List},
-		{http.MethodGet, "/orgs/1/teams?page=999999999999999999999999999", "/orgs/:id/teams", "", handler.List},
 		{http.MethodGet, "/teams/1/members?page=invalid", "/teams/:team_id/members", "", handler.Members},
 		{http.MethodGet, "/teams/1/members?limit=-1", "/teams/:team_id/members", "", handler.Members},
 		{http.MethodPost, "/orgs/1/teams", "/orgs/:id/teams", "{}", handler.Create},
@@ -49,6 +44,26 @@ func TestTeamHandlersRejectMalformedInputsWithoutDatabase(t *testing.T) {
 			}
 			response := httptest.NewRecorder()
 			router.ServeHTTP(response, req)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("status=%d want=400: %s", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
+func TestListTeamsActionRejectsInvalidPaginationWithoutDatabase(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, path := range []string{
+		"/orgs/1/teams?page=invalid",
+		"/orgs/1/teams?limit=0",
+		"/orgs/1/teams?page=-1",
+		"/orgs/1/teams?page=999999999999999999999999999",
+	} {
+		t.Run(path, func(t *testing.T) {
+			router := gin.New()
+			router.GET("/orgs/:id/teams", appctx.Wrap(ListTeams))
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
 			if response.Code != http.StatusBadRequest {
 				t.Fatalf("status=%d want=400: %s", response.Code, response.Body.String())
 			}

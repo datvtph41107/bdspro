@@ -203,11 +203,11 @@ func registerOrgRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHa
 	route.PUT("/:id/owners/:person_id", appctx.Wrap(d.Organization.PromoteOwner))
 	route.DELETE("/:id/owners/:person_id", appctx.Wrap(d.Organization.DemoteOwner))
 	route.POST("/:id/owners/transfer", appctx.Wrap(d.Organization.TransferOwner))
-	route.GET("/:id/teams", appctx.Wrap(teams.List))
 	m := web.NewRouter[*appctx.APIContext](route, appctx.GetAPIContext)
 	m.Post("", reqToken(), bind(api.CreateOrgOption{}), org.Create)
 	m.Group("/:id", func() {
 		m.Get("", reqToken(), org.Get)
+		m.Get("/teams", reqToken(), reqOrgMembership(), org.ListTeams)
 	}, orgAssignment(nil))
 	m.Group("/:id", func() {
 		m.Patch("", reqToken(), reqOrgOwnership(organization_model.ErrOrganizationOwnerRequired), bind(api.EditOrgOption{}), org.Edit)
