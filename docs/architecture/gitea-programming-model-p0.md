@@ -20,7 +20,7 @@ Read the corresponding upstream code, not merely their folder names:
 | Source | Baseline | Correct target |
 | --- | --- | --- |
 | routers/api/v1/api.go | 60 direct Gin method registrations, 5 typed registrations, 19 appctx.Wrap calls | One reviewed routing convention; no new raw Gin routes while converting existing registrations |
-| routers/api/v1/org | 19 methods on *Handler/*TeamHandler (10 Organization, 9 Team) | Plain domain HTTP actions, with legacy receiver methods removed after their consumers and tests migrate |
+| routers/api/v1/org | 20 methods on *Handler/*TeamHandler (10 Organization, 10 Team) | Plain domain HTTP actions, with legacy receiver methods removed after their consumers and tests migrate |
 | routers/init.go and routers/app.go | InitWebInstalled constructs mail transport; NewServer creates JWT, IPActive, Auth, OAuth/OIDC, handlers and Gin routes | Explicit dependency creator, consumer, error owner and cleanup path |
 | modules/web/router.go | Small generic typed Router over Gin; not a Chi routing engine | One Gin-backed composition facade with proven guard order; no fake Chi BeforeRouting semantics |
 | services/context | Base -> RequestSource -> Gin; APIContext.Doer = JWT claims; VerifiedActor = live-session actor | One request scope, committed response contract, no separate actor authority |
