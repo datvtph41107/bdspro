@@ -22,6 +22,10 @@ https://github.com/go-gitea/gitea/blob/main/modules/setting/setting.go
 
 Maintenance commands should remain executable with no `[server]`, `[redis]`, `[security]` or `[oauth2]` settings, and do not require a migration URL. `cleanup` alone validates audit retention. The shared `LogGlobalConfig.Validate` establishes one source of log-mode/level/format validation for all commands.
 
+## HTTP lifecycle follow-on
+
+- [R01.9c HTTP readiness and bounded shutdown](r019-http-shutdown.md): reject pre-canceled startup, force-close active connections when graceful drain times out, and capture real TCP negative tests.
+
 ## Invariants / not claimed
 
 - `loadSettings` still drives web and worker and validates all current security prerequisites. Command scope is not permission to weaken web auth admission.
