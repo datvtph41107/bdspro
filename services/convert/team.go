@@ -10,12 +10,12 @@ import (
 // conversions stay until every Team endpoint has migrated.
 func ToTeamModel(team *organization_model.Team) structs.Team {
 	return structs.Team{
-		ID: team.ID,
+		ID:             team.ID,
 		OrganizationID: team.OrgID,
-		Name: team.Name,
-		Description: team.Description,
-		CreatedAt: team.CreatedAt,
-		UpdatedAt: team.UpdatedAt,
+		Name:           team.Name,
+		Description:    team.Description,
+		CreatedAt:      team.CreatedAt,
+		UpdatedAt:      team.UpdatedAt,
 	}
 }
 

@@ -23,9 +23,9 @@ type APIContext struct {
 	*Base
 	// Doer is the verified first-party session principal; conversion to an
 	// Account model is a separate authentication migration.
-	Doer *authcrypto.Payload
+	Doer     *authcrypto.Payload
 	IsSigned bool
-	Org *APIOrganization
+	Org      *APIOrganization
 }
 
 type APIHandler func(*APIContext)
@@ -42,7 +42,7 @@ func GetAPIContext(c *gin.Context) *APIContext {
 	}
 	api := &APIContext{
 		Base: &Base{Context: c, Data: make(map[string]any)},
-		Org: &APIOrganization{},
+		Org:  &APIOrganization{},
 	}
 	c.Set(apiContextKey, api)
 	return api
