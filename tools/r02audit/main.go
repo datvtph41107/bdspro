@@ -38,6 +38,7 @@ var legacyGroupPrefix = map[string]string{
 var legacyHTTPMethods = map[string]bool{
 	"GET": true, "POST": true, "PUT": true, "PATCH": true,
 	"DELETE": true, "HEAD": true, "OPTIONS": true,
+	"Get": true, "Post": true, "Put": true, "Patch": true, "Delete": true, "Head": true, "Options": true,
 }
 
 type route struct {
@@ -80,12 +81,62 @@ func selectorText(expr ast.Expr) string {
 	}
 }
 
+// extractRoutes follows both legacy Gin route declarations and typed
+// Gitea-style m.Group(path, func(){...}) callbacks. It does not infer
+// dynamic path construction: runtime/OpenAPI parity tests cover those cases.
 func extractRoutes(filename string, src any) ([]route, error) {
 	file, err := parser.ParseFile(token.NewFileSet(), filename, src, 0)
 	if err != nil {
 		return nil, err
 	}
 	var found []route
+
+	var visit func(*ast.BlockStmt, string, string)
+	visit = func(body *ast.BlockStmt, prefix, source string) {
+		if body == nil {
+			return
+		}
+		ast.Inspect(body, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok || len(call.Args) == 0 {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			if sel.Sel.Name == "Group" && len(call.Args) >= 2 {
+				segment, literal := literalString(call.Args[0])
+				if literal {
+					for _, arg := range call.Args[1:] {
+						if callback, ok := arg.(*ast.FuncLit); ok {
+							visit(callback.Body, prefix+segment, source)
+							return false
+						}
+					}
+				}
+			}
+			if len(call.Args) < 2 || !legacyHTTPMethods[sel.Sel.Name] {
+				return true
+			}
+			path, ok := literalString(call.Args[0])
+			if !ok || (!strings.HasPrefix(path, "/") && path != "") {
+				return true
+			}
+			full := prefix + path
+			if full == "" {
+				full = "/"
+			}
+			found = append(found, route{
+				Method:  strings.ToUpper(sel.Sel.Name),
+				Path:    full,
+				Handler: selectorText(call.Args[len(call.Args)-1]),
+				Source:  source,
+			})
+			return true
+		})
+	}
+
 	for _, decl := range file.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if !ok || fn.Body == nil {
@@ -95,31 +146,7 @@ func extractRoutes(filename string, src any) ([]route, error) {
 		if !known {
 			continue
 		}
-		ast.Inspect(fn.Body, func(n ast.Node) bool {
-			call, ok := n.(*ast.CallExpr)
-			if !ok || len(call.Args) < 2 {
-				return true
-			}
-			sel, ok := call.Fun.(*ast.SelectorExpr)
-			if !ok || !legacyHTTPMethods[sel.Sel.Name] {
-				return true
-			}
-			path, ok := literalString(call.Args[0])
-			if !ok || !strings.HasPrefix(path, "/") && path != "" {
-				return true
-			}
-			full := prefix + path
-			if full == "" {
-				full = "/"
-			}
-			found = append(found, route{
-				Method:  sel.Sel.Name,
-				Path:    full,
-				Handler: selectorText(call.Args[len(call.Args)-1]),
-				Source:  fn.Name.Name,
-			})
-			return true
-		})
+		visit(fn.Body, prefix, fn.Name.Name)
 	}
 	sort.Slice(found, func(i, j int) bool {
 		return routeKey(found[i].Method, found[i].Path) < routeKey(found[j].Method, found[j].Path)

@@ -2,8 +2,22 @@ package convert
 
 import (
 	db "github.com/datvtph41107/bdspro/models/db"
+	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/structs"
 )
+
+// ToTeamModel is the domain-model to public-API conversion. Existing DB
+// conversions stay until every Team endpoint has migrated.
+func ToTeamModel(team *organization_model.Team) structs.Team {
+	return structs.Team{
+		ID:             team.ID,
+		OrganizationID: team.OrgID,
+		Name:           team.Name,
+		Description:    team.Description,
+		CreatedAt:      team.CreatedAt,
+		UpdatedAt:      team.UpdatedAt,
+	}
+}
 
 func ToTeam(team db.Team) structs.Team {
 	return structs.Team{

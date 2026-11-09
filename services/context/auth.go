@@ -25,6 +25,9 @@ func Authenticate(maker authcrypto.Maker) gin.HandlerFunc {
 			return
 		}
 		ctx.Set(AuthorizationPayloadKey, payload)
+		// Signed JWT claims can be exposed to legacy handlers, but do not
+		// grant session authority: IsSigned remains false until RequireSession.
+		GetAPIContext(ctx).Doer = payload
 		ctx.Next()
 	}
 }

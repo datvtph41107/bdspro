@@ -6,6 +6,8 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
+	api "github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
@@ -204,7 +206,12 @@ func registerOrgRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHa
 	route.DELETE("/:id/owners/:person_id", appctx.Wrap(d.Organization.DemoteOwner))
 	route.POST("/:id/owners/transfer", appctx.Wrap(d.Organization.TransferOwner))
 	route.GET("/:id/teams", appctx.Wrap(teams.List))
-	route.POST("/:id/teams", appctx.Wrap(teams.Create))
+	m := web.NewRouter[*appctx.APIContext](route, appctx.GetAPIContext)
+	m.Group("/:id", func() {
+		m.Group("/teams", func() {
+			m.Post("", reqToken(), reqOrgMembership(), reqOrgOwnership(), bind(api.CreateTeamOption{}), org.CreateTeam)
+		})
+	}, orgAssignment())
 }
 
 func registerTeamRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHandler) {
@@ -212,7 +219,10 @@ func registerTeamRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamH
 		d.IPActive.For(ipactive.AcceptTeamInvite),
 		appctx.Wrap(teams.AcceptInvite),
 	)
-	route.GET("/:team_id", appctx.Wrap(teams.Get))
+	m := web.NewRouter[*appctx.APIContext](route, appctx.GetAPIContext)
+	m.Group("/:team_id", func() {
+		m.Get("", reqToken(), org.GetTeam)
+	}, teamAssignment())
 	route.PATCH("/:team_id", appctx.Wrap(teams.Edit))
 	route.GET("/:team_id/members", appctx.Wrap(teams.Members))
 	route.POST("/:team_id/members", appctx.Wrap(teams.AddMember))
