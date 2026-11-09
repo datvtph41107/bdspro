@@ -11,7 +11,7 @@
 
 1. Keep Gin as the **only middleware executor** and preserve the existing `Router[T]` typed action adapter. Chi's `BeforeRouting`/`AfterRouting` semantics are not identical to Gin's `Use` and route-group chains. Do not implement an inaccurate second routing layer to mimic method names.
 2. `modules/web.BindJSON[T]` combines typed JSON binding and request-scoped form storage, publishing only successful bindings. The API-boundary helper still owns public validation error rendering. No `services/context` import may enter `modules/web`.
-3. Convert one production endpoint `GET /orgs/:id/teams` from `TeamHandler.List` to `org.ListTeams`. Its Group loads the assigned Organization through `orgAssignment(nil)`; the action uses `VerifiedActor` and `db.StoreFromContext` to call existing account-filtered SQLC-backed model operations. No second authorization algorithm, transaction API, converter or output schema.
+3. Convert one production endpoint `GET /orgs/:id/teams` from `TeamHandler.List` to `org.ListTeams`. Its Group loads the assigned Organization through `orgAssignment(nil)`; the action uses `ListTeamsForDoer` in `models/organization`, which resolves verified actor and store from `context.Context` and calls the existing account-filtered SQLC model operation. HTTP does not fetch the Store or pass a client account ID. No second authorization algorithm, transaction API, converter or output schema.
 4. Move the pagination helper into `org/team.go`, shared with the remaining legacy member route. Remove the unused `TeamHandler.List` method; leave other receiver actions until their own parity acceptance.
 5. An absent context accessor in `NewRouter` is a wiring error and must fail during registration rather than at a later HTTP request.
 
@@ -19,7 +19,8 @@
 
 - Typed bind stores the exact decoded pointer on valid JSON and never exposes a form after invalid JSON.
 - Malformed pagination returns 400; malformed organization path is rejected by assignment before any DB access.
-- Existing `TestTeamInvitationAuthorizationAndReplayHTTP` covers a visible empty team page, outsider 404 and a writable team by owner through real Gin/SQLC/PostgreSQL.
+- Existing `TestTeamInvitationAuthorizationAndReplayHTTP` covers the owner's non-empty/empty team pages, outsider 404 and a writable team through real Gin/SQLC/PostgreSQL.
+- Model-level negative tests prove that `ListTeamsForDoer` rejects absent verified actor and absent Store, rather than falling back to ambient mutable process state.
 - Existing route inventories and OpenAPI checks must remain identical.
 - Checks must run on the actual PR head; a green CI result is only evidence for the tests run, not proof that every Organization action has migrated.
 

@@ -41,17 +41,7 @@ func ListTeams(ctx *context.APIContext) {
 	if !ok {
 		return
 	}
-	actor, ok := ctx.VerifiedActor()
-	if !ok {
-		ctx.AuthenticationRequired()
-		return
-	}
-	store, err := db.StoreFromContext(ctx)
-	if err != nil {
-		ctx.APIErrorAuto(err)
-		return
-	}
-	teams, err := organization.ListTeams(ctx, store, actor.AccountID, ctx.Org.Organization.ID, options)
+	teams, err := organization.ListTeamsForDoer(ctx, ctx.Org.Organization.ID, options)
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return
