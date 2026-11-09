@@ -78,8 +78,8 @@ func (b *Base) JSON(status int, value any) {
 	}
 	b.source.WriteJSON(status, encoded.Bytes())
 }
-func (b *Base) Status(status int)          { b.source.WriteStatus(status) }
-func (b *Base) BindJSON(value any) error   { return b.source.BindJSON(value) }
+func (b *Base) Status(status int)        { b.source.WriteStatus(status) }
+func (b *Base) BindJSON(value any) error { return b.source.BindJSON(value) }
 func (b *Base) DefaultQuery(name, fallback string) string {
 	return b.source.QueryDefault(name, fallback)
 }
