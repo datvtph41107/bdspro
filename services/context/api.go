@@ -21,8 +21,8 @@ type Base struct {
 
 type APIContext struct {
 	*Base
-	// Doer is the verified first-party session principal; conversion to an
-	// Account model is a separate authentication migration.
+	// Doer is the signed first-party JWT principal. IsSigned is true only
+	// after RequireSession verifies the live PostgreSQL session.
 	Doer     *authcrypto.Payload
 	IsSigned bool
 	Org      *APIOrganization
