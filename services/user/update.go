@@ -26,8 +26,8 @@ func UpdateProfile(ctx context.Context, patch ProfilePatch) (db.GetAccountProfil
 	}
 	opts := account_model.ProfileUpdateOptions{
 		DisplayName: patch.DisplayName,
-		FirstName: patch.FirstName,
-		LastName: patch.LastName,
+		FirstName:   patch.FirstName,
+		LastName:    patch.LastName,
 	}
 	if err := opts.Validate(); err != nil {
 		return db.GetAccountProfileRow{}, err

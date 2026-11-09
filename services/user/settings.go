@@ -23,7 +23,7 @@ func UpdateUserSettings(ctx context.Context, patch SettingsPatch) (db.GetAccount
 		return db.GetAccountProfileRow{}, err
 	}
 	opts := account_model.SettingsUpdateOptions{
-		Locale: patch.Locale,
+		Locale:   patch.Locale,
 		Timezone: patch.Timezone,
 		Currency: patch.Currency,
 	}

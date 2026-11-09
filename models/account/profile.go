@@ -111,10 +111,10 @@ func UpdateProfile(ctx context.Context, q ProfileQueries, accountID int64, opts 
 		return err
 	}
 	affected, err := q.UpdatePersonProfile(ctx, db.UpdatePersonProfileParams{
-		AccountID: accountID,
+		AccountID:   accountID,
 		DisplayName: profileText(opts.DisplayName),
-		FirstName: profileText(opts.FirstName),
-		LastName: profileText(opts.LastName),
+		FirstName:   profileText(opts.FirstName),
+		LastName:    profileText(opts.LastName),
 	})
 	if err != nil {
 		return err
@@ -135,9 +135,9 @@ func UpdateSettings(ctx context.Context, q ProfileQueries, accountID int64, opts
 	}
 	affected, err := q.UpdateAccountSettings(ctx, db.UpdateAccountSettingsParams{
 		AccountID: accountID,
-		Locale: settingText(opts.Locale),
-		Timezone: settingText(opts.Timezone),
-		Currency: settingText(opts.Currency),
+		Locale:    settingText(opts.Locale),
+		Timezone:  settingText(opts.Timezone),
+		Currency:  settingText(opts.Currency),
 	})
 	if err != nil {
 		return err
