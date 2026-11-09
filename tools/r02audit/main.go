@@ -128,10 +128,10 @@ func extractRoutes(filename string, src any) ([]route, error) {
 				full = "/"
 			}
 			found = append(found, route{
-				Method: strings.ToUpper(sel.Sel.Name),
-				Path: full,
+				Method:  strings.ToUpper(sel.Sel.Name),
+				Path:    full,
 				Handler: selectorText(call.Args[len(call.Args)-1]),
-				Source: source,
+				Source:  source,
 			})
 			return true
 		})

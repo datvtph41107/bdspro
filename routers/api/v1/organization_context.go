@@ -36,7 +36,7 @@ func orgAssignment() func(*appctx.APIContext) {
 		}
 		ctx.Org = &appctx.APIOrganization{
 			Organization: access.OrganizationModel(),
-			Access: &access,
+			Access:       &access,
 		}
 	}
 }
@@ -67,8 +67,8 @@ func teamAssignment() func(*appctx.APIContext) {
 		}
 		ctx.Org = &appctx.APIOrganization{
 			Organization: access.OrganizationModel(),
-			Team: organization_model.TeamFromDB(row),
-			Access: &access,
+			Team:         organization_model.TeamFromDB(row),
+			Access:       &access,
 		}
 	}
 }

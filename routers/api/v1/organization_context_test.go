@@ -15,9 +15,9 @@ import (
 func TestReqTokenRequiresVerifiedSession(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, tc := range []struct {
-		name string
+		name   string
 		signed bool
-		doer bool
+		doer   bool
 		status int
 	}{
 		{"anonymous", false, false, http.StatusUnauthorized},
@@ -31,7 +31,9 @@ func TestReqTokenRequiresVerifiedSession(t *testing.T) {
 			r.Use(func(c *gin.Context) {
 				ctx := appctx.GetAPIContext(c)
 				ctx.IsSigned = tc.signed
-				if tc.doer { ctx.Doer = &authcrypto.Payload{AccountID: 42} }
+				if tc.doer {
+					ctx.Doer = &authcrypto.Payload{AccountID: 42}
+				}
 				c.Next()
 			})
 			reached := false
@@ -42,12 +44,22 @@ func TestReqTokenRequiresVerifiedSession(t *testing.T) {
 			})
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/guard", nil))
-			if w.Code != tc.status { t.Fatalf("status=%d want=%d", w.Code, tc.status) }
-			if reached != (tc.status == http.StatusNoContent) { t.Fatalf("reached=%v", reached) }
+			if w.Code != tc.status {
+				t.Fatalf("status=%d want=%d", w.Code, tc.status)
+			}
+			if reached != (tc.status == http.StatusNoContent) {
+				t.Fatalf("reached=%v", reached)
+			}
 			if tc.status == http.StatusUnauthorized {
-				var response struct { Code string `json:"code"` }
-				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil { t.Fatal(err) }
-				if response.Code != "unauthenticated" { t.Fatalf("code=%s", response.Code) }
+				var response struct {
+					Code string `json:"code"`
+				}
+				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+					t.Fatal(err)
+				}
+				if response.Code != "unauthenticated" {
+					t.Fatalf("code=%s", response.Code)
+				}
 			}
 		})
 	}

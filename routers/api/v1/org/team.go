@@ -16,8 +16,8 @@ import (
 func CreateTeam(ctx *context.APIContext) {
 	form := web.GetForm[*api.CreateTeamOption](ctx)
 	team := &organization.Team{
-		OrgID: ctx.Org.Organization.ID,
-		Name: form.Name,
+		OrgID:       ctx.Org.Organization.ID,
+		Name:        form.Name,
 		Description: form.Description,
 	}
 	if err := org_service.NewTeam(ctx, team); err != nil {
