@@ -10,6 +10,64 @@ import (
 	"github.com/google/uuid"
 )
 
+
+// actingOrganization resolves the live-session actor and request Store once
+// per operation. It is a source of dependencies, never a grant of permission:
+// the SQLC owner predicates and session row locks remain authoritative.
+func actingOrganization(ctx context.Context) (auth_model.Actor, db.Store, error) {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return auth_model.Actor{}, nil, auth_model.ErrSessionUnavailable
+	}
+	store, err := db.StoreFromContext(ctx)
+	if err != nil {
+		return auth_model.Actor{}, nil, err
+	}
+	return actor, store, nil
+}
+
+// AddMember delegates the transaction-aware Organization member creation to
+// the existing, single SQLC business operation.
+func AddMember(ctx context.Context, organizationID, personID int64) (db.OrganizationMember, error) {
+	actor, store, err := actingOrganization(ctx)
+	if err != nil {
+		return db.OrganizationMember{}, err
+	}
+	return AddOrganizationMember(ctx, store, actor.AccountID, actor.SessionID, organizationID, personID)
+}
+
+func RemoveMember(ctx context.Context, organizationID, personID int64) error {
+	actor, store, err := actingOrganization(ctx)
+	if err != nil {
+		return err
+	}
+	return RemoveOrganizationMember(ctx, store, actor.AccountID, actor.SessionID, organizationID, personID)
+}
+
+func PromoteOwner(ctx context.Context, organizationID, personID int64) (db.OrganizationMember, error) {
+	actor, store, err := actingOrganization(ctx)
+	if err != nil {
+		return db.OrganizationMember{}, err
+	}
+	return PromoteOrganizationOwner(ctx, store, actor.AccountID, actor.SessionID, organizationID, personID)
+}
+
+func DemoteOwner(ctx context.Context, organizationID, personID int64) error {
+	actor, store, err := actingOrganization(ctx)
+	if err != nil {
+		return err
+	}
+	return DemoteOrganizationOwner(ctx, store, actor.AccountID, actor.SessionID, organizationID, personID)
+}
+
+func TransferOwner(ctx context.Context, organizationID, personID int64) (db.OrganizationMember, error) {
+	actor, store, err := actingOrganization(ctx)
+	if err != nil {
+		return db.OrganizationMember{}, err
+	}
+	return TransferOrganizationOwner(ctx, store, actor.AccountID, actor.SessionID, organizationID, personID)
+}
+
 // NewOrganization creates a Party-backed Organization from an API model.
 // The original service enforces account-first/session-second lock ordering;
 // the caller's model is published only after a successful COMMIT.
@@ -17,11 +75,7 @@ func NewOrganization(ctx context.Context, target *organization_model.Organizatio
 	if target == nil {
 		return organization_model.ErrInvalidOrganization
 	}
-	actor, ok := auth_model.ActorFromContext(ctx)
-	if !ok {
-		return auth_model.ErrSessionUnavailable
-	}
-	store, err := db.StoreFromContext(ctx)
+	actor, store, err := actingOrganization(ctx)
 	if err != nil {
 		return err
 	}
@@ -39,11 +93,7 @@ func EditOrganization(ctx context.Context, target *organization_model.Organizati
 	if target == nil || target.ID <= 0 {
 		return organization_model.ErrInvalidOrganization
 	}
-	actor, ok := auth_model.ActorFromContext(ctx)
-	if !ok {
-		return auth_model.ErrSessionUnavailable
-	}
-	store, err := db.StoreFromContext(ctx)
+	actor, store, err := actingOrganization(ctx)
 	if err != nil {
 		return err
 	}

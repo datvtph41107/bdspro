@@ -5,10 +5,25 @@ import (
 	"errors"
 
 	audit_model "github.com/datvtph41107/bdspro/models/audit"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
 )
+
+// GetOrgMembersForDoer resolves the verified session actor and Store from the
+// request context. SQLC retains the owner/visibility predicate.
+func GetOrgMembersForDoer(ctx context.Context, organizationID int64) ([]db.ListOrganizationMembersForOwnerRow, error) {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return nil, auth_model.ErrSessionUnavailable
+	}
+	store, err := db.StoreFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return GetOrgMembers(ctx, store, actor.AccountID, organizationID)
+}
 
 func GetOrgMembers(ctx context.Context, store db.Store, actorAccountID, organizationID int64) ([]db.ListOrganizationMembersForOwnerRow, error) {
 	members, err := store.ListOrganizationMembersForOwner(ctx, db.ListOrganizationMembersForOwnerParams{
