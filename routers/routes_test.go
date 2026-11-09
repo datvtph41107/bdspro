@@ -98,7 +98,9 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	got := make(map[string]bool)
 	for _, route := range base.router.Routes() {
 		got[route.Method+" "+route.Path] = true
-		if strings.HasPrefix(route.Path, "/organizations") { t.Fatalf("legacy /organizations route still registered: %s %s", route.Method, route.Path) }
+		if strings.HasPrefix(route.Path, "/organizations") {
+			t.Fatalf("legacy /organizations route still registered: %s %s", route.Method, route.Path)
+		}
 	}
 	if len(got) != len(want) {
 		t.Fatalf("base route count = %d, want %d: %v", len(got), len(want), got)
