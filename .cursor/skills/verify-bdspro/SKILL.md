@@ -26,9 +26,9 @@ Before any drive, the runner checks PostgreSQL readiness, Redis `PONG`, and exec
 
 The runner executes the following *existing* tests with `-count=1`:
 
-- [Live session revoke](../../../../routers/g1_session_authority_e2e_test.go): register/login over Gin, revoke, inspect persisted blocked session, verify rejected access and refresh.
-- [Organization access](../../../../routers/organization_access_e2e_test.go): HTTP create/member authorization, read projections, denial and post-mutation visibility.
-- [Team invitation](../../../../routers/team_invite_e2e_test.go): authorized team creation, invitation/outbox persistence, denied actor, single-use redemption and replay rejection.
+- [Live session revoke](../../../routers/g1_session_authority_e2e_test.go): register/login over Gin, revoke, inspect persisted blocked session, verify rejected access and refresh.
+- [Organization access](../../../routers/organization_access_e2e_test.go): HTTP create/member authorization, read projections, denial and post-mutation visibility.
+- [Team invitation](../../../routers/team_invite_e2e_test.go): authorized team creation, invitation/outbox persistence, denied actor, single-use redemption and replay rejection.
 
 See [session feature](features/sessions.md) and [organization feature](features/organizations.md) for request/SQL/verification anchors. A Go test returning 0 is **not** sufficient: the runner checks that each named test actually ran and reported `PASS`. A skipped or unexecuted case fails.
 

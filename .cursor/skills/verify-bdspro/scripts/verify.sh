@@ -32,8 +32,8 @@ created_redis=0
 cleanup() {
   code=$?
   trap - EXIT
-  if [[ "$created_redis" == 1 ]]; then docker rm -f "$redis" >/dev/null 2>&1 || true; fi
-  if [[ "$created_pg" == 1 ]]; then docker rm -f "$pg" >/dev/null 2>&1 || true; fi
+  if [[ "$created_redis" == 1 ]]; then docker rm -fv "$redis" >/dev/null 2>&1 || true; fi
+  if [[ "$created_pg" == 1 ]]; then docker rm -fv "$pg" >/dev/null 2>&1 || true; fi
   echo "VERIFY_BDSPRO: result=$([[ "$code" == 0 ]] && echo PASS || echo FAIL) artifacts=$artifact"
   exit "$code"
 }
