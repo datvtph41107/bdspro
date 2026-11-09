@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,20 @@ type APIContext struct {
 	Doer     *authcrypto.Payload
 	IsSigned bool
 	Org      *APIOrganization
+}
+
+// VerifiedActor is the sole HTTP-to-domain authority boundary. Doer retains
+// signed JWT claims for old HTTP actions; only a live session can establish
+// an actor permitted to access protected resources.
+func (c *APIContext) VerifiedActor() (auth_model.Actor, bool) {
+	if c == nil || !c.IsSigned || c.Doer == nil {
+		return auth_model.Actor{}, false
+	}
+	actor, ok := auth_model.ActorFromContext(c)
+	if !ok || actor.AccountID != c.Doer.AccountID || actor.SessionID != c.Doer.SessionID {
+		return auth_model.Actor{}, false
+	}
+	return actor, true
 }
 
 type APIHandler func(*APIContext)

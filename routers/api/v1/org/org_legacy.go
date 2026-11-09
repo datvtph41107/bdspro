@@ -2,7 +2,6 @@ package org
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 
 	db "github.com/datvtph41107/bdspro/models/db"
@@ -84,8 +83,8 @@ func (h *Handler) Edit(c *appctx.APIContext) {
 }
 
 func organizationID(c *appctx.APIContext) (int64, bool) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
+	id, err := c.PositivePathID("id")
+	if err != nil {
 		c.APIErrorAuto(organization_model.ErrInvalidOrganization)
 		return 0, false
 	}

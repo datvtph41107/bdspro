@@ -2,7 +2,6 @@ package apiv1
 
 import (
 	"errors"
-	"strconv"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
@@ -14,8 +13,13 @@ import (
 // Account -> Person -> Organization membership. It is not write authority.
 func orgAssignment(denied error) func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
-		id, err := strconv.ParseInt(ctx.PathParam("id"), 10, 64)
-		if err != nil || id <= 0 {
+		actor, ok := ctx.VerifiedActor()
+		if !ok {
+			appctx.AuthenticationRequired(ctx.Context)
+			return
+		}
+		id, err := ctx.PositivePathID("id")
+		if err != nil {
 			ctx.APIErrorAuto(organization_model.ErrInvalidOrganization)
 			return
 		}
@@ -24,7 +28,7 @@ func orgAssignment(denied error) func(*appctx.APIContext) {
 			ctx.APIErrorAuto(err)
 			return
 		}
-		access, err := organization_model.GetForAccount(ctx, store, ctx.Doer.AccountID, id)
+		access, err := organization_model.GetForAccount(ctx, store, actor.AccountID, id)
 		if errors.Is(err, organization_model.ErrOrganizationNotFound) {
 			if denied != nil {
 				// Preserve the owner write endpoint's existing public error.
@@ -49,8 +53,13 @@ func orgAssignment(denied error) func(*appctx.APIContext) {
 // Team ID as Organization ID. The SQLC read is account-access scoped.
 func teamAssignment() func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
-		id, err := strconv.ParseInt(ctx.PathParam("team_id"), 10, 64)
-		if err != nil || id <= 0 {
+		actor, ok := ctx.VerifiedActor()
+		if !ok {
+			appctx.AuthenticationRequired(ctx.Context)
+			return
+		}
+		id, err := ctx.PositivePathID("team_id")
+		if err != nil {
 			ctx.APIInvalid(err)
 			return
 		}
@@ -59,12 +68,12 @@ func teamAssignment() func(*appctx.APIContext) {
 			ctx.APIErrorAuto(err)
 			return
 		}
-		row, err := organization_model.GetTeam(ctx, store, ctx.Doer.AccountID, id)
+		row, err := organization_model.GetTeam(ctx, store, actor.AccountID, id)
 		if err != nil {
 			ctx.APIErrorAuto(err)
 			return
 		}
-		access, err := organization_model.GetForAccount(ctx, store, ctx.Doer.AccountID, row.OrganizationID)
+		access, err := organization_model.GetForAccount(ctx, store, actor.AccountID, row.OrganizationID)
 		if err != nil {
 			ctx.APIErrorAuto(err)
 			return
@@ -81,7 +90,7 @@ func teamAssignment() func(*appctx.APIContext) {
 // JWT verification is not duplicated here.
 func reqToken() func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
-		if ctx.IsSigned && ctx.Doer != nil && ctx.Doer.AccountID > 0 {
+		if _, ok := ctx.VerifiedActor(); ok {
 			return
 		}
 		appctx.AuthenticationRequired(ctx.Context)
