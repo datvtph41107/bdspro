@@ -1,6 +1,6 @@
 # Services — current operation ownership
 
-Baseline: BDSPro `dev` R28, after the models/OIDC cut-over. Gitea reference:
+Current owner map, checked against BDSPro `dev@b0d3b538` and the C03 Team action refactor. Historical R28 decisions remain in Git history. Gitea reference:
 [services/auth](https://github.com/go-gitea/gitea/tree/main/services/auth),
 [services/org](https://github.com/go-gitea/gitea/tree/main/services/org),
 [services/issue](https://github.com/go-gitea/gitea/tree/main/services/issue).
@@ -8,16 +8,21 @@ Baseline: BDSPro `dev` R28, after the models/OIDC cut-over. Gitea reference:
 | Package | Owns | Does not own |
 | --- | --- | --- |
 | `services/auth` | registration, login, OAuth2/OIDC client, phone OTP, token renewal and session orchestration | Gin parsing or HTTP status codes |
+| `services/organization` | cross-model operations and session-aware, transaction-scoped Organization/Team writes | URL routing, JSON binding or HTTP status mapping |
 | `services/convert` | mapping model/service values to `modules/structs` API responses | persistent constraints or transport routing |
 | `services/jobs` | email verification, password reset and invitation job operations | Asynq transport and Redis connections |
 | `services/worker` | SQL outbox dispatch and Asynq-to-job adapters | generic Asynq connection/processor |
 | `services/mail` | SMTP sender integration | account authorization |
 | `services/notification` | phone delivery implementations | Gin admission policy |
 
-There is **no `services/organization` package** at this baseline.
-Organization and Team operations are in `models/organization`, invoked from
-`routers/api/v1/org`. Adding a service requires a specific orchestration
-operation; do not create a package by copying Gitea's tree.
+`services/organization` is actively used by `routers/api/v1/org`: the new
+`NewOrganization`/`EditOrganization`/`NewTeam` operations combine verified
+actor and session state with SQLC transactions. Remaining
+`TeamService` receiver methods are transitional callers still used by
+legacy routes; they must be migrated and independently verified before
+removing that receiver. `models/organization` retains resource persistence
+and permission predicates. Do not claim a subsystem is absent based on
+an earlier milestone's historical documentation.
 
 ## Request, transaction and delivery
 

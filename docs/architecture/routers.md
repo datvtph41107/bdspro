@@ -27,9 +27,14 @@ Gin (routers.NormalRoutes)
     -> endpoint -> service or model -> response contract
 ```
 
-`APIContext` wraps the existing Gin request context without another router or
-middleware executor. `Doer` contains verified first-party access JWT claims,
-not a fresh database account record; live state checks are explicit.
+`APIContext` embeds a transport-facing `Base`; `services/context/gin.go`
+adapts current Gin request and response operations through `RequestSource`.
+The application still executes only Gin middleware, with
+`modules/web.Router[T]` offering typed Group/action registration for migrated
+routes. `Doer` holds first-party access JWT claims, not an account model;
+`VerifiedActor` checks those claims against the live-session actor installed
+in `context.Context`. Do not equate OAuth authorization-server tokens with
+first-party sessions.
 
 SQL owner/membership predicates, transaction locks, OAuth token handling,
 and public method/path, error code and response contracts must not change

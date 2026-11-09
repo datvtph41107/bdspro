@@ -85,8 +85,11 @@ JSON semantics, Gitea evidence and compatibility: [JSON serialization policy](js
 
 ## Additional Gitea module candidates
 
-- `modules/web`: Gitea wraps Chi routing, request binding and middleware.
-  BDSPro keeps Gin directly; a second router engine has no demonstrated value.
+- `modules/web`: Gitea owns Chi grouping, binding and middleware conversion.
+  BDSPro uses a typed `Router[T]` over Gin Groups plus request-local form storage
+  and `BindJSON[T]`; Gin remains the only middleware executor. A method called
+  `BeforeRouting` or `AfterRouting` would need to prove its *actual Gin ordering*
+  before being added, because copying Chi names does not reproduce Chi behavior.
 - `modules/graceful`, `modules/process`: add only when `cmd` context and
   native HTTP/Asynq shutdown fail a concrete lifecycle acceptance test.
 - `modules/storage`, `modules/httpcache`, `modules/paginator`: add with
