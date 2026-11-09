@@ -1,41 +1,57 @@
 package context
 
 import (
+	"context"
+	"net/http"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
-// Base is the shared request-scoped HTTP contract. Gin is retained only as
-// an adapter for legacy HTTP actions; domain services never import it.
-// Like Gitea's Base, request-local data belongs to exactly one request.
+// RequestSource gives Base one live view of the HTTP request and path params.
+// The Gin adapter owns the concrete framework context; Base remains
+// transport-neutral like Gitea's core Base contract.
+type RequestSource interface {
+	CurrentRequest() *http.Request
+	PathParam(name string) string
+}
+
+// Base owns request-local HTTP state and context delegation. Do not construct
+// it in business services; APIContexter owns its lifecycle at HTTP ingress.
 type Base struct {
-	*gin.Context
+	source RequestSource
 	Data map[string]any
 }
 
-func NewBaseContext(c *gin.Context) *Base {
-	return &Base{Context: c, Data: make(map[string]any)}
+var _ context.Context = (*Base)(nil)
+
+func NewBaseContext(source RequestSource) *Base {
+	if source == nil {
+		panic("context: nil HTTP request source")
+	}
+	return &Base{source: source, Data: make(map[string]any)}
 }
 
 func (b *Base) GetData() map[string]any {
 	return b.Data
 }
 
-// Delegate to the current request context rather than retaining the initial
-// one: authentication/transaction middleware may replace c.Request later.
+// CurrentRequestContext always follows the most recent request: authentication
+// and transactional middleware can replace request.Context() during processing.
+func (b *Base) CurrentRequestContext() context.Context {
+	return b.source.CurrentRequest().Context()
+}
+
 func (b *Base) Deadline() (time.Time, bool) {
-	return b.Request.Context().Deadline()
+	return b.CurrentRequestContext().Deadline()
 }
 
 func (b *Base) Done() <-chan struct{} {
-	return b.Request.Context().Done()
+	return b.CurrentRequestContext().Done()
 }
 
 func (b *Base) Err() error {
-	return b.Request.Context().Err()
+	return b.CurrentRequestContext().Err()
 }
 
 func (b *Base) Value(key any) any {
-	return b.Request.Context().Value(key)
+	return b.CurrentRequestContext().Value(key)
 }

@@ -12,7 +12,7 @@ var ErrInvalidPathID = errors.New("invalid positive path identifier")
 // PathParam provides the route parameter through Base rather than coupling
 // API actions to Gin. Gitea exposes path accessors from the same layer.
 func (b *Base) PathParam(key string) string {
-	return b.Param(key)
+	return b.source.PathParam(key)
 }
 
 // PositivePathID owns positive int64 parsing; the endpoint decides whether

@@ -2,9 +2,11 @@
 package context
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
@@ -14,6 +16,9 @@ import (
 
 type APIContext struct {
 	*Base
+	// Gin remains only at the API adapter boundary for legacy HTTP actions.
+	// Base does not depend on Gin and domain services only see context.Context.
+	*gin.Context
 	// Doer is the signed first-party JWT principal. IsSigned is true only
 	// after RequireSession verifies the live PostgreSQL session.
 	Doer     *authcrypto.Payload
@@ -35,6 +40,14 @@ func (c *APIContext) VerifiedActor() (auth_model.Actor, bool) {
 	return actor, true
 }
 
+// Explicit delegation prevents ambiguity with Gin's own context methods.
+var _ context.Context = (*APIContext)(nil)
+
+func (c *APIContext) Deadline() (time.Time, bool) { return c.Base.Deadline() }
+func (c *APIContext) Done() <-chan struct{}       { return c.Base.Done() }
+func (c *APIContext) Err() error                  { return c.Base.Err() }
+func (c *APIContext) Value(key any) any           { return c.Base.Value(key) }
+
 type APIHandler func(*APIContext)
 
 const apiContextKey = "bdspro.api.context"
@@ -48,8 +61,9 @@ func GetAPIContext(c *gin.Context) *APIContext {
 		panic("context: APIContext type mismatch")
 	}
 	api := &APIContext{
-		Base: NewBaseContext(c),
-		Org:  &APIOrganization{},
+		Base:    NewBaseContext(ginRequestSource{ctx: c}),
+		Context: c,
+		Org:     &APIOrganization{},
 	}
 	c.Set(apiContextKey, api)
 	return api
