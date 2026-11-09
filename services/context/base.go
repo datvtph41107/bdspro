@@ -21,6 +21,8 @@ type RequestSource interface {
 	SetHeader(name, value string)
 	SetErrorCode(code string)
 	IsAborted() bool
+	// WrittenStatus is 0 until the HTTP response is committed.
+	WrittenStatus() int
 }
 
 // Base is the single transport-independent HTTP context.
@@ -65,6 +67,12 @@ func (b *Base) DefaultQuery(name, fallback string) string {
 }
 func (b *Base) Header(name, value string) { b.source.SetHeader(name, value) }
 func (b *Base) IsAborted() bool           { return b.source.IsAborted() }
+
+// Written and WrittenStatus distinguish a committed response from a status
+// merely selected for later emission. This is a request/transport capability,
+// not a second response writer or framework-specific field on Base.
+func (b *Base) Written() bool       { return b.WrittenStatus() != 0 }
+func (b *Base) WrittenStatus() int { return b.source.WrittenStatus() }
 
 func (b *Base) writeError(status int, code string, body any) {
 	b.source.SetErrorCode(code)
