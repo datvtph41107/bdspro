@@ -35,11 +35,11 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	}
 	defer store.Close()
 	redisManager := conn.NewRedisManager()
+	defer redisManager.Close() // manager retains every client it creates
 	_, err = redisManager.Client(ctx, cfg.RedisAddress)
 	if err != nil {
 		return err
 	}
-	defer redisManager.Close()
 
 	options := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
 	enqueuer := queue.NewRedisEnqueuer(options)

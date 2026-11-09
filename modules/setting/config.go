@@ -148,17 +148,11 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 	if err != nil {
 		return config, err
 	}
-	if config.LogMode != "console" && config.LogMode != "file" &&
-		config.LogMode != "console,file" && config.LogMode != "file,console" {
-		return config, fmt.Errorf("LOG_MODE must be console, file or console,file")
-	}
-	if config.LogFormat != "json" && config.LogFormat != "console" {
-		return config, fmt.Errorf("LOG_FORMAT must be console or json")
-	}
-	switch config.LogLevel {
-	case "debug", "info", "warn", "error":
-	default:
-		return config, fmt.Errorf("LOG_LEVEL must be debug, info, warn or error")
+	if err := (LogGlobalConfig{
+		Mode: config.LogMode, Format: config.LogFormat, Level: config.LogLevel,
+		RootPath: config.LogRootPath, FileName: config.LogFileName,
+	}).Validate(); err != nil {
+		return config, err
 	}
 	if config.DBSource == "" || config.MigrationURL == "" || config.HTTPServerAddress == "" {
 		return config, fmt.Errorf("DB_SOURCE, MIGRATION_URL and HTTP_SERVER_ADDRESS are required")

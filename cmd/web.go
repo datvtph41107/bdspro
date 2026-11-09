@@ -57,11 +57,11 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 	}
 
 	redisManager := conn.NewRedisManager()
+	defer redisManager.Close() // owner set before any possible client failure
 	redisClient, err := redisManager.Client(ctx, cfg.RedisAddress)
 	if err != nil {
 		return err
 	}
-	defer redisManager.Close()
 	log.Info("Redis connected")
 
 	server, err := routers.InitWebInstalled(cfg, store, redisClient)
