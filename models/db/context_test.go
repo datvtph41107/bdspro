@@ -9,8 +9,8 @@ import (
 type contextTestStore struct {
 	Store
 	afterCallback error
-	transactions int
-	committed bool
+	transactions  int
+	committed     bool
 }
 
 func (s *contextTestStore) ExecTx(ctx context.Context, fn func(*Queries) error) error {
