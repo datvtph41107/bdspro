@@ -28,6 +28,12 @@ func (s ginRequestSource) AbortJSON(status int, value any) { s.ctx.AbortWithStat
 func (s ginRequestSource) SetHeader(name, value string)    { s.ctx.Header(name, value) }
 func (s ginRequestSource) SetErrorCode(code string)        { s.ctx.Set(ErrorCodeKey, code) }
 func (s ginRequestSource) IsAborted() bool                 { return s.ctx.IsAborted() }
+func (s ginRequestSource) WrittenStatus() int {
+	if !s.ctx.Writer.Written() {
+		return 0
+	}
+	return s.ctx.Writer.Status()
+}
 
 // GetAPIContext returns one initialized context per request. Resource
 // assignment, form binding and HTTP action share that exact instance.

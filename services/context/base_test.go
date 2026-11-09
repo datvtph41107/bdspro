@@ -49,6 +49,7 @@ func (s *testRequestSource) SetHeader(name, value string) {
 }
 func (s *testRequestSource) SetErrorCode(code string) { s.code = code }
 func (s *testRequestSource) IsAborted() bool          { return s.aborted }
+func (s *testRequestSource) WrittenStatus() int       { return s.status }
 
 func TestBaseUsesLatestRequestContext(t *testing.T) {
 	source := &testRequestSource{
