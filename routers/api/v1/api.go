@@ -136,7 +136,6 @@ func registerPublicRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {
 }
 
 func registerAuthenticatedRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {
-	profile := user.NewProfileHandler(d.Store)
 	if d.Authorization != nil {
 		m.Get("/oauth/clients", appctx.GinActions(d.Authorization.ListClients)...)
 		m.Post("/oauth/clients", appctx.GinActions(
@@ -146,10 +145,10 @@ func registerAuthenticatedRoutes(m *web.Router[*appctx.APIContext], d Dependenci
 		m.Get("/users/me/oauth/authorizations", appctx.GinActions(d.Authorization.ListAuthorizations)...)
 		m.Delete("/users/me/oauth/authorizations/:client_id", appctx.GinActions(d.Authorization.RevokeAuthorization)...)
 	}
-	m.Get("/users/me", profile.Show)
-	m.Patch("/users/me/profile", profile.Update)
-	m.Get("/users/me/settings", profile.Settings)
-	m.Patch("/users/me/settings", profile.UpdateSettings)
+	m.Get("/users/me", user.GetAuthenticatedUser)
+	m.Patch("/users/me/profile", bind(api.ProfileUpdateRequest{}), user.UpdateProfile)
+	m.Get("/users/me/settings", user.GetUserSettings)
+	m.Patch("/users/me/settings", bind(api.SettingsUpdateRequest{}), user.UpdateUserSettings)
 	m.Get("/users/me/connections", appctx.GinActions(d.Auth.GetConnections)...)
 	m.Get("/users/me/sessions", appctx.GinActions(d.Auth.ListSessions)...)
 	m.Delete("/users/me/sessions/:id", appctx.GinActions(d.Auth.RevokeOwnSession)...)

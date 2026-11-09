@@ -10,8 +10,11 @@ import (
 	"testing"
 	"time"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	api "github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -212,12 +215,45 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 		Locale: "vi", Timezone: "Asia/Ho_Chi_Minh", Currency: "VND",
 		HasPassword: true, HasPhone: true, HasOauth2: false,
 	}}
-	h := NewProfileHandler(store)
 	r := gin.New()
-	r.GET("/users/me", appctx.Authenticate(maker), appctx.Wrap(h.Show))
-	r.PATCH("/users/me/profile", appctx.Authenticate(maker), appctx.Wrap(h.Update))
-	r.GET("/users/me/settings", appctx.Authenticate(maker), appctx.Wrap(h.Settings))
-	r.PATCH("/users/me/settings", appctx.Authenticate(maker), appctx.Wrap(h.UpdateSettings))
+	// Production injects db.Store at ingress. This fake uses the same request
+	// capability, never a handler-owned or process-global Store.
+	r.Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), store))
+		c.Next()
+	}, appctx.APIContexter())
+	// Model a request that *already passed* RequireSession. This deliberately
+	// admits a stale token as well, to verify the write transaction checks the
+	// acting session again after admission instead of trusting that snapshot.
+	admitted := r.Group("", appctx.Authenticate(maker), func(c *gin.Context) {
+		payload, ok := appctx.AuthorizationPayload(c)
+		if !ok {
+			appctx.AuthenticationRequired(c)
+			return
+		}
+		c.Request = c.Request.WithContext(auth_model.WithActor(c.Request.Context(), auth_model.Actor{
+			AccountID: payload.AccountID, SessionID: payload.SessionID,
+		}))
+		appctx.GetAPIContext(c).IsSigned = true
+		c.Next()
+	})
+	m := web.NewRouter[*appctx.APIContext](admitted, appctx.GetAPIContext)
+	bindProfile := func(ctx *appctx.APIContext) {
+		form, err := web.BindJSON[api.ProfileUpdateRequest](ctx)
+		if err != nil {
+			ctx.Validation(err, form)
+		}
+	}
+	bindSettings := func(ctx *appctx.APIContext) {
+		form, err := web.BindJSON[api.SettingsUpdateRequest](ctx)
+		if err != nil {
+			ctx.Validation(err, form)
+		}
+	}
+	m.Get("/users/me", GetAuthenticatedUser)
+	m.Patch("/users/me/profile", bindProfile, UpdateProfile)
+	m.Get("/users/me/settings", GetUserSettings)
+	m.Patch("/users/me/settings", bindSettings, UpdateUserSettings)
 
 	request := func(method, path, body, bearer string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -277,6 +313,13 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 	w = request("PATCH", "/users/me/settings", `{"currency":"UNSUPPORTED"}`, access)
 	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "account.invalid_settings") {
 		t.Fatalf("invalid currency accepted: %d %s", w.Code, w.Body.String())
+	}
+	// The canonical API form binder must reject malformed request syntax
+	// before reaching the profile service and exposing any request contents.
+	beforeMalformedCalls := store.calls
+	w = request("PATCH", "/users/me/profile", "{", access)
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "malformed_json") || store.calls != beforeMalformedCalls {
+		t.Fatalf("malformed profile request reached model or changed error contract: status=%d body=%s calls=%d", w.Code, w.Body.String(), store.calls)
 	}
 	// A signed JWT is not sufficient to authorize a PATCH after session
 	// revocation. Even a request which passed HTTP Authenticate must fail

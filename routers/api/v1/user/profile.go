@@ -3,69 +3,62 @@ package user
 import (
 	"net/http"
 
-	db "github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/structs"
-	appctx "github.com/datvtph41107/bdspro/services/context"
+	api "github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
 	profile_service "github.com/datvtph41107/bdspro/services/profile"
 )
 
-// ProfileHandler exposes only the verified caller's profile and preferences.
-// The caller cannot override account_id or person_id in an HTTP body.
-type ProfileHandler struct {
-	profile *profile_service.Service
-}
-
-func NewProfileHandler(store db.Store) *ProfileHandler {
-	return &ProfileHandler{profile: profile_service.NewService(store)}
-}
-
-func (h *ProfileHandler) Show(c *appctx.APIContext) {
-	p, err := h.profile.Show(c, c.Doer.AccountID)
+// GetAuthenticatedUser exposes the verified account; request-scoped identity
+// and Store are resolved in services/profile, not injected into a handler.
+func GetAuthenticatedUser(ctx *context.APIContext) {
+	row, err := profile_service.GetAuthenticatedUser(ctx)
 	if err != nil {
-		c.APIErrorAuto(err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.JSON(http.StatusOK, convert.ToAccountProfile(p))
+	ctx.JSON(http.StatusOK, convert.ToAccountProfile(row))
 }
 
-func (h *ProfileHandler) Update(c *appctx.APIContext) {
-	var req structs.ProfileUpdateRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.APIInvalid(err)
-		return
-	}
-	p, err := h.profile.Update(c, c.Doer.AccountID, c.Doer.SessionID, profile_service.ProfilePatch{
-		DisplayName: req.DisplayName, FirstName: req.FirstName, LastName: req.LastName,
+// UpdateProfile consumes a typed form published by modules/web at the
+// route boundary. The account ID cannot be replaced by request fields.
+func UpdateProfile(ctx *context.APIContext) {
+	form := web.GetForm[*api.ProfileUpdateRequest](ctx)
+	row, err := profile_service.UpdateCurrentProfile(ctx, profile_service.ProfilePatch{
+		DisplayName: form.DisplayName,
+		FirstName:   form.FirstName,
+		LastName:    form.LastName,
 	})
 	if err != nil {
-		c.APIErrorAuto(err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.JSON(http.StatusOK, convert.ToAccountProfile(p))
+	ctx.JSON(http.StatusOK, convert.ToAccountProfile(row))
 }
 
-func (h *ProfileHandler) Settings(c *appctx.APIContext) {
-	p, err := h.profile.Show(c, c.Doer.AccountID)
+// GetUserSettings reads the same account projection as GetAuthenticatedUser.
+func GetUserSettings(ctx *context.APIContext) {
+	row, err := profile_service.GetAuthenticatedUser(ctx)
 	if err != nil {
-		c.APIErrorAuto(err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.JSON(http.StatusOK, convert.ToAccountSettings(p))
+	ctx.JSON(http.StatusOK, convert.ToAccountSettings(row))
 }
 
-func (h *ProfileHandler) UpdateSettings(c *appctx.APIContext) {
-	var req structs.SettingsUpdateRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.APIInvalid(err)
-		return
-	}
-	p, err := h.profile.UpdateSettings(c, c.Doer.AccountID, c.Doer.SessionID, profile_service.SettingsPatch{
-		Locale: req.Locale, Timezone: req.Timezone, Currency: req.Currency,
+// UpdateUserSettings preserves the transactional current-session check while
+// sending only a profile settings patch to the service.
+func UpdateUserSettings(ctx *context.APIContext) {
+	form := web.GetForm[*api.SettingsUpdateRequest](ctx)
+	row, err := profile_service.UpdateCurrentSettings(ctx, profile_service.SettingsPatch{
+		Locale:   form.Locale,
+		Timezone: form.Timezone,
+		Currency: form.Currency,
 	})
 	if err != nil {
-		c.APIErrorAuto(err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.JSON(http.StatusOK, convert.ToAccountSettings(p))
+	ctx.JSON(http.StatusOK, convert.ToAccountSettings(row))
 }

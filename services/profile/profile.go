@@ -15,6 +15,50 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// actingProfile resolves the verified first-party actor and request Store.
+// It never interprets JWT claims as authorization independently of the
+// upstream RequireSession middleware.
+func actingProfile(ctx context.Context) (auth_model.Actor, db.Store, error) {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return auth_model.Actor{}, nil, auth_model.ErrSessionUnavailable
+	}
+	store, err := db.StoreFromContext(ctx)
+	if err != nil {
+		return auth_model.Actor{}, nil, err
+	}
+	return actor, store, nil
+}
+
+// GetAuthenticatedUser reads only the session-verified current account.
+// Router actions no longer retain a process-scoped profile service receiver.
+func GetAuthenticatedUser(ctx context.Context) (db.GetAccountProfileRow, error) {
+	actor, store, err := actingProfile(ctx)
+	if err != nil {
+		return db.GetAccountProfileRow{}, err
+	}
+	return NewService(store).Show(ctx, actor.AccountID)
+}
+
+// UpdateCurrentProfile delegates the commit-order session check and row
+// updates to the original transactional service implementation.
+func UpdateCurrentProfile(ctx context.Context, patch ProfilePatch) (db.GetAccountProfileRow, error) {
+	actor, store, err := actingProfile(ctx)
+	if err != nil {
+		return db.GetAccountProfileRow{}, err
+	}
+	return NewService(store).Update(ctx, actor.AccountID, actor.SessionID, patch)
+}
+
+// UpdateCurrentSettings preserves the same live-session transaction boundary.
+func UpdateCurrentSettings(ctx context.Context, patch SettingsPatch) (db.GetAccountProfileRow, error) {
+	actor, store, err := actingProfile(ctx)
+	if err != nil {
+		return db.GetAccountProfileRow{}, err
+	}
+	return NewService(store).UpdateSettings(ctx, actor.AccountID, actor.SessionID, patch)
+}
+
 type Service struct{ store db.Store }
 
 func NewService(store db.Store) *Service { return &Service{store: store} }
