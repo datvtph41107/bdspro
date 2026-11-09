@@ -12,7 +12,7 @@
 ## Implementation / Scope
 
 <!-- Vì sao đây là thay đổi nhỏ nhất hợp lý? Nếu thêm interface/package/migration, lý do cụ thể? -->
-<!-- Nếu tạo capability/abstraction: contract, runtime owner, domain invariant, reuse boundary, retry/rollback; xem docs/engineering/capability-workbook.md. Không bắt buộc cho thay đổi nhỏ. -->
+<!-- Nếu tạo capability/abstraction: nêu contract, runtime owner, domain invariant, reuse boundary, retry/rollback; xem docs/engineering/task-contract.md. Không bắt buộc cho thay đổi nhỏ. -->
 
 ## Evidence / Acceptance
 
@@ -22,4 +22,4 @@
 - **Rủi ro còn lại / ngoài phạm vi:** <!-- nhất là data, volume, external providers -->
 - **Người review và quyết định:** <!-- tên reviewer thực tế nếu đã được chỉ định -->
 
-Đối chiếu [Core Ownership Matrix](../docs/engineering/core-ownership.md) và [Development Contract](../docs/engineering/development-contract.md). Với thay đổi API, tham khảo [ENG-CORE-09 — Feature Delivery Standard](../docs/engineering/feature-delivery-standard.md) để đối chiếu route, actor, SQL owner và evidence; không phải checklist bắt buộc cho PR nhỏ. Không tuyên bố WSL, provider E2E hoặc khả năng recovery đã nghiệm thu chỉ dựa trên CI.
+Đối chiếu [agent entrypoint](../AGENTS.md), [task contract](../docs/engineering/task-contract.md) và [capability map](../docs/engineering/capability-map.md) khi phù hợp. Không tuyên bố WSL, provider E2E hoặc khả năng recovery đã nghiệm thu chỉ dựa trên CI.

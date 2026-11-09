@@ -1,7 +1,8 @@
-> **Current-state note (R28):** Gitea comparison and historical migration
-> details below must be read alongside [cache/queue ownership](cache-queue.md).
-> BDSPro uses `models/organization` directly and has no
-> `services/organization` package.
+> **Historical R01 comparison (2026-11-03):** This is not a live package
+> inventory. Current BDSPro has both `models/organization` and
+> `services/organization`; verify the [current architecture](README.md),
+> [capability map](../engineering/capability-map.md) and source code.
+> Review the [cache/queue ownership](cache-queue.md) for subsequent changes.
 
 # R01 — Package ownership based on actual Gitea code
 

@@ -68,7 +68,7 @@ modules/setting/  app.ini path, provider and validation
 modules/log/      structured logs, sinks and close
 modules/auth/     bcrypt and JWT signing/verification
 modules/secret/   crypto-random proof values
-modules/redis/    Redis connectivity
+modules/conn/     Redis connection lifecycle
 ```
 
 The default local instance config is `custom/conf/app.ini` (ignored).
