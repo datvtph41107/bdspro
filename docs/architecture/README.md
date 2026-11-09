@@ -44,6 +44,7 @@ Their code is not interchangeable just because they are siblings.
 - [Process runtime](runtime.md): web/worker/migrate, availability and failures.
 - [Gitea evidence and boundaries](gitea-ownership-r01.md): source comparison.
 - [P0 — Gitea programming-model baseline](gitea-programming-model-p0.md): pinned source/function ownership, current migration debt, acceptance gates.
+- [P1 — Gitea import correspondence and Gin router parity](gitea-import-conformance-p1.md): executable import ownership and native/typed route equivalence.
 
 No generic repository registry, replacement routing engine, plugin loader, or empty
 `routers/web` is assumed by this architecture.
