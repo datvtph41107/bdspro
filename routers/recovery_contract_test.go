@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/routers/common"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
@@ -15,7 +16,7 @@ import (
 func TestRecoveryBeforeResponseWritesOnePublicError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(gin.CustomRecoveryWithWriter(io.Discard, recoverAPI), appctx.APIContexter())
+	router.Use(common.Recovery(io.Discard), appctx.APIContexter())
 	router.GET("/panic", func(*gin.Context) { panic("private provider error") })
 	record := httptest.NewRecorder()
 	router.ServeHTTP(record, httptest.NewRequest(http.MethodGet, "/panic", nil))
@@ -40,7 +41,7 @@ func TestRecoveryBeforeResponseWritesOnePublicError(t *testing.T) {
 func TestRecoveryAfterCommittedResponseDoesNotAppendJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(gin.CustomRecoveryWithWriter(io.Discard, recoverAPI), appctx.APIContexter())
+	router.Use(common.Recovery(io.Discard), appctx.APIContexter())
 	router.GET("/panic", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusAccepted, map[string]string{"result": "accepted"})
 		panic("private provider error")

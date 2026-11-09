@@ -21,7 +21,7 @@ func TestAccessLogIsSafeInfoOutcome(t *testing.T) {
 	logger := zerolog.New(&output).With().Str("request_id", "request-123").Logger()
 
 	router := gin.New()
-	router.Use(accessLogger())
+	router.Use(appctx.AccessLogger())
 	router.GET("/orgs/:id", func(c *gin.Context) {
 		appctx.InternalError(c)
 	})
@@ -59,7 +59,7 @@ func TestUnexpectedErrorProducesOneDiagnosticAndOneOutcome(t *testing.T) {
 	logger := zerolog.New(&output).With().Str("request_id", "request-456").Logger()
 
 	router := gin.New()
-	router.Use(accessLogger())
+	router.Use(appctx.AccessLogger())
 	router.GET("/fail", func(c *gin.Context) {
 		appctx.Error(c, errors.New("provider-token-that-must-stay-private"))
 	})

@@ -23,29 +23,6 @@ func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *
 	return &Router[T]{group: group, getContext: getContext}
 }
 
-func (r *Router[T]) handlers(actions []func(T)) []gin.HandlerFunc {
-	if len(actions) == 0 {
-		panic("web: route requires an action")
-	}
-	handlers := make([]gin.HandlerFunc, 0, len(actions))
-	for _, action := range actions {
-		if action == nil {
-			panic("web: nil route action")
-		}
-		fn := action
-		handlers = append(handlers, func(c *gin.Context) {
-			fn(r.getContext(c))
-			// Gitea stops the typed handler chain after a committed response.
-			// Gin JSON/Write does not itself abort following route handlers.
-			// Selecting Status without writing headers must not abort.
-			if c.Writer.Written() && !c.IsAborted() {
-				c.Abort()
-			}
-		})
-	}
-	return handlers
-}
-
 // Group follows Gitea's Group(path, func() {...}, guards...) declaration.
 // Its mutable group state exists only during single-threaded route registration.
 func (r *Router[T]) Group(path string, register func(), guards ...func(T)) {
@@ -53,13 +30,6 @@ func (r *Router[T]) Group(path string, register func(), guards ...func(T)) {
 	r.group = parent.Group(path, r.handlersIfAny(guards)...)
 	defer func() { r.group = parent }()
 	register()
-}
-
-func (r *Router[T]) handlersIfAny(actions []func(T)) []gin.HandlerFunc {
-	if len(actions) == 0 {
-		return nil
-	}
-	return r.handlers(actions)
 }
 
 // Methods is the one HTTP method registration boundary. Gin owns route

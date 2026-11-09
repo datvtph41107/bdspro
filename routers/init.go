@@ -2,13 +2,9 @@
 package routers
 
 import (
-	"fmt"
-	"net/http"
 	"os"
-	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
-	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
@@ -39,8 +35,7 @@ func NormalRoutes(server *Server) *gin.Engine {
 	// headers. NewServer configures validated deployment peers before serving.
 	_ = router.SetTrustedProxies(nil)
 
-	router.Use(common.RequestID())
-	router.Use(accessLogger(), gin.CustomRecoveryWithWriter(nil, recoverAPI))
+	router.Use(common.ProtocolMiddlewares()...)
 
 	router.Use(
 		security.RequestMonitor(server.authRateRedis),
@@ -69,51 +64,4 @@ func NormalRoutes(server *Server) *gin.Engine {
 	api.RegisterSwagger(router, server.config.Environment)
 
 	return router
-}
-
-// recoverAPI is the shared recovery policy for the single Gin router.
-// Once an HTTP response is committed its status/body cannot be replaced by
-// a JSON error. The panic is still logged and the remaining chain is aborted.
-func recoverAPI(ctx *gin.Context, recovered any) {
-	path := ctx.FullPath()
-	if path == "" {
-		path = "<unmatched>"
-	}
-	log.Ctx(ctx.Request.Context()).Error().
-		Str("method", ctx.Request.Method).
-		Str("path", path).
-		Str("panic_type", fmt.Sprintf("%T", recovered)).
-		Msg("http.panic")
-
-	api := appctx.GetAPIContext(ctx)
-	if api.Written() {
-		ctx.Abort()
-		return
-	}
-	api.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
-}
-
-// accessLogger writes safe route-template outcomes without raw identifiers,
-// token-bearing query strings or duplicate HTTP diagnostics.
-// accessLogger records one safe request outcome, distinct from a failure
-// diagnostic. Route templates avoid token-bearing query strings and raw IDs.
-func accessLogger() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		startedAt := time.Now()
-		ctx.Next()
-
-		path := ctx.FullPath()
-		if path == "" {
-			path = "<unmatched>"
-		}
-		event := log.Ctx(ctx.Request.Context()).Info()
-		if code := ctx.GetString(appctx.ErrorCodeKey); code != "" {
-			event = event.Str("error_code", code)
-		}
-		event.Str("method", ctx.Request.Method).
-			Str("path", path).
-			Int("status", ctx.Writer.Status()).
-			Dur("duration", time.Since(startedAt)).
-			Msg("http.request")
-	}
 }

@@ -67,7 +67,11 @@ func TestSourcePackageOwnership(t *testing.T) {
 					if owner == "services" && (isRouter || (dep == "github.com/gin-gonic/gin" && !httpAdapter)) {
 						t.Errorf("%s: business service depends on HTTP delivery %q", rel, dep)
 					}
-					if strings.HasPrefix(filepath.ToSlash(rel), "routers/common/") && (isModel || isService) {
+					// Gitea's routers/common.ProtocolMiddlewares composes services/context
+					// with protocol middleware. Allow only that HTTP infrastructure
+					// dependency: no other service or any model may be imported here.
+					if strings.HasPrefix(filepath.ToSlash(rel), "routers/common/") &&
+						(isModel || (isService && dep != modulePath+"/services/context")) {
 						t.Errorf("%s: common HTTP protocol imports business/persistence %q", rel, dep)
 					}
 					if dep == "gopkg.in/ini.v1" && !strings.HasPrefix(filepath.ToSlash(rel), "modules/setting/") {
