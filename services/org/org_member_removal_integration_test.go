@@ -67,7 +67,7 @@ func TestRemoveOrdinaryOrganizationMemberDoesNotRestoreTeamOrInviteOnRejoin(t *t
 		t.Fatal(err)
 	}
 	verifyRemovedMember(t, ctx, pool, d, false)
-	if err := RemoveOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); err != nil {
+	if err := RemoveMember(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); err != nil {
 		t.Fatal(err)
 	}
 	verifyRemovedMember(t, ctx, pool, d, true)
@@ -108,7 +108,7 @@ func TestRemoveOrdinaryOrganizationMemberDoesNotRestoreTeamOrInviteOnRejoin(t *t
 	if _, err := org_model.AcceptTeamInvite(ctx, store, recipient.ID, fresh.Token); err != nil {
 		t.Fatalf("new generation invitation cannot be redeemed: %v", err)
 	}
-	if err := RemoveOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); err != nil {
+	if err := RemoveMember(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); err != nil {
 		t.Fatalf("second generation removal: %v", err)
 	}
 }
@@ -129,7 +129,7 @@ func TestRemoveOrganizationMemberRejectsOwnerOutsiderReplayAndRevokedActor(t *te
 	if err := pool.QueryRow(ctx, "SELECT person_id FROM accounts WHERE id=$1", d.accountID).Scan(&ownerPersonID); err != nil {
 		t.Fatal(err)
 	}
-	if err := RemoveOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, ownerPersonID); !errors.Is(err, org_model.ErrOrganizationMemberNotFound) {
+	if err := RemoveMember(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, ownerPersonID); !errors.Is(err, org_model.ErrOrganizationMemberNotFound) {
 		t.Fatalf("owner role was removable: %v", err)
 	}
 	var owners int
@@ -146,16 +146,16 @@ func TestRemoveOrganizationMemberRejectsOwnerOutsiderReplayAndRevokedActor(t *te
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := RemoveOrganizationMember(ctx, store, outsiderID, sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOrganizationMemberNotFound) {
+	if err := RemoveMember(organizationActorContext(ctx, store, outsiderID, sessionID), d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOrganizationMemberNotFound) {
 		t.Fatalf("regular member revoked membership: %v", err)
 	}
-	if err := RemoveOrganizationMember(ctx, store, d.accountID, uuid.Nil, d.orgID, d.recipientPersonID); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+	if err := RemoveMember(organizationActorContext(ctx, store, d.accountID, uuid.Nil), d.orgID, d.recipientPersonID); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("nil actor authorized: %v", err)
 	}
-	if err := RemoveOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); err != nil {
+	if err := RemoveMember(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); err != nil {
 		t.Fatalf("owner removal: %v", err)
 	}
-	if err := RemoveOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOrganizationMemberNotFound) {
+	if err := RemoveMember(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOrganizationMemberNotFound) {
 		t.Fatalf("replayed removal result: %v", err)
 	}
 	if _, err := store.RevokeOwnedSession(ctx, db.RevokeOwnedSessionParams{
@@ -163,7 +163,7 @@ func TestRemoveOrganizationMemberRejectsOwnerOutsiderReplayAndRevokedActor(t *te
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := RemoveOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+	if err := RemoveMember(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("revoked actor reached mutation: %v", err)
 	}
 }
@@ -202,7 +202,7 @@ func TestOrganizationMemberRemovalAuditFailureRollsBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	broken := auditRejectStore{Store: store, pool: pool}
-	if err := RemoveOrganizationMember(ctx, broken, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, errAuditUnavailable) {
+	if err := RemoveMember(organizationActorContext(ctx, broken, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); !errors.Is(err, errAuditUnavailable) {
 		t.Fatalf("audit failure not propagated: %v", err)
 	}
 	verifyRemovedMember(t, ctx, pool, d, false)
@@ -233,7 +233,7 @@ func TestConcurrentTeamInsertCannotOutliveOrganizationRemoval(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() {
-		done <- RemoveOrganizationMember(ctx, teamPinnedStore{Store: store, conn: remover}, d.accountID, d.sessionID, d.orgID, d.recipientPersonID)
+		done <- RemoveMember(organizationActorContext(ctx, teamPinnedStore{Store: store, conn: remover}, d.accountID, d.sessionID), d.orgID, d.recipientPersonID)
 	}()
 	waitTeamBlocking(t, ctx, pool, teamWriter, remover, done)
 	if err := tx.Commit(ctx); err != nil {
