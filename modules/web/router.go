@@ -10,6 +10,9 @@ type Router[T any] struct {
 }
 
 func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *Router[T] {
+	if group == nil || getContext == nil {
+		panic("web: route group and context accessor are required")
+	}
 	return &Router[T]{group: group, getContext: getContext}
 }
 

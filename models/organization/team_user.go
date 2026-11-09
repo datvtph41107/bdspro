@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	audit_model "github.com/datvtph41107/bdspro/models/audit"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
@@ -28,6 +29,19 @@ func AddTeamUser(ctx context.Context, writer TeamMemberWriter, actorAccountID, t
 		return db.TeamMember{}, util.WithCause(ErrTeamMemberExists, err)
 	}
 	return member, err
+}
+
+// ListTeamUsersForDoer resolves authority from request context, not client input.
+func ListTeamUsersForDoer(ctx context.Context, teamID int64, opts db.ListOptions) ([]db.TeamMember, error) {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return nil, auth_model.ErrSessionUnavailable
+	}
+	store, err := db.StoreFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ListTeamUsers(ctx, store, actor.AccountID, teamID, opts)
 }
 
 // ListTeamUsers enforces bounded SQL pagination and active organization membership.
