@@ -12,7 +12,7 @@ import (
 
 // orgAssignment loads the resource visible through the caller's active
 // Account -> Person -> Organization membership. It is not write authority.
-func orgAssignment() func(*appctx.APIContext) {
+func orgAssignment(ownerWrite bool) func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
 		id, err := strconv.ParseInt(ctx.PathParam("id"), 10, 64)
 		if err != nil || id <= 0 {
@@ -26,8 +26,13 @@ func orgAssignment() func(*appctx.APIContext) {
 		}
 		access, err := organization_model.GetForAccount(ctx, store, ctx.Doer.AccountID, id)
 		if errors.Is(err, organization_model.ErrOrganizationNotFound) {
-			// Preserve the established Team CREATE owner-denial response.
-			ctx.APIErrorAuto(organization_model.ErrTeamOwnerRequired)
+			if ownerWrite {
+				// Team creation historically uses an owner-denial response.
+				ctx.APIErrorAuto(organization_model.ErrTeamOwnerRequired)
+			} else {
+				// Read visibility remains a 404, including other memberships.
+				ctx.APIErrorAuto(organization_model.ErrOrganizationNotFound)
+			}
 			return
 		}
 		if err != nil {

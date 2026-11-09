@@ -39,6 +39,20 @@ func (a Access) OrganizationModel() *Organization {
 	}
 }
 
+// ListForDoer is the account-scoped model read for a verified request.
+// Worker/CLI callers explicitly install the acting principal in their context.
+func ListForDoer(ctx context.Context) ([]Access, error) {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return nil, auth_model.ErrSessionUnavailable
+	}
+	store, err := db.StoreFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ListForAccount(ctx, store, actor.AccountID)
+}
+
 // OrganizationName normalizes the canonical organization name. Both the
 // standalone model entry point and HTTP service use this DB-free validator.
 func OrganizationName(name string) (string, error) {
