@@ -1,0 +1,70 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "R01.3 - 2026-11-09: rename Organization HTTP paths",
+  "notes": [
+    "New canonical /orgs routes",
+    "Keep historical R01/R20/G1 manifests unchanged; this is a reviewed route-contract delta."
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/orgs",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/orgs",
+      "access": "verified_contact"
+    },
+    {
+      "method": "GET",
+      "path": "/orgs/:id",
+      "access": "verified_contact"
+    },
+    {
+      "method": "PATCH",
+      "path": "/orgs/:id",
+      "access": "verified_contact"
+    },
+    {
+      "method": "GET",
+      "path": "/orgs/:id/members",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/orgs/:id/members",
+      "access": "verified_contact"
+    },
+    {
+      "method": "DELETE",
+      "path": "/orgs/:id/members/:person_id",
+      "access": "authenticated_verified_contact_owner"
+    },
+    {
+      "method": "DELETE",
+      "path": "/orgs/:id/owners/:person_id",
+      "access": "authenticated_verified_contact_owner"
+    },
+    {
+      "method": "PUT",
+      "path": "/orgs/:id/owners/:person_id",
+      "access": "authenticated_verified_contact_owner"
+    },
+    {
+      "method": "POST",
+      "path": "/orgs/:id/owners/transfer",
+      "access": "authenticated_verified_contact_owner"
+    },
+    {
+      "method": "GET",
+      "path": "/orgs/:id/teams",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/orgs/:id/teams",
+      "access": "verified_contact"
+    }
+  ]
+}

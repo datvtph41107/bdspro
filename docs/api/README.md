@@ -36,3 +36,7 @@ reproducibility before restoring generator commands.
 API changes must update the route declaration, handler/schema, OpenAPI and
 tests in one PR. Do not create both `doc/swagger` and
 `templates/swagger` as competing sources.
+
+## Organization API
+
+Canonical endpoints now use `/orgs`; see [Organization routes](orgs.md). The old `/organizations` HTTP paths are retired. Persistence tables and public JSON fields have not been renamed.
