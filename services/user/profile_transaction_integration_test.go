@@ -1,4 +1,4 @@
-package profile
+package user
 
 import (
 	"context"
@@ -113,6 +113,16 @@ func waitProfileSessionBlock(t *testing.T, ctx context.Context, pool *pgxpool.Po
 	}
 }
 
+// profileActionContext mirrors production ingress: the Store and verified
+// actor are scoped to the request. Session authority is checked again while
+// holding the PostgreSQL transaction's session-row lock.
+func profileActionContext(ctx context.Context, store db.Store, accountID int64, sessionID uuid.UUID) context.Context {
+	return auth_model.WithActor(db.WithStore(ctx, store), auth_model.Actor{
+		AccountID: accountID,
+		SessionID: sessionID,
+	})
+}
+
 func TestProfileMutationSerializedWithSessionRevocation(t *testing.T) {
 	ctx, pool, store := disposableProfileStore(t)
 	account, err := account_model.Register(ctx, store, account_model.RegisterParams{
@@ -122,15 +132,15 @@ func TestProfileMutationSerializedWithSessionRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	live := newProfileSession(t, ctx, store, account.ID)
-	service := NewService(store)
+	liveCtx := profileActionContext(ctx, store, account.ID, live)
 
 	initial := "Authorized"
-	original, err := service.Update(ctx, account.ID, live, ProfilePatch{DisplayName: &initial})
+	original, err := UpdateProfile(liveCtx, ProfilePatch{DisplayName: &initial})
 	if err != nil || original.DisplayName != initial {
 		t.Fatalf("initial profile write failed: %+v err=%v", original, err)
 	}
 	utc := "UTC"
-	before, err := service.UpdateSettings(ctx, account.ID, live, SettingsPatch{Timezone: &utc})
+	before, err := UpdateUserSettings(liveCtx, SettingsPatch{Timezone: &utc})
 	if err != nil || before.Timezone != "UTC" {
 		t.Fatalf("initial settings write failed: %+v err=%v", before, err)
 	}
@@ -158,8 +168,9 @@ func TestProfileMutationSerializedWithSessionRevocation(t *testing.T) {
 	stale := "Must not commit"
 	result := make(chan error, 1)
 	go func() {
-		_, err := NewService(pinnedProfileStore{Store: store, conn: writer}).Update(
-			ctx, account.ID, live, ProfilePatch{DisplayName: &stale},
+		_, err := UpdateProfile(
+			profileActionContext(ctx, pinnedProfileStore{Store: store, conn: writer}, account.ID, live),
+			ProfilePatch{DisplayName: &stale},
 		)
 		result <- err
 	}()
@@ -175,12 +186,12 @@ func TestProfileMutationSerializedWithSessionRevocation(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("profile mutation did not finish after revocation committed")
 	}
-	profile, err := service.Show(ctx, account.ID)
+	profile, err := GetAuthenticatedUser(liveCtx)
 	if err != nil || profile.DisplayName != initial {
 		t.Fatalf("revoked transaction changed profile: %+v err=%v", profile, err)
 	}
 	locale := "en"
-	if _, err := service.UpdateSettings(ctx, account.ID, live, SettingsPatch{Locale: &locale}); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+	if _, err := UpdateUserSettings(liveCtx, SettingsPatch{Locale: &locale}); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("revoked session changed settings: %v", err)
 	}
 
@@ -204,9 +215,9 @@ func TestProfileMutationSerializedWithSessionRevocation(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		newLocale := "en"
-		_, err := NewService(pinnedProfileStore{
+		_, err := UpdateUserSettings(profileActionContext(ctx, pinnedProfileStore{
 			Store: store, conn: held, ready: ready, release: release,
-		}).UpdateSettings(ctx, account.ID, nextSession, SettingsPatch{Locale: &newLocale})
+		}, account.ID, nextSession), SettingsPatch{Locale: &newLocale})
 		done <- err
 	}()
 	select {
@@ -243,7 +254,7 @@ func TestProfileMutationSerializedWithSessionRevocation(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("revocation did not finish after profile transaction")
 	}
-	after, err := service.Show(ctx, account.ID)
+	after, err := GetAuthenticatedUser(liveCtx)
 	if err != nil || after.Locale != "en" || after.Timezone != "UTC" || after.DisplayName != initial {
 		t.Fatalf("profile/settings transaction commit order violated: %+v err=%v", after, err)
 	}
