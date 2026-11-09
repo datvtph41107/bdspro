@@ -46,8 +46,8 @@ func TestGinAdapterCarriesPathAndUpdatedContext(t *testing.T) {
 		if got := api.Value(dynamicRequestKey{}); got != "live" {
 			t.Fatalf("APIContext kept a stale request: got=%v", got)
 		}
-		if api.Context != c {
-			t.Fatal("Gin compatibility bridge did not retain one request owner")
+		if GetAPIContext(c) != api {
+			t.Fatal("Gin adapter did not reuse the same request APIContext")
 		}
 		api.Status(http.StatusNoContent)
 	})

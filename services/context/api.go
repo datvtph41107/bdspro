@@ -20,6 +20,15 @@ type APIContext struct {
 	Org *APIOrganization
 }
 
+// SignedPrincipal returns signed JWT claims for compatibility-only read paths.
+// Session authorization remains exclusively available through VerifiedActor.
+func (c *APIContext) SignedPrincipal() (*authcrypto.Payload, bool) {
+	if c == nil || c.Doer == nil || c.Doer.AccountID <= 0 {
+		return nil, false
+	}
+	return c.Doer, true
+}
+
 type APIHandler func(*APIContext)
 
 var _ context.Context = (*APIContext)(nil)

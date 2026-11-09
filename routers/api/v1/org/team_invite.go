@@ -18,12 +18,12 @@ func (h *TeamHandler) CreateInvite(c *appctx.APIContext) {
 		return
 	}
 	var req structs.CreateTeamInviteOption
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Validation(c.Context, err, &req)
+	if err := c.BindJSON(&req); err != nil {
+		c.Validation(err, &req)
 		return
 	}
 	created, err := h.team.CreateTeamInvite(
-		c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, teamID,
+		c, c.Doer.AccountID, c.Doer.SessionID, teamID,
 		req.Email, 7*24*time.Hour, h.signingKey,
 	)
 	if err != nil {
@@ -40,11 +40,11 @@ func (h *TeamHandler) CreateInvite(c *appctx.APIContext) {
 // organization membership and email match the invitation's SQL predicates.
 func (h *TeamHandler) AcceptInvite(c *appctx.APIContext) {
 	var req structs.AcceptTeamInviteOption
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Validation(c.Context, err, &req)
+	if err := c.BindJSON(&req); err != nil {
+		c.Validation(err, &req)
 		return
 	}
-	member, err := h.team.AcceptTeamInvite(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, req.Token)
+	member, err := h.team.AcceptTeamInvite(c, c.Doer.AccountID, c.Doer.SessionID, req.Token)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -57,13 +57,13 @@ func (h *TeamHandler) RevokeInvite(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	inviteID, err := uuid.Parse(c.Param("invite_id"))
+	inviteID, err := uuid.Parse(c.PathParam("invite_id"))
 	if err != nil {
 		c.APIInvalid(err)
 		return
 	}
 	// RevokeTeamInvite checks that the actor owns the invitation's team.
-	if err := h.team.RevokeTeamInvite(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, teamID, inviteID); err != nil {
+	if err := h.team.RevokeTeamInvite(c, c.Doer.AccountID, c.Doer.SessionID, teamID, inviteID); err != nil {
 		c.APIErrorAuto(err)
 		return
 	}

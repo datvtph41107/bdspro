@@ -29,12 +29,12 @@ func (c *APIContext) FieldErrors(issues map[string][]FieldIssue) {
 
 // FieldError handles a manual, field-specific HTTP validation rule.
 func (c *APIContext) FieldError(field, code, message string) {
-	c.FieldErrors( map[string][]FieldIssue{
+	c.FieldErrors(map[string][]FieldIssue{
 		field: {{Code: code, Message: message}},
 	})
 }
 
-// Validation translates Gin binding errors into public JSON field names.
+// Validation translates transport binding errors into public JSON field names.
 // The request is passed explicitly to read its json tags; no global validator
 // registry or Gin configuration mutation is required.
 func (c *APIContext) Validation(err error, request any) {

@@ -19,7 +19,7 @@ func (h *TeamHandler) Members(c *appctx.APIContext) {
 		return
 	}
 	members, err := organization_model.ListTeamUsers(
-		c.Request.Context(), h.store, c.Doer.AccountID, teamID, opts,
+		c, h.store, c.Doer.AccountID, teamID, opts,
 	)
 	if err != nil {
 		c.APIErrorAuto(err)
