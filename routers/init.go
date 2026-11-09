@@ -57,7 +57,6 @@ func NormalRoutes(server *Server) *gin.Engine {
 
 	apiv1.Routes(router, apiv1.Dependencies{
 		Auth:          server.authHandler,
-		Organization:  server.organizationHandler,
 		OAuth2:        server.oauth2Handler,
 		Authorization: server.authorizationHandler,
 		Browser:       server.browserHandler,

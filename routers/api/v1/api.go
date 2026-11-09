@@ -22,7 +22,6 @@ import (
 // construct them; this package owns registration, not external resource lifetime.
 type Dependencies struct {
 	Auth          *user.AuthHandler
-	Organization  *org.Handler
 	OAuth2        *user.OAuth2Handler
 	Authorization *oauth.Handler
 	Browser       *weboauth.Handler
@@ -166,7 +165,7 @@ func registerAuthenticatedRoutes(m *web.Router[*appctx.APIContext], d Dependenci
 	// route registration follows one typed Group pattern.
 	teams := org.NewTeamHandler(d.Store, d.InviteKey)
 	m.Group("/orgs", func() {
-		registerOrgRoutes(m, d)
+		registerOrgRoutes(m)
 	}, appctx.GinActions(appctx.VerifiedContact(d.Store))...)
 	m.Group("/teams", func() {
 		registerTeamRoutes(m, d, teams)
@@ -189,14 +188,14 @@ func registerAuthenticatedRoutes(m *web.Router[*appctx.APIContext], d Dependenci
 	}
 }
 
-func registerOrgRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {
+func registerOrgRoutes(m *web.Router[*appctx.APIContext]) {
 	m.Get("", org.List)
-	m.Get("/:id/members", d.Organization.Members)
-	m.Post("/:id/members", d.Organization.AddMember)
-	m.Delete("/:id/members/:person_id", d.Organization.RemoveMember)
-	m.Put("/:id/owners/:person_id", d.Organization.PromoteOwner)
-	m.Delete("/:id/owners/:person_id", d.Organization.DemoteOwner)
-	m.Post("/:id/owners/transfer", d.Organization.TransferOwner)
+	m.Get("/:id/members", org.Members)
+	m.Post("/:id/members", org.AddMember)
+	m.Delete("/:id/members/:person_id", org.RemoveMember)
+	m.Put("/:id/owners/:person_id", org.PromoteOwner)
+	m.Delete("/:id/owners/:person_id", org.DemoteOwner)
+	m.Post("/:id/owners/transfer", org.TransferOwner)
 	m.Post("", reqToken(), bind(api.CreateOrgOption{}), org.Create)
 	m.Group("/:id", func() {
 		m.Get("", reqToken(), org.Get)

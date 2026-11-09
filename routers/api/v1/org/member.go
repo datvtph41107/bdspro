@@ -7,111 +7,116 @@ import (
 	"github.com/datvtph41107/bdspro/modules/structs"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
-	organization_service "github.com/datvtph41107/bdspro/services/organization"
+	org_service "github.com/datvtph41107/bdspro/services/organization"
 )
 
-func (h *Handler) Members(c *appctx.APIContext) {
-	id, ok := organizationID(c)
+// Members reads through the verified Account and account-scoped SQLC model.
+func Members(ctx *appctx.APIContext) {
+	id, ok := organizationID(ctx)
 	if !ok {
 		return
 	}
-	members, err := organization_model.GetOrgMembers(c, h.store, c.Doer.AccountID, id)
+	members, err := organization_model.GetOrgMembersForDoer(ctx, id)
 	if err != nil {
-		c.APIErrorAuto(err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.JSON(http.StatusOK, convert.ToActiveOrganizationMembers(members))
+	ctx.JSON(http.StatusOK, convert.ToActiveOrganizationMembers(members))
 }
 
-func (h *Handler) AddMember(c *appctx.APIContext) {
-	id, ok := organizationID(c)
+func AddMember(ctx *appctx.APIContext) {
+	id, ok := organizationID(ctx)
 	if !ok {
 		return
 	}
 	var req structs.AddOrgUserOption
-	if err := c.BindJSON(&req); err != nil {
-		c.Validation(err, &req)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.Validation(err, &req)
 		return
 	}
-	member, err := organization_service.AddOrganizationMember(c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
+	member, err := org_service.AddMember(ctx, id, req.PersonID)
 	if err != nil {
-		c.APIErrorAuto(err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.JSON(http.StatusCreated, convert.ToOrganizationMember(member))
+	ctx.JSON(http.StatusCreated, convert.ToOrganizationMember(member))
 }
 
-// RemoveMember revokes only an ordinary organization membership. Owner role
-// changes must use a separate owner-management operation.
-func (h *Handler) RemoveMember(c *appctx.APIContext) {
-	id, ok := organizationID(c)
+// RemoveMember ends an ordinary membership and its Team grants atomically.
+// SQLC prevents removing an Organization owner through this action.
+func RemoveMember(ctx *appctx.APIContext) {
+	id, ok := organizationID(ctx)
 	if !ok {
 		return
 	}
-	personID, ok := positivePathID(c, "person_id")
+	personID, ok := positivePathID(ctx, "person_id")
 	if !ok {
 		return
 	}
-	if err := organization_service.RemoveOrganizationMember(
-		c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID,
-	); err != nil {
-		c.APIErrorAuto(err)
+	if err := org_service.RemoveMember(ctx, id, personID); err != nil {
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.Status(http.StatusNoContent)
+	ctx.Status(http.StatusNoContent)
 }
 
-// PromoteOwner grants owner rights to a verified current organization member.
-func (h *Handler) PromoteOwner(c *appctx.APIContext) {
-	id, ok := organizationID(c)
+func PromoteOwner(ctx *appctx.APIContext) {
+	id, ok := organizationID(ctx)
 	if !ok {
 		return
 	}
-	personID, ok := positivePathID(c, "person_id")
+	personID, ok := positivePathID(ctx, "person_id")
 	if !ok {
 		return
 	}
-	member, err := organization_service.PromoteOrganizationOwner(c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID)
+	member, err := org_service.PromoteOwner(ctx, id, personID)
 	if err != nil {
-		c.APIErrorAuto(err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.JSON(http.StatusOK, convert.ToOrganizationMember(member))
+	ctx.JSON(http.StatusOK, convert.ToOrganizationMember(member))
 }
 
-// DemoteOwner removes owner privileges while retaining organization membership.
-func (h *Handler) DemoteOwner(c *appctx.APIContext) {
-	id, ok := organizationID(c)
+func DemoteOwner(ctx *appctx.APIContext) {
+	id, ok := organizationID(ctx)
 	if !ok {
 		return
 	}
-	personID, ok := positivePathID(c, "person_id")
+	personID, ok := positivePathID(ctx, "person_id")
 	if !ok {
 		return
 	}
-	if err := organization_service.DemoteOrganizationOwner(c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID); err != nil {
-		c.APIErrorAuto(err)
+	if err := org_service.DemoteOwner(ctx, id, personID); err != nil {
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.Status(http.StatusNoContent)
+	ctx.Status(http.StatusNoContent)
 }
 
-// TransferOwner replaces the acting owner's privileges with an eligible
-// member's privileges in one transaction; never two independent API calls.
-func (h *Handler) TransferOwner(c *appctx.APIContext) {
-	id, ok := organizationID(c)
+// TransferOwner is one transaction, never two independent role changes.
+func TransferOwner(ctx *appctx.APIContext) {
+	id, ok := organizationID(ctx)
 	if !ok {
 		return
 	}
 	var req structs.TransferOrganizationOwnerOption
-	if err := c.BindJSON(&req); err != nil {
-		c.Validation(err, &req)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.Validation(err, &req)
 		return
 	}
-	member, err := organization_service.TransferOrganizationOwner(c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
+	member, err := org_service.TransferOwner(ctx, id, req.PersonID)
 	if err != nil {
-		c.APIErrorAuto(err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.JSON(http.StatusOK, convert.ToOrganizationMember(member))
+	ctx.JSON(http.StatusOK, convert.ToOrganizationMember(member))
+}
+
+func organizationID(ctx *appctx.APIContext) (int64, bool) {
+	id, err := ctx.PositivePathID("id")
+	if err != nil {
+		ctx.APIErrorAuto(organization_model.ErrInvalidOrganization)
+		return 0, false
+	}
+	return id, true
 }

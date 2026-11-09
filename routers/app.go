@@ -13,7 +13,6 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
-	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
 	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
@@ -31,7 +30,6 @@ import (
 // Listener, readiness, timeouts and graceful shutdown remain in cmd/http.go.
 type Server struct {
 	authHandler          *user.AuthHandler
-	organizationHandler  *org.Handler
 	oauth2Handler        *user.OAuth2Handler
 	authorizationHandler *oauth.Handler
 	browserHandler       *weboauth.Handler
@@ -102,7 +100,6 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	}
 	server.authHandler = user.NewAuthHandler(authService, server.authThrottle, resetSender)
 	server.phoneEnabled = phoneSender != nil
-	server.organizationHandler = org.NewHandler(store)
 	// Provider callback and browser origin must coincide before offering the
 	// browser OIDC option. Mismatched deployments retain their existing API OIDC
 	// callback and password-based browser consent without a misleading link.
