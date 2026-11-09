@@ -2,9 +2,9 @@ package context
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
-
-	"github.com/gin-gonic/gin"
 )
 
 func TestPositivePathIDUsesOneParsingContract(t *testing.T) {
@@ -23,9 +23,11 @@ func TestPositivePathIDUsesOneParsingContract(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.raw, func(t *testing.T) {
-			gin.SetMode(gin.TestMode)
-			c := &gin.Context{Params: gin.Params{{Key: "id", Value: tt.raw}}}
-			value, err := NewBaseContext(c).PositivePathID("id")
+			source := &testRequestSource{
+				req:    httptest.NewRequest(http.MethodGet, "/orgs", nil),
+				params: map[string]string{"id": tt.raw},
+			}
+			value, err := NewBaseContext(source).PositivePathID("id")
 			if (err == nil) != tt.valid || value != tt.want {
 				t.Fatalf("raw=%q value=%d err=%v", tt.raw, value, err)
 			}

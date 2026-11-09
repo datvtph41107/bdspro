@@ -1,6 +1,7 @@
 package context
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,6 +25,34 @@ func TestAPIContextIsSharedWithinRequest(t *testing.T) {
 	}))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/one", nil))
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("status=%d", w.Code)
+	}
+}
+
+type dynamicRequestKey struct{}
+
+func TestGinAdapterCarriesPathAndUpdatedContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(APIContexter())
+	router.GET("/orgs/:id", func(c *gin.Context) {
+		api := GetAPIContext(c)
+		id, err := api.PositivePathID("id")
+		if err != nil || id != 42 {
+			t.Fatalf("path ID=%d err=%v", id, err)
+		}
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), dynamicRequestKey{}, "live"))
+		if got := api.Value(dynamicRequestKey{}); got != "live" {
+			t.Fatalf("APIContext kept a stale request: got=%v", got)
+		}
+		if api.Context != c {
+			t.Fatal("Gin compatibility bridge did not retain one request owner")
+		}
+		api.Status(http.StatusNoContent)
+	})
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/orgs/42", nil))
 	if w.Code != http.StatusNoContent {
 		t.Fatalf("status=%d", w.Code)
 	}
