@@ -235,8 +235,8 @@ func TestTeamMembershipActionsPreserveOwnerAndSQLCContracts(t *testing.T) {
 	}
 	deletePath := fmt.Sprintf("%s/%d", path, recipient.PersonID)
 	status, denied = authAcceptanceCall(t, server, deletePath, http.MethodDelete, nil, recipientBearer)
-	if status != http.StatusForbidden || denied["code"] != "organization.team_owner_required" {
-		t.Fatalf("nonowner removed member: %d %v", status, denied)
+	if status != http.StatusNotFound || denied["code"] != "organization.team_member_not_found" {
+		t.Fatalf("nonowner delete must remain invisible: %d %v", status, denied)
 	}
 	status, _ = authAcceptanceCall(t, server, deletePath, http.MethodDelete, nil, ownerBearer)
 	if status != http.StatusNoContent {

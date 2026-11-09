@@ -13,7 +13,7 @@
 - One shared private pair of TX functions is used by both the new service functions and the historical receiver methods (retained only for still-running integration tests). Do not duplicate lock/permission logic.
 
 ## Acceptance
-- Real Gin/PostgreSQL: owner add 201, member add/delete 403, duplicate add 409, member list 200, outsider list 404, owner delete 204, physical membership row absent, duplicate delete 404.
+- Real Gin/PostgreSQL: owner add 201, member add 403 and delete 404 (SQLC DELETE intentionally maps zero rows to member-not-found), duplicate add 409, member list 200, outsider list 404, owner delete 204, physical membership row absent, duplicate delete 404.
 - Negative unit tests: invalid path/pagination fail before DB; absent verified actor or Store explicitly fails.
 - Existing pinned-connection concurrency tests now execute the new standalone service path for session revocation vs member writes, preserving original order.
 - No change to routes, SQLC migrations, OAuth bearer audiences, public DTO or error code taxonomy.
