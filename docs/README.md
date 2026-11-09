@@ -5,6 +5,7 @@ on the exact commit take priority over explanatory claims in these files.
 
 ## Start here
 
+- [Agent and engineer workflow](engineering/README.md)
 - [Building the binary](build-source.md)
 - [Local development and Air](development.md)
 - [Testing and acceptance](testing.md)
