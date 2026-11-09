@@ -3,6 +3,7 @@
 This directory explains how to work, verify and learn in BDSPro. Its audience is a developer or agent joining without access to earlier conversations. Source at a pinned commit and observed runtime behavior outrank documentation when they disagree.
 
 - [Task and acceptance contract](task-contract.md): the G0–G4 sequence, evidence tiers, review boundaries and a reusable PR/task record.
+- [Verify BDSPro skill](../../.cursor/skills/verify-bdspro/SKILL.md): launch disposable dependencies, run verified HTTP acceptance and keep local evidence.
 - [Capability map](capability-map.md): how to discover code paths and authoritative tests for the first protected capabilities.
 - [Current source architecture](../architecture/README.md), [development and testing](../testing.md) and [source ownership](../architecture/source-ownership.md): current and historical engineering guidance.
 - [Live session authority](../architecture/g1-live-session-authority.md), [organization transaction ordering](../architecture/g1-organization-transaction-order.md) and [organization naming](../architecture/orgs-gitea-decision.md): capability-specific constraints.

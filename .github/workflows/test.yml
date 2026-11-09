@@ -112,6 +112,9 @@ jobs:
           test -x bin/bdspro
           ./bin/bdspro migrate --help
 
+      - name: Verify agent capability runner with isolated PostgreSQL and Redis
+        run: bash .cursor/skills/verify-bdspro/scripts/verify.sh
+
       - name: Verify Asynq worker crash and automatic lease recovery
         env:
           BDS_G1_PROCESS_TEST: "1"

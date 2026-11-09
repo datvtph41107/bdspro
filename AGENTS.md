@@ -27,6 +27,8 @@ It is guidance, not proof. Actual source, tests and CI results for the exact com
 - **G3 Prove:** Reproduce a bug before fixing it where feasible. Run relevant unit/integration tests and exercise the real API/CLI when behavior changes; capture command, result and commit SHA. A self-report is not evidence.
 - **G4 Accept:** Independent review and checks on the actual head, then update canonical docs and executable guardrails when lessons repeat. Report PASS, FAIL or INCONCLUSIVE; missing tests are not PASS.
 
+For user-facing Organization and Session work, use the [verify-bdspro skill](.cursor/skills/verify-bdspro/SKILL.md) to run a disposable, real Gin/PostgreSQL/Redis acceptance lane; it supplements, not replaces, the existing tests and review. The first lane uses the in-process Gin HTTP adapter and is not a full production-network E2E proof.
+
 Useful checks: `go test ./tests/architecture -count=1`; `make sqlc-check`; `make swagger-check`; `go test ./...`; `go test -race ./...`; `go vet ./...`. Run the applicable set and state what could not run. CI does not substitute for application-level evidence.
 
 ## Authority, safety and delivery

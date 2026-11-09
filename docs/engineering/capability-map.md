@@ -21,4 +21,4 @@ This is a source map for a new engineer or agent, not a claim that every path is
 
 ## Maintain the map
 
-Update a capability when routes, permissions, transaction boundaries or canonical tests change. Do not add speculative packages or duplicate a full call graph in prose. A future `verify-bdspro` skill should independently launch, drive and observe these user-facing paths before the map is considered live-verified.
+Update a capability when routes, permissions, transaction boundaries or canonical tests change. Do not add speculative packages or duplicate a full call graph in prose. Use the [verify-bdspro skill](../../.cursor/skills/verify-bdspro/SKILL.md) and the [Organization](../../.cursor/skills/verify-bdspro/features/organizations.md) and [Session](../../.cursor/skills/verify-bdspro/features/sessions.md) feature recipes. The current runner exercises in-process Gin with real PostgreSQL/Redis; it does not claim network ingress, provider E2E, or a full app-process launch. A source-map check alone does not prove live behavior.
