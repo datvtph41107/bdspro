@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 	api "github.com/datvtph41107/bdspro/modules/structs"
@@ -196,8 +197,6 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 
 func registerOrgRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHandler) {
 	route.GET("", appctx.Wrap(org.List))
-	route.POST("", appctx.Wrap(d.Organization.Create))
-	route.PATCH("/:id", appctx.Wrap(d.Organization.Edit))
 	route.GET("/:id/members", appctx.Wrap(d.Organization.Members))
 	route.POST("/:id/members", appctx.Wrap(d.Organization.AddMember))
 	route.DELETE("/:id/members/:person_id", appctx.Wrap(d.Organization.RemoveMember))
@@ -206,14 +205,18 @@ func registerOrgRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHa
 	route.POST("/:id/owners/transfer", appctx.Wrap(d.Organization.TransferOwner))
 	route.GET("/:id/teams", appctx.Wrap(teams.List))
 	m := web.NewRouter[*appctx.APIContext](route, appctx.GetAPIContext)
+	m.Post("", reqToken(), bind(api.CreateOrgOption{}), org.Create)
 	m.Group("/:id", func() {
 		m.Get("", reqToken(), org.Get)
-	}, orgAssignment(false))
+	}, orgAssignment(nil))
+	m.Group("/:id", func() {
+		m.Patch("", reqToken(), reqOrgOwnership(organization_model.ErrOrganizationOwnerRequired), bind(api.EditOrgOption{}), org.Edit)
+	}, orgAssignment(organization_model.ErrOrganizationOwnerRequired))
 	m.Group("/:id", func() {
 		m.Group("/teams", func() {
 			m.Post("", reqToken(), reqOrgMembership(), reqOrgOwnership(), bind(api.CreateTeamOption{}), org.CreateTeam)
 		})
-	}, orgAssignment(true))
+	}, orgAssignment(organization_model.ErrTeamOwnerRequired))
 }
 
 func registerTeamRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHandler) {
