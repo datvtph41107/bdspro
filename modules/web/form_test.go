@@ -54,7 +54,7 @@ func TestBindJSONStoresTypedFormOnlyAfterSuccess(t *testing.T) {
 	type teamForm struct{ Name string }
 	valid := &testJSONFormContext{
 		testFormStore: testFormStore{data: make(reqctx.ContextData)},
-		body: `{"name":"Backend"}`,
+		body:          `{"name":"Backend"}`,
 	}
 	form, err := BindJSON[teamForm](valid)
 	if err != nil || form.Name != "Backend" {
@@ -65,7 +65,7 @@ func TestBindJSONStoresTypedFormOnlyAfterSuccess(t *testing.T) {
 	}
 	bad := &testJSONFormContext{
 		testFormStore: testFormStore{data: make(reqctx.ContextData)},
-		err: errors.New("invalid json"),
+		err:           errors.New("invalid json"),
 	}
 	if _, err := BindJSON[teamForm](bad); err == nil {
 		t.Fatal("invalid JSON unexpectedly accepted")

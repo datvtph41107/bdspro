@@ -116,4 +116,3 @@ func positivePathID(c *appctx.APIContext, key string) (int64, bool) {
 	}
 	return id, true
 }
-
