@@ -14,6 +14,7 @@ import (
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/modules/web/middleware"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -143,11 +144,12 @@ func TestStoreOrganizationHTTP(t *testing.T) {
 		c.Next()
 	}, func(c *gin.Context) {
 		api := appctx.GetAPIContext(c)
-		form, err := web.BindJSON[structs.CreateOrgOption](api)
+		form, err := middleware.BindJSON[structs.CreateOrgOption](api)
 		if err != nil {
 			api.Validation(err, form)
 			return
 		}
+		web.SetForm(api, form)
 		c.Next()
 	}, appctx.Wrap(Create))
 

@@ -15,6 +15,7 @@ import (
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	api "github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/modules/web/middleware"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -239,16 +240,20 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 	})
 	m := web.NewRouter[*appctx.APIContext](admitted, appctx.GetAPIContext)
 	bindProfile := func(ctx *appctx.APIContext) {
-		form, err := web.BindJSON[api.ProfileUpdateRequest](ctx)
+		form, err := middleware.BindJSON[api.ProfileUpdateRequest](ctx)
 		if err != nil {
 			ctx.Validation(err, form)
+			return
 		}
+		web.SetForm(ctx, form)
 	}
 	bindSettings := func(ctx *appctx.APIContext) {
-		form, err := web.BindJSON[api.SettingsUpdateRequest](ctx)
+		form, err := middleware.BindJSON[api.SettingsUpdateRequest](ctx)
 		if err != nil {
 			ctx.Validation(err, form)
+			return
 		}
+		web.SetForm(ctx, form)
 	}
 	m.Get("/users/me", GetAuthenticatedUser)
 	m.Patch("/users/me/profile", bindProfile, UpdateProfile)

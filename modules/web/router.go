@@ -6,7 +6,6 @@ import (
 	"reflect"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
-	"github.com/datvtph41107/bdspro/modules/web/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -60,23 +59,6 @@ func (r *Router[T]) Delete(path string, actions ...func(T)) {
 type FormStore = reqctx.ContextDataProvider
 
 const formKey = "__form"
-
-type JSONFormContext interface {
-	FormStore
-	BindJSON(value any) error
-}
-
-// BindJSON is the typed form publication boundary. middleware.BindJSON owns
-// decoding through the existing Gin binder; the form is published only after
-// successful binding, just as Gitea's router binds before SetForm.
-func BindJSON[T any](ctx JSONFormContext) (*T, error) {
-	form, err := middleware.BindJSON[T](ctx)
-	if err != nil {
-		return form, err
-	}
-	SetForm(ctx, form)
-	return form, nil
-}
 
 func SetForm(store FormStore, value any) {
 	store.GetData()[formKey] = value

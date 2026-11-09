@@ -8,16 +8,19 @@ import (
 
 	api "github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/modules/web/middleware"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
 // bindTestForm exercises the same modules/web form boundary as api/v1.bind.
 func bindTestForm[T any](ctx *appctx.APIContext) {
-	form, err := web.BindJSON[T](ctx)
+	form, err := middleware.BindJSON[T](ctx)
 	if err != nil {
 		ctx.Validation(err, form)
+		return
 	}
+	web.SetForm(ctx, form)
 }
 
 func TestTeamPackageActionsRejectMalformedInputsWithoutDatabase(t *testing.T) {
