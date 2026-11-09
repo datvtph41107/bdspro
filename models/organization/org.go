@@ -13,6 +13,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// Organization is the Party-backed model visible to API actions.
+// ID maps to organizations.party_id; SQLC keeps database field names.
+type Organization struct {
+	ID int64
+	Name string
+	CreatedAt time.Time
+}
+
 // Access includes the account-scoped membership returned by SQL. It is not an
 // HTTP representation and does not grant permission by itself.
 type Access struct {
@@ -20,6 +28,15 @@ type Access struct {
 	MembershipID int64
 	Role         string
 	JoinedAt     time.Time
+}
+
+// OrganizationModel is a read projection for an already authorized API request.
+func (a Access) OrganizationModel() *Organization {
+	return &Organization{
+		ID: a.Organization.PartyID,
+		Name: a.Organization.Name,
+		CreatedAt: a.Organization.CreatedAt,
+	}
 }
 
 // OrganizationName normalizes the canonical organization name. Both the

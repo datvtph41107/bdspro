@@ -10,6 +10,34 @@ import (
 	"github.com/google/uuid"
 )
 
+// NewTeam coordinates verified session authority and Team creation in one TX.
+// The original SQLC owner predicate remains the committing authorization check.
+func NewTeam(ctx context.Context, team *organization_model.Team) error {
+	if team == nil || !organization_model.ValidTeamName(team.Name) {
+		return organization_model.ErrTeamNameInvalid
+	}
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return auth_model.ErrSessionUnavailable
+	}
+	saved, err := db.WithTxValue(ctx, func(txCtx context.Context) (*organization_model.Team, error) {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return nil, err
+		}
+		if err := auth_model.RequireActingSession(txCtx, q, actor.AccountID, actor.SessionID); err != nil {
+			return nil, err
+		}
+		return organization_model.InsertTeam(txCtx, actor.AccountID, team)
+	})
+	if err != nil {
+		return err
+	}
+	// Do not show a persisted in-memory model when COMMIT failed.
+	*team = *saved
+	return nil
+}
+
 // TeamService coordinates acting-session authority with team lifecycle and
 // membership changes. Resource permissions and audit remain owned by SQLC.
 type TeamService struct {

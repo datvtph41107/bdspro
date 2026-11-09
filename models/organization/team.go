@@ -4,12 +4,55 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
 )
+
+// Team is the model passed from HTTP action through service to persistence.
+type Team struct {
+	ID int64
+	OrgID int64
+	Name string
+	Description string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func TeamFromDB(row db.Team) *Team {
+	return &Team{
+		ID: row.ID,
+		OrgID: row.OrganizationID,
+		Name: row.Name,
+		Description: row.Description,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
+	}
+}
+
+// InsertTeam requires an existing SQLC transaction-scoped executor.
+func InsertTeam(ctx context.Context, actorAccountID int64, input *Team) (*Team, error) {
+	if input == nil {
+		return nil, ErrTeamNameInvalid
+	}
+	q, err := db.TxQueries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	row, err := CreateTeam(ctx, q, CreateTeamOptions{
+		OrganizationID: input.OrgID,
+		ActorAccountID: actorAccountID,
+		Name: input.Name,
+		Description: input.Description,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return TeamFromDB(row), nil
+}
 
 type CreateTeamOptions struct {
 	OrganizationID int64
