@@ -21,20 +21,20 @@ func TestOrganizationOwnerLifecycleHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	status, created := authAcceptanceCall(t, server, "/organizations", http.MethodPost,
+	status, created := authAcceptanceCall(t, server, "/orgs", http.MethodPost,
 		map[string]string{"name": "Owner transfer test"}, ownerToken)
 	if status != http.StatusCreated {
 		t.Fatalf("create organization: status=%d response=%v", status, created)
 	}
 	orgID := int64(created["party_id"].(float64))
-	memberURL := fmt.Sprintf("/organizations/%d/members", orgID)
+	memberURL := fmt.Sprintf("/orgs/%d/members", orgID)
 	status, _ = authAcceptanceCall(t, server, memberURL, http.MethodPost, map[string]int64{"person_id": candidate.PersonID}, ownerToken)
 	if status != http.StatusCreated {
 		t.Fatalf("add ordinary member status=%d", status)
 	}
-	promoteURL := fmt.Sprintf("/organizations/%d/owners/%d", orgID, candidate.PersonID)
-	demoteURL := fmt.Sprintf("/organizations/%d/owners/%d", orgID, owner.PersonID)
-	transferURL := fmt.Sprintf("/organizations/%d/owners/transfer", orgID)
+	promoteURL := fmt.Sprintf("/orgs/%d/owners/%d", orgID, candidate.PersonID)
+	demoteURL := fmt.Sprintf("/orgs/%d/owners/%d", orgID, owner.PersonID)
+	transferURL := fmt.Sprintf("/orgs/%d/owners/transfer", orgID)
 	status, _ = authAcceptanceCall(t, server, promoteURL, http.MethodPut, nil, outsiderToken)
 	if status != http.StatusForbidden {
 		t.Fatalf("outsider promoted owner: %d", status)
@@ -65,7 +65,7 @@ func TestOrganizationOwnerLifecycleHTTP(t *testing.T) {
 	if status != http.StatusConflict {
 		t.Fatalf("new sole owner demoted: %d", status)
 	}
-	status, view := organizationGetJSON(t, server, fmt.Sprintf("/organizations/%d", orgID), ownerToken)
+	status, view := organizationGetJSON(t, server, fmt.Sprintf("/orgs/%d", orgID), ownerToken)
 	if status != http.StatusOK {
 		t.Fatalf("owner no longer sees organization: %d %v", status, view)
 	}
@@ -73,7 +73,7 @@ func TestOrganizationOwnerLifecycleHTTP(t *testing.T) {
 	if a["membership"].(map[string]any)["role"] != "owner" {
 		t.Fatalf("owner role not projected: %v", a)
 	}
-	status, other := organizationGetJSON(t, server, fmt.Sprintf("/organizations/%d", orgID), candidateToken)
+	status, other := organizationGetJSON(t, server, fmt.Sprintf("/orgs/%d", orgID), candidateToken)
 	if status != http.StatusOK || other.(map[string]any)["membership"].(map[string]any)["role"] != "member" {
 		t.Fatalf("transferring actor still owner: status=%d result=%v", status, other)
 	}

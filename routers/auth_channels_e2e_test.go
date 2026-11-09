@@ -125,7 +125,7 @@ func TestPhoneSignupLoginAndBusinessHTTPAcceptance(t *testing.T) {
 	}
 	firstID := result["user"].(map[string]any)["account_id"]
 	access := result["access_token"].(string)
-	status, result = authAcceptanceCall(t, server, "/organizations", http.MethodPost, map[string]string{"name": "Phone Business"}, access)
+	status, result = authAcceptanceCall(t, server, "/orgs", http.MethodPost, map[string]string{"name": "Phone Business"}, access)
 	if status != http.StatusCreated {
 		t.Fatalf("verified phone cannot create organization: %d %v", status, result)
 	}
