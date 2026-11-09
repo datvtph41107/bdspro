@@ -203,11 +203,11 @@ func registerOrgRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHa
 	route.PUT("/:id/owners/:person_id", appctx.Wrap(d.Organization.PromoteOwner))
 	route.DELETE("/:id/owners/:person_id", appctx.Wrap(d.Organization.DemoteOwner))
 	route.POST("/:id/owners/transfer", appctx.Wrap(d.Organization.TransferOwner))
-	route.GET("/:id/teams", appctx.Wrap(teams.List))
 	m := web.NewRouter[*appctx.APIContext](route, appctx.GetAPIContext)
 	m.Post("", reqToken(), bind(api.CreateOrgOption{}), org.Create)
 	m.Group("/:id", func() {
 		m.Get("", reqToken(), org.Get)
+		m.Get("/teams", reqToken(), reqOrgMembership(), org.ListTeams)
 	}, orgAssignment(nil))
 	m.Group("/:id", func() {
 		m.Patch("", reqToken(), reqOrgOwnership(organization_model.ErrOrganizationOwnerRequired), bind(api.EditOrgOption{}), org.Edit)
@@ -229,9 +229,9 @@ func registerTeamRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamH
 		m.Get("", reqToken(), org.GetTeam)
 	}, teamAssignment())
 	route.PATCH("/:team_id", appctx.Wrap(teams.Edit))
-	route.GET("/:team_id/members", appctx.Wrap(teams.Members))
-	route.POST("/:team_id/members", appctx.Wrap(teams.AddMember))
-	route.DELETE("/:team_id/members/:person_id", appctx.Wrap(teams.RemoveMember))
+	m.Get("/:team_id/members", reqToken(), org.ListTeamMembers)
+	m.Post("/:team_id/members", reqToken(), bind(api.AddTeamUserOption{}), org.AddTeamMember)
+	m.Delete("/:team_id/members/:person_id", reqToken(), org.RemoveTeamMember)
 	route.POST("/:team_id/invites",
 		d.IPActive.For(ipactive.CreateTeamInvite),
 		appctx.Wrap(teams.CreateInvite),

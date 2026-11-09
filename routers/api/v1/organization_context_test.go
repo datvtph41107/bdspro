@@ -110,3 +110,30 @@ func TestOrgAssignmentRejectsMismatchedAuthorityBeforeDatabase(t *testing.T) {
 		t.Fatalf("status=%d reached=%v body=%s", w.Code, reached, w.Body.String())
 	}
 }
+
+func TestOrgAssignmentRejectsInvalidIDForTeamListBeforeDatabase(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(appctx.APIContexter())
+	r.Use(func(c *gin.Context) {
+		api := appctx.GetAPIContext(c)
+		sessionID := uuid.MustParse("e27803ce-3e4f-42d5-94d6-7693d30b825d")
+		api.IsSigned = true
+		api.Doer = &authcrypto.Payload{AccountID: 42, SessionID: sessionID}
+		c.Request = c.Request.WithContext(auth_model.WithActor(c.Request.Context(), auth_model.Actor{
+			AccountID: 42, SessionID: sessionID,
+		}))
+		c.Next()
+	})
+	reached := false
+	m := web.NewRouter[*appctx.APIContext](r.Group(""), appctx.GetAPIContext)
+	m.Group("/orgs/:id", func() {
+		m.Get("/teams", func(*appctx.APIContext) { reached = true })
+	}, orgAssignment(nil))
+	response := httptest.NewRecorder()
+	r.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/orgs/invalid/teams", nil))
+	if response.Code != http.StatusBadRequest || reached {
+		t.Fatalf("bad organization ID passed assignment: status=%d reached=%v body=%s",
+			response.Code, reached, response.Body.String())
+	}
+}
