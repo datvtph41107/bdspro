@@ -66,9 +66,9 @@ func serveHTTP(ctx context.Context, handler http.Handler, address string, onList
 }
 
 // shutdownHTTPServer drains live HTTP requests until the deadline. On timeout
- // it closes active connections before returning; no caller may close the DB
- // while the server is still accepting connections. This cannot stop handlers
- // that ignore canceled request contexts or hijacked connections.
+// it closes active connections before returning; no caller may close the DB
+// while the server is still accepting connections. This cannot stop handlers
+// that ignore canceled request contexts or hijacked connections.
 func shutdownHTTPServer(server *http.Server, timeout time.Duration) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
