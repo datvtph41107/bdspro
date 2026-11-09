@@ -10,6 +10,51 @@ import (
 	"github.com/google/uuid"
 )
 
+// NewOrganization creates a Party-backed Organization from an API model.
+// The original service enforces account-first/session-second lock ordering;
+// the caller's model is published only after a successful COMMIT.
+func NewOrganization(ctx context.Context, target *organization_model.Organization) error {
+	if target == nil {
+		return organization_model.ErrInvalidOrganization
+	}
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return auth_model.ErrSessionUnavailable
+	}
+	store, err := db.StoreFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	created, err := CreateOrganization(ctx, store, actor.AccountID, actor.SessionID, target.Name)
+	if err != nil {
+		return err
+	}
+	*target = *organization_model.OrganizationFromDB(created)
+	return nil
+}
+
+// EditOrganization retains SQLC owner-scoped writes and session authority
+// through the existing UpdateOrganization transaction.
+func EditOrganization(ctx context.Context, target *organization_model.Organization) error {
+	if target == nil || target.ID <= 0 {
+		return organization_model.ErrInvalidOrganization
+	}
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return auth_model.ErrSessionUnavailable
+	}
+	store, err := db.StoreFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	updated, err := UpdateOrganization(ctx, store, actor.AccountID, actor.SessionID, target.ID, target.Name)
+	if err != nil {
+		return err
+	}
+	*target = *organization_model.OrganizationFromDB(updated)
+	return nil
+}
+
 // CreateOrganization composes the creator-account, acting-session and
 // party/organization/owner writes in one transaction. Account FOR KEY SHARE
 // MUST precede session FOR UPDATE: credential recovery takes account FOR

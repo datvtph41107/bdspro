@@ -6,6 +6,15 @@ import (
 	"github.com/datvtph41107/bdspro/modules/structs"
 )
 
+// ToOrganizationModel maps domain data without hidden database queries.
+func ToOrganizationModel(v *organization_model.Organization) structs.Organization {
+	return structs.Organization{
+		PartyID:   v.ID,
+		Name:      v.Name,
+		CreatedAt: v.CreatedAt,
+	}
+}
+
 func ToOrganization(v db.Organization) structs.Organization {
 	return structs.Organization{PartyID: v.PartyID, Name: v.Name, CreatedAt: v.CreatedAt}
 }
