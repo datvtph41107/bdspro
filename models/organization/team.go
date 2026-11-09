@@ -91,6 +91,24 @@ func CreateTeam(ctx context.Context, writer TeamWriter, opts CreateTeamOptions) 
 	return team, teamWriteError(err)
 }
 
+// UpdateTeam resolves the SQLC writer from the enclosing transaction context.
+// It mirrors Gitea's domain Team mutation: service callers pass a model, not
+// a Store or generated SQLC update parameters.
+func UpdateTeam(ctx context.Context, actorAccountID int64, team *Team) (*Team, error) {
+	if team == nil || team.ID <= 0 {
+		return nil, ErrTeamNotFound
+	}
+	q, err := db.TxQueries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	saved, err := RenameTeam(ctx, q, actorAccountID, team.ID, team.Name)
+	if err != nil {
+		return nil, err
+	}
+	return TeamFromDB(saved), nil
+}
+
 // GetTeam never exposes a team outside the caller's active organization membership.
 func GetTeam(ctx context.Context, store db.Store, actorAccountID, teamID int64) (db.Team, error) {
 	team, err := store.GetTeamForAccount(ctx, db.GetTeamForAccountParams{
