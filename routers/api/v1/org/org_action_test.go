@@ -22,7 +22,7 @@ func TestGetUsesAssignedOrganizationWithoutDatabaseRead(t *testing.T) {
 		api.Org = &appctx.APIOrganization{Access: &organization_model.Access{
 			Organization: db.Organization{PartyID: 12, Name: "Acme", CreatedAt: time.Unix(100, 0).UTC()},
 			MembershipID: 5,
-			Role: organization_model.RoleOwner,
+			Role:         organization_model.RoleOwner,
 		}}
 		c.Next()
 	}, appctx.Wrap(Get))
@@ -32,7 +32,7 @@ func TestGetUsesAssignedOrganizationWithoutDatabaseRead(t *testing.T) {
 		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
 	}
 	var response struct {
-		PartyID int64 `json:"party_id"`
+		PartyID    int64 `json:"party_id"`
 		Membership struct {
 			ID int64 `json:"id"`
 		} `json:"membership"`
