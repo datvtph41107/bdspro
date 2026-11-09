@@ -15,7 +15,7 @@ type testRequestSource struct {
 	req     *http.Request
 	params  map[string]string
 	status  int
-	body    any
+	body    []byte
 	code    string
 	aborted bool
 	headers http.Header
@@ -35,12 +35,11 @@ func (s *testRequestSource) QueryDefault(name, fallback string) string {
 	}
 	return fallback
 }
-func (s *testRequestSource) WriteJSON(status int, value any) { s.status, s.body = status, value }
-func (s *testRequestSource) WriteStatus(status int)          { s.status = status }
-func (s *testRequestSource) AbortJSON(status int, value any) {
-	s.WriteJSON(status, value)
-	s.aborted = true
+func (s *testRequestSource) WriteJSON(status int, encoded []byte) {
+	s.status, s.body = status, append([]byte(nil), encoded...)
 }
+func (s *testRequestSource) WriteStatus(status int) { s.status = status }
+func (s *testRequestSource) Abort()                 { s.aborted = true }
 func (s *testRequestSource) SetHeader(name, value string) {
 	if s.headers == nil {
 		s.headers = make(http.Header)
@@ -91,8 +90,9 @@ func TestAPIContextCanWriteWithoutGin(t *testing.T) {
 	if source.status != http.StatusForbidden || !source.aborted || source.code != "owner_required" {
 		t.Fatalf("unexpected error response: status=%d abort=%v code=%q", source.status, source.aborted, source.code)
 	}
-	if body, ok := source.body.(APIErrorResponse); !ok || body.Code != "owner_required" || body.Error != "owner required" {
-		t.Fatalf("error contract changed: %v", source.body)
+	var body APIErrorResponse
+	if err := json.Unmarshal(source.body, &body); err != nil || body.Code != "owner_required" || body.Error != "owner required" {
+		t.Fatalf("error contract changed: %s, err=%v", source.body, err)
 	}
 }
 
@@ -104,5 +104,22 @@ func TestAPIContextValidationWithoutGin(t *testing.T) {
 	}{})
 	if source.status != http.StatusBadRequest || source.code != "invalid_request_body" || !source.aborted {
 		t.Fatalf("invalid request: status=%d code=%q aborted=%v", source.status, source.code, source.aborted)
+	}
+}
+
+func TestBaseJSONUsesRelaxedCodecAndNeverExposesMarshalErrors(t *testing.T) {
+	source := &testRequestSource{req: httptest.NewRequest(http.MethodGet, "/test", nil)}
+	api := &APIContext{Base: NewBaseContext(source)}
+
+	api.JSON(http.StatusOK, map[string]string{"value": string([]byte{0xff})})
+	var decoded map[string]string
+	if err := json.Unmarshal(source.body, &decoded); err != nil || decoded["value"] != "\ufffd" {
+		t.Fatalf("relaxed JSON response=%s err=%v", source.body, err)
+	}
+
+	api.JSON(http.StatusOK, map[string]any{"not_json": make(chan int)})
+	var public APIErrorResponse
+	if err := json.Unmarshal(source.body, &public); err != nil || source.status != http.StatusInternalServerError || source.code != "internal_error" || public.Code != "internal_error" || public.Error != "internal server error" {
+		t.Fatalf("invalid JSON escaped response contract: status=%d code=%q body=%s err=%v", source.status, source.code, source.body, err)
 	}
 }

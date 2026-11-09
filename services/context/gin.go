@@ -22,12 +22,16 @@ func (s ginRequestSource) BindJSON(value any) error      { return s.ctx.ShouldBi
 func (s ginRequestSource) QueryDefault(name, fallback string) string {
 	return s.ctx.DefaultQuery(name, fallback)
 }
-func (s ginRequestSource) WriteJSON(status int, value any) { s.ctx.JSON(status, value) }
-func (s ginRequestSource) WriteStatus(status int)          { s.ctx.Status(status) }
-func (s ginRequestSource) AbortJSON(status int, value any) { s.ctx.AbortWithStatusJSON(status, value) }
-func (s ginRequestSource) SetHeader(name, value string)    { s.ctx.Header(name, value) }
-func (s ginRequestSource) SetErrorCode(code string)        { s.ctx.Set(ErrorCodeKey, code) }
-func (s ginRequestSource) IsAborted() bool                 { return s.ctx.IsAborted() }
+
+// JSON is encoded once in Base.JSON; Gin only writes the prepared bytes.
+func (s ginRequestSource) WriteJSON(status int, encoded []byte) {
+	s.ctx.Data(status, "application/json;charset=utf-8", encoded)
+}
+func (s ginRequestSource) WriteStatus(status int)       { s.ctx.Status(status) }
+func (s ginRequestSource) Abort()                       { s.ctx.Abort() }
+func (s ginRequestSource) SetHeader(name, value string) { s.ctx.Header(name, value) }
+func (s ginRequestSource) SetErrorCode(code string)     { s.ctx.Set(ErrorCodeKey, code) }
+func (s ginRequestSource) IsAborted() bool              { return s.ctx.IsAborted() }
 func (s ginRequestSource) WrittenStatus() int {
 	if !s.ctx.Writer.Written() {
 		return 0

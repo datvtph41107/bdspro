@@ -47,3 +47,18 @@ func TestNewDecoderReadsBoundedProviderResponse(t *testing.T) {
 		t.Fatalf("stream decoder failed: %+v err=%v", result, err)
 	}
 }
+
+// HTTP output uses the relaxed Gitea codec while persisted payloads retain
+// the strict Marshal/Unmarshal contract verified above.
+func TestMarshalWriteRelaxedReplacesInvalidUTF8(t *testing.T) {
+	var output bytes.Buffer
+	if err := MarshalWriteRelaxed(&output, map[string]string{"value": string([]byte{0xff})}); err != nil {
+		t.Fatal(err)
+	}
+	var value struct {
+		Value string `json:"value"`
+	}
+	if err := legacyjson.Unmarshal(output.Bytes(), &value); err != nil || value.Value != "\ufffd" {
+		t.Fatalf("invalid UTF-8 response=%s value=%q err=%v", output.Bytes(), value.Value, err)
+	}
+}
