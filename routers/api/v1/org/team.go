@@ -10,7 +10,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
-	org_service "github.com/datvtph41107/bdspro/services/organization"
+	org_service "github.com/datvtph41107/bdspro/services/org"
 )
 
 // CreateTeam is the Gitea-style standalone action; owner permission is

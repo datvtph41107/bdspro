@@ -26,7 +26,7 @@ Gitea: `routers/api/v1/org.CreateTeam`
  -> handler chain stops.
 
 BDSPro: `routers/api/v1/org.CreateTeam`
- -> `services/organization.NewTeam`
+ -> `services/org.NewTeam`
  -> session and owner authorization inside SQLC transaction
  -> `models/organization.InsertTeam`
  -> `services/context.APIErrorAuto`
@@ -73,7 +73,8 @@ owns request diagnostics; no Gitea logger manager clone is introduced.
 - Code formatting, full route inventory and Go 1.27.3 `go test ./...`
   and `go test -race ./...` are acceptance gates, not inferred outcomes.
 
-Follow-up: rename actual service ownership to `services/org` consistently,
-trace remaining user/Auth/OAuth Gin actions into typed API actions, remove
+Service package rename: `services/organization` -> `services/org` is included in R01.
+Follow-up:
+Trace remaining user/Auth/OAuth Gin actions into typed API actions; remove
 unused legacy team handlers only after callers/tests are migrated, and
 audit `routers/init.go` ingress plus `modules/web` binding/validation.

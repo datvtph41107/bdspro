@@ -1,5 +1,5 @@
-// Package organization coordinates cross-model organization business operations.
-package organization
+// Package org coordinates cross-model organization business operations.
+package org
 
 import (
 	"context"

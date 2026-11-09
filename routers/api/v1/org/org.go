@@ -9,7 +9,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
-	org_service "github.com/datvtph41107/bdspro/services/organization"
+	org_service "github.com/datvtph41107/bdspro/services/org"
 )
 
 // List reads only organizations visible to the verified current Account.
