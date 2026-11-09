@@ -57,7 +57,7 @@ func Edit(ctx *appctx.APIContext) {
 		return
 	}
 	org := &organization_model.Organization{
-		ID: ctx.Org.Organization.ID,
+		ID:   ctx.Org.Organization.ID,
 		Name: *form.Name,
 	}
 	if err := org_service.EditOrganization(ctx, org); err != nil {
