@@ -49,7 +49,7 @@ func RemoveMember(ctx *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	personID, ok := positivePathID(ctx, "person_id")
+	personID, ok := memberPathID(ctx)
 	if !ok {
 		return
 	}
@@ -65,7 +65,7 @@ func PromoteOwner(ctx *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	personID, ok := positivePathID(ctx, "person_id")
+	personID, ok := memberPathID(ctx)
 	if !ok {
 		return
 	}
@@ -82,7 +82,7 @@ func DemoteOwner(ctx *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	personID, ok := positivePathID(ctx, "person_id")
+	personID, ok := memberPathID(ctx)
 	if !ok {
 		return
 	}
@@ -116,6 +116,17 @@ func organizationID(ctx *appctx.APIContext) (int64, bool) {
 	id, err := ctx.PositivePathID("id")
 	if err != nil {
 		ctx.APIErrorAuto(organization_model.ErrInvalidOrganization)
+		return 0, false
+	}
+	return id, true
+}
+
+// memberPathID owns the person_id input used by member/owner actions.
+// It preserves the former generic helper's HTTP 400 behavior.
+func memberPathID(ctx *appctx.APIContext) (int64, bool) {
+	id, err := ctx.PositivePathID("person_id")
+	if err != nil {
+		ctx.APIInvalid(err)
 		return 0, false
 	}
 	return id, true
