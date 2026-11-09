@@ -1,10 +1,14 @@
 package context
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
+	appjson "github.com/datvtph41107/bdspro/modules/json"
+	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/reqctx"
 )
 
@@ -15,9 +19,10 @@ type RequestSource interface {
 	PathParam(name string) string
 	BindJSON(value any) error
 	QueryDefault(name, fallback string) string
-	WriteJSON(status int, value any)
+	// WriteJSON writes bytes already encoded by Base.JSON, never re-marshals.
+	WriteJSON(status int, encoded []byte)
 	WriteStatus(status int)
-	AbortJSON(status int, value any)
+	Abort()
 	SetHeader(name, value string)
 	SetErrorCode(code string)
 	IsAborted() bool
@@ -59,7 +64,20 @@ func (b *Base) Value(key any) any           { return b.CurrentRequestContext().V
 
 // These helpers are implemented by exactly one HTTP adapter. No extra Gin
 // middleware executor, HTTP response writer or request parser is introduced.
-func (b *Base) JSON(status int, value any) { b.source.WriteJSON(status, value) }
+// JSON is the canonical JSON response writer, matching Gitea's Base.JSON
+// -> modules/json.MarshalWriteRelaxed boundary. The Gin adapter emits bytes
+// only; it must never choose another JSON codec.
+func (b *Base) JSON(status int, value any) {
+	var encoded bytes.Buffer
+	if err := appjson.MarshalWriteRelaxed(&encoded, value); err != nil {
+		// Never leak provider or driver data through a failed response renderer.
+		log.Ctx(b).Error().Str("error_type", fmt.Sprintf("%T", err)).Msg("http.json_encode_error")
+		b.source.SetErrorCode("internal_error")
+		b.source.WriteJSON(http.StatusInternalServerError, []byte(`{"error":"internal server error","code":"internal_error"}`))
+		return
+	}
+	b.source.WriteJSON(status, encoded.Bytes())
+}
 func (b *Base) Status(status int)          { b.source.WriteStatus(status) }
 func (b *Base) BindJSON(value any) error   { return b.source.BindJSON(value) }
 func (b *Base) DefaultQuery(name, fallback string) string {
@@ -76,5 +94,6 @@ func (b *Base) WrittenStatus() int { return b.source.WrittenStatus() }
 
 func (b *Base) writeError(status int, code string, body any) {
 	b.source.SetErrorCode(code)
-	b.source.AbortJSON(status, body)
+	b.JSON(status, body)
+	b.source.Abort()
 }
