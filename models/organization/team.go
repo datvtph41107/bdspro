@@ -110,14 +110,32 @@ func UpdateTeam(ctx context.Context, actorAccountID int64, team *Team) (*Team, e
 }
 
 // GetTeam never exposes a team outside the caller's active organization membership.
-func GetTeam(ctx context.Context, store db.Store, actorAccountID, teamID int64) (db.Team, error) {
-	team, err := store.GetTeamForAccount(ctx, db.GetTeamForAccountParams{
+func GetTeam(ctx context.Context, reader db.Querier, actorAccountID, teamID int64) (db.Team, error) {
+	team, err := reader.GetTeamForAccount(ctx, db.GetTeamForAccountParams{
 		TeamID: teamID, ActorAccountID: actorAccountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return db.Team{}, ErrTeamNotFound
 	}
 	return team, err
+}
+
+// GetTeamForDoer is the account-scoped domain read used by API routes.
+// It uses the current transaction when present instead of accepting a Store.
+func GetTeamForDoer(ctx context.Context, teamID int64) (*Team, error) {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return nil, auth_model.ErrSessionUnavailable
+	}
+	reader, err := db.GetQueries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	row, err := GetTeam(ctx, reader, actor.AccountID, teamID)
+	if err != nil {
+		return nil, err
+	}
+	return TeamFromDB(row), nil
 }
 
 func RenameTeam(ctx context.Context, writer TeamWriter, actorAccountID, teamID int64, name string) (db.Team, error) {
@@ -150,20 +168,20 @@ func ListTeamsForDoer(ctx context.Context, organizationID int64, opts db.ListOpt
 	if !ok {
 		return nil, auth_model.ErrSessionUnavailable
 	}
-	store, err := db.StoreFromContext(ctx)
+	reader, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ListTeams(ctx, store, actor.AccountID, organizationID, opts)
+	return ListTeams(ctx, reader, actor.AccountID, organizationID, opts)
 }
 
 // ListTeams applies the same authorization predicate as the single-team query.
-func ListTeams(ctx context.Context, store db.Store, actorAccountID, organizationID int64, opts db.ListOptions) ([]db.Team, error) {
+func ListTeams(ctx context.Context, reader db.Querier, actorAccountID, organizationID int64, opts db.ListOptions) ([]db.Team, error) {
 	skip, take, ok := opts.GetSkipTake32()
 	if !ok {
 		return nil, ErrTeamPaginationInvalid
 	}
-	teams, err := store.ListTeamsForAccount(ctx, db.ListTeamsForAccountParams{
+	teams, err := reader.ListTeamsForAccount(ctx, db.ListTeamsForAccountParams{
 		ActorAccountID: actorAccountID,
 		OrganizationID: organizationID,
 		Take:           take,
@@ -175,7 +193,7 @@ func ListTeams(ctx context.Context, store db.Store, actorAccountID, organization
 	// Filtering returns no rows for both an empty page and an organization
 	// invisible to this account. Resolve visibility only for empty results:
 	// the normal non-empty path still uses one SQL round-trip.
-	if _, err := GetForAccount(ctx, store, actorAccountID, organizationID); err != nil {
+	if _, err := GetForAccount(ctx, reader, actorAccountID, organizationID); err != nil {
 		return nil, err
 	}
 	return teams, nil

@@ -56,11 +56,11 @@ func ListForDoer(ctx context.Context) ([]Access, error) {
 	if !ok {
 		return nil, auth_model.ErrSessionUnavailable
 	}
-	store, err := db.StoreFromContext(ctx)
+	queries, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ListForAccount(ctx, store, actor.AccountID)
+	return ListForAccount(ctx, queries, actor.AccountID)
 }
 
 // OrganizationName normalizes the canonical organization name. Both the
@@ -149,8 +149,8 @@ func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int6
 	return created, nil
 }
 
-func ListForAccount(ctx context.Context, store db.Store, actorAccountID int64) ([]Access, error) {
-	rows, err := store.ListOrganizationsForAccount(ctx, actorAccountID)
+func ListForAccount(ctx context.Context, reader db.Querier, actorAccountID int64) ([]Access, error) {
+	rows, err := reader.ListOrganizationsForAccount(ctx, actorAccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -165,8 +165,8 @@ func ListForAccount(ctx context.Context, store db.Store, actorAccountID int64) (
 }
 
 // GetForAccount preserves the account visibility predicate in SQLC.
-func GetForAccount(ctx context.Context, store db.Store, actorAccountID, organizationID int64) (Access, error) {
-	row, err := store.GetOrganizationForAccount(ctx, db.GetOrganizationForAccountParams{
+func GetForAccount(ctx context.Context, reader db.Querier, actorAccountID, organizationID int64) (Access, error) {
+	row, err := reader.GetOrganizationForAccount(ctx, db.GetOrganizationForAccountParams{
 		AccountID: actorAccountID, OrganizationID: organizationID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -179,6 +179,21 @@ func GetForAccount(ctx context.Context, store db.Store, actorAccountID, organiza
 		Organization: db.Organization{PartyID: row.PartyID, Name: row.Name, CreatedAt: row.CreatedAt},
 		MembershipID: row.MembershipID, Role: row.Role, JoinedAt: row.JoinedAt,
 	}, nil
+}
+
+// GetForDoer resolves both the verified actor and the SQLC executor from
+// context. Unlike a Store parameter, this automatically reads through the
+// enclosing transaction when one exists (Gitea db.GetEngine semantics).
+func GetForDoer(ctx context.Context, organizationID int64) (Access, error) {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return Access{}, auth_model.ErrSessionUnavailable
+	}
+	reader, err := db.GetQueries(ctx)
+	if err != nil {
+		return Access{}, err
+	}
+	return GetForAccount(ctx, reader, actor.AccountID, organizationID)
 }
 
 // OrganizationWriter is implemented by both SQLStore and transaction-bound

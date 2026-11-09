@@ -57,6 +57,26 @@ func StoreFromContext(ctx context.Context) (Store, error) {
 	return store, nil
 }
 
+// GetQueries mirrors Gitea's db.GetEngine(ctx): use the current transaction
+// executor when present, otherwise the Store installed once by ingress.
+// This never creates a connection, transaction, global Store or second SQLC
+// query layer. Writes requiring transaction authority still use TxQueries.
+func GetQueries(ctx context.Context) (Querier, error) {
+	if value := ctx.Value(queriesContextKey{}); value != nil {
+		q, ok := value.(*Queries)
+		if !ok || q == nil {
+			return nil, ErrTransactionRequired
+		}
+		if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok && state != nil {
+			if err := state.failure(); err != nil {
+				return nil, err
+			}
+		}
+		return q, nil
+	}
+	return StoreFromContext(ctx)
+}
+
 // TxQueries retrieves the single SQLC executor belonging to the transaction.
 // It must never silently fall back to non-transactional queries.
 func TxQueries(ctx context.Context) (*Queries, error) {

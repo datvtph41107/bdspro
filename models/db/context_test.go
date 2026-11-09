@@ -112,3 +112,47 @@ func TestWithTxRequiresStore(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestGetQueriesUsesCurrentTransactionOrRequestStore(t *testing.T) {
+	store := &contextTestStore{}
+	if _, err := GetQueries(context.Background()); !errors.Is(err, ErrStoreMissing) {
+		t.Fatalf("unconfigured read: %v", err)
+	}
+	ctx := WithStore(context.Background(), store)
+	outer, err := GetQueries(ctx)
+	if err != nil || outer != store {
+		t.Fatalf("read outside transaction must use request Store: %T, %v", outer, err)
+	}
+	if err := WithTx(ctx, func(txCtx context.Context) error {
+		expected, err := TxQueries(txCtx)
+		if err != nil {
+			return err
+		}
+		got, err := GetQueries(txCtx)
+		if err != nil || got != expected {
+			t.Fatalf("read in transaction used wrong executor: got %T, expected %T, err %v", got, expected, err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if store.transactions != 1 || !store.committed {
+		t.Fatalf("GetQueries opened a second transaction: count=%d committed=%v", store.transactions, store.committed)
+	}
+}
+
+func TestGetQueriesRejectsPoisonedTransaction(t *testing.T) {
+	store := &contextTestStore{}
+	ctx := WithStore(context.Background(), store)
+	sentinel := errors.New("nested SQLC operation must roll back")
+	err := WithTx(ctx, func(txCtx context.Context) error {
+		_ = WithTx(txCtx, func(context.Context) error { return sentinel })
+		if _, queryErr := GetQueries(txCtx); !errors.Is(queryErr, sentinel) {
+			t.Fatalf("poisoned transaction accepted new read: %v", queryErr)
+		}
+		return nil
+	})
+	if !errors.Is(err, sentinel) || store.committed {
+		t.Fatalf("poisoned transaction committed: err=%v committed=%v", err, store.committed)
+	}
+}
