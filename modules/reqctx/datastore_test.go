@@ -74,3 +74,11 @@ func TestRequestStoreConcurrentCleanupRegistration(t *testing.T) {
 		t.Fatalf("cleanup count=%d", called)
 	}
 }
+
+func TestFromContextDoesNotReturnTypedNilInterface(t *testing.T) {
+	var missing *requestDataStore
+	ctx := context.WithValue(context.Background(), dataStoreKey{}, missing)
+	if store := FromContext(ctx); store != nil {
+		t.Fatalf("typed-nil pointer escaped as a non-nil interface: %T", store)
+	}
+}

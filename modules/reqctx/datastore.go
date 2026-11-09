@@ -78,7 +78,10 @@ func FromContext(ctx context.Context) RequestDataStore {
 	if ctx == nil {
 		return nil
 	}
-	store, _ := ctx.Value(dataStoreKey{}).(*requestDataStore)
+	store, ok := ctx.Value(dataStoreKey{}).(*requestDataStore)
+	if !ok || store == nil {
+		return nil
+	}
 	return store
 }
 
