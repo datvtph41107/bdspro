@@ -43,6 +43,7 @@ Their code is not interchangeable just because they are siblings.
 - [HTTP request path](http.md): admission, middleware and response.
 - [Process runtime](runtime.md): web/worker/migrate, availability and failures.
 - [Gitea evidence and boundaries](gitea-ownership-r01.md): source comparison.
+- [P0 — Gitea programming-model baseline](gitea-programming-model-p0.md): pinned source/function ownership, current migration debt, acceptance gates.
 
-No generic repository registry, routing facade, plugin loader, or empty
+No generic repository registry, replacement routing engine, plugin loader, or empty
 `routers/web` is assumed by this architecture.

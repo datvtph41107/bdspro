@@ -54,6 +54,9 @@ jobs:
       - name: Verify package ownership
         run: go test ./tests/architecture -count=1
 
+      - name: Audit programming-model migration debt
+        run: go test ./tests/architecture -run '^TestProgrammingModel' -count=1 -v
+
       - name: Verify SQLC generated output
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
