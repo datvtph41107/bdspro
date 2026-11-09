@@ -572,7 +572,7 @@
         ]
       }
     },
-    "/organizations": {
+    "/orgs": {
       "post": {
         "tags": [
           "Organizations"
@@ -713,7 +713,7 @@
         ]
       }
     },
-    "/organizations/{id}/owners/{person_id}": {
+    "/orgs/{id}/owners/{person_id}": {
       "put": {
         "tags": [
           "Organizations"
@@ -904,7 +904,7 @@
         ]
       }
     },
-    "/organizations/{id}/owners/transfer": {
+    "/orgs/{id}/owners/transfer": {
       "post": {
         "tags": [
           "Organizations"
@@ -1000,7 +1000,7 @@
         ]
       }
     },
-    "/organizations/{id}/members/{person_id}": {
+    "/orgs/{id}/members/{person_id}": {
       "delete": {
         "tags": [
           "Organizations"
@@ -1088,7 +1088,7 @@
         ]
       }
     },
-    "/organizations/{id}/members": {
+    "/orgs/{id}/members": {
       "post": {
         "tags": [
           "Organizations"
@@ -1251,7 +1251,7 @@
         }
       }
     },
-    "/organizations/{id}": {
+    "/orgs/{id}": {
       "patch": {
         "tags": [
           "Organizations"
@@ -1940,7 +1940,7 @@
         }
       }
     },
-    "/organizations/{id}/teams": {
+    "/orgs/{id}/teams": {
       "get": {
         "tags": [
           "Organizations"

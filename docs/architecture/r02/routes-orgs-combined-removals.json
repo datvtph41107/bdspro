@@ -1,0 +1,90 @@
+{
+  "repository": "datvtph41107/bdspro",
+  "commit": "R01.3 - 2026-11-09: rename Organization HTTP paths",
+  "notes": [
+    "Retired /organizations endpoints together with earlier R26 provider-specific removals",
+    "Keep historical R01/R20/G1 manifests unchanged; this is a reviewed route-contract delta."
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/organizations",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/organizations",
+      "access": "verified_contact"
+    },
+    {
+      "method": "GET",
+      "path": "/organizations/:id",
+      "access": "verified_contact"
+    },
+    {
+      "method": "PATCH",
+      "path": "/organizations/:id",
+      "access": "verified_contact"
+    },
+    {
+      "method": "GET",
+      "path": "/organizations/:id/members",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/organizations/:id/members",
+      "access": "verified_contact"
+    },
+    {
+      "method": "DELETE",
+      "path": "/organizations/:id/members/:person_id",
+      "access": "authenticated_verified_contact_owner"
+    },
+    {
+      "method": "DELETE",
+      "path": "/organizations/:id/owners/:person_id",
+      "access": "authenticated_verified_contact_owner"
+    },
+    {
+      "method": "PUT",
+      "path": "/organizations/:id/owners/:person_id",
+      "access": "authenticated_verified_contact_owner"
+    },
+    {
+      "method": "POST",
+      "path": "/organizations/:id/owners/transfer",
+      "access": "authenticated_verified_contact_owner"
+    },
+    {
+      "method": "GET",
+      "path": "/organizations/:id/teams",
+      "access": "verified_contact"
+    },
+    {
+      "method": "POST",
+      "path": "/organizations/:id/teams",
+      "access": "verified_contact"
+    },
+    {
+      "method": "GET",
+      "path": "/users/google/callback",
+      "access": "public"
+    },
+    {
+      "method": "GET",
+      "path": "/users/google/login/start",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/google/start",
+      "access": "authenticated"
+    },
+    {
+      "method": "POST",
+      "path": "/users/me/phone/google/start",
+      "access": "verified_email"
+    }
+  ]
+}

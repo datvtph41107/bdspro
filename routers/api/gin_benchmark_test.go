@@ -13,10 +13,10 @@ import (
 func BenchmarkGinRouting(b *testing.B) {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
-	router.GET("/organizations/:id", func(c *gin.Context) {
+	router.GET("/orgs/:id", func(c *gin.Context) {
 		c.Status(http.StatusNoContent)
 	})
-	request := httptest.NewRequest(http.MethodGet, "/organizations/42", nil)
+	request := httptest.NewRequest(http.MethodGet, "/orgs/42", nil)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

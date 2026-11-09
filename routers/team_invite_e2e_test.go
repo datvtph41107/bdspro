@@ -23,18 +23,18 @@ func TestTeamInvitationAuthorizationAndReplayHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	status, org := authAcceptanceCall(t, server, "/organizations", http.MethodPost,
+	status, org := authAcceptanceCall(t, server, "/orgs", http.MethodPost,
 		map[string]string{"name": "Invitation HTTP " + uuid.NewString()}, ownerBearer)
 	if status != http.StatusCreated {
 		t.Fatalf("organization creation: %d %v", status, org)
 	}
 	orgID := int64(org["party_id"].(float64))
-	status, added := authAcceptanceCall(t, server, fmt.Sprintf("/organizations/%d/members", orgID), http.MethodPost,
+	status, added := authAcceptanceCall(t, server, fmt.Sprintf("/orgs/%d/members", orgID), http.MethodPost,
 		map[string]int64{"person_id": recipient.PersonID}, ownerBearer)
 	if status != http.StatusCreated {
 		t.Fatalf("add organization member: %d %v", status, added)
 	}
-	status, team := authAcceptanceCall(t, server, fmt.Sprintf("/organizations/%d/teams", orgID), http.MethodPost,
+	status, team := authAcceptanceCall(t, server, fmt.Sprintf("/orgs/%d/teams", orgID), http.MethodPost,
 		map[string]string{"name": "Backend"}, ownerBearer)
 	if status != http.StatusCreated {
 		t.Fatalf("create team: %d %v", status, team)
@@ -46,12 +46,12 @@ func TestTeamInvitationAuthorizationAndReplayHTTP(t *testing.T) {
 		t.Fatalf("authorized empty membership list: status=%d members=%v", emptyStatus, empty)
 	}
 	emptyStatus, empty = organizationGetJSON(t, server,
-		fmt.Sprintf("/organizations/%d/teams?page=9999", orgID), ownerBearer)
+		fmt.Sprintf("/orgs/%d/teams?page=9999", orgID), ownerBearer)
 	if emptyStatus != http.StatusOK || len(empty.([]any)) != 0 {
 		t.Fatalf("authorized empty teams page: status=%d teams=%v", emptyStatus, empty)
 	}
 	emptyStatus, _ = organizationGetJSON(t, server,
-		fmt.Sprintf("/organizations/%d/teams", orgID), outsiderBearer)
+		fmt.Sprintf("/orgs/%d/teams", orgID), outsiderBearer)
 	if emptyStatus != http.StatusNotFound {
 		t.Fatalf("nonmember must not list organization teams: status=%d", emptyStatus)
 	}
@@ -125,18 +125,18 @@ func TestTeamInvitationRevokeHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	status, org := authAcceptanceCall(t, server, "/organizations", http.MethodPost,
+	status, org := authAcceptanceCall(t, server, "/orgs", http.MethodPost,
 		map[string]string{"name": "Revocation " + uuid.NewString()}, ownerBearer)
 	if status != http.StatusCreated {
 		t.Fatalf("organization creation: %d %v", status, org)
 	}
 	orgID := int64(org["party_id"].(float64))
-	status, _ = authAcceptanceCall(t, server, fmt.Sprintf("/organizations/%d/members", orgID), http.MethodPost,
+	status, _ = authAcceptanceCall(t, server, fmt.Sprintf("/orgs/%d/members", orgID), http.MethodPost,
 		map[string]int64{"person_id": recipient.PersonID}, ownerBearer)
 	if status != http.StatusCreated {
 		t.Fatalf("add member: %d", status)
 	}
-	status, team := authAcceptanceCall(t, server, fmt.Sprintf("/organizations/%d/teams", orgID), http.MethodPost,
+	status, team := authAcceptanceCall(t, server, fmt.Sprintf("/orgs/%d/teams", orgID), http.MethodPost,
 		map[string]string{"name": "Review"}, ownerBearer)
 	if status != http.StatusCreated {
 		t.Fatalf("create team: %d %v", status, team)

@@ -124,10 +124,10 @@ func TestStoreOrganizationHTTP(t *testing.T) {
 	organizations := NewHandler(store)
 	router := gin.New()
 	router.Use(appctx.RequestIngress())
-	router.POST("/organizations", appctx.Authenticate(maker), appctx.Wrap(organizations.Create))
+	router.POST("/orgs", appctx.Authenticate(maker), appctx.Wrap(organizations.Create))
 
 	send := func(body, bearer string) *httptest.ResponseRecorder {
-		request := httptest.NewRequest(http.MethodPost, "/organizations", strings.NewReader(body))
+		request := httptest.NewRequest(http.MethodPost, "/orgs", strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
 		if bearer != "" {
 			request.Header.Set("Authorization", "Bearer "+bearer)

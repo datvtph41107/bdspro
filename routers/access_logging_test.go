@@ -22,11 +22,11 @@ func TestAccessLogIsSafeInfoOutcome(t *testing.T) {
 
 	router := gin.New()
 	router.Use(accessLogger())
-	router.GET("/organizations/:id", func(c *gin.Context) {
+	router.GET("/orgs/:id", func(c *gin.Context) {
 		appctx.InternalError(c)
 	})
 
-	request := httptest.NewRequest(http.MethodGet, "/organizations/42?token=private-query-value", nil)
+	request := httptest.NewRequest(http.MethodGet, "/orgs/42?token=private-query-value", nil)
 	request = request.WithContext(logger.WithContext(request.Context()))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
@@ -41,14 +41,14 @@ func TestAccessLogIsSafeInfoOutcome(t *testing.T) {
 	if event["level"] != "info" || event["message"] != "http.request" {
 		t.Fatalf("access must be an info outcome: %+v", event)
 	}
-	if event["path"] != "/organizations/:id" || event["method"] != http.MethodGet ||
+	if event["path"] != "/orgs/:id" || event["method"] != http.MethodGet ||
 		event["error_code"] != "internal_error" || event["request_id"] != "request-123" {
 		t.Fatalf("incomplete request correlation: %+v", event)
 	}
 	if event["status"] != float64(http.StatusInternalServerError) {
 		t.Fatalf("status=%v", event["status"])
 	}
-	if strings.Contains(output.String(), "private-query-value") || strings.Contains(output.String(), "/organizations/42") {
+	if strings.Contains(output.String(), "private-query-value") || strings.Contains(output.String(), "/orgs/42") {
 		t.Fatalf("access log exposed raw request identifiers or query secrets: %s", output.String())
 	}
 }

@@ -171,7 +171,7 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	// One team handler owns the immutable store/signing dependencies for both
 	// organization-scoped and team-scoped routes; no request-time assembly.
 	teams := org.NewTeamHandler(d.Store, d.InviteKey)
-	registerOrganizationRoutes(route.Group("/organizations", appctx.VerifiedContact(d.Store)), d, teams)
+	registerOrgRoutes(route.Group("/orgs", appctx.VerifiedContact(d.Store)), d, teams)
 	registerTeamRoutes(route.Group("/teams", appctx.VerifiedContact(d.Store)), d, teams)
 
 	if d.OAuth2 != nil {
@@ -192,7 +192,7 @@ func registerAuthenticatedRoutes(route *gin.RouterGroup, d Dependencies) {
 	}
 }
 
-func registerOrganizationRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHandler) {
+func registerOrgRoutes(route *gin.RouterGroup, d Dependencies, teams *org.TeamHandler) {
 	route.GET("", appctx.Wrap(d.Organization.List))
 	route.GET("/:id", appctx.Wrap(d.Organization.Get))
 	route.POST("", appctx.Wrap(d.Organization.Create))

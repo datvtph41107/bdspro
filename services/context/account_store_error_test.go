@@ -17,11 +17,11 @@ import (
 func TestVerifiedContactWithoutStoreFailsClosed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.GET("/organizations", VerifiedContact(nil), func(c *gin.Context) {
+	router.GET("/orgs", VerifiedContact(nil), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 	w := httptest.NewRecorder()
-	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/organizations", nil))
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/orgs", nil))
 	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), `"code":"identity_store_unavailable"`) {
 		t.Fatalf("unexpected failure status=%d body=%s", w.Code, w.Body.String())
 	}

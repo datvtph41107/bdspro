@@ -84,12 +84,12 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		"POST /users/password/reset/request", "GET /users/password/reset", "POST /users/password/reset",
 		"POST /users/me/email/start", "POST /users/me/email/verify",
 		"GET /users/me/connections", "GET /users/me/sessions", "DELETE /users/me/sessions/:id", "POST /users/me/sessions/revoke_all",
-		"POST /organizations", "GET /organizations",
-		"POST /organizations/:id/members", "DELETE /organizations/:id/members/:person_id", "PATCH /organizations/:id",
-		"PUT /organizations/:id/owners/:person_id", "DELETE /organizations/:id/owners/:person_id",
-		"POST /organizations/:id/owners/transfer",
-		"GET /organizations/:id", "GET /organizations/:id/members",
-		"GET /organizations/:id/teams", "POST /organizations/:id/teams",
+		"POST /orgs", "GET /orgs",
+		"POST /orgs/:id/members", "DELETE /orgs/:id/members/:person_id", "PATCH /orgs/:id",
+		"PUT /orgs/:id/owners/:person_id", "DELETE /orgs/:id/owners/:person_id",
+		"POST /orgs/:id/owners/transfer",
+		"GET /orgs/:id", "GET /orgs/:id/members",
+		"GET /orgs/:id/teams", "POST /orgs/:id/teams",
 		"GET /teams/:team_id", "PATCH /teams/:team_id",
 		"POST /teams/:team_id/members", "DELETE /teams/:team_id/members/:person_id",
 		"GET /teams/:team_id/members", "POST /teams/:team_id/invites",
@@ -98,6 +98,9 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	got := make(map[string]bool)
 	for _, route := range base.router.Routes() {
 		got[route.Method+" "+route.Path] = true
+		if strings.HasPrefix(route.Path, "/organizations") {
+			t.Fatalf("legacy /organizations route still registered: %s %s", route.Method, route.Path)
+		}
 	}
 	if len(got) != len(want) {
 		t.Fatalf("base route count = %d, want %d: %v", len(got), len(want), got)

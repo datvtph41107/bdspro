@@ -21,15 +21,15 @@ func TestOrganizationRemoveOrdinaryMemberHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	status, created := authAcceptanceCall(t, server, "/organizations", http.MethodPost,
+	status, created := authAcceptanceCall(t, server, "/orgs", http.MethodPost,
 		map[string]string{"name": "Removal HTTP Contract"}, ownerToken)
 	if status != http.StatusCreated {
 		t.Fatalf("create organization %d %v", status, created)
 	}
 	orgID := int64(created["party_id"].(float64))
-	memberPath := fmt.Sprintf("/organizations/%d/members/%d", orgID, memberAccount.PersonID)
-	ownerPath := fmt.Sprintf("/organizations/%d/members/%d", orgID, ownerAccount.PersonID)
-	addPath := fmt.Sprintf("/organizations/%d/members", orgID)
+	memberPath := fmt.Sprintf("/orgs/%d/members/%d", orgID, memberAccount.PersonID)
+	ownerPath := fmt.Sprintf("/orgs/%d/members/%d", orgID, ownerAccount.PersonID)
+	addPath := fmt.Sprintf("/orgs/%d/members", orgID)
 	status, _ = authAcceptanceCall(t, server, addPath, http.MethodPost,
 		map[string]int64{"person_id": memberAccount.PersonID}, ownerToken)
 	if status != http.StatusCreated {
@@ -51,7 +51,7 @@ func TestOrganizationRemoveOrdinaryMemberHTTP(t *testing.T) {
 	if status != http.StatusNotFound {
 		t.Fatalf("replayed revocation status=%d", status)
 	}
-	status, _ = organizationGetJSON(t, server, fmt.Sprintf("/organizations/%d", orgID), memberToken)
+	status, _ = organizationGetJSON(t, server, fmt.Sprintf("/orgs/%d", orgID), memberToken)
 	if status != http.StatusNotFound {
 		t.Fatalf("ended member still has organization view: status=%d", status)
 	}

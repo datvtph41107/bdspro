@@ -16,9 +16,9 @@ func TestOrganizationInvalidRequestsStopBeforeService(t *testing.T) {
 	// A nil service proves invalid HTTP input never reaches the operation.
 	h := NewHandler(nil)
 	router := gin.New()
-	router.POST("/organizations", appctx.Wrap(h.Create))
-	router.PATCH("/organizations/:id", appctx.Wrap(h.Edit))
-	router.POST("/organizations/:id/members", appctx.Wrap(h.AddMember))
+	router.POST("/orgs", appctx.Wrap(h.Create))
+	router.PATCH("/orgs/:id", appctx.Wrap(h.Edit))
+	router.POST("/orgs/:id/members", appctx.Wrap(h.AddMember))
 
 	cases := []struct {
 		name   string
@@ -29,14 +29,14 @@ func TestOrganizationInvalidRequestsStopBeforeService(t *testing.T) {
 		field  string
 		rule   string
 	}{
-		{"missing create name", http.MethodPost, "/organizations", `{}`, "validation_failed", "name", "required"},
-		{"blank create name", http.MethodPost, "/organizations", `{"name":"   "}`, "validation_failed", "name", "required"},
-		{"missing update name", http.MethodPatch, "/organizations/1", `{}`, "validation_failed", "name", "required"},
-		{"null update name", http.MethodPatch, "/organizations/1", `{"name":null}`, "validation_failed", "name", "required"},
-		{"blank update name", http.MethodPatch, "/organizations/1", `{"name":"   "}`, "validation_failed", "name", "required"},
-		{"wrong name type", http.MethodPost, "/organizations", `{"name":12}`, "validation_failed", "name", "invalid_type"},
-		{"malformed request", http.MethodPost, "/organizations", `{"name":`, "malformed_json", "", ""},
-		{"invalid member id", http.MethodPost, "/organizations/1/members", `{"person_id":0}`, "validation_failed", "person_id", "required"},
+		{"missing create name", http.MethodPost, "/orgs", `{}`, "validation_failed", "name", "required"},
+		{"blank create name", http.MethodPost, "/orgs", `{"name":"   "}`, "validation_failed", "name", "required"},
+		{"missing update name", http.MethodPatch, "/orgs/1", `{}`, "validation_failed", "name", "required"},
+		{"null update name", http.MethodPatch, "/orgs/1", `{"name":null}`, "validation_failed", "name", "required"},
+		{"blank update name", http.MethodPatch, "/orgs/1", `{"name":"   "}`, "validation_failed", "name", "required"},
+		{"wrong name type", http.MethodPost, "/orgs", `{"name":12}`, "validation_failed", "name", "invalid_type"},
+		{"malformed request", http.MethodPost, "/orgs", `{"name":`, "malformed_json", "", ""},
+		{"invalid member id", http.MethodPost, "/orgs/1/members", `{"person_id":0}`, "validation_failed", "person_id", "required"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
