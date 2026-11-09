@@ -6,70 +6,50 @@ import (
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/log"
-	"github.com/gin-gonic/gin"
 )
 
 const ErrorCodeKey = "public_error_code"
 
-// Reject emits the public JSON error shape; underlying errors are never serialized.
-func Reject(c *gin.Context, status int, code, message string) {
-	c.Set(ErrorCodeKey, code)
-	c.AbortWithStatusJSON(status, gin.H{"error": message, "code": code})
+// APIError is the sole public error envelope for API actions. The existing
+// Gin helpers in gin_response.go also call this implementation.
+func (c *APIContext) APIError(status int, code, message string) {
+	c.writeError(status, code, map[string]any{
+		"error": message,
+		"code": code,
+	})
 }
 
-func Invalid(c *gin.Context, err error) {
+func (c *APIContext) APIErrorAuto(err error) {
+	if status, code, message, ok := PublicError(err); ok {
+		c.APIError(status, code, message)
+		return
+	}
+	// Never serialize or log raw driver/provider errors: they can contain
+	// credentials, SQL parameters and secret callback URLs.
+	log.Ctx(c).Error().Str("error_type", fmt.Sprintf("%T", err)).Msg("http.application_error")
+	c.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
+}
+
+func (c *APIContext) APIInvalid(err error) {
 	var size *http.MaxBytesError
 	if errors.As(err, &size) {
-		Reject(c, http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
+		c.APIError(http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
 		return
 	}
-	Reject(c, http.StatusBadRequest, "invalid_request", "invalid request")
+	c.APIError(http.StatusBadRequest, "invalid_request", "invalid request")
 }
 
-func Error(c *gin.Context, err error) {
-	if status, code, message, ok := PublicError(err); ok {
-		Reject(c, status, code, message)
-		return
-	}
-	// Do not serialize or log arbitrary err.Error(): driver and provider errors
-	// may contain credentials, tokens, URLs or other sensitive values.
-	event := log.Ctx(c.Request.Context()).Error().
-		Str("error_type", fmt.Sprintf("%T", err))
-	event.Msg("http.application_error")
-	InternalError(c)
+func (c *APIContext) APIErrorNotFound() {
+	c.APIError(http.StatusNotFound, "not_found", "not found")
 }
 
-// BearerRequired responds to requests without a valid Bearer credential.
-func BearerRequired(c *gin.Context) {
+func (c *APIContext) APIErrorInternal(err error) {
+	if err == nil { err = errors.New("internal API failure") }
+	log.Ctx(c).Error().Str("error_type", fmt.Sprintf("%T", err)).Msg("http.api_internal_error")
+	c.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
+}
+
+func (c *APIContext) AuthenticationRequired() {
 	c.Header("WWW-Authenticate", "Bearer")
-	Reject(c, http.StatusUnauthorized, "unauthenticated", "missing or invalid bearer token")
-}
-
-// InvalidAccessToken rejects an invalid access JWT using the Bearer challenge.
-func InvalidAccessToken(c *gin.Context) {
-	c.Header("WWW-Authenticate", `Bearer error="invalid_token"`)
-	Reject(c, http.StatusUnauthorized, "invalid_access_token", "invalid access token")
-}
-
-// AuthenticationRequired responds when the verified principal is no longer available.
-func AuthenticationRequired(c *gin.Context) {
-	c.Header("WWW-Authenticate", "Bearer")
-	Reject(c, http.StatusUnauthorized, "unauthenticated", "authentication required")
-}
-
-// RateLimitUnavailable fails closed when admission cannot be enforced.
-func RateLimitUnavailable(c *gin.Context) {
-	Reject(c, http.StatusServiceUnavailable, "rate_limit_unavailable", "authentication temporarily unavailable")
-}
-
-// RateLimited emits a 429 with the policy's Retry-After window in seconds.
-func RateLimited(c *gin.Context, retryAfterSeconds int64) {
-	c.Header("Retry-After", fmt.Sprint(retryAfterSeconds))
-	Reject(c, http.StatusTooManyRequests, "rate_limited", "too many requests")
-}
-
-// InternalError is the safe HTTP response to a failure already diagnosed
-// at the operation or recovery boundary.
-func InternalError(c *gin.Context) {
-	Reject(c, http.StatusInternalServerError, "internal_error", "internal server error")
+	c.APIError(http.StatusUnauthorized, "unauthenticated", "authentication required")
 }
