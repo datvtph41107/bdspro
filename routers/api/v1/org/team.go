@@ -38,12 +38,12 @@ func EditTeam(ctx *context.APIContext) {
 		return
 	}
 	form := web.GetForm[*api.RenameTeamOption](ctx)
-	team, err := org_service.RenameTeam(ctx, teamID, form.Name)
-	if err != nil {
+	team := &organization.Team{ID: teamID, Name: form.Name}
+	if err := org_service.UpdateTeam(ctx, team); err != nil {
 		ctx.APIErrorAuto(err)
 		return
 	}
-	ctx.JSON(http.StatusOK, convert.ToTeam(team))
+	ctx.JSON(http.StatusOK, convert.ToTeamModel(team))
 }
 
 // GetTeam consumes the model assigned by teamAssignment.

@@ -60,17 +60,17 @@ func newInviteRaceCase(t *testing.T, ctx context.Context, pool *pgxpool.Pool, st
 	return test
 }
 
-func applyTeamInvite(ctx context.Context, svc *TeamService, d inviteRaceCase, operation string) error {
+func applyTeamInvite(ctx context.Context, store db.Store, d inviteRaceCase, operation string) error {
+	ctx = teamActionContext(ctx, store, d.actorID, d.actorSession)
 	switch operation {
 	case "issue":
-		_, err := svc.CreateTeamInvite(ctx, d.actorID, d.actorSession,
-			d.teamID, d.email, time.Hour, teamInviteTestKey)
+		_, err := CreateTeamInvite(ctx, d.teamID, d.email, time.Hour, teamInviteTestKey)
 		return err
 	case "accept":
-		_, err := svc.AcceptTeamInvite(ctx, d.actorID, d.actorSession, d.token)
+		_, err := AcceptTeamInvite(ctx, d.token)
 		return err
 	case "revoke":
-		return svc.RevokeTeamInvite(ctx, d.actorID, d.actorSession, d.teamID, d.inviteID)
+		return RevokeTeamInvite(ctx, d.teamID, d.inviteID)
 	default:
 		panic("unknown test operation")
 	}
@@ -150,7 +150,7 @@ func TestTeamInviteCannotOutliveRevokedActingSession(t *testing.T) {
 			}
 			done := make(chan error, 1)
 			go func() {
-				done <- applyTeamInvite(ctx, NewTeamService(teamPinnedStore{Store: store, conn: writer}), d, operation)
+				done <- applyTeamInvite(ctx, teamPinnedStore{Store: store, conn: writer}, d, operation)
 			}()
 			waitTeamBlocking(t, ctx, pool, revoker, writer, done)
 			if err := tx.Commit(ctx); err != nil {
@@ -214,7 +214,7 @@ func TestTeamInviteCommitPrecedesRevocation(t *testing.T) {
 			}
 			done := make(chan error, 1)
 			go func() {
-				done <- applyTeamInvite(ctx, NewTeamService(teamPinnedStore{Store: store, conn: writer}), d, operation)
+				done <- applyTeamInvite(ctx, teamPinnedStore{Store: store, conn: writer}, d, operation)
 			}()
 			waitTeamBlocking(t, ctx, pool, blocker, writer, done)
 			revokeDone := make(chan error, 1)
@@ -251,19 +251,21 @@ func TestTeamInviteCommitPrecedesRevocation(t *testing.T) {
 func TestTeamInviteServiceRejectsInvalidActorAndProof(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	d := newInviteRaceCase(t, ctx, pool, store, "issue")
-	svc := NewTeamService(store)
-	if _, err := svc.CreateTeamInvite(ctx, d.actorID, uuid.Nil, d.teamID,
+	action := func(actorID int64, session uuid.UUID) context.Context {
+		return teamActionContext(ctx, store, actorID, session)
+	}
+	if _, err := CreateTeamInvite(action(d.actorID, uuid.Nil), d.teamID,
 		d.email, time.Hour, teamInviteTestKey); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("nil actor session issued invitation: %v", err)
 	}
-	if _, err := svc.CreateTeamInvite(ctx, d.actorID+1, d.actorSession, d.teamID,
+	if _, err := CreateTeamInvite(action(d.actorID+1, d.actorSession), d.teamID,
 		d.email, time.Hour, teamInviteTestKey); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("foreign actor/session issued invitation: %v", err)
 	}
-	if _, err := svc.AcceptTeamInvite(ctx, d.actorID, uuid.Nil, "not hex"); !errors.Is(err, org_model.ErrTeamInviteInvalid) {
+	if _, err := AcceptTeamInvite(action(d.actorID, uuid.Nil), "not hex"); !errors.Is(err, org_model.ErrTeamInviteInvalid) {
 		t.Fatalf("malformed proof should be rejected before DB lookup: %v", err)
 	}
-	if err := svc.RevokeTeamInvite(ctx, d.actorID, uuid.Nil, d.teamID, uuid.New()); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+	if err := RevokeTeamInvite(action(d.actorID, uuid.Nil), d.teamID, uuid.New()); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("nil actor revoked invitation: %v", err)
 	}
 	assertInviteState(t, ctx, pool, d, "issue", false)

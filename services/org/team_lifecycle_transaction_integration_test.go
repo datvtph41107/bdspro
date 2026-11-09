@@ -7,6 +7,7 @@ import (
 	"time"
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
+	db "github.com/datvtph41107/bdspro/models/db"
 	org_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,17 +15,15 @@ import (
 
 const changedTeamName = "Authorized Team Race"
 
-func teamLifecycleMutation(ctx context.Context, svc *TeamService, actor teamCase, action string) error {
+func teamLifecycleMutation(ctx context.Context, store db.Store, actor teamCase, action string) error {
+	ctx = teamActionContext(ctx, store, actor.accountID, actor.sessionID)
 	switch action {
 	case "create":
-		_, err := svc.CreateTeam(ctx, actor.sessionID, org_model.CreateTeamOptions{
-			OrganizationID: actor.orgID, ActorAccountID: actor.accountID,
-			Name: changedTeamName, Description: "Test",
+		return NewTeam(ctx, &org_model.Team{
+			OrgID: actor.orgID, Name: changedTeamName, Description: "Test",
 		})
-		return err
 	case "rename":
-		_, err := svc.RenameTeam(ctx, actor.accountID, actor.sessionID, actor.teamID, changedTeamName)
-		return err
+		return UpdateTeam(ctx, &org_model.Team{ID: actor.teamID, Name: changedTeamName})
 	default:
 		panic("unexpected lifecycle action")
 	}
@@ -88,7 +87,7 @@ func TestTeamLifecycleCannotOutliveRevokedSession(t *testing.T) {
 			}
 			result := make(chan error, 1)
 			go func() {
-				result <- teamLifecycleMutation(ctx, NewTeamService(teamPinnedStore{Store: store, conn: writer}), actor, action)
+				result <- teamLifecycleMutation(ctx, teamPinnedStore{Store: store, conn: writer}, actor, action)
 			}()
 			waitTeamBlocking(t, ctx, pool, revoker, writer, result)
 			if err := tx.Commit(ctx); err != nil {
@@ -144,7 +143,7 @@ func TestTeamLifecycleCommitPrecedesRevocation(t *testing.T) {
 			}
 			writeResult := make(chan error, 1)
 			go func() {
-				writeResult <- teamLifecycleMutation(ctx, NewTeamService(teamPinnedStore{Store: store, conn: writer}), actor, action)
+				writeResult <- teamLifecycleMutation(ctx, teamPinnedStore{Store: store, conn: writer}, actor, action)
 			}()
 			waitTeamBlocking(t, ctx, pool, blocker, writer, writeResult)
 			revokeResult := make(chan error, 1)
@@ -179,62 +178,47 @@ func TestTeamLifecycleCommitPrecedesRevocation(t *testing.T) {
 }
 
 func TestTeamLifecycleServiceRejectsInvalidActorAndName(t *testing.T) {
-	// Invalid name must be rejected without accessing the store, whether
-	// or not the actor and session would be authorized.
-	svcWithoutDB := NewTeamService(nil)
-	if _, err := svcWithoutDB.CreateTeam(context.Background(), uuid.Nil,
-		org_model.CreateTeamOptions{Name: "  "}); !errors.Is(err, org_model.ErrTeamNameInvalid) {
+	// Gitea-style model inputs still reject invalid names before a Store is
+	// required, and a missing/mismatched actor cannot authorize SQLC writes.
+	if err := NewTeam(context.Background(), &org_model.Team{Name: "  "}); !errors.Is(err, org_model.ErrTeamNameInvalid) {
 		t.Fatalf("blank name reached the database: %v", err)
 	}
-	if _, err := svcWithoutDB.RenameTeam(context.Background(), 1, uuid.Nil, 2,
-		"  "); !errors.Is(err, org_model.ErrTeamNameInvalid) {
+	if err := UpdateTeam(context.Background(), &org_model.Team{ID: 2, Name: "  "}); !errors.Is(err, org_model.ErrTeamNameInvalid) {
 		t.Fatalf("blank rename reached the database: %v", err)
 	}
 	ctx, pool, store := membershipTestDB(t)
 	actor := newTeamCase(t, ctx, store)
-	svc := NewTeamService(store)
-	if _, err := svc.CreateTeam(ctx, uuid.Nil, org_model.CreateTeamOptions{
-		OrganizationID: actor.orgID, ActorAccountID: actor.accountID,
-		Name: changedTeamName,
-	}); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+	if err := NewTeam(teamActionContext(ctx, store, actor.accountID, uuid.Nil),
+		&org_model.Team{OrgID: actor.orgID, Name: changedTeamName}); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("missing session created team: %v", err)
 	}
-	if _, err := svc.RenameTeam(ctx, actor.accountID+1, actor.sessionID,
-		actor.teamID, changedTeamName); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+	if err := UpdateTeam(teamActionContext(ctx, store, actor.accountID+1, actor.sessionID),
+		&org_model.Team{ID: actor.teamID, Name: changedTeamName}); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("foreign account renamed team: %v", err)
 	}
-	if _, err := svc.CreateTeam(ctx, actor.sessionID, org_model.CreateTeamOptions{
-		OrganizationID: 9223372036854775807, ActorAccountID: actor.accountID,
-		Name: changedTeamName,
-	}); !errors.Is(err, org_model.ErrTeamOwnerRequired) {
+	if err := NewTeam(teamActionContext(ctx, store, actor.accountID, actor.sessionID),
+		&org_model.Team{OrgID: 9223372036854775807, Name: changedTeamName}); !errors.Is(err, org_model.ErrTeamOwnerRequired) {
 		t.Fatalf("unauthorized team creation bypassed SQLC: %v", err)
 	}
 	verifyTeamLifecycleState(t, ctx, pool, actor, "create", false)
 	verifyTeamLifecycleState(t, ctx, pool, actor, "rename", false)
 }
 
-// Confirm the model and service keep the same output mapping on the
-// authorized path, including trimmed names and SQLC unique constraints.
 func TestTeamLifecycleSuccessfulMutations(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	actor := newTeamCase(t, ctx, store)
-	svc := NewTeamService(store)
-	created, err := svc.CreateTeam(ctx, actor.sessionID, org_model.CreateTeamOptions{
-		OrganizationID: actor.orgID, ActorAccountID: actor.accountID,
-		Name: "  Created By Service  ", Description: "Session checked",
-	})
-	if err != nil || created.Name != "Created By Service" {
+	actionCtx := teamActionContext(ctx, store, actor.accountID, actor.sessionID)
+	created := &org_model.Team{
+		OrgID: actor.orgID, Name: "  Created By Service  ", Description: "Session checked",
+	}
+	if err := NewTeam(actionCtx, created); err != nil || created.Name != "Created By Service" {
 		t.Fatalf("create team result %+v err=%v", created, err)
 	}
-	renamed, err := svc.RenameTeam(ctx, actor.accountID, actor.sessionID,
-		created.ID, "  Renamed By Service ")
-	if err != nil || renamed.Name != "Renamed By Service" {
+	renamed := &org_model.Team{ID: created.ID, Name: "  Renamed By Service "}
+	if err := UpdateTeam(actionCtx, renamed); err != nil || renamed.Name != "Renamed By Service" {
 		t.Fatalf("rename team result %+v err=%v", renamed, err)
 	}
-	if _, err := svc.CreateTeam(ctx, actor.sessionID, org_model.CreateTeamOptions{
-		OrganizationID: actor.orgID, ActorAccountID: actor.accountID,
-		Name: "RENAMED BY SERVICE",
-	}); !errors.Is(err, org_model.ErrTeamAlreadyExists) {
+	if err := NewTeam(actionCtx, &org_model.Team{OrgID: actor.orgID, Name: "RENAMED BY SERVICE"}); !errors.Is(err, org_model.ErrTeamAlreadyExists) {
 		t.Fatalf("duplicate team name not rejected: %v", err)
 	}
 	var count int
