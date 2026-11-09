@@ -135,3 +135,30 @@ func TestReviewedRemovalsMustExistAndCannotRepeat(t *testing.T) {
 		t.Fatalf("duplicate reviewed removal allowed: %v", err)
 	}
 }
+
+// Verify the route inventory understands nested typed Gitea-style groups.
+func TestExtractRoutesFromTypedGroups(t *testing.T) {
+	src := `package test
+		func registerOrgRoutes(route *Group) {
+			m := web.NewRouter[*APIContext](route, getContext)
+			m.Group("/:id", func() {
+				m.Group("/teams", func() {
+					m.Get("", reqToken(), org.ListTeams)
+					m.Post("", reqOrgOwnership(), bind(CreateTeamOption{}), org.CreateTeam)
+				})
+			}, orgAssignment())
+		}`
+	got, err := extractRoutes("typed.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"GET /orgs/:id/teams", "POST /orgs/:id/teams"}
+	if len(got) != len(want) {
+		t.Fatalf("routes=%+v", got)
+	}
+	for i, route := range got {
+		if key := routeKey(route.Method, route.Path); key != want[i] {
+			t.Fatalf("route %d = %s, want %s", i, key, want[i])
+		}
+	}
+}
