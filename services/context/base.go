@@ -71,7 +71,7 @@ func (b *Base) IsAborted() bool           { return b.source.IsAborted() }
 // Written and WrittenStatus distinguish a committed response from a status
 // merely selected for later emission. This is a request/transport capability,
 // not a second response writer or framework-specific field on Base.
-func (b *Base) Written() bool       { return b.WrittenStatus() != 0 }
+func (b *Base) Written() bool      { return b.WrittenStatus() != 0 }
 func (b *Base) WrittenStatus() int { return b.source.WrittenStatus() }
 
 func (b *Base) writeError(status int, code string, body any) {
