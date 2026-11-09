@@ -33,7 +33,7 @@ func runDoctor(ctx context.Context, command *cli.Command) error {
 	if afterID < 0 {
 		return fmt.Errorf("--after-id cannot be negative")
 	}
-	cfg, err := loadSettings(command)
+	cfg, err := loadDatabaseCommandSettings(command)
 	if err != nil {
 		return err
 	}

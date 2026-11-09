@@ -26,7 +26,7 @@ func runCleanup(ctx context.Context, command *cli.Command) error {
 	if command.Args().Len() != 0 {
 		return fmt.Errorf("unexpected cleanup argument %q", command.Args().First())
 	}
-	cfg, err := loadSettings(command)
+	cfg, err := loadCleanupSettings(command)
 	if err != nil {
 		return err
 	}

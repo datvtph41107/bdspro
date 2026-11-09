@@ -35,13 +35,12 @@ func loadSettings(command *cli.Command) (setting.Config, error) {
 	if err != nil {
 		return cfg, fmt.Errorf("load config %q: %w", filename, err)
 	}
-	if err := setting.InitLoggers(setting.LogGlobalConfig{
+	if err := configureCommandLoggers(filename, setting.LogGlobalConfig{
 		Mode: cfg.LogMode, Format: cfg.LogFormat, Level: cfg.LogLevel,
 		RootPath: cfg.LogRootPath, FileName: cfg.LogFileName,
 	}); err != nil {
-		return cfg, fmt.Errorf("initialize loggers: %w", err)
+		return cfg, err
 	}
-	setting.CustomConf = filename
 	return cfg, nil
 }
 func isValidDefaultSubCommand(command *cli.Command) (string, bool) {
@@ -60,4 +59,47 @@ func resolveConfigFile(command *cli.Command) (string, error) {
 		return "", fmt.Errorf("resolve config path: %w", err)
 	}
 	return paths.ConfigFile, nil
+}
+
+// configureCommandLoggers is the single command-level logger initialization
+// path. It is called only after the selected command's settings validate.
+func configureCommandLoggers(filename string, logger setting.LogGlobalConfig) error {
+	if err := setting.InitLoggers(logger); err != nil {
+		return fmt.Errorf("initialize loggers: %w", err)
+	}
+	setting.CustomConf = filename
+	return nil
+}
+
+// Database-only commands must not require HTTP, Redis, JWT or OAuth settings.
+func loadDatabaseCommandSettings(command *cli.Command) (setting.DatabaseCommandSettings, error) {
+	filename, err := resolveConfigFile(command)
+	if err != nil {
+		return setting.DatabaseCommandSettings{}, err
+	}
+	cfg, err := setting.LoadDatabaseCommandSettings(filename)
+	if err != nil {
+		return cfg, fmt.Errorf("load database command settings %q: %w", filename, err)
+	}
+	if err := configureCommandLoggers(filename, cfg.Log); err != nil {
+		return cfg, err
+	}
+	log.Info("Using configuration file: %s", filename)
+	return cfg, nil
+}
+
+func loadCleanupSettings(command *cli.Command) (setting.CleanupSettings, error) {
+	filename, err := resolveConfigFile(command)
+	if err != nil {
+		return setting.CleanupSettings{}, err
+	}
+	cfg, err := setting.LoadCleanupSettings(filename)
+	if err != nil {
+		return cfg, fmt.Errorf("load cleanup settings %q: %w", filename, err)
+	}
+	if err := configureCommandLoggers(filename, cfg.Log); err != nil {
+		return cfg, err
+	}
+	log.Info("Using configuration file: %s", filename)
+	return cfg, nil
 }
