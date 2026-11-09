@@ -127,8 +127,8 @@ func (h *TeamHandler) RemoveMember(c *appctx.APIContext) {
 }
 
 func positivePathID(c *appctx.APIContext, key string) (int64, bool) {
-	id, err := strconv.ParseInt(c.Param(key), 10, 64)
-	if err != nil || id <= 0 {
+	id, err := c.PositivePathID(key)
+	if err != nil {
 		c.APIInvalid(err)
 		return 0, false
 	}
