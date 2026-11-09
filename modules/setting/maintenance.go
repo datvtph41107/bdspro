@@ -9,13 +9,13 @@ import (
 // PostgreSQL diagnostics. It does not depend on HTTP, Redis, OAuth or JWT.
 type DatabaseCommandSettings struct {
 	DBSource string
-	Log LogGlobalConfig
+	Log      LogGlobalConfig
 }
 
 func databaseCommandSettings(provider *ConfigProvider) (DatabaseCommandSettings, error) {
 	settings := DatabaseCommandSettings{
 		DBSource: provider.String("database", "DB_SOURCE"),
-		Log: LoadLogSettings(provider),
+		Log:      LoadLogSettings(provider),
 	}
 	if settings.DBSource == "" {
 		return settings, fmt.Errorf("database.DB_SOURCE is required")

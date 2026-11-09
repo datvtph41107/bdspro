@@ -40,7 +40,7 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	if err != nil {
 		return err
 	}
- 
+
 	options := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
 	enqueuer := queue.NewRedisEnqueuer(options)
 	defer enqueuer.Close()

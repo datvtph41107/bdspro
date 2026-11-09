@@ -32,7 +32,10 @@ func TestDatabaseCommandSettingsDoNotRequireHTTPOrMigration(t *testing.T) {
 
 func TestCleanupSettingsScopeAndRetention(t *testing.T) {
 	base := "[database]\nDB_SOURCE = postgres://localhost/bdspro\n[audit]\nRETENTION_DAYS = "
-	for _, tc := range []struct { name, days string; valid bool }{
+	for _, tc := range []struct {
+		name, days string
+		valid      bool
+	}{
 		{"minimum", "1", true},
 		{"maximum", "3650", true},
 		{"zero", "0", false},
