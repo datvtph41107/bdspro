@@ -8,6 +8,7 @@ import (
 	"time"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
