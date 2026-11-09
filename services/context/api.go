@@ -15,9 +15,9 @@ type APIContext struct {
 
 	// Doer is signed JWT claims, not an Account model and not write authority.
 	// IsSigned becomes true only after PostgreSQL session verification.
-	Doer *authcrypto.Payload
+	Doer     *authcrypto.Payload
 	IsSigned bool
-	Org *APIOrganization
+	Org      *APIOrganization
 }
 
 // SignedPrincipal returns signed JWT claims for compatibility-only read paths.

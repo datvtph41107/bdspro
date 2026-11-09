@@ -15,15 +15,17 @@ type ginRequestSource struct {
 }
 
 func (s ginRequestSource) CurrentRequest() *http.Request { return s.ctx.Request }
-func (s ginRequestSource) PathParam(name string) string { return s.ctx.Param(name) }
-func (s ginRequestSource) BindJSON(value any) error { return s.ctx.ShouldBindJSON(value) }
-func (s ginRequestSource) QueryDefault(name, fallback string) string { return s.ctx.DefaultQuery(name, fallback) }
+func (s ginRequestSource) PathParam(name string) string  { return s.ctx.Param(name) }
+func (s ginRequestSource) BindJSON(value any) error      { return s.ctx.ShouldBindJSON(value) }
+func (s ginRequestSource) QueryDefault(name, fallback string) string {
+	return s.ctx.DefaultQuery(name, fallback)
+}
 func (s ginRequestSource) WriteJSON(status int, value any) { s.ctx.JSON(status, value) }
-func (s ginRequestSource) WriteStatus(status int) { s.ctx.Status(status) }
+func (s ginRequestSource) WriteStatus(status int)          { s.ctx.Status(status) }
 func (s ginRequestSource) AbortJSON(status int, value any) { s.ctx.AbortWithStatusJSON(status, value) }
-func (s ginRequestSource) SetHeader(name, value string) { s.ctx.Header(name, value) }
-func (s ginRequestSource) SetErrorCode(code string) { s.ctx.Set(ErrorCodeKey, code) }
-func (s ginRequestSource) IsAborted() bool { return s.ctx.IsAborted() }
+func (s ginRequestSource) SetHeader(name, value string)    { s.ctx.Header(name, value) }
+func (s ginRequestSource) SetErrorCode(code string)        { s.ctx.Set(ErrorCodeKey, code) }
+func (s ginRequestSource) IsAborted() bool                 { return s.ctx.IsAborted() }
 
 // GetAPIContext returns one initialized context per request. Resource
 // assignment, form binding and HTTP action share that exact instance.

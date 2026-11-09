@@ -15,7 +15,7 @@ const ErrorCodeKey = "public_error_code"
 func (c *APIContext) APIError(status int, code, message string) {
 	c.writeError(status, code, map[string]any{
 		"error": message,
-		"code": code,
+		"code":  code,
 	})
 }
 
@@ -44,7 +44,9 @@ func (c *APIContext) APIErrorNotFound() {
 }
 
 func (c *APIContext) APIErrorInternal(err error) {
-	if err == nil { err = errors.New("internal API failure") }
+	if err == nil {
+		err = errors.New("internal API failure")
+	}
 	log.Ctx(c).Error().Str("error_type", fmt.Sprintf("%T", err)).Msg("http.api_internal_error")
 	c.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
 }

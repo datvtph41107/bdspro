@@ -12,37 +12,43 @@ import (
 type baseRequestKey struct{}
 
 type testRequestSource struct {
-	req *http.Request
-	params map[string]string
-	status int
-	body any
-	code string
+	req     *http.Request
+	params  map[string]string
+	status  int
+	body    any
+	code    string
 	aborted bool
 	headers http.Header
 }
 
 func (s *testRequestSource) CurrentRequest() *http.Request { return s.req }
-func (s *testRequestSource) PathParam(name string) string { return s.params[name] }
+func (s *testRequestSource) PathParam(name string) string  { return s.params[name] }
 func (s *testRequestSource) BindJSON(value any) error {
-	if s.req.Body == nil { return errors.New("empty body") }
+	if s.req.Body == nil {
+		return errors.New("empty body")
+	}
 	return json.NewDecoder(s.req.Body).Decode(value)
 }
 func (s *testRequestSource) QueryDefault(name, fallback string) string {
-	if value, exists := s.req.URL.Query()[name]; exists && len(value) > 0 { return value[0] }
+	if value, exists := s.req.URL.Query()[name]; exists && len(value) > 0 {
+		return value[0]
+	}
 	return fallback
 }
 func (s *testRequestSource) WriteJSON(status int, value any) { s.status, s.body = status, value }
-func (s *testRequestSource) WriteStatus(status int) { s.status = status }
+func (s *testRequestSource) WriteStatus(status int)          { s.status = status }
 func (s *testRequestSource) AbortJSON(status int, value any) {
 	s.WriteJSON(status, value)
 	s.aborted = true
 }
 func (s *testRequestSource) SetHeader(name, value string) {
-	if s.headers == nil { s.headers = make(http.Header) }
+	if s.headers == nil {
+		s.headers = make(http.Header)
+	}
 	s.headers.Set(name, value)
 }
 func (s *testRequestSource) SetErrorCode(code string) { s.code = code }
-func (s *testRequestSource) IsAborted() bool { return s.aborted }
+func (s *testRequestSource) IsAborted() bool          { return s.aborted }
 
 func TestBaseUsesLatestRequestContext(t *testing.T) {
 	source := &testRequestSource{
@@ -66,7 +72,7 @@ func TestBaseUsesLatestRequestContext(t *testing.T) {
 
 func TestAPIContextCanWriteWithoutGin(t *testing.T) {
 	source := &testRequestSource{
-		req: httptest.NewRequest(http.MethodPost, "/orgs?limit=15", nil),
+		req:    httptest.NewRequest(http.MethodPost, "/orgs?limit=15", nil),
 		params: map[string]string{"id": "42"},
 	}
 	api := &APIContext{Base: NewBaseContext(source), Org: &APIOrganization{}}
@@ -92,7 +98,9 @@ func TestAPIContextCanWriteWithoutGin(t *testing.T) {
 func TestAPIContextValidationWithoutGin(t *testing.T) {
 	source := &testRequestSource{req: httptest.NewRequest(http.MethodPost, "/orgs", nil)}
 	api := &APIContext{Base: NewBaseContext(source), Org: &APIOrganization{}}
-	api.Validation(errors.New("not JSON"), &struct{ Name string `json:"name"` }{})
+	api.Validation(errors.New("not JSON"), &struct {
+		Name string `json:"name"`
+	}{})
 	if source.status != http.StatusBadRequest || source.code != "invalid_request_body" || !source.aborted {
 		t.Fatalf("invalid request: status=%d code=%q aborted=%v", source.status, source.code, source.aborted)
 	}

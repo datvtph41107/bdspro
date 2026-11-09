@@ -15,7 +15,7 @@ func Reject(c *gin.Context, status int, code, message string) {
 }
 
 func Invalid(c *gin.Context, err error) { GetAPIContext(c).APIInvalid(err) }
-func Error(c *gin.Context, err error) { GetAPIContext(c).APIErrorAuto(err) }
+func Error(c *gin.Context, err error)   { GetAPIContext(c).APIErrorAuto(err) }
 func InternalError(c *gin.Context) {
 	GetAPIContext(c).APIError(http.StatusInternalServerError, "internal_error", "internal server error")
 }
