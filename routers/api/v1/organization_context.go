@@ -6,6 +6,7 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/web"
+	webmiddleware "github.com/datvtph41107/bdspro/modules/web/middleware"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 )
 
@@ -125,11 +126,11 @@ func reqOrgOwnership(denied ...error) func(*appctx.APIContext) {
 // bind validates once and saves a typed, per-request form for the action.
 func bind[T any](_ T) func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
-		var form T
-		if err := ctx.BindJSON(&form); err != nil {
-			ctx.Validation(err, &form)
+		form, err := webmiddleware.BindJSON[T](ctx)
+		if err != nil {
+			ctx.Validation(err, form)
 			return
 		}
-		web.SetForm(ctx, &form)
+		web.SetForm(ctx, form)
 	}
 }

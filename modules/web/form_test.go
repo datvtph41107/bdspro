@@ -1,14 +1,18 @@
 package web
 
-import "testing"
+import (
+	"testing"
 
-type testFormStore struct{ data map[string]any }
+	"github.com/datvtph41107/bdspro/modules/reqctx"
+)
 
-func (s *testFormStore) GetData() map[string]any { return s.data }
+type testFormStore struct{ data reqctx.ContextData }
+
+func (s *testFormStore) GetData() reqctx.ContextData { return s.data }
 
 func TestFormRequestIsolation(t *testing.T) {
-	a := &testFormStore{data: make(map[string]any)}
-	b := &testFormStore{data: make(map[string]any)}
+	a := &testFormStore{data: make(reqctx.ContextData)}
+	b := &testFormStore{data: make(reqctx.ContextData)}
 	SetForm(a, &struct{ Name string }{Name: "a"})
 	SetForm(b, &struct{ Name string }{Name: "b"})
 	if v := GetForm[*struct{ Name string }](a); v.Name != "a" {
@@ -20,7 +24,7 @@ func TestFormRequestIsolation(t *testing.T) {
 }
 
 func TestFormTypeMismatchPanics(t *testing.T) {
-	s := &testFormStore{data: make(map[string]any)}
+	s := &testFormStore{data: make(reqctx.ContextData)}
 	SetForm(s, &struct{ Name string }{})
 	defer func() {
 		if recover() == nil {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"time"
+
+	"github.com/datvtph41107/bdspro/modules/reqctx"
 )
 
 // RequestSource is the HTTP transport contract. A framework adapter owns
@@ -25,7 +27,7 @@ type RequestSource interface {
 // Its lifecycle is created by the HTTP ingress, never by business services.
 type Base struct {
 	source RequestSource
-	Data   map[string]any
+	Data   reqctx.ContextData
 }
 
 var _ context.Context = (*Base)(nil)
@@ -34,10 +36,16 @@ func NewBaseContext(source RequestSource) *Base {
 	if source == nil {
 		panic("context: nil HTTP request source")
 	}
-	return &Base{source: source, Data: make(map[string]any)}
+	// In production APIContexter installs the datastore before creating Base.
+	// Direct HTTP unit tests without middleware receive isolated local data.
+	data := make(reqctx.ContextData)
+	if store := reqctx.FromContext(source.CurrentRequest().Context()); store != nil {
+		data = store.GetData()
+	}
+	return &Base{source: source, Data: data}
 }
 
-func (b *Base) GetData() map[string]any       { return b.Data }
+func (b *Base) GetData() reqctx.ContextData   { return b.Data }
 func (b *Base) CurrentRequest() *http.Request { return b.source.CurrentRequest() }
 func (b *Base) CurrentRequestContext() context.Context {
 	return b.source.CurrentRequest().Context()
