@@ -40,6 +40,12 @@ func TestTeamInvitationAuthorizationAndReplayHTTP(t *testing.T) {
 		t.Fatalf("create team: %d %v", status, team)
 	}
 	teamID := int64(team["id"].(float64))
+	listStatus, listed := organizationGetJSON(t, server,
+		fmt.Sprintf("/orgs/%d/teams", orgID), ownerBearer)
+	if listStatus != http.StatusOK || len(listed.([]any)) != 1 ||
+		int64(listed.([]any)[0].(map[string]any)["id"].(float64)) != teamID {
+		t.Fatalf("owner team listing changed: status=%d teams=%v", listStatus, listed)
+	}
 	emptyStatus, empty := organizationGetJSON(t, server,
 		fmt.Sprintf("/teams/%d/members", teamID), ownerBearer)
 	if emptyStatus != http.StatusOK || len(empty.([]any)) != 0 {
@@ -54,6 +60,13 @@ func TestTeamInvitationAuthorizationAndReplayHTTP(t *testing.T) {
 		fmt.Sprintf("/orgs/%d/teams", orgID), outsiderBearer)
 	if emptyStatus != http.StatusNotFound {
 		t.Fatalf("nonmember must not list organization teams: status=%d", emptyStatus)
+	}
+	// Visibility assignment now precedes action-level pagination. An outsider
+	// cannot distinguish a valid query from an invalid one on a hidden org.
+	emptyStatus, _ = organizationGetJSON(t, server,
+		fmt.Sprintf("/orgs/%d/teams?page=invalid", orgID), outsiderBearer)
+	if emptyStatus != http.StatusNotFound {
+		t.Fatalf("invisible org with bad pagination must remain hidden: status=%d", emptyStatus)
 	}
 	invitePath := fmt.Sprintf("/teams/%d/invites", teamID)
 

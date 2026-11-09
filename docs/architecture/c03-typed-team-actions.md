@@ -23,6 +23,11 @@
 - Existing route inventories and OpenAPI checks must remain identical.
 - Checks must run on the actual PR head; a green CI result is only evidence for the tests run, not proof that every Organization action has migrated.
 
+## Observable costs and error precedence
+
+- The new `orgAssignment(nil)` preflight checks membership before parsing pagination. On an inaccessible Organization with malformed `page`, the response is now 404 (resource invisibility), whereas the direct legacy action checked pagination first and could return 400. This is an intentional security/error-precedence change, so the HTTP integration test covers it explicitly.
+- The preflight read adds a membership query on normal listing. `models/organization.ListTeams` still resolves visibility again on an empty result, so empty pages may incur another read. No performance improvement is claimed. Before calling this route migration optimal, benchmark SQL query counts and evaluate whether a model-level access-scoped list can preserve denial semantics without duplicate reads. Never optimize by bypassing transactional or SQLC permissions.
+
 ## Limits and next slices
 
 - Remaining `TeamHandler` and `Handler` methods remain because their consumers are still registered; deleting them now would be cosmetic and break behavior.
