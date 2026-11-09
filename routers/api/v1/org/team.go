@@ -34,14 +34,14 @@ func CreateTeam(ctx *context.APIContext) {
 func EditTeam(ctx *context.APIContext) {
 	teamID, err := ctx.PositivePathID("team_id")
 	if err != nil {
-	    ctx.APIInvalid(err)
-	    return
+		ctx.APIInvalid(err)
+		return
 	}
 	form := web.GetForm[*api.RenameTeamOption](ctx)
 	team, err := org_service.RenameTeam(ctx, teamID, form.Name)
 	if err != nil {
-	    ctx.APIErrorAuto(err)
-	    return
+		ctx.APIErrorAuto(err)
+		return
 	}
 	ctx.JSON(http.StatusOK, convert.ToTeam(team))
 }

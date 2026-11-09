@@ -113,7 +113,7 @@ func (s *TeamService) CreateTeam(ctx context.Context, actingSessionID uuid.UUID,
 func RenameTeam(ctx context.Context, teamID int64, name string) (db.Team, error) {
 	actor, store, err := actingOrganization(ctx)
 	if err != nil {
-	    return db.Team{}, err
+		return db.Team{}, err
 	}
 	return NewTeamService(store).RenameTeam(ctx, actor.AccountID, actor.SessionID, teamID, name)
 }

@@ -17,27 +17,27 @@ import (
 // instance, global secret or transport-specific service wrapper is required.
 func CreateInvite(signingKey string) func(*context.APIContext) {
 	return func(ctx *context.APIContext) {
-	    teamID, err := ctx.PositivePathID("team_id")
-	    if err != nil {
-	        ctx.APIInvalid(err)
-	        return
-	    }
-	    form := web.GetForm[*api.CreateTeamInviteOption](ctx)
-	    created, err := org_service.CreateTeamInvite(
-	        ctx, teamID, form.Email, 7*24*time.Hour, signingKey,
-	    )
-	    if err != nil {
-	        ctx.APIErrorAuto(err)
-	        return
-	    }
-	    // The raw proof is never returned to the HTTP client. The durable
-	    // outbox is written in the same transaction as invitation state.
-	    ctx.JSON(http.StatusAccepted, api.IssuedTeamInvite{
-	        ID: created.Invite.ID,
-	        TeamID: created.Invite.TeamID,
-	        InvitedEmail: created.Invite.InvitedEmail,
-	        ExpiresAt: created.Invite.ExpiresAt,
-	    })
+		teamID, err := ctx.PositivePathID("team_id")
+		if err != nil {
+			ctx.APIInvalid(err)
+			return
+		}
+		form := web.GetForm[*api.CreateTeamInviteOption](ctx)
+		created, err := org_service.CreateTeamInvite(
+			ctx, teamID, form.Email, 7*24*time.Hour, signingKey,
+		)
+		if err != nil {
+			ctx.APIErrorAuto(err)
+			return
+		}
+		// The raw proof is never returned to the HTTP client. The durable
+		// outbox is written in the same transaction as invitation state.
+		ctx.JSON(http.StatusAccepted, api.IssuedTeamInvite{
+			ID:           created.Invite.ID,
+			TeamID:       created.Invite.TeamID,
+			InvitedEmail: created.Invite.InvitedEmail,
+			ExpiresAt:    created.Invite.ExpiresAt,
+		})
 	}
 }
 
@@ -47,8 +47,8 @@ func AcceptInvite(ctx *context.APIContext) {
 	form := web.GetForm[*api.AcceptTeamInviteOption](ctx)
 	member, err := org_service.AcceptTeamInvite(ctx, form.Token)
 	if err != nil {
-	    ctx.APIErrorAuto(err)
-	    return
+		ctx.APIErrorAuto(err)
+		return
 	}
 	ctx.JSON(http.StatusCreated, convert.ToTeamMember(member))
 }
@@ -58,17 +58,17 @@ func AcceptInvite(ctx *context.APIContext) {
 func RevokeInvite(ctx *context.APIContext) {
 	teamID, err := ctx.PositivePathID("team_id")
 	if err != nil {
-	    ctx.APIInvalid(err)
-	    return
+		ctx.APIInvalid(err)
+		return
 	}
 	inviteID, err := uuid.Parse(ctx.PathParam("invite_id"))
 	if err != nil {
-	    ctx.APIInvalid(err)
-	    return
+		ctx.APIInvalid(err)
+		return
 	}
 	if err := org_service.RevokeTeamInvite(ctx, teamID, inviteID); err != nil {
-	    ctx.APIErrorAuto(err)
-	    return
+		ctx.APIErrorAuto(err)
+		return
 	}
 	ctx.Status(http.StatusNoContent)
 }

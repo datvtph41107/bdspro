@@ -16,47 +16,47 @@ import (
 func bindTestForm[T any](ctx *appctx.APIContext) {
 	form, err := web.BindJSON[T](ctx)
 	if err != nil {
-	    ctx.Validation(err, form)
+		ctx.Validation(err, form)
 	}
 }
 
 func TestTeamPackageActionsRejectMalformedInputsWithoutDatabase(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []struct {
-	    name, method, path, pattern, body string
-	    bind func(*appctx.APIContext)
-	    action func(*appctx.APIContext)
+		name, method, path, pattern, body string
+		bind                              func(*appctx.APIContext)
+		action                            func(*appctx.APIContext)
 	}{
-	    {
-	        name: "create requires name",
-	        method: http.MethodPost, path: "/orgs/1/teams", pattern: "/orgs/:id/teams", body: "{}",
-	        bind: bindTestForm[api.CreateTeamOption], action: CreateTeam,
-	    },
-	    {
-	        name: "edit requires name",
-	        method: http.MethodPatch, path: "/teams/1", pattern: "/teams/:team_id", body: "{}",
-	        bind: bindTestForm[api.RenameTeamOption], action: EditTeam,
-	    },
-	    {
-	        name: "edit rejects invalid team ID",
-	        method: http.MethodPatch, path: "/teams/invalid", pattern: "/teams/:team_id", body: `{"name":"Renamed"}`,
-	        bind: bindTestForm[api.RenameTeamOption], action: EditTeam,
-	    },
+		{
+			name:   "create requires name",
+			method: http.MethodPost, path: "/orgs/1/teams", pattern: "/orgs/:id/teams", body: "{}",
+			bind: bindTestForm[api.CreateTeamOption], action: CreateTeam,
+		},
+		{
+			name:   "edit requires name",
+			method: http.MethodPatch, path: "/teams/1", pattern: "/teams/:team_id", body: "{}",
+			bind: bindTestForm[api.RenameTeamOption], action: EditTeam,
+		},
+		{
+			name:   "edit rejects invalid team ID",
+			method: http.MethodPatch, path: "/teams/invalid", pattern: "/teams/:team_id", body: `{"name":"Renamed"}`,
+			bind: bindTestForm[api.RenameTeamOption], action: EditTeam,
+		},
 	}
 	for _, tc := range tests {
-	    t.Run(tc.name, func(t *testing.T) {
-	        router := gin.New()
-	        router.Use(appctx.APIContexter())
-	        m := web.NewRouter[*appctx.APIContext](router.Group(""), appctx.GetAPIContext)
-	        m.Methods(tc.method, tc.pattern, tc.bind, tc.action)
-	        req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
-	        req.Header.Set("Content-Type", "application/json")
-	        w := httptest.NewRecorder()
-	        router.ServeHTTP(w, req)
-	        if w.Code != http.StatusBadRequest {
-	            t.Fatalf("status=%d want=400: %s", w.Code, w.Body.String())
-	        }
-	    })
+		t.Run(tc.name, func(t *testing.T) {
+			router := gin.New()
+			router.Use(appctx.APIContexter())
+			m := web.NewRouter[*appctx.APIContext](router.Group(""), appctx.GetAPIContext)
+			m.Methods(tc.method, tc.pattern, tc.bind, tc.action)
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("status=%d want=400: %s", w.Code, w.Body.String())
+			}
+		})
 	}
 }
 

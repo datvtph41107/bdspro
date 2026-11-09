@@ -16,7 +16,7 @@ import (
 func CreateTeamInvite(ctx context.Context, teamID int64, email string, ttl time.Duration, signingKey string) (org_model.CreatedTeamInvite, error) {
 	actor, store, err := actingOrganization(ctx)
 	if err != nil {
-	    return org_model.CreatedTeamInvite{}, err
+		return org_model.CreatedTeamInvite{}, err
 	}
 	return NewTeamService(store).CreateTeamInvite(ctx, actor.AccountID, actor.SessionID, teamID, email, ttl, signingKey)
 }
@@ -25,11 +25,11 @@ func CreateTeamInvite(ctx context.Context, teamID int64, email string, ttl time.
 // capability, then lets the transaction perform session and token checks.
 func AcceptTeamInvite(ctx context.Context, token string) (db.TeamMember, error) {
 	if !org_model.ValidTeamInviteProof(token) {
-	    return db.TeamMember{}, org_model.ErrTeamInviteInvalid
+		return db.TeamMember{}, org_model.ErrTeamInviteInvalid
 	}
 	actor, store, err := actingOrganization(ctx)
 	if err != nil {
-	    return db.TeamMember{}, err
+		return db.TeamMember{}, err
 	}
 	return NewTeamService(store).AcceptTeamInvite(ctx, actor.AccountID, actor.SessionID, token)
 }
@@ -38,7 +38,7 @@ func AcceptTeamInvite(ctx context.Context, token string) (db.TeamMember, error) 
 func RevokeTeamInvite(ctx context.Context, teamID int64, inviteID uuid.UUID) error {
 	actor, store, err := actingOrganization(ctx)
 	if err != nil {
-	    return err
+		return err
 	}
 	return NewTeamService(store).RevokeTeamInvite(ctx, actor.AccountID, actor.SessionID, teamID, inviteID)
 }
