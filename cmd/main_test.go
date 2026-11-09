@@ -16,7 +16,7 @@ func TestMainAppExposesWebAndWorker(t *testing.T) {
 	for _, command := range app.Commands {
 		names[command.Name] = true
 	}
-	if !names["web"] || !names["worker"] || !names["migrate"] || !names["cleanup"] {
+	if !names["web"] || !names["worker"] || !names["migrate"] || !names["cleanup"] || !names["doctor"] {
 		t.Fatalf("commands=%v", names)
 	}
 	var output bytes.Buffer
@@ -24,7 +24,7 @@ func TestMainAppExposesWebAndWorker(t *testing.T) {
 	if err := app.Run(context.Background(), []string{"bdspro", "--help"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "worker") || !strings.Contains(output.String(), "cleanup") {
+	if !strings.Contains(output.String(), "worker") || !strings.Contains(output.String(), "cleanup") || !strings.Contains(output.String(), "doctor") {
 		t.Fatalf("missing worker help: %s", output.String())
 	}
 }
@@ -42,5 +42,21 @@ func TestCleanupRejectsArgumentsBeforeOpeningDatabase(t *testing.T) {
 	if err := app.Run(context.Background(), []string{"bdspro", "cleanup", "unexpected"}); err == nil ||
 		!strings.Contains(err.Error(), "unexpected cleanup argument") {
 		t.Fatalf("cleanup accepted extra arguments or reached dependencies: %v", err)
+	}
+}
+
+func TestDoctorRejectsArgumentsBeforeOpeningDatabase(t *testing.T) {
+	app := NewMainApp(AppVersion{Version: "test"})
+	if err := app.Run(context.Background(), []string{"bdspro", "doctor", "unexpected"}); err == nil ||
+		!strings.Contains(err.Error(), "unexpected doctor argument") {
+		t.Fatalf("doctor accepted extra arguments or reached database: %v", err)
+	}
+}
+
+func TestDoctorRejectsNegativeCursorBeforeOpeningDatabase(t *testing.T) {
+	app := NewMainApp(AppVersion{Version: "test"})
+	if err := app.Run(context.Background(), []string{"bdspro", "doctor", "--after-id", "-1"}); err == nil ||
+		!strings.Contains(err.Error(), "--after-id cannot be negative") {
+		t.Fatalf("doctor accepted negative cursor or reached config/database: %v", err)
 	}
 }

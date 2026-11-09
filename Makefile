@@ -87,3 +87,8 @@ race:
 
 vet:
 	go vet ./...
+
+# Read-only organization owner continuity check. Non-zero exit on ownerless data.
+.PHONY: doctor
+doctor: config-local
+	go run . --config "$(CONFIG)" doctor
