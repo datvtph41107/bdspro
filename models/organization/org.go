@@ -22,6 +22,15 @@ type Organization struct {
 	CreatedAt time.Time
 }
 
+// OrganizationFromDB converts a committed SQLC record at the model boundary.
+func OrganizationFromDB(row db.Organization) *Organization {
+	return &Organization{
+		ID:        row.PartyID,
+		Name:      row.Name,
+		CreatedAt: row.CreatedAt,
+	}
+}
+
 // Access includes the account-scoped membership returned by SQL. It is not an
 // HTTP representation and does not grant permission by itself.
 type Access struct {

@@ -12,7 +12,7 @@ import (
 
 // orgAssignment loads the resource visible through the caller's active
 // Account -> Person -> Organization membership. It is not write authority.
-func orgAssignment(ownerWrite bool) func(*appctx.APIContext) {
+func orgAssignment(denied error) func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
 		id, err := strconv.ParseInt(ctx.PathParam("id"), 10, 64)
 		if err != nil || id <= 0 {
@@ -26,11 +26,10 @@ func orgAssignment(ownerWrite bool) func(*appctx.APIContext) {
 		}
 		access, err := organization_model.GetForAccount(ctx, store, ctx.Doer.AccountID, id)
 		if errors.Is(err, organization_model.ErrOrganizationNotFound) {
-			if ownerWrite {
-				// Team creation historically uses an owner-denial response.
-				ctx.APIErrorAuto(organization_model.ErrTeamOwnerRequired)
+			if denied != nil {
+				// Preserve the owner write endpoint's existing public error.
+				ctx.APIErrorAuto(denied)
 			} else {
-				// Read visibility remains a 404, including other memberships.
 				ctx.APIErrorAuto(organization_model.ErrOrganizationNotFound)
 			}
 			return
@@ -98,14 +97,18 @@ func reqOrgMembership() func(*appctx.APIContext) {
 }
 
 // Only a preflight permission check. SQLC owns commit-order authority.
-func reqOrgOwnership() func(*appctx.APIContext) {
+func reqOrgOwnership(denied ...error) func(*appctx.APIContext) {
+	ownerError := error(organization_model.ErrTeamOwnerRequired)
+	if len(denied) > 0 && denied[0] != nil {
+		ownerError = denied[0]
+	}
 	return func(ctx *appctx.APIContext) {
 		if ctx.Org == nil || ctx.Org.Organization == nil || ctx.Org.Access == nil {
 			ctx.APIErrorAuto(organization_model.ErrOrganizationNotFound)
 			return
 		}
 		if ctx.Org.Access.Role != organization_model.RoleOwner {
-			ctx.APIErrorAuto(organization_model.ErrTeamOwnerRequired)
+			ctx.APIErrorAuto(ownerError)
 		}
 	}
 }
