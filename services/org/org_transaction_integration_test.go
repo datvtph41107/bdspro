@@ -57,13 +57,13 @@ func newOrganizationRaceCase(t *testing.T, ctx context.Context, pool *pgxpool.Po
 func applyOrganizationWrite(ctx context.Context, store db.Store, d organizationRaceCase, operation string) error {
 	switch operation {
 	case "create":
-		_, err := CreateOrganization(ctx, store, d.accountID, d.sessionID, d.createdName)
+		_, err := createOrganizationAs(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.createdName)
 		return err
 	case "update":
-		_, err := UpdateOrganization(ctx, store, d.accountID, d.sessionID, d.orgID, d.updatedName)
+		_, err := editOrganizationAs(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.updatedName)
 		return err
 	case "add_member":
-		_, err := AddOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.targetPersonID)
+		_, err := AddMember(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.targetPersonID)
 		return err
 	}
 	panic("unsupported organization write")
@@ -292,30 +292,30 @@ func TestOrganizationCreationAccountLockPrecedesSessionForPasswordReset(t *testi
 }
 
 func createOrganizationRaceError(ctx context.Context, store db.Store, d organizationRaceCase) error {
-	_, err := CreateOrganization(ctx, store, d.accountID, d.sessionID, d.createdName)
+	_, err := createOrganizationAs(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.createdName)
 	return err
 }
 
 func TestOrganizationServiceAuthorizationAndPreflight(t *testing.T) {
 	// No DB access when the name is known invalid.
-	if _, err := CreateOrganization(context.Background(), nil, 10, uuid.Nil, " "); !errors.Is(err, org_model.ErrNameRequired) {
+	if _, err := createOrganizationAs(organizationActorContext(context.Background(), nil, 10, uuid.Nil), " "); !errors.Is(err, org_model.ErrNameRequired) {
 		t.Fatalf("blank creation reached database: %v", err)
 	}
-	if _, err := UpdateOrganization(context.Background(), nil, 10, uuid.Nil, 2, " "); !errors.Is(err, org_model.ErrNameRequired) {
+	if _, err := editOrganizationAs(organizationActorContext(context.Background(), nil, 10, uuid.Nil), 2, " "); !errors.Is(err, org_model.ErrNameRequired) {
 		t.Fatalf("blank update reached database: %v", err)
 	}
 	ctx, pool, store := membershipTestDB(t)
 	d := newOrganizationRaceCase(t, ctx, pool, store)
-	if _, err := CreateOrganization(ctx, store, d.accountID, uuid.Nil, d.createdName); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+	if _, err := createOrganizationAs(organizationActorContext(ctx, store, d.accountID, uuid.Nil), d.createdName); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("nil actor session created organization: %v", err)
 	}
-	if _, err := UpdateOrganization(ctx, store, d.accountID+1, d.sessionID, d.orgID, d.updatedName); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+	if _, err := editOrganizationAs(organizationActorContext(ctx, store, d.accountID+1, d.sessionID), d.orgID, d.updatedName); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("foreign actor/session renamed organization: %v", err)
 	}
-	if _, err := AddOrganizationMember(ctx, store, d.accountID, uuid.Nil, d.orgID, d.targetPersonID); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+	if _, err := AddMember(organizationActorContext(ctx, store, d.accountID, uuid.Nil), d.orgID, d.targetPersonID); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("nil actor session added organization member: %v", err)
 	}
-	if _, err := CreateOrganization(ctx, store, 9223372036854775807, d.sessionID, d.createdName); !errors.Is(err, account_model.ErrAccountUnavailable) {
+	if _, err := createOrganizationAs(organizationActorContext(ctx, store, 9223372036854775807, d.sessionID), d.createdName); !errors.Is(err, account_model.ErrAccountUnavailable) {
 		t.Fatalf("nonexistent account created organization: %v", err)
 	}
 	var recipientID int64
@@ -331,10 +331,10 @@ func TestOrganizationServiceAuthorizationAndPreflight(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := UpdateOrganization(ctx, store, recipientID, recipientSession, d.orgID, d.updatedName); !errors.Is(err, org_model.ErrOrganizationOwnerRequired) {
+	if _, err := editOrganizationAs(organizationActorContext(ctx, store, recipientID, recipientSession), d.orgID, d.updatedName); !errors.Is(err, org_model.ErrOrganizationOwnerRequired) {
 		t.Fatalf("ordinary member changed organization name: %v", err)
 	}
-	if _, err := AddOrganizationMember(ctx, store, recipientID, recipientSession, d.orgID, d.targetPersonID); !errors.Is(err, org_model.ErrOrganizationOwnerRequired) {
+	if _, err := AddMember(organizationActorContext(ctx, store, recipientID, recipientSession), d.orgID, d.targetPersonID); !errors.Is(err, org_model.ErrOrganizationOwnerRequired) {
 		t.Fatalf("ordinary member invited organization member: %v", err)
 	}
 	verifyOrganizationWrite(t, ctx, pool, d, "create", false)
@@ -345,22 +345,22 @@ func TestOrganizationServiceAuthorizationAndPreflight(t *testing.T) {
 func TestOrganizationServiceAuthorizedWrites(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	d := newOrganizationRaceCase(t, ctx, pool, store)
-	created, err := CreateOrganization(ctx, store, d.accountID, d.sessionID, " "+d.createdName+" ")
+	created, err := createOrganizationAs(organizationActorContext(ctx, store, d.accountID, d.sessionID), " "+d.createdName+" ")
 	if err != nil || created.Name != d.createdName {
 		t.Fatalf("organization create=%+v err=%v", created, err)
 	}
-	updated, err := UpdateOrganization(ctx, store, d.accountID, d.sessionID, d.orgID, d.updatedName)
+	updated, err := editOrganizationAs(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.updatedName)
 	if err != nil || updated.Name != d.updatedName {
 		t.Fatalf("organization update=%+v err=%v", updated, err)
 	}
-	member, err := AddOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.targetPersonID)
+	member, err := AddMember(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.targetPersonID)
 	if err != nil || member.PersonID != d.targetPersonID || member.Role != "member" {
 		t.Fatalf("added member=%+v err=%v", member, err)
 	}
 	verifyOrganizationWrite(t, ctx, pool, d, "create", true)
 	verifyOrganizationWrite(t, ctx, pool, d, "update", true)
 	verifyOrganizationWrite(t, ctx, pool, d, "add_member", true)
-	if _, err := AddOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.targetPersonID); !errors.Is(err, org_model.ErrMembershipExists) {
+	if _, err := AddMember(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.targetPersonID); !errors.Is(err, org_model.ErrMembershipExists) {
 		t.Fatalf("duplicate membership bypassed SQLC: %v", err)
 	}
 }

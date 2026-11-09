@@ -77,24 +77,24 @@ func requireOwnerCount(t *testing.T, ctx context.Context, pool *pgxpool.Pool, or
 func TestOrganizationOwnerRoleLifecycleAndAudit(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	d := newOwnerRoleCase(t, ctx, pool, store, true)
-	if err := DemoteOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.actorPersonID); !errors.Is(err, org_model.ErrLastOrganizationOwner) {
+	if err := DemoteOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.actorPersonID); !errors.Is(err, org_model.ErrLastOrganizationOwner) {
 		t.Fatalf("sole owner demoted: %v", err)
 	}
-	if _, err := PromoteOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); err != nil {
+	if _, err := PromoteOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); err != nil {
 		t.Fatal(err)
 	}
 	requireOwnerCount(t, ctx, pool, d.orgID, 2)
-	if _, err := PromoteOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
+	if _, err := PromoteOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
 		t.Fatalf("double promotion accepted: %v", err)
 	}
-	if err := DemoteOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.actorPersonID); err != nil {
+	if err := DemoteOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.actorPersonID); err != nil {
 		t.Fatal(err)
 	}
 	requireRole(t, ctx, pool, d.orgID, d.actorPersonID, org_model.RoleMember)
-	if _, err := PromoteOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.actorPersonID); !errors.Is(err, org_model.ErrOrganizationOwnerRequired) {
+	if _, err := PromoteOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.actorPersonID); !errors.Is(err, org_model.ErrOrganizationOwnerRequired) {
 		t.Fatalf("former owner still authorized: %v", err)
 	}
-	if _, err := TransferOrganizationOwner(ctx, store, d.recipientAccountID, d.recipientSessionID, d.orgID, d.actorPersonID); err != nil {
+	if _, err := TransferOwner(organizationActorContext(ctx, store, d.recipientAccountID, d.recipientSessionID), d.orgID, d.actorPersonID); err != nil {
 		t.Fatal(err)
 	}
 	requireRole(t, ctx, pool, d.orgID, d.actorPersonID, org_model.RoleOwner)
@@ -113,17 +113,17 @@ func TestOrganizationOwnerRoleLifecycleAndAudit(t *testing.T) {
 func TestOrganizationOwnerCandidateVerificationAndRollback(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	d := newOwnerRoleCase(t, ctx, pool, store, false)
-	if _, err := TransferOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
+	if _, err := TransferOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
 		t.Fatalf("unverified candidate acquired owner role: %v", err)
 	}
 	requireRole(t, ctx, pool, d.orgID, d.actorPersonID, org_model.RoleOwner)
-	if _, err := TransferOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, 9223372036854775807); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
+	if _, err := TransferOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, 9223372036854775807); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
 		t.Fatalf("nonmember acquired owner: %v", err)
 	}
-	if _, err := TransferOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.actorPersonID); !errors.Is(err, org_model.ErrInvalidOrganization) {
+	if _, err := TransferOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.actorPersonID); !errors.Is(err, org_model.ErrInvalidOrganization) {
 		t.Fatalf("self-transfer accepted: %v", err)
 	}
-	if _, err := PromoteOrganizationOwner(ctx, store, d.recipientAccountID, d.recipientSessionID, d.orgID, d.actorPersonID); !errors.Is(err, org_model.ErrOrganizationOwnerRequired) {
+	if _, err := PromoteOwner(organizationActorContext(ctx, store, d.recipientAccountID, d.recipientSessionID), d.orgID, d.actorPersonID); !errors.Is(err, org_model.ErrOrganizationOwnerRequired) {
 		t.Fatalf("ordinary member promoted owner: %v", err)
 	}
 	// No account is associated with this Person; it must not be owner eligible.
@@ -134,7 +134,7 @@ func TestOrganizationOwnerCandidateVerificationAndRollback(t *testing.T) {
 	if _, err := org_model.AddOrgUser(ctx, store, d.accountID, d.orgID, orphan); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := PromoteOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, orphan); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
+	if _, err := PromoteOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, orphan); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
 		t.Fatalf("orphan person made owner: %v", err)
 	}
 	// Same semantics for a phone-only verified recipient.
@@ -142,31 +142,31 @@ func TestOrganizationOwnerCandidateVerificationAndRollback(t *testing.T) {
 	if _, err := pool.Exec(ctx, "INSERT INTO phone_credentials (account_id,phone_e164) VALUES ($1,$2)", d.recipientAccountID, phone); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := PromoteOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); err != nil {
+	if _, err := PromoteOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); err != nil {
 		t.Fatalf("verified phone owner candidate denied: %v", err)
 	}
 	// A failed audit must restore *both* roles, not just the last SQL update.
 	broken := auditRejectStore{Store: store, pool: pool}
-	if _, err := TransferOrganizationOwner(ctx, broken, d.accountID, d.sessionID, d.orgID, orphan); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
+	if _, err := TransferOwner(organizationActorContext(ctx, broken, d.accountID, d.sessionID), d.orgID, orphan); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
 		t.Fatalf("invalid candidate should be checked before audit: %v", err)
 	}
-	if _, err := TransferOrganizationOwner(ctx, broken, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
+	if _, err := TransferOwner(organizationActorContext(ctx, broken, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
 		t.Fatalf("already owner cannot be transferred ownership: %v", err)
 	}
 	// First demote the recipient while retaining original owner; test audit
 	// rollback by then trying a full transfer with recipient ordinary again.
-	if err := DemoteOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); err != nil {
+	if err := DemoteOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := TransferOrganizationOwner(ctx, broken, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, errAuditUnavailable) {
+	if _, err := TransferOwner(organizationActorContext(ctx, broken, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); !errors.Is(err, errAuditUnavailable) {
 		t.Fatalf("audit failure did not roll back transfer: %v", err)
 	}
 	requireRole(t, ctx, pool, d.orgID, d.actorPersonID, org_model.RoleOwner)
 	requireRole(t, ctx, pool, d.orgID, d.recipientPersonID, org_model.RoleMember)
-	if err := RemoveOrganizationMember(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); err != nil {
+	if err := RemoveMember(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := TransferOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
+	if _, err := TransferOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); !errors.Is(err, org_model.ErrOwnerCandidateInvalid) {
 		t.Fatalf("ended member became owner: %v", err)
 	}
 	requireOwnerCount(t, ctx, pool, d.orgID, 1)
@@ -175,7 +175,7 @@ func TestOrganizationOwnerCandidateVerificationAndRollback(t *testing.T) {
 func TestConcurrentOrganizationOwnerDemotionsPreserveLastOwner(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	d := newOwnerRoleCase(t, ctx, pool, store, true)
-	if _, err := PromoteOrganizationOwner(ctx, store, d.accountID, d.sessionID, d.orgID, d.recipientPersonID); err != nil {
+	if _, err := PromoteOwner(organizationActorContext(ctx, store, d.accountID, d.sessionID), d.orgID, d.recipientPersonID); err != nil {
 		t.Fatal(err)
 	}
 	blocker, err := pool.Acquire(ctx)
@@ -204,11 +204,11 @@ func TestConcurrentOrganizationOwnerDemotionsPreserveLastOwner(t *testing.T) {
 	}
 	doneA, doneB := make(chan error, 1), make(chan error, 1)
 	go func() {
-		doneA <- DemoteOrganizationOwner(ctx, teamPinnedStore{Store: store, conn: wa}, d.accountID, d.sessionID, d.orgID, d.actorPersonID)
+		doneA <- DemoteOwner(organizationActorContext(ctx, teamPinnedStore{Store: store, conn: wa}, d.accountID, d.sessionID), d.orgID, d.actorPersonID)
 	}()
 	waitTeamBlocking(t, ctx, pool, blocker, wa, doneA)
 	go func() {
-		doneB <- DemoteOrganizationOwner(ctx, teamPinnedStore{Store: store, conn: wb}, d.recipientAccountID, d.recipientSessionID, d.orgID, d.recipientPersonID)
+		doneB <- DemoteOwner(organizationActorContext(ctx, teamPinnedStore{Store: store, conn: wb}, d.recipientAccountID, d.recipientSessionID), d.orgID, d.recipientPersonID)
 	}()
 	// PostgreSQL's lock queue can make the first waiting writer (wa) the
 	// blocker of the second (wb), not necessarily the original holder.
@@ -275,7 +275,7 @@ func TestOwnerTransferSerializesWithTeamGrant(t *testing.T) {
 	}
 	transferDone := make(chan error, 1)
 	go func() {
-		_, e := TransferOrganizationOwner(ctx, teamPinnedStore{Store: store, conn: transferConn}, d.accountID, d.sessionID, d.orgID, d.recipientPersonID)
+		_, e := TransferOwner(organizationActorContext(ctx, teamPinnedStore{Store: store, conn: transferConn}, d.accountID, d.sessionID), d.orgID, d.recipientPersonID)
 		transferDone <- e
 	}()
 	waitTeamBlocking(t, ctx, pool, blocker, transferConn, transferDone)
@@ -334,7 +334,7 @@ func TestOwnerTransferCannotOutliveRevokedActorSession(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() {
-		_, e := TransferOrganizationOwner(ctx, teamPinnedStore{Store: store, conn: writer}, d.accountID, d.sessionID, d.orgID, d.recipientPersonID)
+		_, e := TransferOwner(organizationActorContext(ctx, teamPinnedStore{Store: store, conn: writer}, d.accountID, d.sessionID), d.orgID, d.recipientPersonID)
 		done <- e
 	}()
 	waitTeamBlocking(t, ctx, pool, revoker, writer, done)
@@ -396,17 +396,13 @@ func TestOwnerTransferWinsOverOrdinaryMemberRemoval(t *testing.T) {
 	}
 	transferDone := make(chan error, 1)
 	go func() {
-		_, err := TransferOrganizationOwner(ctx,
-			teamPinnedStore{Store: store, conn: transferrer},
-			data.accountID, data.sessionID, data.orgID, data.recipientPersonID)
+		_, err := TransferOwner(organizationActorContext(ctx, teamPinnedStore{Store: store, conn: transferrer}, data.accountID, data.sessionID), data.orgID, data.recipientPersonID)
 		transferDone <- err
 	}()
 	waitTeamBlocking(t, ctx, pool, blocker, transferrer, transferDone)
 	removeDone := make(chan error, 1)
 	go func() {
-		removeDone <- RemoveOrganizationMember(ctx,
-			teamPinnedStore{Store: store, conn: remover},
-			data.accountID, otherSession, data.orgID, data.recipientPersonID)
+		removeDone <- RemoveMember(organizationActorContext(ctx, teamPinnedStore{Store: store, conn: remover}, data.accountID, otherSession), data.orgID, data.recipientPersonID)
 	}()
 	waitTeamBlocking(t, ctx, pool, transferrer, remover, removeDone)
 	if err := tx.Commit(ctx); err != nil {
@@ -476,16 +472,12 @@ func TestOrdinaryMemberRemovalWinsOverOwnerTransfer(t *testing.T) {
 	}
 	removeDone := make(chan error, 1)
 	go func() {
-		removeDone <- RemoveOrganizationMember(ctx,
-			teamPinnedStore{Store: store, conn: remover},
-			data.accountID, otherSession, data.orgID, data.recipientPersonID)
+		removeDone <- RemoveMember(organizationActorContext(ctx, teamPinnedStore{Store: store, conn: remover}, data.accountID, otherSession), data.orgID, data.recipientPersonID)
 	}()
 	waitTeamBlocking(t, ctx, pool, blocker, remover, removeDone)
 	transferDone := make(chan error, 1)
 	go func() {
-		_, err := TransferOrganizationOwner(ctx,
-			teamPinnedStore{Store: store, conn: transferrer},
-			data.accountID, data.sessionID, data.orgID, data.recipientPersonID)
+		_, err := TransferOwner(organizationActorContext(ctx, teamPinnedStore{Store: store, conn: transferrer}, data.accountID, data.sessionID), data.orgID, data.recipientPersonID)
 		transferDone <- err
 	}()
 	waitTeamBlocking(t, ctx, pool, remover, transferrer, transferDone)

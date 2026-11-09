@@ -1,3 +1,6 @@
+// Package org coordinates Organization business operations across models.
+// The package API follows Gitea: context-scoped actor and transaction,
+// domain model arguments, and no Store/SQLC executor in public signatures.
 package org
 
 import (
@@ -7,188 +10,155 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
-	"github.com/google/uuid"
 )
 
-// actingOrganization resolves the live-session actor and request Store once
-// per operation. It is a source of dependencies, never a grant of permission:
-// the SQLC owner predicates and session row locks remain authoritative.
-func actingOrganization(ctx context.Context) (auth_model.Actor, db.Store, error) {
+// actingOrganization reads the authenticated principal, not a permission
+// snapshot. Live session locks and SQL authorization remain authoritative.
+func actingOrganization(ctx context.Context) (auth_model.Actor, error) {
 	actor, ok := auth_model.ActorFromContext(ctx)
 	if !ok {
-		return auth_model.Actor{}, nil, auth_model.ErrSessionUnavailable
+		return auth_model.Actor{}, auth_model.ErrSessionUnavailable
 	}
-	store, err := db.StoreFromContext(ctx)
-	if err != nil {
-		return auth_model.Actor{}, nil, err
-	}
-	return actor, store, nil
+	return actor, nil
 }
 
-// AddMember delegates the transaction-aware Organization member creation to
-// the existing, single SQLC business operation.
-func AddMember(ctx context.Context, organizationID, personID int64) (db.OrganizationMember, error) {
-	actor, store, err := actingOrganization(ctx)
-	if err != nil {
-		return db.OrganizationMember{}, err
-	}
-	return AddOrganizationMember(ctx, store, actor.AccountID, actor.SessionID, organizationID, personID)
-}
-
-func RemoveMember(ctx context.Context, organizationID, personID int64) error {
-	actor, store, err := actingOrganization(ctx)
-	if err != nil {
-		return err
-	}
-	return RemoveOrganizationMember(ctx, store, actor.AccountID, actor.SessionID, organizationID, personID)
-}
-
-func PromoteOwner(ctx context.Context, organizationID, personID int64) (db.OrganizationMember, error) {
-	actor, store, err := actingOrganization(ctx)
-	if err != nil {
-		return db.OrganizationMember{}, err
-	}
-	return PromoteOrganizationOwner(ctx, store, actor.AccountID, actor.SessionID, organizationID, personID)
-}
-
-func DemoteOwner(ctx context.Context, organizationID, personID int64) error {
-	actor, store, err := actingOrganization(ctx)
-	if err != nil {
-		return err
-	}
-	return DemoteOrganizationOwner(ctx, store, actor.AccountID, actor.SessionID, organizationID, personID)
-}
-
-func TransferOwner(ctx context.Context, organizationID, personID int64) (db.OrganizationMember, error) {
-	actor, store, err := actingOrganization(ctx)
-	if err != nil {
-		return db.OrganizationMember{}, err
-	}
-	return TransferOrganizationOwner(ctx, store, actor.AccountID, actor.SessionID, organizationID, personID)
-}
-
-// NewOrganization creates a Party-backed Organization from an API model.
-// The original service enforces account-first/session-second lock ordering;
-// the caller's model is published only after a successful COMMIT.
+// NewOrganization creates the Party, Organization and initial Owner atomically.
+// The account FOR KEY SHARE lock MUST precede the session FOR UPDATE lock:
+// credential recovery locks the account before deleting its sessions.
 func NewOrganization(ctx context.Context, target *organization_model.Organization) error {
 	if target == nil {
 		return organization_model.ErrInvalidOrganization
 	}
-	actor, store, err := actingOrganization(ctx)
+	name, err := organization_model.OrganizationName(target.Name)
 	if err != nil {
 		return err
 	}
-	created, err := CreateOrganization(ctx, store, actor.AccountID, actor.SessionID, target.Name)
+	actor, err := actingOrganization(ctx)
 	if err != nil {
 		return err
 	}
-	*target = *organization_model.OrganizationFromDB(created)
+	created, err := db.WithTx2(ctx, func(txCtx context.Context) (*organization_model.Organization, error) {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return nil, err
+		}
+		creator, err := organization_model.LockCreator(txCtx, q, actor.AccountID)
+		if err != nil {
+			return nil, err
+		}
+		if err := auth_model.RequireActingSession(txCtx, q, actor.AccountID, actor.SessionID); err != nil {
+			return nil, err
+		}
+		row, err := organization_model.CreateOrganizationForCreator(txCtx, q, creator, name)
+		if err != nil {
+			return nil, err
+		}
+		return organization_model.OrganizationFromDB(row), nil
+	})
+	if err != nil {
+		return err
+	}
+	// A nested WithTx2 returns provisional data; only its parent can commit.
+	*target = *created
 	return nil
 }
 
-// EditOrganization retains SQLC owner-scoped writes and session authority
-// through the existing UpdateOrganization transaction.
+// EditOrganization retains SQLC owner-scoped UPDATE authorization in the same
+// transaction as its acting-session row lock.
 func EditOrganization(ctx context.Context, target *organization_model.Organization) error {
 	if target == nil || target.ID <= 0 {
 		return organization_model.ErrInvalidOrganization
 	}
-	actor, store, err := actingOrganization(ctx)
+	name, err := organization_model.OrganizationName(target.Name)
 	if err != nil {
 		return err
 	}
-	updated, err := UpdateOrganization(ctx, store, actor.AccountID, actor.SessionID, target.ID, target.Name)
+	actor, err := actingOrganization(ctx)
 	if err != nil {
 		return err
 	}
-	*target = *organization_model.OrganizationFromDB(updated)
+	updated, err := db.WithTx2(ctx, func(txCtx context.Context) (*organization_model.Organization, error) {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return nil, err
+		}
+		if err := auth_model.RequireActingSession(txCtx, q, actor.AccountID, actor.SessionID); err != nil {
+			return nil, err
+		}
+		row, err := organization_model.UpdateOrganization(txCtx, q, actor.AccountID, target.ID, name)
+		if err != nil {
+			return nil, err
+		}
+		return organization_model.OrganizationFromDB(row), nil
+	})
+	if err != nil {
+		return err
+	}
+	*target = *updated
 	return nil
 }
 
-// CreateOrganization composes the creator-account, acting-session and
-// party/organization/owner writes in one transaction. Account FOR KEY SHARE
-// MUST precede session FOR UPDATE: credential recovery takes account FOR
-// UPDATE before deleting sessions. Reversing this order can deadlock.
-func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int64, actingSessionID uuid.UUID, name string) (db.Organization, error) {
-	name, err := organization_model.OrganizationName(name)
+// AddMember uses the owner-guarded SQL INSERT and the live acting-session
+// check in the same transaction. The HTTP boundary never grants membership.
+func AddMember(ctx context.Context, organizationID, personID int64) (db.OrganizationMember, error) {
+	actor, err := actingOrganization(ctx)
 	if err != nil {
-		return db.Organization{}, err
+		return db.OrganizationMember{}, err
 	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.Organization, error) {
-		creator, err := organization_model.LockCreator(ctx, q, actorAccountID)
+	return db.WithTx2(ctx, func(txCtx context.Context) (db.OrganizationMember, error) {
+		q, err := db.TxQueries(txCtx)
 		if err != nil {
-			return db.Organization{}, err
-		}
-		if err := auth_model.RequireActingSession(ctx, q, actorAccountID, actingSessionID); err != nil {
-			return db.Organization{}, err
-		}
-		return organization_model.CreateOrganizationForCreator(ctx, q, creator, name)
-	})
-}
-
-// UpdateOrganization retains the SQLC owner-scoped UPDATE and its FOR SHARE
-// permission lock. Session is checked and locked within the same commit.
-func UpdateOrganization(ctx context.Context, store db.Store, actorAccountID int64, actingSessionID uuid.UUID, organizationID int64, name string) (db.Organization, error) {
-	name, err := organization_model.OrganizationName(name)
-	if err != nil {
-		return db.Organization{}, err
-	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.Organization, error) {
-		if err := auth_model.RequireActingSession(ctx, q, actorAccountID, actingSessionID); err != nil {
-			return db.Organization{}, err
-		}
-		return organization_model.UpdateOrganization(ctx, q, actorAccountID, organizationID, name)
-	})
-}
-
-// AddOrganizationMember keeps owner-scoped INSERT authorization and its
-// membership FOR SHARE lock in the same transaction as acting session.
-// Do not preflight ownership in HTTP or rely solely on JWT claims.
-func AddOrganizationMember(ctx context.Context, store db.Store, actorAccountID int64, actingSessionID uuid.UUID, organizationID, personID int64) (db.OrganizationMember, error) {
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.OrganizationMember, error) {
-		if err := auth_model.RequireActingSession(ctx, q, actorAccountID, actingSessionID); err != nil {
 			return db.OrganizationMember{}, err
 		}
-		return organization_model.AddOrgUser(ctx, q, actorAccountID, organizationID, personID)
+		if err := auth_model.RequireActingSession(txCtx, q, actor.AccountID, actor.SessionID); err != nil {
+			return db.OrganizationMember{}, err
+		}
+		return organization_model.AddOrgUser(txCtx, q, actor.AccountID, organizationID, personID)
 	})
 }
 
-// RemoveOrganizationMember coordinates the authenticated actor, owner-scoped
-// ordinary member closure, team access cleanup and durable audit in one commit.
-// Role changes and owner removal intentionally have a separate contract.
-func RemoveOrganizationMember(ctx context.Context, store db.Store, actorAccountID int64, actingSessionID uuid.UUID, organizationID, personID int64) error {
+// RemoveMember serializes ordinary removal with role changes, and commits
+// team-grant cleanup plus audit with the membership closure.
+func RemoveMember(ctx context.Context, organizationID, personID int64) error {
 	if organizationID <= 0 || personID <= 0 {
 		return organization_model.ErrInvalidOrganization
 	}
-	return store.ExecTx(ctx, func(q *db.Queries) error {
-		if err := auth_model.RequireActingSession(ctx, q, actorAccountID, actingSessionID); err != nil {
+	actor, err := actingOrganization(ctx)
+	if err != nil {
+		return err
+	}
+	return db.WithTx(ctx, func(txCtx context.Context) error {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
 			return err
 		}
-		// Serialize ordinary removal with target promotion. Otherwise
-		// remove's target row lock may invert with an owner transition.
-		if err := organization_model.LockRoleChangeOrganization(ctx, q, organizationID); err != nil {
+		if err := auth_model.RequireActingSession(txCtx, q, actor.AccountID, actor.SessionID); err != nil {
 			return err
 		}
-		return organization_model.RemoveOrdinaryOrgMemberTx(ctx, q, actorAccountID, organizationID, personID)
+		// Lock organization role state before target membership to avoid
+		// inversion against concurrent promotion and transfer.
+		if err := organization_model.LockRoleChangeOrganization(txCtx, q, organizationID); err != nil {
+			return err
+		}
+		return organization_model.RemoveOrdinaryOrgMemberTx(txCtx, q, actor.AccountID, organizationID, personID)
 	})
 }
 
-// PromoteOrganizationOwner grants ownership only to a verified current member.
-// The ordinary team role and its grants are unchanged.
-func PromoteOrganizationOwner(ctx context.Context, store db.Store, actorAccountID int64, sessionID uuid.UUID, organizationID, targetPersonID int64) (db.OrganizationMember, error) {
-	return changeOrganizationOwner(ctx, store, actorAccountID, sessionID, organizationID, targetPersonID, ownerPromote)
+// PromoteOwner grants ownership only to an eligible verified current member.
+func PromoteOwner(ctx context.Context, organizationID, personID int64) (db.OrganizationMember, error) {
+	return changeOrganizationOwner(ctx, organizationID, personID, ownerPromote)
 }
 
-// DemoteOrganizationOwner retains the member but removes the owner role.
-// Even concurrent demotions cannot remove the final active owner.
-func DemoteOrganizationOwner(ctx context.Context, store db.Store, actorAccountID int64, sessionID uuid.UUID, organizationID, targetPersonID int64) error {
-	_, err := changeOrganizationOwner(ctx, store, actorAccountID, sessionID, organizationID, targetPersonID, ownerDemote)
+// DemoteOwner must not remove the final active organization owner.
+func DemoteOwner(ctx context.Context, organizationID, personID int64) error {
+	_, err := changeOrganizationOwner(ctx, organizationID, personID, ownerDemote)
 	return err
 }
 
-// TransferOrganizationOwner makes the recipient an owner and demotes the
-// caller in one commit. The old owner stays an ordinary organization member.
-func TransferOrganizationOwner(ctx context.Context, store db.Store, actorAccountID int64, sessionID uuid.UUID, organizationID, targetPersonID int64) (db.OrganizationMember, error) {
-	return changeOrganizationOwner(ctx, store, actorAccountID, sessionID, organizationID, targetPersonID, ownerTransfer)
+// TransferOwner demotes the actor before promoting the recipient, with audit
+// and all role changes committed or rolled back together.
+func TransferOwner(ctx context.Context, organizationID, personID int64) (db.OrganizationMember, error) {
+	return changeOrganizationOwner(ctx, organizationID, personID, ownerTransfer)
 }
 
 type ownerChangeKind uint8
@@ -199,18 +169,26 @@ const (
 	ownerTransfer
 )
 
-func changeOrganizationOwner(ctx context.Context, store db.Store, actorAccountID int64, sessionID uuid.UUID, organizationID, targetPersonID int64, kind ownerChangeKind) (db.OrganizationMember, error) {
-	if actorAccountID <= 0 || organizationID <= 0 || targetPersonID <= 0 {
+func changeOrganizationOwner(ctx context.Context, organizationID, targetPersonID int64, kind ownerChangeKind) (db.OrganizationMember, error) {
+	if organizationID <= 0 || targetPersonID <= 0 {
 		return db.OrganizationMember{}, organization_model.ErrInvalidOrganization
 	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.OrganizationMember, error) {
-		if err := auth_model.RequireActingSession(ctx, q, actorAccountID, sessionID); err != nil {
+	actor, err := actingOrganization(ctx)
+	if err != nil {
+		return db.OrganizationMember{}, err
+	}
+	return db.WithTx2(ctx, func(txCtx context.Context) (db.OrganizationMember, error) {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
 			return db.OrganizationMember{}, err
 		}
-		if err := organization_model.LockRoleChangeOrganization(ctx, q, organizationID); err != nil {
+		if err := auth_model.RequireActingSession(txCtx, q, actor.AccountID, actor.SessionID); err != nil {
 			return db.OrganizationMember{}, err
 		}
-		actorPersonID, err := organization_model.RequireRoleChangeOwner(ctx, q, organizationID, actorAccountID)
+		if err := organization_model.LockRoleChangeOrganization(txCtx, q, organizationID); err != nil {
+			return db.OrganizationMember{}, err
+		}
+		actorPersonID, err := organization_model.RequireRoleChangeOwner(txCtx, q, organizationID, actor.AccountID)
 		if err != nil {
 			return db.OrganizationMember{}, err
 		}
@@ -221,30 +199,30 @@ func changeOrganizationOwner(ctx context.Context, store db.Store, actorAccountID
 			if targetPersonID == actorPersonID {
 				return db.OrganizationMember{}, organization_model.ErrOwnerCandidateInvalid
 			}
-			changed, err = organization_model.PromoteOwnerTx(ctx, q, organizationID, targetPersonID)
+			changed, err = organization_model.PromoteOwnerTx(txCtx, q, organizationID, targetPersonID)
 			action = audit_model.ActionOrganizationOwnerPromoted
 		case ownerDemote:
 			var count int64
-			count, err = q.CountActiveOrganizationOwners(ctx, organizationID)
+			count, err = q.CountActiveOrganizationOwners(txCtx, organizationID)
 			if err != nil {
 				return db.OrganizationMember{}, err
 			}
 			if count <= 1 {
 				return db.OrganizationMember{}, organization_model.ErrLastOrganizationOwner
 			}
-			changed, err = organization_model.DemoteOwnerTx(ctx, q, organizationID, targetPersonID)
+			changed, err = organization_model.DemoteOwnerTx(txCtx, q, organizationID, targetPersonID)
 			action = audit_model.ActionOrganizationOwnerDemoted
 		case ownerTransfer:
 			if targetPersonID == actorPersonID {
 				return db.OrganizationMember{}, organization_model.ErrInvalidOrganization
 			}
-			// Critical lock order: team writes lock owner membership before
-			// recipient membership. Demote actor FIRST, promote target SECOND.
-			// If promotion fails, the transaction rolls the demotion back.
-			if _, err := organization_model.DemoteOwnerTx(ctx, q, organizationID, actorPersonID); err != nil {
+			// Team writes lock owner membership before recipient membership.
+			// Demote actor FIRST, promote target SECOND. A failed promotion
+			// must roll the first step back.
+			if _, err := organization_model.DemoteOwnerTx(txCtx, q, organizationID, actorPersonID); err != nil {
 				return db.OrganizationMember{}, err
 			}
-			changed, err = organization_model.PromoteOwnerTx(ctx, q, organizationID, targetPersonID)
+			changed, err = organization_model.PromoteOwnerTx(txCtx, q, organizationID, targetPersonID)
 			action = audit_model.ActionOrganizationOwnerTransferred
 		default:
 			return db.OrganizationMember{}, organization_model.ErrInvalidOrganization
@@ -252,7 +230,7 @@ func changeOrganizationOwner(ctx context.Context, store db.Store, actorAccountID
 		if err != nil {
 			return db.OrganizationMember{}, err
 		}
-		if err := audit_model.RecordOrganizationOwnerRoleChanged(ctx, q, action, actorAccountID, organizationID, targetPersonID); err != nil {
+		if err := audit_model.RecordOrganizationOwnerRoleChanged(txCtx, q, action, actor.AccountID, organizationID, targetPersonID); err != nil {
 			return db.OrganizationMember{}, err
 		}
 		return changed, nil
