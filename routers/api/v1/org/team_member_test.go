@@ -13,7 +13,7 @@ func TestTeamMemberActionsRejectInvalidInputsBeforeDatabase(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cases := []struct {
 		method, path, pattern string
-		action appctx.APIHandler
+		action                appctx.APIHandler
 	}{
 		{http.MethodGet, "/teams/invalid/members", "/teams/:team_id/members", ListTeamMembers},
 		{http.MethodGet, "/teams/1/members?page=invalid", "/teams/:team_id/members", ListTeamMembers},
