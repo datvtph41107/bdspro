@@ -14,22 +14,22 @@ import (
 
 // Team is the model passed from HTTP action through service to persistence.
 type Team struct {
-	ID int64
-	OrgID int64
-	Name string
+	ID          int64
+	OrgID       int64
+	Name        string
 	Description string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 func TeamFromDB(row db.Team) *Team {
 	return &Team{
-		ID: row.ID,
-		OrgID: row.OrganizationID,
-		Name: row.Name,
+		ID:          row.ID,
+		OrgID:       row.OrganizationID,
+		Name:        row.Name,
 		Description: row.Description,
-		CreatedAt: row.CreatedAt,
-		UpdatedAt: row.UpdatedAt,
+		CreatedAt:   row.CreatedAt,
+		UpdatedAt:   row.UpdatedAt,
 	}
 }
 
@@ -45,8 +45,8 @@ func InsertTeam(ctx context.Context, actorAccountID int64, input *Team) (*Team, 
 	row, err := CreateTeam(ctx, q, CreateTeamOptions{
 		OrganizationID: input.OrgID,
 		ActorAccountID: actorAccountID,
-		Name: input.Name,
-		Description: input.Description,
+		Name:           input.Name,
+		Description:    input.Description,
 	})
 	if err != nil {
 		return nil, err

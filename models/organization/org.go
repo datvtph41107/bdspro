@@ -16,8 +16,8 @@ import (
 // Organization is the Party-backed model visible to API actions.
 // ID maps to organizations.party_id; SQLC keeps database field names.
 type Organization struct {
-	ID int64
-	Name string
+	ID        int64
+	Name      string
 	CreatedAt time.Time
 }
 
@@ -33,8 +33,8 @@ type Access struct {
 // OrganizationModel is a read projection for an already authorized API request.
 func (a Access) OrganizationModel() *Organization {
 	return &Organization{
-		ID: a.Organization.PartyID,
-		Name: a.Organization.Name,
+		ID:        a.Organization.PartyID,
+		Name:      a.Organization.Name,
 		CreatedAt: a.Organization.CreatedAt,
 	}
 }
