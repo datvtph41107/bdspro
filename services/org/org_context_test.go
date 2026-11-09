@@ -15,6 +15,12 @@ func organizationActorContext(ctx context.Context, store db.Store, accountID int
 	if store != nil {
 		ctx = db.WithStore(ctx, store)
 	}
+	// Middleware cannot install a malformed acting principal. Model the
+	// rejected ingress state by leaving the actor absent, not by invoking
+	// WithActor with a nil session (which deliberately panics).
+	if accountID <= 0 || sessionID == uuid.Nil {
+		return ctx
+	}
 	return auth_model.WithActor(ctx, auth_model.Actor{
 		AccountID: accountID, SessionID: sessionID,
 	})
