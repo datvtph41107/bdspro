@@ -33,7 +33,15 @@ func (r *Router[T]) handlers(actions []func(T)) []gin.HandlerFunc {
 			panic("web: nil route action")
 		}
 		fn := action
-		handlers = append(handlers, func(c *gin.Context) { fn(r.getContext(c)) })
+		handlers = append(handlers, func(c *gin.Context) {
+			fn(r.getContext(c))
+			// Gitea stops the typed handler chain after a committed response.
+			// Gin JSON/Write does not itself abort following route handlers.
+			// Selecting Status without writing headers must not abort.
+			if c.Writer.Written() && !c.IsAborted() {
+				c.Abort()
+			}
+		})
 	}
 	return handlers
 }

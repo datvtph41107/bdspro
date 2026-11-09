@@ -55,3 +55,56 @@ func TestTypedRouterRequiresContextAccessorAtRegistration(t *testing.T) {
 	}()
 	_ = NewRouter[*gin.Context](router.Group(""), nil)
 }
+
+func TestTypedRouterWrittenResponseStopsFollowingActions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	var called []string
+	m := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	m.Get("/written", func(c *gin.Context) {
+		called = append(called, "first")
+		c.JSON(http.StatusAccepted, gin.H{"accepted": true})
+	}, func(*gin.Context) {
+		called = append(called, "should-not-run")
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/written", nil))
+	if w.Code != http.StatusAccepted || !reflect.DeepEqual(called, []string{"first"}) {
+		t.Fatalf("response did not terminate typed route chain: status=%d called=%v", w.Code, called)
+	}
+}
+
+func TestTypedRouterWrittenGroupGuardStopsEndpoint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	reached := false
+	m := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	m.Group("/teams", func() {
+		m.Get("/:team_id", func(*gin.Context) { reached = true })
+	}, func(c *gin.Context) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/teams/1", nil))
+	if reached || w.Code != http.StatusForbidden {
+		t.Fatalf("committed group guard reached endpoint: reached=%v status=%d", reached, w.Code)
+	}
+}
+
+func TestTypedRouterStatusOnlyDoesNotShortCircuit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	reached := false
+	m := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	m.Get("/status", func(c *gin.Context) {
+		c.Status(http.StatusAccepted)
+	}, func(c *gin.Context) {
+		reached = true
+		c.JSON(http.StatusOK, gin.H{"done": true})
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/status", nil))
+	if !reached || w.Code != http.StatusOK {
+		t.Fatalf("selected-but-uncommitted status blocked endpoint: reached=%v status=%d", reached, w.Code)
+	}
+}
