@@ -145,9 +145,16 @@ func waitTeamBlocking(t *testing.T, ctx context.Context, pool *pgxpool.Pool, blo
 // teamActionContext mirrors the verified principal and Store established by
 // the HTTP ingress, while allowing concurrency tests to pin a SQL connection.
 func teamActionContext(ctx context.Context, store db.Store, accountID int64, sessionID uuid.UUID) context.Context {
-	return db.WithStore(auth_model.WithActor(ctx, auth_model.Actor{
+	ctx = db.WithStore(ctx, store)
+	// Production middleware never installs an invalid actor. A revoked or
+	// missing session is modeled by absence of the actor, not by bypassing
+	// auth.WithActor's invariant and constructing an impossible principal.
+	if accountID <= 0 || sessionID == uuid.Nil {
+		return ctx
+	}
+	return auth_model.WithActor(ctx, auth_model.Actor{
 		AccountID: accountID, SessionID: sessionID,
-	}), store)
+	})
 }
 
 func teamMembershipMutation(ctx context.Context, store db.Store, data teamCase, kind string) error {
