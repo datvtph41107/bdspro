@@ -68,8 +68,8 @@ func TestOrganizationRoleWriteOwnership(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if importPath == modulePath+"/services/organization" {
-					serviceAlias = "organization"
+				if importPath == modulePath+"/services/org" {
+					serviceAlias = "org"
 					if imp.Name != nil {
 						serviceAlias = imp.Name.Name
 					}
@@ -100,7 +100,7 @@ func TestOrganizationRoleWriteOwnership(t *testing.T) {
 				}
 				if serviceWrite[name] {
 					seenService++
-					if !strings.HasPrefix(rel, "services/organization/") {
+					if !strings.HasPrefix(rel, "services/org/") {
 						t.Errorf("%s bypasses organization service for %s", rel, name)
 					}
 				}

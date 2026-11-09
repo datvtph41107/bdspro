@@ -10,12 +10,19 @@ import (
 
 const ErrorCodeKey = "public_error_code"
 
-// APIError is the sole public error envelope for API actions. The existing
-// Gin helpers in gin_response.go also call this implementation.
+// APIErrorResponse is the canonical public API error envelope shared by typed
+// actions and the Gin protocol compatibility entrypoints.
+type APIErrorResponse struct {
+	Error string `json:"error"`
+	Code  string `json:"code"`
+}
+
+// APIError selects the public contract. Base.writeError owns HTTP emission,
+// monitoring metadata and termination of the remaining Gin action chain.
 func (c *APIContext) APIError(status int, code, message string) {
-	c.writeError(status, code, map[string]any{
-		"error": message,
-		"code":  code,
+	c.writeError(status, code, APIErrorResponse{
+		Error: message,
+		Code:  code,
 	})
 }
 

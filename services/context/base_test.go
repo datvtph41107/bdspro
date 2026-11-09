@@ -91,7 +91,7 @@ func TestAPIContextCanWriteWithoutGin(t *testing.T) {
 	if source.status != http.StatusForbidden || !source.aborted || source.code != "owner_required" {
 		t.Fatalf("unexpected error response: status=%d abort=%v code=%q", source.status, source.aborted, source.code)
 	}
-	if body, ok := source.body.(map[string]any); !ok || body["code"] != "owner_required" {
+	if body, ok := source.body.(APIErrorResponse); !ok || body.Code != "owner_required" || body.Error != "owner required" {
 		t.Fatalf("error contract changed: %v", source.body)
 	}
 }

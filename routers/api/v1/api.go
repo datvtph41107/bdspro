@@ -217,17 +217,19 @@ func registerTeamRoutes(m *web.Router[*appctx.APIContext], d Dependencies, teams
 		teams.AcceptInvite,
 	)...)
 	m.Group("/:team_id", func() {
-		m.Get("", reqToken(), org.GetTeam)
-	}, teamAssignment())
-	m.Patch("/:team_id", teams.Edit)
-	m.Get("/:team_id/members", reqToken(), org.ListTeamMembers)
-	m.Post("/:team_id/members", reqToken(), bind(api.AddTeamUserOption{}), org.AddTeamMember)
-	m.Delete("/:team_id/members/:person_id", reqToken(), org.RemoveTeamMember)
-	m.Post("/:team_id/invites", append(
-		appctx.GinActions(d.IPActive.For(ipactive.CreateTeamInvite)),
-		teams.CreateInvite,
-	)...)
-	m.Delete("/:team_id/invites/:invite_id", teams.RevokeInvite)
+		// Keep assignment on GET only: mutations still authorize with live
+		// acting-session and owner-scoped SQLC checks in services/org.
+		m.Get("", teamAssignment(), reqToken(), org.GetTeam)
+		m.Patch("", teams.Edit)
+		m.Get("/members", reqToken(), org.ListTeamMembers)
+		m.Post("/members", reqToken(), bind(api.AddTeamUserOption{}), org.AddTeamMember)
+		m.Delete("/members/:person_id", reqToken(), org.RemoveTeamMember)
+		m.Post("/invites", append(
+			appctx.GinActions(d.IPActive.For(ipactive.CreateTeamInvite)),
+			teams.CreateInvite,
+		)...)
+		m.Delete("/invites/:invite_id", teams.RevokeInvite)
+	})
 }
 
 func registerPhoneBindRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {

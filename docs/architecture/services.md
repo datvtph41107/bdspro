@@ -8,16 +8,18 @@ Baseline: BDSPro `dev` R28, after the models/OIDC cut-over. Gitea reference:
 | Package | Owns | Does not own |
 | --- | --- | --- |
 | `services/auth` | registration, login, OAuth2/OIDC client, phone OTP, token renewal and session orchestration | Gin parsing or HTTP status codes |
+| `services/org` | organization/team writes, acting-session checks and cross-model transactions | HTTP response formats or SQLC generation |
 | `services/convert` | mapping model/service values to `modules/structs` API responses | persistent constraints or transport routing |
 | `services/jobs` | email verification, password reset and invitation job operations | Asynq transport and Redis connections |
 | `services/worker` | SQL outbox dispatch and Asynq-to-job adapters | generic Asynq connection/processor |
 | `services/mail` | SMTP sender integration | account authorization |
 | `services/notification` | phone delivery implementations | Gin admission policy |
 
-There is **no `services/organization` package** at this baseline.
-Organization and Team operations are in `models/organization`, invoked from
-`routers/api/v1/org`. Adding a service requires a specific orchestration
-operation; do not create a package by copying Gitea's tree.
+Organization and Team orchestration now lives in `services/org`, following
+Gitea's distinction between `services/org` and `models/organization`.
+The service coordinates verified acting sessions, SQLC transactions and
+cross-model writes; `models/organization` remains the owner of entities,
+constraints and account-scoped persistence invariants.
 
 ## Request, transaction and delivery
 
