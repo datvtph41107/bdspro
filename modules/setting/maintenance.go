@@ -1,9 +1,6 @@
 package setting
 
-import (
-	"fmt"
-	"strconv"
-)
+import "fmt"
 
 // DatabaseCommandSettings is the complete dependency configuration for
 // PostgreSQL diagnostics. It does not depend on HTTP, Redis, OAuth or JWT.
@@ -51,9 +48,9 @@ func LoadCleanupSettings(filename string) (CleanupSettings, error) {
 	if err != nil {
 		return CleanupSettings{}, err
 	}
-	days, err := strconv.Atoi(provider.StringDefault("audit", "RETENTION_DAYS", "90"))
-	if err != nil || days <= 0 || days > 3650 {
-		return CleanupSettings{}, fmt.Errorf("audit RETENTION_DAYS must be between 1 and 3650")
+	days, err := LoadAuditRetentionDays(provider)
+	if err != nil {
+		return CleanupSettings{}, err
 	}
 	return CleanupSettings{DatabaseCommandSettings: database, AuditRetentionDays: days}, nil
 }

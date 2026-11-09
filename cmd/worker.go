@@ -25,7 +25,7 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	if command.Args().Len() != 0 {
 		return fmt.Errorf("unexpected worker argument %q", command.Args().First())
 	}
-	cfg, err := loadSettings(command)
+	cfg, err := loadWorkerSettings(command)
 	if err != nil {
 		return err
 	}

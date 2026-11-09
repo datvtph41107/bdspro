@@ -95,9 +95,9 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 	config.RedisAddress = get("redis", "ADDR")
 	config.TokenSymmetricKey = get("security", "TOKEN_SYMMETRIC_KEY")
 	config.AuditKey = get("audit", "HMAC_KEY")
-	config.AuditRetentionDays, err = strconv.Atoi(p.StringDefault("audit", "RETENTION_DAYS", "90"))
-	if err != nil || config.AuditRetentionDays <= 0 || config.AuditRetentionDays > 3650 {
-		return config, fmt.Errorf("audit RETENTION_DAYS must be between 1 and 3650")
+	config.AuditRetentionDays, err = LoadAuditRetentionDays(p)
+	if err != nil {
+		return config, err
 	}
 	config.AccessTokenDuration, err = time.ParseDuration(get("security", "ACCESS_TOKEN_DURATION"))
 	if err != nil {
@@ -157,11 +157,8 @@ func LoadSettings(p *ConfigProvider) (config Config, err error) {
 	if config.DBSource == "" || config.MigrationURL == "" || config.HTTPServerAddress == "" {
 		return config, fmt.Errorf("DB_SOURCE, MIGRATION_URL and HTTP_SERVER_ADDRESS are required")
 	}
-	if config.Environment != "development" && config.TokenSymmetricKey == "01234567890123456789012345678901" {
-		return config, fmt.Errorf("production signing key must differ from documented development example")
-	}
-	if len(config.TokenSymmetricKey) < 32 {
-		return config, fmt.Errorf("TOKEN_SYMMETRIC_KEY must contain at least 32 bytes")
+	if err := validateTokenSigningKey(config.Environment, config.TokenSymmetricKey); err != nil {
+		return config, err
 	}
 	if config.AuditKey == "" && config.Environment == "development" {
 		// Development-only compatibility for in-memory tests and old local INI.

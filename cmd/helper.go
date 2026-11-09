@@ -103,3 +103,19 @@ func loadCleanupSettings(command *cli.Command) (setting.CleanupSettings, error) 
 	log.Info("Using configuration file: %s", filename)
 	return cfg, nil
 }
+
+func loadWorkerSettings(command *cli.Command) (setting.WorkerSettings, error) {
+	filename, err := resolveConfigFile(command)
+	if err != nil {
+		return setting.WorkerSettings{}, err
+	}
+	cfg, err := setting.LoadWorkerSettings(filename)
+	if err != nil {
+		return cfg, fmt.Errorf("load worker settings %q: %w", filename, err)
+	}
+	if err := configureCommandLoggers(filename, cfg.Log); err != nil {
+		return cfg, err
+	}
+	log.Info("Using configuration file: %s", filename)
+	return cfg, nil
+}
