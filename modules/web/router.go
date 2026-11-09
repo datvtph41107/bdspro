@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
+	"github.com/datvtph41107/bdspro/modules/web/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -65,11 +66,12 @@ type JSONFormContext interface {
 	BindJSON(value any) error
 }
 
-// BindJSON is the single owner of typed JSON decoding and form publication.
-// The API boundary remains responsible for reporting validation failures.
+// BindJSON is the typed form publication boundary. middleware.BindJSON owns
+// decoding through the existing Gin binder; the form is published only after
+// successful binding, just as Gitea's router binds before SetForm.
 func BindJSON[T any](ctx JSONFormContext) (*T, error) {
-	form := new(T)
-	if err := ctx.BindJSON(form); err != nil {
+	form, err := middleware.BindJSON[T](ctx)
+	if err != nil {
 		return form, err
 	}
 	SetForm(ctx, form)
