@@ -52,3 +52,11 @@ func TestDoctorRejectsArgumentsBeforeOpeningDatabase(t *testing.T) {
 		t.Fatalf("doctor accepted extra arguments or reached database: %v", err)
 	}
 }
+
+func TestDoctorRejectsNegativeCursorBeforeOpeningDatabase(t *testing.T) {
+	app := NewMainApp(AppVersion{Version: "test"})
+	if err := app.Run(context.Background(), []string{"bdspro", "doctor", "--after-id", "-1"}); err == nil ||
+		!strings.Contains(err.Error(), "--after-id cannot be negative") {
+		t.Fatalf("doctor accepted negative cursor or reached config/database: %v", err)
+	}
+}

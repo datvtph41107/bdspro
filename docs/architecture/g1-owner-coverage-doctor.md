@@ -33,8 +33,11 @@ and periodically through the existing operations scheduler.
 SQLC `ListOrganizationsWithoutActiveOwner` is read-only, ORDER BY
 party ID, LIMIT 21. Only the first 20 IDs are included in diagnostics.
 When the 21st exists, the result says *at least 21*, not an invented
-exact count. No pagination of potentially sensitive membership data and
-no unbounded in-memory list. This is an O(organization-count) scan in
+exact count. The `--after-id` cursor permits bounded follow-up inspection
+without an unbounded in-memory list. The default `make doctor` checks
+from ID 0 and is the correct scheduled health signal.
+For manual triage: `bdspro --config /path/to/app.ini doctor --after-id 123`.
+A page with no rows is not proof that earlier pages were healthy. This is an O(organization-count) scan in
 the worst case; do not run it on every HTTP request.
 
 ## Ownership and Gitea comparison

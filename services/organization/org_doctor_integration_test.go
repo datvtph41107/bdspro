@@ -13,7 +13,7 @@ func TestDoctorDetectsPrivilegedLastOwnerDemotion(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	d := newOwnerRoleCase(t, ctx, pool, store, true)
 
-	healthy, err := org_model.CheckOwnerCoverage(ctx, store)
+	healthy, err := org_model.CheckOwnerCoverage(ctx, store, d.orgID-1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestDoctorDetectsPrivilegedLastOwnerDemotion(t *testing.T) {
 	}
 	requireOwnerCount(t, ctx, pool, d.orgID, 0)
 
-	report, err := org_model.CheckOwnerCoverage(ctx, store)
+	report, err := org_model.CheckOwnerCoverage(ctx, store, d.orgID-1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestDoctorDetectsPrivilegedLastOwnerDemotion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("restore test fixture: %v", err)
 	}
-	after, err := org_model.CheckOwnerCoverage(ctx, store)
+	after, err := org_model.CheckOwnerCoverage(ctx, store, d.orgID-1)
 	if err != nil || len(after.OrganizationIDs) != 0 {
 		t.Fatalf("healthy organization still flagged: report=%+v err=%v", after, err)
 	}
@@ -69,7 +69,7 @@ func TestDoctorOwnerlessResultIsBoundedAndOrdered(t *testing.T) {
 			firstIDs = append(firstIDs, partyID)
 		}
 	}
-	report, err := org_model.CheckOwnerCoverage(ctx, store)
+	report, err := org_model.CheckOwnerCoverage(ctx, store, firstIDs[0]-1)
 	if err != nil {
 		t.Fatal(err)
 	}
