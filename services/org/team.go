@@ -10,7 +10,8 @@ import (
 )
 
 // NewTeam follows the Gitea package-function pattern: a domain model is
-// populated only after the session-checked SQLC transaction commits.
+// populated after its WithTx2 call succeeds. When nested, model values remain
+// provisional until the outer transaction commits.
 func NewTeam(ctx context.Context, team *organization_model.Team) error {
 	if team == nil || !organization_model.ValidTeamName(team.Name) {
 		return organization_model.ErrTeamNameInvalid
@@ -38,7 +39,7 @@ func NewTeam(ctx context.Context, team *organization_model.Team) error {
 
 // UpdateTeam operates on the same organization.Team domain type as NewTeam.
 // Neither HTTP actions nor test callers pass a Store, SQLC queries, or session
-// parameters. Model fields are published only after COMMIT succeeds.
+// parameters. When nested, fields are provisional until the parent commits.
 func UpdateTeam(ctx context.Context, team *organization_model.Team) error {
 	if team == nil || !organization_model.ValidTeamName(team.Name) {
 		return organization_model.ErrTeamNameInvalid

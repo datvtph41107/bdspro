@@ -104,9 +104,11 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 	})
 }
 
-// WithTx2 mirrors Gitea's named context+result transaction entrypoint.
-// Unlike Gitea's simple WithTx2 implementation, a failed COMMIT discards
-// the callback's result so a non-persisted SQLC row cannot escape.
+// WithTx2 mirrors Gitea's result-bearing context transaction entrypoint.
+// When it owns the outermost transaction, a failed callback or COMMIT returns
+// the zero value. Under an existing transaction its result is PROVISIONAL:
+// only the parent WithTx can commit it. Do not expose such a result externally
+// before that parent returns successfully.
 func WithTx2[T any](ctx context.Context, fn func(context.Context) (T, error)) (T, error) {
 	var result T
 	err := WithTx(ctx, func(txCtx context.Context) error {
