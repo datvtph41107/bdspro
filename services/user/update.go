@@ -19,10 +19,10 @@ type ProfilePatch struct {
 // UpdateProfile coordinates a live-session lock, the model write, and a
 // same-transaction read. No driver value or generated SQLC param escapes
 // models/account; no result is returned when the commit fails.
-func UpdateProfile(ctx context.Context, patch ProfilePatch) (db.GetAccountProfileRow, error) {
+func UpdateProfile(ctx context.Context, patch ProfilePatch) (*account_model.Profile, error) {
 	actor, store, err := actingUser(ctx)
 	if err != nil {
-		return db.GetAccountProfileRow{}, err
+		return nil, err
 	}
 	opts := account_model.ProfileUpdateOptions{
 		DisplayName: patch.DisplayName,
@@ -30,14 +30,14 @@ func UpdateProfile(ctx context.Context, patch ProfilePatch) (db.GetAccountProfil
 		LastName:    patch.LastName,
 	}
 	if err := opts.Validate(); err != nil {
-		return db.GetAccountProfileRow{}, err
+		return nil, err
 	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.GetAccountProfileRow, error) {
+	return db.WithTxResult(ctx, store, func(q *db.Queries) (*account_model.Profile, error) {
 		if err := auth_model.RequireActingSession(ctx, q, actor.AccountID, actor.SessionID); err != nil {
-			return db.GetAccountProfileRow{}, err
+			return nil, err
 		}
 		if err := account_model.UpdateProfile(ctx, q, actor.AccountID, opts); err != nil {
-			return db.GetAccountProfileRow{}, err
+			return nil, err
 		}
 		return account_model.GetProfile(ctx, q, actor.AccountID)
 	})
