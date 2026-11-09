@@ -10,16 +10,16 @@ import (
 type baseRequestKey struct{}
 
 type testRequestSource struct {
-	req *http.Request
+	req    *http.Request
 	params map[string]string
 }
 
 func (s *testRequestSource) CurrentRequest() *http.Request { return s.req }
-func (s *testRequestSource) PathParam(name string) string { return s.params[name] }
+func (s *testRequestSource) PathParam(name string) string  { return s.params[name] }
 
 func TestBaseUsesLatestRequestContext(t *testing.T) {
 	source := &testRequestSource{
-		req: httptest.NewRequest(http.MethodGet, "/orgs", nil),
+		req:    httptest.NewRequest(http.MethodGet, "/orgs", nil),
 		params: make(map[string]string),
 	}
 	base := NewBaseContext(source)

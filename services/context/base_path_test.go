@@ -9,8 +9,8 @@ import (
 
 func TestPositivePathIDUsesOneParsingContract(t *testing.T) {
 	cases := []struct {
-		raw string
-		want int64
+		raw   string
+		want  int64
 		valid bool
 	}{
 		{"42", 42, true},
@@ -24,7 +24,7 @@ func TestPositivePathIDUsesOneParsingContract(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.raw, func(t *testing.T) {
 			source := &testRequestSource{
-				req: httptest.NewRequest(http.MethodGet, "/orgs", nil),
+				req:    httptest.NewRequest(http.MethodGet, "/orgs", nil),
 				params: map[string]string{"id": tt.raw},
 			}
 			value, err := NewBaseContext(source).PositivePathID("id")

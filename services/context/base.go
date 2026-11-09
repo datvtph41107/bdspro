@@ -18,7 +18,7 @@ type RequestSource interface {
 // it in business services; APIContexter owns its lifecycle at HTTP ingress.
 type Base struct {
 	source RequestSource
-	Data map[string]any
+	Data   map[string]any
 }
 
 var _ context.Context = (*Base)(nil)
