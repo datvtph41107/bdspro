@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
@@ -53,14 +54,26 @@ func (r *Router[T]) handlersIfAny(actions []func(T)) []gin.HandlerFunc {
 	return r.handlers(actions)
 }
 
-func (r *Router[T]) Get(path string, actions ...func(T))  { r.group.GET(path, r.handlers(actions)...) }
-func (r *Router[T]) Post(path string, actions ...func(T)) { r.group.POST(path, r.handlers(actions)...) }
-func (r *Router[T]) Put(path string, actions ...func(T))  { r.group.PUT(path, r.handlers(actions)...) }
+// Methods is the one HTTP method registration boundary. Gin owns route
+// matching and execution; this facade owns conversion of typed API actions.
+func (r *Router[T]) Methods(method, path string, actions ...func(T)) {
+	r.group.Handle(method, path, r.handlers(actions)...)
+}
+
+func (r *Router[T]) Get(path string, actions ...func(T)) {
+	r.Methods(http.MethodGet, path, actions...)
+}
+func (r *Router[T]) Post(path string, actions ...func(T)) {
+	r.Methods(http.MethodPost, path, actions...)
+}
+func (r *Router[T]) Put(path string, actions ...func(T)) {
+	r.Methods(http.MethodPut, path, actions...)
+}
 func (r *Router[T]) Patch(path string, actions ...func(T)) {
-	r.group.PATCH(path, r.handlers(actions)...)
+	r.Methods(http.MethodPatch, path, actions...)
 }
 func (r *Router[T]) Delete(path string, actions ...func(T)) {
-	r.group.DELETE(path, r.handlers(actions)...)
+	r.Methods(http.MethodDelete, path, actions...)
 }
 
 // FormStore owns request-local data through reqctx; web does not manage a
