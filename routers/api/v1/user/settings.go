@@ -7,12 +7,12 @@ import (
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
-	profile_service "github.com/datvtph41107/bdspro/services/profile"
+	user_service "github.com/datvtph41107/bdspro/services/user"
 )
 
 // GetUserSettings reads the same account projection as GetAuthenticatedUser.
 func GetUserSettings(ctx *context.APIContext) {
-	row, err := profile_service.GetAuthenticatedUser(ctx)
+	row, err := user_service.GetAuthenticatedUser(ctx)
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return
@@ -24,7 +24,7 @@ func GetUserSettings(ctx *context.APIContext) {
 // sending only a profile settings patch to the service.
 func UpdateUserSettings(ctx *context.APIContext) {
 	form := web.GetForm[*api.SettingsUpdateRequest](ctx)
-	row, err := profile_service.UpdateCurrentSettings(ctx, profile_service.SettingsPatch{
+	row, err := user_service.UpdateUserSettings(ctx, user_service.SettingsPatch{
 		Locale:   form.Locale,
 		Timezone: form.Timezone,
 		Currency: form.Currency,

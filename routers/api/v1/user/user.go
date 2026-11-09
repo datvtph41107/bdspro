@@ -7,13 +7,13 @@ import (
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
-	profile_service "github.com/datvtph41107/bdspro/services/profile"
+	user_service "github.com/datvtph41107/bdspro/services/user"
 )
 
 // GetAuthenticatedUser exposes the verified account; request-scoped identity
 // and Store are resolved in services/profile, not injected into a handler.
 func GetAuthenticatedUser(ctx *context.APIContext) {
-	row, err := profile_service.GetAuthenticatedUser(ctx)
+	row, err := user_service.GetAuthenticatedUser(ctx)
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return
@@ -25,7 +25,7 @@ func GetAuthenticatedUser(ctx *context.APIContext) {
 // route boundary. The account ID cannot be replaced by request fields.
 func UpdateProfile(ctx *context.APIContext) {
 	form := web.GetForm[*api.ProfileUpdateRequest](ctx)
-	row, err := profile_service.UpdateCurrentProfile(ctx, profile_service.ProfilePatch{
+	row, err := user_service.UpdateProfile(ctx, user_service.ProfilePatch{
 		DisplayName: form.DisplayName,
 		FirstName:   form.FirstName,
 		LastName:    form.LastName,
