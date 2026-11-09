@@ -74,40 +74,6 @@ func (h *TeamHandler) Edit(c *appctx.APIContext) {
 	c.JSON(http.StatusOK, convert.ToTeam(team))
 }
 
-func (h *TeamHandler) AddMember(c *appctx.APIContext) {
-	id, ok := positivePathID(c, "team_id")
-	if !ok {
-		return
-	}
-	var req structs.AddTeamUserOption
-	if err := c.BindJSON(&req); err != nil {
-		c.Validation(err, &req)
-		return
-	}
-	member, err := h.team.AddTeamUser(c, c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
-	if err != nil {
-		c.APIErrorAuto(err)
-		return
-	}
-	c.JSON(http.StatusCreated, convert.ToTeamMember(member))
-}
-
-func (h *TeamHandler) RemoveMember(c *appctx.APIContext) {
-	teamID, ok := positivePathID(c, "team_id")
-	if !ok {
-		return
-	}
-	personID, ok := positivePathID(c, "person_id")
-	if !ok {
-		return
-	}
-	if err := h.team.RemoveTeamUser(c, c.Doer.AccountID, c.Doer.SessionID, teamID, personID); err != nil {
-		c.APIErrorAuto(err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
 func positivePathID(c *appctx.APIContext, key string) (int64, bool) {
 	id, err := c.PositivePathID(key)
 	if err != nil {

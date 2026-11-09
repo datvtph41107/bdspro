@@ -38,6 +38,51 @@ func NewTeam(ctx context.Context, team *organization_model.Team) error {
 	return nil
 }
 
+// AddTeamMember owns current-session authorization and committing membership.
+func AddTeamMember(ctx context.Context, teamID, personID int64) (db.TeamMember, error) {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return db.TeamMember{}, auth_model.ErrSessionUnavailable
+	}
+	return db.WithTxValue(ctx, func(txCtx context.Context) (db.TeamMember, error) {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return db.TeamMember{}, err
+		}
+		return addTeamMemberTx(txCtx, q, actor.AccountID, actor.SessionID, teamID, personID)
+	})
+}
+
+// RemoveTeamMember includes session lock, SQLC owner predicate, delete and audit.
+func RemoveTeamMember(ctx context.Context, teamID, personID int64) error {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return auth_model.ErrSessionUnavailable
+	}
+	return db.WithTx(ctx, func(txCtx context.Context) error {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return err
+		}
+		return removeTeamMemberTx(txCtx, q, actor.AccountID, actor.SessionID, teamID, personID)
+	})
+}
+
+// Both the receiver and the standalone function use one SQLC operation.
+func addTeamMemberTx(ctx context.Context, q *db.Queries, accountID int64, sessionID uuid.UUID, teamID, personID int64) (db.TeamMember, error) {
+	if err := auth_model.RequireActingSession(ctx, q, accountID, sessionID); err != nil {
+		return db.TeamMember{}, err
+	}
+	return organization_model.AddTeamUser(ctx, q, accountID, teamID, personID)
+}
+
+func removeTeamMemberTx(ctx context.Context, q *db.Queries, accountID int64, sessionID uuid.UUID, teamID, personID int64) error {
+	if err := auth_model.RequireActingSession(ctx, q, accountID, sessionID); err != nil {
+		return err
+	}
+	return organization_model.RemoveTeamUserTx(ctx, q, accountID, teamID, personID)
+}
+
 // TeamService coordinates acting-session authority with team lifecycle and
 // membership changes. Resource permissions and audit remain owned by SQLC.
 type TeamService struct {
@@ -78,21 +123,12 @@ func (s *TeamService) RenameTeam(ctx context.Context, actorAccountID int64, acti
 
 func (s *TeamService) AddTeamUser(ctx context.Context, actorAccountID int64, actingSessionID uuid.UUID, teamID, personID int64) (db.TeamMember, error) {
 	return db.WithTxResult(ctx, s.store, func(q *db.Queries) (db.TeamMember, error) {
-		if err := auth_model.RequireActingSession(ctx, q, actorAccountID, actingSessionID); err != nil {
-			return db.TeamMember{}, err
-		}
-		// Owner and recipient membership checks stay inside the SQLC
-		// INSERT with FOR SHARE OF m, not in a separate preflight SELECT.
-		return organization_model.AddTeamUser(ctx, q, actorAccountID, teamID, personID)
+		return addTeamMemberTx(ctx, q, actorAccountID, actingSessionID, teamID, personID)
 	})
 }
 
 func (s *TeamService) RemoveTeamUser(ctx context.Context, actorAccountID int64, actingSessionID uuid.UUID, teamID, personID int64) error {
 	return s.store.ExecTx(ctx, func(q *db.Queries) error {
-		if err := auth_model.RequireActingSession(ctx, q, actorAccountID, actingSessionID); err != nil {
-			return err
-		}
-		// DELETE, audit event and authority check must commit together.
-		return organization_model.RemoveTeamUserTx(ctx, q, actorAccountID, teamID, personID)
+		return removeTeamMemberTx(ctx, q, actorAccountID, actingSessionID, teamID, personID)
 	})
 }
