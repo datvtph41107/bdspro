@@ -65,4 +65,3 @@ func NormalRoutes(server *Server) *gin.Engine {
 
 	return router
 }
-
