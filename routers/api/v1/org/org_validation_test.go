@@ -9,6 +9,7 @@ import (
 
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/modules/web/middleware"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
@@ -19,16 +20,20 @@ func TestOrganizationInvalidRequestsStopBeforeService(t *testing.T) {
 	router := gin.New()
 	m := web.NewRouter[*appctx.APIContext](router.Group(""), appctx.GetAPIContext)
 	m.Post("/orgs", func(c *appctx.APIContext) {
-		form, err := web.BindJSON[structs.CreateOrgOption](c)
+		form, err := middleware.BindJSON[structs.CreateOrgOption](c)
 		if err != nil {
 			c.Validation(err, form)
+			return
 		}
+		web.SetForm(c, form)
 	}, Create)
 	m.Patch("/orgs/:id", func(c *appctx.APIContext) {
-		form, err := web.BindJSON[structs.EditOrgOption](c)
+		form, err := middleware.BindJSON[structs.EditOrgOption](c)
 		if err != nil {
 			c.Validation(err, form)
+			return
 		}
+		web.SetForm(c, form)
 	}, Edit)
 	m.Post("/orgs/:id/members", AddMember)
 

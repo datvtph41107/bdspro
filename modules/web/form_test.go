@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
+	"github.com/datvtph41107/bdspro/modules/web/middleware"
 )
 
 type testFormStore struct{ data reqctx.ContextData }
@@ -50,16 +51,17 @@ func (c *testJSONFormContext) BindJSON(value any) error {
 	return json.NewDecoder(strings.NewReader(c.body)).Decode(value)
 }
 
-func TestBindJSONStoresTypedFormOnlyAfterSuccess(t *testing.T) {
+func TestFormPublishedOnlyAfterSuccessfulBinding(t *testing.T) {
 	type teamForm struct{ Name string }
 	valid := &testJSONFormContext{
 		testFormStore: testFormStore{data: make(reqctx.ContextData)},
 		body:          `{"name":"Backend"}`,
 	}
-	form, err := BindJSON[teamForm](valid)
+	form, err := middleware.BindJSON[teamForm](valid)
 	if err != nil || form.Name != "Backend" {
 		t.Fatalf("form=%+v err=%v", form, err)
 	}
+	SetForm(valid, form)
 	if got := GetForm[*teamForm](valid); got != form {
 		t.Fatal("form was copied or stored under a second key")
 	}
@@ -67,7 +69,7 @@ func TestBindJSONStoresTypedFormOnlyAfterSuccess(t *testing.T) {
 		testFormStore: testFormStore{data: make(reqctx.ContextData)},
 		err:           errors.New("invalid json"),
 	}
-	if _, err := BindJSON[teamForm](bad); err == nil {
+	if _, err := middleware.BindJSON[teamForm](bad); err == nil {
 		t.Fatal("invalid JSON unexpectedly accepted")
 	}
 	if _, ok := bad.data[formKey]; ok {

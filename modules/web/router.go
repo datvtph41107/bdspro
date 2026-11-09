@@ -60,22 +60,6 @@ type FormStore = reqctx.ContextDataProvider
 
 const formKey = "__form"
 
-type JSONFormContext interface {
-	FormStore
-	BindJSON(value any) error
-}
-
-// BindJSON is the single owner of typed JSON decoding and form publication.
-// The API boundary remains responsible for reporting validation failures.
-func BindJSON[T any](ctx JSONFormContext) (*T, error) {
-	form := new(T)
-	if err := ctx.BindJSON(form); err != nil {
-		return form, err
-	}
-	SetForm(ctx, form)
-	return form, nil
-}
-
 func SetForm(store FormStore, value any) {
 	store.GetData()[formKey] = value
 }

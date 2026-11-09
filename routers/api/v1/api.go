@@ -10,6 +10,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 	api "github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/modules/web/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
@@ -147,12 +148,16 @@ func reqOrgOwnership(denied ...error) func(*appctx.APIContext) {
 }
 
 // bind validates once and saves a typed, per-request form for the action.
+// bind owns the public API's validation and typed form publication. Gitea's
+// API binder likewise calls modules/web/middleware and then web.SetForm.
 func bind[T any](_ T) func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
-		form, err := web.BindJSON[T](ctx)
+		form, err := middleware.BindJSON[T](ctx)
 		if err != nil {
 			ctx.Validation(err, form)
+			return
 		}
+		web.SetForm(ctx, form)
 	}
 }
 
