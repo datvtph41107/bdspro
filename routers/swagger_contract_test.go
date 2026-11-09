@@ -8,7 +8,6 @@ import (
 
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
-	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	"github.com/datvtph41107/bdspro/templates"
@@ -35,7 +34,6 @@ func TestOpenAPICoverage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	s := &Server{
 		authHandler:          user.NewAuthHandler(nil, nil, nil),
-		organizationHandler:  org.NewHandler(nil),
 		oauth2Handler:        user.NewOAuth2Handler(nil, nil, false),
 		authorizationHandler: oauth.NewHandler(nil, nil),
 		browserHandler:       &weboauth.Handler{Config: weboauth.Config{OIDCEnabled: true}},
@@ -45,7 +43,6 @@ func TestOpenAPICoverage(t *testing.T) {
 	root := gin.New()
 	apiv1.Routes(root, apiv1.Dependencies{
 		Auth:          s.authHandler,
-		Organization:  s.organizationHandler,
 		OAuth2:        s.oauth2Handler,
 		Authorization: s.authorizationHandler,
 		Browser:       s.browserHandler,

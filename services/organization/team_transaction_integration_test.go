@@ -143,11 +143,16 @@ func waitTeamBlocking(t *testing.T, ctx context.Context, pool *pgxpool.Pool, blo
 }
 
 func teamMembershipMutation(ctx context.Context, svc *TeamService, data teamCase, kind string) error {
+	// Exercise new context-scoped service operations on the same pinned SQL
+	// connection as the legacy receiver; lock-order assertions remain intact.
+	ctx = db.WithStore(auth_model.WithActor(ctx, auth_model.Actor{
+		AccountID: data.accountID, SessionID: data.sessionID,
+	}), svc.store)
 	if kind == "add" {
-		_, err := svc.AddTeamUser(ctx, data.accountID, data.sessionID, data.teamID, data.recipientPersonID)
+		_, err := AddTeamMember(ctx, data.teamID, data.recipientPersonID)
 		return err
 	}
-	return svc.RemoveTeamUser(ctx, data.accountID, data.sessionID, data.teamID, data.recipientPersonID)
+	return RemoveTeamMember(ctx, data.teamID, data.recipientPersonID)
 }
 
 func membershipCount(t *testing.T, ctx context.Context, pool *pgxpool.Pool, data teamCase) int {

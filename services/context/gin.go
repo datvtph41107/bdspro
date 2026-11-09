@@ -28,6 +28,12 @@ func (s ginRequestSource) AbortJSON(status int, value any) { s.ctx.AbortWithStat
 func (s ginRequestSource) SetHeader(name, value string)    { s.ctx.Header(name, value) }
 func (s ginRequestSource) SetErrorCode(code string)        { s.ctx.Set(ErrorCodeKey, code) }
 func (s ginRequestSource) IsAborted() bool                 { return s.ctx.IsAborted() }
+func (s ginRequestSource) WrittenStatus() int {
+	if !s.ctx.Writer.Written() {
+		return 0
+	}
+	return s.ctx.Writer.Status()
+}
 
 // GetAPIContext returns one initialized context per request. Resource
 // assignment, form binding and HTTP action share that exact instance.
@@ -64,4 +70,29 @@ func Wrap(handler APIHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		handler(GetAPIContext(c))
 	}
+}
+
+// GinActions adapts existing Gin protocol handlers into typed API actions at
+// registration time. It is the only compatibility bridge while authentication
+// and OAuth endpoints still use Gin signatures. The request has one Gin source
+// and one APIContext; no alternate middleware engine is introduced.
+func GinActions(handlers ...gin.HandlerFunc) []func(*APIContext) {
+	actions := make([]func(*APIContext), len(handlers))
+	for i, handler := range handlers {
+		if handler == nil {
+			panic("context: nil Gin HTTP handler")
+		}
+		h := handler
+		actions[i] = func(ctx *APIContext) {
+			if ctx == nil || ctx.Base == nil {
+				panic("context: missing APIContext for Gin handler")
+			}
+			source, ok := ctx.Base.source.(ginRequestSource)
+			if !ok {
+				panic("context: Gin handler used outside Gin request")
+			}
+			h(source.ctx)
+		}
+	}
+	return actions
 }

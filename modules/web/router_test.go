@@ -44,3 +44,14 @@ func TestTypedRouterAbortStopsAction(t *testing.T) {
 		t.Fatalf("action reached=%v status=%d", hit, w.Code)
 	}
 }
+
+func TestTypedRouterRequiresContextAccessorAtRegistration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	defer func() {
+		if recover() == nil {
+			t.Fatal("missing accessor must fail during registration, not on a request")
+		}
+	}()
+	_ = NewRouter[*gin.Context](router.Group(""), nil)
+}

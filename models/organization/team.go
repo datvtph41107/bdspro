@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
@@ -120,6 +121,22 @@ func teamWriteError(err error) error {
 		return util.WithCause(ErrTeamAlreadyExists, err)
 	}
 	return err
+}
+
+// ListTeamsForDoer uses the verified Account actor and the Store installed
+// in context by the application entrypoint. The account-scoped SQL predicate
+// remains in ListTeams; no public HTTP context or authorization snapshot is
+// accepted here.
+func ListTeamsForDoer(ctx context.Context, organizationID int64, opts db.ListOptions) ([]db.Team, error) {
+	actor, ok := auth_model.ActorFromContext(ctx)
+	if !ok {
+		return nil, auth_model.ErrSessionUnavailable
+	}
+	store, err := db.StoreFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ListTeams(ctx, store, actor.AccountID, organizationID, opts)
 }
 
 // ListTeams applies the same authorization predicate as the single-team query.

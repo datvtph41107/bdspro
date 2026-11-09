@@ -3,6 +3,7 @@ package routers
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
@@ -39,18 +40,7 @@ func NormalRoutes(server *Server) *gin.Engine {
 	_ = router.SetTrustedProxies(nil)
 
 	router.Use(common.RequestID())
-	router.Use(accessLogger(), gin.CustomRecoveryWithWriter(nil, func(ctx *gin.Context, recovered any) {
-		path := ctx.FullPath()
-		if path == "" {
-			path = "<unmatched>"
-		}
-		log.Ctx(ctx.Request.Context()).Error().
-			Str("method", ctx.Request.Method).
-			Str("path", path).
-			Str("panic_type", fmt.Sprintf("%T", recovered)).
-			Msg("http.panic")
-		appctx.InternalError(ctx)
-	}))
+	router.Use(accessLogger(), gin.CustomRecoveryWithWriter(nil, recoverAPI))
 
 	router.Use(
 		security.RequestMonitor(server.authRateRedis),
@@ -67,7 +57,6 @@ func NormalRoutes(server *Server) *gin.Engine {
 
 	apiv1.Routes(router, apiv1.Dependencies{
 		Auth:          server.authHandler,
-		Organization:  server.organizationHandler,
 		OAuth2:        server.oauth2Handler,
 		Authorization: server.authorizationHandler,
 		Browser:       server.browserHandler,
@@ -80,6 +69,28 @@ func NormalRoutes(server *Server) *gin.Engine {
 	api.RegisterSwagger(router, server.config.Environment)
 
 	return router
+}
+
+// recoverAPI is the shared recovery policy for the single Gin router.
+// Once an HTTP response is committed its status/body cannot be replaced by
+// a JSON error. The panic is still logged and the remaining chain is aborted.
+func recoverAPI(ctx *gin.Context, recovered any) {
+	path := ctx.FullPath()
+	if path == "" {
+		path = "<unmatched>"
+	}
+	log.Ctx(ctx.Request.Context()).Error().
+		Str("method", ctx.Request.Method).
+		Str("path", path).
+		Str("panic_type", fmt.Sprintf("%T", recovered)).
+		Msg("http.panic")
+
+	api := appctx.GetAPIContext(ctx)
+	if api.Written() {
+		ctx.Abort()
+		return
+	}
+	api.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
 }
 
 // accessLogger writes safe route-template outcomes without raw identifiers,

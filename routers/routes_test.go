@@ -12,7 +12,6 @@ import (
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
-	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/gin-gonic/gin"
@@ -58,7 +57,6 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 			tokenMaker:           maker,
 			store:                store,
 			authHandler:          user.NewAuthHandler(auth_service.NewAuthService(store, nil, setting.Config{}, nil), nil, nil),
-			organizationHandler:  org.NewHandler(nil),
 			authorizationHandler: oauth.NewHandler(nil, nil),
 		}
 		if oauth2 {
