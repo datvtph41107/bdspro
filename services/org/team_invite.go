@@ -10,6 +10,39 @@ import (
 	"github.com/google/uuid"
 )
 
+// CreateTeamInvite resolves the verified actor and Store once from the live
+// request; the service method owns the single transaction and outbox intent.
+// The signing key remains an explicit dependency, never request state.
+func CreateTeamInvite(ctx context.Context, teamID int64, email string, ttl time.Duration, signingKey string) (org_model.CreatedTeamInvite, error) {
+	actor, store, err := actingOrganization(ctx)
+	if err != nil {
+	    return org_model.CreatedTeamInvite{}, err
+	}
+	return NewTeamService(store).CreateTeamInvite(ctx, actor.AccountID, actor.SessionID, teamID, email, ttl, signingKey)
+}
+
+// AcceptTeamInvite rejects a malformed proof before obtaining a database
+// capability, then lets the transaction perform session and token checks.
+func AcceptTeamInvite(ctx context.Context, token string) (db.TeamMember, error) {
+	if !org_model.ValidTeamInviteProof(token) {
+	    return db.TeamMember{}, org_model.ErrTeamInviteInvalid
+	}
+	actor, store, err := actingOrganization(ctx)
+	if err != nil {
+	    return db.TeamMember{}, err
+	}
+	return NewTeamService(store).AcceptTeamInvite(ctx, actor.AccountID, actor.SessionID, token)
+}
+
+// RevokeTeamInvite delegates one authenticated, owner-scoped commit.
+func RevokeTeamInvite(ctx context.Context, teamID int64, inviteID uuid.UUID) error {
+	actor, store, err := actingOrganization(ctx)
+	if err != nil {
+	    return err
+	}
+	return NewTeamService(store).RevokeTeamInvite(ctx, actor.AccountID, actor.SessionID, teamID, inviteID)
+}
+
 // CreateTeamInvite gives creation, owner authorization, durable outbox intent
 // and acting-session authority ONE commit boundary. Never send mail in this
 // transaction; the existing outbox worker owns delivery after commit.

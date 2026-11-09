@@ -29,6 +29,23 @@ func CreateTeam(ctx *context.APIContext) {
 	ctx.JSON(http.StatusCreated, convert.ToTeamModel(team))
 }
 
+// EditTeam follows Gitea's package-action pattern. The route owns typed
+// binding; this action owns path parsing and output, never the transaction.
+func EditTeam(ctx *context.APIContext) {
+	teamID, err := ctx.PositivePathID("team_id")
+	if err != nil {
+	    ctx.APIInvalid(err)
+	    return
+	}
+	form := web.GetForm[*api.RenameTeamOption](ctx)
+	team, err := org_service.RenameTeam(ctx, teamID, form.Name)
+	if err != nil {
+	    ctx.APIErrorAuto(err)
+	    return
+	}
+	ctx.JSON(http.StatusOK, convert.ToTeam(team))
+}
+
 // GetTeam consumes the model assigned by teamAssignment.
 func GetTeam(ctx *context.APIContext) {
 	ctx.JSON(http.StatusOK, convert.ToTeamModel(ctx.Org.Team))

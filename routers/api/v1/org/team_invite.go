@@ -4,68 +4,71 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/datvtph41107/bdspro/modules/structs"
-	appctx "github.com/datvtph41107/bdspro/services/context"
+	api "github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
+	org_service "github.com/datvtph41107/bdspro/services/org"
 	"github.com/google/uuid"
 )
 
-// CreateInvite atomically persists the hashed proof and a durable Asynq intent.
-// The HTTP response never returns the secret; it is delivered by SMTP.
-func (h *TeamHandler) CreateInvite(c *appctx.APIContext) {
-	teamID, ok := positivePathID(c, "team_id")
-	if !ok {
-		return
+// CreateInvite binds the immutable signing dependency at route registration.
+// The resulting endpoint is a Gitea-style typed package action; no handler
+// instance, global secret or transport-specific service wrapper is required.
+func CreateInvite(signingKey string) func(*context.APIContext) {
+	return func(ctx *context.APIContext) {
+	    teamID, err := ctx.PositivePathID("team_id")
+	    if err != nil {
+	        ctx.APIInvalid(err)
+	        return
+	    }
+	    form := web.GetForm[*api.CreateTeamInviteOption](ctx)
+	    created, err := org_service.CreateTeamInvite(
+	        ctx, teamID, form.Email, 7*24*time.Hour, signingKey,
+	    )
+	    if err != nil {
+	        ctx.APIErrorAuto(err)
+	        return
+	    }
+	    // The raw proof is never returned to the HTTP client. The durable
+	    // outbox is written in the same transaction as invitation state.
+	    ctx.JSON(http.StatusAccepted, api.IssuedTeamInvite{
+	        ID: created.Invite.ID,
+	        TeamID: created.Invite.TeamID,
+	        InvitedEmail: created.Invite.InvitedEmail,
+	        ExpiresAt: created.Invite.ExpiresAt,
+	    })
 	}
-	var req structs.CreateTeamInviteOption
-	if err := c.BindJSON(&req); err != nil {
-		c.Validation(err, &req)
-		return
-	}
-	created, err := h.team.CreateTeamInvite(
-		c, c.Doer.AccountID, c.Doer.SessionID, teamID,
-		req.Email, 7*24*time.Hour, h.signingKey,
-	)
-	if err != nil {
-		c.APIErrorAuto(err)
-		return
-	}
-	c.JSON(http.StatusAccepted, structs.IssuedTeamInvite{
-		ID: created.Invite.ID, TeamID: created.Invite.TeamID,
-		InvitedEmail: created.Invite.InvitedEmail, ExpiresAt: created.Invite.ExpiresAt,
-	})
 }
 
-// AcceptInvite requires an authenticated, verified account whose current
-// organization membership and email match the invitation's SQL predicates.
-func (h *TeamHandler) AcceptInvite(c *appctx.APIContext) {
-	var req structs.AcceptTeamInviteOption
-	if err := c.BindJSON(&req); err != nil {
-		c.Validation(err, &req)
-		return
-	}
-	member, err := h.team.AcceptTeamInvite(c, c.Doer.AccountID, c.Doer.SessionID, req.Token)
+// AcceptInvite uses the form bound at the route boundary. The org service
+// owns token consumption, membership creation and current-session authority.
+func AcceptInvite(ctx *context.APIContext) {
+	form := web.GetForm[*api.AcceptTeamInviteOption](ctx)
+	member, err := org_service.AcceptTeamInvite(ctx, form.Token)
 	if err != nil {
-		c.APIErrorAuto(err)
-		return
+	    ctx.APIErrorAuto(err)
+	    return
 	}
-	c.JSON(http.StatusCreated, convert.ToTeamMember(member))
+	ctx.JSON(http.StatusCreated, convert.ToTeamMember(member))
 }
 
-func (h *TeamHandler) RevokeInvite(c *appctx.APIContext) {
-	teamID, ok := positivePathID(c, "team_id")
-	if !ok {
-		return
-	}
-	inviteID, err := uuid.Parse(c.PathParam("invite_id"))
+// RevokeInvite keeps transport parsing and output in the router. Only the
+// service may perform the owner-scoped transaction and irrevocable update.
+func RevokeInvite(ctx *context.APIContext) {
+	teamID, err := ctx.PositivePathID("team_id")
 	if err != nil {
-		c.APIInvalid(err)
-		return
+	    ctx.APIInvalid(err)
+	    return
 	}
-	// RevokeTeamInvite checks that the actor owns the invitation's team.
-	if err := h.team.RevokeTeamInvite(c, c.Doer.AccountID, c.Doer.SessionID, teamID, inviteID); err != nil {
-		c.APIErrorAuto(err)
-		return
+	inviteID, err := uuid.Parse(ctx.PathParam("invite_id"))
+	if err != nil {
+	    ctx.APIInvalid(err)
+	    return
 	}
-	c.Status(http.StatusNoContent)
+	if err := org_service.RevokeTeamInvite(ctx, teamID, inviteID); err != nil {
+	    ctx.APIErrorAuto(err)
+	    return
+	}
+	ctx.Status(http.StatusNoContent)
 }
