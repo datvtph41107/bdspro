@@ -34,7 +34,7 @@ func TestAuthenticateAndRequestLocalDoer(t *testing.T) {
 		if c.Doer == nil || c.Doer.AccountID != 42 {
 			t.Fatalf("missing verified principal: %+v", c.Doer)
 		}
-		if p, ok := AuthorizationPayload(c.Context); !ok || p != c.Doer {
+		if p, ok := c.SignedPrincipal(); !ok || p != c.Doer {
 			t.Fatal("context principal did not come from Authenticate")
 		}
 		c.JSON(http.StatusOK, gin.H{"account_id": c.Doer.AccountID})

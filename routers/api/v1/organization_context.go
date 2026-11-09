@@ -15,7 +15,7 @@ func orgAssignment(denied error) func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
 		actor, ok := ctx.VerifiedActor()
 		if !ok {
-			appctx.AuthenticationRequired(ctx.Context)
+			ctx.AuthenticationRequired()
 			return
 		}
 		id, err := ctx.PositivePathID("id")
@@ -55,7 +55,7 @@ func teamAssignment() func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
 		actor, ok := ctx.VerifiedActor()
 		if !ok {
-			appctx.AuthenticationRequired(ctx.Context)
+			ctx.AuthenticationRequired()
 			return
 		}
 		id, err := ctx.PositivePathID("team_id")
@@ -93,7 +93,7 @@ func reqToken() func(*appctx.APIContext) {
 		if _, ok := ctx.VerifiedActor(); ok {
 			return
 		}
-		appctx.AuthenticationRequired(ctx.Context)
+		ctx.AuthenticationRequired()
 	}
 }
 
@@ -126,8 +126,8 @@ func reqOrgOwnership(denied ...error) func(*appctx.APIContext) {
 func bind[T any](_ T) func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
 		var form T
-		if err := ctx.ShouldBindJSON(&form); err != nil {
-			appctx.Validation(ctx.Context, err, &form)
+		if err := ctx.BindJSON(&form); err != nil {
+			ctx.Validation(err, &form)
 			return
 		}
 		web.SetForm(ctx, &form)

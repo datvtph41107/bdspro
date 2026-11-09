@@ -15,7 +15,7 @@ func (h *Handler) Members(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	members, err := organization_model.GetOrgMembers(c.Request.Context(), h.store, c.Doer.AccountID, id)
+	members, err := organization_model.GetOrgMembers(c, h.store, c.Doer.AccountID, id)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -29,11 +29,11 @@ func (h *Handler) AddMember(c *appctx.APIContext) {
 		return
 	}
 	var req structs.AddOrgUserOption
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Validation(c.Context, err, &req)
+	if err := c.BindJSON(&req); err != nil {
+		c.Validation(err, &req)
 		return
 	}
-	member, err := organization_service.AddOrganizationMember(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
+	member, err := organization_service.AddOrganizationMember(c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -53,7 +53,7 @@ func (h *Handler) RemoveMember(c *appctx.APIContext) {
 		return
 	}
 	if err := organization_service.RemoveOrganizationMember(
-		c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID,
+		c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID,
 	); err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -71,7 +71,7 @@ func (h *Handler) PromoteOwner(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	member, err := organization_service.PromoteOrganizationOwner(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID)
+	member, err := organization_service.PromoteOrganizationOwner(c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -89,7 +89,7 @@ func (h *Handler) DemoteOwner(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	if err := organization_service.DemoteOrganizationOwner(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID); err != nil {
+	if err := organization_service.DemoteOrganizationOwner(c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, personID); err != nil {
 		c.APIErrorAuto(err)
 		return
 	}
@@ -104,11 +104,11 @@ func (h *Handler) TransferOwner(c *appctx.APIContext) {
 		return
 	}
 	var req structs.TransferOrganizationOwnerOption
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Validation(c.Context, err, &req)
+	if err := c.BindJSON(&req); err != nil {
+		c.Validation(err, &req)
 		return
 	}
-	member, err := organization_service.TransferOrganizationOwner(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
+	member, err := organization_service.TransferOrganizationOwner(c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return

@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -20,9 +19,8 @@ type FieldIssue struct {
 
 // FieldErrors writes the existing {error, code} envelope with per-field details.
 // HTTP 400 is preserved for compatibility with the current unversioned API.
-func FieldErrors(c *gin.Context, issues map[string][]FieldIssue) {
-	c.Set(ErrorCodeKey, "validation_failed")
-	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+func (c *APIContext) FieldErrors(issues map[string][]FieldIssue) {
+	c.writeError(http.StatusBadRequest, "validation_failed", map[string]any{
 		"error":  "validation failed",
 		"code":   "validation_failed",
 		"errors": issues,
@@ -30,19 +28,19 @@ func FieldErrors(c *gin.Context, issues map[string][]FieldIssue) {
 }
 
 // FieldError handles a manual, field-specific HTTP validation rule.
-func FieldError(c *gin.Context, field, code, message string) {
-	FieldErrors(c, map[string][]FieldIssue{
+func (c *APIContext) FieldError(field, code, message string) {
+	c.FieldErrors(map[string][]FieldIssue{
 		field: {{Code: code, Message: message}},
 	})
 }
 
-// Validation translates Gin binding errors into public JSON field names.
+// Validation translates transport binding errors into public JSON field names.
 // The request is passed explicitly to read its json tags; no global validator
 // registry or Gin configuration mutation is required.
-func Validation(c *gin.Context, err error, request any) {
+func (c *APIContext) Validation(err error, request any) {
 	var size *http.MaxBytesError
 	if errors.As(err, &size) {
-		Reject(c, http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
+		c.APIError(http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
 		return
 	}
 
@@ -56,33 +54,33 @@ func Validation(c *gin.Context, err error, request any) {
 				Message: fieldMessage(field, failure),
 			})
 		}
-		FieldErrors(c, issues)
+		c.FieldErrors(issues)
 		return
 	}
 
 	var wrongType *json.UnmarshalTypeError
 	if errors.As(err, &wrongType) {
 		if wrongType.Field != "" {
-			FieldError(c, wrongType.Field, "invalid_type", wrongType.Field+" has an invalid type")
+			c.FieldError(wrongType.Field, "invalid_type", wrongType.Field+" has an invalid type")
 			return
 		}
-		Reject(c, http.StatusBadRequest, "invalid_json_type", "invalid JSON value type")
+		c.APIError(http.StatusBadRequest, "invalid_json_type", "invalid JSON value type")
 		return
 	}
 
 	var syntax *json.SyntaxError
 	if errors.As(err, &syntax) || errors.Is(err, io.ErrUnexpectedEOF) {
-		Reject(c, http.StatusBadRequest, "malformed_json", "malformed JSON body")
+		c.APIError(http.StatusBadRequest, "malformed_json", "malformed JSON body")
 		return
 	}
 
 	if errors.Is(err, io.EOF) {
-		Reject(c, http.StatusBadRequest, "request_body_required", "request body is required")
+		c.APIError(http.StatusBadRequest, "request_body_required", "request body is required")
 		return
 	}
 
 	// Unrecognized binding failures stay private: do not serialize err.Error().
-	Reject(c, http.StatusBadRequest, "invalid_request_body", "request body is invalid")
+	c.APIError(http.StatusBadRequest, "invalid_request_body", "request body is invalid")
 }
 
 func jsonFieldName(request any, name string) string {

@@ -21,7 +21,7 @@ func NewProfileHandler(store db.Store) *ProfileHandler {
 }
 
 func (h *ProfileHandler) Show(c *appctx.APIContext) {
-	p, err := h.profile.Show(c.Request.Context(), c.Doer.AccountID)
+	p, err := h.profile.Show(c, c.Doer.AccountID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -31,11 +31,11 @@ func (h *ProfileHandler) Show(c *appctx.APIContext) {
 
 func (h *ProfileHandler) Update(c *appctx.APIContext) {
 	var req structs.ProfileUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.BindJSON(&req); err != nil {
 		c.APIInvalid(err)
 		return
 	}
-	p, err := h.profile.Update(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, profile_service.ProfilePatch{
+	p, err := h.profile.Update(c, c.Doer.AccountID, c.Doer.SessionID, profile_service.ProfilePatch{
 		DisplayName: req.DisplayName, FirstName: req.FirstName, LastName: req.LastName,
 	})
 	if err != nil {
@@ -46,7 +46,7 @@ func (h *ProfileHandler) Update(c *appctx.APIContext) {
 }
 
 func (h *ProfileHandler) Settings(c *appctx.APIContext) {
-	p, err := h.profile.Show(c.Request.Context(), c.Doer.AccountID)
+	p, err := h.profile.Show(c, c.Doer.AccountID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -56,11 +56,11 @@ func (h *ProfileHandler) Settings(c *appctx.APIContext) {
 
 func (h *ProfileHandler) UpdateSettings(c *appctx.APIContext) {
 	var req structs.SettingsUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.BindJSON(&req); err != nil {
 		c.APIInvalid(err)
 		return
 	}
-	p, err := h.profile.UpdateSettings(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, profile_service.SettingsPatch{
+	p, err := h.profile.UpdateSettings(c, c.Doer.AccountID, c.Doer.SessionID, profile_service.SettingsPatch{
 		Locale: req.Locale, Timezone: req.Timezone, Currency: req.Currency,
 	})
 	if err != nil {

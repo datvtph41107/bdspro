@@ -37,7 +37,7 @@ func Get(ctx *appctx.APIContext) {
 func Create(ctx *appctx.APIContext) {
 	form := web.GetForm[*api.CreateOrgOption](ctx)
 	if strings.TrimSpace(form.Name) == "" {
-		appctx.FieldError(ctx.Context, "name", "required", "name is required")
+		ctx.FieldError("name", "required", "name is required")
 		return
 	}
 	org := &organization_model.Organization{Name: form.Name}
@@ -53,7 +53,7 @@ func Create(ctx *appctx.APIContext) {
 func Edit(ctx *appctx.APIContext) {
 	form := web.GetForm[*api.EditOrgOption](ctx)
 	if form.Name == nil || strings.TrimSpace(*form.Name) == "" {
-		appctx.FieldError(ctx.Context, "name", "required", "name is required")
+		ctx.FieldError("name", "required", "name is required")
 		return
 	}
 	org := &organization_model.Organization{

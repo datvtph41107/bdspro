@@ -29,11 +29,11 @@ func (h *TeamHandler) Create(c *appctx.APIContext) {
 		return
 	}
 	var req structs.CreateTeamOption
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Validation(c.Context, err, &req)
+	if err := c.BindJSON(&req); err != nil {
+		c.Validation(err, &req)
 		return
 	}
-	team, err := h.team.CreateTeam(c.Request.Context(), c.Doer.SessionID, organization_model.CreateTeamOptions{
+	team, err := h.team.CreateTeam(c, c.Doer.SessionID, organization_model.CreateTeamOptions{
 		OrganizationID: orgID, ActorAccountID: c.Doer.AccountID,
 		Name: req.Name, Description: req.Description,
 	})
@@ -53,7 +53,7 @@ func (h *TeamHandler) List(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	teams, err := organization_model.ListTeams(c.Request.Context(), h.store, c.Doer.AccountID, orgID, opts)
+	teams, err := organization_model.ListTeams(c, h.store, c.Doer.AccountID, orgID, opts)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -66,7 +66,7 @@ func (h *TeamHandler) Get(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	team, err := organization_model.GetTeam(c.Request.Context(), h.store, c.Doer.AccountID, id)
+	team, err := organization_model.GetTeam(c, h.store, c.Doer.AccountID, id)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -80,11 +80,11 @@ func (h *TeamHandler) Edit(c *appctx.APIContext) {
 		return
 	}
 	var req structs.RenameTeamOption
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Validation(c.Context, err, &req)
+	if err := c.BindJSON(&req); err != nil {
+		c.Validation(err, &req)
 		return
 	}
-	team, err := h.team.RenameTeam(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, id, req.Name)
+	team, err := h.team.RenameTeam(c, c.Doer.AccountID, c.Doer.SessionID, id, req.Name)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -98,11 +98,11 @@ func (h *TeamHandler) AddMember(c *appctx.APIContext) {
 		return
 	}
 	var req structs.AddTeamUserOption
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Validation(c.Context, err, &req)
+	if err := c.BindJSON(&req); err != nil {
+		c.Validation(err, &req)
 		return
 	}
-	member, err := h.team.AddTeamUser(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
+	member, err := h.team.AddTeamUser(c, c.Doer.AccountID, c.Doer.SessionID, id, req.PersonID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -119,7 +119,7 @@ func (h *TeamHandler) RemoveMember(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	if err := h.team.RemoveTeamUser(c.Request.Context(), c.Doer.AccountID, c.Doer.SessionID, teamID, personID); err != nil {
+	if err := h.team.RemoveTeamUser(c, c.Doer.AccountID, c.Doer.SessionID, teamID, personID); err != nil {
 		c.APIErrorAuto(err)
 		return
 	}

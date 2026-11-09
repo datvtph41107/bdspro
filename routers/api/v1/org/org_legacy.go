@@ -21,7 +21,7 @@ func NewHandler(store db.Store) *Handler {
 }
 
 func (h *Handler) List(c *appctx.APIContext) {
-	organizations, err := organization_model.ListForAccount(c.Request.Context(), h.store, c.Doer.AccountID)
+	organizations, err := organization_model.ListForAccount(c, h.store, c.Doer.AccountID)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -34,7 +34,7 @@ func (h *Handler) Get(c *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	organization, err := organization_model.GetForAccount(c.Request.Context(), h.store, c.Doer.AccountID, id)
+	organization, err := organization_model.GetForAccount(c, h.store, c.Doer.AccountID, id)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -44,15 +44,15 @@ func (h *Handler) Get(c *appctx.APIContext) {
 
 func (h *Handler) Create(c *appctx.APIContext) {
 	var req structs.CreateOrgOption
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Validation(c.Context, err, &req)
+	if err := c.BindJSON(&req); err != nil {
+		c.Validation(err, &req)
 		return
 	}
 	if strings.TrimSpace(req.Name) == "" {
-		appctx.FieldError(c.Context, "name", "required", "name is required")
+		c.FieldError("name", "required", "name is required")
 		return
 	}
-	organization, err := organization_service.CreateOrganization(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, req.Name)
+	organization, err := organization_service.CreateOrganization(c, h.store, c.Doer.AccountID, c.Doer.SessionID, req.Name)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
@@ -66,15 +66,15 @@ func (h *Handler) Edit(c *appctx.APIContext) {
 		return
 	}
 	var req structs.EditOrgOption
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Validation(c.Context, err, &req)
+	if err := c.BindJSON(&req); err != nil {
+		c.Validation(err, &req)
 		return
 	}
 	if req.Name == nil || strings.TrimSpace(*req.Name) == "" {
-		appctx.FieldError(c.Context, "name", "required", "name is required")
+		c.FieldError("name", "required", "name is required")
 		return
 	}
-	organization, err := organization_service.UpdateOrganization(c.Request.Context(), h.store, c.Doer.AccountID, c.Doer.SessionID, id, *req.Name)
+	organization, err := organization_service.UpdateOrganization(c, h.store, c.Doer.AccountID, c.Doer.SessionID, id, *req.Name)
 	if err != nil {
 		c.APIErrorAuto(err)
 		return
