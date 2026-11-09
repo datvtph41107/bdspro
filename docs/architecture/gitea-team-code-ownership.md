@@ -12,7 +12,7 @@ Reviewed sources:
 
 | Question | Gitea | BDSPro choice | Why |
 | --- | --- | --- | --- |
-| HTTP functions | Package functions receiving `*context.APIContext` | Methods on a once-constructed `TeamHandler`, receiving `*appctx.APIContext` through `appctx.Wrap` | Store and invite signing key stay explicit; no process-global DB lookup or duplicate router/middleware executor |
+| HTTP functions | Package functions receiving `*context.APIContext` | `CreateTeam`, `GetTeam`, `EditTeam`, `CreateInvite(signingKey)`, `AcceptInvite`, `RevokeInvite` are typed package actions | Store is resolved via request context; invitation signing key is captured once at route registration, not globalized |
 | Context resource assignment | Context may hold `Org`/`Repo`/user models prepared before handler | For list routes, SQLC filters by the actor directly; resolve resource on zero-row result | Avoid a second SQL request on the common non-empty page, while preserving a 404 for invisible/missing scoped resources |
 | Service ownership | `services/org` orchestrates repo permissions, audit, multiple models | Team membership rules stay in `models/organization` and owner-scoped SQLC predicates | A pass-through `services/org` would add no transactional/operational value |
 | DB operations | XORM with DB session stored in context | SQLC and explicit `ExecTx(ctx, func(*db.Queries) error)` | No implicit transaction or OR-mapper replacement; owner predicates and audit remain in one transaction where required |
@@ -24,17 +24,19 @@ Reviewed sources:
 ```text
 Gin routing (declared once)
   -> existing RequestIngress / Authenticate / RequireSession / VerifiedContact
-  -> appctx.Wrap(method) [no extra middleware engine]
-  -> TeamHandler (parse, validate, call model, respond)
+  -> modules/web typed action dispatcher [single Gin execution chain]
+  -> routers/api/v1/org package action (parse/validate/respond)
+  -> services/org (acting-session + transactional orchestration)
   -> models/organization (owner/member authorization and business rules)
   -> models/db SQLC (actor-scoped SELECT/INSERT/DELETE; ExecTx when auditing)
   -> services/convert (response projection)
 ```
 
-The same `TeamHandler` instance is registered for both organization-scoped
-and team-scoped routes. It is created **once at router construction**, not per
-request. This reduces duplicated initialization but does not claim
-meaningful per-request throughput improvement.
+The former `TeamHandler` receiver has been removed from API actions.
+The route constructor `CreateInvite(signingKey)` intentionally returns a
+typed action closure, capturing an immutable startup secret without storing
+a request-specific secret in `APIContext` or creating a process-global config
+source. No duplicate Gin execution engine or DB handle is introduced.
 
 ## Zero-row resource ambiguity and performance
 

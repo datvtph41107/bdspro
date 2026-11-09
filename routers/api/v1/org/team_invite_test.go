@@ -6,33 +6,62 @@ import (
 	"strings"
 	"testing"
 
+	api "github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
-func TestTeamInviteHandlersRejectMalformedRequests(t *testing.T) {
+// Package actions use the same typed binder as production routes.
+func TestTeamInvitePackageActionsRejectMalformedRequests(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := NewTeamHandler(nil, "")
-	for _, tt := range []struct {
-		name    string
-		method  string
-		path    string
-		pattern string
-		body    string
-		handle  appctx.APIHandler
+	for _, tc := range []struct {
+		name, method, path, pattern, body string
+		bind                              func(*appctx.APIContext)
+		action                            func(*appctx.APIContext)
 	}{
-		{"missing email", http.MethodPost, "/teams/1/invites", "/teams/:team_id/invites", "{}", h.CreateInvite},
-		{"invalid email", http.MethodPost, "/teams/1/invites", "/teams/:team_id/invites", `{"email":"bad"}`, h.CreateInvite},
-		{"invalid team", http.MethodPost, "/teams/invalid/invites", "/teams/:team_id/invites", `{"email":"member@example.test"}`, h.CreateInvite},
-		{"missing token", http.MethodPost, "/teams/invites/accept", "/teams/invites/accept", "{}", h.AcceptInvite},
-		{"invalid token length", http.MethodPost, "/teams/invites/accept", "/teams/invites/accept", `{"token":"wrong"}`, h.AcceptInvite},
-		{"invalid invite ID", http.MethodDelete, "/teams/1/invites/wrong", "/teams/:team_id/invites/:invite_id", "", h.RevokeInvite},
+		{
+			name: "missing email", method: http.MethodPost,
+			path: "/teams/1/invites", pattern: "/teams/:team_id/invites", body: "{}",
+			bind: bindTestForm[api.CreateTeamInviteOption], action: CreateInvite(""),
+		},
+		{
+			name: "invalid email", method: http.MethodPost,
+			path: "/teams/1/invites", pattern: "/teams/:team_id/invites", body: `{"email":"bad"}`,
+			bind: bindTestForm[api.CreateTeamInviteOption], action: CreateInvite(""),
+		},
+		{
+			name: "invalid team", method: http.MethodPost,
+			path: "/teams/invalid/invites", pattern: "/teams/:team_id/invites", body: `{"email":"member@example.test"}`,
+			bind: bindTestForm[api.CreateTeamInviteOption], action: CreateInvite(""),
+		},
+		{
+			name: "missing token", method: http.MethodPost,
+			path: "/teams/invites/accept", pattern: "/teams/invites/accept", body: "{}",
+			bind: bindTestForm[api.AcceptTeamInviteOption], action: AcceptInvite,
+		},
+		{
+			name: "invalid token length", method: http.MethodPost,
+			path: "/teams/invites/accept", pattern: "/teams/invites/accept", body: `{"token":"wrong"}`,
+			bind: bindTestForm[api.AcceptTeamInviteOption], action: AcceptInvite,
+		},
+		{
+			name: "invalid invite ID", method: http.MethodDelete,
+			path: "/teams/1/invites/wrong", pattern: "/teams/:team_id/invites/:invite_id",
+			action: RevokeInvite,
+		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			router := gin.New()
-			router.Handle(tt.method, tt.pattern, appctx.Wrap(tt.handle))
-			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
-			if tt.body != "" {
+			router.Use(appctx.APIContexter())
+			m := web.NewRouter[*appctx.APIContext](router.Group(""), appctx.GetAPIContext)
+			if tc.bind != nil {
+				m.Methods(tc.method, tc.pattern, tc.bind, tc.action)
+			} else {
+				m.Methods(tc.method, tc.pattern, tc.action)
+			}
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			if tc.body != "" {
 				req.Header.Set("Content-Type", "application/json")
 			}
 			rec := httptest.NewRecorder()

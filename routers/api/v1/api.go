@@ -163,12 +163,11 @@ func registerAuthenticatedRoutes(m *web.Router[*appctx.APIContext], d Dependenci
 
 	// Team invitation still owns an immutable signing dependency, but all
 	// route registration follows one typed Group pattern.
-	teams := org.NewTeamHandler(d.Store, d.InviteKey)
 	m.Group("/orgs", func() {
 		registerOrgRoutes(m)
 	}, appctx.GinActions(appctx.VerifiedContact(d.Store))...)
 	m.Group("/teams", func() {
-		registerTeamRoutes(m, d, teams)
+		registerTeamRoutes(m, d)
 	}, appctx.GinActions(appctx.VerifiedContact(d.Store))...)
 
 	if d.OAuth2 != nil {
@@ -211,24 +210,24 @@ func registerOrgRoutes(m *web.Router[*appctx.APIContext]) {
 	}, orgAssignment(organization_model.ErrTeamOwnerRequired))
 }
 
-func registerTeamRoutes(m *web.Router[*appctx.APIContext], d Dependencies, teams *org.TeamHandler) {
+func registerTeamRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {
 	m.Post("/invites/accept", append(
 		appctx.GinActions(d.IPActive.For(ipactive.AcceptTeamInvite)),
-		teams.AcceptInvite,
+		bind(api.AcceptTeamInviteOption{}), org.AcceptInvite,
 	)...)
 	m.Group("/:team_id", func() {
 		// Keep assignment on GET only: mutations still authorize with live
 		// acting-session and owner-scoped SQLC checks in services/org.
 		m.Get("", teamAssignment(), reqToken(), org.GetTeam)
-		m.Patch("", teams.Edit)
+		m.Patch("", bind(api.RenameTeamOption{}), org.EditTeam)
 		m.Get("/members", reqToken(), org.ListTeamMembers)
 		m.Post("/members", reqToken(), bind(api.AddTeamUserOption{}), org.AddTeamMember)
 		m.Delete("/members/:person_id", reqToken(), org.RemoveTeamMember)
 		m.Post("/invites", append(
 			appctx.GinActions(d.IPActive.For(ipactive.CreateTeamInvite)),
-			teams.CreateInvite,
+			bind(api.CreateTeamInviteOption{}), org.CreateInvite(d.InviteKey),
 		)...)
-		m.Delete("/invites/:invite_id", teams.RevokeInvite)
+		m.Delete("/invites/:invite_id", org.RevokeInvite)
 	})
 }
 

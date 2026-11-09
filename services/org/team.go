@@ -107,6 +107,17 @@ func (s *TeamService) CreateTeam(ctx context.Context, actingSessionID uuid.UUID,
 	})
 }
 
+// RenameTeam is the request-context API used by the typed Team endpoint.
+// The live acting principal and DB capability come from middleware; the
+// TeamService method remains the transactional implementation shared by tests.
+func RenameTeam(ctx context.Context, teamID int64, name string) (db.Team, error) {
+	actor, store, err := actingOrganization(ctx)
+	if err != nil {
+		return db.Team{}, err
+	}
+	return NewTeamService(store).RenameTeam(ctx, actor.AccountID, actor.SessionID, teamID, name)
+}
+
 // RenameTeam preserves the owner-scoped SQLC UPDATE and its permission lock;
 // the acting session row is locked first in the same transaction.
 func (s *TeamService) RenameTeam(ctx context.Context, actorAccountID int64, actingSessionID uuid.UUID, teamID int64, name string) (db.Team, error) {
