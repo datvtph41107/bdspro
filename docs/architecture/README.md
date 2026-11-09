@@ -4,8 +4,6 @@
 `services/`, `models/db/`, `db/`, `templates/`.
 Former `internal/` references live in [historical records](../archive/README.md).
 
-- [C03.1 — Typed Team list and form ownership](c03-typed-team-actions.md): preserve Gin and SQLC while migrating one endpoint to Gitea-style actions.
-
 ## Execution paths
 
 ```text
@@ -41,6 +39,8 @@ Their code is not interchangeable just because they are siblings.
 - [Technical modules](modules.md): existing modules, actual Gitea counterparts, and explicit conditions for future modules.
 - [Business services](services.md): business operations, queue adapters and transaction ownership.
 - [Routers and transports](routers.md): Gin protocol, handlers and API public contracts.
+- [C03.1 — Typed Team list and form ownership](c03-typed-team-actions.md): preserve Gin and SQLC while migrating one endpoint to Gitea-style actions.
+
 - [Database](data.md): SQLC, migrations and connection lifecycle.
 - [HTTP request path](http.md): admission, middleware and response.
 - [Process runtime](runtime.md): web/worker/migrate, availability and failures.
