@@ -38,7 +38,7 @@ type Dependencies struct {
 // Account -> Person -> Organization membership. It is not write authority.
 func orgAssignment(denied error) func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
-		actor, ok := ctx.VerifiedActor()
+		_, ok := ctx.VerifiedActor()
 		if !ok {
 			ctx.AuthenticationRequired()
 			return
@@ -48,12 +48,7 @@ func orgAssignment(denied error) func(*appctx.APIContext) {
 			ctx.APIErrorAuto(organization_model.ErrInvalidOrganization)
 			return
 		}
-		store, err := db.StoreFromContext(ctx)
-		if err != nil {
-			ctx.APIErrorAuto(err)
-			return
-		}
-		access, err := organization_model.GetForAccount(ctx, store, actor.AccountID, id)
+		access, err := organization_model.GetForDoer(ctx, id)
 		if errors.Is(err, organization_model.ErrOrganizationNotFound) {
 			if denied != nil {
 				// Preserve the owner write endpoint's existing public error.
@@ -78,7 +73,7 @@ func orgAssignment(denied error) func(*appctx.APIContext) {
 // Team ID as Organization ID. The SQLC read is account-access scoped.
 func teamAssignment() func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
-		actor, ok := ctx.VerifiedActor()
+		_, ok := ctx.VerifiedActor()
 		if !ok {
 			ctx.AuthenticationRequired()
 			return
@@ -88,24 +83,19 @@ func teamAssignment() func(*appctx.APIContext) {
 			ctx.APIInvalid(err)
 			return
 		}
-		store, err := db.StoreFromContext(ctx)
+		team, err := organization_model.GetTeamForDoer(ctx, id)
 		if err != nil {
 			ctx.APIErrorAuto(err)
 			return
 		}
-		row, err := organization_model.GetTeam(ctx, store, actor.AccountID, id)
-		if err != nil {
-			ctx.APIErrorAuto(err)
-			return
-		}
-		access, err := organization_model.GetForAccount(ctx, store, actor.AccountID, row.OrganizationID)
+		access, err := organization_model.GetForDoer(ctx, team.OrgID)
 		if err != nil {
 			ctx.APIErrorAuto(err)
 			return
 		}
 		ctx.Org = &appctx.APIOrganization{
 			Organization: access.OrganizationModel(),
-			Team:         organization_model.TeamFromDB(row),
+			Team:         team,
 			Access:       &access,
 		}
 	}
