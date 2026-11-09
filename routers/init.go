@@ -56,6 +56,14 @@ func NormalRoutes(server *Server) *gin.Engine {
 		security.RequestMonitor(server.authRateRedis),
 		appctx.RequestIngress(),
 	)
+	// Install the immutable DB capability once per request. The nil guard
+	// keeps public/registration-only test routers independent of a database.
+	router.Use(func(c *gin.Context) {
+		if server.store != nil {
+			c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), server.store))
+		}
+		c.Next()
+	}, appctx.APIContexter())
 
 	apiv1.Routes(router, apiv1.Dependencies{
 		Auth:          server.authHandler,

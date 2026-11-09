@@ -41,6 +41,14 @@ func RequireSession(store interface {
 			accountStoreUnavailable(c, err)
 			return
 		}
+		// Publish the actor only after the current session was verified.
+		c.Request = c.Request.WithContext(auth_model.WithActor(c.Request.Context(), auth_model.Actor{
+			AccountID: payload.AccountID,
+			SessionID: payload.SessionID,
+		}))
+		api := GetAPIContext(c)
+		api.Doer = payload
+		api.IsSigned = true
 		c.Next()
 	}
 }
