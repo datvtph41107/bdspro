@@ -19,12 +19,12 @@ import (
 func TestReqTokenRequiresVerifiedSession(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, tc := range []struct {
-		name string
-		signed bool
-		doerID int64
-		actorID int64
+		name            string
+		signed          bool
+		doerID          int64
+		actorID         int64
 		sessionMismatch bool
-		status int
+		status          int
 	}{
 		{"anonymous", false, 0, 0, false, http.StatusUnauthorized},
 		{"jwt-without-session", false, 42, 0, false, http.StatusUnauthorized},

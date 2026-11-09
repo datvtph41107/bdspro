@@ -9,8 +9,8 @@ import (
 
 func TestPositivePathIDUsesOneParsingContract(t *testing.T) {
 	cases := []struct {
-		raw string
-		want int64
+		raw   string
+		want  int64
 		valid bool
 	}{
 		{"42", 42, true},
