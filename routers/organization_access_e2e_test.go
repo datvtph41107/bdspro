@@ -83,12 +83,12 @@ func TestOrganizationAccountMembershipRoleAndAuthorizationHTTP(t *testing.T) {
 	memberID, memberToken := organizationTestVerifiedAccount(t, ctx, pool)
 	_, outsiderToken := organizationTestVerifiedAccount(t, ctx, pool)
 
-	status, org := authAcceptanceCall(t, server, "/organizations", http.MethodPost, map[string]string{"name": "Company A"}, ownerToken)
+	status, org := authAcceptanceCall(t, server, "/orgs", http.MethodPost, map[string]string{"name": "Company A"}, ownerToken)
 	if status != http.StatusCreated {
 		t.Fatalf("organization creation status=%d result=%v", status, org)
 	}
 	orgID := int64(org["party_id"].(float64))
-	status, second := authAcceptanceCall(t, server, "/organizations", http.MethodPost, map[string]string{"name": "Company B"}, ownerToken)
+	status, second := authAcceptanceCall(t, server, "/orgs", http.MethodPost, map[string]string{"name": "Company B"}, ownerToken)
 	if status != http.StatusCreated {
 		t.Fatalf("second organization creation %d %v", status, second)
 	}
@@ -97,12 +97,12 @@ func TestOrganizationAccountMembershipRoleAndAuthorizationHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	status, added := authAcceptanceCall(t, server, fmt.Sprintf("/organizations/%d/members", orgID), http.MethodPost, map[string]int64{"person_id": memberAccount.PersonID}, ownerToken)
+	status, added := authAcceptanceCall(t, server, fmt.Sprintf("/orgs/%d/members", orgID), http.MethodPost, map[string]int64{"person_id": memberAccount.PersonID}, ownerToken)
 	if status != http.StatusCreated || added["role"] != "member" {
 		t.Fatalf("add member status=%d result=%v", status, added)
 	}
 
-	status, ownerList := organizationGetJSON(t, server, "/organizations", ownerToken)
+	status, ownerList := organizationGetJSON(t, server, "/orgs", ownerToken)
 	if status != http.StatusOK {
 		t.Fatalf("list owner status=%d", status)
 	}
@@ -121,7 +121,7 @@ func TestOrganizationAccountMembershipRoleAndAuthorizationHTTP(t *testing.T) {
 		}
 	}
 
-	status, memberList := organizationGetJSON(t, server, "/organizations", memberToken)
+	status, memberList := organizationGetJSON(t, server, "/orgs", memberToken)
 	if status != http.StatusOK {
 		t.Fatalf("list member status=%d", status)
 	}
@@ -138,20 +138,20 @@ func TestOrganizationAccountMembershipRoleAndAuthorizationHTTP(t *testing.T) {
 		t.Fatalf("member must only have view: %v", memberPerms)
 	}
 
-	status, detail := organizationGetJSON(t, server, fmt.Sprintf("/organizations/%d", orgID), memberToken)
+	status, detail := organizationGetJSON(t, server, fmt.Sprintf("/orgs/%d", orgID), memberToken)
 	if status != http.StatusOK || detail.(map[string]any)["membership"].(map[string]any)["role"] != "member" {
 		t.Fatalf("member detail status=%d result=%v", status, detail)
 	}
-	status, other := organizationGetJSON(t, server, fmt.Sprintf("/organizations/%d", orgID), outsiderToken)
+	status, other := organizationGetJSON(t, server, fmt.Sprintf("/orgs/%d", orgID), outsiderToken)
 	if status != http.StatusNotFound {
 		t.Fatalf("outsider leaked organization: %d %v", status, other)
 	}
-	status, none := organizationGetJSON(t, server, "/organizations", outsiderToken)
+	status, none := organizationGetJSON(t, server, "/orgs", outsiderToken)
 	if status != http.StatusOK || len(none.([]any)) != 0 {
 		t.Fatalf("outsider list status=%d result=%v", status, none)
 	}
 
-	status, ownerMembers := organizationGetJSON(t, server, fmt.Sprintf("/organizations/%d/members", orgID), ownerToken)
+	status, ownerMembers := organizationGetJSON(t, server, fmt.Sprintf("/orgs/%d/members", orgID), ownerToken)
 	if status != http.StatusOK || len(ownerMembers.([]any)) != 2 {
 		t.Fatalf("owner member list status=%d members=%v", status, ownerMembers)
 	}
@@ -165,12 +165,12 @@ func TestOrganizationAccountMembershipRoleAndAuthorizationHTTP(t *testing.T) {
 		}
 	}
 	for _, token := range []string{memberToken, outsiderToken} {
-		status, _ = organizationGetJSON(t, server, fmt.Sprintf("/organizations/%d/members", orgID), token)
+		status, _ = organizationGetJSON(t, server, fmt.Sprintf("/orgs/%d/members", orgID), token)
 		if status != http.StatusNotFound {
 			t.Fatalf("non-owner read membership: %d", status)
 		}
 	}
-	status, _ = authAcceptanceCall(t, server, fmt.Sprintf("/organizations/%d", orgID), http.MethodPatch, map[string]string{"name": "Unauthorized"}, memberToken)
+	status, _ = authAcceptanceCall(t, server, fmt.Sprintf("/orgs/%d", orgID), http.MethodPatch, map[string]string{"name": "Unauthorized"}, memberToken)
 	if status != http.StatusForbidden {
 		t.Fatalf("member mutated organization: %d", status)
 	}
@@ -180,11 +180,11 @@ func TestOrganizationAccountMembershipRoleAndAuthorizationHTTP(t *testing.T) {
 	if _, err := pool.Exec(ctx, "UPDATE organization_members SET ended_at=now() WHERE organization_id=$1 AND person_id=$2", orgID, memberAccount.PersonID); err != nil {
 		t.Fatal(err)
 	}
-	status, after := organizationGetJSON(t, server, "/organizations", memberToken)
+	status, after := organizationGetJSON(t, server, "/orgs", memberToken)
 	if status != http.StatusOK || len(after.([]any)) != 0 {
 		t.Fatalf("ended membership still visible: %d %v", status, after)
 	}
-	status, _ = organizationGetJSON(t, server, fmt.Sprintf("/organizations/%d", orgID), memberToken)
+	status, _ = organizationGetJSON(t, server, fmt.Sprintf("/orgs/%d", orgID), memberToken)
 	if status != http.StatusNotFound {
 		t.Fatalf("ended membership can read detail: %d", status)
 	}

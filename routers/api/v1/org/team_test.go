@@ -20,14 +20,14 @@ func TestTeamHandlersRejectMalformedInputsWithoutDatabase(t *testing.T) {
 		body   string
 		serve  appctx.APIHandler
 	}{
-		{http.MethodGet, "/organizations/invalid/teams", "/organizations/:id/teams", "", handler.List},
-		{http.MethodGet, "/organizations/1/teams?page=invalid", "/organizations/:id/teams", "", handler.List},
-		{http.MethodGet, "/organizations/1/teams?limit=0", "/organizations/:id/teams", "", handler.List},
-		{http.MethodGet, "/organizations/1/teams?page=-1", "/organizations/:id/teams", "", handler.List},
-		{http.MethodGet, "/organizations/1/teams?page=999999999999999999999999999", "/organizations/:id/teams", "", handler.List},
+		{http.MethodGet, "/orgs/invalid/teams", "/orgs/:id/teams", "", handler.List},
+		{http.MethodGet, "/orgs/1/teams?page=invalid", "/orgs/:id/teams", "", handler.List},
+		{http.MethodGet, "/orgs/1/teams?limit=0", "/orgs/:id/teams", "", handler.List},
+		{http.MethodGet, "/orgs/1/teams?page=-1", "/orgs/:id/teams", "", handler.List},
+		{http.MethodGet, "/orgs/1/teams?page=999999999999999999999999999", "/orgs/:id/teams", "", handler.List},
 		{http.MethodGet, "/teams/1/members?page=invalid", "/teams/:team_id/members", "", handler.Members},
 		{http.MethodGet, "/teams/1/members?limit=-1", "/teams/:team_id/members", "", handler.Members},
-		{http.MethodPost, "/organizations/1/teams", "/organizations/:id/teams", "{}", handler.Create},
+		{http.MethodPost, "/orgs/1/teams", "/orgs/:id/teams", "{}", handler.Create},
 		{http.MethodGet, "/teams/invalid", "/teams/:team_id", "", handler.Get},
 		{http.MethodPatch, "/teams/1", "/teams/:team_id", "{}", handler.Edit},
 		{http.MethodPost, "/teams/1/members", "/teams/:team_id/members", "{}", handler.AddMember},
