@@ -61,6 +61,10 @@ func TestSourcePackageOwnership(t *testing.T) {
 					if owner == "services" && dep == "github.com/jackc/pgx/v5/pgconn" {
 						t.Errorf("%s: PostgreSQL constraints must be classified by owning models, not services", rel)
 					}
+					if strings.HasPrefix(filepath.ToSlash(rel), "services/user/") &&
+						strings.HasPrefix(dep, "github.com/jackc/pgx/v5/pgtype") {
+						t.Errorf("%s: user service must not map PostgreSQL driver fields %q; models/account owns persistence conversion", rel, dep)
+					}
 					// Gin is allowed only in the HTTP-specific context adapter, not business services.
 					httpAdapter := strings.HasPrefix(filepath.ToSlash(rel), "services/context/") ||
 						strings.HasPrefix(filepath.ToSlash(rel), "services/security/")

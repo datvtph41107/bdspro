@@ -11,7 +11,6 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -65,13 +64,15 @@ func TestProfileAndSettingsOwnershipInPostgres(t *testing.T) {
 		p1.DisplayName != "" || p1.Locale != "vi" || p2.Currency != "VND" {
 		t.Fatalf("incorrect profile/credential projection: first=%+v second=%+v", p1, p2)
 	}
-	if err := account_model.UpdateProfile(ctx, store, db.UpdatePersonProfileParams{
-		AccountID: first.ID, DisplayName: pgtype.Text{String: "Account One", Valid: true},
+	display := "Account One"
+	if err := account_model.UpdateProfile(ctx, store, first.ID, account_model.ProfileUpdateOptions{
+		DisplayName: &display,
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := account_model.UpdateSettings(ctx, store, db.UpdateAccountSettingsParams{
-		AccountID: first.ID, Timezone: pgtype.Text{String: "UTC", Valid: true},
+	utc := "UTC"
+	if err := account_model.UpdateSettings(ctx, store, first.ID, account_model.SettingsUpdateOptions{
+		Timezone: &utc,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -91,14 +92,15 @@ func TestProfileAndSettingsOwnershipInPostgres(t *testing.T) {
 	// via a stale read/modify/write copy that can lose a concurrent update.
 	errs := make(chan error, 2)
 	var wg sync.WaitGroup
-	for _, update := range []db.UpdatePersonProfileParams{
-		{AccountID: first.ID, FirstName: pgtype.Text{String: "Concurrent First", Valid: true}},
-		{AccountID: first.ID, LastName: pgtype.Text{String: "Concurrent Last", Valid: true}},
+	firstName, lastName := "Concurrent First", "Concurrent Last"
+	for _, update := range []account_model.ProfileUpdateOptions{
+		{FirstName: &firstName},
+		{LastName: &lastName},
 	} {
 		wg.Add(1)
-		go func(arg db.UpdatePersonProfileParams) {
+		go func(opts account_model.ProfileUpdateOptions) {
 			defer wg.Done()
-			errs <- account_model.UpdateProfile(ctx, store, arg)
+			errs <- account_model.UpdateProfile(ctx, store, first.ID, opts)
 		}(update)
 	}
 	wg.Wait()
