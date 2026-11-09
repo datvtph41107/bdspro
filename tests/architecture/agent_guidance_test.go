@@ -45,6 +45,10 @@ func TestAgentGuidanceLinks(t *testing.T) {
 		"docs/engineering/README.md",
 		"docs/engineering/task-contract.md",
 		"docs/engineering/capability-map.md",
+		".cursor/skills/verify-bdspro/SKILL.md",
+		".cursor/skills/verify-bdspro/features/README.md",
+		".cursor/skills/verify-bdspro/features/sessions.md",
+		".cursor/skills/verify-bdspro/features/organizations.md",
 		"docs/architecture/source-ownership.md",
 	}
 	for _, relative := range paths {

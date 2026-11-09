@@ -60,7 +60,11 @@ func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *Server
 	if err := pool.Ping(ctx); err != nil {
 		t.Fatal(err)
 	}
-	redisClient := redis.NewClient(&redis.Options{Addr: "127.0.0.1:6379"})
+	redisAddress := os.Getenv("BDS_TEST_REDIS_ADDR")
+	if redisAddress == "" {
+		redisAddress = "127.0.0.1:6379"
+	}
+	redisClient := redis.NewClient(&redis.Options{Addr: redisAddress})
 	t.Cleanup(func() { _ = redisClient.Close() })
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		t.Fatal(err)
