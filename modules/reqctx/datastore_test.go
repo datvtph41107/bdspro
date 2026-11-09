@@ -8,7 +8,9 @@ import (
 )
 
 type trackedCloser struct{ calls int }
+
 func (c *trackedCloser) Close() error { c.calls++; return nil }
+
 var _ io.Closer = (*trackedCloser)(nil)
 
 func TestRequestDataStoreIsolationAndCleanup(t *testing.T) {
@@ -25,7 +27,7 @@ func TestRequestDataStoreIsolationAndCleanup(t *testing.T) {
 	}
 	var once int
 	closer := &trackedCloser{}
-	a.AddCleanup(func(){ once++ })
+	a.AddCleanup(func() { once++ })
 	a.AddCloser(closer)
 	doneFirst()
 	doneFirst()
@@ -33,7 +35,7 @@ func TestRequestDataStoreIsolationAndCleanup(t *testing.T) {
 		t.Fatalf("cleanup count=%d closer=%d", once, closer.calls)
 	}
 	var after int
-	a.AddCleanup(func(){after++})
+	a.AddCleanup(func() { after++ })
 	if after != 1 {
 		t.Fatalf("late cleanup was lost: %d", after)
 	}
@@ -63,7 +65,7 @@ func TestRequestStoreConcurrentCleanupRegistration(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			store.AddCleanup(func(){mu.Lock(); called++; mu.Unlock()})
+			store.AddCleanup(func() { mu.Lock(); called++; mu.Unlock() })
 		}()
 	}
 	wg.Wait()

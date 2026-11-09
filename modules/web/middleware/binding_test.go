@@ -9,7 +9,7 @@ import (
 
 type jsonBinderTest struct {
 	body string
-	err error
+	err  error
 }
 
 func (b jsonBinderTest) BindJSON(value any) error {
@@ -20,7 +20,9 @@ func (b jsonBinderTest) BindJSON(value any) error {
 }
 
 func TestBindJSONTypedForm(t *testing.T) {
-	type form struct { Name string `json:"name"` }
+	type form struct {
+		Name string `json:"name"`
+	}
 	got, err := BindJSON[form](jsonBinderTest{body: `{"name":"team"}`})
 	if err != nil || got.Name != "team" {
 		t.Fatalf("form=%+v err=%v", got, err)

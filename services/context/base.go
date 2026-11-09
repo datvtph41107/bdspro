@@ -45,7 +45,7 @@ func NewBaseContext(source RequestSource) *Base {
 	return &Base{source: source, Data: data}
 }
 
-func (b *Base) GetData() reqctx.ContextData { return b.Data }
+func (b *Base) GetData() reqctx.ContextData   { return b.Data }
 func (b *Base) CurrentRequest() *http.Request { return b.source.CurrentRequest() }
 func (b *Base) CurrentRequestContext() context.Context {
 	return b.source.CurrentRequest().Context()

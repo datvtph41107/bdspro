@@ -28,9 +28,9 @@ type dataStoreKey struct{}
 type requestDataStore struct {
 	data ContextData
 
-	mu sync.Mutex
+	mu       sync.Mutex
 	cleanups []func()
-	closed bool
+	closed   bool
 }
 
 func (s *requestDataStore) GetData() ContextData {
