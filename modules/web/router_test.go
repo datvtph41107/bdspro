@@ -1133,3 +1133,47 @@ func TestBeforeRoutingRejectsContinuationAfterRequestCompleted(t *testing.T) {
 	}()
 	resume()
 }
+
+// As in Gitea/Chi, middleware provider factories are compiled during route
+// registration. They must not be reconstructed for each matched request:
+// doing so resets middleware-local rate limiters, counters, or caches.
+func TestRegisteredHTTPMiddlewareProviderCompiledOnceForRepeatedRequests(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*typedHTTPContext](engine.Group(""), func(c *gin.Context) *typedHTTPContext {
+		return c.Request.Context().Value(typedHTTPContextKey{}).(*typedHTTPContext)
+	})
+	factoryCalls, requests, completed := 0, 0, 0
+	r.AfterRouting(
+		func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := &typedHTTPContext{writer: w}
+				next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), typedHTTPContextKey{}, ctx)))
+			})
+		},
+		func(next http.Handler) http.Handler {
+			factoryCalls++
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				requests++
+				next.ServeHTTP(w, req)
+			})
+		},
+	)
+	r.Get("/stateful", func(ctx *typedHTTPContext) {
+		completed++
+		ctx.writer.WriteHeader(http.StatusNoContent)
+	})
+	if factoryCalls != 1 {
+		t.Fatalf("provider factory compiled %d times at registration, want 1", factoryCalls)
+	}
+	for i := 0; i < 3; i++ {
+		w := httptest.NewRecorder()
+		engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/stateful", nil))
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("request %d returned %d, want 204", i, w.Code)
+		}
+	}
+	if factoryCalls != 1 || requests != 3 || completed != 3 {
+		t.Fatalf("factories=%d requests=%d completed=%d, want 1/3/3", factoryCalls, requests, completed)
+	}
+}
