@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
@@ -123,6 +124,8 @@ type Router struct {
 	curGroupPrefix   string
 	curMiddlewares   []any
 	routes           []routeDefinition
+	serveOnce        sync.Once
+	serveHandler     http.Handler
 }
 
 // NewRouter constructs and owns its Gin matcher. There is no legacy-engine
@@ -206,6 +209,15 @@ func (r *Router) Mount(pattern string, sub *Router) {
 		r.routes = append(r.routes, routeDefinition{method: entry.method, path: path, providers: providers, endpoint: entry.endpoint})
 	}
 	r.routesRegistered = true
+}
+
+// ServeHTTP executes the single parent Gin matcher through its pre-routing
+// ingress, as in Gitea's web.Router ServeHTTP contract.
+func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.serveOnce.Do(func() {
+		r.serveHandler = r.WrapIngress()
+	})
+	r.serveHandler.ServeHTTP(w, req)
 }
 
 // BeforeRouting installs HTTP-native middleware ahead of Gin's route matcher.

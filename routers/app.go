@@ -172,7 +172,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	})
 	routes := NormalRoutes()
 	server.router = routes.GinEngine()
-	server.httpHandler = routes.WrapIngress()
+	server.httpHandler = routes
 	if err := server.router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
 	}
