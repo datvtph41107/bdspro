@@ -72,9 +72,11 @@ func OrganizationName(name string) (string, error) {
 // LockedCreator is an opaque account-to-person authorization obtained under
 // the account's PostgreSQL FOR KEY SHARE lock. Its unexported value prevents
 // a caller from inventing a positive PersonID and bypassing the account check.
-// It is valid ONLY in the transaction in which LockCreator acquired the lock.
+// It is valid ONLY with the exact transaction executor that acquired the lock.
+// A copied proof cannot authorize an independently committed transaction.
 type LockedCreator struct {
 	personID int64
+	executor *db.Queries
 }
 
 // LockCreator must run before RequireActingSession when creating organizations.
@@ -92,7 +94,7 @@ func LockCreator(ctx context.Context, q *db.Queries, actorAccountID int64) (Lock
 	if err != nil {
 		return LockedCreator{}, err
 	}
-	return LockedCreator{personID: personID}, nil
+	return LockedCreator{personID: personID, executor: q}, nil
 }
 
 // CreateOrganizationForCreator completes the party/organization/owner write
@@ -103,7 +105,7 @@ func CreateOrganizationForCreator(ctx context.Context, q *db.Queries, creator Lo
 	if err != nil {
 		return nil, err
 	}
-	if creator.personID <= 0 {
+	if creator.personID <= 0 || creator.executor == nil || creator.executor != q {
 		return nil, account_model.ErrAccountUnavailable
 	}
 	partyID, err := q.CreateParty(ctx)
