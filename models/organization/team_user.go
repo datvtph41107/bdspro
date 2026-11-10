@@ -102,8 +102,12 @@ func ListTeamUsers(ctx context.Context, store db.Store, actorAccountID, teamID i
 // RemoveTeamUser retains the standalone transaction contract for model callers.
 // API writes use the service-owned transaction to include session authority.
 func RemoveTeamUser(ctx context.Context, store db.Store, actorAccountID, teamID, personID int64) error {
-	return store.ExecTx(ctx, func(q *db.Queries) error {
-		return RemoveTeamUserTx(ctx, q, actorAccountID, teamID, personID)
+	return db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return err
+		}
+		return RemoveTeamUserTx(txCtx, q, actorAccountID, teamID, personID)
 	})
 }
 
