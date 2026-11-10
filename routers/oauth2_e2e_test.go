@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -101,8 +100,11 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.oauth2Handler = user.NewOAuth2Handler(auth_service.NewAuthService(server.store, server.tokenMaker, cfg, nil), oauth2, false)
-	server.router = NormalRoutes(server)
+	// Routes are registered once. The serving request binds the provider
+	// belonging to this Server, without replacing a global handler container.
+	server.oidcClient = oauth2
+	server.oidcSecure = false
+	server.authService = auth_service.NewAuthService(server.store, server.tokenMaker, cfg, nil)
 	gin.SetMode(gin.TestMode)
 
 	doLogin := func() (int64, string, string) {
