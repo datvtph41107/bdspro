@@ -55,6 +55,18 @@ The coordinator must decide whether to keep these as approved one-time migration
 - **Closeout:** current decision expires upon accepted combined A/B transaction integration, at which point all caller references to `WithTxResult` are inventoried before Chat B removes legacy API. See [CHAT0_TO_CHATB_HANDOFF.md](./CHAT0_TO_CHATB_HANDOFF.md).
 - **Status:** **REQUESTED → DEFERRED / NO WRITE PERMISSION**. This is a G2 safety hold, not an authorization to merge PR #221.
 
+## APPROVED / CLOSED — A-P01.7-FIXTURES-20261110
+
+- **Decision:** Chat 0 retrospectively reviewed and **APPROVED, CLOSED** the exact-fixture migration needed by the frozen non-generic Router, **without granting an ongoing API ownership lease**. The five files are `routers/api/v1/organization_context_test.go`, `routers/api/v1/org/org_validation_test.go`, `routers/api/v1/org/team_test.go`, `routers/api/v1/org/team_invite_test.go`, `routers/api/v1/user/me_test.go`. Owner remains D / Chat 0; Chat A is the one-time writer of already committed fixture changes.
+- **Starting ref:** `33bb3c685dce8bd26b7860400c715e7ec0fa770f`; **accepted fixture cutover A HEAD:** `46dfc9e4d5b0c0dacd3ca47359ed90d88d32842f`. Commit `e013c1430289dd6d373cd800db6c4dcc016f1a88` replaces obsolete generic `web.NewRouter[*APIContext](group,getContext)` calls with `web.NewRouter(engine)` in each file, retains test assertions and routes; `user/me_test.go` moves existing auth/session Gin middleware from group to engine so the same matching/guard test still executes. The `organization_context_test.go` APIContext registration is moved onto the Gin engine before constructor; no new temporary Router or production security policy is created.
+- **Evidence:** exact A-head [CI 42797385297](https://github.com/datvtph41107/bdspro/actions/runs/42797385297) **COMPLETED SUCCESS**; Chat 0 directly compared the five files on start/head, including constructor and middleware changes, not just the A report.
+- **Scope guard:** only these five test fixtures; **no new production ownership for A**. This acceptance does not cover `routers/init.go`, `routers/app.go` (coordinator), service transaction consumers, or future fixture changes. All other historical #218 files keep their existing reconciliation dispositions. New changes require another approved lease.
+- **Integration:** Chat 0 integrated A `46dfc9e4` with coordinator wiring on stacked [PR #222](https://github.com/datvtph41107/bdspro/pull/222) at merge commit `b1cb51c47f4f0dc1c1b19a808f560fa1bf6d0f32`, same matcher; integrated G4/G6 remain pending exact-head workflow and smoke security review.
+
+| Lease ID | Exact paths | Writer | Owner | Starting SHA | End SHA | Decision |
+|---|---|---|---|---|---|---|
+| `A-P01.7-FIXTURES-20261110` | five API fixture tests listed above | Chat A | Chat 0 / D | `33bb3c68` | `46dfc9e4` | **APPROVED / CLOSED (one-time audited exception)** |
+
 ## New leases
 
 Use the following template for each request (no entries approved at plan creation):
