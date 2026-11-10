@@ -103,3 +103,26 @@ func TestTypedAPIContextPreservesHTTPIngressScope(t *testing.T) {
 		t.Fatalf("request-local cleanup called %d times, want 2", cleanupCount)
 	}
 }
+
+func TestTypedHTTPChainPropagatesGinContextMutation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	router := web.NewRouter[*APIContext](engine.Group(""), GetAPIContext)
+	router.AfterRouting(APIContexter())
+	router.Get("/gin-context", append(
+		GinActions(func(c *gin.Context) {
+			c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), requestStoreTraceKey{}, "verified"))
+		}),
+		func(api *APIContext) {
+			if api.Value(requestStoreTraceKey{}) != "verified" {
+				t.Error("Gin middleware context mutation was lost before the typed action")
+			}
+			api.Status(http.StatusNoContent)
+		},
+	)...)
+	response := httptest.NewRecorder()
+	engine.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/gin-context", nil))
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("status=%d want=%d", response.Code, http.StatusNoContent)
+	}
+}
