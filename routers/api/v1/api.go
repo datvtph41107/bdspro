@@ -11,6 +11,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/modules/web/middleware"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
+	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	security "github.com/datvtph41107/bdspro/services/security"
@@ -186,35 +187,29 @@ func Routes() *web.Router {
 	m.Get("/users/password/reset", user.PasswordResetPage)
 	m.Post("/users/password/reset", security.IPActiveFor(ipactive.ConfirmPasswordReset), user.ResetPassword)
 
-	if d.Authorization != nil {
-		preview := d.Authorization.AuthorizePreview
-		approve := d.Authorization.Authorize
-		authenticate := d.Authorization.Authenticate(d.TokenMaker)
+	if d.AuthorizationEnabled {
 		if d.Browser != nil {
-			preview = d.Browser.AuthorizePreview
-			approve = d.Browser.Authorize
-			authenticate = d.Browser.Authenticate
 			m.Get("/oauth/login", appctx.GinActions(d.Browser.LoginPage)...)
 			loginHandlers := []gin.HandlerFunc{d.Browser.Login}
 			if d.IPActive != nil {
 				loginHandlers = append([]gin.HandlerFunc{d.IPActive.For(ipactive.Login)}, loginHandlers...)
 			}
 			m.Post("/oauth/login", appctx.GinActions(loginHandlers...)...)
-			m.Post("/oauth/logout", appctx.GinActions(
-				d.Browser.RequireBrowserSession, d.Browser.Logout,
-			)...)
+			m.Post("/oauth/logout", appctx.GinActions(d.Browser.RequireBrowserSession, d.Browser.Logout)...)
+			// HTML consent and API bearer authorization share the same typed
+			// OAuth service actions. Browser middleware installs the actor.
+			m.Get("/oauth/authorize", appctx.GinActions(d.Browser.Authenticate, d.Browser.AuthorizePreview)...)
+			m.Post("/oauth/authorize", appctx.GinActions(d.Browser.Authenticate, d.Browser.Authorize)...)
+		} else {
+			m.Get("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), oauth.AuthorizePreview)
+			m.Post("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), oauth.Authorize)
 		}
-		m.Get("/oauth/authorize", appctx.GinActions(authenticate, preview)...)
-		m.Post("/oauth/authorize", appctx.GinActions(authenticate, approve)...)
-		// OAuth authorization-server tokens are NOT first-party login sessions.
-		m.Post("/oauth/token", appctx.GinActions(
-			d.IPActive.For(ipactive.RenewAccess), d.Authorization.Token,
-		)...)
-		m.Post("/oauth/revoke", appctx.GinActions(
-			d.IPActive.For(ipactive.RevokeToken), d.Authorization.Revoke,
-		)...)
-		m.Get("/oauth/userinfo", appctx.GinActions(d.Authorization.UserInfo)...)
+		// OAuth authorization-server tokens have an independent lifecycle.
+		m.Post("/oauth/token", security.IPActiveFor(ipactive.RenewAccess), oauth.Token)
+		m.Post("/oauth/revoke", security.IPActiveFor(ipactive.RevokeToken), oauth.Revoke)
+		m.Get("/oauth/userinfo", oauth.UserInfo)
 	}
+
 	if d.OAuth2 != nil {
 		if d.Browser != nil && d.Browser.OIDCEnabled {
 			m.Get("/oauth/login/oidc/start", appctx.GinActions(
@@ -236,14 +231,13 @@ func Routes() *web.Router {
 	// The live first-party PostgreSQL session is verified once at ingress.
 	// Resource assignment and SQLC write authority remain separate concerns.
 	m.Group("", func() {
-		if d.Authorization != nil {
-			m.Get("/oauth/clients", appctx.GinActions(d.Authorization.ListClients)...)
-			m.Post("/oauth/clients", append(
-				[]any{appctx.VerifiedContact()}, appctx.GinActions(d.Authorization.CreateClient)...,
-			)...)
-			m.Delete("/oauth/clients/:id", appctx.GinActions(d.Authorization.DeleteClient)...)
-			m.Get("/users/me/oauth/authorizations", appctx.GinActions(d.Authorization.ListAuthorizations)...)
-			m.Delete("/users/me/oauth/authorizations/:client_id", appctx.GinActions(d.Authorization.RevokeAuthorization)...)
+		if d.AuthorizationEnabled {
+			m.Get("/oauth/clients", oauth.ListClients)
+			m.Post("/oauth/clients", appctx.VerifiedContact(), oauth.CreateClient)
+			m.Delete("/oauth/clients/:id", oauth.DeleteClient)
+			// Authorization management still has first-party session authority.
+			m.Get("/users/me/oauth/authorizations", appctx.GinActions(d.Browser.RequireBrowserSession)...)
+			m.Delete("/users/me/oauth/authorizations/:client_id", appctx.GinActions(d.Browser.RequireBrowserSession)...)
 		}
 		m.Get("/users/me", user.GetAuthenticatedUser)
 		m.Patch("/users/me/profile", bind(api.ProfileUpdateRequest{}), user.UpdateProfile)

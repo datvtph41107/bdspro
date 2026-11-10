@@ -13,7 +13,6 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
-	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	api "github.com/datvtph41107/bdspro/routers/api"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
@@ -34,7 +33,8 @@ import (
 type Server struct {
 	authService          *auth_service.AuthService
 	oauth2Handler        *user.OAuth2Handler
-	authorizationHandler *oauth.Handler
+	oauthService         *oauth_service.Service
+	oauthProofs          *oauth_service.ConsentProofs
 	browserHandler       *weboauth.Handler
 	phoneEnabled         bool
 	config               setting.Config
@@ -115,7 +115,8 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			return nil, fmt.Errorf("configure OAuth consent proof: %w", err)
 		}
 		oauthService := oauth_service.NewService(oauthStore)
-		server.authorizationHandler = oauth.NewHandler(oauthService, store, proofs)
+		server.oauthService = oauthService
+		server.oauthProofs = proofs
 		if cfg.BrowserPublicOrigin != "" {
 			if err := setting.ValidateBrowserPublicOrigin(cfg.BrowserPublicOrigin, cfg.Environment); err != nil {
 				return nil, err
@@ -125,7 +126,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 				return nil, fmt.Errorf("configure browser session: %w", err)
 			}
 			server.browserHandler, err = weboauth.NewHandler(weboauth.Config{
-				Store: store, OAuth: oauthService, API: server.authorizationHandler,
+				Store: store, OAuth: oauthService,
 				Proofs: proofs, Login: authService.Login, Maker: maker, Codec: codec,
 				PublicOrigin: cfg.BrowserPublicOrigin, Throttle: server.authThrottle,
 				OIDCEnabled: browserOIDC,
@@ -157,12 +158,10 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	// per-request actors, sessions and transactions remain request-scoped.
 	apiv1.InitRuntime(apiv1.Runtime{
 		OAuth2:        server.oauth2Handler,
-		Authorization: server.authorizationHandler,
+		AuthorizationEnabled: server.oauthService != nil,
 		Browser:       server.browserHandler,
 		PhoneEnabled:  server.phoneEnabled,
-		TokenMaker:    server.tokenMaker,
 		IPActive:      server.ipActive,
-		Store:         server.store,
 		InviteKey:     server.config.TokenSymmetricKey,
 	})
 	routes := NormalRoutes()
@@ -172,6 +171,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	server.httpHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		ctx = auth_service.WithService(ctx, server.authService)
+		ctx = oauth_service.WithService(ctx, server.oauthService, server.oauthProofs)
 		ctx = security.WithThrottle(ctx, server.authThrottle)
 		ctx = security.WithMonitorRedis(ctx, server.authRateRedis)
 		ctx = authcrypto.WithMaker(ctx, server.tokenMaker)

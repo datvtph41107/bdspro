@@ -3,10 +3,7 @@ package apiv1
 import (
 	"sync"
 
-	db "github.com/datvtph41107/bdspro/models/db"
-	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
-	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 )
@@ -17,12 +14,10 @@ import (
 // before calling its parameterless route constructors.
 type Runtime struct {
 	OAuth2        *user.OAuth2Handler
-	Authorization *oauth.Handler
+	AuthorizationEnabled bool
 	Browser       *weboauth.Handler
 	PhoneEnabled  bool
-	TokenMaker    authcrypto.Maker
 	IPActive      *ipactive.Middleware
-	Store         db.Store
 	InviteKey     string
 }
 
