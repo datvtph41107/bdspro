@@ -235,9 +235,9 @@ func Routes() *web.Router {
 			m.Get("/oauth/clients", oauth.ListClients)
 			m.Post("/oauth/clients", appctx.VerifiedContact(), oauth.CreateClient)
 			m.Delete("/oauth/clients/:id", oauth.DeleteClient)
-			// Authorization management still has first-party session authority.
-			m.Get("/users/me/oauth/authorizations", appctx.GinActions(d.Browser.RequireBrowserSession)...)
-			m.Delete("/users/me/oauth/authorizations/:client_id", appctx.GinActions(d.Browser.RequireBrowserSession)...)
+			// First-party actor authority is verified by the parent group.
+			m.Get("/users/me/oauth/authorizations", oauth.ListAuthorizations)
+			m.Delete("/users/me/oauth/authorizations/:client_id", oauth.RevokeAuthorization)
 		}
 		m.Get("/users/me", user.GetAuthenticatedUser)
 		m.Patch("/users/me/profile", bind(api.ProfileUpdateRequest{}), user.UpdateProfile)

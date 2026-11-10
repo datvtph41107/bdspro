@@ -4,38 +4,34 @@ import (
 	"net/http"
 
 	appctx "github.com/datvtph41107/bdspro/services/context"
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-// ListAuthorizations is distinct from ListClients: ownership != consent.
-func (h *Handler) ListAuthorizations(c *gin.Context) {
-	grants, err := h.service.ListAuthorizations(c.Request.Context(), appctx.AccountID(c))
-	if err != nil {
-		serviceFailure(c, err)
-		return
-	}
-	out := make([]gin.H, 0, len(grants))
-	for _, grant := range grants {
-		out = append(out, gin.H{
-			"client_id": grant.ClientID.String(), "name": grant.Name, "scope": grant.Scope,
+// Authorization ownership and client ownership remain distinct. Only the
+// authenticated account's consent grants are listed or revoked.
+func ListAuthorizations(ctx *appctx.APIContext) {
+	s,ok:=service(ctx);if !ok{return}
+	accountID,ok:=actorID(ctx);if !ok{return}
+	grants,err:=s.ListAuthorizations(ctx,accountID)
+	if err!=nil {serviceFailure(ctx,err);return}
+	out:=make([]map[string]any,0,len(grants))
+	for _,grant:=range grants {
+		out=append(out,map[string]any{
+			"client_id":grant.ClientID.String(),"name":grant.Name,"scope":grant.Scope,
 		})
 	}
-	c.Header("Cache-Control", "no-store")
-	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"authorizations": out})
+	ctx.Header("Cache-Control","no-store")
+	ctx.JSON(http.StatusOK,map[string]any{"authorizations":out})
 }
 
-// RevokeAuthorization invalidates credentials for the signed-in account only.
-func (h *Handler) RevokeAuthorization(c *gin.Context) {
-	clientID, err := uuid.Parse(c.Param("client_id"))
-	if err != nil {
-		failure(c, http.StatusBadRequest, "invalid_request")
-		return
+func RevokeAuthorization(ctx *appctx.APIContext) {
+	s,ok:=service(ctx);if !ok{return}
+	accountID,ok:=actorID(ctx);if !ok{return}
+	clientID,err:=uuid.Parse(ctx.PathParam("client_id"))
+	if err!=nil {failure(ctx,http.StatusBadRequest,"invalid_request");return}
+	if err:=s.RevokeAuthorization(ctx,accountID,clientID);err!=nil {
+		serviceFailure(ctx,err);return
 	}
-	if err := h.service.RevokeAuthorization(c.Request.Context(), appctx.AccountID(c), clientID); err != nil {
-		serviceFailure(c, err)
-		return
-	}
-	c.Header("Cache-Control", "no-store")
-	c.Status(http.StatusNoContent)
+	ctx.Header("Cache-Control","no-store")
+	ctx.Status(http.StatusNoContent)
 }
