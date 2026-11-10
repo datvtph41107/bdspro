@@ -6,6 +6,7 @@ import (
 
 	sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -37,7 +38,7 @@ func New(conn DBTX) *Queries {
 }
 
 func NewStore(pool *pgxpool.Pool) *SQLStore {
-	return &SQLStore{pool: pool, Queries: New(pool)}
+	return &SQLStore{pool: pool, Queries: New(contextDBTX{pool: pool})}
 }
 
 func (s *SQLStore) Close() {
@@ -45,6 +46,62 @@ func (s *SQLStore) Close() {
 		s.pool.Close()
 	}
 }
+
+// contextDBTX is a DBTX executor selector, not a second transaction owner.
+// It is installed only on an ingress SQLStore. In a transaction callback,
+// the same pgx.Tx opened by SQLStore.ExecTxRaw is selected from txCtx;
+// ordinary requests continue to use the pool. SQLC-generated code stays
+// unchanged and both paths retain the same DBTX method signatures.
+type contextDBTX struct {
+	pool *pgxpool.Pool
+}
+
+func (d contextDBTX) executor(ctx context.Context) (DBTX, error) {
+	if ctx.Value(queriesContextKey{}) == nil {
+		return d.pool, nil
+	}
+	if _, err := TxQueries(ctx); err != nil {
+		return nil, err
+	}
+	tx, ok := ctx.Value(rawTxContextKey{}).(pgx.Tx)
+	if !ok || tx == nil {
+		if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
+			state.fail(ErrTxStoreUnavailable)
+		}
+		return nil, ErrTxStoreUnavailable
+	}
+	return tx, nil
+}
+
+func (d contextDBTX) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	exec, err := d.executor(ctx)
+	if err != nil {
+		return pgconn.CommandTag{}, err
+	}
+	return exec.Exec(ctx, sql, args...)
+}
+
+func (d contextDBTX) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	exec, err := d.executor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return exec.Query(ctx, sql, args...)
+}
+
+type queryErrorRow struct{ err error }
+
+func (r queryErrorRow) Scan(...any) error { return r.err }
+
+func (d contextDBTX) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	exec, err := d.executor(ctx)
+	if err != nil {
+		return queryErrorRow{err: err}
+	}
+	return exec.QueryRow(ctx, sql, args...)
+}
+
+var _ DBTX = contextDBTX{}
 
 // ExecTx runs SQLC mutations inside the owning PostgreSQL transaction.
 // An existing context-scoped SQLC executor always takes precedence over the
