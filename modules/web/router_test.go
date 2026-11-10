@@ -1177,3 +1177,39 @@ func TestRegisteredHTTPMiddlewareProviderCompiledOnceForRepeatedRequests(t *test
 		t.Fatalf("factories=%d requests=%d completed=%d, want 1/3/3", factoryCalls, requests, completed)
 	}
 }
+
+// Middleware factories live for the route's lifetime, but their continuations
+// must remain request-local. A saved next must not re-enter a completed Gin
+// request, even if the middleware never called it during that request.
+func TestRegisteredTypedRouteRejectsContinuationAfterCompletion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*typedHTTPContext](engine.Group(""), func(c *gin.Context) *typedHTTPContext {
+		return c.Request.Context().Value(typedHTTPContextKey{}).(*typedHTTPContext)
+	})
+	var resume func()
+	reached := false
+	r.AfterRouting(
+		func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				resume = func() { next.ServeHTTP(w, req) }
+				w.WriteHeader(http.StatusAccepted)
+			})
+		},
+	)
+	r.Get("/expired-next", func(*typedHTTPContext) { reached = true })
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/expired-next", nil))
+	if rec.Code != http.StatusAccepted || reached || resume == nil {
+		t.Fatalf("initial status=%d reached=%v next-set=%v", rec.Code, reached, resume != nil)
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("compiled HTTP chain accepted continuation after request returned")
+		}
+		if reached {
+			t.Error("expired continuation reached the typed route endpoint")
+		}
+	}()
+	resume()
+}
