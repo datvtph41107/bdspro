@@ -379,3 +379,56 @@ func TestAfterRoutingRejectsNilHTTPProvider(t *testing.T) {
 	}()
 	r.AfterRouting(absent)
 }
+
+func TestAfterRoutingHTTPActionContinuesWhenResponseNotWritten(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	var steps []string
+	r.AfterRouting(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		steps = append(steps, "http")
+		w.Header().Set("X-Action", "continued")
+	}))
+	r.Get("/continue", func(c *gin.Context) {
+		steps = append(steps, "gin")
+		c.Status(http.StatusNoContent)
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/continue", nil))
+	if w.Code != http.StatusNoContent || w.Header().Get("X-Action") != "continued" ||
+		!reflect.DeepEqual(steps, []string{"http", "gin"}) {
+		t.Fatalf("HTTP action did not continue: steps=%v status=%d", steps, w.Code)
+	}
+}
+
+func TestAfterRoutingHTTPActionStopsAfterWritingResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	hit := false
+	r.AfterRouting(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	r.Get("/denied", func(*gin.Context) { hit = true })
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/denied", nil))
+	if hit || w.Code != http.StatusForbidden {
+		t.Fatalf("HTTP action leaked into Gin actions: hit=%v status=%d", hit, w.Code)
+	}
+}
+
+func TestAfterRoutingHTTPActionWriteImplicitlyCommitsOK(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	hit := false
+	r.AfterRouting(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		_, _ = w.Write([]byte("done"))
+	}))
+	r.Get("/body", func(*gin.Context) { hit = true })
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/body", nil))
+	if hit || w.Code != http.StatusOK || w.Body.String() != "done" {
+		t.Fatalf("HTTP body write did not stop execution: hit=%v status=%d body=%q", hit, w.Code, w.Body.String())
+	}
+}
