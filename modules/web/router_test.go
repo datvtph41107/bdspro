@@ -1031,3 +1031,70 @@ func TestBeforeRoutingCannotRegisterAfterRouteMatchingWasConfigured(t *testing.T
 	}()
 	r.BeforeRouting(func(next http.Handler) http.Handler { return next })
 }
+
+// Middleware registration is a startup transaction: invalid input must not
+// leave earlier entries from the same call behind after a recovered panic.
+func TestBeforeRoutingBatchRegistrationIsAtomic(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	valid := func(next http.Handler) http.Handler { return next }
+
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("invalid second BeforeRouting middleware must panic")
+			}
+		}()
+		r.BeforeRouting(valid, func(*gin.Context) {})
+	}()
+	if len(r.beforeRouting) != 0 {
+		t.Fatalf("failed BeforeRouting call retained %d providers", len(r.beforeRouting))
+	}
+
+	r.BeforeRouting(valid)
+	r.Get("/healthy", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	w := httptest.NewRecorder()
+	r.WrapIngress(engine).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthy", nil))
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("retry after invalid middleware returned %d, want 204", w.Code)
+	}
+}
+
+func TestAfterRoutingBatchRegistrationIsAtomic(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	var calls []string
+	validGin := func(c *gin.Context) { calls = append(calls, "gin"); c.Next() }
+	validHTTP := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			calls = append(calls, "http")
+			next.ServeHTTP(w, req)
+		})
+	}
+
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("invalid third AfterRouting middleware must panic")
+			}
+		}()
+		r.AfterRouting(validGin, validHTTP, struct{}{})
+	}()
+	if len(r.afterRouting) != 0 || len(r.afterRoutingHTTP) != 0 {
+		t.Fatalf("failed AfterRouting call retained Gin=%d HTTP=%d middleware", len(r.afterRouting), len(r.afterRoutingHTTP))
+	}
+
+	r.AfterRouting(validGin, validHTTP)
+	r.Get("/healthy", func(c *gin.Context) {
+		calls = append(calls, "action")
+		c.Status(http.StatusNoContent)
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthy", nil))
+	want := []string{"gin", "http", "action"}
+	if w.Code != http.StatusNoContent || !reflect.DeepEqual(calls, want) {
+		t.Fatalf("status=%d calls=%v, want 204 and %v", w.Code, calls, want)
+	}
+}
