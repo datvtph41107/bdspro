@@ -89,11 +89,12 @@ func TestOrganizationCreateWorkflowPostgres(t *testing.T) {
 	// A lock proof cannot be carried between transactions. The prior
 	// account row lock was released by COMMIT and must not authorize a
 	// subsequent operation on a different SQLC executor.
-	var stale LockedCreator
-	err = store.ExecTx(ctx, func(q *db.Queries) error {
-		var inner error
-		stale, inner = LockCreator(ctx, q, account.ID)
-		return inner
+	stale, err := db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (LockedCreator, error) {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return LockedCreator{}, err
+		}
+		return LockCreator(txCtx, q, account.ID)
 	})
 	if err != nil {
 		t.Fatal(err)
