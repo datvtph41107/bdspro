@@ -2,9 +2,10 @@ package web
 
 import (
 	"fmt"
+	"reflect"
+
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
-	"reflect"
 )
 
 // toHandlerProvider validates handler kinds once at route registration and
