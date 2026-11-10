@@ -67,8 +67,8 @@ func (w *ginDelegatingWriter) WriteString(body string) (int, error) {
 	return n, err
 }
 
-func (w *ginDelegatingWriter) Status() int { return w.status }
-func (w *ginDelegatingWriter) Size() int   { return w.size }
+func (w *ginDelegatingWriter) Status() int   { return w.status }
+func (w *ginDelegatingWriter) Size() int     { return w.size }
 func (w *ginDelegatingWriter) Written() bool { return w.size >= 0 }
 
 func (w *ginDelegatingWriter) Flush() {
