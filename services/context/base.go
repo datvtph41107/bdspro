@@ -98,6 +98,10 @@ func (b *Base) DefaultQuery(name, fallback string) string {
 func (b *Base) Header(name, value string) { b.source.SetHeader(name, value) }
 func (b *Base) IsAborted() bool           { return b.source.IsAborted() }
 
+// Abort ends the typed matched-route chain without committing a response.
+// This is a transport control, not a second HTTP response writer.
+func (b *Base) Abort() { b.source.Abort() }
+
 // Written and WrittenStatus distinguish a committed response from a status
 // merely selected for later emission. This is a request/transport capability,
 // not a second response writer or framework-specific field on Base.
