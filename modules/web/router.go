@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/datvtph41107/bdspro/modules/reqctx"
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
 )
@@ -62,21 +61,3 @@ func (r *Router[T]) Delete(path string, actions ...func(T)) {
 	r.Methods(http.MethodDelete, path, actions...)
 }
 
-// FormStore owns request-local data through reqctx; web does not manage a
-// separate registry or a global cache. The form is exposed only after binding.
-type FormStore = reqctx.ContextDataProvider
-
-const formKey = "__form"
-
-func SetForm(store FormStore, value any) {
-	store.GetData()[formKey] = value
-}
-
-func GetForm[T any](store FormStore) T {
-	value := store.GetData()[formKey]
-	form, ok := value.(T)
-	if !ok {
-		panic(fmt.Errorf("web: bound form %T does not match requested %s", value, reflect.TypeFor[T]()))
-	}
-	return form
-}
