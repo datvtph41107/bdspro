@@ -962,7 +962,7 @@ func TestBeforeRoutingCompilesStatefulProviderOnceAcrossRequests(t *testing.T) {
 // setup is startup-only: partially registered routes violate fail-closed setup.
 func TestMethodsRejectsPartialRegistrationWhenAnyMethodInvalid(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	for _, methods := range []string{"GET, ", "GET,GET", " ,POST"} {
+	for _, methods := range []string{"GET, ", "GET,GET", " ,POST", "GET,geT", "GET,GET?", "GET,GÉT"} {
 		t.Run(methods, func(t *testing.T) {
 			engine := gin.New()
 			r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
