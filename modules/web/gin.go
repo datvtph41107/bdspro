@@ -2,11 +2,13 @@ package web
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"reflect"
+	"sync/atomic"
 
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
@@ -152,6 +154,84 @@ func ginScopedHandler(c *gin.Context, handler http.Handler) http.Handler {
 		}()
 		handler.ServeHTTP(w, req)
 	})
+}
+
+// matchedRouteScope binds one Gin matcher invocation to the HTTP middleware
+// chain compiled at registration. It is request-local, never process-global.
+// Gin is still the only route matcher and APIContext remains request-owned.
+type matchedRouteKey struct{}
+
+type matchedRouteScope struct {
+	gin      *gin.Context
+	incoming []*http.Request
+	called   []atomic.Bool
+	finished atomic.Bool
+}
+
+func matchedRouteFromRequest(req *http.Request) *matchedRouteScope {
+	scope, ok := req.Context().Value(matchedRouteKey{}).(*matchedRouteScope)
+	if !ok || scope == nil {
+		panic("web: matched route middleware lost request-local Gin scope")
+	}
+	return scope
+}
+
+// ginMatchedHandler compiles the Gitea-style HTTP middleware providers ONCE,
+// when Methods registers a route. Only the Gin transport binding and the
+// one-shot continuation flags are created for each request.
+//
+// Each provider may forward a new *http.Request or ResponseWriter. An
+// existing GinActions handler can instead replace c.Request directly (after
+// live-session verification); that replacement takes precedence, matching
+// the prior bridge's propagation rule.
+func ginMatchedHandler(providers []middlewareProvider, endpoint http.HandlerFunc) gin.HandlerFunc {
+	var chain http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		scope := matchedRouteFromRequest(req)
+		ginScopedHandler(scope.gin, endpoint).ServeHTTP(w, req)
+	})
+	for i := len(providers) - 1; i >= 0; i-- {
+		index := i
+		provider := providers[i]
+		downstream := chain
+		next := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			scope := matchedRouteFromRequest(req)
+			if scope.finished.Load() {
+				panic("web: matched route middleware continued after request completion")
+			}
+			if scope.called[index].Swap(true) {
+				panic("web: HTTP middleware called next more than once")
+			}
+			// c.Request changes are made by a Gin protocol action, while
+			// req changes are supplied directly by HTTP middleware.
+			if scope.gin.Request != scope.incoming[index] {
+				req = scope.gin.Request
+			}
+			ginScopedHandler(scope.gin, downstream).ServeHTTP(w, req)
+		})
+		compiled := provider(next)
+		if compiled == nil {
+			panic("web: matched route middleware returned nil handler")
+		}
+		chain = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			scope := matchedRouteFromRequest(req)
+			if scope.finished.Load() {
+				panic("web: matched route middleware executed after request completion")
+			}
+			scope.incoming[index] = req
+			ginScopedHandler(scope.gin, compiled).ServeHTTP(w, req)
+		})
+	}
+	return func(c *gin.Context) {
+		scope := &matchedRouteScope{
+			gin:      c,
+			incoming: make([]*http.Request, len(providers)),
+			called:   make([]atomic.Bool, len(providers)),
+		}
+		defer scope.finished.Store(true)
+		request := c.Request.WithContext(context.WithValue(c.Request.Context(), matchedRouteKey{}, scope))
+		c.Request = request
+		chain.ServeHTTP(c.Writer, request)
+	}
 }
 
 // legacyActions is confined to unregistered Gin-only test contexts.
