@@ -3,10 +3,10 @@ package user
 import (
 	"errors"
 	"net/http"
-	"unicode/utf8"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/datvtph41107/bdspro/modules/structs"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
@@ -20,7 +20,9 @@ import (
 // AuthService, while the security limiter is shared with legacy endpoints.
 // RequirePhone guards optional OTP routes without runtime route containers.
 func RequirePhone(ctx *appctx.APIContext) {
-	if !auth_service.FromContext(ctx).HasPhone() { ctx.APIErrorNotFound() }
+	if !auth_service.FromContext(ctx).HasPhone() {
+		ctx.APIErrorNotFound()
+	}
 }
 
 func Register(ctx *appctx.APIContext) {

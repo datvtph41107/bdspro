@@ -9,7 +9,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/web"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/common"
-		"github.com/datvtph41107/bdspro/services/mail"
+	"github.com/datvtph41107/bdspro/services/mail"
 	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"

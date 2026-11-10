@@ -28,20 +28,20 @@ import (
 // Its httpHandler is the canonical pre-matcher ingress. Listener, readiness,
 // timeouts and graceful shutdown remain in cmd/http.go.
 type Server struct {
-	authService          *auth_service.AuthService
-	oidcClient           *auth_service.OAuth2Client
-	oidcSecure           bool
-	oauthService         *oauth_service.Service
-	oauthProofs          *oauth_service.ConsentProofs
-	browser               *weboauth.Browser
-	config               setting.Config
-	store                db.Store
-	tokenMaker           authcrypto.Maker
-	router               *gin.Engine
-	httpHandler          http.Handler
-	authRateRedis        *redis.Client
-	authThrottle         *security.AuthThrottle
-	ipActive             *ipactive.Middleware
+	authService   *auth_service.AuthService
+	oidcClient    *auth_service.OAuth2Client
+	oidcSecure    bool
+	oauthService  *oauth_service.Service
+	oauthProofs   *oauth_service.ConsentProofs
+	browser       *weboauth.Browser
+	config        setting.Config
+	store         db.Store
+	tokenMaker    authcrypto.Maker
+	router        *gin.Engine
+	httpHandler   http.Handler
+	authRateRedis *redis.Client
+	authThrottle  *security.AuthThrottle
+	ipActive      *ipactive.Middleware
 }
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
