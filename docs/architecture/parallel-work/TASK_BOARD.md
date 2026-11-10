@@ -1,0 +1,114 @@
+# Live Coordination Board — BDSPro × Gitea
+
+> Snapshot 2026-11-10, Chat 0 coordinator. **Not an automatically updating dashboard.** Every session must refresh current GitHub HEAD, PRs and Actions before editing. Update this board only through a coordinator-owned reviewed change.
+
+## Workstream table
+
+| Lane | Scope / phase | Working branch | PR | Current decision and next executable task |
+|---|---|---|---|---|
+| **A** | P01/P02 HTTP+request context | `refactor/gitea-web-ownership-20261110` | [#218](https://github.com/datvtph41107/bdspro/pull/218) (draft) | **CI PASS at `d2dcef51`**: [42775942108](https://github.com/datvtph41107/bdspro/actions/runs/42775942108). **P01/P02 not accepted**: `Router[T]`, `getContext`, `legacyActions`, separate Gin `AfterRouting` remain; true outer `BeforeRouting` and shared-file migration lease pending. Historic PR also edits `routers/**`, `services/user/**` beyond A ownership. |
+| **B** | P04 DB / P05 scoped models | `work/gitea-b-data-20261110` | [#221](https://github.com/datvtph41107/bdspro/pull/221) (draft) | **CI PASS** at `868d10f8`: [42776794000](https://github.com/datvtph41107/bdspro/actions/runs/42776794000). **13 model-only files** changed (not 7), no cross-lane file overlap. Review explicit `WithTxResult` → `WithTx` reverse nesting, `ExecTxRaw` SQLC boundary and verified actor/session cases. P05 not complete. |
+| **C** | P06 process/shared runtime | `work/gitea-c-runtime-20261110` | [#220](https://github.com/datvtph41107/bdspro/pull/220) (draft) | **CI PASS** at `553551e3`: [42776266066](https://github.com/datvtph41107/bdspro/actions/runs/42776266066). 26 paths within C ownership; removed unused ChannelTaskQueue after consumer search. **P06 not accepted**: preexisting `modules/cache` lacks a production consumer, external app.ini templates and cache-queue docs remain stale, init/graceful integration contracts still open. |
+| **D** | P03 API/Auth/OAuth | not created | none yet | **READ-ONLY REVIEW**; build endpoint/contract/test inventory; wait for accepted A HTTP context and B DB transaction interfaces before source changes. |
+| **0** | contracts/integration P07 | `docs/gitea-parallel-harness-20261110` | [#219](https://github.com/datvtph41107/bdspro/pull/219) (draft) | **ACTIVE**: accept docs/guardrail PR after current-HEAD CI; reconcile historical PR #218 cross-owner files; approve isolated B/C PRs after evidence; no dev merge without gates. |
+
+## Actual CI evidence at this snapshot
+
+- P01 code PR #218, prior HEAD `c97c480e`: [run 42758853017](https://github.com/datvtph41107/bdspro/actions/runs/42758853017) failed **Verify Go formatting** in `routers/api/v1/organization_context_test.go`; corrected by commit [`ad1f0138`](https://github.com/datvtph41107/bdspro/commit/ad1f01385ac9db3032070c04b2f12d85be43fe11).
+- P01 follow-up HEAD `ad1f0138`: [run 42759268838](https://github.com/datvtph41107/bdspro/actions/runs/42759268838) **FAILED Test and compile**, specifically: `modules/web.TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods` panic `interface conversion: interface {} is nil, not *web.typedHTTPContext` at `modules/web/router_test.go:573`, invoked from `Router.Methods.func2` at `router.go:322`; and `routers/api/v1.TestAfterRoutingHTTPPreAndTypedAPIContextShareRequestLifecycle` reports HTTP/typed APIContext divergence at `organization_context_test.go:170`. **Do not fix by deleting tests, introducing another global context registry, or masking panic.**
+- Docs PR #219 `2b312cd2`: [run 42762359493](https://github.com/datvtph41107/bdspro/actions/runs/42762359493) **success**. Later coordinator edits created new HEADs, so that run **does not** certify the latest PR.
+- Ownership script correction `f631ad54`: [run 42763221965](https://github.com/datvtph41107/bdspro/actions/runs/42763221965) was **in progress** when last checked. This board commit will create an even newer HEAD needing validation.
+- Current observed `dev` SHA `8dea6dc9` matches the HEADs of both B/C starter branches (verified by GitHub commit-ref fetch). No source PRs were opened by Chat 0; independence requires B/C to stay within their write sets. Refresh before each action.
+
+## 2026-11-10 cross-workstream review — Chat 0
+
+- **Validated GitHub current refs:** `dev@8dea6dc9`, A `d2dcef51` (112 commits ahead), B `868d10f8` (33 ahead), C `553551e3` (12 ahead); all 0 behind at check. Confirm fresh heads before further work.
+- **GitHub diffs:** A 21 paths (includes historical `routers/**` and `services/user/**` cross-owner debt); B 13 `models/**` paths; C 26 `cmd/**`/approved runtime module paths. Three current implementation branches **do not edit any identical paths**. This is a path isolation observation, not integration correctness.
+- **A:** final-head CI success; P01 target incomplete and historical cross-owner lease not approved. Hold merge; A must write a narrowly scoped P01.7 RFC (Router API, callsites, outer `BeforeRouting`), allow coordinator-owned wiring and ensure Auth/OAuth/session tests.
+- **B:** current-head CI completed SUCCESS during this review; `WithTx`/`WithTx2` reuses SQLC executor and prevents nested raw commit, but explicit standalone transaction callback `func(*Queries)` does not expose `txCtx`; a context-first nested call using the original context can still open an independent transaction. This limitation is documented in `models/db/transaction.go`. Review RFC B-P04-01 before gate D; no silent global transaction adapter. Additional `models/auth` and `models/organization` changes must be reviewed as security/domain scope.
+- **C:** final-head CI success, removal of in-memory channel queue has no non-test constructor consumer in the searched `dev` source. Runtime `modules/cache.NewStringCache` also has no production consumer in that search; do not claim complete P06. Config/examples and cache-queue docs require coordinator-owned update or approved lease; no placeholder cache consumer or empty graceful package.
+- **Verdict:** A `CI VERIFIED / P01 BLOCKED`, B `CI VERIFIED / P04 BLOCKED`, C `CI VERIFIED / P06 BLOCKED`; **no source PR ACCEPTED / INTEGRATED**. P03 remains audit-only pending A+B contract gate. See [#218](https://github.com/datvtph41107/bdspro/pull/218), [#221](https://github.com/datvtph41107/bdspro/pull/221), [#220](https://github.com/datvtph41107/bdspro/pull/220).
+
+## 2026-11-10 Chat 0 decision — P01.7 lease and coordinator wiring
+
+- **A exact observed HEAD:** `33bb3c685dce8bd26b7860400c715e7ec0fa770f`; [CI 42788259804](https://github.com/datvtph41107/bdspro/actions/runs/42788259804) **SUCCESS**. This supersedes the earlier A `d2dcef51` snapshot.
+- **Lease APPROVED:** `A-P01.7-API-20261110` for Chat A to modify **only `routers/api/v1/api.go`** during the one-time non-generic Router consumer cutover. See [LEASE_REGISTRY.md](./LEASE_REGISTRY.md). A must not edit `routers/init.go`, `routers/app.go`, `services/user/**` or other API fixtures without a separate lease.
+- **G5 frozen contract:** `web.NewRouter(*gin.Engine) *web.Router`, `(*web.Router).WrapIngress() http.Handler` on same engine, `apiv1.Routes(*gin.Engine,Dependencies) *web.Router`. One Gin matcher and one APIContext/request; BeforeRouting executes before Gin matcher, AfterRouting after matched path. Details in [OWNERSHIP_AND_CONTRACTS.md](./OWNERSHIP_AND_CONTRACTS.md).
+- **Coordinator implementation:** stacked draft [PR #222](https://github.com/datvtph41107/bdspro/pull/222), branch `integration/p01-router-wiring-20261110` from A `33bb3c68`. Chat 0 changed `routers/init.go`, `routers/app.go`, added `routers/app_ingress_test.go`; `Server.Handler()` now serves `CORS(apiRouter.WrapIngress())` rather than bypassing HTTP middleware. Last observed HEAD `99c89a01`; its workflow [42792201172](https://github.com/datvtph41107/bdspro/actions/runs/42792201172) is **in progress**, and the branch is intentionally **not buildable on the old generic Router API** until A's contract migration. Do not merge or claim verified.
+- **Historical #218 disposition:** keep API context/validation tests as migration regressions (coordinate fixture signatures); rehome `routers/init.go` final wiring to Chat 0; reconcile `services/user/{user,update,settings}.go` as DB transaction consumer changes with Chat B. Do not assume historical cross-owner paths are permitted future writes.
+- **Remaining gates:** A P01.7/P01.8 + P02 tests on final HEAD, coordinator refresh #222 from final A source, Go 1.27.3 CI, CORS/proxy/404/405/HEAD/Auth/OAuth/session/CSRF/cancellation/smoke, G1–G6 independent review. **APPROVED lease is not ACCEPTED architecture.** No dev merge.
+
+## 2026-11-10 Chat 0 conditional acceptance: P04-B / P06-C
+
+- **Chat B PR #221:** verified `d73e3ecada31898a59c625431dd4ce890c099348`, 20 `models/**` files, CI [42790012175](https://github.com/datvtph41107/bdspro/actions/runs/42790012175) SUCCESS. **CONDITIONAL ACCEPT scoped P04 models code; integrated G5 BLOCKED**, G6 independent scoped review performed. `WithTxResult` still has out-of-lane callers; raw OAuth refresh replay is commit-then-error. **No B lease** for `services/user/**` because historical A #218 owns overlapping diff. Chat 0 handles user/worker consumers. P05 remains CLOSED. See [B handoff](./CHAT0_TO_CHATB_HANDOFF.md), [lease disposition](./LEASE_REGISTRY.md), [PR221 comment](https://github.com/datvtph41107/bdspro/pull/221#issuecomment-6764137583).
+- **Chat C PR #220:** verified `07287479864a33304c243913d5d99d29f1ba48c7`, 41 paths within C scope, CI [42779188456](https://github.com/datvtph41107/bdspro/actions/runs/42779188456) SUCCESS. **CONDITIONAL ACCEPT scoped P06 runtime source; freeze changes**, docs/templates/go.mod and combined P07 remain Chat 0. No unused cache/channel/graceful module resurrection. See [C handoff](./CHAT0_TO_CHATC_HANDOFF.md) and [PR220 comment](https://github.com/datvtph41107/bdspro/pull/220#issuecomment-6764138330).
+- **Integration ordering:** A non-generic router + Chat0 stacked PR #222; cross-owner `services/user/**` reconciliation and worker outbox transaction migration; B/C integration in isolated branch with final-head A/B/C P07 tests; only then consider merges to `dev`. A/B/C CI green independently does NOT prove combined HEAD passes. Chat D remains read-only until A+B contracts accepted in combined source.
+
+## Chat C final freeze confirmed — 2026-11-10
+
+- Chat 0 independently refetched [PR #220](https://github.com/datvtph41107/bdspro/pull/220): **DRAFT**, unchanged **HEAD `07287479864a33304c243913d5d99d29f1ba48c7`** and original `dev@8dea6dc9`; exact-head [workflow 42779188456](https://github.com/datvtph41107/bdspro/actions/runs/42779188456) succeeded. 41 changed paths in Chat C scope.
+- Chat C delivered the complete [Runtime Integration Contract](https://github.com/datvtph41107/bdspro/pull/220#issuecomment-6764418034), including CLI dependency/cleanup matrix, constructor and import contracts, failure policy, startup/shutdown and P07 verification checklist.
+- **C-01..C-04 CLOSED; Chat C source FROZEN**, no further refactor absent a new evidenced defect; **C-05 docs, C-06 templates/deps, C-07 combined integration, C-10 deleted imports** remain coordinator tasks; **C-08 full failover and uncooperative shutdown, C-09 graceful manager** deferred with documented operational limitations. P06 is **CONDITIONALLY ACCEPTED owner slice**, **NOT INTEGRATED**.
+- Next coordinator action: remove stale cache/channel descriptions in `docs/architecture/{cache-queue,modules}.md` and `docs/operations/configuration.md`; check `custom/conf/app.example.ini` and `docker/root/etc/templates/app.ini`, `go.mod` after combined A/B/C; do not modify C branch. No dev merge until final combined P07 CI and security/runtime acceptance.
+
+## Chat B final post-acceptance handoff confirmed — 2026-11-10
+
+- Chat 0 verified [PR #221](https://github.com/datvtph41107/bdspro/pull/221) still **DRAFT**, frozen **HEAD `d73e3ecada31898a59c625431dd4ce890c099348`**; exact-head [workflow 42790012175](https://github.com/datvtph41107/bdspro/actions/runs/42790012175) completed **SUCCESS**.
+- Chat B delivered [Transaction consumer inventory + security contract](https://github.com/datvtph41107/bdspro/pull/221#issuecomment-6764511290) and [G5 integration RFC](https://github.com/datvtph41107/bdspro/pull/219#issuecomment-6764574911). No source commits since conditional P04 acceptance. **B P04 post-acceptance owner deliverable CLOSED / source FROZEN**. This does not close G5 for integrated code and does not grant unconditional acceptance or dev merge.
+- **Chat 0 owns G5 execution:** reconcile pre-existing A `services/user/{user,update,settings}.go` changes with B `WithTx2(txCtx)` contract, preserving `RequireActingSession(txCtx,q)`/commit-time authority; migrate `services/worker/outbox_dispatcher.go::Dispatch` with preserved `FOR UPDATE SKIP LOCKED`, TaskID, enqueue/ack order, rollback and fault-injection behavior. Explicitly inventory all `WithTxResult` references on **combined** branch before any B-owned retirement.
+- **Security exceptions to preserve:** OAuth refresh replay commits token-family revocation *then* returns replay error, incorrect OTP commits failed-attempt counter, password reset locks account first and atomically revokes sessions/OAuth. `SQLStore.ExecTxRaw` is the physical PG transaction owner; no global context registry, false universal `WithTx` rewriting or new DB adapter.
+- **P05 remains CLOSED** until G5 combined transaction consumers, session TOCTOU, integration tests and final-HEAD CI are accepted. B remains available only for evidence-backed model defect fixes and transaction contract review.
+- Current critical blocker remains Chat A Router/API compile/cutover and Chat 0 stacked [PR #222](https://github.com/datvtph41107/bdspro/pull/222); keep PR #220/#221 untouched while Chat 0 performs integration.
+
+## Chat A final cutover handoff / coordinator ingress integration — 2026-11-10
+
+- **Chat A PR #218** independently refetched at **HEAD `46dfc9e4d5b0c0dacd3ca47359ed90d88d32842f`**, exact [CI 42797385297](https://github.com/datvtph41107/bdspro/actions/runs/42797385297) completed **SUCCESS**. Source `modules/web/router.go` has non-generic `Router`, `NewRouter(*gin.Engine)`, `WrapIngress() http.Handler`; `routers/api/v1/api.go::Routes(*gin.Engine,Dependencies) *web.Router`. No generic `Router[T]` in canonical Router implementation. P01 source delivered, not yet overall G6 ACCEPT.
+- **G2 five fixtures exception:** Chat 0 directly compared `33bb3c68` → `46dfc9e4` changes to `routers/api/v1/organization_context_test.go`, `org/{org_validation,team,team_invite}_test.go`, `user/me_test.go`; approved/closed narrowly scoped [`A-P01.7-FIXTURES-20261110`](./LEASE_REGISTRY.md). This does **not** grant new API test or services/user write permission.
+- **PR #222 coordinator integration** was advanced from A old base to final A HEAD via two-parent merge commit **`b1cb51c47f4f0dc1c1b19a808f560fa1bf6d0f32`**, retaining coordinator changes and all A source. PR #222 base now `46dfc9e4`; its diff against A is **only** `routers/{init,app}.go` and `routers/app_ingress_test.go`; no duplicate Router/Matcher. [Actions 42799499986](https://github.com/datvtph41107/bdspro/actions/runs/42799499986) was **IN PROGRESS** when recorded; do not infer success from A's earlier CI.
+- **Remaining G3/G5/G6:** verify merged HEAD in CI/HTTP smoke; CORS/pre-matcher execution, 404/405/HEAD, trusted proxies, request-local APIContext, Auth/OAuth/session/CSRF and panic/cancellation; independent review historical `services/user/**` against B transaction contract. Do not merge #218 or #222 to dev until gate decision.
+
+## P07 combined integration in progress — 2026-11-10
+
+- **Actual code candidate:** [Draft PR #223](https://github.com/datvtph41107/bdspro/pull/223), branch `integration/p07-gitea-abc-20261110`, base `dev@8dea6dc9`. A #218 `46dfc9e4` plus Chat0 #222 `b1cb51c4`, B #221 `d73e3eca`, C #220 `07287479` merged on isolated branch via two-parent commits `d4bcf7ef` and `d550b070`. **Do not merge dev.**
+- **G4 baseline combined PASS:** [workflow 42800860760](https://github.com/datvtph41107/bdspro/actions/runs/42800860760) at `d550b070148b2adea8535ca7b5721bd151d25414` completed **SUCCESS**, verifying actual A+B+C combination without additional coordinator consumers.
+- **G5 worker consumer migrated:** `services/worker/outbox_dispatcher.go::Dispatch` moved to `db.WithTx(db.WithStore(ctx,d.store),callback(txCtx))`, `TxQueries(txCtx)`, scoped enqueue timeout, preserving row lock/TaskID/enqueue-before-mark/rollback, commit `f139b6c2`; exact [workflow 42800973744](https://github.com/datvtph41107/bdspro/actions/runs/42800973744) completed **SUCCESS**.
+- **G5 user source:** retained A historical `services/user/{user,update,settings}.go`; `UpdateProfile` and `UpdateUserSettings` already call `WithTx2(txCtx)`, `TxQueries(txCtx)`, `RequireActingSession(txCtx,q)`. Do not rewrite them twice. B `WithTxResult` remains until an exact combined-source zero-consumer proof, including tests.
+- **C-05/C-06 implemented on PR #223:** `docs/architecture/cache-queue.md`, `docs/architecture/modules.md`, `docs/operations/configuration.md` no longer claim removed production cache/channel; local/Docker `app.ini` templates document optional validated queue config and no `[cache]`; deleted unused `gomemcache` from `go.mod/go.sum`. P07 tests must verify module tidy and formatting before declaring accepted.
+- **C-10 static tree audit:** none of deleted cache, setting-cache, channel source paths exist on current combined HEAD; full import/compile remains covered by CI. **Additional HTTP regression** in `routers/app_ingress_test.go` covers server CORS→WrapIngress→Gin on 404/405/HEAD, commit `0b6d1c19`. Latest [workflow 42801993327](https://github.com/datvtph41107/bdspro/actions/runs/42801993327) was **IN PROGRESS** when recorded; no final G4/G6 verdict until complete.
+- **Gates now:** G1/G2 scoped A+B+C review done; G3/G4 combined baseline + worker PASS; final-source G3/G4 pending; G5 worker+user consumer paths migrated with OAuth replay/OTP commit exceptions preserved; G6 entire PR223 final independent review and `dev` merge remain **OPEN**. C-08/C-09 deferred by documented runtime policy; no empty graceful/cache modules.
+
+## P07 exact-head integration checkpoint — Chat 0 final review 2026-11-10
+
+- [**Draft PR #223**](https://github.com/datvtph41107/bdspro/pull/223) combines A `46dfc9e4` + Chat0 HTTP `b1cb51c4`, B `d73e3eca`, C `07287479` and coordinator G5/C05/C06/C10 changes. Current **HEAD `e3d74daef6d5ef1414bc07e282bf28b40b53b021`**, dev `8dea6dc9` unchanged. Diff: **240 ahead, 0 behind, 98 paths**.
+- **G4 PASS exact-head**: [workflow 42803884672](https://github.com/datvtph41107/bdspro/actions/runs/42803884672) **24/24 SUCCESS**: Go1.27.3 unit/PG18 integration/race/vet/build, SQLC/OpenAPI/migrations, Asynq SIGKILL/recovery, Gin inventory, benchmark, Docker image/HTTP smoke and **new `go mod tidy -diff`**.
+- **I-01 CLOSED for integrated code**: `Server.Handler` serves CORS→`web.Router.WrapIngress()`→one Gin matcher. Non-generic Router, one APIContext/request; new production-boundary 404/405/HEAD regression tested.
+- **I-02 CLOSED in tested source**: existing A `services/user/{update,settings}.go` verified context-scoped `WithTx2` and session lock; coordinator `services/worker/outbox_dispatcher.go::Dispatch` now uses `WithTx(db.WithStore(ctx,d.store),fn(txCtx))` and `TxQueries(txCtx)`; `FOR UPDATE SKIP LOCKED`, deterministic TaskID, enqueue-before-mark, rollback/at-least-once preserved. Do **not** prematurely delete `WithTxResult` where model/test callers remain. OAuth replay family revocation and OTP failed attempts intentionally commit before reporting errors.
+- **C-05/C-06/C-10 CLOSED in P07 branch**: corrected three docs + both `app.ini` templates, removed `gomemcache` and `statik` orphan checksums, removed Memcached CI service/env, added tidy gate; deleted cache/channel source references absent from combined Git tree. **C-07 combined tests PASS**, whereas C-08 live failover/uncooperative shutdown and C-09 graceful manager remain explicit DEFER.
+- **G1 PASS scoped; G2 PASS integration ownership; G3 PASS tested semantics; G4 PASS exact-head; G5 ACCEPTED for source contracts; G6 Chat 0 CONDITIONAL ACCEPT integration candidate**, not production certification. **NO DEV MERGE** and keep worker PRs + #223 DRAFT pending deliberate merge-order/rollback review. After any merge validate dev HEAD CI.
+- [Canonical G1–G6 detailed verdict and evidence](https://github.com/datvtph41107/bdspro/pull/223).
+
+## Guard script independent verification
+
+`tools/parallel/check-owned-paths.sh` at corrected `f631ad54` was manually syntax-checked with `bash -n` and behavior-tested against a **temporary local Git repository** using the matching script text:
+1. B changing `models/db/context.go`: accepted (exit 0).
+2. A changing a model: rejected (exit 1).
+3. B deleting `modules/web/router.go`: rejected (exit 1).
+4. B moving a coordinator-owned `docs/architecture/parallel-work/README.md` into an owned `models/db/copied.md`: rejected (exit 1).
+
+This verifies the shell rule mechanics on a fixture, **not** the BDSPro repository contents or semantically correct source changes; changes uncommitted or untracked are not covered. Re-run in actual worker branches after fetching this script or after #219 merges. CI enforcement/branch protection not yet configured.
+
+## Priority of the coordinator now
+
+**W0 — Freeze and handoff**: do not allow more than one writer for the same file. A owns HTTP P01/P02 and must resolve its red CI without asking B/C to patch the route test. B starts models-only; C starts runtime-only. D can audit read-only.
+
+**W1 — Independent verification**: for each new PR confirm exact base/head SHA, allowed paths, Gitea source links, tests and current CI. Workers must not report another lane's progress without GitHub evidence.
+
+**W2 — Dependency acceptance**: A publishes stable Router/APIContext; B publishes stable transaction/acting-session; C publishes constructors/lifecycle; coordinator handles `routers/init.go` and shared build changes. Only after these are accepted does D get permission to implement P03.
+
+**W3 — P07**: integration tests, API/OAuth/session regression, SQLC/schema, Go 1.27.3, runtime recovery, route inventory and performance before merge.
+
+## Hand-off protocol
+
+Each worker's next deliverable is a **draft PR**, not a chat promise. Use [HANDOFF_TEMPLATE.md](./HANDOFF_TEMPLATE.md). Update this board only after comparing PR source and Actions against actual GitHub. When an owner needs an unowned file, request an explicit lease in [LEASE_REGISTRY.md](./LEASE_REGISTRY.md).
+
+Related: [README](./README.md) · [OWNERSHIP_AND_CONTRACTS](./OWNERSHIP_AND_CONTRACTS.md) · [INTEGRATION_PROTOCOL](./INTEGRATION_PROTOCOL.md) · [SKILL](./SKILL.md).
