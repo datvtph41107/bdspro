@@ -306,36 +306,7 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 		// Gitea compiles group guards and endpoint actions as one HTTP
 		// continuation chain. Gin only runs the compiled matched route.
 		middlewares, endpoint, _ := wrapMiddlewareAndHandler(r.afterRoutingHTTP, r.curMiddlewares, actions)
-		handlers = append(handlers, func(c *gin.Context) {
-			// The HTTP providers own typed-context initialization; eagerly
-			// calling getContext here would run before AfterRouting providers.
-			// Bind each provider's request/writer to the Gin execution scope.
-			bound := make([]middlewareProvider, len(middlewares))
-			for i, middleware := range middlewares {
-				bound[i] = func(next http.Handler) http.Handler {
-					return ginScopedHandler(c, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-						// HTTP providers propagate their own next request; Gin
-						// compatibility actions may instead replace c.Request
-						// (for example after verifying the live session).
-						// Preserve either update in the downstream HTTP chain.
-						continued := false
-						forward := http.HandlerFunc(func(w http.ResponseWriter, nextReq *http.Request) {
-							if continued {
-								panic("web: HTTP middleware called next more than once")
-							}
-							continued = true
-							if c.Request != req {
-								nextReq = c.Request
-							}
-							next.ServeHTTP(w, nextReq)
-						})
-						middleware(forward).ServeHTTP(w, req)
-					}))
-				}
-			}
-			scopedEndpoint := ginScopedHandler(c, http.HandlerFunc(endpoint))
-			executeMiddlewaresHandler(c.Writer, c.Request, bound, scopedEndpoint.ServeHTTP)
-		})
+		handlers = append(handlers, ginMatchedHandler(middlewares, endpoint))
 	} else {
 		// Gin-only test contexts retain their execution contract; HTTP
 		// providers are bridged in registration order for compatibility.
