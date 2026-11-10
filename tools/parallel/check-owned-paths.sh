@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Advisory path-ownership check for BDSPro parallel coding lanes.
+# Advisory ownership check on committed changes for BDSPro parallel coding lanes.
+# Includes deleted/renamed source paths; ignores uncommitted or untracked files.
 # Usage: bash tools/parallel/check-owned-paths.sh A origin/dev
 set -euo pipefail
 
@@ -24,13 +25,13 @@ while IFS= read -r -d '' path; do
     B) case "$path" in models/*) allowed=1 ;; esac ;; # wave 1: services/user is frozen
     C) case "$path" in cmd/*|modules/setting/*|modules/log/*|modules/cache/*|modules/queue/*|modules/graceful/*) allowed=1 ;; esac ;;
     D) case "$path" in routers/api/v1/*|routers/web/oauth/*|services/auth/*|modules/auth/*) allowed=1 ;; esac ;;
-    0) case "$path" in docs/architecture/parallel-work/*|tools/parallel/*|.github/workflows/*|routers/init.go) allowed=1 ;; esac ;;
+    0) case "$path" in AGENTS.md|docs/architecture/parallel-work/*|tools/parallel/*|.github/workflows/*|routers/init.go) allowed=1 ;; esac ;;
   esac
   if (( ! allowed )); then
     printf 'OUT-OF-SCOPE lane=%s path=%s\n' "$lane" "$path" >&2
     invalid=$((invalid + 1))
   fi
-done < <(git diff --name-only --diff-filter=ACMR -z "${base}...HEAD")
+done < <(git diff --no-renames --name-only --diff-filter=ACDMT -z "${base}...HEAD")
 if (( invalid > 0 )); then
   printf 'FAIL: %d out-of-scope path(s) among %d changed files. Request a coordinator-owned file lease, not an unreviewed exception.\n' "$invalid" "$seen" >&2
   exit 1
