@@ -18,7 +18,7 @@ BDSPro's unfinished P01 feature branch **already** changes paths beyond prospect
 
 The coordinator must decide whether to keep these as approved one-time migration exceptions, split them into subsequent PRs, or rebase/reconcile against fresh `dev`. An existing change is not automatically a reason to let A own that directory permanently.
 
-## APPROVED — A-P01.7-API-20261110 (Chat 0 architecture decision)
+## APPROVED / CLOSED — A-P01.7-API-20261110 (Chat 0 architecture decision)
 
 - **Decision:** APPROVED by **Chat 0 — Architecture Integrator**, 2026-11-10. This is a narrowly scoped **one-time cutover lease**, not permanent A ownership of `routers/api/v1/**`.
 - **File:** `routers/api/v1/api.go` **only**. Owner of the file remains **D / Chat 0 integration**; temporary writer is **Chat A**. No other `routers/**` file, fixture, or `services/user/**` is included.
@@ -32,7 +32,7 @@ The coordinator must decide whether to keep these as approved one-time migration
 
 | Lease ID | Exact path | Requester / writer | File owner | Start SHA | Approver | Status |
 |---|---|---|---|---|---|---|
-| `A-P01.7-API-20261110` | `routers/api/v1/api.go` | A | D / 0 | `33bb3c68` | Chat 0 | **APPROVED / OPEN — P01.7/P01.8 cutover only** |
+| `A-P01.7-API-20261110` | `routers/api/v1/api.go` | A | D / 0 | `33bb3c68` | Chat 0 | **APPROVED / CLOSED — A cutover completed at `46dfc9e4`, incorporated into P07 #223** |
 
 ### Historical PR #218 disposition, independent of the new lease
 
@@ -61,11 +61,20 @@ The coordinator must decide whether to keep these as approved one-time migration
 - **Starting ref:** `33bb3c685dce8bd26b7860400c715e7ec0fa770f`; **accepted fixture cutover A HEAD:** `46dfc9e4d5b0c0dacd3ca47359ed90d88d32842f`. Commit `e013c1430289dd6d373cd800db6c4dcc016f1a88` replaces obsolete generic `web.NewRouter[*APIContext](group,getContext)` calls with `web.NewRouter(engine)` in each file, retains test assertions and routes; `user/me_test.go` moves existing auth/session Gin middleware from group to engine so the same matching/guard test still executes. The `organization_context_test.go` APIContext registration is moved onto the Gin engine before constructor; no new temporary Router or production security policy is created.
 - **Evidence:** exact A-head [CI 42797385297](https://github.com/datvtph41107/bdspro/actions/runs/42797385297) **COMPLETED SUCCESS**; Chat 0 directly compared the five files on start/head, including constructor and middleware changes, not just the A report.
 - **Scope guard:** only these five test fixtures; **no new production ownership for A**. This acceptance does not cover `routers/init.go`, `routers/app.go` (coordinator), service transaction consumers, or future fixture changes. All other historical #218 files keep their existing reconciliation dispositions. New changes require another approved lease.
-- **Integration:** Chat 0 integrated A `46dfc9e4` with coordinator wiring on stacked [PR #222](https://github.com/datvtph41107/bdspro/pull/222) at merge commit `b1cb51c47f4f0dc1c1b19a808f560fa1bf6d0f32`, same matcher; integrated G4/G6 remain pending exact-head workflow and smoke security review.
+- **Integration:** Chat 0 integrated A `46dfc9e4` with coordinator wiring on stacked [PR #222](https://github.com/datvtph41107/bdspro/pull/222) at merge commit `b1cb51c47f4f0dc1c1b19a808f560fa1bf6d0f32`, same matcher; combined source has completed [P07 CI #42803884672](https://github.com/datvtph41107/bdspro/actions/runs/42803884672) successfully on baseline `e3d74dae`; full deployment/merge authorization remains separate.
 
 | Lease ID | Exact paths | Writer | Owner | Starting SHA | End SHA | Decision |
 |---|---|---|---|---|---|---|
 | `A-P01.7-FIXTURES-20261110` | five API fixture tests listed above | Chat A | Chat 0 / D | `33bb3c68` | `46dfc9e4` | **APPROVED / CLOSED (one-time audited exception)** |
+
+## P07 coordinator reconciliation — CLOSED at code-integration level
+
+- **A API/fixture leases:** both source cutover and five-test-fixture exception are **CLOSED**. Final A HEAD `46dfc9e4d5b0c0dacd3ca47359ed90d88d32842f` is an ancestor of combined PR #223.
+- **Historical `services/user/{user,update,settings}.go`:** Chat 0 retained and independently reviewed the existing source against B's P04 model transaction authority. Profile/settings update paths use `db.WithTx2(ctx,func(txCtx))`, `db.TxQueries(txCtx)` and `auth.RequireActingSession(txCtx,q,...)`; source and tests are in combined PR #223. **No B lease was issued**; the deferred B request is **closed without assignment**, not silently approved.
+- **`services/worker/outbox_dispatcher.go`:** Chat 0 completed transaction consumer migration on PR #223 commit `f139b6c2`, `db.WithTx(db.WithStore(ctx,d.store),fn(txCtx))` with scoped `db.TxQueries(txCtx)`. `FOR UPDATE SKIP LOCKED`, TaskID conflict/retry and enqueue-before-mark remain in the verified test suite.
+- **`models/db::WithTxResult`:** **NOT AUTHORIZED FOR REMOVAL.** Production and test model callers remain; deleting it would be a new change with a new lease, call-site inventory, security review and independent CI.
+- **G4/G5:** [workflow #42803884672](https://github.com/datvtph41107/bdspro/actions/runs/42803884672) was green on exact pre-governance HEAD `e3d74dae`. Governance docs PR #219 was incorporated into P07 later (merge `252b008b`); wait for CI on final combined HEAD. Source G5 is accepted for tested boundaries; **do not infer merge authorization or full production-failover proof**.
+- **G6:** conditional source acceptance only. `dev` remains unmoved until final merge/rollback/branch-protection decision. Do not reopen these leases on the argument that old sections refer to an outstanding step.
 
 ## New leases
 
