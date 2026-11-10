@@ -215,7 +215,11 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 		return sqlStore.ExecTxRaw(ctx, func(tx pgx.Tx) error {
 			txCtx := context.WithValue(ctx, rawTxContextKey{}, tx)
 			txCtx = context.WithValue(txCtx, rawTxStoreContextKey{}, sqlStore.pool)
-			return run(txCtx, New(tx))
+			// The SQLC executor itself must validate txCtx, not just the
+			// accessor which originally returned it. A caller may keep *Queries
+			// and accidentally pass the parent request context to its methods.
+			q := New(transactionDBTX{tx: tx, state: state, pool: sqlStore.pool})
+			return run(txCtx, q)
 		})
 	}
 	return store.ExecTx(ctx, func(q *Queries) error {
