@@ -35,9 +35,9 @@ func (s *transactionState) failure() error {
 }
 
 var (
-	ErrStoreMissing        = errors.New("db: store missing from context")
-	ErrTransactionRequired = errors.New("db: transaction required")
-	ErrNestedTransaction   = errors.New("db: nested transaction context has no owner")
+	ErrStoreMissing         = errors.New("db: store missing from context")
+	ErrTransactionRequired  = errors.New("db: transaction required")
+	ErrNestedTransaction    = errors.New("db: nested transaction context has no owner")
 	ErrRawTransactionInSQLC = errors.New("db: raw transaction cannot nest inside SQLC transaction")
 )
 
