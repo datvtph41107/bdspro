@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type contextTestStore struct {
@@ -110,5 +112,90 @@ func TestWithTxRequiresStore(t *testing.T) {
 	err := WithTx(context.Background(), func(context.Context) error { return nil })
 	if !errors.Is(err, ErrStoreMissing) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestSQLStoreExecTxReusesContext(t *testing.T) {
+	owner := &contextTestStore{}
+	ctx := WithStore(context.Background(), owner)
+	// An uninitialized SQLStore must not touch its nil pool when a
+	// transaction-scoped executor is already available.
+	nested := &SQLStore{}
+	err := WithTx(ctx, func(txCtx context.Context) error {
+		expected, err := TxQueries(txCtx)
+		if err != nil {
+			return err
+		}
+		return nested.ExecTx(txCtx, func(got *Queries) error {
+			if got != expected {
+				t.Fatal("SQLStore.ExecTx opened another executor")
+			}
+			return nil
+		})
+	})
+	if err != nil || !owner.committed || owner.transactions != 1 {
+		t.Fatalf("err=%v owner=%+v", err, owner)
+	}
+}
+
+func TestSQLStoreExecTxInnerErrorPoisonsOwner(t *testing.T) {
+	owner := &contextTestStore{}
+	ctx := WithStore(context.Background(), owner)
+	sentinel := errors.New("reject inner SQLStore write")
+	nested := &SQLStore{}
+	err := WithTx(ctx, func(txCtx context.Context) error {
+		inner := nested.ExecTx(txCtx, func(*Queries) error { return sentinel })
+		if !errors.Is(inner, sentinel) {
+			t.Fatalf("inner error=%v", inner)
+		}
+		return nil // swallowed, but the owner must roll back
+	})
+	if !errors.Is(err, sentinel) || owner.committed || owner.transactions != 1 {
+		t.Fatalf("err=%v owner=%+v", err, owner)
+	}
+}
+
+func TestSQLStoreRawTransactionCannotNestInSQLC(t *testing.T) {
+	owner := &contextTestStore{}
+	ctx := WithStore(context.Background(), owner)
+	nested := &SQLStore{}
+	err := WithTx(ctx, func(txCtx context.Context) error {
+		inner := nested.ExecTxRaw(txCtx, func(pgx.Tx) error {
+			t.Fatal("nested raw transaction acquired a separate connection")
+			return nil
+		})
+		if !errors.Is(inner, ErrRawTransactionInSQLC) {
+			t.Fatalf("raw transaction error=%v", inner)
+		}
+		return nil // refusing the raw tx must poison the outer transaction
+	})
+	if !errors.Is(err, ErrRawTransactionInSQLC) || owner.committed || owner.transactions != 1 {
+		t.Fatalf("err=%v owner=%+v", err, owner)
+	}
+}
+
+func TestWithTxCancellationPoisonsCommit(t *testing.T) {
+	owner := &contextTestStore{}
+	ctx, cancel := context.WithCancel(WithStore(context.Background(), owner))
+	defer cancel()
+	err := WithTx(ctx, func(context.Context) error {
+		cancel()
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) || owner.committed || owner.transactions != 1 {
+		t.Fatalf("err=%v owner=%+v", err, owner)
+	}
+}
+
+func TestWithTxAlreadyCanceledDoesNotBegin(t *testing.T) {
+	owner := &contextTestStore{}
+	ctx, cancel := context.WithCancel(WithStore(context.Background(), owner))
+	cancel()
+	err := WithTx(ctx, func(context.Context) error {
+		t.Fatal("canceled transaction should not execute callback")
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) || owner.transactions != 0 {
+		t.Fatalf("err=%v owner=%+v", err, owner)
 	}
 }
