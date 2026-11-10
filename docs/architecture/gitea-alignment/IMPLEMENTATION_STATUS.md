@@ -104,8 +104,8 @@ Patch on the current PR:
 - `modules/web/router.go`: `Router[T].curMiddlewares []any`; `Group(...guards ...any)`; `Methods(...actions ...any)` and HTTP verb helpers accept `...any`. Typed registered contexts now call `wrapMiddlewareAndHandler(nil, r.curMiddlewares, actions)` directly, instead of allocating duplicate `[]any` slices. Legacy unregistered Gin context actions are validated at registration and still run through the explicitly temporary `r.handlers` path.
 - `services/context/gin.go`: `GinActions` returns `[]any` rather than `[]func(*APIContext)` so existing Auth/OAuth routes using `GinActions(...)...` can register with the new contract unchanged.
 - `modules/web/router_test.go`: `TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods` checks scope ordering and response semantics.
-- Commits: `fad6ac17` (route signatures), `b2fb42d5` (test), `8b88ddd1` (GinActions compatibility).
-- CI: https://github.com/datvtph41107/bdspro/actions/runs/42757346217 (observed `in_progress`; fetch latest run and job logs before acceptance).
+- Commits: `fad6ac17` (route signatures), `b2fb42d5` (test), `8b88ddd1` (GinActions compatibility), `7d6dc9c7` (remove unreachable registered-context `compileActions` branch, retain explicit legacy-only path).
+- CI: https://github.com/datvtph41107/bdspro/actions/runs/42757546986 (latest code-only HEAD `7d6dc9c7`, observed `in_progress`; fetch latest run and job logs before acceptance). Earlier route-signature run: https://github.com/datvtph41107/bdspro/actions/runs/42757346217.
 
 **Remaining difference:** this is **NOT** a non-generic Router. Gitea's `Router` has `NewRouter()`; BDSPro still has `Router[T]`, `getContext`, legacy `toGinHandler` and `ginHandlerProvider`. Furthermore `AfterRouting` remains a separately compiled Gin chain, so pre-middleware precedence relative to AfterRouting is **not** yet identical to Gitea's full `wrapMiddlewareAndHandler(r.afterRouting, r.curMiddlewares, h)`. Do not misreport end-to-end parity. Next must unify after-routing with the canonical HTTP compiler while keeping Gin's single matcher and request scope; then remove generic router and test/adapter paths.
 
