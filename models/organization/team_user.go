@@ -3,6 +3,7 @@ package organization
 import (
 	"context"
 	"errors"
+	"time"
 
 	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
@@ -11,6 +12,34 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// TeamMember is the domain relation between a Team and a Person.
+// Gitea owns its TeamUser relation in models/organization/team_user.go;
+// BDSPro preserves its existing Person (rather than Account) membership key.
+type TeamMember struct {
+	TeamID   int64
+	PersonID int64
+	JoinedAt time.Time
+}
+
+// TeamMemberFromDB is the sole SQLC membership-to-model conversion.
+func TeamMemberFromDB(row db.TeamMember) *TeamMember {
+	return &TeamMember{
+		TeamID: row.TeamID, PersonID: row.PersonID, JoinedAt: row.JoinedAt,
+	}
+}
+
+// teamMembersFromDB preserves nil-vs-empty response behavior at the API boundary.
+func teamMembersFromDB(rows []db.TeamMember) []*TeamMember {
+	if rows == nil {
+		return nil
+	}
+	members := make([]*TeamMember, 0, len(rows))
+	for _, row := range rows {
+		members = append(members, TeamMemberFromDB(row))
+	}
+	return members
+}
+
 // TeamMemberWriter is the one SQLC mutation needed by the team model.
 // A regular store and transaction-bound Queries both satisfy it.
 type TeamMemberWriter interface {
@@ -18,21 +47,24 @@ type TeamMemberWriter interface {
 }
 
 // AddTeamUser requires an active Organization owner and an active Organization member.
-func AddTeamUser(ctx context.Context, writer TeamMemberWriter, actorAccountID, teamID, personID int64) (db.TeamMember, error) {
+func AddTeamUser(ctx context.Context, writer TeamMemberWriter, actorAccountID, teamID, personID int64) (*TeamMember, error) {
 	member, err := writer.AddTeamUserForOwner(ctx, db.AddTeamUserForOwnerParams{
 		TeamID: teamID, ActorAccountID: actorAccountID, PersonID: personID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.TeamMember{}, util.WithCause(ErrTeamOwnerRequired, err)
+		return nil, util.WithCause(ErrTeamOwnerRequired, err)
 	}
 	if isPGConstraint(err, "23505", "team_members_pkey") {
-		return db.TeamMember{}, util.WithCause(ErrTeamMemberExists, err)
+		return nil, util.WithCause(ErrTeamMemberExists, err)
 	}
-	return member, err
+	if err != nil {
+		return nil, err
+	}
+	return TeamMemberFromDB(member), nil
 }
 
 // ListTeamUsersForDoer resolves authority from request context, not client input.
-func ListTeamUsersForDoer(ctx context.Context, teamID int64, opts db.ListOptions) ([]db.TeamMember, error) {
+func ListTeamUsersForDoer(ctx context.Context, teamID int64, opts db.ListOptions) ([]*TeamMember, error) {
 	actor, ok := auth_model.ActorFromContext(ctx)
 	if !ok {
 		return nil, auth_model.ErrSessionUnavailable
@@ -45,7 +77,7 @@ func ListTeamUsersForDoer(ctx context.Context, teamID int64, opts db.ListOptions
 }
 
 // ListTeamUsers enforces bounded SQL pagination and active organization membership.
-func ListTeamUsers(ctx context.Context, store db.Store, actorAccountID, teamID int64, opts db.ListOptions) ([]db.TeamMember, error) {
+func ListTeamUsers(ctx context.Context, store db.Store, actorAccountID, teamID int64, opts db.ListOptions) ([]*TeamMember, error) {
 	skip, take, ok := opts.GetSkipTake32()
 	if !ok {
 		return nil, ErrTeamPaginationInvalid
@@ -54,15 +86,17 @@ func ListTeamUsers(ctx context.Context, store db.Store, actorAccountID, teamID i
 		ActorAccountID: actorAccountID, TeamID: teamID,
 		Take: take, Skip: skip,
 	})
-	if err != nil || len(members) != 0 {
-		return members, err
+	if err != nil {
+		return nil, err
 	}
 	// A zero-row SELECT cannot distinguish an empty team from an invisible
 	// team. Check resource visibility only in the empty-result case.
-	if _, err := GetTeam(ctx, store, actorAccountID, teamID); err != nil {
-		return nil, err
+	if len(members) == 0 {
+		if _, err := GetTeam(ctx, store, actorAccountID, teamID); err != nil {
+			return nil, err
+		}
 	}
-	return members, nil
+	return teamMembersFromDB(members), nil
 }
 
 // RemoveTeamUser retains the standalone transaction contract for model callers.
