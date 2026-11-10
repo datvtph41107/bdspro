@@ -1,9 +1,41 @@
 package web
 
 import (
+	"fmt"
+	"reflect"
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
 )
+
+// toHandlerProvider validates handler kinds once at route registration and
+// converts them to the single Gin execution chain. The router owns
+// declarations; this file owns middleware/action adaptation, as in Gitea.
+func (r *Router[T]) toHandlerProvider(middleware any) gin.HandlerFunc {
+	switch handler := middleware.(type) {
+	case gin.HandlerFunc:
+		if handler == nil {
+			panic("web: nil after-routing middleware")
+		}
+		return handler
+	case func(*gin.Context):
+		if handler == nil {
+			panic("web: nil after-routing middleware")
+		}
+		// A plain function is a typed action when T is *gin.Context.
+		// Treat it as such so a committed response terminates the chain.
+		if reflect.TypeFor[T]() == reflect.TypeFor[*gin.Context]() {
+			return r.handlers([]func(T){any(handler).(func(T))})[0]
+		}
+		return gin.HandlerFunc(handler)
+	case func(T):
+		if handler == nil {
+			panic("web: nil after-routing middleware")
+		}
+		return r.handlers([]func(T){handler})[0]
+	default:
+		panic(fmt.Sprintf("web: unsupported after-routing middleware %T", middleware))
+	}
+}
 
 // handlers adapts Gitea-style typed route actions into the single Gin
 // execution chain. This package owns the conversion and continuation policy,
