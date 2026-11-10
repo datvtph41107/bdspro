@@ -2,16 +2,63 @@ package web
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
 )
 
-// toHandlerProvider validates handler kinds once at route registration and
+// middlewareProvider is the net/http continuation contract used by Gitea.
+// It is independent of both the Gin route matcher and typed API contexts.
+type middlewareProvider = func(next http.Handler) http.Handler
+
+// toHandlerProvider validates native HTTP middleware once at registration.
+// A typed API action is handled by the existing route compiler until the
+// APIContext provider migration is completed.
+func toHandlerProvider(handler any) middlewareProvider {
+	switch h := handler.(type) {
+	case func(http.Handler) http.Handler:
+		if h == nil {
+			panic("web: nil HTTP middleware")
+		}
+		return middlewareProvider(h)
+	case func(http.Handler) http.HandlerFunc:
+		if h == nil {
+			panic("web: nil HTTP middleware")
+		}
+		return func(next http.Handler) http.Handler { return h(next) }
+	default:
+		panic(fmt.Sprintf("web: unsupported HTTP middleware %T", handler))
+	}
+}
+
+// ginHandlerProvider is the sole bridge for native net/http middleware into
+// Gin's selected route chain. The middleware must call next to continue;
+// otherwise the remaining Gin route actions are aborted. Request replacement
+// (including context values) must reach subsequent Gin handlers.
+func ginHandlerProvider(provider middlewareProvider) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		continued := false
+		next := http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
+			if continued {
+				panic("web: HTTP middleware called next more than once")
+			}
+			continued = true
+			c.Request = req
+			c.Next()
+		})
+		provider(next).ServeHTTP(c.Writer, c.Request)
+		if !continued {
+			c.Abort()
+		}
+	}
+}
+
+// toGinHandler validates Gin-compatible handler kinds at registration and
 // converts them to the single Gin execution chain. The router owns
 // declarations; this file owns middleware/action adaptation, as in Gitea.
-func (r *Router[T]) toHandlerProvider(middleware any) gin.HandlerFunc {
+func (r *Router[T]) toGinHandler(middleware any) gin.HandlerFunc {
 	switch handler := middleware.(type) {
 	case gin.HandlerFunc:
 		if handler == nil {
