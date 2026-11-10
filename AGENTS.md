@@ -15,7 +15,7 @@ Keep **Go 1.27.3, Gin, SQLC/pgx, PostgreSQL 18, Redis/Asynq and REST**. Match Gi
 
 ## Write ownership
 - **Lane A:** `modules/web/**` and `services/context/**`; P01/P02; existing PR #218 branch.
-- **Lane B:** `models/**` and explicitly approved `services/user/**`; P04/scoped P05; own independent branch from dev.
+- **Lane B:** `models/**` in wave 1; `services/user/**` frozen until Chat 0 reconciles PR #218's current edits and grants a lease; P04/scoped P05; own branch from dev.
 - **Lane C:** `cmd/**` and assigned `modules/setting/log/cache/queue/graceful/**`; P06; own independent branch from dev.
 - **Lane D:** read-only P03 audit until HTTP/DB gate; afterwards approved API/Auth/OAuth paths on independent branch.
 - **Lane 0:** shared contracts, `routers/init.go` wiring, CI/merge and P07 acceptance.
