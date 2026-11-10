@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
@@ -15,7 +14,6 @@ import (
 	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // AuthHandler handles HTTP input and output; authentication operations belong to AuthService.
@@ -323,49 +321,6 @@ func (h *AuthHandler) Revoke(c *gin.Context) {
 		return
 	}
 	if err := h.auth.Revoke(c.Request.Context(), req.RefreshToken); err != nil {
-		appctx.Error(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func (h *AuthHandler) ListSessions(c *gin.Context) {
-	sessions, err := h.auth.ListSessions(c.Request.Context(), appctx.AccountID(c))
-	if err != nil {
-		appctx.Error(c, err)
-		return
-	}
-	if sessions == nil {
-		sessions = []db.ListActiveSessionsRow{}
-	}
-	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"sessions": sessions})
-}
-
-func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		appctx.Reject(c, http.StatusBadRequest, "invalid_session_id", "invalid session id")
-		return
-	}
-	payload, ok := appctx.AuthorizationPayload(c)
-	if !ok {
-		appctx.AuthenticationRequired(c)
-		return
-	}
-	if err := h.auth.RevokeOwnSession(c.Request.Context(), payload.AccountID, payload.SessionID, id); err != nil {
-		appctx.Error(c, err)
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
-func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
-	payload, ok := appctx.AuthorizationPayload(c)
-	if !ok {
-		appctx.AuthenticationRequired(c)
-		return
-	}
-	if err := h.auth.RevokeAllSessions(c.Request.Context(), payload.AccountID, payload.SessionID); err != nil {
 		appctx.Error(c, err)
 		return
 	}
