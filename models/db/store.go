@@ -41,7 +41,9 @@ func NewStore(pool *pgxpool.Pool) *SQLStore {
 }
 
 func (s *SQLStore) Close() {
-	s.pool.Close()
+	if s.pool != nil {
+		s.pool.Close()
+	}
 }
 
 // ExecTx runs SQLC mutations inside the owning PostgreSQL transaction.
@@ -56,6 +58,9 @@ func (s *SQLStore) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 			}
 			return fn(q)
 		})
+	}
+	if s.pool == nil {
+		return ErrTransactionClosed
 	}
 	return s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
 		return fn(New(tx))
@@ -73,6 +78,9 @@ func (s *SQLStore) ExecTxRaw(ctx context.Context, fn func(pgx.Tx) error) error {
 	}
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	if s.pool == nil {
+		return ErrTransactionClosed
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
