@@ -243,8 +243,8 @@ func Routes() *web.Router {
 	m.Group("", func() {
 		if d.Authorization != nil {
 			m.Get("/oauth/clients", appctx.GinActions(d.Authorization.ListClients)...)
-			m.Post("/oauth/clients", appctx.GinActions(
-				appctx.VerifiedContact(d.Store), d.Authorization.CreateClient,
+			m.Post("/oauth/clients", append(
+				[]any{appctx.VerifiedContact()}, appctx.GinActions(d.Authorization.CreateClient)...,
 			)...)
 			m.Delete("/oauth/clients/:id", appctx.GinActions(d.Authorization.DeleteClient)...)
 			m.Get("/users/me/oauth/authorizations", appctx.GinActions(d.Authorization.ListAuthorizations)...)
@@ -288,7 +288,7 @@ func Routes() *web.Router {
 					m.Post("", reqToken(), reqOrgMembership(), reqOrgOwnership(), bind(api.CreateTeamOption{}), org.CreateTeam)
 				})
 			}, orgAssignment(organization_model.ErrTeamOwnerRequired))
-		}, appctx.GinActions(appctx.VerifiedContact(d.Store))...)
+		}, appctx.VerifiedContact())
 		m.Group("/teams", func() {
 			m.Post("/invites/accept", append(
 				appctx.GinActions(d.IPActive.For(ipactive.AcceptTeamInvite)),
@@ -308,7 +308,7 @@ func Routes() *web.Router {
 				)...)
 				m.Delete("/invites/:invite_id", org.RevokeInvite)
 			})
-		}, appctx.GinActions(appctx.VerifiedContact(d.Store))...)
+		}, appctx.VerifiedContact())
 
 		if d.OAuth2 != nil {
 			m.Post("/users/me/oauth2/start", appctx.GinActions(
@@ -316,8 +316,10 @@ func Routes() *web.Router {
 			)...)
 		}
 		if d.OAuth2 != nil && d.PhoneEnabled {
-			m.Post("/users/me/phone/oauth2/start", appctx.GinActions(
-				appctx.VerifiedEmail(d.Store), d.IPActive.For(ipactive.StartOAuth2PhoneBind), d.OAuth2.StartPhoneBind,
+			m.Post("/users/me/phone/oauth2/start", append(
+				[]any{appctx.VerifiedEmail()}, appctx.GinActions(
+					d.IPActive.For(ipactive.StartOAuth2PhoneBind), d.OAuth2.StartPhoneBind,
+				)...,
 			)...)
 		}
 		if d.PhoneEnabled {
@@ -328,7 +330,7 @@ func Routes() *web.Router {
 				m.Post("/verify", appctx.GinActions(
 					d.IPActive.For(ipactive.VerifyPhoneBind), d.Auth.VerifyPhoneBind,
 				)...)
-			}, appctx.GinActions(appctx.VerifiedEmail(d.Store))...)
+			}, appctx.VerifiedEmail())
 		}
 	}, appctx.Authenticate(d.TokenMaker), appctx.RequireSession())
 	return m

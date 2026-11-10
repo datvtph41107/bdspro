@@ -1,87 +1,87 @@
 package context
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
-	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 )
 
-// VerifiedEmail guards business operations, while still allowing unverified
-// users to authenticate, inspect their own account and verify their email.
-func VerifiedEmail(store interface {
-	GetAccountByID(context.Context, int64) (db.Account, error)
-}) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if store == nil {
-			accountStoreUnavailable(c, nil)
+// VerifiedEmail applies the domain admission policy to an already
+// session-verified actor. The request context provides the sole DB executor.
+// This is a typed Gitea-style route guard, not a Gin handler.
+func VerifiedEmail() func(*APIContext) {
+	return func(ctx *APIContext) {
+		actor, ok := ctx.VerifiedActor()
+		if !ok {
+			ctx.AuthenticationRequired()
 			return
 		}
-		account, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
-		if errors.Is(err, pgx.ErrNoRows) {
-			AuthenticationRequired(c)
-			return
-		}
+		store, err := db.StoreFromContext(ctx)
 		if err != nil {
-			accountStoreUnavailable(c, err)
+			identityStoreUnavailable(ctx, err)
 			return
 		}
-		if !account.IsEmailVerified {
-			Reject(c, http.StatusForbidden, "email_verification_required", "email verification required")
+		account, err := store.GetAccountByID(ctx, actor.AccountID)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			ctx.AuthenticationRequired()
 			return
+		case err != nil:
+			identityStoreUnavailable(ctx, err)
+			return
+		case !account.IsEmailVerified:
+			ctx.APIError(http.StatusForbidden, "email_verification_required", "email verification required")
 		}
-		c.Next()
 	}
 }
 
-// VerifiedContact requires at least one verified contact channel. A phone-only
-// account must not be excluded from business routes merely for lacking email.
-func VerifiedContact(store interface {
-	GetAccountByID(context.Context, int64) (db.Account, error)
-	GetPhoneForAccount(context.Context, int64) (string, error)
-}) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if store == nil {
-			accountStoreUnavailable(c, nil)
+// VerifiedContact admits accounts with either a verified email address or a
+// bound phone. Its policy is evaluated from persisted state, never JWT claims.
+func VerifiedContact() func(*APIContext) {
+	return func(ctx *APIContext) {
+		actor, ok := ctx.VerifiedActor()
+		if !ok {
+			ctx.AuthenticationRequired()
 			return
 		}
-		a, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
+		store, err := db.StoreFromContext(ctx)
+		if err != nil {
+			identityStoreUnavailable(ctx, err)
+			return
+		}
+		account, err := store.GetAccountByID(ctx, actor.AccountID)
 		if errors.Is(err, pgx.ErrNoRows) {
-			AuthenticationRequired(c)
+			ctx.AuthenticationRequired()
 			return
 		}
 		if err != nil {
-			accountStoreUnavailable(c, err)
+			identityStoreUnavailable(ctx, err)
 			return
 		}
-		if a.IsEmailVerified {
-			c.Next()
+		if account.IsEmailVerified {
 			return
 		}
-		_, err = store.GetPhoneForAccount(c.Request.Context(), a.ID)
+		_, err = store.GetPhoneForAccount(ctx, account.ID)
 		if err == nil {
-			c.Next()
 			return
 		}
 		if errors.Is(err, pgx.ErrNoRows) {
-			Reject(c, http.StatusForbidden, "contact_verification_required", "verified contact required")
+			ctx.APIError(http.StatusForbidden, "contact_verification_required", "verified contact required")
 			return
 		}
-		accountStoreUnavailable(c, err)
+		identityStoreUnavailable(ctx, err)
 	}
 }
 
-func accountStoreUnavailable(c *gin.Context, err error) {
-	event := log.Ctx(c.Request.Context()).Error().Str("dependency", "postgres")
+func identityStoreUnavailable(ctx *APIContext, err error) {
+	event := log.Ctx(ctx).Error().Str("dependency", "postgres")
 	if err != nil {
-		// The raw database error may contain credentials or private data.
 		event = event.Str("error_type", fmt.Sprintf("%T", err))
 	}
 	event.Msg("auth.identity_store_unavailable")
-	Reject(c, http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
+	ctx.APIError(http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
 }
