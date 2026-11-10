@@ -4,8 +4,8 @@ import "fmt"
 
 // DatabaseSettings limits migration initialization to its actual dependencies.
 type DatabaseSettings struct {
+	DatabaseCommandSettings
 	Environment  string
-	DBSource     string
 	MigrationURL string
 }
 
@@ -14,13 +14,17 @@ func LoadDatabaseSettings(filename string) (DatabaseSettings, error) {
 	if err != nil {
 		return DatabaseSettings{}, err
 	}
-	c := DatabaseSettings{
-		Environment:  p.String("", "RUN_MODE"),
-		DBSource:     p.String("database", "DB_SOURCE"),
-		MigrationURL: p.String("database", "MIGRATION_URL"),
+	base, err := databaseCommandSettings(p)
+	if err != nil {
+		return DatabaseSettings{}, err
 	}
-	if c.DBSource == "" || c.MigrationURL == "" {
-		return c, fmt.Errorf("database.DB_SOURCE and database.MIGRATION_URL are required")
+	c := DatabaseSettings{
+		DatabaseCommandSettings: base,
+		Environment:             p.String("", "RUN_MODE"),
+		MigrationURL:            p.String("database", "MIGRATION_URL"),
+	}
+	if c.MigrationURL == "" {
+		return c, fmt.Errorf("database.MIGRATION_URL is required")
 	}
 	return c, nil
 }

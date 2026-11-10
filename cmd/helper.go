@@ -119,3 +119,21 @@ func loadWorkerSettings(command *cli.Command) (setting.WorkerSettings, error) {
 	log.Info("Using configuration file: %s", filename)
 	return cfg, nil
 }
+
+// loadMigrationSettings shares the database and logger initialization policy
+// with other database-only commands, without requiring HTTP or Redis settings.
+func loadMigrationSettings(command *cli.Command) (setting.DatabaseSettings, error) {
+	filename, err := resolveConfigFile(command)
+	if err != nil {
+		return setting.DatabaseSettings{}, err
+	}
+	cfg, err := setting.LoadDatabaseSettings(filename)
+	if err != nil {
+		return cfg, fmt.Errorf("load migration settings %q: %w", filename, err)
+	}
+	if err := configureCommandLoggers(filename, cfg.Log); err != nil {
+		return cfg, err
+	}
+	log.Info("Using configuration file: %s", filename)
+	return cfg, nil
+}
