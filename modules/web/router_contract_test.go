@@ -31,8 +31,8 @@ func (w *contractRecordingWriter) Write(data []byte) (int, error) {
 
 func TestCanonicalMethodsRegisterAllMethods(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	router := NewRouter(engine)
+	router := NewRouter()
+	engine := router.GinEngine()
 	router.Methods("GET, POST", "/multi", func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -47,8 +47,8 @@ func TestCanonicalMethodsRegisterAllMethods(t *testing.T) {
 
 func TestCanonicalBeforeRoutingRewritesMethodPathAndContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	router := NewRouter(engine)
+	router := NewRouter()
+	engine := router.GinEngine()
 	var wrapped *contractRecordingWriter
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -77,8 +77,8 @@ func TestCanonicalBeforeRoutingRewritesMethodPathAndContext(t *testing.T) {
 
 func TestCanonicalBeforeRoutingCanRejectBeforeMatchingAndHandleHEAD(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	router := NewRouter(engine)
+	router := NewRouter()
+	engine := router.GinEngine()
 	matched, seen := 0, 0
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -114,10 +114,10 @@ func TestCanonicalBeforeRoutingRejectsInvalidAndLateRegistration(t *testing.T) {
 					t.Error("invalid pre-matcher middleware accepted")
 				}
 			}()
-			NewRouter(gin.New()).BeforeRouting(action)
+			NewRouter().BeforeRouting(action)
 		}()
 	}
-	router := NewRouter(gin.New())
+	router := NewRouter()
 	router.Get("/route", func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -133,8 +133,8 @@ func TestCanonicalBeforeRoutingRejectsInvalidAndLateRegistration(t *testing.T) {
 
 func TestCanonicalBeforeRoutingRejectsDuplicateContinuation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	router := NewRouter(engine)
+	router := NewRouter()
+	engine := router.GinEngine()
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			next.ServeHTTP(w, req)
@@ -159,8 +159,8 @@ func TestCanonicalBeforeRoutingRejectsDuplicateContinuation(t *testing.T) {
 
 func TestCanonicalBeforeRoutingCompilesProviderOnce(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	router := NewRouter(engine)
+	router := NewRouter()
+	engine := router.GinEngine()
 	compiled, entered, action := 0, 0, 0
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		compiled++
@@ -188,8 +188,8 @@ func TestCanonicalBeforeRoutingCompilesProviderOnce(t *testing.T) {
 
 func TestCanonicalAfterRoutingOrderAndContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	router := NewRouter(engine)
+	router := NewRouter()
+	engine := router.GinEngine()
 	var sequence []string
 	router.AfterRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -233,8 +233,8 @@ func TestCanonicalAfterRoutingResponseTermination(t *testing.T) {
 		}, http.StatusOK, "done"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			engine := gin.New()
-			router := NewRouter(engine)
+			router := NewRouter()
+			engine := router.GinEngine()
 			router.AfterRouting(tc.action)
 			reached := false
 			router.Get("/deny", func(w http.ResponseWriter, req *http.Request) {
@@ -251,8 +251,8 @@ func TestCanonicalAfterRoutingResponseTermination(t *testing.T) {
 
 func TestCanonicalAfterRoutingPreservesWrappedWriter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	router := NewRouter(engine)
+	router := NewRouter()
+	engine := router.GinEngine()
 	var observed *contractRecordingWriter
 	router.AfterRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -274,7 +274,7 @@ func TestCanonicalAfterRoutingPreservesWrappedWriter(t *testing.T) {
 
 func TestCanonicalAfterRoutingRejectsInvalidProviderAtRegistration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := NewRouter(gin.New())
+	router := NewRouter()
 	var invalid func(http.Handler) http.Handler
 	defer func() {
 		if recover() == nil {
