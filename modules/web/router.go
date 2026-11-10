@@ -209,8 +209,9 @@ func GetForm[T any](store FormStore) T {
 type Router[T any] struct {
 	group          *gin.RouterGroup
 	getContext     func(*gin.Context) T
-	afterRouting   []gin.HandlerFunc
-	curGroupPrefix string
+	afterRouting     []gin.HandlerFunc // Gin-only bootstrap / compatibility boundary
+	afterRoutingHTTP []any             // canonical HTTP provider compilation
+	curGroupPrefix   string
 	curMiddlewares []any
 }
 
@@ -228,20 +229,24 @@ func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *
 	return &Router[T]{group: group, getContext: getContext}
 }
 
-// AfterRouting installs middleware after Gin has resolved the route, before
-// group guards, binding, and the endpoint action. A request context belongs to
-// the selected API route rather than to unmatched or non-API requests.
-// Supports native Gin middleware at the framework boundary and typed actions;
-// unsupported signatures fail during route registration.
-// Register these middlewares before the routes that should receive them.
+// AfterRouting registers middleware after Gin has selected the route.
+// Native HTTP and registered typed handlers are compiled together with group
+// guards and actions by wrapMiddlewareAndHandler. Gin-only bootstrap handlers
+// stay on the explicit compatibility boundary until P02 context migration.
+// Gin bootstrap must run first to install the request-local APIContext.
 func (r *Router[T]) AfterRouting(middlewares ...any) {
 	for _, middleware := range middlewares {
 		switch middleware.(type) {
-		case func(http.Handler) http.Handler, func(http.Handler) http.HandlerFunc, http.HandlerFunc, func(http.ResponseWriter, *http.Request):
-			r.afterRouting = append(r.afterRouting, ginHandlerProvider(toHandlerProvider(middleware)))
+		case web_types.PreMiddlewareProvider, func(http.Handler) http.Handler,
+			func(http.Handler) http.HandlerFunc, http.HandlerFunc,
+			func(http.ResponseWriter, *http.Request):
+			if isNilOrFuncNil(middleware) {
+				panic("web: nil after-routing middleware")
+			}
+			r.afterRoutingHTTP = append(r.afterRoutingHTTP, middleware)
 		default:
 			if isRegisteredTypedHandler(middleware) {
-				r.afterRouting = append(r.afterRouting, ginHandlerProvider(toHandlerProvider(middleware)))
+				r.afterRoutingHTTP = append(r.afterRoutingHTTP, middleware)
 			} else {
 				r.afterRouting = append(r.afterRouting, r.toGinHandler(middleware))
 			}
@@ -301,7 +306,7 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 	if _, registered := responseStatusProviders[reflect.TypeFor[T]()]; registered {
 		// Gitea compiles group guards and endpoint actions as one HTTP
 		// continuation chain. Gin only runs the compiled matched route.
-		middlewares, endpoint, _ := wrapMiddlewareAndHandler(nil, r.curMiddlewares, actions)
+		middlewares, endpoint, _ := wrapMiddlewareAndHandler(r.afterRoutingHTTP, r.curMiddlewares, actions)
 		compiled := ginHandlerProvider(func(http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				executeMiddlewaresHandler(w, req, middlewares, endpoint)
@@ -314,6 +319,11 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 			compiled(c)
 		})
 	} else {
+		// Gin-only test contexts retain their execution contract; HTTP
+		// providers are bridged in registration order for compatibility.
+		for _, middleware := range r.afterRoutingHTTP {
+			handlers = append(handlers, ginHandlerProvider(toHandlerProvider(middleware)))
+		}
 		if len(r.curMiddlewares) > 0 {
 			handlers = append(handlers, r.legacyActions(r.curMiddlewares)...)
 		}
