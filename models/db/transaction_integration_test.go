@@ -381,7 +381,6 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 		}
 	})
 
-
 	t.Run("transaction-scoped Store follows owner rollback", func(t *testing.T) {
 		abort := errors.New("rollback owning transaction")
 		var created int64
@@ -436,7 +435,6 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 			t.Fatalf("escaped Store opened a separate SQLC transaction: %v", err)
 		}
 	})
-
 }
 
 func TestExecTxRawCancellationRollsBackAndReleasesConnection(t *testing.T) {
