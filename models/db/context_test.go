@@ -276,8 +276,8 @@ func TestTxQueriesRejectsUnownedExecutor(t *testing.T) {
 // owning callback returns. This must hold after both COMMIT and ROLLBACK.
 func TestTransactionContextExpiresAfterOwner(t *testing.T) {
 	cases := []struct {
-		name       string
-		rollback   bool
+		name     string
+		rollback bool
 	}{
 		{name: "commit"},
 		{name: "rollback", rollback: true},
