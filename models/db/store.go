@@ -112,6 +112,60 @@ func (d contextDBTX) QueryRow(ctx context.Context, sql string, args ...any) pgx.
 
 var _ DBTX = contextDBTX{}
 
+// transactionDBTX wraps the owning pgx.Tx for SQLC statements that receive
+// a *Queries directly from TxQueries. It forbids a caller from retaining the
+// executor but silently supplying the original (non-transactional) context.
+// The state pointer is the authority; the pgx.Tx itself is never exposed to
+// SQLC callers as an unguarded DBTX.
+type transactionDBTX struct {
+	tx    pgx.Tx
+	state *transactionState
+	pool  *pgxpool.Pool
+}
+
+func (d transactionDBTX) executor(ctx context.Context) (DBTX, error) {
+	if ctx.Value(txStateContextKey{}) != d.state ||
+		ctx.Value(queriesContextKey{}) == nil ||
+		ctx.Value(rawTxStoreContextKey{}) != d.pool {
+		d.state.fail(ErrTransactionRequired)
+		return nil, ErrTransactionRequired
+	}
+	if err := d.state.failure(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		d.state.fail(err)
+		return nil, err
+	}
+	return d.tx, nil
+}
+
+func (d transactionDBTX) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	exec, err := d.executor(ctx)
+	if err != nil {
+		return pgconn.CommandTag{}, err
+	}
+	return exec.Exec(ctx, sql, args...)
+}
+
+func (d transactionDBTX) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	exec, err := d.executor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return exec.Query(ctx, sql, args...)
+}
+
+func (d transactionDBTX) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	exec, err := d.executor(ctx)
+	if err != nil {
+		return queryErrorRow{err: err}
+	}
+	return exec.QueryRow(ctx, sql, args...)
+}
+
+var _ DBTX = transactionDBTX{}
+
 // queryExecutor is the single raw-SQL read/write selector for SQLStore
 // methods that do not own a transaction themselves (e.g. OAuth client reads).
 // Its contract mirrors Gitea GetEngine(ctx): operations with txCtx must use
