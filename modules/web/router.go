@@ -236,8 +236,10 @@ func GetForm[T any](store FormStore) T {
 type Router[T any] struct {
 	group            *gin.RouterGroup
 	getContext       func(*gin.Context) T
-	afterRouting     []gin.HandlerFunc // Gin-only bootstrap / compatibility boundary
-	afterRoutingHTTP []any             // canonical HTTP provider compilation
+	beforeRouting    []middlewareProvider // outer HTTP ingress, before Gin selects a route
+	ingressBound     bool                 // ingress registration freezes after composition
+	afterRouting     []gin.HandlerFunc    // Gin-only bootstrap / compatibility boundary
+	afterRoutingHTTP []any                // canonical HTTP provider compilation
 	curGroupPrefix   string
 	curMiddlewares   []any
 }
@@ -254,6 +256,56 @@ func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *
 		panic(fmt.Sprintf("web: action context %s must implement ResponseStatusProvider", typ))
 	}
 	return &Router[T]{group: group, getContext: getContext}
+}
+
+// BeforeRouting installs HTTP-native middleware ahead of Gin's route matcher.
+// Gin's Engine.Use runs after route lookup, so adding a matched-route handler
+// here would give incorrect semantics for unmatched routes and method rewrites.
+// Only HTTP-native handlers are permitted: APIContext and Gin route parameters
+// do not exist until the engine selects the route.
+func (r *Router[T]) BeforeRouting(middlewares ...any) {
+	if r.ingressBound {
+		panic("web: cannot register BeforeRouting after ingress composition")
+	}
+	for _, middleware := range middlewares {
+		if isNilOrFuncNil(middleware) {
+			panic("web: nil before-routing middleware")
+		}
+		if pre, ok := middleware.(web_types.PreMiddlewareProvider); ok {
+			r.beforeRouting = append(r.beforeRouting, toHandlerProvider(middlewareProvider(pre)))
+			continue
+		}
+		switch middleware.(type) {
+		case middlewareProvider, func(http.Handler) http.HandlerFunc,
+			http.HandlerFunc, func(http.ResponseWriter, *http.Request):
+			r.beforeRouting = append(r.beforeRouting, toHandlerProvider(middleware))
+		default:
+			panic(fmt.Sprintf("web: BeforeRouting requires an HTTP-native middleware, got %T", middleware))
+		}
+	}
+}
+
+// WrapIngress composes BeforeRouting middleware around the SAME Gin engine
+// used by Methods, without creating another matcher or middleware executor.
+// The application HTTP entrypoint must serve the returned handler: simply
+// invoking BeforeRouting without wrapping the engine does not activate it.
+// Unlike AfterRouting, this outer chain also executes for Gin 404/405 routes.
+func (r *Router[T]) WrapIngress(engine http.Handler) http.Handler {
+	if engine == nil {
+		panic("web: nil HTTP engine for ingress")
+	}
+	if r.ingressBound {
+		panic("web: ingress has already been composed")
+	}
+	r.ingressBound = true
+	handler := engine
+	for i := len(r.beforeRouting) - 1; i >= 0; i-- {
+		handler = r.beforeRouting[i](handler)
+		if handler == nil {
+			panic("web: before-routing middleware returned nil handler")
+		}
+	}
+	return handler
 }
 
 // AfterRouting registers middleware after Gin has selected the route.
