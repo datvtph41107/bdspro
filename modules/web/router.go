@@ -207,12 +207,12 @@ func GetForm[T any](store FormStore) T {
 // Router maps typed HTTP actions into Gin at registration time. Gin remains
 // the only middleware executor. Do not mutate this router after startup.
 type Router[T any] struct {
-	group          *gin.RouterGroup
-	getContext     func(*gin.Context) T
+	group            *gin.RouterGroup
+	getContext       func(*gin.Context) T
 	afterRouting     []gin.HandlerFunc // Gin-only bootstrap / compatibility boundary
 	afterRoutingHTTP []any             // canonical HTTP provider compilation
 	curGroupPrefix   string
-	curMiddlewares []any
+	curMiddlewares   []any
 }
 
 func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *Router[T] {
