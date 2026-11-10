@@ -91,9 +91,8 @@ func ConsumeChallenge(ctx context.Context, store db.Store, phone, purpose string
 		if err != nil {
 			return err
 		}
-		// All SQLC statements below share the transaction-scoped executor.
-		ctx := txCtx
-		challenge, err := q.LockPhoneChallengeQuery(ctx, db.LockPhoneChallengeQueryParams{
+
+		challenge, err := q.LockPhoneChallengeQuery(txCtx, db.LockPhoneChallengeQueryParams{
 			PhoneE164: phone, Purpose: purpose,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -110,7 +109,7 @@ func ConsumeChallenge(ctx context.Context, store db.Store, phone, purpose string
 		}
 
 		if !hmac.Equal(challenge.CodeMac, mac) {
-			if err := q.RecordPhoneChallengeFailureQuery(ctx, db.RecordPhoneChallengeFailureQueryParams{
+			if err := q.RecordPhoneChallengeFailureQuery(txCtx, db.RecordPhoneChallengeFailureQueryParams{
 				PhoneE164: phone, Purpose: purpose,
 			}); err != nil {
 				return err
@@ -121,7 +120,7 @@ func ConsumeChallenge(ctx context.Context, store db.Store, phone, purpose string
 
 		switch purpose {
 		case "bind":
-			if err := q.BindPhoneCredentialQuery(ctx, db.BindPhoneCredentialQueryParams{
+			if err := q.BindPhoneCredentialQuery(txCtx, db.BindPhoneCredentialQueryParams{
 				AccountID: accountID, PhoneE164: phone,
 			}); err != nil {
 				if phoneCredentialConflict(err) {
@@ -130,7 +129,7 @@ func ConsumeChallenge(ctx context.Context, store db.Store, phone, purpose string
 				return err
 			}
 		case "login":
-			current, err := q.LockPhoneCredentialQuery(ctx, phone)
+			current, err := q.LockPhoneCredentialQuery(txCtx, phone)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrOTPInvalid
 			}
@@ -144,7 +143,7 @@ func ConsumeChallenge(ctx context.Context, store db.Store, phone, purpose string
 			return ErrOTPInvalid
 		}
 
-		return q.DeletePhoneChallengeQuery(ctx, db.DeletePhoneChallengeQueryParams{
+		return q.DeletePhoneChallengeQuery(txCtx, db.DeletePhoneChallengeQueryParams{
 			PhoneE164: phone, Purpose: purpose,
 		})
 	})
@@ -181,9 +180,8 @@ func CompletePhoneSignup(ctx context.Context, store db.Store, phone string, mac 
 		if err != nil {
 			return err
 		}
-		// All SQLC statements below share the transaction-scoped executor.
-		ctx := txCtx
-		row, err := q.LockPhoneSignup(ctx, phone)
+
+		row, err := q.LockPhoneSignup(txCtx, phone)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrOTPInvalid
 		}
@@ -195,25 +193,25 @@ func CompletePhoneSignup(ctx context.Context, store db.Store, phone string, mac 
 			return ErrOTPInvalid
 		}
 		if !hmac.Equal(row.CodeMac, mac) {
-			if err := q.FailPhoneSignup(ctx, phone); err != nil {
+			if err := q.FailPhoneSignup(txCtx, phone); err != nil {
 				return err
 			}
 			invalidCode = true
 			return nil // Commit failed attempts rather than rolling them back.
 		}
 
-		partyID, err := db.CreatePersonWithParty(ctx, q)
+		partyID, err := db.CreatePersonWithParty(txCtx, q)
 		if err != nil {
 			return err
 		}
-		created, err := q.CreatePhoneOnlyAccount(ctx, partyID)
+		created, err := q.CreatePhoneOnlyAccount(txCtx, partyID)
 		if err != nil {
 			return err
 		}
-		if err := q.CreateAccountSettings(ctx, created.ID); err != nil {
+		if err := q.CreateAccountSettings(txCtx, created.ID); err != nil {
 			return err
 		}
-		if err := q.BindPhoneCredentialQuery(ctx, db.BindPhoneCredentialQueryParams{
+		if err := q.BindPhoneCredentialQuery(txCtx, db.BindPhoneCredentialQueryParams{
 			AccountID: created.ID, PhoneE164: phone,
 		}); err != nil {
 			if phoneRegisteredConflict(err) {
@@ -221,7 +219,7 @@ func CompletePhoneSignup(ctx context.Context, store db.Store, phone string, mac 
 			}
 			return err
 		}
-		if err := q.DeletePhoneSignup(ctx, phone); err != nil {
+		if err := q.DeletePhoneSignup(txCtx, phone); err != nil {
 			return err
 		}
 		account = db.Account{
