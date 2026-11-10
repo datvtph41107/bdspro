@@ -10,8 +10,28 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/web"
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 )
+
+type apiContextRequestKey struct{}
+
+// GetAPIContextFromRequest is the canonical net/http context accessor used by
+// modules/web's typed response-status provider. Gin remains the route matcher;
+// the request context is the only source of this typed capability.
+func GetAPIContextFromRequest(req *http.Request) *APIContext {
+	api, ok := req.Context().Value(apiContextRequestKey{}).(*APIContext)
+	if !ok || api == nil {
+		panic("context: APIContext missing from HTTP request")
+	}
+	return api
+}
+
+func init() {
+	web.RegisterResponseStatusProvider[*APIContext](func(req *http.Request) web_types.ResponseStatusProvider {
+		return GetAPIContextFromRequest(req)
+	})
+}
 
 // APIContext is the API-specific request state. It does not embed or import
 // Gin. The only Gin boundary is gin.go, which builds and reuses this context.
