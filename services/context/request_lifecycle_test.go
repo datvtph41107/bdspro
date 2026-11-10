@@ -169,3 +169,31 @@ func TestTypedAPIContextCancellationPropagatesAndCleansScope(t *testing.T) {
 		t.Fatalf("canceled request status=%d cleanup=%d, want 204 and exactly one cleanup", response.Code, cleanupCount)
 	}
 }
+
+func TestTypedGinAbortWithoutResponseStopsNextAction(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	router := web.NewRouter[*APIContext](engine.Group(""), GetAPIContext)
+	router.AfterRouting(APIContexter())
+	cleanupCount := 0
+	reached := false
+	router.Get("/abort", append(
+		GinActions(func(c *gin.Context) {
+			store := reqctx.FromContext(c.Request.Context())
+			if store == nil {
+				t.Fatal("request scope was not initialized before Gin action")
+			}
+			store.AddCleanup(func() { cleanupCount++ })
+			c.Abort()
+			if c.Writer.Written() {
+				t.Error("Abort alone unexpectedly committed an HTTP response")
+			}
+		}),
+		func(*APIContext) { reached = true },
+	)...)
+	response := httptest.NewRecorder()
+	engine.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/abort", nil))
+	if reached || cleanupCount != 1 {
+		t.Fatalf("aborted Gin action continued=%v, scope cleanup=%d, want false and 1", reached, cleanupCount)
+	}
+}
