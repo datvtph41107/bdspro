@@ -4,7 +4,7 @@ This file is the **entrypoint for coding agents and new ChatGPT work sessions** 
 
 ## Before changing code
 
-1. Read [Parallel workstream README](docs/architecture/parallel-work/README.md), [source mapping](docs/architecture/parallel-work/SOURCE_MAP.md), [ownership and contracts](docs/architecture/parallel-work/OWNERSHIP_AND_CONTRACTS.md), [trust and verification](docs/architecture/parallel-work/TRUST_AND_VERIFICATION.md), [integration protocol](docs/architecture/parallel-work/INTEGRATION_PROTOCOL.md), and [skill](docs/architecture/parallel-work/SKILL.md).
+1. Read [Parallel workstream README](docs/architecture/parallel-work/README.md), [current coordination board](docs/architecture/parallel-work/TASK_BOARD.md), [source mapping](docs/architecture/parallel-work/SOURCE_MAP.md), [ownership and contracts](docs/architecture/parallel-work/OWNERSHIP_AND_CONTRACTS.md), [trust and verification](docs/architecture/parallel-work/TRUST_AND_VERIFICATION.md), [integration protocol](docs/architecture/parallel-work/INTEGRATION_PROTOCOL.md), and [skill](docs/architecture/parallel-work/SKILL.md).
 2. Determine your lane **A, B, C, D or 0**, then read **only** its specialist task file in `docs/architecture/parallel-work/tasks/`.
 3. Fetch the *actual* latest GitHub `dev`, assigned branch, PR diff and final HEAD CI. Do not assume a prior chat's completion claim is fresh.
 4. Read real Gitea source for the corresponding file, its imports and its callers. Compare intent, function design, error propagation and runtime behavior with BDSPro before editing.
