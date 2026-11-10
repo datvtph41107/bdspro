@@ -76,3 +76,17 @@ func TestWorkerRejectsArgumentsBeforeLoadingConfig(t *testing.T) {
 		t.Fatalf("worker parsed config before rejecting argument: %v", err)
 	}
 }
+
+func TestHelpCommandRequiresNoConfigurationOrDependencies(t *testing.T) {
+	app := NewMainApp(AppVersion{Version: "test"})
+	var output bytes.Buffer
+	app.Writer = &output
+	if err := app.Run(context.Background(), []string{"bdspro", "help"}); err != nil {
+		t.Fatalf("built-in help must work without app.ini: %v", err)
+	}
+	for _, name := range []string{"web", "migrate", "worker"} {
+		if !strings.Contains(output.String(), name) {
+			t.Fatalf("help output omitted %s: %s", name, output.String())
+		}
+	}
+}
