@@ -758,3 +758,142 @@ func TestRegisteredTypedRouterRejectsDuplicateHTTPContinuation(t *testing.T) {
 	}()
 	engine.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/duplicate-next", nil))
 }
+
+type ingressTraceKey struct{}
+
+func TestBeforeRoutingRunsBeforeGinMatchingIncluding404(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	var events []string
+	r.BeforeRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			events = append(events, "before")
+			next.ServeHTTP(w, req)
+			events = append(events, "after")
+		})
+	})
+	engine.NoRoute(func(c *gin.Context) {
+		events = append(events, "not-found")
+		c.Status(http.StatusNotFound)
+	})
+	r.Get("/exists", func(c *gin.Context) {
+		events = append(events, "matched")
+		c.Status(http.StatusNoContent)
+	})
+	ingress := r.WrapIngress(engine)
+	for _, tc := range []struct {
+		path   string
+		status int
+		events []string
+	}{
+		{"/missing", http.StatusNotFound, []string{"before", "not-found", "after"}},
+		{"/exists", http.StatusNoContent, []string{"before", "matched", "after"}},
+	} {
+		events = nil
+		rec := httptest.NewRecorder()
+		ingress.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
+		if rec.Code != tc.status || !reflect.DeepEqual(events, tc.events) {
+			t.Errorf("%s: status=%d events=%v, want status=%d events=%v", tc.path, rec.Code, events, tc.status, tc.events)
+		}
+	}
+}
+
+func TestBeforeRoutingRewritesMethodAndPathBeforeGinAndPreservesWriter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	var observed *recordingHTTPWriter
+	r.BeforeRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			observed = &recordingHTTPWriter{ResponseWriter: w}
+			rewritten := req.WithContext(context.WithValue(req.Context(), ingressTraceKey{}, "ingress"))
+			rewritten.Method = http.MethodPost
+			rewritten.URL.Path = "/target"
+			next.ServeHTTP(observed, rewritten)
+		})
+	})
+	r.Post("/target", func(c *gin.Context) {
+		if c.Request.Method != http.MethodPost || c.Request.URL.Path != "/target" || c.Request.Context().Value(ingressTraceKey{}) != "ingress" {
+			t.Errorf("Gin matcher did not receive ingress method/path/context: method=%s path=%s", c.Request.Method, c.Request.URL.Path)
+		}
+		c.JSON(http.StatusAccepted, gin.H{"ok": true})
+	})
+	rec := httptest.NewRecorder()
+	r.WrapIngress(engine).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/source", nil))
+	if rec.Code != http.StatusAccepted || observed == nil || observed.status != http.StatusAccepted || observed.writtenBytes == 0 {
+		t.Fatalf("ingress rewrite/writer status=%d observed=%+v", rec.Code, observed)
+	}
+}
+
+func TestBeforeRoutingMayStopRequestWithoutMatchingAndStillHandleHEAD(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	enteredMatcher := false
+	beforeCalls := 0
+	engine.NoRoute(func(c *gin.Context) {
+		enteredMatcher = true
+		c.Status(http.StatusNotFound)
+	})
+	r.BeforeRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			beforeCalls++
+			if req.URL.Path == "/blocked" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, req)
+		})
+	})
+	r.Head("/head", func(c *gin.Context) {
+		enteredMatcher = true
+		c.Status(http.StatusNoContent)
+	})
+	ingress := r.WrapIngress(engine)
+	blocked := httptest.NewRecorder()
+	ingress.ServeHTTP(blocked, httptest.NewRequest(http.MethodGet, "/blocked", nil))
+	if blocked.Code != http.StatusForbidden || enteredMatcher || beforeCalls != 1 {
+		t.Fatalf("blocked: status=%d entered=%v beforeCalls=%d", blocked.Code, enteredMatcher, beforeCalls)
+	}
+	head := httptest.NewRecorder()
+	ingress.ServeHTTP(head, httptest.NewRequest(http.MethodHead, "/head", nil))
+	if head.Code != http.StatusNoContent || !enteredMatcher || beforeCalls != 2 {
+		t.Fatalf("HEAD: status=%d entered=%v beforeCalls=%d", head.Code, enteredMatcher, beforeCalls)
+	}
+}
+
+func TestBeforeRoutingRejectsInvalidAndLateRegistration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name   string
+		action any
+	}{
+		{"untyped nil", nil},
+		{"typed nil", (func(http.Handler) http.Handler)(nil)},
+		{"nil pre provider", web_types.PreMiddlewareProvider(nil)},
+		{"Gin-only handler", gin.HandlerFunc(func(*gin.Context) {})},
+		{"typed API action", func(*typedHTTPContext) {}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := gin.New()
+			r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+			defer func() {
+				if recover() == nil {
+					t.Error("invalid pre-matcher middleware was accepted")
+				}
+			}()
+			r.BeforeRouting(tc.action)
+		})
+	}
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	r.WrapIngress(engine)
+	defer func() {
+		if recover() == nil {
+			t.Error("mutating ingress middleware after composition was accepted")
+		}
+	}()
+	r.BeforeRouting(func(next http.Handler) http.Handler { return next })
+}
