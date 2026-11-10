@@ -17,8 +17,9 @@ var errTransactionPanicked = errors.New("db: nested transaction callback panicke
 // transactionState ensures an inner transaction error poisons the outer commit
 // even if its caller ignores the returned error. It is request-local.
 type transactionState struct {
-	mu  sync.Mutex
-	err error
+	mu     sync.Mutex
+	err    error
+	closed bool
 }
 
 func (s *transactionState) fail(err error) {
@@ -35,12 +36,22 @@ func (s *transactionState) fail(err error) {
 func (s *transactionState) failure() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed {
+		return ErrTransactionClosed
+	}
 	return s.err
+}
+
+func (s *transactionState) close() {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
 }
 
 var (
 	ErrStoreMissing         = errors.New("db: store missing from context")
 	ErrTransactionRequired  = errors.New("db: transaction required")
+	ErrTransactionClosed    = errors.New("db: transaction context is no longer active")
 	ErrNestedTransaction    = errors.New("db: nested transaction context has no owner")
 	ErrRawTransactionInSQLC = errors.New("db: raw transaction cannot nest inside SQLC transaction")
 )
@@ -128,6 +139,9 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 	}
 	state := &transactionState{}
 	return store.ExecTx(ctx, func(q *Queries) error {
+		// The callback defines the lifetime of this executor. Invalidate any
+		// escaped txCtx before the Store commits, rolls back, or unwinds a panic.
+		defer state.close()
 		txCtx := context.WithValue(ctx, queriesContextKey{}, q)
 		txCtx = context.WithValue(txCtx, txStateContextKey{}, state)
 		err := fn(txCtx)
