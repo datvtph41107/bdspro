@@ -40,6 +40,14 @@ func RequireOIDC(ctx *appctx.APIContext) {
 	if client==nil {ctx.APIErrorNotFound()}
 }
 
+func RequireBrowserOIDC(ctx *appctx.APIContext) {
+	client, _ := auth_service.OAuth2FromContext(ctx)
+	b := browser.FromContext(ctx)
+	if client == nil || b == nil || !b.OIDCEnabled {
+		ctx.APIErrorNotFound()
+	}
+}
+
 func StartLogin(ctx *appctx.APIContext, w http.ResponseWriter) {
 	client, secure, ok := oidc(ctx); if !ok {return}
 	start, err := client.Begin(ctx, "login", 0, "")

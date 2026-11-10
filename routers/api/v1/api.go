@@ -15,7 +15,7 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	security "github.com/datvtph41107/bdspro/services/security"
-	"github.com/gin-gonic/gin"
+	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 )
 
 // orgAssignment loads the resource visible through the caller's active
@@ -145,18 +145,15 @@ func bind[T any](_ T) func(*appctx.APIContext) {
 	}
 }
 
-// Routes returns an independently constructed API subrouter, following
-// Gitea's route composition contract. Capabilities are initialized at startup.
+// Routes owns one route tree. Optional capabilities are checked by their
+// package owner against the current Server request, never a process singleton.
 func Routes() *web.Router {
-	d := getRuntime()
 	m := web.NewRouter()
 	m.AfterRouting(appctx.APIContexter())
 	m.Get("/health", Health)
 
-	// The v1 route tree owns group declarations. Bind process-scoped capabilities
-	// only at registration; request-scoped actor/resources belong to APIContext.
-	// GinActions is the explicit adapter for existing Gin protocol handlers.
-	// New API actions use func(*context.APIContext) directly.
+	// HTTP actions are package functions. No Handler instance or Gin bridge
+	// is passed through route declarations.
 	m.Post("/users",
 		security.IPActiveFor(ipactive.Register),
 		user.Register,
@@ -187,56 +184,43 @@ func Routes() *web.Router {
 	m.Get("/users/password/reset", user.PasswordResetPage)
 	m.Post("/users/password/reset", security.IPActiveFor(ipactive.ConfirmPasswordReset), user.ResetPassword)
 
-	if d.AuthorizationEnabled {
-		if d.Browser != nil {
-			m.Get("/oauth/login", appctx.GinActions(d.Browser.LoginPage)...)
-			loginHandlers := []gin.HandlerFunc{d.Browser.Login}
-			if d.IPActive != nil {
-				loginHandlers = append([]gin.HandlerFunc{d.IPActive.For(ipactive.Login)}, loginHandlers...)
-			}
-			m.Post("/oauth/login", appctx.GinActions(loginHandlers...)...)
-			m.Post("/oauth/logout", appctx.GinActions(d.Browser.RequireBrowserSession, d.Browser.Logout)...)
-			// HTML consent and API bearer authorization share the same typed
-			// OAuth service actions. Browser middleware installs the actor.
-			m.Get("/oauth/authorize", appctx.GinActions(d.Browser.Authenticate, d.Browser.AuthorizePreview)...)
-			m.Post("/oauth/authorize", appctx.GinActions(d.Browser.Authenticate, d.Browser.Authorize)...)
-		} else {
-			m.Get("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), oauth.AuthorizePreview)
-			m.Post("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), oauth.Authorize)
-		}
-		// OAuth authorization-server tokens have an independent lifecycle.
-		m.Post("/oauth/token", security.IPActiveFor(ipactive.RenewAccess), oauth.Token)
-		m.Post("/oauth/revoke", security.IPActiveFor(ipactive.RevokeToken), oauth.Revoke)
-		m.Get("/oauth/userinfo", oauth.UserInfo)
-	}
+	// Both browser consent and bearer authorization use the OAuth package.
+	m.Get("/oauth/login", oauth.RequireEnabled, weboauth.RequireEnabled, weboauth.LoginPage)
+	m.Post("/oauth/login", oauth.RequireEnabled, weboauth.RequireEnabled,
+		security.IPActiveFor(ipactive.Login), weboauth.Login)
+	m.Post("/oauth/logout", oauth.RequireEnabled, weboauth.RequireEnabled,
+		weboauth.RequireBrowserSession, weboauth.Logout)
+	m.Get("/oauth/authorize", oauth.RequireEnabled, weboauth.Authenticate, weboauth.AuthorizePreview)
+	m.Post("/oauth/authorize", oauth.RequireEnabled, weboauth.Authenticate, weboauth.Authorize)
+	m.Post("/oauth/token", oauth.RequireEnabled,
+		security.IPActiveFor(ipactive.RenewAccess), oauth.Token)
+	m.Post("/oauth/revoke", oauth.RequireEnabled,
+		security.IPActiveFor(ipactive.RevokeToken), oauth.Revoke)
+	m.Get("/oauth/userinfo", oauth.RequireEnabled, oauth.UserInfo)
 
-	if d.OAuth2Enabled {
-		if d.Browser != nil && d.Browser.OIDCEnabled {
-			m.Get("/oauth/login/oidc/start",
-				security.IPActiveFor(ipactive.StartOAuth2Login), user.StartBrowserLogin)
-		}
-		m.Get("/users/oauth2/login/start",
-			security.IPActiveFor(ipactive.StartOAuth2Login), user.StartLogin)
-		m.Get("/users/oauth2/callback", user.Callback)
-	}
-	if d.PhoneEnabled {
-		m.Post("/users/phone/register/start", security.IPActiveFor(ipactive.StartPhoneRegister), user.StartPhoneRegister)
-		m.Post("/users/phone/register/verify", security.IPActiveFor(ipactive.VerifyPhoneRegister), user.VerifyPhoneRegister)
-		m.Post("/users/phone/login/start", security.IPActiveFor(ipactive.StartPhoneLogin), user.StartPhoneLogin)
-		m.Post("/users/phone/login/verify", security.IPActiveFor(ipactive.VerifyPhoneLogin), user.VerifyPhoneLogin)
-	}
+	m.Get("/oauth/login/oidc/start", user.RequireBrowserOIDC,
+		security.IPActiveFor(ipactive.StartOAuth2Login), user.StartBrowserLogin)
+	m.Get("/users/oauth2/login/start", user.RequireOIDC,
+		security.IPActiveFor(ipactive.StartOAuth2Login), user.StartLogin)
+	m.Get("/users/oauth2/callback", user.RequireOIDC, user.Callback)
+
+	m.Post("/users/phone/register/start", user.RequirePhone,
+		security.IPActiveFor(ipactive.StartPhoneRegister), user.StartPhoneRegister)
+	m.Post("/users/phone/register/verify", user.RequirePhone,
+		security.IPActiveFor(ipactive.VerifyPhoneRegister), user.VerifyPhoneRegister)
+	m.Post("/users/phone/login/start", user.RequirePhone,
+		security.IPActiveFor(ipactive.StartPhoneLogin), user.StartPhoneLogin)
+	m.Post("/users/phone/login/verify", user.RequirePhone,
+		security.IPActiveFor(ipactive.VerifyPhoneLogin), user.VerifyPhoneLogin)
 
 	// The live first-party PostgreSQL session is verified once at ingress.
 	// Resource assignment and SQLC write authority remain separate concerns.
 	m.Group("", func() {
-		if d.AuthorizationEnabled {
-			m.Get("/oauth/clients", oauth.ListClients)
-			m.Post("/oauth/clients", appctx.VerifiedContact(), oauth.CreateClient)
-			m.Delete("/oauth/clients/:id", oauth.DeleteClient)
-			// First-party actor authority is verified by the parent group.
-			m.Get("/users/me/oauth/authorizations", oauth.ListAuthorizations)
-			m.Delete("/users/me/oauth/authorizations/:client_id", oauth.RevokeAuthorization)
-		}
+		m.Get("/oauth/clients", oauth.RequireEnabled, oauth.ListClients)
+		m.Post("/oauth/clients", oauth.RequireEnabled, appctx.VerifiedContact(), oauth.CreateClient)
+		m.Delete("/oauth/clients/:id", oauth.RequireEnabled, oauth.DeleteClient)
+		m.Get("/users/me/oauth/authorizations", oauth.RequireEnabled, oauth.ListAuthorizations)
+		m.Delete("/users/me/oauth/authorizations/:client_id", oauth.RequireEnabled, oauth.RevokeAuthorization)
 		m.Get("/users/me", user.GetAuthenticatedUser)
 		m.Patch("/users/me/profile", bind(api.ProfileUpdateRequest{}), user.UpdateProfile)
 		m.Get("/users/me/settings", user.GetUserSettings)
@@ -273,10 +257,9 @@ func Routes() *web.Router {
 			}, orgAssignment(organization_model.ErrTeamOwnerRequired))
 		}, appctx.VerifiedContact())
 		m.Group("/teams", func() {
-			m.Post("/invites/accept", append(
-				appctx.GinActions(d.IPActive.For(ipactive.AcceptTeamInvite)),
-				bind(api.AcceptTeamInviteOption{}), org.AcceptInvite,
-			)...)
+			m.Post("/invites/accept",
+				security.IPActiveFor(ipactive.AcceptTeamInvite),
+				bind(api.AcceptTeamInviteOption{}), org.AcceptInvite)
 			m.Group("/:team_id", func() {
 				// Keep assignment on GET only: mutations still authorize with live
 				// acting-session and owner-scoped SQLC checks in services/org.
@@ -285,30 +268,24 @@ func Routes() *web.Router {
 				m.Get("/members", reqToken(), org.ListTeamMembers)
 				m.Post("/members", reqToken(), bind(api.AddTeamUserOption{}), org.AddTeamMember)
 				m.Delete("/members/:person_id", reqToken(), org.RemoveTeamMember)
-				m.Post("/invites", append(
-					appctx.GinActions(d.IPActive.For(ipactive.CreateTeamInvite)),
-					bind(api.CreateTeamInviteOption{}), org.CreateInvite(d.InviteKey),
-				)...)
+				m.Post("/invites",
+					security.IPActiveFor(ipactive.CreateTeamInvite),
+					bind(api.CreateTeamInviteOption{}), org.CreateInvite)
 				m.Delete("/invites/:invite_id", org.RevokeInvite)
 			})
 		}, appctx.VerifiedContact())
 
-		if d.OAuth2Enabled {
-			m.Post("/users/me/oauth2/start",
-				security.IPActiveFor(ipactive.StartOAuth2Link), user.StartLink)
-		}
-		if d.OAuth2Enabled && d.PhoneEnabled {
-			m.Post("/users/me/phone/oauth2/start",
-				appctx.VerifiedEmail(),
-				security.IPActiveFor(ipactive.StartOAuth2PhoneBind),
-				user.StartOAuth2PhoneBind)
-		}
-		if d.PhoneEnabled {
-			m.Group("/users/me/phone", func() {
-				m.Post("/start", security.IPActiveFor(ipactive.StartPhoneBind), user.StartPhoneBind)
-				m.Post("/verify", security.IPActiveFor(ipactive.VerifyPhoneBind), user.VerifyPhoneBind)
-			}, appctx.VerifiedEmail())
-		}
+		m.Post("/users/me/oauth2/start", user.RequireOIDC,
+			security.IPActiveFor(ipactive.StartOAuth2Link), user.StartLink)
+		m.Post("/users/me/phone/oauth2/start", user.RequireOIDC, user.RequirePhone,
+			appctx.VerifiedEmail(), security.IPActiveFor(ipactive.StartOAuth2PhoneBind),
+			user.StartOAuth2PhoneBind)
+		m.Group("/users/me/phone", func() {
+			m.Post("/start", user.RequirePhone,
+				security.IPActiveFor(ipactive.StartPhoneBind), user.StartPhoneBind)
+			m.Post("/verify", user.RequirePhone,
+				security.IPActiveFor(ipactive.VerifyPhoneBind), user.VerifyPhoneBind)
+		}, appctx.VerifiedEmail())
 	}, appctx.Authenticate(), appctx.RequireSession())
 	return m
 }
