@@ -12,18 +12,32 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	"github.com/datvtph41107/bdspro/modules/setting"
-	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type connectionsStoreFake struct {
 	db.Store
 	accountID int64
+	sessionID uuid.UUID
+	blocked   bool
+	lookups   int
 	calls     []int64
 	err       error
+}
+
+func (s *connectionsStoreFake) GetSession(_ context.Context, id uuid.UUID) (db.Session, error) {
+	s.lookups++
+	if id != s.sessionID {
+		return db.Session{}, pgx.ErrNoRows
+	}
+	return db.Session{
+		ID: s.sessionID, AccountID: s.accountID, IsBlocked: s.blocked,
+		ExpiresAt: time.Now().Add(time.Hour),
+	}, nil
 }
 
 func (s *connectionsStoreFake) ListAccountConnectionHistories(_ context.Context, accountID int64) ([]db.ListAccountConnectionHistoriesRow, error) {
@@ -35,7 +49,7 @@ func (s *connectionsStoreFake) ListAccountConnectionHistories(_ context.Context,
 		return nil, nil
 	}
 	return []db.ListAccountConnectionHistoriesRow{{
-		ID: 10, SessionID: uuid.New(), Action: "login",
+		ID: 10, SessionID: s.sessionID, Action: "login",
 		IpAddress: "203.0.113.10", UserAgent: "TestClient",
 		CreatedAt: time.Date(2026, 11, 5, 0, 0, 0, 0, time.UTC),
 	}}, nil
@@ -47,25 +61,43 @@ func TestGetConnectionsUsesVerifiedAccountAndSafeErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	access, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeAccess)
+	sessionID := uuid.New()
+	access, _, err := maker.CreateSessionAccessToken(42, time.Minute, sessionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := &connectionsStoreFake{accountID: 42}
-	handler := NewAuthHandler(auth_service.NewAuthService(store, maker, setting.Config{}, nil), nil, nil)
-	router := gin.New()
-	router.GET("/users/me/connections", appctx.Authenticate(maker), handler.GetConnections)
+	stale, _, err := maker.CreateSessionAccessToken(42, time.Minute, uuid.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &connectionsStoreFake{accountID: 42, sessionID: sessionID}
+	engine := gin.New()
+	engine.Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), store))
+		c.Next()
+	}, appctx.APIContexter())
+
+	// Match the production registration contract: the Gitea-style action
+	// receives a verified request context, not merely a valid JWT payload.
+	router := web.NewRouter(engine)
+	router.Group("", func() {
+		router.Get("/users/me/connections", GetConnections)
+	}, appctx.GinActions(appctx.Authenticate(maker), appctx.RequireSession(store))...)
+
 	request := func(bearer string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/users/me/connections?account_id=777", nil)
 		if bearer != "" {
 			req.Header.Set("Authorization", "Bearer "+bearer)
 		}
 		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
+		engine.ServeHTTP(w, req)
 		return w
 	}
 	if w := request(""); w.Code != http.StatusUnauthorized || len(store.calls) != 0 {
 		t.Fatalf("unauthenticated request reached history: %d %+v", w.Code, store.calls)
+	}
+	if w := request(stale); w.Code != http.StatusUnauthorized || len(store.calls) != 0 {
+		t.Fatalf("unknown signed session reached history: %d %+v", w.Code, store.calls)
 	}
 	w := request(access)
 	if w.Code != http.StatusOK || len(store.calls) != 1 || store.calls[0] != 42 {
@@ -88,6 +120,11 @@ func TestGetConnectionsUsesVerifiedAccountAndSafeErrors(t *testing.T) {
 			t.Fatalf("connection leaks field %q: %s", forbidden, w.Body.String())
 		}
 	}
+	store.blocked = true
+	if w := request(access); w.Code != http.StatusUnauthorized || len(store.calls) != 1 {
+		t.Fatalf("revoked session reached history: %d %+v", w.Code, store.calls)
+	}
+	store.blocked = false
 	store.err = errors.New("sensitive sql details")
 	w = request(access)
 	if w.Code != http.StatusInternalServerError || strings.Contains(w.Body.String(), "sensitive sql details") {
