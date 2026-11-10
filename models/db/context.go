@@ -73,6 +73,19 @@ func WithStore(ctx context.Context, store Transactioner) context.Context {
 	return context.WithValue(ctx, storeContextKey{}, store)
 }
 
+// transactionStoreMatches is the single ownership check for SQLStore
+// handles used inside a transaction. A full ingress Store is valid only for
+// the originating pool. A transaction-scoped Store view is valid only when
+// it holds the exact SQLC Queries pointer bound to the current txCtx.
+func transactionStoreMatches(ctx context.Context, store *SQLStore, q *Queries) bool {
+	ownerPool := ctx.Value(rawTxStoreContextKey{})
+	if store == nil || q == nil || ownerPool == nil {
+		return false
+	}
+	return store.pool == ownerPool ||
+		(store.pool == nil && store.Queries == q)
+}
+
 // StoreFromContext resolves a query capability for the current context.
 // Outside a transaction it returns the ingress Store. Inside a transaction
 // it MUST expose only the transaction's SQLC executor, matching Gitea's
@@ -88,8 +101,7 @@ func StoreFromContext(ctx context.Context) (Store, error) {
 			return nil, err
 		}
 		store, ok := ctx.Value(storeContextKey{}).(*SQLStore)
-		if !ok || store == nil || ctx.Value(rawTxStoreContextKey{}) == nil ||
-			ctx.Value(rawTxStoreContextKey{}) != store.pool {
+		if !ok || !transactionStoreMatches(ctx, store, q) {
 			if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
 				state.fail(ErrTxStoreUnavailable)
 			}
@@ -146,9 +158,13 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 		// A nested callback must not silently retain SQLStore A's executor
 		// when a model replaces its Store in the context with SQLStore B.
 		// This is the same context-engine authority as GetEngine in Gitea.
-		if owner := ctx.Value(rawTxStoreContextKey{}); owner != nil {
+		if ctx.Value(rawTxStoreContextKey{}) != nil {
+			q, err := TxQueries(ctx)
+			if err != nil {
+				return err
+			}
 			store, ok := ctx.Value(storeContextKey{}).(*SQLStore)
-			if !ok || store == nil || store.pool != owner {
+			if !ok || !transactionStoreMatches(ctx, store, q) {
 				state.fail(ErrTxStoreUnavailable)
 				return ErrTxStoreUnavailable
 			}
