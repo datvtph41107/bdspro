@@ -17,8 +17,9 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	api_oauth "github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	"github.com/datvtph41107/bdspro/modules/web"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -75,7 +76,7 @@ func (s *browserOAuthStore) ApproveOAuthAuthCode(_ context.Context, _ uuid.UUID,
 	return nil
 }
 
-func newBrowserTest(t *testing.T) (*gin.Engine, *browserStore, *browserOAuthStore, authcrypto.Maker) {
+func newBrowserTest(t *testing.T) (*web.Router, *browserStore, *browserOAuthStore, authcrypto.Maker) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	sid := uuid.MustParse(browserTestID)
@@ -98,22 +99,25 @@ func newBrowserTest(t *testing.T) (*gin.Engine, *browserStore, *browserOAuthStor
 		t.Fatal(err)
 	}
 	service := oauth_service.NewService(oauthStore)
-	handler, err := NewHandler(Config{
-		Store: store, OAuth: service, API: api_oauth.NewHandler(service, store, proofs),
-		Proofs: proofs, Maker: maker, Codec: codec, PublicOrigin: browserTestOrigin,
-		Login: func(context.Context, string, string, string, string) (auth_service.LoginResult, error) {
-			return auth_service.LoginResult{Session: store.session}, nil
-		},
-	})
+	browser, err := NewBrowser(Config{Codec: codec, PublicOrigin: browserTestOrigin})
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := gin.New()
-	r.GET("/oauth/login", handler.LoginPage)
-	r.POST("/oauth/login", handler.Login)
-	r.GET("/oauth/authorize", handler.Authenticate, handler.AuthorizePreview)
-	r.POST("/oauth/authorize", handler.Authenticate, handler.Authorize)
-	r.POST("/oauth/logout", handler.RequireBrowserSession, handler.Logout)
+	r := web.NewRouter()
+	r.AfterRouting(appctx.APIContexter())
+	r.GinEngine().Use(func(c *gin.Context) {
+		ctx := db.WithStore(c.Request.Context(), store)
+		ctx = authcrypto.WithMaker(ctx, maker)
+		ctx = oauth_service.WithService(ctx, service, proofs)
+		ctx = WithBrowser(ctx, browser)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	})
+	r.Get("/oauth/login", LoginPage)
+	r.Post("/oauth/login", Login)
+	r.Get("/oauth/authorize", Authenticate, AuthorizePreview)
+	r.Post("/oauth/authorize", Authenticate, Authorize)
+	r.Post("/oauth/logout", RequireBrowserSession, Logout)
 	return r, store, oauthStore, maker
 }
 
@@ -128,7 +132,7 @@ func oauthForm(app *browserOAuthStore) url.Values {
 		"code_challenge_method": {"S256"},
 	}
 }
-func req(t *testing.T, r *gin.Engine, method, path string, data url.Values, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+func req(t *testing.T, r http.Handler, method, path string, data url.Values, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
 	var body *strings.Reader
 	if data == nil {
@@ -183,21 +187,26 @@ func TestBrowserLoginConsentAndRevokedSession(t *testing.T) {
 		t.Fatal("unsafe login cookie")
 	}
 	csrf := hiddenValue(t, page.Body.String(), "csrf")
-	loginForm := url.Values{
-		"next": {next}, "csrf": {csrf},
-		"email": {"user@example.test"}, "password": {"good-password"},
-	}
 	badLogin := req(t, r, http.MethodPost, "/oauth/login", url.Values{
 		"next": {next}, "email": {"user@example.test"}, "password": {"good-password"},
 	}, loginNonce)
 	if badLogin.Code != http.StatusForbidden {
 		t.Fatalf("login accepted missing CSRF: %d", badLogin.Code)
 	}
-	login := req(t, r, http.MethodPost, "/oauth/login", loginForm, loginNonce)
-	if login.Code != http.StatusSeeOther || login.Header().Get("Location") != next {
-		t.Fatalf("browser login rejected: %d %s location=%s", login.Code, login.Body.String(), login.Header().Get("Location"))
+	openRedirect := req(t, r, http.MethodPost, "/oauth/login", url.Values{
+		"next": {"https://evil.example.test/"}, "csrf": {csrf},
+	}, loginNonce)
+	if openRedirect.Code != http.StatusBadRequest {
+		t.Fatalf("browser login accepted untrusted return URL: %d", openRedirect.Code)
 	}
-	sessionCookie := cookieNamed(t, login, "__Host-bdspro-browser")
+	// The pure HTTP/consent fixture starts from a codec-issued browser cookie.
+	// Password verification and actual session creation are covered by the
+	// disposable-Postgres browser integration test, not a production login mock.
+	codec, err := authcrypto.NewBrowserSessionCodec(strings.Repeat("s", 32))
+	if err != nil { t.Fatal(err) }
+	token, err := codec.IssueCookie(store.session.ID.String(), time.Now(), store.session.ExpiresAt)
+	if err != nil { t.Fatal(err) }
+	sessionCookie := authcrypto.BrowserSessionCookie(token, true)
 	if !sessionCookie.Secure || !sessionCookie.HttpOnly || sessionCookie.Domain != "" {
 		t.Fatalf("unsafe browser cookie: %+v", sessionCookie)
 	}
@@ -308,11 +317,16 @@ func TestCompleteOIDCLoginIssuesBrowserSessionNotJWT(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := &Handler{Config: Config{Codec: codec, PublicOrigin: browserTestOrigin, OIDCEnabled: true},
-		originHost: "auth.example.test", secure: true}
-	r := gin.New()
-	r.GET("/oidc/done", func(c *gin.Context) {
-		h.CompleteOIDCLogin(c, auth_service.LoginResult{Session: store.session,
+	browser, err := NewBrowser(Config{Codec: codec, PublicOrigin: browserTestOrigin, OIDCEnabled: true})
+	if err != nil { t.Fatal(err) }
+	r := web.NewRouter()
+	r.AfterRouting(appctx.APIContexter())
+	r.GinEngine().Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(WithBrowser(c.Request.Context(), browser))
+		c.Next()
+	})
+	r.Get("/oidc/done", func(ctx *appctx.APIContext, w http.ResponseWriter) {
+		CompleteOIDCLogin(ctx, w, auth_service.LoginResult{Session: store.session,
 			AccessToken: "jwt-must-not-appear", RefreshToken: "refresh-must-not-appear"},
 			"/oauth/authorize?state=abcdef1234567890")
 	})
@@ -328,9 +342,14 @@ func TestCompleteOIDCLoginIssuesBrowserSessionNotJWT(t *testing.T) {
 	if _, err := codec.ReadCookie(cookie.Value, time.Now()); err != nil {
 		t.Fatalf("invalid browser completion cookie: %v", err)
 	}
-	bad := gin.New()
-	bad.GET("/oidc/done", func(c *gin.Context) {
-		h.CompleteOIDCLogin(c, auth_service.LoginResult{Session: store.session}, "https://evil.example/")
+	bad := web.NewRouter()
+	bad.AfterRouting(appctx.APIContexter())
+	bad.GinEngine().Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(WithBrowser(c.Request.Context(), browser))
+		c.Next()
+	})
+	bad.Get("/oidc/done", func(ctx *appctx.APIContext, w http.ResponseWriter) {
+		CompleteOIDCLogin(ctx, w, auth_service.LoginResult{Session: store.session}, "https://evil.example/")
 	})
 	badRec := req(t, bad, http.MethodGet, "/oidc/done", nil)
 	if badRec.Code != http.StatusBadRequest || badRec.Header().Get("Set-Cookie") != "" {
