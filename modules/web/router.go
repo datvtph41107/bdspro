@@ -350,7 +350,12 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 						// compatibility actions may instead replace c.Request
 						// (for example after verifying the live session).
 						// Preserve either update in the downstream HTTP chain.
+						continued := false
 						forward := http.HandlerFunc(func(w http.ResponseWriter, nextReq *http.Request) {
+							if continued {
+								panic("web: HTTP middleware called next more than once")
+							}
+							continued = true
 							if c.Request != req {
 								nextReq = c.Request
 							}
