@@ -16,10 +16,10 @@ LevelDB backend exists.
 | BDSPro module | Responsibility | Consumer and constraints |
 | --- | --- | --- |
 | `conn` | `manager_redis.go`: verified shared process-level go-redis clients, explicit close | cmd web/worker, Gin security, OIDC state; no auth policy here |
-| `json` | only Marshal, Unmarshal and NewDecoder backed by strict JSON v2 | cache, OAuth2 state/provider payloads, Asynq; Gin responses remain separate |
-| `cache` | memory LRU, Redis, Memcached, JSON and request-context memoization; TTL/invalidation/miss/error | opt-in future consumers; **not used for security state** |
-| `queue` | Asynq Redis producer/worker, bounded transient channel backend, worker Manager, logging and config | cmd worker and services/worker; transient channel has **no retry/durability** |
-| `setting` | app.ini config, paths, typed settings, cache defaults | cmd, cache construction, service configuration |
+| `json` | strict JSON serialization helpers used by existing callers | OAuth2 state/provider payloads and Asynq; Gin responses remain separate |
+| `cache` | **NOT PRESENT** after P06; no production consumers justified a backend | add only for a proven read-heavy consumer with invalidation and failure policy |
+| `queue` | Asynq Redis producer/processor, worker Manager and validated queue config | cmd worker and services/worker durable SQL outbox; no channel backend |
+| `setting` | app.ini config paths, command-specific typed settings, worker queue validation | cmd and services; no cache settings loader |
 | `log` | structured logs, console/file writers and close behavior | runtime and adapters; redact credentials |
 | `auth` | password hash/check and JWT access/refresh maker/claims | services/auth, services/context, HTTP startup; no DB sessions here |
 | `timeutil` | SecondsCeil (Redis rate limit TTL) and Expired (JWT and DB sessions) | services/security, models/auth, modules/auth; no second DB timestamp type |
@@ -53,40 +53,30 @@ modules/timeutil/
 modules/util/
     error.go
     random.go
-modules/cache/
-    cache.go
-    string_cache.go
-    cache_memory.go
-    cache_redis.go
-    cache_memcache.go
-    context.go
 modules/queue/
     queue.go
     manager.go
     base.go
     base_redis.go
-    base_channel.go
     workerqueue.go
-    channel_worker.go
     config.go
     logger.go
 modules/setting/
-    cache.go
     provider.go
     config.go
+    queue.go
+    worker.go
+    database.go
 ```
 
-The Redis queue is not Gitea's specialized worker-queue engine because BDSPro
-already runs Asynq. The channel backend has independent, deliberately non-durable semantics and is not used for committed jobs. The cache adapter borrows Redis clients and cannot close
-them. Asynq creates separate internal Redis connections; sharing one go-redis
-`*Client` does not automatically share Asynq's internal connection pool.
-Details, tests and limitations: [R28 cache/queue ownership](cache-queue.md).
+BDSPro uses Asynq with a PostgreSQL outbox and does not copy Gitea's specialized worker-queue engine. P06 removed both the non-durable channel backend and unused cache package. Asynq creates separate internal Redis connections; sharing one go-redis `*Client` does not automatically share Asynq's internal connection pool.
+Current contracts, tests and limitations: [P07 queue, outbox and Redis ownership](cache-queue.md).
 JSON semantics, Gitea evidence and compatibility: [JSON serialization policy](json.md).
 
 ## Additional Gitea module candidates
 
 - `modules/web`: Gitea wraps Chi routing, request binding and middleware.
-  BDSPro keeps Gin directly; a second router engine has no demonstrated value.
+  BDSPro now has one non-generic `web.Router` compiling actions onto one Gin matcher; `Server.Handler` serves `CORS(WrapIngress())`.
 - `modules/graceful`, `modules/process`: add only when `cmd` context and
   native HTTP/Asynq shutdown fail a concrete lifecycle acceptance test.
 - `modules/storage`, `modules/httpcache`, `modules/paginator`: add with
@@ -101,6 +91,10 @@ JSON semantics, Gitea evidence and compatibility: [JSON serialization policy](js
 Before adding a module, state its caller, backend, lifecycle owner, failure
 semantics, configuration source and discriminating test. No empty future
 directories, duplicate queue engines or cache fallback for OTP/rate-limits.
+
+## P06 ownership update
+
+The removed `modules/cache/**`, `modules/setting/cache*` and `modules/queue/{base_channel,channel_worker}*` implementations are **not available** at P07 integration. Do not document or import them as active features. A future cache or in-process queue must have real consumers, an accepted failure policy and a new ownership decision. Runtime queue defaults/validation reside in `modules/setting/queue.go` and `modules/queue/config.go`.
 
 ## R30 acceptance
 
