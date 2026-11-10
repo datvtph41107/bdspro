@@ -275,33 +275,18 @@ func (r *Router[T]) getPattern(path string) string {
 	return strings.TrimSuffix(pattern, "/")
 }
 
-// compileActions selects the registered net/http typed handler contract
-// when available. Legacy Gin-only test contexts use the compatibility path;
-// normal APIContext routes use the package-level provider from handler.go.
-func (r *Router[T]) compileActions(actions []any) []gin.HandlerFunc {
-	if _, registered := responseStatusProviders[reflect.TypeFor[T]()]; !registered {
-		// Transitional Gin-only registrations still require typed actions.
-		// Reject unexpected providers at registration rather than on request.
-		legacy := make([]func(T), 0, len(actions))
-		for _, action := range actions {
-			fn, ok := action.(func(T))
-			if !ok || fn == nil {
-				panic(fmt.Sprintf("web: unsupported legacy route action %T", action))
-			}
-			legacy = append(legacy, fn)
-		}
-		return r.handlers(legacy)
-	}
-	out := make([]gin.HandlerFunc, 0, len(actions))
+// legacyActions is confined to unregistered Gin-only test contexts.
+// Production APIContext actions use wrapMiddlewareAndHandler directly.
+func (r *Router[T]) legacyActions(actions []any) []gin.HandlerFunc {
+	legacy := make([]func(T), 0, len(actions))
 	for _, action := range actions {
-		provider := ginHandlerProvider(toHandlerProvider(action))
-		out = append(out, func(c *gin.Context) {
-			// Transitional context accessor for direct-registered typed routes.
-			r.getContext(c)
-			provider(c)
-		})
+		fn, ok := action.(func(T))
+		if !ok || fn == nil {
+			panic(fmt.Sprintf("web: unsupported legacy route action %T", action))
+		}
+		legacy = append(legacy, fn)
 	}
-	return out
+	return r.handlers(legacy)
 }
 
 // Methods compiles the route-scoped middleware chain during registration.
@@ -330,9 +315,9 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 		})
 	} else {
 		if len(r.curMiddlewares) > 0 {
-			handlers = append(handlers, r.compileActions(r.curMiddlewares)...)
+			handlers = append(handlers, r.legacyActions(r.curMiddlewares)...)
 		}
-		handlers = append(handlers, r.compileActions(actions)...)
+		handlers = append(handlers, r.legacyActions(actions)...)
 	}
 	pattern := r.getPattern(path)
 	// Gitea permits comma-separated method registration at the canonical
