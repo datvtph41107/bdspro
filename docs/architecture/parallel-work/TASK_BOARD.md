@@ -2,15 +2,19 @@
 
 > Snapshot 2026-11-10, Chat 0 coordinator. **Not an automatically updating dashboard.** Every session must refresh current GitHub HEAD, PRs and Actions before editing. Update this board only through a coordinator-owned reviewed change.
 
-## Workstream table
+## Current workstream decisions — P07 unified integration
 
-| Lane | Scope / phase | Working branch | PR | Current decision and next executable task |
-|---|---|---|---|---|
-| **A** | P01/P02 HTTP+request context | `refactor/gitea-web-ownership-20261110` | [#218](https://github.com/datvtph41107/bdspro/pull/218) (draft) | **CI PASS at `d2dcef51`**: [42775942108](https://github.com/datvtph41107/bdspro/actions/runs/42775942108). **P01/P02 not accepted**: `Router[T]`, `getContext`, `legacyActions`, separate Gin `AfterRouting` remain; true outer `BeforeRouting` and shared-file migration lease pending. Historic PR also edits `routers/**`, `services/user/**` beyond A ownership. |
-| **B** | P04 DB / P05 scoped models | `work/gitea-b-data-20261110` | [#221](https://github.com/datvtph41107/bdspro/pull/221) (draft) | **CI PASS** at `868d10f8`: [42776794000](https://github.com/datvtph41107/bdspro/actions/runs/42776794000). **13 model-only files** changed (not 7), no cross-lane file overlap. Review explicit `WithTxResult` → `WithTx` reverse nesting, `ExecTxRaw` SQLC boundary and verified actor/session cases. P05 not complete. |
-| **C** | P06 process/shared runtime | `work/gitea-c-runtime-20261110` | [#220](https://github.com/datvtph41107/bdspro/pull/220) (draft) | **CI PASS** at `553551e3`: [42776266066](https://github.com/datvtph41107/bdspro/actions/runs/42776266066). 26 paths within C ownership; removed unused ChannelTaskQueue after consumer search. **P06 not accepted**: preexisting `modules/cache` lacks a production consumer, external app.ini templates and cache-queue docs remain stale, init/graceful integration contracts still open. |
-| **D** | P03 API/Auth/OAuth | not created | none yet | **READ-ONLY REVIEW**; build endpoint/contract/test inventory; wait for accepted A HTTP context and B DB transaction interfaces before source changes. |
-| **0** | contracts/integration P07 | `docs/gitea-parallel-harness-20261110` | [#219](https://github.com/datvtph41107/bdspro/pull/219) (draft) | **ACTIVE**: accept docs/guardrail PR after current-HEAD CI; reconcile historical PR #218 cross-owner files; approve isolated B/C PRs after evidence; no dev merge without gates. |
+**Current canonical candidate:** [draft PR #223](https://github.com/datvtph41107/bdspro/pull/223), `integration/p07-gitea-abc-20261110`; source baseline `e3d74daef6d5ef1414bc07e282bf28b40b53b021` [CI #42803884672](https://github.com/datvtph41107/bdspro/actions/runs/42803884672) **24/24 SUCCESS** (Go1.27.3 full/race/vet, PostgreSQL18, Redis/Asynq recovery, Docker/HTTP smoke, tidy). Governance PR #219 is included via merge commit `252b008b85766ab054a564d2b99a538e64ec20f1` on top of this baseline. CI for any subsequent governance amendments MUST pass on their exact new HEAD before claiming final G4.
+
+| Lane | Source PR/head | Owner-level status | Next allowed activity |
+| --- | --- | --- | --- |
+| **A** P01/P02 | #218 `46dfc9e4` + coordinator #222 `b1cb51c4` | **SOURCE FROZEN; HTTP integrated in #223** | Evidence-backed Router/Context defect only; no independent dev merge |
+| **B** P04 | #221 `d73e3eca` | **SOURCE FROZEN; DB source integrated in #223** | Review specific transaction issue; no P05 opening without new lease |
+| **C** P06 | #220 `07287479` | **SOURCE FROZEN; runtime integrated in #223** | Evidence-backed cmd/setting/queue/log defect only |
+| **D** P03 | no write branch | **READ-ONLY audit** | Prepare Auth/OAuth/permission regression contract; source lease after P07 dev acceptance |
+| **0** P07 | #223 (integrated code), #219 (governance history) | **ACTIVE final release control** | One canonical merge candidate; review rollback, branch protection (API 403), final CI and final dev acceptance; no dev mutation without release decision |
+
+**Important:** The PR #223 commit graph already contains #218, #221, #220, #222 and now #219 as ancestors. Do not serially merge those same source PRs into `dev` again. The old table and dated sections below are chronological audit snapshots, not the current command to create fresh branches or restart worker coding.
 
 ## Actual CI evidence at this snapshot
 
