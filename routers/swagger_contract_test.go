@@ -7,9 +7,6 @@ import (
 	"testing"
 
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
-	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
-	"github.com/datvtph41107/bdspro/routers/api/v1/user"
-	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	"github.com/datvtph41107/bdspro/templates"
 	"github.com/gin-gonic/gin"
 )
@@ -32,24 +29,9 @@ func TestOpenAPICoverage(t *testing.T) {
 		t.Fatalf("unexpected version: %s", spec.OpenAPI)
 	}
 	gin.SetMode(gin.TestMode)
-	s := &Server{
-		authHandler:          user.NewAuthHandler(nil, nil, nil),
-		oauth2Handler:        user.NewOAuth2Handler(nil, nil, false),
-		authorizationHandler: oauth.NewHandler(nil, nil),
-		browserHandler:       &weboauth.Handler{Config: weboauth.Config{OIDCEnabled: true}},
-		phoneEnabled:         true,
-	}
-	// Registration only; no handler is executed and no external services are used.
-	root := gin.New()
-	apiv1.Routes(root, apiv1.Dependencies{
-		Auth:          s.authHandler,
-		OAuth2:        s.oauth2Handler,
-		Authorization: s.authorizationHandler,
-		Browser:       s.browserHandler,
-		PhoneEnabled:  s.phoneEnabled,
-		TokenMaker:    s.tokenMaker,
-		Store:         s.store,
-	})
+	// Route declarations are capability-independent: the current serving
+	// request determines whether an optional protocol is enabled.
+	root := apiv1.Routes().GinEngine()
 	normalize := regexp.MustCompile(`:[A-Za-z_][A-Za-z0-9_]*`)
 	actual := map[string]bool{}
 	for _, route := range root.Routes() {

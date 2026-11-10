@@ -15,6 +15,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/modules/web/middleware"
+	"github.com/datvtph41107/bdspro/routers/common"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -125,33 +126,32 @@ func TestStoreOrganizationHTTP(t *testing.T) {
 	}
 
 	store := &organizationHTTPStoreFake{sessionID: sessionID}
-	router := gin.New()
-	router.Use(appctx.RequestIngress(), appctx.APIContexter())
-	router.POST("/orgs", appctx.Authenticate(maker), func(c *gin.Context) {
-		payload, ok := appctx.AuthorizationPayload(c)
+	m := web.NewRouter()
+	router := m.GinEngine()
+	router.Use(common.RequestIngress(), func(c *gin.Context) {
+		scope := db.WithStore(c.Request.Context(), store)
+		scope = authcrypto.WithMaker(scope, maker)
+		c.Request = c.Request.WithContext(scope)
+		c.Next()
+	})
+	m.AfterRouting(appctx.APIContexter())
+	m.Post("/orgs", appctx.Authenticate(), func(ctx *appctx.APIContext) {
+		payload, ok := ctx.SignedPrincipal()
 		if !ok {
-			appctx.AuthenticationRequired(c)
+			ctx.AuthenticationRequired()
 			return
 		}
-		scope := db.WithStore(c.Request.Context(), store)
-		scope = auth_model.WithActor(scope, auth_model.Actor{
+		ctx.PublishVerifiedActor(auth_model.Actor{
 			AccountID: payload.AccountID, SessionID: payload.SessionID,
 		})
-		c.Request = c.Request.WithContext(scope)
-		api := appctx.GetAPIContext(c)
-		api.IsSigned = true
-		api.Doer = payload
-		c.Next()
-	}, func(c *gin.Context) {
-		api := appctx.GetAPIContext(c)
-		form, err := middleware.BindJSON[structs.CreateOrgOption](api)
+	}, func(ctx *appctx.APIContext) {
+		form, err := middleware.BindJSON[structs.CreateOrgOption](ctx)
 		if err != nil {
-			api.Validation(err, form)
+			ctx.Validation(err, form)
 			return
 		}
-		web.SetForm(api, form)
-		c.Next()
-	}, appctx.Wrap(Create))
+		web.SetForm(ctx, form)
+	}, Create)
 
 	send := func(body, bearer string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, "/orgs", strings.NewReader(body))

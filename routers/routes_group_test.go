@@ -8,24 +8,20 @@ import (
 
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
-	"github.com/datvtph41107/bdspro/routers/api/v1/user"
-	"github.com/gin-gonic/gin"
 )
 
 // Route grouping must never allow a protected endpoint to skip its parent
 // authentication middleware.
 func TestOrganizationGroupInheritsAuthentication(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	maker, err := authcrypto.NewJWTMaker(strings.Repeat("x", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := &Server{
-		tokenMaker:  maker,
-		authHandler: user.NewAuthHandler(nil, nil, nil),
-	}
-	router := gin.New()
-	apiv1.Routes(router, apiv1.Dependencies{Auth: server.authHandler, TokenMaker: server.tokenMaker, Store: server.store})
+	routes := apiv1.Routes()
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := authcrypto.WithMaker(req.Context(), maker)
+		routes.ServeHTTP(w, req.WithContext(ctx))
+	})
 
 	for _, route := range []struct{ method, path string }{
 		{http.MethodGet, "/orgs"},
@@ -51,7 +47,7 @@ func TestOrganizationGroupInheritsAuthentication(t *testing.T) {
 	} {
 		t.Run(route.method+" "+route.path, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
-			router.ServeHTTP(recorder, httptest.NewRequest(route.method, route.path, nil))
+			handler.ServeHTTP(recorder, httptest.NewRequest(route.method, route.path, nil))
 			if recorder.Code != http.StatusUnauthorized {
 				t.Fatalf("status %d, want 401", recorder.Code)
 			}
