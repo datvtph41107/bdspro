@@ -9,12 +9,16 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 )
 
-// actingUser resolves the middleware-verified actor; it does not open or
-// select a SQL executor. The caller's read/write workflow owns DB access.
+// actingUser validates the middleware-verified actor and the request DB
+// capability before business validation. It does not open a transaction;
+// callers select the executor needed by their read/write workflow.
 func actingUser(ctx context.Context) (auth_model.Actor, error) {
 	actor, ok := auth_model.ActorFromContext(ctx)
 	if !ok {
 		return auth_model.Actor{}, auth_model.ErrSessionUnavailable
+	}
+	if _, err := db.StoreFromContext(ctx); err != nil {
+		return auth_model.Actor{}, err
 	}
 	return actor, nil
 }
