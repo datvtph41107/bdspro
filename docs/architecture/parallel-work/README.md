@@ -58,6 +58,7 @@ Every worker produces **one focused branch, one reviewable PR, reproducible test
 - [integration plan and gates](./INTEGRATION_PROTOCOL.md)
 - [portable skill](./SKILL.md)
 - [handoff template](./HANDOFF_TEMPLATE.md)
+- [file-lease registry, including historical PR #218 overlap](./LEASE_REGISTRY.md)
 - [Gitea handler](https://github.com/go-gitea/gitea/blob/main/modules/web/handler.go), [router](https://github.com/go-gitea/gitea/blob/main/modules/web/router.go), [APIContext](https://github.com/go-gitea/gitea/blob/main/services/context/api.go)
 
 **Planning note:** three sessions do not actually communicate by chat. GitHub PRs, task docs, commit SHAs, CI results, and explicit coordinator decisions are the communication protocol.
