@@ -268,6 +268,13 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 		if candidate == "" {
 			panic("web: empty HTTP method")
 		}
+		// Gin accepts only uppercase ASCII letters for HTTP methods.
+		// Mirror that precondition before registering any candidate.
+		for i := 0; i < len(candidate); i++ {
+			if candidate[i] < 'A' || candidate[i] > 'Z' {
+				panic(fmt.Sprintf("web: invalid HTTP method %q", candidate))
+			}
+		}
 		if _, duplicate := seen[candidate]; duplicate {
 			panic(fmt.Sprintf("web: duplicate HTTP method %s", candidate))
 		}
