@@ -65,15 +65,22 @@ func TestG12InFlightRequestMayFinishAfterRevokeButNewRequestCannotStart(t *testi
 			close(release)
 		}
 	}()
-	server.router.GET("/__g12_inflight_test",
-		appctx.Authenticate(server.tokenMaker),
-		appctx.RequireSession(server.store),
-		func(c *gin.Context) {
-			close(entered)
-			<-release
-			c.Status(http.StatusNoContent)
-		},
-	)
+	// Test-only Gin registration exercises the canonical typed admission
+	// functions without reviving production Gin middleware compatibility.
+	server.router.GET("/__g12_inflight_test", func(c *gin.Context) {
+		ctx := appctx.GetAPIContext(c)
+		appctx.Authenticate()(ctx)
+		if ctx.IsAborted() {
+			return
+		}
+		appctx.RequireSession()(ctx)
+		if ctx.IsAborted() {
+			return
+		}
+		close(entered)
+		<-release
+		ctx.Status(http.StatusNoContent)
+	})
 	request := httptest.NewRequest(http.MethodGet, "/__g12_inflight_test", nil)
 	request.Header.Set("Authorization", "Bearer "+access)
 	go func() {

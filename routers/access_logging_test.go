@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	appctx "github.com/datvtph41107/bdspro/services/context"
+	"github.com/datvtph41107/bdspro/routers/common"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
@@ -21,9 +22,11 @@ func TestAccessLogIsSafeInfoOutcome(t *testing.T) {
 	logger := zerolog.New(&output).With().Str("request_id", "request-123").Logger()
 
 	router := gin.New()
-	router.Use(appctx.AccessLogger())
+	router.Use(common.AccessLogger())
 	router.GET("/orgs/:id", func(c *gin.Context) {
-		appctx.InternalError(c)
+		appctx.GetAPIContext(c).APIError(
+			http.StatusInternalServerError, "internal_error", "internal server error",
+		)
 	})
 
 	request := httptest.NewRequest(http.MethodGet, "/orgs/42?token=private-query-value", nil)
@@ -59,9 +62,9 @@ func TestUnexpectedErrorProducesOneDiagnosticAndOneOutcome(t *testing.T) {
 	logger := zerolog.New(&output).With().Str("request_id", "request-456").Logger()
 
 	router := gin.New()
-	router.Use(appctx.AccessLogger())
+	router.Use(common.AccessLogger())
 	router.GET("/fail", func(c *gin.Context) {
-		appctx.Error(c, errors.New("provider-token-that-must-stay-private"))
+		appctx.GetAPIContext(c).APIErrorAuto(errors.New("provider-token-that-must-stay-private"))
 	})
 
 	request := httptest.NewRequest(http.MethodGet, "/fail", nil)
