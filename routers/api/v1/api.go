@@ -149,6 +149,7 @@ func bind[T any](_ T) func(*appctx.APIContext) {
 func Routes() *web.Router {
 	d := getRuntime()
 	m := web.NewRouter()
+	m.AfterRouting(appctx.APIContexter())
 	m.Get("/health", Health)
 
 	// The v1 route tree owns group declarations. Bind process-scoped capabilities

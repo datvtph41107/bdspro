@@ -78,9 +78,8 @@ func NormalRoutes() *web.Router {
 		c.Next()
 	})
 
-	// Until the remaining Gin protocol actions become native HTTP actions,
-	// APIContext is installed once by the parent matcher before typed actions.
-	router.Use(appctx.APIContexter())
+	// Each API subrouter creates its context after route matching through
+	// web.Router.AfterRouting; no Gin-specific APIContext middleware is installed.
 	r.Mount("/", apiv1.Routes())
 	api.RegisterSwagger(router, config.Environment)
 	return r

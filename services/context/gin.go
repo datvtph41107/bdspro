@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
+	"github.com/datvtph41107/bdspro/modules/web"
 
 	"github.com/gin-gonic/gin"
 )
@@ -65,20 +66,25 @@ func GetAPIContext(c *gin.Context) *APIContext {
 	return api
 }
 
-func APIContexter() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Request-local data and cleanup belong to modules/reqctx.
-		// Preserve an existing scope if an outer ingress installed one.
-		if reqctx.FromContext(c.Request.Context()) != nil {
+// APIContexter runs after route matching, as a native web.Router middleware.
+// It creates exactly one APIContext for the matched Gin request, while the
+// HTTP middleware chain owns continuation and request-scoped cleanup.
+func APIContexter() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			c := web.GinContextFromRequest(req)
+			if c == nil {
+				panic("context: APIContexter requires a matched route")
+			}
+			if reqctx.FromContext(req.Context()) == nil {
+				scoped, finished := reqctx.NewRequestContext(req.Context())
+				defer finished()
+				req = req.WithContext(scoped)
+			}
+			c.Request = req
 			GetAPIContext(c)
-			c.Next()
-			return
-		}
-		scoped, finished := reqctx.NewRequestContext(c.Request.Context())
-		c.Request = c.Request.WithContext(scoped)
-		defer finished()
-		GetAPIContext(c)
-		c.Next()
+			next.ServeHTTP(w, c.Request)
+		})
 	}
 }
 

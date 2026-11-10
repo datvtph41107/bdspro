@@ -133,6 +133,17 @@ type matchedRouteScope struct {
 	finished atomic.Bool
 }
 
+// GinContextFromRequest exposes the matched transport context to the single
+// services/context bridge. It must only be used after Gin resolves the route;
+// domain handlers consume *context.APIContext, not *gin.Context.
+func GinContextFromRequest(req *http.Request) *gin.Context {
+	scope, ok := req.Context().Value(matchedRouteKey{}).(*matchedRouteScope)
+	if !ok || scope == nil {
+		return nil
+	}
+	return scope.gin
+}
+
 func matchedRouteFromRequest(req *http.Request) *matchedRouteScope {
 	scope, ok := req.Context().Value(matchedRouteKey{}).(*matchedRouteScope)
 	if !ok || scope == nil {
