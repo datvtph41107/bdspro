@@ -50,6 +50,7 @@ func (s *transactionState) close() {
 
 var (
 	ErrStoreMissing         = errors.New("db: store missing from context")
+	ErrTxStoreUnavailable   = errors.New("db: transaction-bound store unavailable")
 	ErrTransactionRequired  = errors.New("db: transaction required")
 	ErrTransactionClosed    = errors.New("db: transaction context is no longer active")
 	ErrNestedTransaction    = errors.New("db: nested transaction context has no owner")
@@ -68,7 +69,32 @@ func WithStore(ctx context.Context, store Transactioner) context.Context {
 	return context.WithValue(ctx, storeContextKey{}, store)
 }
 
+// StoreFromContext resolves a query capability for the current context.
+// Outside a transaction it returns the ingress Store. Inside a transaction
+// it MUST expose only the transaction's SQLC executor, matching Gitea's
+// context-aware GetEngine behavior. A pool-backed Store would silently allow
+// domain reads/writes to escape the caller's rollback boundary.
+//
+// A narrow transaction-only mock has no complete query Store to rebind; fail
+// closed instead of silently returning an unrelated pool-backed executor.
 func StoreFromContext(ctx context.Context) (Store, error) {
+	if ctx.Value(queriesContextKey{}) != nil {
+		q, err := TxQueries(ctx)
+		if err != nil {
+			return nil, err
+		}
+		store, ok := ctx.Value(storeContextKey{}).(*SQLStore)
+		if !ok || store == nil {
+			if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
+				state.fail(ErrTxStoreUnavailable)
+			}
+			return nil, ErrTxStoreUnavailable
+		}
+		// Do not carry the pool into this transaction-scoped view. Promoted
+		// SQLC methods now use q, and its ExecTx/ExecTxRaw cannot create
+		// an independent transaction when the context is lost.
+		return &SQLStore{Queries: q}, nil
+	}
 	store, ok := ctx.Value(storeContextKey{}).(Store)
 	if !ok || store == nil {
 		return nil, ErrStoreMissing
