@@ -601,3 +601,62 @@ func TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods(t *testing.T
 		t.Fatalf("status=%d order=%v want=%v", w.Code, steps, want)
 	}
 }
+
+func TestRegisteredRouterAfterRoutingPreMiddlewareRunsBeforeNormalScopes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	var calls []string
+	m := NewRouter[*typedHTTPContext](engine.Group(""), func(c *gin.Context) *typedHTTPContext {
+		return c.Request.Context().Value(typedHTTPContextKey{}).(*typedHTTPContext)
+	})
+	trace := func(name string) func(http.Handler) http.Handler {
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				calls = append(calls, name)
+				next.ServeHTTP(w, req)
+			})
+		}
+	}
+	m.AfterRouting(
+		trace("normal-after"),
+		web_types.PreMiddlewareProvider(trace("pre-after")),
+		func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := &typedHTTPContext{writer: w}
+				next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), typedHTTPContextKey{}, ctx)))
+			})
+		},
+	)
+	m.Group("/teams", func() {
+		m.Get("/:id",
+			trace("normal-route"),
+			web_types.PreMiddlewareProvider(trace("pre-route")),
+			func(ctx *typedHTTPContext) {
+				calls = append(calls, "endpoint")
+				ctx.writer.WriteHeader(http.StatusNoContent)
+			},
+		)
+	}, trace("normal-group"), web_types.PreMiddlewareProvider(trace("pre-group")))
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/teams/42", nil))
+	want := []string{
+		"pre-after", "pre-group", "pre-route",
+		"normal-after", "normal-group", "normal-route", "endpoint",
+	}
+	if w.Code != http.StatusNoContent || !reflect.DeepEqual(calls, want) {
+		t.Fatalf("status=%d calls=%v want=%v", w.Code, calls, want)
+	}
+}
+
+func TestAfterRoutingRegisteredTypedHandlerRejectsBadSignatureEarly(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	m := NewRouter[*typedHTTPContext](gin.New().Group(""), func(c *gin.Context) *typedHTTPContext {
+		return c.Request.Context().Value(typedHTTPContextKey{}).(*typedHTTPContext)
+	})
+	defer func() {
+		if recover() == nil {
+			t.Fatal("invalid typed handler accepted at AfterRouting registration")
+		}
+	}()
+	m.AfterRouting(func(*typedHTTPContext) error { return nil })
+}
