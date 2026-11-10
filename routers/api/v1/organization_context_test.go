@@ -61,7 +61,7 @@ func TestReqTokenRequiresVerifiedSession(t *testing.T) {
 				c.Next()
 			})
 			reached := false
-			m := web.NewRouter[*appctx.APIContext](r.Group(""), appctx.GetAPIContext)
+			m := web.NewRouter(r)
 			m.Get("/guard", reqToken(), func(ctx *appctx.APIContext) {
 				reached = true
 				ctx.Status(http.StatusNoContent)
@@ -103,7 +103,7 @@ func TestOrgAssignmentRejectsMismatchedAuthorityBeforeDatabase(t *testing.T) {
 		c.Next()
 	})
 	reached := false
-	m := web.NewRouter[*appctx.APIContext](r.Group(""), appctx.GetAPIContext)
+	m := web.NewRouter(r)
 	m.Group("/orgs/:id", func() {
 		m.Get("", func(*appctx.APIContext) { reached = true })
 	}, orgAssignment(nil))
@@ -129,7 +129,7 @@ func TestOrgAssignmentRejectsInvalidIDForTeamListBeforeDatabase(t *testing.T) {
 		c.Next()
 	})
 	reached := false
-	m := web.NewRouter[*appctx.APIContext](r.Group(""), appctx.GetAPIContext)
+	m := web.NewRouter(r)
 	m.Group("/orgs/:id", func() {
 		m.Get("/teams", func(*appctx.APIContext) { reached = true })
 	}, orgAssignment(nil))
@@ -146,9 +146,9 @@ type providerIngressKey struct{}
 func TestAfterRoutingHTTPPreAndTypedAPIContextShareRequestLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	m := web.NewRouter[*appctx.APIContext](engine.Group(""), appctx.GetAPIContext)
+	engine.Use(appctx.APIContexter())
+	m := web.NewRouter(engine)
 	m.AfterRouting(
-		appctx.APIContexter(),
 		func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), providerIngressKey{}, "from-http")))

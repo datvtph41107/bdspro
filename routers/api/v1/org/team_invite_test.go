@@ -54,7 +54,7 @@ func TestTeamInvitePackageActionsRejectMalformedRequests(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			router := gin.New()
 			router.Use(appctx.APIContexter())
-			m := web.NewRouter[*appctx.APIContext](router.Group(""), appctx.GetAPIContext)
+			m := web.NewRouter(router)
 			if tc.bind != nil {
 				m.Methods(tc.method, tc.pattern, tc.bind, tc.action)
 			} else {
