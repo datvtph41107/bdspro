@@ -73,7 +73,9 @@ func ValidRefreshSession(session db.Session, accountID int64, refreshToken strin
 
 func ListSessions(ctx context.Context, accountID int64) ([]db.ListActiveSessionsRow, error) {
 	store, err := db.StoreFromContext(ctx)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return store.ListActiveSessions(ctx, accountID)
 }
 
