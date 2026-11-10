@@ -32,10 +32,10 @@ import (
 // access renewal and session revocation. No Gin or HTTP response types enter
 // these operations.
 type AuthService struct {
-	store  db.Store
-	maker  authcrypto.Maker
-	config setting.Config
-	sender notification.PhoneCodeSender
+	store       db.Store
+	maker       authcrypto.Maker
+	config      setting.Config
+	sender      notification.PhoneCodeSender
 	emailSender mail.EmailSender
 }
 
