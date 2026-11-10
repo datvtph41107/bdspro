@@ -48,7 +48,7 @@ func NormalRoutes(server *Server) *gin.Engine {
 			c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), server.store))
 		}
 		c.Next()
-	}, appctx.APIContexter())
+	})
 
 	apiv1.Routes(router, apiv1.Dependencies{
 		Auth:          server.authHandler,
