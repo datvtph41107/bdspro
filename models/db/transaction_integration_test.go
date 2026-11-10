@@ -344,4 +344,41 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 		}
 	})
 
+	t.Run("transaction context is invalid after PostgreSQL owner exits", func(t *testing.T) {
+		for _, shouldRollback := range []bool{false, true} {
+			var escaped context.Context
+			sentinel := errors.New("rollback completed transaction")
+			err := WithTx(ctx, func(txCtx context.Context) error {
+				escaped = txCtx
+				q, err := TxQueries(txCtx)
+				if err != nil {
+					return err
+				}
+				if _, err := q.CreateParty(txCtx); err != nil {
+					return err
+				}
+				if shouldRollback {
+					return sentinel
+				}
+				return nil
+			})
+			if shouldRollback {
+				if !errors.Is(err, sentinel) {
+					t.Fatalf("rollback err=%v", err)
+				}
+			} else if err != nil {
+				t.Fatalf("commit err=%v", err)
+			}
+			if q, err := TxQueries(escaped); q != nil || !errors.Is(err, ErrTransactionClosed) {
+				t.Fatalf("escaped executor after owner exit: q=%p err=%v", q, err)
+			}
+			if err := WithTx(escaped, func(context.Context) error {
+				t.Fatal("closed transaction context ran callback")
+				return nil
+			}); !errors.Is(err, ErrTransactionClosed) {
+				t.Fatalf("closed transaction callback error=%v", err)
+			}
+		}
+	})
+
 }
