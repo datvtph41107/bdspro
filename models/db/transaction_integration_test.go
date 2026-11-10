@@ -381,6 +381,49 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 		}
 	})
 
+	t.Run("ingress Store direct SQLC calls follow transaction owner", func(t *testing.T) {
+		abort := errors.New("abort after direct ingress Store calls")
+		var partyID int64
+		var escaped context.Context
+		err := WithTx(ctx, func(txCtx context.Context) error {
+			escaped = txCtx
+			// Deliberately keep using the ingress Store, rather than retrieving
+			// StoreFromContext. All calls still receive the correct txCtx.
+			var err error
+			partyID, err = store.CreateParty(txCtx) // QueryRow
+			if err != nil {
+				return err
+			}
+			if err := store.CreatePerson(txCtx, partyID); err != nil { // Exec
+				return err
+			}
+			if _, err := store.ListPendingJobOutbox(txCtx, 1); err != nil { // Query
+				return err
+			}
+			var outside int
+			if err := pool.QueryRow(txCtx, "SELECT count(*) FROM persons WHERE party_id=$1", partyID).Scan(&outside); err != nil {
+				return err
+			}
+			if outside != 0 {
+				t.Fatal("ingress Store committed a SQLC write outside parent transaction")
+			}
+			return abort
+		})
+		if !errors.Is(err, abort) || partyID <= 0 {
+			t.Fatalf("rollback=%v partyID=%d", err, partyID)
+		}
+		var persisted int
+		if err := pool.QueryRow(base, "SELECT count(*) FROM persons WHERE party_id=$1", partyID).Scan(&persisted); err != nil {
+			t.Fatal(err)
+		}
+		if persisted != 0 {
+			t.Fatal("ingress Store bypassed the transaction owner")
+		}
+		if _, err := store.CreateParty(escaped); !errors.Is(err, ErrTransactionClosed) {
+			t.Fatalf("ingress Store accepted escaped txCtx: %v", err)
+		}
+	})
+
 	t.Run("transaction-scoped Store follows owner rollback", func(t *testing.T) {
 		abort := errors.New("rollback owning transaction")
 		var created int64
