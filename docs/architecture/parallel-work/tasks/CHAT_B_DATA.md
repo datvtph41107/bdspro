@@ -9,7 +9,7 @@
 - `dev` is the input baseline. Do **not** cherry-pick the unfinished HTTP PR #218 and treat it as a stable DB dependency.
 
 ## Owned scope
-- **Allowed:** `models/**` (including DB context/SQLC usage, but do not hand-edit generated SQLC files), narrowly scoped `services/user/**` only when the PR names the affected file and no other lane owns it.
+- **Allowed:** `models/**` (including DB context/SQLC usage, but do not hand-edit generated SQLC files), `services/user/**` only after Chat 0 reconciles PR #218 and grants a lease; **first-wave writes are limited to `models/**`**.
 - **Not allowed:** `routers/**`, `services/context/**`, `modules/web/**`, `services/auth/**`, cross-domain migrations without an approved contract RFC, `go.mod`/CI outside integration lease.
 
 ## Milestones
