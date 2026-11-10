@@ -1,6 +1,10 @@
 package queue
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/datvtph41107/bdspro/modules/setting"
+)
 
 func TestDefaultQueueConfig(t *testing.T) {
 	cfg := DefaultConfig()
@@ -22,5 +26,15 @@ func TestQueueConfigRejectsInvalidValues(t *testing.T) {
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("accepted invalid config: %+v", cfg)
 		}
+	}
+}
+
+func TestQueueDefaultsFollowCanonicalSetting(t *testing.T) {
+	want := setting.DefaultQueueSettings()
+	got := DefaultConfig()
+	if got.Concurrency != want.Concurrency ||
+		got.Queues[QueueCritical] != want.CriticalWeight ||
+		got.Queues[QueueDefault] != want.DefaultWeight {
+		t.Fatalf("queue backend defaults diverged from app.ini policy: %+v vs %+v", got, want)
 	}
 }

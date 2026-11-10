@@ -3,6 +3,8 @@ package queue
 import (
 	"fmt"
 	"strings"
+
+	"github.com/datvtph41107/bdspro/modules/setting"
 )
 
 const (
@@ -18,9 +20,13 @@ type Config struct {
 }
 
 func DefaultConfig() Config {
+	defaults := setting.DefaultQueueSettings()
 	return Config{
-		Queues:      map[string]int{QueueCritical: 10, QueueDefault: 5},
-		Concurrency: 10,
+		Queues: map[string]int{
+			QueueCritical: defaults.CriticalWeight,
+			QueueDefault:  defaults.DefaultWeight,
+		},
+		Concurrency: defaults.Concurrency,
 	}
 }
 

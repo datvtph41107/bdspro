@@ -73,3 +73,38 @@ func TestWorkerAndWebUseIdenticalRetentionAndKeyRules(t *testing.T) {
 		t.Fatal("cleanup audit retention accepted invalid value")
 	}
 }
+
+func TestWorkerLoadsQueueSettingsFromAppINI(t *testing.T) {
+	file := workerConfigFile(t, minimumWorkerConfig+
+		"[queue]\nCONCURRENCY = 3\nCRITICAL_WEIGHT = 7\nDEFAULT_WEIGHT = 2\n")
+	cfg, err := LoadWorkerSettings(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Queue != (QueueSettings{Concurrency: 3, CriticalWeight: 7, DefaultWeight: 2}) {
+		t.Fatalf("unexpected configured worker queues: %+v", cfg.Queue)
+	}
+	t.Setenv("BDS__QUEUE__CONCURRENCY", "4")
+	cfg, err = LoadWorkerSettings(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Queue.Concurrency != 4 {
+		t.Fatalf("queue environment override ignored: %+v", cfg.Queue)
+	}
+}
+
+func TestWorkerRejectsInvalidQueuePolicyBeforeOpeningDependencies(t *testing.T) {
+	for _, tc := range []struct{ name, config, key string }{
+		{"zero_concurrency", "CONCURRENCY = 0", "CONCURRENCY"},
+		{"negative_weight", "CRITICAL_WEIGHT = -1", "CRITICAL_WEIGHT"},
+		{"nonnumeric_weight", "DEFAULT_WEIGHT = many", "DEFAULT_WEIGHT"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			file := workerConfigFile(t, minimumWorkerConfig+"[queue]\n"+tc.config+"\n")
+			if _, err := LoadWorkerSettings(file); err == nil || !strings.Contains(err.Error(), tc.key) {
+				t.Fatalf("invalid queue option %q not rejected: %v", tc.config, err)
+			}
+		})
+	}
+}
