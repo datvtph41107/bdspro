@@ -242,3 +242,32 @@ func TestWithTxRecoveredNestedResultPanicCannotCommit(t *testing.T) {
 		t.Fatalf("err=%v committed=%v transactions=%d", err, owner.committed, owner.transactions)
 	}
 }
+
+func TestTxQueriesRejectsPoisonedTransaction(t *testing.T) {
+	store := &contextTestStore{}
+	ctx := WithStore(context.Background(), store)
+	sentinel := errors.New("nested write failed")
+	err := WithTx(ctx, func(txCtx context.Context) error {
+		if _, err := TxQueries(txCtx); err != nil {
+			return err
+		}
+		inner := WithTx(txCtx, func(context.Context) error { return sentinel })
+		if !errors.Is(inner, sentinel) {
+			t.Fatalf("inner err=%v", inner)
+		}
+		if q, err := TxQueries(txCtx); q != nil || !errors.Is(err, sentinel) {
+			t.Fatalf("poisoned transaction returned q=%p err=%v", q, err)
+		}
+		return nil
+	})
+	if !errors.Is(err, sentinel) || store.committed || store.transactions != 1 {
+		t.Fatalf("err=%v committed=%v transactions=%d", err, store.committed, store.transactions)
+	}
+}
+
+func TestTxQueriesRejectsUnownedExecutor(t *testing.T) {
+	ctx := context.WithValue(context.Background(), queriesContextKey{}, &Queries{})
+	if q, err := TxQueries(ctx); q != nil || !errors.Is(err, ErrNestedTransaction) {
+		t.Fatalf("unowned q=%p err=%v", q, err)
+	}
+}
