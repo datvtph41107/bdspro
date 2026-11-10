@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
 )
 
@@ -46,4 +47,55 @@ func TestServerHandlerRejectsMissingIngress(t *testing.T) {
 		}
 	}()
 	_ = server.Handler()
+}
+
+
+// This exercises the actual web.Router's HTTP ingress served by Server.Handler
+// against the *same* Gin route matcher, including unmatched requests.
+func TestServerHandlerBeforeRoutingCoversGin404405AndHEAD(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.HandleMethodNotAllowed = true
+	routes := web.NewRouter(engine)
+	routes.BeforeRouting(func(next http.Handler) http.HandlerFunc {
+		return func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("X-Before-Matcher", "present")
+			next.ServeHTTP(w, req)
+		}
+	})
+	handler := func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}
+	routes.Get("/alive", handler)
+	routes.Head("/alive", handler)
+	server := &Server{
+		config: setting.Config{AllowedOrigins: []string{"https://client.example"}},
+		router: engine,
+		httpHandler: routes.WrapIngress(),
+	}
+	for _, tc := range []struct {
+		method string
+		path   string
+		status int
+	}{
+		{http.MethodGet, "/missing", http.StatusNotFound},
+		{http.MethodPost, "/alive", http.StatusMethodNotAllowed},
+		{http.MethodHead, "/alive", http.StatusNoContent},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, nil)
+			req.Header.Set("Origin", "https://client.example")
+			rec := httptest.NewRecorder()
+			server.Handler().ServeHTTP(rec, req)
+			if rec.Code != tc.status {
+				t.Fatalf("status=%d, want=%d", rec.Code, tc.status)
+			}
+			if rec.Header().Get("X-Before-Matcher") != "present" {
+				t.Fatal("BeforeRouting did not execute before Gin matcher")
+			}
+			if rec.Header().Get("Access-Control-Allow-Origin") != "https://client.example" {
+				t.Fatal("outer CORS policy missing")
+			}
+		})
+	}
 }
