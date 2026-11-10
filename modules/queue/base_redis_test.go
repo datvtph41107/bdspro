@@ -132,11 +132,11 @@ func TestRedisEnqueuerRecoversAfterMidProcessNetworkInterruption(t *testing.T) {
 	failedID := "during_" + uuid.NewString()
 	afterID := "after_" + uuid.NewString()
 	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: address, DB: 15})
-	defer inspector.Close()
 	t.Cleanup(func() {
 		for _, id := range []string{firstID, failedID, afterID} {
 			_ = inspector.DeleteTask(queueName, id)
 		}
+		_ = inspector.Close()
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
