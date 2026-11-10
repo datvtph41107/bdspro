@@ -34,23 +34,30 @@ func InitWebInstalled(cfg setting.Config, store db.Store, redisClient *redis.Cli
 // Dependencies are installed once in InitRouterRuntime during startup.
 var (
 	routerRuntimeMu sync.Mutex
-	routerRuntime   *Server
+	routerRuntime   *RouteRuntime
 )
 
-func InitRouterRuntime(server *Server) {
+type RouteRuntime struct {
+	Store         db.Store
+	AuthRateRedis *redis.Client
+	Environment   string
+}
+
+func InitRouterRuntime(config RouteRuntime) {
 	routerRuntimeMu.Lock()
 	defer routerRuntimeMu.Unlock()
-	if server == nil || routerRuntime != nil {
+	if config.AuthRateRedis == nil || routerRuntime != nil {
 		panic("routers: invalid or duplicate router initialization")
 	}
-	routerRuntime = server
+	copy := config
+	routerRuntime = &copy
 }
 
 func NormalRoutes() *web.Router {
 	routerRuntimeMu.Lock()
-	server := routerRuntime
+	config := routerRuntime
 	routerRuntimeMu.Unlock()
-	if server == nil {
+	if config == nil {
 		panic("routers: runtime not initialized")
 	}
 	r := web.NewRouter()
@@ -59,14 +66,14 @@ func NormalRoutes() *web.Router {
 	router.Use(common.ProtocolMiddlewares()...)
 
 	router.Use(
-		security.RequestMonitor(server.authRateRedis),
+		security.RequestMonitor(config.AuthRateRedis),
 		appctx.RequestIngress(),
 	)
 	// Install the immutable DB capability once per request. The nil guard
 	// keeps public/registration-only test routers independent of a database.
 	router.Use(func(c *gin.Context) {
-		if server.store != nil {
-			c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), server.store))
+		if config.Store != nil {
+			c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), config.Store))
 		}
 		c.Next()
 	})
@@ -75,6 +82,6 @@ func NormalRoutes() *web.Router {
 	// APIContext is installed once by the parent matcher before typed actions.
 	router.Use(appctx.APIContexter())
 	r.Mount("/", apiv1.Routes())
-	api.RegisterSwagger(router, server.config.Environment)
+	api.RegisterSwagger(router, config.Environment)
 	return r
 }

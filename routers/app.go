@@ -165,7 +165,11 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		Store:         server.store,
 		InviteKey:     server.config.TokenSymmetricKey,
 	})
-	InitRouterRuntime(server)
+	InitRouterRuntime(RouteRuntime{
+		Store:         server.store,
+		AuthRateRedis: server.authRateRedis,
+		Environment:   server.config.Environment,
+	})
 	routes := NormalRoutes()
 	server.router = routes.GinEngine()
 	server.httpHandler = routes.WrapIngress()
