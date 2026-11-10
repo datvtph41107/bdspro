@@ -13,10 +13,9 @@ import (
 // status or a chosen-but-unwritten status.
 func TestBaseWrittenStatusMatchesGinResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.Use(APIContexter())
-	router.GET("/status", func(c *gin.Context) {
-		api := GetAPIContext(c)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.Get("/status", func(api *APIContext) {
 		if api.Written() || api.WrittenStatus() != 0 {
 			t.Fatalf("new response reported as committed: %d", api.WrittenStatus())
 		}
@@ -40,9 +39,9 @@ func TestBaseWrittenStatusMatchesGinResponse(t *testing.T) {
 // while retaining the selected-but-unwritten status semantics.
 func TestTypedAPIContextResponseStatusControlsActionChain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.Use(APIContexter())
-	m := web.NewRouter(router)
+	m := web.NewRouter()
+	m.AfterRouting(APIContexter())
+	router := m.GinEngine()
 
 	reachedAfterWritten := false
 	m.Get("/written", func(c *APIContext) {

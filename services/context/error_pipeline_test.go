@@ -11,6 +11,7 @@ import (
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/gin-gonic/gin"
+	"github.com/datvtph41107/bdspro/modules/web"
 )
 
 // Trace model error -> util -> API context -> Gin adapter -> HTTP response.
@@ -20,43 +21,44 @@ func TestAPIErrorPipelineRetainsPublicContract(t *testing.T) {
 	cases := []struct {
 		name, code, message string
 		status              int
-		invoke              func(*gin.Context)
+		invoke              func(*APIContext)
 	}{
 		{
 			name: "typed API not found", code: "not_found", message: "not found", status: http.StatusNotFound,
-			invoke: func(c *gin.Context) { GetAPIContext(c).APIErrorNotFound() },
+			invoke: func(c *APIContext) { c.APIErrorNotFound() },
 		},
 		{
-			name: "Gin compatibility", code: "owner_required", message: "owner required", status: http.StatusForbidden,
-			invoke: func(c *gin.Context) { Reject(c, http.StatusForbidden, "owner_required", "owner required") },
+			name: "typed public failure", code: "owner_required", message: "owner required", status: http.StatusForbidden,
+			invoke: func(c *APIContext) { c.APIError(http.StatusForbidden, "owner_required", "owner required") },
 		},
 		{
 			name: "public domain error hides cause", code: "organization.membership_exists",
 			message: "membership already exists", status: http.StatusConflict,
-			invoke: func(c *gin.Context) {
-				Error(c, util.WithCause(organization_model.ErrMembershipExists, errors.New(secret)))
+			invoke: func(c *APIContext) {
+				c.APIErrorAuto(util.WithCause(organization_model.ErrMembershipExists, errors.New(secret)))
 			},
 		},
 		{
 			name: "unexpected error is masked", code: "internal_error",
 			message: "internal server error", status: http.StatusInternalServerError,
-			invoke: func(c *gin.Context) { Error(c, errors.New(secret)) },
+			invoke: func(c *APIContext) { c.APIErrorAuto(errors.New(secret)) },
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			router := gin.New()
-			router.Use(APIContexter())
+			router := web.NewRouter()
+			router.AfterRouting(APIContexter())
 			continued := false
-			router.GET("/", func(c *gin.Context) {
+			router.Get("/", func(c *APIContext) {
 				tc.invoke(c)
 				if !c.IsAborted() {
 					t.Error("error response did not abort remaining handlers")
 				}
-				if got := c.GetString(ErrorCodeKey); got != tc.code {
+				source := c.Base.source.(ginRequestSource).ctx
+				if got := source.GetString(ErrorCodeKey); got != tc.code {
 					t.Errorf("monitor code=%q want=%q", got, tc.code)
 				}
-			}, func(*gin.Context) { continued = true })
+			}, func(*APIContext) { continued = true })
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
 			if continued || w.Code != tc.status {
