@@ -14,6 +14,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/setting"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
+	api "github.com/datvtph41107/bdspro/routers/api"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
 	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
@@ -164,18 +165,20 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		Store:         server.store,
 		InviteKey:     server.config.TokenSymmetricKey,
 	})
-	InitRouterRuntime(RouteRuntime{
-		Store:         server.store,
-		AuthRateRedis: server.authRateRedis,
-		Environment:   server.config.Environment,
-	})
 	routes := NormalRoutes()
 	server.router = routes.GinEngine()
-	// Each Server owns its own AuthService and throttle. Request-local binding
-	// preserves package-level HTTP actions without a global service registry.
+	api.RegisterSwagger(server.router, cfg.Environment)
+	// Capabilities are instance-owned, not process-global route dependencies.
 	server.httpHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		ctx := auth_service.WithService(req.Context(), server.authService)
+		ctx := req.Context()
+		ctx = auth_service.WithService(ctx, server.authService)
 		ctx = security.WithThrottle(ctx, server.authThrottle)
+		ctx = security.WithMonitorRedis(ctx, server.authRateRedis)
+		ctx = authcrypto.WithMaker(ctx, server.tokenMaker)
+		ctx = ipactive.WithMiddleware(ctx, server.ipActive)
+		if server.store != nil {
+			ctx = db.WithStore(ctx, server.store)
+		}
 		routes.ServeHTTP(w, req.WithContext(ctx))
 	})
 	if err := server.router.SetTrustedProxies(cfg.TrustedProxies); err != nil {

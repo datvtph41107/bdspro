@@ -12,9 +12,9 @@ import (
 // IPActiveFor is the typed API boundary for source admission. The mechanism
 // lives in modules/ipactive; this HTTP policy maps denial to the public API
 // response without importing routers or Gin into the limiter.
-func IPActiveFor(m *ipactive.Middleware, action ipactive.Action) func(*appctx.APIContext) {
+func IPActiveFor(action ipactive.Action) func(*appctx.APIContext) {
 	return func(ctx *appctx.APIContext) {
-		event, err := m.Check(ctx, action, ctx.ClientIP())
+		event, err := ipactive.FromContext(ctx).Check(ctx, action, ctx.ClientIP())
 		if err != nil {
 			log.Ctx(ctx).Error().
 				Str("action", string(action)).

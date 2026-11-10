@@ -13,11 +13,9 @@ const AuthorizationPayloadKey = "authorization_payload"
 // Authenticate verifies the signed first-party token but never grants session
 // authority. The APIContext carries the untrusted-for-writes claims until the
 // next admission step checks the current session against PostgreSQL.
-func Authenticate(maker authcrypto.Maker) func(*APIContext) {
-	if maker == nil {
-		panic("context: missing access token maker")
-	}
+func Authenticate() func(*APIContext) {
 	return func(ctx *APIContext) {
+		maker := authcrypto.MakerFromContext(ctx)
 		parts := strings.Fields(ctx.CurrentRequest().Header.Get("Authorization"))
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 			ctx.Header("WWW-Authenticate", "Bearer")

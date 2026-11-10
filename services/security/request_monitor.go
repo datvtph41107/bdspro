@@ -22,9 +22,10 @@ return v
 
 // RequestMonitor records policy denials and one threshold alert per fixed
 // observation window. It does not automatically ban a client.
-func RequestMonitor(redisClient *redis.Client) gin.HandlerFunc {
+func RequestMonitor() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ctx.Next()
+		redisClient := MonitorRedisFromContext(ctx.Request.Context())
 		status := ctx.Writer.Status()
 		code := ctx.GetString(appctx.ErrorCodeKey)
 		var reason string
