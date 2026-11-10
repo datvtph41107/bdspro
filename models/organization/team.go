@@ -110,14 +110,17 @@ func UpdateTeam(ctx context.Context, actorAccountID int64, team *Team) (*Team, e
 }
 
 // GetTeam never exposes a team outside the caller's active organization membership.
-func GetTeam(ctx context.Context, store db.Store, actorAccountID, teamID int64) (db.Team, error) {
-	team, err := store.GetTeamForAccount(ctx, db.GetTeamForAccountParams{
+func GetTeam(ctx context.Context, store db.Store, actorAccountID, teamID int64) (*Team, error) {
+	row, err := store.GetTeamForAccount(ctx, db.GetTeamForAccountParams{
 		TeamID: teamID, ActorAccountID: actorAccountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.Team{}, ErrTeamNotFound
+		return nil, ErrTeamNotFound
 	}
-	return team, err
+	if err != nil {
+		return nil, err
+	}
+	return TeamFromDB(row), nil
 }
 
 func RenameTeam(ctx context.Context, writer TeamWriter, actorAccountID, teamID int64, name string) (db.Team, error) {
@@ -145,7 +148,7 @@ func teamWriteError(err error) error {
 // in context by the application entrypoint. The account-scoped SQL predicate
 // remains in ListTeams; no public HTTP context or authorization snapshot is
 // accepted here.
-func ListTeamsForDoer(ctx context.Context, organizationID int64, opts db.ListOptions) ([]db.Team, error) {
+func ListTeamsForDoer(ctx context.Context, organizationID int64, opts db.ListOptions) ([]*Team, error) {
 	actor, ok := auth_model.ActorFromContext(ctx)
 	if !ok {
 		return nil, auth_model.ErrSessionUnavailable
@@ -158,7 +161,7 @@ func ListTeamsForDoer(ctx context.Context, organizationID int64, opts db.ListOpt
 }
 
 // ListTeams applies the same authorization predicate as the single-team query.
-func ListTeams(ctx context.Context, store db.Store, actorAccountID, organizationID int64, opts db.ListOptions) ([]db.Team, error) {
+func ListTeams(ctx context.Context, store db.Store, actorAccountID, organizationID int64, opts db.ListOptions) ([]*Team, error) {
 	skip, take, ok := opts.GetSkipTake32()
 	if !ok {
 		return nil, ErrTeamPaginationInvalid
@@ -169,14 +172,29 @@ func ListTeams(ctx context.Context, store db.Store, actorAccountID, organization
 		Take:           take,
 		Skip:           skip,
 	})
-	if err != nil || len(teams) != 0 {
-		return teams, err
+	if err != nil {
+		return nil, err
 	}
 	// Filtering returns no rows for both an empty page and an organization
 	// invisible to this account. Resolve visibility only for empty results:
 	// the normal non-empty path still uses one SQL round-trip.
-	if _, err := GetForAccount(ctx, store, actorAccountID, organizationID); err != nil {
-		return nil, err
+	if len(teams) == 0 {
+		if _, err := GetForAccount(ctx, store, actorAccountID, organizationID); err != nil {
+			return nil, err
+		}
 	}
-	return teams, nil
+	return teamModelsFromDB(teams), nil
+}
+
+// teamModelsFromDB is the one list projection into domain Team values.
+// Preserve nil vs an allocated empty list for the existing JSON contract.
+func teamModelsFromDB(rows []db.Team) []*Team {
+	if rows == nil {
+		return nil
+	}
+	teams := make([]*Team, 0, len(rows))
+	for _, row := range rows {
+		teams = append(teams, TeamFromDB(row))
+	}
+	return teams
 }

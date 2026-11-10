@@ -93,19 +93,19 @@ func teamAssignment() func(*appctx.APIContext) {
 			ctx.APIErrorAuto(err)
 			return
 		}
-		row, err := organization_model.GetTeam(ctx, store, actor.AccountID, id)
+		team, err := organization_model.GetTeam(ctx, store, actor.AccountID, id)
 		if err != nil {
 			ctx.APIErrorAuto(err)
 			return
 		}
-		access, err := organization_model.GetForAccount(ctx, store, actor.AccountID, row.OrganizationID)
+		access, err := organization_model.GetForAccount(ctx, store, actor.AccountID, team.OrgID)
 		if err != nil {
 			ctx.APIErrorAuto(err)
 			return
 		}
 		ctx.Org = &appctx.APIOrganization{
 			Organization: access.OrganizationModel(),
-			Team:         organization_model.TeamFromDB(row),
+			Team:         team,
 			Access:       &access,
 		}
 	}

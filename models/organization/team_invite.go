@@ -85,39 +85,42 @@ func ValidTeamInviteProof(token string) bool {
 	return err == nil && len(raw) == 32
 }
 
-func AcceptTeamInvite(ctx context.Context, store db.Store, accountID int64, token string) (db.TeamMember, error) {
+func AcceptTeamInvite(ctx context.Context, store db.Store, accountID int64, token string) (*TeamMember, error) {
 	if !ValidTeamInviteProof(token) {
-		return db.TeamMember{}, ErrTeamInviteInvalid
+		return nil, ErrTeamInviteInvalid
 	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.TeamMember, error) {
+	return db.WithTxResult(ctx, store, func(q *db.Queries) (*TeamMember, error) {
 		return AcceptTeamInviteTx(ctx, q, accountID, token)
 	})
 }
 
 // AcceptTeamInviteTx consumes the proof and creates membership in the same
 // transaction owned by its caller. On any failure, proof consumption rolls back.
-func AcceptTeamInviteTx(ctx context.Context, q *db.Queries, accountID int64, token string) (db.TeamMember, error) {
+func AcceptTeamInviteTx(ctx context.Context, q *db.Queries, accountID int64, token string) (*TeamMember, error) {
 	if !ValidTeamInviteProof(token) {
-		return db.TeamMember{}, ErrTeamInviteInvalid
+		return nil, ErrTeamInviteInvalid
 	}
 	hash := sha256.Sum256([]byte(token))
 	teamID, err := q.ConsumeTeamInvite(ctx, db.ConsumeTeamInviteParams{
 		TokenHash: hash[:], AccountID: accountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.TeamMember{}, ErrTeamInviteInvalid
+		return nil, ErrTeamInviteInvalid
 	}
 	if err != nil {
-		return db.TeamMember{}, err
+		return nil, err
 	}
 	member, err := q.InsertInvitedTeamUser(ctx, db.InsertInvitedTeamUserParams{
 		AccountID: accountID, TeamID: teamID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		// A revoked organization membership invalidates the invitation.
-		return db.TeamMember{}, ErrTeamInviteInvalid
+		return nil, ErrTeamInviteInvalid
 	}
-	return member, err
+	if err != nil {
+		return nil, err
+	}
+	return TeamMemberFromDB(member), nil
 }
 
 // TeamInviteRevoker is consumed by the model. Both a top-level store and
