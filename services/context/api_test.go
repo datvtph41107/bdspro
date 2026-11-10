@@ -8,18 +8,20 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/datvtph41107/bdspro/modules/web"
 )
 
 func TestWrapPreservesGinAbortAndPublicError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := gin.New()
+	r := web.NewRouter()
+	r.AfterRouting(APIContexter())
 	reached := false
-	r.GET("/test", Wrap(func(ctx *APIContext) {
+	r.Get("/test", func(ctx *APIContext) {
 		ctx.APIErrorAuto(errors.New("private-driver-secret"))
 		if !ctx.IsAborted() {
 			t.Fatal("public error must abort pending Gin handlers")
 		}
-	}), func(*gin.Context) { reached = true })
+	}, func(*APIContext) { reached = true })
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/test", nil))
 	if reached {
