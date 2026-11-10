@@ -38,6 +38,12 @@
 - **Historical #218 disposition:** keep API context/validation tests as migration regressions (coordinate fixture signatures); rehome `routers/init.go` final wiring to Chat 0; reconcile `services/user/{user,update,settings}.go` as DB transaction consumer changes with Chat B. Do not assume historical cross-owner paths are permitted future writes.
 - **Remaining gates:** A P01.7/P01.8 + P02 tests on final HEAD, coordinator refresh #222 from final A source, Go 1.27.3 CI, CORS/proxy/404/405/HEAD/Auth/OAuth/session/CSRF/cancellation/smoke, G1–G6 independent review. **APPROVED lease is not ACCEPTED architecture.** No dev merge.
 
+## 2026-11-10 Chat 0 conditional acceptance: P04-B / P06-C
+
+- **Chat B PR #221:** verified `d73e3ecada31898a59c625431dd4ce890c099348`, 20 `models/**` files, CI [42790012175](https://github.com/datvtph41107/bdspro/actions/runs/42790012175) SUCCESS. **CONDITIONAL ACCEPT scoped P04 models code; integrated G5 BLOCKED**, G6 independent scoped review performed. `WithTxResult` still has out-of-lane callers; raw OAuth refresh replay is commit-then-error. **No B lease** for `services/user/**` because historical A #218 owns overlapping diff. Chat 0 handles user/worker consumers. P05 remains CLOSED. See [B handoff](./CHAT0_TO_CHATB_HANDOFF.md), [lease disposition](./LEASE_REGISTRY.md), [PR221 comment](https://github.com/datvtph41107/bdspro/pull/221#issuecomment-6764137583).
+- **Chat C PR #220:** verified `07287479864a33304c243913d5d99d29f1ba48c7`, 41 paths within C scope, CI [42779188456](https://github.com/datvtph41107/bdspro/actions/runs/42779188456) SUCCESS. **CONDITIONAL ACCEPT scoped P06 runtime source; freeze changes**, docs/templates/go.mod and combined P07 remain Chat 0. No unused cache/channel/graceful module resurrection. See [C handoff](./CHAT0_TO_CHATC_HANDOFF.md) and [PR220 comment](https://github.com/datvtph41107/bdspro/pull/220#issuecomment-6764138330).
+- **Integration ordering:** A non-generic router + Chat0 stacked PR #222; cross-owner `services/user/**` reconciliation and worker outbox transaction migration; B/C integration in isolated branch with final-head A/B/C P07 tests; only then consider merges to `dev`. A/B/C CI green independently does NOT prove combined HEAD passes. Chat D remains read-only until A+B contracts accepted in combined source.
+
 ## Guard script independent verification
 
 `tools/parallel/check-owned-paths.sh` at corrected `f631ad54` was manually syntax-checked with `bash -n` and behavior-tested against a **temporary local Git repository** using the matching script text:
