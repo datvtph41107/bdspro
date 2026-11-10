@@ -54,12 +54,11 @@ func TestOAuthAuthorizeBearerMustHaveLiveSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := NewHandler(oauth_service.NewService(oauthStore), store, proofs)
-	router := gin.New()
-	router.GET("/oauth/authorize", handler.Authenticate(maker), handler.AuthorizePreview)
-	router.POST("/oauth/authorize", handler.Authenticate(maker), handler.Authorize)
+	router := oauthTestRouter(oauth_service.NewService(oauthStore), store, proofs, maker)
+	router.Get("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), AuthorizePreview)
+	router.Post("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), Authorize)
 	// This endpoint deliberately retains the ordinary stateless access JWT policy.
-	router.GET("/api/account", appctx.Authenticate(maker), func(c *gin.Context) { c.Status(http.StatusOK) })
+	router.Get("/api/account", appctx.Authenticate(), func(c *appctx.APIContext) { c.Status(http.StatusOK) })
 	challenge := sha256.Sum256([]byte(strings.Repeat("x", 43)))
 	query := url.Values{
 		"client_id": {clientID.String()}, "redirect_uri": {oauthStore.client.RedirectUri},

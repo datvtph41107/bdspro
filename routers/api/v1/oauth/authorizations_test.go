@@ -36,15 +36,19 @@ func (s *authorizationHTTPStore) RevokeOAuthAuthorization(_ context.Context, id 
 func TestOAuthAuthorizationsHTTPBoundToJWTAccount(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := &authorizationHTTPStore{}
-	h := NewHandler(oauth_service.NewService(store), nil)
-	r := gin.New()
 	maker, err := authcrypto.NewJWTMaker(strings.Repeat("s", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	group := r.Group("", appctx.Authenticate(maker))
-	group.GET("/users/me/oauth/authorizations", h.ListAuthorizations)
-	group.DELETE("/users/me/oauth/authorizations/:client_id", h.RevokeAuthorization)
+	sessionID := uuid.New()
+	sessionStore := oauthSessionTestStore{
+		accounts: map[uuid.UUID]int64{sessionID: 41},
+	}
+	r := oauthTestRouter(oauth_service.NewService(store), sessionStore, nil, maker)
+	r.Group("", func() {
+		r.Get("/users/me/oauth/authorizations", ListAuthorizations)
+		r.Delete("/users/me/oauth/authorizations/:client_id", RevokeAuthorization)
+	}, appctx.Authenticate(), appctx.RequireSession())
 	call := func(method, path, bearer string) *httptest.ResponseRecorder {
 		t.Helper()
 		req := httptest.NewRequest(method, path, nil)
@@ -65,7 +69,7 @@ func TestOAuthAuthorizationsHTTPBoundToJWTAccount(t *testing.T) {
 	if store.listedAccount != 0 || store.revokedAccount != 0 {
 		t.Fatal("unauthenticated request reached persistence")
 	}
-	access, _, err := maker.CreateToken(41, time.Minute, authcrypto.TokenTypeAccess)
+	access, _, err := maker.CreateSessionAccessToken(41, time.Minute, sessionID)
 	if err != nil {
 		t.Fatal(err)
 	}

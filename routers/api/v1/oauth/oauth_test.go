@@ -13,28 +13,26 @@ import (
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
+	"github.com/datvtph41107/bdspro/modules/web"
 )
 
 type noGrantStore struct {
 	db.OAuthServerStore
 }
 
-func oauthHTTPTestRouter(t *testing.T) *gin.Engine {
+func oauthHTTPTestRouter(t *testing.T) *web.Router {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	handler := NewHandler(oauth_service.NewService(&noGrantStore{}), nil)
-	r.POST("/oauth/token", handler.Token)
-	r.POST("/oauth/revoke", handler.Revoke)
-	r.GET("/oauth/userinfo", handler.UserInfo)
 	maker, err := authcrypto.NewJWTMaker(strings.Repeat("s", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	protected := r.Group("", appctx.Authenticate(maker))
-	protected.GET("/oauth/authorize", handler.AuthorizePreview)
-	protected.POST("/oauth/authorize", handler.Authorize)
-	_ = time.Second
+	r := oauthTestRouter(oauth_service.NewService(&noGrantStore{}), nil, nil, maker)
+	r.Post("/oauth/token", Token)
+	r.Post("/oauth/revoke", Revoke)
+	r.Get("/oauth/userinfo", UserInfo)
+	r.Get("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), AuthorizePreview)
+	r.Post("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), Authorize)
 	return r
 }
 
