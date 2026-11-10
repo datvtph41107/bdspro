@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -46,9 +47,21 @@ func (identity OIDCClaims) Key() (OAuth2CredentialKey, error) {
 	return OAuth2CredentialKey{Issuer: issuer, Subject: identity.Subject}, nil
 }
 
-// OAuth2Credential is the persistent Account-to-issuer binding. The alias
-// exposes the expected OAuth2 capitalization without copying the SQLC model.
-type OAuth2Credential = db.Oauth2Credential
+// OAuth2Credential is the persistent Account-to-issuer binding model.
+// Generated SQLC values must not escape models/auth.
+type OAuth2Credential struct {
+	Issuer    string
+	Subject   string
+	AccountID int64
+	LinkedAt  time.Time
+}
+
+func oauth2CredentialFromDB(row db.Oauth2Credential) OAuth2Credential {
+	return OAuth2Credential{
+		Issuer: row.Issuer, Subject: row.Subject,
+		AccountID: row.AccountID, LinkedAt: row.LinkedAt,
+	}
+}
 
 // OAuth2CredentialKey identifies an external subject within its issuer.
 // Neither email nor a provider display name is an account-linking key.
@@ -59,7 +72,15 @@ type OAuth2CredentialKey struct {
 
 // ListOAuth2CredentialsForAccount reads all credentials linked to an Account.
 func ListOAuth2CredentialsForAccount(ctx context.Context, queries db.Querier, accountID int64) ([]OAuth2Credential, error) {
-	return queries.ListOAuth2CredentialsForAccount(ctx, accountID)
+	rows, err := queries.ListOAuth2CredentialsForAccount(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	credentials := make([]OAuth2Credential, 0, len(rows))
+	for _, row := range rows {
+		credentials = append(credentials, oauth2CredentialFromDB(row))
+	}
+	return credentials, nil
 }
 
 // GetOAuth2AccountID reads a verified external identity binding.

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/google/uuid"
 )
@@ -109,25 +110,37 @@ func validateAuthorization(a AuthorizationRequest) error {
 	return nil
 }
 
-func (s *Service) RegisterClient(ctx context.Context, accountID int64, name, redirect string) (db.OauthClient, error) {
+func (s *Service) RegisterClient(ctx context.Context, accountID int64, name, redirect string) (*auth_model.OAuthClient, error) {
 	name = strings.TrimSpace(name)
 	if accountID <= 0 || len(name) == 0 || len(name) > 120 || ValidateRedirectURI(redirect) != nil {
-		return db.OauthClient{}, ErrInvalidRequest
+		return nil, ErrInvalidRequest
 	}
 	id, err := uuid.NewRandom()
 	if err != nil {
-		return db.OauthClient{}, err
+		return nil, err
 	}
-	return s.store.CreateOAuthClient(ctx, db.OauthClient{
+	row, err := s.store.CreateOAuthClient(ctx, db.OauthClient{
 		ID: id, OwnerAccountID: accountID, Name: name, RedirectUri: redirect,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return auth_model.OAuthClientFromDB(row), nil
 }
 
-func (s *Service) ListClients(ctx context.Context, accountID int64) ([]db.OauthClient, error) {
+func (s *Service) ListClients(ctx context.Context, accountID int64) ([]*auth_model.OAuthClient, error) {
 	if accountID <= 0 {
 		return nil, ErrInvalidRequest
 	}
-	return s.store.ListOAuthClients(ctx, accountID)
+	rows, err := s.store.ListOAuthClients(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	clients := make([]*auth_model.OAuthClient, 0, len(rows))
+	for _, row := range rows {
+		clients = append(clients, auth_model.OAuthClientFromDB(row))
+	}
+	return clients, nil
 }
 
 func (s *Service) DeleteClient(ctx context.Context, accountID int64, id uuid.UUID) error {
@@ -144,36 +157,40 @@ func (s *Service) DeleteClient(ctx context.Context, accountID int64, id uuid.UUI
 	return nil
 }
 
-func (s *Service) ReviewAuthorization(ctx context.Context, req AuthorizationRequest) (db.OauthClient, error) {
+func (s *Service) ReviewAuthorization(ctx context.Context, req AuthorizationRequest) (*auth_model.OAuthClient, error) {
 	if err := validateAuthorization(req); err != nil {
-		return db.OauthClient{}, err
+		return nil, err
 	}
-	client, err := s.store.GetOAuthClient(ctx, req.ClientID)
+	row, err := s.store.GetOAuthClient(ctx, req.ClientID)
 	if errors.Is(err, db.ErrOAuthClientMissing) {
-		return db.OauthClient{}, ErrInvalidClient
+		return nil, ErrInvalidClient
 	}
 	if err != nil {
-		return db.OauthClient{}, err
+		return nil, err
 	}
-	if client.RedirectUri != req.RedirectURI || len(client.SecretHash) != 0 {
-		return db.OauthClient{}, ErrInvalidClient
+	// Validate the public PKCE client before crossing the model boundary.
+	// A confidential client must never be treated as a public client.
+	if row.RedirectUri != req.RedirectURI || len(row.SecretHash) != 0 {
+		return nil, ErrInvalidClient
 	}
-	client.SecretHash = nil
-	return client, nil
+	return auth_model.OAuthClientFromDB(row), nil
 }
 
 // ReviewConsent leaves GET /oauth/authorize read-only. The version is not
 // a credential: it prevents approvals based on an obsolete consent preview.
-func (s *Service) ReviewConsent(ctx context.Context, accountID int64, req AuthorizationRequest) (db.OauthClient, int64, error) {
+func (s *Service) ReviewConsent(ctx context.Context, accountID int64, req AuthorizationRequest) (*auth_model.OAuthClient, int64, error) {
 	if accountID <= 0 {
-		return db.OauthClient{}, 0, ErrAccessDenied
+		return nil, 0, ErrAccessDenied
 	}
 	client, err := s.ReviewAuthorization(ctx, req)
 	if err != nil {
-		return db.OauthClient{}, 0, err
+		return nil, 0, err
 	}
 	version, err := s.store.GetOAuthConsentVersion(ctx, accountID, req.ClientID)
-	return client, version, err
+	if err != nil {
+		return nil, 0, err
+	}
+	return client, version, nil
 }
 
 func (s *Service) Authorize(ctx context.Context, accountID int64, sessionID uuid.UUID, req AuthorizationRequest) (string, error) {
