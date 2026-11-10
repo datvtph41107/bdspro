@@ -660,3 +660,70 @@ func TestAfterRoutingRegisteredTypedHandlerRejectsBadSignatureEarly(t *testing.T
 	}()
 	m.AfterRouting(func(*typedHTTPContext) error { return nil })
 }
+
+func TestRegisteredTypedRouterRejectsNilSecurityGuardsAtRegistration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct {
+		name     string
+		register func(*Router[*typedHTTPContext])
+	}{
+		{
+			name: "nil group guard",
+			register: func(r *Router[*typedHTTPContext]) {
+				r.Group("/private", func() {
+					r.Get("", func(*typedHTTPContext) {})
+				}, nil)
+			},
+		},
+		{
+			name: "nil typed group guard",
+			register: func(r *Router[*typedHTTPContext]) {
+				var guard func(*typedHTTPContext)
+				r.Group("/private", func() {
+					r.Get("", func(*typedHTTPContext) {})
+				}, guard)
+			},
+		},
+		{
+			name: "nil pre group guard",
+			register: func(r *Router[*typedHTTPContext]) {
+				r.Group("/private", func() {
+					r.Get("", func(*typedHTTPContext) {})
+				}, web_types.PreMiddlewareProvider(nil))
+			},
+		},
+		{
+			name: "nil route guard",
+			register: func(r *Router[*typedHTTPContext]) {
+				r.Get("/private", nil, func(*typedHTTPContext) {})
+			},
+		},
+		{
+			name: "nil typed route guard",
+			register: func(r *Router[*typedHTTPContext]) {
+				var guard func(*typedHTTPContext)
+				r.Get("/private", guard, func(*typedHTTPContext) {})
+			},
+		},
+		{
+			name: "nil pre route guard",
+			register: func(r *Router[*typedHTTPContext]) {
+				r.Get("/private", web_types.PreMiddlewareProvider(nil), func(*typedHTTPContext) {})
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := gin.New()
+			r := NewRouter[*typedHTTPContext](engine.Group(""), func(c *gin.Context) *typedHTTPContext {
+				return c.Request.Context().Value(typedHTTPContextKey{}).(*typedHTTPContext)
+			})
+			defer func() {
+				if recover() == nil {
+					t.Fatal("nil security guard was silently omitted during route registration")
+				}
+			}()
+			tc.register(r)
+		})
+	}
+}
