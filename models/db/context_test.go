@@ -199,3 +199,46 @@ func TestWithTxAlreadyCanceledDoesNotBegin(t *testing.T) {
 		t.Fatalf("err=%v owner=%+v", err, owner)
 	}
 }
+
+func TestWithTxRecoveredNestedPanicCannotCommit(t *testing.T) {
+	owner := &contextTestStore{}
+	ctx := WithStore(context.Background(), owner)
+	err := WithTx(ctx, func(txCtx context.Context) error {
+		func() {
+			defer func() {
+				if got := recover(); got != "nested panic" {
+					t.Fatalf("recovered=%v, want nested panic", got)
+				}
+			}()
+			_ = WithTx(txCtx, func(context.Context) error {
+				panic("nested panic")
+			})
+		}()
+		// A broken caller catches and ignores the nested panic.
+		return nil
+	})
+	if !errors.Is(err, errTransactionPanicked) || owner.committed || owner.transactions != 1 {
+		t.Fatalf("err=%v committed=%v transactions=%d", err, owner.committed, owner.transactions)
+	}
+}
+
+func TestWithTxRecoveredNestedResultPanicCannotCommit(t *testing.T) {
+	owner := &contextTestStore{}
+	ctx := WithStore(context.Background(), owner)
+	err := WithTx(ctx, func(txCtx context.Context) error {
+		func() {
+			defer func() {
+				if got := recover(); got != "result panic" {
+					t.Fatalf("recovered=%v, want result panic", got)
+				}
+			}()
+			_, _ = WithTx2(txCtx, func(context.Context) (string, error) {
+				panic("result panic")
+			})
+		}()
+		return nil
+	})
+	if !errors.Is(err, errTransactionPanicked) || owner.committed || owner.transactions != 1 {
+		t.Fatalf("err=%v committed=%v transactions=%d", err, owner.committed, owner.transactions)
+	}
+}
