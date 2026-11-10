@@ -161,14 +161,27 @@ func bind[T any](_ T) func(*appctx.APIContext) {
 	}
 }
 
-// Routes owns all API method/path/group declarations. A single Gin engine
-// executes all middleware. web.Router converts typed request actions at
-// registration; no second router, registry, or handler dispatch exists.
+// Routes preserves the older explicit-engine registration while callers
+// transition to independently constructed routers. Do not use it for new
+// production mounting: it registers directly on the supplied Gin engine.
 func Routes(root *gin.Engine, d Dependencies) *web.Router {
-	// Gin applies APIContexter after route matching, before typed actions.
-	// It is the sole request-local APIContext owner.
 	root.Use(appctx.APIContexter())
 	m := web.NewRouter(root)
+	registerRoutes(m, d)
+	return m
+}
+
+// MountedRoutes builds an independent API router, for composition by
+// web.Router.Mount. No Gin engine is passed down from routers/init.go.
+func MountedRoutes(d Dependencies) *web.Router {
+	m := web.NewRouter()
+	registerRoutes(m, d)
+	return m
+}
+
+// registerRoutes contains the v1 API route declarations for both the legacy
+// direct-engine registration and the production mounted router.
+func registerRoutes(m *web.Router, d Dependencies) {
 	m.Get("/health", Health)
 
 	// The v1 route tree owns group declarations. Bind process-scoped capabilities
@@ -352,7 +365,6 @@ func Routes(root *gin.Engine, d Dependencies) *web.Router {
 	}, appctx.GinActions(
 		appctx.Authenticate(d.TokenMaker), appctx.RequireSession(d.Store),
 	)...)
-	return m
 }
 
 // @Summary Check API health
