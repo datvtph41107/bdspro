@@ -109,7 +109,7 @@ func TestTypedHTTPChainPropagatesGinContextMutation(t *testing.T) {
 	engine := gin.New()
 	engine.Use(APIContexter())
 	router := web.NewRouter(engine)
-	
+
 	router.Get("/gin-context", append(
 		GinActions(func(c *gin.Context) {
 			c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), requestStoreTraceKey{}, "verified"))
@@ -133,7 +133,6 @@ func TestTypedAPIContextCancellationPropagatesAndCleansScope(t *testing.T) {
 	engine := gin.New()
 	engine.Use(APIContexter())
 	router := web.NewRouter(engine)
-	
 
 	requestContext, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -177,7 +176,7 @@ func TestTypedGinAbortWithoutResponseStopsNextAction(t *testing.T) {
 	engine := gin.New()
 	engine.Use(APIContexter())
 	router := web.NewRouter(engine)
-	
+
 	cleanupCount := 0
 	reached := false
 	router.Get("/abort", append(
@@ -206,7 +205,7 @@ func TestTypedStatusSelectionWithoutAbortContinues(t *testing.T) {
 	engine := gin.New()
 	engine.Use(APIContexter())
 	router := web.NewRouter(engine)
-	
+
 	reached := false
 	router.Get("/selected", func(api *APIContext) {
 		api.Status(http.StatusAccepted)
@@ -236,7 +235,7 @@ func TestBeforeRoutingAndTypedAPIContextShareOneCurrentRequest(t *testing.T) {
 			next.ServeHTTP(w, scoped)
 		})
 	})
-	
+
 	cleanupCount := 0
 	router.Get("/orgs/:id", func(api *APIContext) {
 		if api.Value(typedIngressKey{}) != "before-routing" {
