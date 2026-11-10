@@ -62,7 +62,12 @@ func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *
 // Register these middlewares before the routes that should receive them.
 func (r *Router[T]) AfterRouting(middlewares ...any) {
 	for _, middleware := range middlewares {
-		r.afterRouting = append(r.afterRouting, r.toHandlerProvider(middleware))
+		switch middleware.(type) {
+		case func(http.Handler) http.Handler, func(http.Handler) http.HandlerFunc:
+			r.afterRouting = append(r.afterRouting, ginHandlerProvider(toHandlerProvider(middleware)))
+		default:
+			r.afterRouting = append(r.afterRouting, r.toGinHandler(middleware))
+		}
 	}
 }
 
