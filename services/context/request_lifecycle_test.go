@@ -259,3 +259,33 @@ func TestBeforeRoutingAndTypedAPIContextShareOneCurrentRequest(t *testing.T) {
 		t.Fatalf("ingress/typed context lifecycle status=%d cleanup=%d", w.Code, cleanupCount)
 	}
 }
+
+// Recovery must not bypass request cleanup or retain the prior request's
+// context. The same APIContexter owns scope finalization on success and panic.
+func TestAPIContexterCleanupAfterGinRecovery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.Use(gin.Recovery(), APIContexter())
+	cleanupCount := 0
+	var previous *APIContext
+	engine.GET("/panic", func(c *gin.Context) {
+		api := GetAPIContext(c)
+		if previous == api {
+			t.Error("APIContext was reused across recovered requests")
+		}
+		previous = api
+		scope := reqctx.FromContext(api.CurrentRequest().Context())
+		if scope == nil {
+			t.Fatal("missing request-local data before action panic")
+		}
+		scope.AddCleanup(func() { cleanupCount++ })
+		panic("request lifecycle panic fixture")
+	})
+	for i := 0; i < 2; i++ {
+		response := httptest.NewRecorder()
+		engine.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/panic", nil))
+		if response.Code != http.StatusInternalServerError || cleanupCount != i+1 {
+			t.Fatalf("request %d: recovery status=%d cleanup=%d; want 500 and %d", i, response.Code, cleanupCount, i+1)
+		}
+	}
+}
