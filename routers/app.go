@@ -26,8 +26,9 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-// Server owns initialized HTTP dependencies and the configured Gin application.
-// Listener, readiness, timeouts and graceful shutdown remain in cmd/http.go.
+// Server owns initialized HTTP dependencies and the one configured Gin matcher.
+// Its httpHandler is the canonical pre-matcher ingress. Listener, readiness,
+// timeouts and graceful shutdown remain in cmd/http.go.
 type Server struct {
 	authHandler          *user.AuthHandler
 	oauth2Handler        *user.OAuth2Handler
@@ -38,6 +39,7 @@ type Server struct {
 	store                db.Store
 	tokenMaker           authcrypto.Maker
 	router               *gin.Engine
+	httpHandler          http.Handler
 	authRateRedis        *redis.Client
 	authThrottle         *security.AuthThrottle
 	ipActive             *ipactive.Middleware
@@ -156,7 +158,12 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	return server, nil
 }
 
-// Handler exposes Gin routes with the same CORS policy as the previous HTTP ingress.
+// Handler serves the one composed HTTP ingress. CORS remains the outer
+// protocol boundary and WrapIngress executes BeforeRouting before Gin matching.
+// Never bypass this handler by serving server.router directly.
 func (server *Server) Handler() http.Handler {
-	return common.CORS(server.router, server.config.AllowedOrigins)
+	if server.httpHandler == nil {
+		panic("routers: HTTP ingress was not composed")
+	}
+	return common.CORS(server.httpHandler, server.config.AllowedOrigins)
 }
