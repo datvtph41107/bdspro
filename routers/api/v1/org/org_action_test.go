@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
@@ -20,7 +19,7 @@ func TestGetUsesAssignedOrganizationWithoutDatabaseRead(t *testing.T) {
 	r.GET("/orgs/:id", func(c *gin.Context) {
 		api := appctx.GetAPIContext(c)
 		api.Org = &appctx.APIOrganization{Access: &organization_model.Access{
-			Organization: db.Organization{PartyID: 12, Name: "Acme", CreatedAt: time.Unix(100, 0).UTC()},
+			Organization: organization_model.Organization{ID: 12, Name: "Acme", CreatedAt: time.Unix(100, 0).UTC()},
 			MembershipID: 5,
 			Role:         organization_model.RoleOwner,
 		}}
