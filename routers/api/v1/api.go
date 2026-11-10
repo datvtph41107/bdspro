@@ -299,7 +299,24 @@ func registerAuthenticatedRoutes(m *web.Router, d Dependencies) {
 		registerOrgRoutes(m)
 	}, appctx.GinActions(appctx.VerifiedContact(d.Store))...)
 	m.Group("/teams", func() {
-		registerTeamRoutes(m, d)
+		m.Post("/invites/accept", append(
+			appctx.GinActions(d.IPActive.For(ipactive.AcceptTeamInvite)),
+			bind(api.AcceptTeamInviteOption{}), org.AcceptInvite,
+		)...)
+		m.Group("/:team_id", func() {
+			// Keep assignment on GET only: mutations still authorize with live
+			// acting-session and owner-scoped SQLC checks in services/org.
+			m.Get("", teamAssignment(), reqToken(), org.GetTeam)
+			m.Patch("", bind(api.RenameTeamOption{}), org.EditTeam)
+			m.Get("/members", reqToken(), org.ListTeamMembers)
+			m.Post("/members", reqToken(), bind(api.AddTeamUserOption{}), org.AddTeamMember)
+			m.Delete("/members/:person_id", reqToken(), org.RemoveTeamMember)
+			m.Post("/invites", append(
+				appctx.GinActions(d.IPActive.For(ipactive.CreateTeamInvite)),
+				bind(api.CreateTeamInviteOption{}), org.CreateInvite(d.InviteKey),
+			)...)
+			m.Delete("/invites/:invite_id", org.RevokeInvite)
+		})
 	}, appctx.GinActions(appctx.VerifiedContact(d.Store))...)
 
 	if d.OAuth2 != nil {
@@ -340,27 +357,6 @@ func registerOrgRoutes(m *web.Router) {
 			m.Post("", reqToken(), reqOrgMembership(), reqOrgOwnership(), bind(api.CreateTeamOption{}), org.CreateTeam)
 		})
 	}, orgAssignment(organization_model.ErrTeamOwnerRequired))
-}
-
-func registerTeamRoutes(m *web.Router, d Dependencies) {
-	m.Post("/invites/accept", append(
-		appctx.GinActions(d.IPActive.For(ipactive.AcceptTeamInvite)),
-		bind(api.AcceptTeamInviteOption{}), org.AcceptInvite,
-	)...)
-	m.Group("/:team_id", func() {
-		// Keep assignment on GET only: mutations still authorize with live
-		// acting-session and owner-scoped SQLC checks in services/org.
-		m.Get("", teamAssignment(), reqToken(), org.GetTeam)
-		m.Patch("", bind(api.RenameTeamOption{}), org.EditTeam)
-		m.Get("/members", reqToken(), org.ListTeamMembers)
-		m.Post("/members", reqToken(), bind(api.AddTeamUserOption{}), org.AddTeamMember)
-		m.Delete("/members/:person_id", reqToken(), org.RemoveTeamMember)
-		m.Post("/invites", append(
-			appctx.GinActions(d.IPActive.For(ipactive.CreateTeamInvite)),
-			bind(api.CreateTeamInviteOption{}), org.CreateInvite(d.InviteKey),
-		)...)
-		m.Delete("/invites/:invite_id", org.RevokeInvite)
-	})
 }
 
 func registerPhoneBindRoutes(m *web.Router, d Dependencies) {
