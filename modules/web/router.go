@@ -12,8 +12,9 @@ import (
 // Router maps typed HTTP actions into Gin at registration time. Gin remains
 // the only middleware executor. Do not mutate this router after startup.
 type Router[T any] struct {
-	group      *gin.RouterGroup
-	getContext func(*gin.Context) T
+	group        *gin.RouterGroup
+	getContext   func(*gin.Context) T
+	afterRouting []gin.HandlerFunc
 }
 
 func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *Router[T] {
@@ -30,6 +31,19 @@ func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *
 	return &Router[T]{group: group, getContext: getContext}
 }
 
+// AfterRouting installs middleware after Gin has resolved the route, before
+// group guards, binding, and the endpoint action. A request context belongs to
+// the selected API route rather than to unmatched or non-API requests.
+// Register these middlewares before the routes that should receive them.
+func (r *Router[T]) AfterRouting(middlewares ...gin.HandlerFunc) {
+	for _, middleware := range middlewares {
+		if middleware == nil {
+			panic("web: nil after-routing middleware")
+		}
+	}
+	r.afterRouting = append(r.afterRouting, middlewares...)
+}
+
 // Group follows Gitea's Group(path, func() {...}, guards...) declaration.
 // Its mutable group state exists only during single-threaded route registration.
 func (r *Router[T]) Group(path string, register func(), guards ...func(T)) {
@@ -42,7 +56,10 @@ func (r *Router[T]) Group(path string, register func(), guards ...func(T)) {
 // Methods is the one HTTP method registration boundary. Gin owns route
 // matching and execution; this facade owns conversion of typed API actions.
 func (r *Router[T]) Methods(method, path string, actions ...func(T)) {
-	r.group.Handle(method, path, r.handlers(actions)...)
+	handlers := make([]gin.HandlerFunc, 0, len(r.afterRouting)+len(actions))
+	handlers = append(handlers, r.afterRouting...)
+	handlers = append(handlers, r.handlers(actions)...)
+	r.group.Handle(method, path, handlers...)
 }
 
 func (r *Router[T]) Get(path string, actions ...func(T)) {
