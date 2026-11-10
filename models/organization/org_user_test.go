@@ -14,7 +14,7 @@ func TestMemberFromDBOwnsMembershipProjection(t *testing.T) {
 	row := db.OrganizationMember{
 		ID: 11, OrganizationID: 12, PersonID: 13,
 		Role: RoleOwner, JoinedAt: joined,
-		EndedAt: pgtype.Timestamptz{Time: ended, Valid: true},
+		EndedAt:       pgtype.Timestamptz{Time: ended, Valid: true},
 		OwnerPersonID: pgtype.Int8{Int64: 13, Valid: true},
 	}
 	got := MemberFromDB(row)
