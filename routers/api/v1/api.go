@@ -261,7 +261,7 @@ func Routes() *web.Router {
 		m.Patch("/users/me/profile", bind(api.ProfileUpdateRequest{}), user.UpdateProfile)
 		m.Get("/users/me/settings", user.GetUserSettings)
 		m.Patch("/users/me/settings", bind(api.SettingsUpdateRequest{}), user.UpdateUserSettings)
-		m.Get("/users/me/connections", appctx.GinActions(d.Auth.GetConnections)...)
+		m.Get("/users/me/connections", d.Auth.GetConnections)
 		m.Get("/users/me/sessions", user.ListSessions)
 		m.Delete("/users/me/sessions/:id", user.RevokeOwnSession)
 		m.Post("/users/me/sessions/revoke_all", user.RevokeAllSessions)

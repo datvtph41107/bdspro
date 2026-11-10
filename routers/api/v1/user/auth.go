@@ -339,11 +339,16 @@ func (h *AuthHandler) Revoke(ctx *appctx.APIContext) {
 
 // GetConnections returns a bounded history of this Account's session issuance.
 // The account identifier is always taken from the authenticated request context.
-func (h *AuthHandler) GetConnections(c *gin.Context) {
-	connections, err := h.auth.GetConnections(c.Request.Context(), appctx.AccountID(c))
-	if err != nil {
-		appctx.Error(c, err)
+func (h *AuthHandler) GetConnections(ctx *appctx.APIContext) {
+	actor, ok := ctx.VerifiedActor()
+	if !ok {
+		ctx.AuthenticationRequired()
 		return
 	}
-	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"connections": convert.ToConnections(connections)})
+	connections, err := h.auth.GetConnections(ctx, actor.AccountID)
+	if err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
+	ctx.JSON(http.StatusOK, map[string]any{"connections": convert.ToConnections(connections)})
 }
