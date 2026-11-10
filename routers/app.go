@@ -14,7 +14,6 @@ import (
 	"github.com/datvtph41107/bdspro/modules/setting"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	api "github.com/datvtph41107/bdspro/routers/api"
-	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
 	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
@@ -32,7 +31,8 @@ import (
 // timeouts and graceful shutdown remain in cmd/http.go.
 type Server struct {
 	authService          *auth_service.AuthService
-	oauth2Handler        *user.OAuth2Handler
+	oidcClient           *auth_service.OAuth2Client
+	oidcSecure           bool
 	oauthService         *oauth_service.Service
 	oauthProofs          *oauth_service.ConsentProofs
 	browserHandler       *weboauth.Handler
@@ -145,19 +145,14 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		if err != nil {
 			return nil, fmt.Errorf("configure oauth2: %w", err)
 		}
-		var browserCompletion user.BrowserLoginCompleter
-		if browserOIDC {
-			browserCompletion = server.browserHandler
-		}
-		server.oauth2Handler = user.NewOAuth2Handler(
-			authService, oauth2, strings.HasPrefix(cfg.OIDC.RedirectURI, "https://"), browserCompletion,
-		)
+		server.oidcClient = oauth2
+		server.oidcSecure = strings.HasPrefix(cfg.OIDC.RedirectURI, "https://")
 	}
 
 	// Process startup installs immutable API and router capabilities once;
 	// per-request actors, sessions and transactions remain request-scoped.
 	apiv1.InitRuntime(apiv1.Runtime{
-		OAuth2:        server.oauth2Handler,
+		OAuth2Enabled: server.oidcClient != nil,
 		AuthorizationEnabled: server.oauthService != nil,
 		Browser:       server.browserHandler,
 		PhoneEnabled:  server.phoneEnabled,
@@ -172,6 +167,8 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		ctx := req.Context()
 		ctx = auth_service.WithService(ctx, server.authService)
 		ctx = oauth_service.WithService(ctx, server.oauthService, server.oauthProofs)
+		ctx = auth_service.WithOAuth2(ctx, server.oidcClient, server.oidcSecure)
+		ctx = weboauth.WithHandler(ctx, server.browserHandler)
 		ctx = security.WithThrottle(ctx, server.authThrottle)
 		ctx = security.WithMonitorRedis(ctx, server.authRateRedis)
 		ctx = authcrypto.WithMaker(ctx, server.tokenMaker)

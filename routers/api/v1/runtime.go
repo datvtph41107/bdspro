@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/datvtph41107/bdspro/modules/ipactive"
-	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 )
 
@@ -13,7 +12,7 @@ import (
 // Routes compiles its handlers. Gitea also requires package initialization
 // before calling its parameterless route constructors.
 type Runtime struct {
-	OAuth2        *user.OAuth2Handler
+	OAuth2Enabled bool
 	AuthorizationEnabled bool
 	Browser       *weboauth.Handler
 	PhoneEnabled  bool

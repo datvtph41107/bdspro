@@ -210,16 +210,14 @@ func Routes() *web.Router {
 		m.Get("/oauth/userinfo", oauth.UserInfo)
 	}
 
-	if d.OAuth2 != nil {
+	if d.OAuth2Enabled {
 		if d.Browser != nil && d.Browser.OIDCEnabled {
-			m.Get("/oauth/login/oidc/start", appctx.GinActions(
-				d.IPActive.For(ipactive.StartOAuth2Login), d.OAuth2.StartBrowserLogin,
-			)...)
+			m.Get("/oauth/login/oidc/start",
+				security.IPActiveFor(ipactive.StartOAuth2Login), user.StartBrowserLogin)
 		}
-		m.Get("/users/oauth2/login/start", appctx.GinActions(
-			d.IPActive.For(ipactive.StartOAuth2Login), d.OAuth2.StartLogin,
-		)...)
-		m.Get("/users/oauth2/callback", appctx.GinActions(d.OAuth2.Callback)...)
+		m.Get("/users/oauth2/login/start",
+			security.IPActiveFor(ipactive.StartOAuth2Login), user.StartLogin)
+		m.Get("/users/oauth2/callback", user.Callback)
 	}
 	if d.PhoneEnabled {
 		m.Post("/users/phone/register/start", security.IPActiveFor(ipactive.StartPhoneRegister), user.StartPhoneRegister)
@@ -295,17 +293,15 @@ func Routes() *web.Router {
 			})
 		}, appctx.VerifiedContact())
 
-		if d.OAuth2 != nil {
-			m.Post("/users/me/oauth2/start", appctx.GinActions(
-				d.IPActive.For(ipactive.StartOAuth2Link), d.OAuth2.StartLink,
-			)...)
+		if d.OAuth2Enabled {
+			m.Post("/users/me/oauth2/start",
+				security.IPActiveFor(ipactive.StartOAuth2Link), user.StartLink)
 		}
-		if d.OAuth2 != nil && d.PhoneEnabled {
-			m.Post("/users/me/phone/oauth2/start", append(
-				[]any{appctx.VerifiedEmail()}, appctx.GinActions(
-					d.IPActive.For(ipactive.StartOAuth2PhoneBind), d.OAuth2.StartPhoneBind,
-				)...,
-			)...)
+		if d.OAuth2Enabled && d.PhoneEnabled {
+			m.Post("/users/me/phone/oauth2/start",
+				appctx.VerifiedEmail(),
+				security.IPActiveFor(ipactive.StartOAuth2PhoneBind),
+				user.StartOAuth2PhoneBind)
 		}
 		if d.PhoneEnabled {
 			m.Group("/users/me/phone", func() {
