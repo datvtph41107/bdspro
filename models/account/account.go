@@ -22,26 +22,30 @@ type RegisterParams struct {
 // Register creates the Party, Person, Account, password credential and
 // verification outbox row atomically; the caller controls HTTP error mapping.
 func Register(ctx context.Context, tx Transactioner, arg RegisterParams) (db.Account, error) {
-	created, err := db.WithTxResult(ctx, tx, func(q *db.Queries) (db.Account, error) {
-		partyID, err := db.CreatePersonWithParty(ctx, q)
+	created, err := db.WithTx2(db.WithStore(ctx, tx), func(txCtx context.Context) (db.Account, error) {
+		q, err := db.TxQueries(txCtx)
 		if err != nil {
 			return db.Account{}, err
 		}
-		account, err := q.CreateAccount(ctx, db.CreateAccountParams{
+		partyID, err := db.CreatePersonWithParty(txCtx, q)
+		if err != nil {
+			return db.Account{}, err
+		}
+		account, err := q.CreateAccount(txCtx, db.CreateAccountParams{
 			PersonID: partyID, Email: arg.Email,
 		})
 		if err != nil {
 			return db.Account{}, err
 		}
-		if err := q.CreateAccountSettings(ctx, account.ID); err != nil {
+		if err := q.CreateAccountSettings(txCtx, account.ID); err != nil {
 			return db.Account{}, err
 		}
-		if err := q.CreatePasswordCredential(ctx, db.CreatePasswordCredentialParams{
+		if err := q.CreatePasswordCredential(txCtx, db.CreatePasswordCredentialParams{
 			AccountID: account.ID, PasswordHash: arg.PasswordHash,
 		}); err != nil {
 			return db.Account{}, err
 		}
-		return account, q.RecordEmailVerificationJob(ctx, account.ID)
+		return account, q.RecordEmailVerificationJob(txCtx, account.ID)
 	})
 	if emailLoginTaken(err) {
 		return db.Account{}, util.WithCause(ErrEmailRegistered, err)
@@ -83,27 +87,31 @@ func CreateOAuth2Account(ctx context.Context, tx Transactioner, identity auth_mo
 	if !identity.EmailVerified || !valid {
 		return db.Account{}, auth_model.ErrInvalidEmail
 	}
-	created, err := db.WithTxResult(ctx, tx, func(q *db.Queries) (db.Account, error) {
-		partyID, err := db.CreatePersonWithParty(ctx, q)
+	created, err := db.WithTx2(db.WithStore(ctx, tx), func(txCtx context.Context) (db.Account, error) {
+		q, err := db.TxQueries(txCtx)
 		if err != nil {
 			return db.Account{}, err
 		}
-		account, err := q.CreateAccount(ctx, db.CreateAccountParams{
+		partyID, err := db.CreatePersonWithParty(txCtx, q)
+		if err != nil {
+			return db.Account{}, err
+		}
+		account, err := q.CreateAccount(txCtx, db.CreateAccountParams{
 			PersonID: partyID, Email: email,
 		})
 		if err != nil {
 			return db.Account{}, err
 		}
-		if err := q.CreateAccountSettings(ctx, account.ID); err != nil {
+		if err := q.CreateAccountSettings(txCtx, account.ID); err != nil {
 			return db.Account{}, err
 		}
-		account, err = q.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{
+		account, err = q.MarkEmailVerified(txCtx, db.MarkEmailVerifiedParams{
 			ID: account.ID, Email: email,
 		})
 		if err != nil {
 			return db.Account{}, err
 		}
-		_, err = q.LinkOAuth2Credential(ctx, db.LinkOAuth2CredentialParams{
+		_, err = q.LinkOAuth2Credential(txCtx, db.LinkOAuth2CredentialParams{
 			Issuer: key.Issuer, Subject: key.Subject, AccountID: account.ID,
 		})
 		return account, err
