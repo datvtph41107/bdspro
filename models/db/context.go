@@ -4,17 +4,26 @@ import (
 	"context"
 	"errors"
 	"sync"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type storeContextKey struct{}
 type queriesContextKey struct{}
 type txStateContextKey struct{}
+type rawTxContextKey struct{}
+type rawTxStoreContextKey struct{}
+
+// A recovered panic in a nested operation must not allow its parent to commit.
+// The original panic is re-thrown; this error is only the rollback-only cause.
+var errTransactionPanicked = errors.New("db: nested transaction callback panicked")
 
 // transactionState ensures an inner transaction error poisons the outer commit
 // even if its caller ignores the returned error. It is request-local.
 type transactionState struct {
-	mu  sync.Mutex
-	err error
+	mu     sync.Mutex
+	err    error
+	closed bool
 }
 
 func (s *transactionState) fail(err error) {
@@ -31,25 +40,78 @@ func (s *transactionState) fail(err error) {
 func (s *transactionState) failure() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed {
+		return ErrTransactionClosed
+	}
 	return s.err
 }
 
+func (s *transactionState) close() {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
+}
+
 var (
-	ErrStoreMissing        = errors.New("db: store missing from context")
-	ErrTransactionRequired = errors.New("db: transaction required")
-	ErrNestedTransaction   = errors.New("db: nested transaction context has no owner")
+	ErrStoreMissing         = errors.New("db: store missing from context")
+	ErrTxStoreUnavailable   = errors.New("db: transaction-bound store unavailable")
+	ErrTransactionRequired  = errors.New("db: transaction required")
+	ErrTransactionClosed    = errors.New("db: transaction context is no longer active")
+	ErrNestedTransaction    = errors.New("db: nested transaction context has no owner")
+	ErrRawTransactionInSQLC = errors.New("db: raw transaction cannot nest inside SQLC transaction")
 )
 
-// WithStore is called by the request/worker/test entrypoint, not by each model
-// operation. The Store remains request-scoped, never a mutable global.
-func WithStore(ctx context.Context, store Store) context.Context {
+// WithStore installs the transaction capability in the request context. The
+// ingress normally supplies a full Store; model operations which only require
+// transactions may supply their existing narrow Transactioner. Reads that need
+// a full Store continue through StoreFromContext and cannot use a tx-only fake.
+// No process-global mutable database dependency is introduced.
+func WithStore(ctx context.Context, store Transactioner) context.Context {
 	if store == nil {
 		panic("db: nil store")
 	}
 	return context.WithValue(ctx, storeContextKey{}, store)
 }
 
+// transactionStoreMatches is the single ownership check for SQLStore
+// handles used inside a transaction. A full ingress Store is valid only for
+// the originating pool. A transaction-scoped Store view is valid only when
+// it holds the exact SQLC Queries pointer bound to the current txCtx.
+func transactionStoreMatches(ctx context.Context, store *SQLStore, q *Queries) bool {
+	ownerPool := ctx.Value(rawTxStoreContextKey{})
+	if store == nil || q == nil || ownerPool == nil {
+		return false
+	}
+	return store.pool == ownerPool ||
+		(store.pool == nil && store.Queries == q)
+}
+
+// StoreFromContext resolves a query capability for the current context.
+// Outside a transaction it returns the ingress Store. Inside a transaction
+// it MUST expose only the transaction's SQLC executor, matching Gitea's
+// context-aware GetEngine behavior. A pool-backed Store would silently allow
+// domain reads/writes to escape the caller's rollback boundary.
+//
+// A narrow transaction-only mock has no complete query Store to rebind; fail
+// closed instead of silently returning an unrelated pool-backed executor.
 func StoreFromContext(ctx context.Context) (Store, error) {
+	if ctx.Value(queriesContextKey{}) != nil {
+		q, err := TxQueries(ctx)
+		if err != nil {
+			return nil, err
+		}
+		store, ok := ctx.Value(storeContextKey{}).(*SQLStore)
+		if !ok || !transactionStoreMatches(ctx, store, q) {
+			if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
+				state.fail(ErrTxStoreUnavailable)
+			}
+			return nil, ErrTxStoreUnavailable
+		}
+		// Do not carry the pool into this transaction-scoped view. Promoted
+		// SQLC methods now use q, and its ExecTx/ExecTxRaw cannot create
+		// an independent transaction when the context is lost.
+		return &SQLStore{Queries: q}, nil
+	}
 	store, ok := ctx.Value(storeContextKey{}).(Store)
 	if !ok || store == nil {
 		return nil, ErrStoreMissing
@@ -63,6 +125,17 @@ func TxQueries(ctx context.Context) (*Queries, error) {
 	q, ok := ctx.Value(queriesContextKey{}).(*Queries)
 	if !ok || q == nil {
 		return nil, ErrTransactionRequired
+	}
+	state, ok := ctx.Value(txStateContextKey{}).(*transactionState)
+	if !ok || state == nil {
+		return nil, ErrNestedTransaction
+	}
+	if err := state.failure(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		state.fail(err)
+		return nil, err
 	}
 	return q, nil
 }
@@ -82,25 +155,75 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 		if err := state.failure(); err != nil {
 			return err
 		}
+		// A nested callback must not silently retain SQLStore A's executor
+		// when a model replaces its Store in the context with SQLStore B.
+		// This is the same context-engine authority as GetEngine in Gitea.
+		if ctx.Value(rawTxStoreContextKey{}) != nil {
+			q, err := TxQueries(ctx)
+			if err != nil {
+				return err
+			}
+			store, ok := ctx.Value(storeContextKey{}).(*SQLStore)
+			if !ok || !transactionStoreMatches(ctx, store, q) {
+				state.fail(ErrTxStoreUnavailable)
+				return ErrTxStoreUnavailable
+			}
+		}
+		if err := ctx.Err(); err != nil {
+			state.fail(err)
+			return err
+		}
+		// A caller may recover an inner panic and accidentally return nil from
+		// the outer callback. Preserve the panic AND poison the shared owner.
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				state.fail(errTransactionPanicked)
+				panic(recovered)
+			}
+		}()
 		err := fn(ctx)
 		state.fail(err)
+		state.fail(ctx.Err())
 		if err != nil {
 			return err
 		}
 		return state.failure()
 	}
 
-	store, err := StoreFromContext(ctx)
-	if err != nil {
+	if err := ctx.Err(); err != nil {
 		return err
 	}
+	store, ok := ctx.Value(storeContextKey{}).(Transactioner)
+	if !ok || store == nil {
+		return ErrStoreMissing
+	}
 	state := &transactionState{}
-	return store.ExecTx(ctx, func(q *Queries) error {
-		txCtx := context.WithValue(ctx, queriesContextKey{}, q)
+	// The SQLStore implementation exposes the pgx.Tx to the context-aware
+	// SQLC executor, so even an ingress Store passed directly to a model uses
+	// the active transaction when the model forwards txCtx. The same
+	// ExecTxRaw implementation owns Begin/Commit/Rollback as before.
+	run := func(parentCtx context.Context, q *Queries) error {
+		defer state.close()
+		txCtx := context.WithValue(parentCtx, queriesContextKey{}, q)
 		txCtx = context.WithValue(txCtx, txStateContextKey{}, state)
 		err := fn(txCtx)
 		state.fail(err)
+		state.fail(txCtx.Err())
 		return state.failure()
+	}
+	if sqlStore, ok := store.(*SQLStore); ok {
+		return sqlStore.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+			txCtx := context.WithValue(ctx, rawTxContextKey{}, tx)
+			txCtx = context.WithValue(txCtx, rawTxStoreContextKey{}, sqlStore.pool)
+			// The SQLC executor itself must validate txCtx, not just the
+			// accessor which originally returned it. A caller may keep *Queries
+			// and accidentally pass the parent request context to its methods.
+			q := New(transactionDBTX{tx: tx, state: state, pool: sqlStore.pool})
+			return run(txCtx, q)
+		})
+	}
+	return store.ExecTx(ctx, func(q *Queries) error {
+		return run(ctx, q)
 	})
 }
 

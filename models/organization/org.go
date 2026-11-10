@@ -72,9 +72,11 @@ func OrganizationName(name string) (string, error) {
 // LockedCreator is an opaque account-to-person authorization obtained under
 // the account's PostgreSQL FOR KEY SHARE lock. Its unexported value prevents
 // a caller from inventing a positive PersonID and bypassing the account check.
-// It is valid ONLY in the transaction in which LockCreator acquired the lock.
+// It is valid ONLY with the exact transaction executor that acquired the lock.
+// A copied proof cannot authorize an independently committed transaction.
 type LockedCreator struct {
 	personID int64
+	executor *db.Queries
 }
 
 // LockCreator must run before RequireActingSession when creating organizations.
@@ -85,6 +87,13 @@ func LockCreator(ctx context.Context, q *db.Queries, actorAccountID int64) (Lock
 	if actorAccountID <= 0 {
 		return LockedCreator{}, account_model.ErrAccountUnavailable
 	}
+	owner, err := db.TxQueries(ctx)
+	if err != nil {
+		return LockedCreator{}, err
+	}
+	if owner != q {
+		return LockedCreator{}, db.ErrTransactionRequired
+	}
 	personID, err := q.LockOrganizationCreator(ctx, actorAccountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return LockedCreator{}, account_model.ErrAccountUnavailable
@@ -92,7 +101,7 @@ func LockCreator(ctx context.Context, q *db.Queries, actorAccountID int64) (Lock
 	if err != nil {
 		return LockedCreator{}, err
 	}
-	return LockedCreator{personID: personID}, nil
+	return LockedCreator{personID: personID, executor: q}, nil
 }
 
 // CreateOrganizationForCreator completes the party/organization/owner write
@@ -103,8 +112,15 @@ func CreateOrganizationForCreator(ctx context.Context, q *db.Queries, creator Lo
 	if err != nil {
 		return nil, err
 	}
-	if creator.personID <= 0 {
+	if creator.personID <= 0 || creator.executor == nil || creator.executor != q {
 		return nil, account_model.ErrAccountUnavailable
+	}
+	owner, err := db.TxQueries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if owner != q {
+		return nil, db.ErrTransactionRequired
 	}
 	partyID, err := q.CreateParty(ctx)
 	if err != nil {
@@ -132,12 +148,16 @@ func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int6
 	if err != nil {
 		return nil, err
 	}
-	created, err := db.WithTxResult(ctx, store, func(q *db.Queries) (*Organization, error) {
-		creator, err := LockCreator(ctx, q, actorAccountID)
+	created, err := db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (*Organization, error) {
+		q, err := db.TxQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
-		return CreateOrganizationForCreator(ctx, q, creator, name)
+		creator, err := LockCreator(txCtx, q, actorAccountID)
+		if err != nil {
+			return nil, err
+		}
+		return CreateOrganizationForCreator(txCtx, q, creator, name)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create organization: %w", err)

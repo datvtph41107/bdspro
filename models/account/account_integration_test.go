@@ -146,6 +146,48 @@ func TestPasswordRegistrationCreatesCredentialAndOutbox(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("registration created %d verification jobs, want 1", count)
 	}
+
+	// A model transaction nested under an already active Gitea-style
+	// WithTx must reuse its parent's SQLC executor. If Register opened
+	// a separate transaction, its account and durable job would leak.
+	rollbackEmail := uuid.NewString() + "@example.test"
+	var rollbackID int64
+	abort := errors.New("abort parent registration transaction")
+	err = db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
+		registered, err := account_model.Register(txCtx, store, account_model.RegisterParams{
+			Email: rollbackEmail, PasswordHash: "temporary-password-hash",
+		})
+		if err != nil {
+			return err
+		}
+		rollbackID = registered.ID
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return err
+		}
+		if hash, err := q.GetPasswordHash(txCtx, rollbackID); err != nil || hash != "temporary-password-hash" {
+			t.Fatalf("nested account credential was not visible in owner transaction: hash=%q err=%v", hash, err)
+		}
+		return abort
+	})
+	if !errors.Is(err, abort) || rollbackID <= 0 {
+		t.Fatalf("parent rollback err=%v registeredID=%d", err, rollbackID)
+	}
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM accounts WHERE email=$1", rollbackEmail).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatal("nested account committed independently of transaction owner")
+	}
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*) FROM job_outbox WHERE task_type='task:send_verify_email' AND (payload->>'account_id')::bigint=$1",
+		rollbackID,
+	).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatal("nested verification outbox escaped parent rollback")
+	}
 }
 
 // TestVerifyEmailConsumesCodeOnce verifies the PostgreSQL transaction itself,

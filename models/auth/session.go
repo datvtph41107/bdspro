@@ -33,12 +33,16 @@ func NewSession(ctx context.Context, store SessionStore, params db.CreateSession
 	if len(expectedPasswordHash) > 1 {
 		return db.Session{}, ErrInvalidCredentials
 	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.Session, error) {
-		session, err := q.CreateSession(ctx, params)
+	return db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (db.Session, error) {
+		q, txErr := db.TxQueries(txCtx)
+		if txErr != nil {
+			return db.Session{}, txErr
+		}
+		session, err := q.CreateSession(txCtx, params)
 		if err != nil {
 			return db.Session{}, err
 		}
-		if err := q.CreateAccountConnectionHistory(ctx, db.CreateAccountConnectionHistoryParams{
+		if err := q.CreateAccountConnectionHistory(txCtx, db.CreateAccountConnectionHistoryParams{
 			AccountID: params.AccountID,
 			SessionID: session.ID,
 			IpAddress: params.ClientIp,
@@ -47,7 +51,7 @@ func NewSession(ctx context.Context, store SessionStore, params db.CreateSession
 			return db.Session{}, err
 		}
 		if len(expectedPasswordHash) == 1 {
-			current, err := q.GetPasswordHash(ctx, params.AccountID)
+			current, err := q.GetPasswordHash(txCtx, params.AccountID)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return db.Session{}, ErrInvalidCredentials
 			}
@@ -82,14 +86,18 @@ func RevokeOwnedSession(ctx context.Context, store SessionStore, accountID int64
 	if targetSessionID == uuid.Nil {
 		return ErrSessionNotFound
 	}
-	return store.ExecTx(ctx, func(q *db.Queries) error {
-		if _, err := q.LockSessionRevocationAccount(ctx, accountID); err != nil {
+	return db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
+		q, txErr := db.TxQueries(txCtx)
+		if txErr != nil {
+			return txErr
+		}
+		if _, err := q.LockSessionRevocationAccount(txCtx, accountID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrSessionUnavailable
 			}
 			return err
 		}
-		if _, err := q.LockActingSession(ctx, db.LockActingSessionParams{
+		if _, err := q.LockActingSession(txCtx, db.LockActingSessionParams{
 			SessionID: actingSessionID, AccountID: accountID,
 		}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -99,7 +107,7 @@ func RevokeOwnedSession(ctx context.Context, store SessionStore, accountID int64
 		}
 		// Mutation and security evidence belong to the same transaction.
 		// Missing/foreign/previously-revoked targets share one domain error.
-		affected, err := q.RevokeOwnedSession(ctx, db.RevokeOwnedSessionParams{
+		affected, err := q.RevokeOwnedSession(txCtx, db.RevokeOwnedSessionParams{
 			ID: targetSessionID, AccountID: accountID,
 		})
 		if err != nil {
@@ -108,7 +116,7 @@ func RevokeOwnedSession(ctx context.Context, store SessionStore, accountID int64
 		if affected != 1 {
 			return ErrSessionNotFound
 		}
-		return audit_model.RecordSessionRevoked(ctx, q, accountID, targetSessionID)
+		return audit_model.RecordSessionRevoked(txCtx, q, accountID, targetSessionID)
 	})
 }
 
@@ -119,14 +127,18 @@ func RevokeAllSessions(ctx context.Context, store SessionStore, accountID int64,
 	if accountID <= 0 || actingSessionID == uuid.Nil {
 		return ErrSessionUnavailable
 	}
-	return store.ExecTx(ctx, func(q *db.Queries) error {
-		if _, err := q.LockSessionRevocationAccount(ctx, accountID); err != nil {
+	return db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
+		q, txErr := db.TxQueries(txCtx)
+		if txErr != nil {
+			return txErr
+		}
+		if _, err := q.LockSessionRevocationAccount(txCtx, accountID); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrSessionUnavailable
 			}
 			return err
 		}
-		if _, err := q.LockActingSession(ctx, db.LockActingSessionParams{
+		if _, err := q.LockActingSession(txCtx, db.LockActingSessionParams{
 			SessionID: actingSessionID, AccountID: accountID,
 		}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -134,7 +146,7 @@ func RevokeAllSessions(ctx context.Context, store SessionStore, accountID int64,
 			}
 			return err
 		}
-		_, err := q.RevokeAllAccountSessions(ctx, accountID)
+		_, err := q.RevokeAllAccountSessions(txCtx, accountID)
 		return err
 	})
 }

@@ -6,7 +6,6 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -56,8 +55,12 @@ type OAuthServerStore interface {
 }
 
 func (s *SQLStore) CreateOAuthClient(ctx context.Context, input OauthClient) (OauthClient, error) {
+	dbx, resolveErr := s.queryExecutor(ctx)
+	if resolveErr != nil {
+		return OauthClient{}, resolveErr
+	}
 	var result OauthClient
-	err := s.pool.QueryRow(ctx, `INSERT INTO oauth_clients
+	err := dbx.QueryRow(ctx, `INSERT INTO oauth_clients
 		(id, owner_account_id, name, redirect_uri, secret_hash)
 		VALUES ($1,$2,$3,$4,$5)
 		RETURNING id,owner_account_id,name,redirect_uri,secret_hash,created_at,revoked_at`,
@@ -68,8 +71,12 @@ func (s *SQLStore) CreateOAuthClient(ctx context.Context, input OauthClient) (Oa
 }
 
 func (s *SQLStore) GetOAuthClient(ctx context.Context, id uuid.UUID) (OauthClient, error) {
+	dbx, resolveErr := s.queryExecutor(ctx)
+	if resolveErr != nil {
+		return OauthClient{}, resolveErr
+	}
 	var client OauthClient
-	err := s.pool.QueryRow(ctx, `SELECT id,owner_account_id,name,redirect_uri,secret_hash,created_at,revoked_at
+	err := dbx.QueryRow(ctx, `SELECT id,owner_account_id,name,redirect_uri,secret_hash,created_at,revoked_at
 		FROM oauth_clients WHERE id=$1 AND revoked_at IS NULL`, id).Scan(
 		&client.ID, &client.OwnerAccountID, &client.Name, &client.RedirectUri,
 		&client.SecretHash, &client.CreatedAt, &client.RevokedAt)
@@ -80,7 +87,11 @@ func (s *SQLStore) GetOAuthClient(ctx context.Context, id uuid.UUID) (OauthClien
 }
 
 func (s *SQLStore) ListOAuthClients(ctx context.Context, owner int64) ([]OauthClient, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id,owner_account_id,name,redirect_uri,secret_hash,created_at,revoked_at
+	dbx, resolveErr := s.queryExecutor(ctx)
+	if resolveErr != nil {
+		return nil, resolveErr
+	}
+	rows, err := dbx.Query(ctx, `SELECT id,owner_account_id,name,redirect_uri,secret_hash,created_at,revoked_at
 		FROM oauth_clients WHERE owner_account_id=$1 AND revoked_at IS NULL
 		ORDER BY created_at,id LIMIT 100`, owner)
 	if err != nil {
@@ -101,7 +112,11 @@ func (s *SQLStore) ListOAuthClients(ctx context.Context, owner int64) ([]OauthCl
 }
 
 func (s *SQLStore) RevokeOAuthClient(ctx context.Context, owner int64, id uuid.UUID) (bool, error) {
-	result, err := s.pool.Exec(ctx, `UPDATE oauth_clients SET revoked_at=now()
+	dbx, resolveErr := s.queryExecutor(ctx)
+	if resolveErr != nil {
+		return false, resolveErr
+	}
+	result, err := dbx.Exec(ctx, `UPDATE oauth_clients SET revoked_at=now()
 		WHERE id=$1 AND owner_account_id=$2 AND revoked_at IS NULL`, id, owner)
 	if err != nil {
 		return false, err
@@ -277,8 +292,12 @@ func revokeOAuthFamily(ctx context.Context, tx pgx.Tx, family uuid.UUID) error {
 // OAuth access tokens are opaque 256-bit random values, never internal JWTs.
 // Every use consults current token, client, account and expiry authority.
 func (s *SQLStore) ResolveOAuthAccessToken(ctx context.Context, hash []byte) (OAuthAccess, error) {
+	dbx, resolveErr := s.queryExecutor(ctx)
+	if resolveErr != nil {
+		return OAuthAccess{}, resolveErr
+	}
 	var access OAuthAccess
-	err := s.pool.QueryRow(ctx, `SELECT t.account_id,t.scope FROM oauth_access_tokens t
+	err := dbx.QueryRow(ctx, `SELECT t.account_id,t.scope FROM oauth_access_tokens t
 		JOIN oauth_clients c ON c.id=t.client_id
 		JOIN accounts a ON a.id=t.account_id
         JOIN oauth_grants g ON g.account_id=t.account_id AND g.client_id=t.client_id
@@ -341,18 +360,4 @@ func (s *SQLStore) RevokeOAuthBearer(ctx context.Context, clientID uuid.UUID, ha
 			WHERE token_hash=$1 AND client_id=$2 AND account_id=$3 AND revoked_at IS NULL`, hash, clientID, accountID)
 		return err
 	})
-}
-
-// ExecTxRaw supports OAuth protocol transactions and atomic password recovery
-// that revokes delegated OAuth grants. SQLC remains the default query layer.
-func (s *SQLStore) ExecTxRaw(ctx context.Context, fn func(pgx.Tx) error) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin oauth transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-	if err = fn(tx); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
 }
