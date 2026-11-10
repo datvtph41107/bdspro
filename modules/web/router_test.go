@@ -1098,3 +1098,38 @@ func TestAfterRoutingBatchRegistrationIsAtomic(t *testing.T) {
 		t.Fatalf("status=%d calls=%v, want 204 and %v", w.Code, calls, want)
 	}
 }
+
+// HTTP middleware must not resume a completed request. In addition to
+// duplicate-next protection, the ingress must reject a first late next:
+// the original ResponseWriter and request-local data are no longer live.
+func TestBeforeRoutingRejectsContinuationAfterRequestCompleted(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	var resume func()
+	reached := false
+	r.BeforeRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			resume = func() { next.ServeHTTP(w, req) }
+			w.WriteHeader(http.StatusAccepted)
+		})
+	})
+	r.Get("/late", func(c *gin.Context) {
+		reached = true
+		c.Status(http.StatusNoContent)
+	})
+	w := httptest.NewRecorder()
+	r.WrapIngress(engine).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/late", nil))
+	if w.Code != http.StatusAccepted || reached || resume == nil {
+		t.Fatalf("initial request status=%d reached=%v resume-nil=%v", w.Code, reached, resume == nil)
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("continuation entered the matcher after request completion")
+		}
+		if reached {
+			t.Error("late continuation reached the completed request's endpoint")
+		}
+	}()
+	resume()
+}
