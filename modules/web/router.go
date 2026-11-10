@@ -111,6 +111,13 @@ func ginHandlerProvider(provider middlewareProvider) gin.HandlerFunc {
 			continued = true
 			c.Request = req
 			original := c.Writer
+			// Gitea's status tracker does not need to become an extra Gin
+			// writer when no response has been committed and no custom
+			// ResponseWriter was supplied by an HTTP middleware.
+			if tracked, ok := w.(*responseWriter); ok &&
+				tracked.WrittenStatus() == 0 && tracked.ResponseWriter == original {
+				w = original
+			}
 			if w != original {
 				c.Writer = newGinDelegatingWriter(w, original)
 				defer func() { c.Writer = original }()
