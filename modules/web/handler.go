@@ -38,6 +38,9 @@ func (w *ginDelegatingWriter) Unwrap() http.ResponseWriter { return w.ResponseWr
 func (w *ginDelegatingWriter) WriteHeader(status int) {
 	if status > 0 && !w.Written() {
 		w.status = status
+		// Gin defers header commitment. Keep the underlying writer's
+		// selected status synchronized for status-only HTTP actions.
+		w.original.WriteHeader(status)
 	}
 }
 
