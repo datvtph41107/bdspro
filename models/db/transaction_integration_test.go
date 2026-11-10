@@ -271,4 +271,35 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 		}
 	})
 
+	t.Run("raw transaction and SQLC share the PostgreSQL owner", func(t *testing.T) {
+		var partyID int64
+		sentinel := errors.New("reject raw transaction")
+		err := store.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+			q := New(tx)
+			var err error
+			partyID, err = q.CreateParty(ctx)
+			if err != nil {
+				return err
+			}
+			var visible int
+			if err := tx.QueryRow(ctx, "SELECT count(*) FROM parties WHERE id=$1", partyID).Scan(&visible); err != nil {
+				return err
+			}
+			if visible != 1 {
+				t.Fatal("transaction-scoped raw reader did not see SQLC write")
+			}
+			return sentinel
+		})
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("raw transaction error=%v", err)
+		}
+		var visible int
+		if err := pool.QueryRow(base, "SELECT count(*) FROM parties WHERE id=$1", partyID).Scan(&visible); err != nil {
+			t.Fatal(err)
+		}
+		if visible != 0 {
+			t.Fatal("raw transaction rolled back but SQLC write committed")
+		}
+	})
+
 }
