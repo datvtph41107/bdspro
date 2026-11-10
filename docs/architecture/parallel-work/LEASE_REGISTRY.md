@@ -18,6 +18,33 @@ BDSPro's unfinished P01 feature branch **already** changes paths beyond prospect
 
 The coordinator must decide whether to keep these as approved one-time migration exceptions, split them into subsequent PRs, or rebase/reconcile against fresh `dev`. An existing change is not automatically a reason to let A own that directory permanently.
 
+## APPROVED — A-P01.7-API-20261110 (Chat 0 architecture decision)
+
+- **Decision:** APPROVED by **Chat 0 — Architecture Integrator**, 2026-11-10. This is a narrowly scoped **one-time cutover lease**, not permanent A ownership of `routers/api/v1/**`.
+- **File:** `routers/api/v1/api.go` **only**. Owner of the file remains **D / Chat 0 integration**; temporary writer is **Chat A**. No other `routers/**` file, fixture, or `services/user/**` is included.
+- **Verified starting point:** PR [#218](https://github.com/datvtph41107/bdspro/pull/218), A branch `refactor/gitea-web-ownership-20261110`, **HEAD `33bb3c685dce8bd26b7860400c715e7ec0fa770f`**, workflow [42788259804](https://github.com/datvtph41107/bdspro/actions/runs/42788259804) **completed/success**. Approval is for successor commits on this same branch from this exact ancestor; record final SHA for closeout. Do not treat old CI as certifying successor HEADs.
+- **Allowed edits:** convert `web.Router[*appctx.APIContext]` consumers to non-generic `*web.Router`; change `Routes(root *gin.Engine, d Dependencies)` to `Routes(root *gin.Engine, d Dependencies) *web.Router`; call `web.NewRouter(root)` exactly once; declare `m.BeforeRouting(...)` **before any `Methods`/route registration** if ingress HTTP providers are required; preserve `m.AfterRouting(appctx.APIContexter())` sequencing and all existing endpoint/group/middleware order. Update private `register...Routes` parameter types only. Do not introduce other Router instances or HTTP matchers.
+- **Frozen shared constructor / ingress contract:** `web.NewRouter(engine *gin.Engine) *web.Router`; `(*web.Router).WrapIngress() http.Handler` **must wrap its very same captured Gin engine**, exactly once; `(*web.Router).BeforeRouting(...any)`, `AfterRouting(...any)`, `Group(string,func(),...any)`, `Methods(string,string,...any)` and verb helpers. `apiv1.Routes(root *gin.Engine,d apiv1.Dependencies) *web.Router` returns the single registered Router; no additional Engine allocation. `Server.Handler()` will serve `common.CORS(router.WrapIngress(),allowedOrigins)`, owned by Chat 0 in `routers/{init,app}.go`. Preserve exact existing routes/HTTP status/handlers, APIContext identity, JWT live-session authority, OAuth cookies/redirect/CSRF, IPActive, CORS, trusted proxies, 404/405, HEAD and cancellation. Gin matching is the only matcher. This is a **target contract**, not a claim that source currently compiles to this API.
+- **Forbidden:** Auth/OAuth or organization business changes; route additions/removals/renames; change to path/method inventory, public error envelopes, security guards, CORS/trusted proxy policies; edits under `routers/init.go`, `routers/app.go`, `services/user/**`, `models/**`, `cmd/**`; creating temporary router/adapters or weakening tests.
+- **Integration ownership:** Chat 0 writes `routers/init.go` and `routers/app.go` exclusively on an integration branch *stacked on A*, and Chat A does not touch those files after this grant. Chat 0 will reconcile their historical diff and run the integrated final-HEAD test suite, independently review G1–G6 and decide ACCEPTED/REJECTED. **No merge to dev before gates.**
+- **Exit/expiry:** lease ends at P01.7/P01.8 + P02 regression handoff, final HEAD CI success, route inventory and cross-owner diff reviewed, or explicit revocation by Chat 0; only one cutover window. A must include lease ID and starting/final SHA in PR #218 handoff; further edits to this file require renewed permission. A's production branch must incorporate the coordinator wiring before final acceptance, without a competing writer.
+- **Gate G2/G5:** **APPROVED for cutover scope**; **not** architectural acceptance. Consumer and wiring remain blocked until code+test+CI demonstrate the frozen contract.
+
+| Lease ID | Exact path | Requester / writer | File owner | Start SHA | Approver | Status |
+|---|---|---|---|---|---|---|
+| `A-P01.7-API-20261110` | `routers/api/v1/api.go` | A | D / 0 | `33bb3c68` | Chat 0 | **APPROVED / OPEN — P01.7/P01.8 cutover only** |
+
+### Historical PR #218 disposition, independent of the new lease
+
+| Historical changed path(s) | Decision | Gate |
+|---|---|---|
+| `routers/api/v1/api.go` | **KEEP as reviewed migration exception**, and apply lease above for **future cutover** | HTTP route inventory, Auth/OAuth, registration order |
+| `routers/api/v1/org/org_validation_test.go`, `routers/api/v1/organization_context_test.go` | **KEEP as integration/regression fixtures**, preserve tests; not a standing write lease | Migrate fixture signatures via approved narrowly scoped separate lease or Chat 0, not silently in A |
+| `routers/init.go` | **MOVE final production ownership to Chat 0**, preserve removal of duplicate APIContexter from global Gin chain if route-owned | Chat 0 integration wiring/test |
+| `services/user/{user,update,settings}.go` | **REHOME to Chat 0/B transaction reconciliation**, NOT approved as new A writes. Existing change moves to context-first `WithTx2(txCtx)` while keeping `RequireActingSession`; review with B-P04 transaction contract before merge | No blind acceptance of historical A diff |
+| `docs/architecture/gitea-alignment/**` | **KEEP as A evidence**, not a substitute for coordinator canonical records | Verify source links and accurate final HEAD |
+| `modules/web/**`, `services/context/**` | **KEEP A ownership**, contingent on removing generic/legacy code and passing final tests | G1–G6 |
+
 ## New leases
 
 Use the following template for each request (no entries approved at plan creation):
