@@ -102,10 +102,10 @@ Do not equate progress through P04's partial user-service refactor with P01 comp
 
 - Source reference: [Gitea `modules/web/router.go`](https://github.com/go-gitea/gitea/blob/main/modules/web/router.go) contains `wrapMiddlewareAppendPre`, `wrapMiddlewareAppendNormal`, `wrapMiddlewareAndHandler`; [Gitea `modules/web/handler.go`](https://github.com/go-gitea/gitea/blob/main/modules/web/handler.go) owns `executeMiddlewaresHandler`.
 - Implemented `modules/web/types/premiddleware.go`: `PreMiddlewareProvider` marks matched-route pre middleware; **NOT** equivalent to pre-route `BeforeRouting`. Commit `15d8a828`.
-- Implemented `modules/web/handler.go`: `executeMiddlewaresHandler`, `isNilOrFuncNil`, `wrapMiddlewareAppendPre`, `wrapMiddlewareAppendNormal`, `wrapMiddlewareAndHandler`. Commit `dfb961c0`.
+- Implemented `modules/web/handler.go`: `executeMiddlewaresHandler` and HTTP provider conversion; `modules/web/router.go` owns `isNilOrFuncNil`, `wrapMiddlewareAppendPre`, `wrapMiddlewareAppendNormal`, `wrapMiddlewareAndHandler`, **matching their respective Gitea file ownership**. Initial commit `dfb961c0`; placement correction `5db10571`, `2b1ebf10`, `9c346722`.
 - **Actual consumer:** `Router[T].Methods` now compiles registered typed `*APIContext` group guards and route actions through that HTTP provider chain, using Gin solely at the matched-route execution boundary. Commit `d1378f60`.
 - Tests: `modules/web/handler_test.go` checks pre middleware ordering ahead of normal scope middleware, response short-circuit, invalid/nil endpoint. Commit `0419955d`.
-- CI: https://github.com/datvtph41107/bdspro/actions/runs/42756592617 (observed `in_progress` when recorded; refresh before acceptance).
+- CI: https://github.com/datvtph41107/bdspro/actions/runs/42756592617 (initial implementation head; formatting, SQLC, schema and OpenAPI checks had passed when observed; refresh final result). Source ownership correction has a newer HEAD and needs **its own** full CI run.
 - **Not done:** the after-routing Gin compatibility path is still separately compiled, `Router[T]` still generic, and `BeforeRouting` is still absent. Do not report P01.4 as fully accepted until CI and contract checks pass.
 
 ### Exact significance of the Gitea design
