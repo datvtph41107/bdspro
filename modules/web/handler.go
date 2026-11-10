@@ -41,10 +41,3 @@ func (r *Router[T]) handlers(actions []func(T)) []gin.HandlerFunc {
 	}
 	return handlers
 }
-
-func (r *Router[T]) handlersIfAny(actions []func(T)) []gin.HandlerFunc {
-	if len(actions) == 0 {
-		return nil
-	}
-	return r.handlers(actions)
-}
