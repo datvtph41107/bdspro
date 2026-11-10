@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strconv"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
@@ -1212,4 +1215,72 @@ func TestRegisteredTypedRouteRejectsContinuationAfterCompletion(t *testing.T) {
 		}
 	}()
 	resume()
+}
+
+// One route-level compiled chain must safely serve independent requests.
+// The middleware factories run once at route registration; their request
+// forwarding state and duplicate-next guards may never be shared.
+func TestMatchedRouteCompiledProvidersRemainRequestLocalUnderConcurrency(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*typedHTTPContext](engine.Group(""), func(c *gin.Context) *typedHTTPContext {
+		return c.Request.Context().Value(typedHTTPContextKey{}).(*typedHTTPContext)
+	})
+	var factoryCount, middlewareCalls, endpointCalls atomic.Int32
+	type traceKey struct{}
+	r.AfterRouting(
+		func(next http.Handler) http.Handler {
+			factoryCount.Add(1)
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				middlewareCalls.Add(1)
+				id := req.Header.Get("X-Request-ID")
+				req = req.WithContext(context.WithValue(req.Context(), traceKey{}, id))
+				ctx := &typedHTTPContext{writer: w}
+				req = req.WithContext(context.WithValue(req.Context(), typedHTTPContextKey{}, ctx))
+				next.ServeHTTP(w, req)
+			})
+		},
+		func(next http.Handler) http.Handler {
+			factoryCount.Add(1)
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				middlewareCalls.Add(1)
+				if req.Context().Value(traceKey{}) != req.Header.Get("X-Request-ID") {
+					t.Errorf("request-local context leaked or disappeared for %q", req.Header.Get("X-Request-ID"))
+				}
+				next.ServeHTTP(w, req)
+			})
+		},
+	)
+	r.Get("/concurrent", func(ctx *typedHTTPContext) {
+		endpointCalls.Add(1)
+		ctx.writer.WriteHeader(http.StatusNoContent)
+	})
+	if got := factoryCount.Load(); got != 2 {
+		t.Fatalf("compiled middleware factories=%d, want 2", got)
+	}
+	const total = 24
+	var wg sync.WaitGroup
+	wg.Add(total)
+	for i := 0; i < total; i++ {
+		go func(i int) {
+			defer wg.Done()
+			req := httptest.NewRequest(http.MethodGet, "/concurrent", nil)
+			req.Header.Set("X-Request-ID", strconv.Itoa(i))
+			w := httptest.NewRecorder()
+			engine.ServeHTTP(w, req)
+			if w.Code != http.StatusNoContent {
+				t.Errorf("request %d status %d, want 204", i, w.Code)
+			}
+		}(i)
+	}
+	wg.Wait()
+	if got := factoryCount.Load(); got != 2 {
+		t.Errorf("stateful provider was recompiled: factories=%d, want 2", got)
+	}
+	if got := middlewareCalls.Load(); got != 2*total {
+		t.Errorf("middleware calls=%d, want %d", got, 2*total)
+	}
+	if got := endpointCalls.Load(); got != total {
+		t.Errorf("endpoint calls=%d, want %d", got, total)
+	}
 }
