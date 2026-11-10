@@ -11,12 +11,14 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 type sessionAuthorityReaderFake struct {
+	db.Store
 	session db.Session
 	err     error
 	calls   int
@@ -78,8 +80,15 @@ func TestRequireSessionAfterVerifiedBearer(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &sessionAuthorityReaderFake{session: tc.session, err: tc.lookupErr}
-			router := gin.New()
-			router.GET("/private", Authenticate(maker), RequireSession(f), func(c *gin.Context) {
+			router := web.NewRouter()
+			router.AfterRouting(APIContexter())
+			router.GinEngine().Use(func(c *gin.Context) {
+				scope := authcrypto.WithMaker(c.Request.Context(), maker)
+				scope = db.WithStore(scope, f)
+				c.Request = c.Request.WithContext(scope)
+				c.Next()
+			})
+			router.Get("/private", Authenticate(), RequireSession(), func(c *APIContext) {
 				c.Status(http.StatusNoContent)
 			})
 			req := httptest.NewRequest(http.MethodGet, "/private", nil)
@@ -112,8 +121,13 @@ func TestRequireSessionWithoutReaderFailsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	router := gin.New()
-	router.GET("/private", Authenticate(maker), RequireSession(nil), func(c *gin.Context) {
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.GinEngine().Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(authcrypto.WithMaker(c.Request.Context(), maker))
+		c.Next()
+	})
+	router.Get("/private", Authenticate(), RequireSession(), func(c *APIContext) {
 		c.Status(http.StatusNoContent)
 	})
 	req := httptest.NewRequest(http.MethodGet, "/private", nil)

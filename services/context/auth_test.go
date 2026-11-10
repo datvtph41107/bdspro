@@ -9,6 +9,7 @@ import (
 	"time"
 
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,9 +28,14 @@ func TestAuthenticateAndRequestLocalDoer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r := gin.New()
+	r := web.NewRouter()
+	r.AfterRouting(APIContexter())
+	r.GinEngine().Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(authcrypto.WithMaker(c.Request.Context(), maker))
+		c.Next()
+	})
 	reached := 0
-	r.GET("/me", Authenticate(maker), Wrap(func(c *APIContext) {
+	r.Get("/me", Authenticate(), func(c *APIContext) {
 		reached++
 		if c.Doer == nil || c.Doer.AccountID != 42 {
 			t.Fatalf("missing verified principal: %+v", c.Doer)
@@ -38,7 +44,7 @@ func TestAuthenticateAndRequestLocalDoer(t *testing.T) {
 			t.Fatal("context principal did not come from Authenticate")
 		}
 		c.JSON(http.StatusOK, gin.H{"account_id": c.Doer.AccountID})
-	}))
+	})
 
 	cases := []struct {
 		name, authorization, code, challenge string
@@ -80,13 +86,14 @@ func TestAuthenticateAndRequestLocalDoer(t *testing.T) {
 
 func TestWrapWithoutAuthenticationHasNoDoer(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.GET("/public", Wrap(func(c *APIContext) {
+	r := web.NewRouter()
+	r.AfterRouting(APIContexter())
+	r.Get("/public", func(c *APIContext) {
 		if c.Doer != nil {
 			t.Fatal("unauthenticated request has a forged principal")
 		}
 		c.Status(http.StatusNoContent)
-	}))
+	})
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/public", nil))
 	if w.Code != http.StatusNoContent {
