@@ -96,6 +96,19 @@ Do not equate progress through P04's partial user-service refactor with P01 comp
 - No generic Router, no legacy typed/Gin action compiler, no misleading duplicate context source, true pre/post route separation, CI final HEAD green.
 - Only then mark P01 **ACCEPTED** and proceed to P02.
 
+## P01.5 — Route declaration contract migration (IN PROGRESS, not accepted)
+
+Source review: Gitea `modules/web/router.go` declares `Group(pattern string, fn func(), middlewares ...any)` and `Methods(methods, pattern string, h ...any)`. This is required for route-local `types.PreMiddlewareProvider` and typed actions to coexist. Previous BDSPro `Router[T]` declared `Group(...guards ...func(T))` and `Methods(...actions ...func(T))`, which prevented such combinations even after the compiler was implemented.
+
+Patch on the current PR:
+- `modules/web/router.go`: `Router[T].curMiddlewares []any`; `Group(...guards ...any)`; `Methods(...actions ...any)` and HTTP verb helpers accept `...any`. Typed registered contexts now call `wrapMiddlewareAndHandler(nil, r.curMiddlewares, actions)` directly, instead of allocating duplicate `[]any` slices. Legacy unregistered Gin context actions are validated at registration and still run through the explicitly temporary `r.handlers` path.
+- `services/context/gin.go`: `GinActions` returns `[]any` rather than `[]func(*APIContext)` so existing Auth/OAuth routes using `GinActions(...)...` can register with the new contract unchanged.
+- `modules/web/router_test.go`: `TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods` checks scope ordering and response semantics.
+- Commits: `fad6ac17` (route signatures), `b2fb42d5` (test), `8b88ddd1` (GinActions compatibility).
+- CI: https://github.com/datvtph41107/bdspro/actions/runs/42757346217 (observed `in_progress`; fetch latest run and job logs before acceptance).
+
+**Remaining difference:** this is **NOT** a non-generic Router. Gitea's `Router` has `NewRouter()`; BDSPro still has `Router[T]`, `getContext`, legacy `toGinHandler` and `ginHandlerProvider`. Furthermore `AfterRouting` remains a separately compiled Gin chain, so pre-middleware precedence relative to AfterRouting is **not** yet identical to Gitea's full `wrapMiddlewareAndHandler(r.afterRouting, r.curMiddlewares, h)`. Do not misreport end-to-end parity. Next must unify after-routing with the canonical HTTP compiler while keeping Gin's single matcher and request scope; then remove generic router and test/adapter paths.
+
 ## P01.4 — Gitea route middleware compilation (2026-11-10)
 
 **Implementation on the integration branch; acceptance is subject to current HEAD CI.**
