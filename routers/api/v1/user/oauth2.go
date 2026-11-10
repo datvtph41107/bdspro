@@ -34,6 +34,12 @@ func oidc(ctx *appctx.APIContext) (*auth_service.OAuth2Client, bool, bool) {
 	return client, secure, true
 }
 
+// Disabled provider endpoints remain publicly unavailable.
+func RequireOIDC(ctx *appctx.APIContext) {
+	client,_:=auth_service.OAuth2FromContext(ctx)
+	if client==nil {ctx.APIErrorNotFound()}
+}
+
 func StartLogin(ctx *appctx.APIContext, w http.ResponseWriter) {
 	client, secure, ok := oidc(ctx); if !ok {return}
 	start, err := client.Begin(ctx, "login", 0, "")

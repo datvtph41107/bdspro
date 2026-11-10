@@ -15,8 +15,7 @@ import (
 // CreateInvite binds the immutable signing dependency at route registration.
 // The resulting endpoint is a Gitea-style typed package action; no handler
 // instance, global secret or transport-specific service wrapper is required.
-func CreateInvite(signingKey string) func(*context.APIContext) {
-	return func(ctx *context.APIContext) {
+func CreateInvite(ctx *context.APIContext) {
 		teamID, err := ctx.PositivePathID("team_id")
 		if err != nil {
 			ctx.APIInvalid(err)
@@ -24,7 +23,7 @@ func CreateInvite(signingKey string) func(*context.APIContext) {
 		}
 		form := web.GetForm[*api.CreateTeamInviteOption](ctx)
 		created, err := org_service.CreateTeamInvite(
-			ctx, teamID, form.Email, 7*24*time.Hour, signingKey,
+			ctx, teamID, form.Email, 7*24*time.Hour, org_service.InviteSigningKeyFromContext(ctx),
 		)
 		if err != nil {
 			ctx.APIErrorAuto(err)
@@ -38,7 +37,6 @@ func CreateInvite(signingKey string) func(*context.APIContext) {
 			InvitedEmail: created.Invite.InvitedEmail,
 			ExpiresAt:    created.Invite.ExpiresAt,
 		})
-	}
 }
 
 // AcceptInvite uses the form bound at the route boundary. The org service

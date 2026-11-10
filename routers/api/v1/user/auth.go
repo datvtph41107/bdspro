@@ -18,6 +18,11 @@ import (
 
 // Register is a typed Gitea-style HTTP action. Credential creation stays in
 // AuthService, while the security limiter is shared with legacy endpoints.
+// RequirePhone guards optional OTP routes without runtime route containers.
+func RequirePhone(ctx *appctx.APIContext) {
+	if !auth_service.FromContext(ctx).HasPhone() { ctx.APIErrorNotFound() }
+}
+
 func Register(ctx *appctx.APIContext) {
 	var req structs.RegisterRequest
 	if err := ctx.BindJSON(&req); err != nil {

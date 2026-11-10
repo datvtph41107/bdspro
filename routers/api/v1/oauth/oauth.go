@@ -66,6 +66,11 @@ func actorID(ctx *appctx.APIContext) (int64,bool) {
 	return actor.AccountID,true
 }
 
+// RequireEnabled is evaluated before OAuth protocol operations.
+func RequireEnabled(ctx *appctx.APIContext) {
+	if oauth_service.ServiceFromContext(ctx)==nil {ctx.APIErrorNotFound()}
+}
+
 func CreateClient(ctx *appctx.APIContext) {
 	s,ok:=service(ctx);if !ok{return}
 	accountID,ok:=actorID(ctx);if !ok{return}
