@@ -112,6 +112,38 @@ func (d contextDBTX) QueryRow(ctx context.Context, sql string, args ...any) pgx.
 
 var _ DBTX = contextDBTX{}
 
+// queryExecutor is the single raw-SQL read/write selector for SQLStore
+// methods that do not own a transaction themselves (e.g. OAuth client reads).
+// Its contract mirrors Gitea GetEngine(ctx): operations with txCtx must use
+// the existing owner, not a separate pool connection. Generated SQLC methods
+// use contextDBTX directly; raw SQL methods use this same selector.
+func (s *SQLStore) queryExecutor(ctx context.Context) (DBTX, error) {
+	if s.pool != nil {
+		return (contextDBTX{pool: s.pool}).executor(ctx)
+	}
+	if ctx.Value(queriesContextKey{}) == nil {
+		return nil, ErrTransactionClosed
+	}
+	q, err := TxQueries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if s.Queries != q {
+		if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
+			state.fail(ErrTxStoreUnavailable)
+		}
+		return nil, ErrTxStoreUnavailable
+	}
+	tx, ok := ctx.Value(rawTxContextKey{}).(pgx.Tx)
+	if !ok || tx == nil {
+		if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
+			state.fail(ErrTxStoreUnavailable)
+		}
+		return nil, ErrTxStoreUnavailable
+	}
+	return tx, nil
+}
+
 // ExecTx runs SQLC mutations inside the owning PostgreSQL transaction.
 // An existing context-scoped SQLC executor always takes precedence over the
 // Store's pool; nested calls may not commit independently.
