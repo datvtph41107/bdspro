@@ -62,32 +62,7 @@ func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *
 // Register these middlewares before the routes that should receive them.
 func (r *Router[T]) AfterRouting(middlewares ...any) {
 	for _, middleware := range middlewares {
-		switch handler := middleware.(type) {
-		case gin.HandlerFunc:
-			if handler == nil {
-				panic("web: nil after-routing middleware")
-			}
-			r.afterRouting = append(r.afterRouting, handler)
-		case func(*gin.Context):
-			if handler == nil {
-				panic("web: nil after-routing middleware")
-			}
-			// For a Gin-context typed router, plain functions are actions
-			// and must short-circuit when they write a response. A named
-			// gin.HandlerFunc remains native middleware (and owns Next/Abort).
-			if reflect.TypeFor[T]() == reflect.TypeFor[*gin.Context]() {
-				r.afterRouting = append(r.afterRouting, r.handlers([]func(T){any(handler).(func(T))})...)
-			} else {
-				r.afterRouting = append(r.afterRouting, gin.HandlerFunc(handler))
-			}
-		case func(T):
-			if handler == nil {
-				panic("web: nil after-routing middleware")
-			}
-			r.afterRouting = append(r.afterRouting, r.handlers([]func(T){handler})...)
-		default:
-			panic(fmt.Sprintf("web: unsupported after-routing middleware %T", middleware))
-		}
+		r.afterRouting = append(r.afterRouting, r.toHandlerProvider(middleware))
 	}
 }
 
