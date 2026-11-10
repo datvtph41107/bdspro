@@ -83,14 +83,22 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 		if err := state.failure(); err != nil {
 			return err
 		}
+		if err := ctx.Err(); err != nil {
+			state.fail(err)
+			return err
+		}
 		err := fn(ctx)
 		state.fail(err)
+		state.fail(ctx.Err())
 		if err != nil {
 			return err
 		}
 		return state.failure()
 	}
 
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	store, err := StoreFromContext(ctx)
 	if err != nil {
 		return err
@@ -101,6 +109,7 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 		txCtx = context.WithValue(txCtx, txStateContextKey{}, state)
 		err := fn(txCtx)
 		state.fail(err)
+		state.fail(txCtx.Err())
 		return state.failure()
 	})
 }
