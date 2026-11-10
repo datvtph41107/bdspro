@@ -252,10 +252,35 @@ func (r *Router[T]) Methods(method, path string, actions ...func(T)) {
 	}
 	handlers := make([]gin.HandlerFunc, 0, len(r.afterRouting)+len(r.curMiddlewares)+len(actions))
 	handlers = append(handlers, r.afterRouting...)
-	if len(r.curMiddlewares) > 0 {
-		handlers = append(handlers, r.compileActions(r.curMiddlewares)...)
+	if _, registered := responseStatusProviders[reflect.TypeFor[T]()]; registered {
+		// Gitea compiles group guards and endpoint actions as one HTTP
+		// continuation chain. Gin only runs the compiled matched route.
+		groupActions := make([]any, 0, len(r.curMiddlewares))
+		for _, guard := range r.curMiddlewares {
+			groupActions = append(groupActions, guard)
+		}
+		routeActions := make([]any, 0, len(actions))
+		for _, action := range actions {
+			routeActions = append(routeActions, action)
+		}
+		middlewares, endpoint, _ := wrapMiddlewareAndHandler(nil, groupActions, routeActions)
+		compiled := ginHandlerProvider(func(http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				executeMiddlewaresHandler(w, req, middlewares, endpoint)
+			})
+		})
+		handlers = append(handlers, func(c *gin.Context) {
+			// Compatibility boundary until non-generic Router requires
+			// APIContexter explicitly for all typed routes.
+			r.getContext(c)
+			compiled(c)
+		})
+	} else {
+		if len(r.curMiddlewares) > 0 {
+			handlers = append(handlers, r.compileActions(r.curMiddlewares)...)
+		}
+		handlers = append(handlers, r.compileActions(actions)...)
 	}
-	handlers = append(handlers, r.compileActions(actions)...)
 	pattern := r.getPattern(path)
 	// Gitea permits comma-separated method registration at the canonical
 	// Methods boundary. Compile the handler chain once for every method.
