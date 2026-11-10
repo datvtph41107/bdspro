@@ -271,3 +271,78 @@ func TestTxQueriesRejectsUnownedExecutor(t *testing.T) {
 		t.Fatalf("unowned q=%p err=%v", q, err)
 	}
 }
+
+// Transaction-bound contexts must not provide a live executor after their
+// owning callback returns. This must hold after both COMMIT and ROLLBACK.
+func TestTransactionContextExpiresAfterOwner(t *testing.T) {
+	cases := []struct {
+		name       string
+		rollback   bool
+	}{
+		{name: "commit"},
+		{name: "rollback", rollback: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			owner := &contextTestStore{}
+			ctx := WithStore(context.Background(), owner)
+			var escaped context.Context
+			sentinel := errors.New("abort")
+			err := WithTx(ctx, func(txCtx context.Context) error {
+				escaped = txCtx
+				if _, err := TxQueries(txCtx); err != nil {
+					return err
+				}
+				if tc.rollback {
+					return sentinel
+				}
+				return nil
+			})
+			if tc.rollback && !errors.Is(err, sentinel) {
+				t.Fatalf("rollback error=%v", err)
+			}
+			if !tc.rollback && err != nil {
+				t.Fatalf("commit error=%v", err)
+			}
+			if q, err := TxQueries(escaped); q != nil || !errors.Is(err, ErrTransactionClosed) {
+				t.Fatalf("escaped executor q=%p err=%v", q, err)
+			}
+			nested := WithTx(escaped, func(context.Context) error {
+				t.Fatal("expired context executed transaction callback")
+				return nil
+			})
+			if !errors.Is(nested, ErrTransactionClosed) {
+				t.Fatalf("expired nested transaction err=%v", nested)
+			}
+			if owner.transactions != 1 || owner.committed == tc.rollback {
+				t.Fatalf("owner=%+v rollback=%v", owner, tc.rollback)
+			}
+		})
+	}
+}
+
+func TestTransactionContextExpiresAfterPanic(t *testing.T) {
+	owner := &contextTestStore{}
+	ctx := WithStore(context.Background(), owner)
+	var escaped context.Context
+	func() {
+		defer func() {
+			if got := recover(); got != "owner panic" {
+				t.Fatalf("recovered=%v", got)
+			}
+		}()
+		_ = WithTx(ctx, func(txCtx context.Context) error {
+			escaped = txCtx
+			panic("owner panic")
+		})
+	}()
+	if escaped == nil {
+		t.Fatal("callback never provided context")
+	}
+	if q, err := TxQueries(escaped); q != nil || !errors.Is(err, ErrTransactionClosed) {
+		t.Fatalf("panic leaked transaction executor q=%p err=%v", q, err)
+	}
+	if owner.committed {
+		t.Fatal("panicked transaction committed")
+	}
+}
