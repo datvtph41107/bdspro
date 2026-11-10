@@ -15,27 +15,27 @@ import (
 // CreateInvite parses HTTP input and delegates transaction authority and
 // invitation proof signing to services/org; this action never reads a secret.
 func CreateInvite(ctx *context.APIContext) {
-		teamID, err := ctx.PositivePathID("team_id")
-		if err != nil {
-			ctx.APIInvalid(err)
-			return
-		}
-		form := web.GetForm[*api.CreateTeamInviteOption](ctx)
-		created, err := org_service.CreateTeamInvite(
-			ctx, teamID, form.Email, 7*24*time.Hour,
-		)
-		if err != nil {
-			ctx.APIErrorAuto(err)
-			return
-		}
-		// The raw proof is never returned to the HTTP client. The durable
-		// outbox is written in the same transaction as invitation state.
-		ctx.JSON(http.StatusAccepted, api.IssuedTeamInvite{
-			ID:           created.Invite.ID,
-			TeamID:       created.Invite.TeamID,
-			InvitedEmail: created.Invite.InvitedEmail,
-			ExpiresAt:    created.Invite.ExpiresAt,
-		})
+	teamID, err := ctx.PositivePathID("team_id")
+	if err != nil {
+		ctx.APIInvalid(err)
+		return
+	}
+	form := web.GetForm[*api.CreateTeamInviteOption](ctx)
+	created, err := org_service.CreateTeamInvite(
+		ctx, teamID, form.Email, 7*24*time.Hour,
+	)
+	if err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
+	// The raw proof is never returned to the HTTP client. The durable
+	// outbox is written in the same transaction as invitation state.
+	ctx.JSON(http.StatusAccepted, api.IssuedTeamInvite{
+		ID:           created.Invite.ID,
+		TeamID:       created.Invite.TeamID,
+		InvitedEmail: created.Invite.InvitedEmail,
+		ExpiresAt:    created.Invite.ExpiresAt,
+	})
 }
 
 // AcceptInvite uses the form bound at the route boundary. The org service

@@ -10,12 +10,12 @@ import (
 	api "github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/modules/web/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
+	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
+	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	security "github.com/datvtph41107/bdspro/services/security"
-	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 )
 
 // orgAssignment loads the resource visible through the caller's active

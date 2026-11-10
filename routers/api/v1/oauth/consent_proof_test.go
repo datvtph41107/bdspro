@@ -66,7 +66,7 @@ func TestOAuthConsentProofBindsHTTPPreviewAndApproval(t *testing.T) {
 	wrongSessionID := uuid.New()
 	sessionStore := oauthSessionTestStore{
 		accounts: map[uuid.UUID]int64{
-			sessionID: 42,
+			sessionID:      42,
 			wrongSessionID: 43,
 		},
 	}
