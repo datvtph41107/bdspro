@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type contextTestStore struct {
@@ -425,5 +426,71 @@ func TestSQLStoreWithoutPoolCannotBeginIndependentTransaction(t *testing.T) {
 		return nil
 	}); !errors.Is(err, ErrTransactionClosed) {
 		t.Fatalf("pool-less view opened raw transaction: %v", err)
+	}
+}
+
+func TestSQLStoreExecTxRequiresSameTransactionPool(t *testing.T) {
+	// Construct the context the same way WithTx does after Begin, without
+	// acquiring a real PostgreSQL connection. Executor and owner identities
+	// are sufficient to test the nested authorization decision.
+	for _, tc := range []struct {
+		name       string
+		newStore   func(*pgxpool.Pool, *Queries) *SQLStore
+		wantDenied bool
+	}{
+		{
+			name: "same owning pool",
+			newStore: func(pool *pgxpool.Pool, _ *Queries) *SQLStore {
+				return &SQLStore{pool: pool}
+			},
+		},
+		{
+			name: "exact transaction view",
+			newStore: func(_ *pgxpool.Pool, q *Queries) *SQLStore {
+				return &SQLStore{Queries: q}
+			},
+		},
+		{
+			name: "unrelated pool",
+			newStore: func(_ *pgxpool.Pool, _ *Queries) *SQLStore {
+				return &SQLStore{pool: &pgxpool.Pool{}}
+			},
+			wantDenied: true,
+		},
+		{
+			name: "unbound store",
+			newStore: func(_ *pgxpool.Pool, _ *Queries) *SQLStore {
+				return &SQLStore{}
+			},
+			wantDenied: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pool := &pgxpool.Pool{}
+			q := &Queries{}
+			owner := &SQLStore{pool: pool, Queries: q}
+			state := &transactionState{}
+			ctx := WithStore(context.Background(), owner)
+			ctx = context.WithValue(ctx, queriesContextKey{}, q)
+			ctx = context.WithValue(ctx, txStateContextKey{}, state)
+			ctx = context.WithValue(ctx, rawTxStoreContextKey{}, pool)
+
+			called := false
+			err := tc.newStore(pool, q).ExecTx(ctx, func(got *Queries) error {
+				called = true
+				if got != q {
+					t.Fatalf("nested executor changed: got=%p want=%p", got, q)
+				}
+				return nil
+			})
+			if tc.wantDenied {
+				if called || !errors.Is(err, ErrTxStoreUnavailable) ||
+					!errors.Is(state.failure(), ErrTxStoreUnavailable) {
+					t.Fatalf("foreign store was allowed: called=%v err=%v owner=%v", called, err, state.failure())
+				}
+			} else if !called || err != nil || state.failure() != nil {
+				t.Fatalf("valid store was rejected: called=%v err=%v owner=%v", called, err, state.failure())
+			}
+		})
 	}
 }

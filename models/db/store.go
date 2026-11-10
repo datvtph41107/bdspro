@@ -208,6 +208,13 @@ func (s *SQLStore) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 			if err != nil {
 				return err
 			}
+			// Context is the transaction authority, but the explicit receiver
+			// must belong to that authority. Otherwise store B could silently
+			// execute against store A's transaction. The callback error poisons
+			// the outer owner even if an intermediate caller ignores it.
+			if txCtx.Value(rawTxStoreContextKey{}) != nil && !transactionStoreMatches(txCtx, s, q) {
+				return ErrTxStoreUnavailable
+			}
 			return fn(q)
 		})
 	}
