@@ -168,3 +168,106 @@ func TestOAuthAuthorizationCodeConcurrentExchange(t *testing.T) {
 		t.Fatalf("authorization code redeemed %d times, want once", len(successes))
 	}
 }
+
+func TestOAuthDirectSQLUsesContextOwnedTransaction(t *testing.T) {
+	ctx, store, accountID := oauthTestStore(t)
+	parent := WithStore(ctx, store)
+	clientID := uuid.New()
+	redirect := "https://direct-tx.example.test/callback"
+	accessHash := hashOAuthTest(uuid.NewString())
+	abort := errors.New("rollback raw OAuth methods with their owner")
+
+	err := WithTx(parent, func(txCtx context.Context) error {
+		created, err := store.CreateOAuthClient(txCtx, OauthClient{
+			ID: clientID, OwnerAccountID: accountID,
+			Name: "transactional OAuth client", RedirectUri: redirect,
+		})
+		if err != nil || created.ID != clientID {
+			t.Fatalf("OAuth raw QueryRow did not use owner: client=%+v err=%v", created, err)
+		}
+		if got, err := store.GetOAuthClient(txCtx, clientID); err != nil || got.ID != clientID {
+			t.Fatalf("OAuth client unreadable in owner transaction: %+v %v", got, err)
+		}
+		clients, err := store.ListOAuthClients(txCtx, accountID)
+		if err != nil || len(clients) != 1 || clients[0].ID != clientID {
+			t.Fatalf("OAuth raw Query did not use owner: %+v %v", clients, err)
+		}
+		if _, err := store.GetOAuthClient(ctx, clientID); !errors.Is(err, ErrOAuthClientMissing) {
+			t.Fatalf("uncommitted OAuth client visible outside owner: %v", err)
+		}
+
+		dbx, err := store.queryExecutor(txCtx)
+		if err != nil {
+			return err
+		}
+		if _, err := dbx.Exec(txCtx, `INSERT INTO oauth_grants
+			(account_id,client_id,scope,version,approved_at)
+			VALUES($1,$2,'profile:read',7,now())`, accountID, clientID); err != nil {
+			return err
+		}
+		version, err := store.GetOAuthConsentVersion(txCtx, accountID, clientID)
+		if err != nil || version != 7 {
+			t.Fatalf("OAuth consent preview did not read owning tx: version=%d err=%v", version, err)
+		}
+		authorizations, err := store.ListOAuthAuthorizations(txCtx, accountID)
+		if err != nil || len(authorizations) != 1 || authorizations[0].ClientID != clientID {
+			t.Fatalf("OAuth authorization list ignored owner: %+v %v", authorizations, err)
+		}
+		if outside, err := store.GetOAuthConsentVersion(ctx, accountID, clientID); err != nil || outside != 0 {
+			t.Fatalf("uncommitted OAuth consent visible outside owner: version=%d err=%v", outside, err)
+		}
+		if _, err := dbx.Exec(txCtx, `INSERT INTO oauth_access_tokens
+			(token_hash,client_id,account_id,scope,expires_at)
+			VALUES($1,$2,$3,'profile:read',$4)`, accessHash, clientID, accountID, time.Now().Add(time.Hour)); err != nil {
+			return err
+		}
+		access, err := store.ResolveOAuthAccessToken(txCtx, accessHash)
+		if err != nil || access.AccountID != accountID || access.Scope != "profile:read" {
+			t.Fatalf("OAuth bearer read ignored owner: %+v %v", access, err)
+		}
+		if _, err := store.ResolveOAuthAccessToken(ctx, accessHash); !errors.Is(err, ErrOAuthGrantInvalid) {
+			t.Fatalf("uncommitted bearer token visible outside owner: %v", err)
+		}
+		return abort
+	})
+	if !errors.Is(err, abort) {
+		t.Fatalf("OAuth parent rollback returned %v", err)
+	}
+	if _, err := store.GetOAuthClient(ctx, clientID); !errors.Is(err, ErrOAuthClientMissing) {
+		t.Fatalf("OAuth client survived parent rollback: %v", err)
+	}
+	if _, err := store.ResolveOAuthAccessToken(ctx, accessHash); !errors.Is(err, ErrOAuthGrantInvalid) {
+		t.Fatalf("OAuth bearer survived parent rollback: %v", err)
+	}
+}
+
+func TestOAuthDirectRevocationRollsBackWithParent(t *testing.T) {
+	ctx, store, accountID := oauthTestStore(t)
+	clientID := uuid.New()
+	if _, err := store.CreateOAuthClient(ctx, OauthClient{
+		ID: clientID, OwnerAccountID: accountID,
+		Name: "rollbackable client", RedirectUri: "https://revoke.example.test/callback",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	abort := errors.New("abort client revocation")
+	err := WithTx(WithStore(ctx, store), func(txCtx context.Context) error {
+		changed, err := store.RevokeOAuthClient(txCtx, accountID, clientID)
+		if err != nil || !changed {
+			t.Fatalf("OAuth raw Exec did not revoke in owner: changed=%v err=%v", changed, err)
+		}
+		if _, err := store.GetOAuthClient(txCtx, clientID); !errors.Is(err, ErrOAuthClientMissing) {
+			t.Fatalf("owner still sees revoked client: %v", err)
+		}
+		if _, err := store.GetOAuthClient(ctx, clientID); err != nil {
+			t.Fatalf("raw Exec revoked client outside transaction before commit: %v", err)
+		}
+		return abort
+	})
+	if !errors.Is(err, abort) {
+		t.Fatalf("parent rollback returned %v", err)
+	}
+	if _, err := store.GetOAuthClient(ctx, clientID); err != nil {
+		t.Fatalf("client revocation survived rollback: %v", err)
+	}
+}
