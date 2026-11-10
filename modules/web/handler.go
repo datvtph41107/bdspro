@@ -1,7 +1,9 @@
 package web
 
 import (
+	"bufio"
 	"fmt"
+	"net"
 	"net/http"
 	"reflect"
 
@@ -62,6 +64,16 @@ func (w *responseWriter) Write(body []byte) (int, error) {
 }
 
 func (w *responseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+// Hijack follows Gitea's responseWriter contract so HTTP handlers that
+ // explicitly require a websocket/connection upgrade can retain that
+ // capability when the underlying writer supports it.
+func (w *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hijacker, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return hijacker.Hijack()
+	}
+	return nil, nil, http.ErrNotSupported
+}
 
 var (
 	httpReqType    = reflect.TypeFor[*http.Request]()
