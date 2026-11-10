@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	api_oauth "github.com/datvtph41107/bdspro/routers/api/v1/oauth"
@@ -102,7 +103,7 @@ func newBrowserTest(t *testing.T) (*gin.Engine, *browserStore, *browserOAuthStor
 		Store: store, OAuth: service, API: api_oauth.NewHandler(service, store, proofs),
 		Proofs: proofs, Maker: maker, Codec: codec, PublicOrigin: browserTestOrigin,
 		Login: func(context.Context, string, string, string, string) (auth_service.LoginResult, error) {
-			return auth_service.LoginResult{Session: store.session}, nil
+			return auth_service.LoginResult{Session: auth_model.SessionFromDB(store.session)}, nil
 		},
 	})
 	if err != nil {
@@ -312,7 +313,7 @@ func TestCompleteOIDCLoginIssuesBrowserSessionNotJWT(t *testing.T) {
 		originHost: "auth.example.test", secure: true}
 	r := gin.New()
 	r.GET("/oidc/done", func(c *gin.Context) {
-		h.CompleteOIDCLogin(c, auth_service.LoginResult{Session: store.session,
+		h.CompleteOIDCLogin(c, auth_service.LoginResult{Session: auth_model.SessionFromDB(store.session),
 			AccessToken: "jwt-must-not-appear", RefreshToken: "refresh-must-not-appear"},
 			"/oauth/authorize?state=abcdef1234567890")
 	})
@@ -330,7 +331,7 @@ func TestCompleteOIDCLoginIssuesBrowserSessionNotJWT(t *testing.T) {
 	}
 	bad := gin.New()
 	bad.GET("/oidc/done", func(c *gin.Context) {
-		h.CompleteOIDCLogin(c, auth_service.LoginResult{Session: store.session}, "https://evil.example/")
+		h.CompleteOIDCLogin(c, auth_service.LoginResult{Session: auth_model.SessionFromDB(store.session)}, "https://evil.example/")
 	})
 	badRec := req(t, bad, http.MethodGet, "/oidc/done", nil)
 	if badRec.Code != http.StatusBadRequest || badRec.Header().Get("Set-Cookie") != "" {

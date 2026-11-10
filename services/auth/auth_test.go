@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"strings"
@@ -271,7 +272,7 @@ func TestAuthLegacyRefreshSessionTransition(t *testing.T) {
 	}
 	store := &sessionMemoryStore{account: db.Account{ID: 17}}
 	svc := NewAuthService(store, maker, cfg, nil)
-	issued, err := svc.issueSession(context.Background(), store.account, "", "")
+	issued, err := svc.issueSession(context.Background(), account_model.AccountFromDB(store.account), "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,7 +369,7 @@ func TestSessionHistoryFailureDoesNotReleaseCredentials(t *testing.T) {
 		AccessTokenDuration:  time.Minute,
 		RefreshTokenDuration: time.Hour,
 	}, nil)
-	result, err := svc.issueSession(context.Background(), store.account, "test agent", "203.0.113.1")
+	result, err := svc.issueSession(context.Background(), account_model.AccountFromDB(store.account), "test agent", "203.0.113.1")
 	if err == nil || result.RefreshToken != "" || result.AccessToken != "" {
 		t.Fatalf("history write failure released a token: %+v err=%v", result, err)
 	}
@@ -390,7 +391,7 @@ func TestSessionUserAgentNormalizedBeforePersistence(t *testing.T) {
 		RefreshTokenDuration: time.Hour,
 	}, nil)
 	userAgent := strings.Repeat("✓", 2050) + "\x00" + string([]byte{0xff})
-	if _, err := svc.issueSession(context.Background(), store.account, userAgent, "203.0.113.2"); err != nil {
+	if _, err := svc.issueSession(context.Background(), account_model.AccountFromDB(store.account), userAgent, "203.0.113.2"); err != nil {
 		t.Fatal(err)
 	}
 	if n := utf8.RuneCountInString(store.session.UserAgent); n != 2048 {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/gin-gonic/gin"
@@ -22,8 +23,8 @@ func VerifiedEmail(store interface {
 			accountStoreUnavailable(c, nil)
 			return
 		}
-		account, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
-		if errors.Is(err, pgx.ErrNoRows) {
+		account, err := account_model.GetByID(c.Request.Context(), store, AccountID(c))
+		if errors.Is(err, account_model.ErrAccountUnavailable) {
 			AuthenticationRequired(c)
 			return
 		}
@@ -50,8 +51,8 @@ func VerifiedContact(store interface {
 			accountStoreUnavailable(c, nil)
 			return
 		}
-		a, err := store.GetAccountByID(c.Request.Context(), AccountID(c))
-		if errors.Is(err, pgx.ErrNoRows) {
+		a, err := account_model.GetByID(c.Request.Context(), store, AccountID(c))
+		if errors.Is(err, account_model.ErrAccountUnavailable) {
 			AuthenticationRequired(c)
 			return
 		}

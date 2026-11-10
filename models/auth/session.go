@@ -16,6 +16,57 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// Session is safe service-layer session metadata. Never copy the persisted
+// RefreshToken (raw legacy JWT or fingerprint) out of models/auth.
+type Session struct {
+	ID        uuid.UUID
+	AccountID int64
+	UserAgent string
+	ClientIP  string
+	IsBlocked bool
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+func SessionFromDB(row db.Session) *Session {
+	return &Session{
+		ID:        row.ID,
+		AccountID: row.AccountID,
+		UserAgent: row.UserAgent,
+		ClientIP:  row.ClientIp,
+		IsBlocked: row.IsBlocked,
+		CreatedAt: row.CreatedAt,
+		ExpiresAt: row.ExpiresAt,
+	}
+}
+
+// SessionInfo is the list response projection, without authority secrets.
+// The SQLC query must still enforce account ownership and active state.
+type SessionInfo struct {
+	ID        uuid.UUID
+	UserAgent string
+	ClientIP  string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+func sessionInfosFromDB(rows []db.ListActiveSessionsRow) []SessionInfo {
+	if rows == nil {
+		return nil
+	}
+	items := make([]SessionInfo, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, SessionInfo{
+			ID:        row.ID,
+			UserAgent: row.UserAgent,
+			ClientIP:  row.ClientIp,
+			CreatedAt: row.CreatedAt,
+			ExpiresAt: row.ExpiresAt,
+		})
+	}
+	return items
+}
+
 // SessionStore provides session reads, revocations and the shared SQLC transaction primitive.
 // Authentication owns the session + connection-history commit invariant.
 type SessionStore interface {
@@ -29,11 +80,11 @@ type SessionStore interface {
 // When expectedPasswordHash is supplied, the credential must still match
 // inside the session transaction. The session FK holds KEY SHARE on accounts;
 // recovery's account FOR UPDATE lock serializes password reset with issuance.
-func NewSession(ctx context.Context, store SessionStore, params db.CreateSessionParams, expectedPasswordHash ...string) (db.Session, error) {
+func NewSession(ctx context.Context, store SessionStore, params db.CreateSessionParams, expectedPasswordHash ...string) (*Session, error) {
 	if len(expectedPasswordHash) > 1 {
-		return db.Session{}, ErrInvalidCredentials
+		return nil, ErrInvalidCredentials
 	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (db.Session, error) {
+	created, err := db.WithTxResult(ctx, store, func(q *db.Queries) (db.Session, error) {
 		session, err := q.CreateSession(ctx, params)
 		if err != nil {
 			return db.Session{}, err
@@ -60,6 +111,10 @@ func NewSession(ctx context.Context, store SessionStore, params db.CreateSession
 		}
 		return session, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return SessionFromDB(created), nil
 }
 
 func ValidRefreshSession(session db.Session, accountID int64, refreshToken string, now time.Time) bool {
@@ -67,8 +122,12 @@ func ValidRefreshSession(session db.Session, accountID int64, refreshToken strin
 		MatchesRefreshToken(session.RefreshToken, refreshToken) && !timeutil.Expired(now, session.ExpiresAt)
 }
 
-func ListSessions(ctx context.Context, store SessionStore, accountID int64) ([]db.ListActiveSessionsRow, error) {
-	return store.ListActiveSessions(ctx, accountID)
+func ListSessions(ctx context.Context, store SessionStore, accountID int64) ([]SessionInfo, error) {
+	rows, err := store.ListActiveSessions(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	return sessionInfosFromDB(rows), nil
 }
 
 // RevokeOwnedSession commits only while the session which initiated this
