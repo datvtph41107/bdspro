@@ -179,23 +179,27 @@ func (r *Router) Mount(pattern string, sub *Router) {
 	// A subrouter's BeforeRouting handlers are scoped to its mount point.
 	// They run before the parent Gin matcher, not as matched-route middleware.
 	if len(sub.beforeRouting) > 0 {
-		for _, provider := range sub.beforeRouting {
-			mountPrefix := prefix
-			scoped := provider
-			r.beforeRouting = append(r.beforeRouting, func(next http.Handler) http.Handler {
-				child := scoped(next)
-				if child == nil {
+		// Scope the complete child ingress chain as one provider. Determine
+		// the mount match once, before a child provider can rewrite the path.
+		// Otherwise later providers could be skipped after path rewriting.
+		childProviders := append([]middlewareProvider(nil), sub.beforeRouting...)
+		mountPrefix := prefix
+		r.beforeRouting = append(r.beforeRouting, func(next http.Handler) http.Handler {
+			handler := next
+			for i := len(childProviders) - 1; i >= 0; i-- {
+				handler = childProviders[i](handler)
+				if handler == nil {
 					panic("web: mounted BeforeRouting middleware returned nil")
 				}
-				return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-					if mountPrefix == "/" || req.URL.Path == mountPrefix || strings.HasPrefix(req.URL.Path, mountPrefix+"/") {
-						child.ServeHTTP(w, req)
-						return
-					}
-					next.ServeHTTP(w, req)
-				})
+			}
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				if mountPrefix == "/" || req.URL.Path == mountPrefix || strings.HasPrefix(req.URL.Path, mountPrefix+"/") {
+					handler.ServeHTTP(w, req)
+					return
+				}
+				next.ServeHTTP(w, req)
 			})
-		}
+		})
 	}
 
 	for _, entry := range sub.routes {
