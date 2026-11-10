@@ -81,28 +81,6 @@ func toHandlerProvider(handler any) middlewareProvider {
 	}
 }
 
-// ginHandlerProvider is the sole bridge for native net/http middleware into
-// Gin's selected route chain. The middleware must call next to continue;
-// otherwise the remaining Gin route actions are aborted. Request replacement
-// (including context values) must reach subsequent Gin handlers.
-func ginHandlerProvider(provider middlewareProvider) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		continued := false
-		next := http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
-			if continued {
-				panic("web: HTTP middleware called next more than once")
-			}
-			continued = true
-			c.Request = req
-			c.Next()
-		})
-		provider(next).ServeHTTP(c.Writer, c.Request)
-		if !continued {
-			c.Abort()
-		}
-	}
-}
-
 // toGinHandler validates Gin-compatible handler kinds at registration and
 // converts them to the single Gin execution chain. The router owns
 // declarations; this file owns middleware/action adaptation, as in Gitea.
