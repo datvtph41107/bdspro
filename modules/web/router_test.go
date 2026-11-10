@@ -432,3 +432,19 @@ func TestAfterRoutingHTTPActionWriteImplicitlyCommitsOK(t *testing.T) {
 		t.Fatalf("HTTP body write did not stop execution: hit=%v status=%d body=%q", hit, w.Code, w.Body.String())
 	}
 }
+
+func TestAfterRoutingPlainHTTPFunctionUsesCommonProvider(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	hit := false
+	r.AfterRouting(func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+	r.Get("/plain", func(*gin.Context) { hit = true })
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/plain", nil))
+	if hit || w.Code != http.StatusUnauthorized {
+		t.Fatalf("raw HTTP action did not stop Gin chain: hit=%v status=%d", hit, w.Code)
+	}
+}
