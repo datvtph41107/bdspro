@@ -13,7 +13,6 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/timeutil"
 	appctx "github.com/datvtph41107/bdspro/services/context"
-	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -37,20 +36,6 @@ if b == 1 then redis.call('EXPIRE', KEYS[2], ARGV[1]) end
 if a > tonumber(ARGV[2]) or b > tonumber(ARGV[3]) then return 0 end
 return 1
 `)
-
-// Allow uses the same Redis admission algorithm for legacy Gin actions.
-// Transport-specific response writing is confined to this boundary.
-func (l *AuthThrottle) Allow(ctx *gin.Context, operation, credential string, perIP, perCredential int64, window time.Duration) bool {
-	allowed, err := l.check(ctx.Request.Context(), ctx.ClientIP(), operation, credential, perIP, perCredential, window)
-	if err != nil {
-		appctx.RateLimitUnavailable(ctx)
-		return false
-	}
-	if !allowed {
-		appctx.RateLimited(ctx, timeutil.SecondsCeil(window))
-	}
-	return allowed
-}
 
 // AllowAPI is the typed API action admission boundary. It consumes the
 // trusted ClientIP from APIContext and uses the exact same Redis keys, limits,

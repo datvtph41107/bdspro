@@ -54,8 +54,6 @@ func (c *APIContext) SignedPrincipal() (*authcrypto.Payload, bool) {
 	return c.Doer, true
 }
 
-type APIHandler func(*APIContext)
-
 var _ context.Context = (*APIContext)(nil)
 var _ web_types.ResponseStatusProvider = (*APIContext)(nil)
 

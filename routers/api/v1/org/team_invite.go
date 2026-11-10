@@ -12,9 +12,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// CreateInvite binds the immutable signing dependency at route registration.
-// The resulting endpoint is a Gitea-style typed package action; no handler
-// instance, global secret or transport-specific service wrapper is required.
+// CreateInvite parses HTTP input and delegates transaction authority and
+// invitation proof signing to services/org; this action never reads a secret.
 func CreateInvite(ctx *context.APIContext) {
 		teamID, err := ctx.PositivePathID("team_id")
 		if err != nil {
@@ -23,7 +22,7 @@ func CreateInvite(ctx *context.APIContext) {
 		}
 		form := web.GetForm[*api.CreateTeamInviteOption](ctx)
 		created, err := org_service.CreateTeamInvite(
-			ctx, teamID, form.Email, 7*24*time.Hour, org_service.InviteSigningKeyFromContext(ctx),
+			ctx, teamID, form.Email, 7*24*time.Hour,
 		)
 		if err != nil {
 			ctx.APIErrorAuto(err)

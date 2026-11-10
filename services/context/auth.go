@@ -5,10 +5,7 @@ import (
 	"strings"
 
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	"github.com/gin-gonic/gin"
 )
-
-const AuthorizationPayloadKey = "authorization_payload"
 
 // Authenticate verifies the signed first-party token but never grants session
 // authority. The APIContext carries the untrusted-for-writes claims until the
@@ -33,28 +30,3 @@ func Authenticate() func(*APIContext) {
 	}
 }
 
-// AccountID exists only for legacy Gin HTTP actions. It obtains principal
-// identity from APIContext rather than a separately maintained Gin key.
-func AccountID(c *gin.Context) int64 {
-	payload, ok := AuthorizationPayload(c)
-	if !ok {
-		panic("context: no validated bearer payload")
-	}
-	return payload.AccountID
-}
-
-// AuthorizationPayload preserves legacy OAuth/Gin consumers while source of
-// truth for typed API authentication is the same request's APIContext.
-func AuthorizationPayload(c *gin.Context) (*authcrypto.Payload, bool) {
-	if api := GetAPIContext(c); api != nil {
-		if payload, ok := api.SignedPrincipal(); ok {
-			return payload, true
-		}
-	}
-	v, ok := c.Get(AuthorizationPayloadKey)
-	if !ok {
-		return nil, false
-	}
-	p, ok := v.(*authcrypto.Payload)
-	return p, ok && p != nil && p.AccountID > 0
-}

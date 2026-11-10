@@ -1,17 +1,34 @@
 package org
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 type inviteSigningKey struct{}
 
-// The org service owns the invitation proof key, scoped to its Server.
-func WithInviteSigningKey(ctx context.Context,key string) context.Context {
-	if ctx==nil||key=="" {panic("org: missing invite signing key")}
-	return context.WithValue(ctx,inviteSigningKey{},key)
+var errInviteSigningKeyUnavailable = errors.New("org: invitation signing key unavailable")
+
+// WithInviteSigningKey binds an optional process-configured secret to this
+// Server's requests. Missing configuration is rejected by the issuing service,
+// not by unrelated routes, so health and token-only deployments remain usable.
+func WithInviteSigningKey(ctx context.Context, key string) context.Context {
+	if ctx == nil {
+		panic("org: nil request context")
+	}
+	if key == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, inviteSigningKey{}, key)
 }
-func InviteSigningKeyFromContext(ctx context.Context) string {
-	if ctx==nil {panic("org: nil context")}
-	key,ok:=ctx.Value(inviteSigningKey{}).(string)
-	if !ok||key=="" {panic("org: invite signing key not initialized")}
-	return key
+
+func inviteSigningKeyFromContext(ctx context.Context) (string, error) {
+	if ctx == nil {
+		return "", errInviteSigningKeyUnavailable
+	}
+	key, ok := ctx.Value(inviteSigningKey{}).(string)
+	if !ok || key == "" {
+		return "", errInviteSigningKeyUnavailable
+	}
+	return key, nil
 }
