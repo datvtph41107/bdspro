@@ -32,7 +32,6 @@ func loadSettings(command *cli.Command) (setting.Config, error) {
 	if err != nil {
 		return setting.Config{}, err
 	}
-	log.Info("Using configuration file: %s", filename)
 	cfg, err := setting.LoadConfig(filename)
 	if err != nil {
 		return cfg, fmt.Errorf("load config %q: %w", filename, err)
@@ -43,8 +42,10 @@ func loadSettings(command *cli.Command) (setting.Config, error) {
 	}); err != nil {
 		return cfg, err
 	}
+	log.Info("Using configuration file: %s", filename)
 	return cfg, nil
 }
+
 func isValidDefaultSubCommand(command *cli.Command) (string, bool) {
 	if command.Args().Len() != 0 {
 		return command.Args().First(), false
