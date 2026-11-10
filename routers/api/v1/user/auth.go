@@ -66,133 +66,153 @@ func (h *AuthHandler) Login(ctx *appctx.APIContext) {
 	ctx.JSON(http.StatusOK, convert.ToLogin(result))
 }
 
-func (h *AuthHandler) StartPhoneBind(c *gin.Context) {
+func (h *AuthHandler) StartPhoneBind(ctx *appctx.APIContext) {
 	var req structs.PhoneBindRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "phone_bind_start", req.Phone, 10, 3, time.Hour) {
+	actor, ok := ctx.VerifiedActor()
+	if !ok {
+		ctx.AuthenticationRequired()
 		return
 	}
-	if err := h.auth.StartPhoneBind(c.Request.Context(), appctx.AccountID(c), req.Password, req.Phone); err != nil {
-		appctx.Error(c, err)
+	if !h.limiter.AllowAPI(ctx, "phone_bind_start", req.Phone, 10, 3, time.Hour) {
 		return
 	}
-	c.Status(http.StatusAccepted)
+	if err := h.auth.StartPhoneBind(ctx, actor.AccountID, req.Password, req.Phone); err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
+	ctx.Status(http.StatusAccepted)
 }
 
-func (h *AuthHandler) VerifyPhoneBind(c *gin.Context) {
+func (h *AuthHandler) VerifyPhoneBind(ctx *appctx.APIContext) {
 	var req structs.PhoneVerifyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "phone_bind_verify", req.Phone, 40, 5, 10*time.Minute) {
+	actor, ok := ctx.VerifiedActor()
+	if !ok {
+		ctx.AuthenticationRequired()
 		return
 	}
-	if err := h.auth.VerifyPhoneBind(c.Request.Context(), appctx.AccountID(c), req.Phone, req.Code); err != nil {
-		appctx.Error(c, err)
+	if !h.limiter.AllowAPI(ctx, "phone_bind_verify", req.Phone, 40, 5, 10*time.Minute) {
 		return
 	}
-	c.Status(http.StatusNoContent)
+	if err := h.auth.VerifyPhoneBind(ctx, actor.AccountID, req.Phone, req.Code); err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
+	ctx.Status(http.StatusNoContent)
 }
 
 // Phone signup and login are public; no AccountID is available until OTP
 // succeeds. The same IP/credential admission contract applies to each action.
-func (h *AuthHandler) StartPhoneRegister(c *gin.Context) {
+func (h *AuthHandler) StartPhoneRegister(ctx *appctx.APIContext) {
 	var req structs.PhoneStartRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "phone_register_start", req.Phone, 10, 3, time.Hour) {
+	if !h.limiter.AllowAPI(ctx, "phone_register_start", req.Phone, 10, 3, time.Hour) {
 		return
 	}
-	if err := h.auth.StartPhoneRegister(c.Request.Context(), req.Phone); err != nil {
-		appctx.Error(c, err)
+	if err := h.auth.StartPhoneRegister(ctx, req.Phone); err != nil {
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.Status(http.StatusAccepted)
+	ctx.Status(http.StatusAccepted)
 }
-func (h *AuthHandler) VerifyPhoneRegister(c *gin.Context) {
+func (h *AuthHandler) VerifyPhoneRegister(ctx *appctx.APIContext) {
 	var req structs.PhoneVerifyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "phone_register_verify", req.Phone, 40, 5, 10*time.Minute) {
+	if !h.limiter.AllowAPI(ctx, "phone_register_verify", req.Phone, 40, 5, 10*time.Minute) {
 		return
 	}
-	result, err := h.auth.VerifyPhoneRegister(c.Request.Context(), req.Phone, req.Code, c.Request.UserAgent(), c.ClientIP())
+	result, err := h.auth.VerifyPhoneRegister(ctx, req.Phone, req.Code, ctx.CurrentRequest().UserAgent(), ctx.ClientIP())
 	if err != nil {
-		appctx.Error(c, err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	appctx.GetAPIContext(c).JSON(http.StatusCreated, convert.ToLogin(result))
+	ctx.JSON(http.StatusCreated, convert.ToLogin(result))
 }
-func (h *AuthHandler) StartPhoneLogin(c *gin.Context) {
+func (h *AuthHandler) StartPhoneLogin(ctx *appctx.APIContext) {
 	var req structs.PhoneStartRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "phone_login_start", req.Phone, 30, 10, 10*time.Minute) {
+	if !h.limiter.AllowAPI(ctx, "phone_login_start", req.Phone, 30, 10, 10*time.Minute) {
 		return
 	}
-	if err := h.auth.StartPhoneLogin(c.Request.Context(), req.Phone); err != nil {
-		appctx.Error(c, err)
+	if err := h.auth.StartPhoneLogin(ctx, req.Phone); err != nil {
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.Status(http.StatusAccepted)
+	ctx.Status(http.StatusAccepted)
 }
-func (h *AuthHandler) VerifyPhoneLogin(c *gin.Context) {
+func (h *AuthHandler) VerifyPhoneLogin(ctx *appctx.APIContext) {
 	var req structs.PhoneVerifyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "phone_login_verify", req.Phone, 40, 5, 10*time.Minute) {
+	if !h.limiter.AllowAPI(ctx, "phone_login_verify", req.Phone, 40, 5, 10*time.Minute) {
 		return
 	}
-	result, err := h.auth.VerifyPhoneLogin(c.Request.Context(), req.Phone, req.Code, c.Request.UserAgent(), c.ClientIP())
+	result, err := h.auth.VerifyPhoneLogin(ctx, req.Phone, req.Code, ctx.CurrentRequest().UserAgent(), ctx.ClientIP())
 	if err != nil {
-		appctx.Error(c, err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	appctx.GetAPIContext(c).JSON(http.StatusOK, convert.ToLogin(result))
+	ctx.JSON(http.StatusOK, convert.ToLogin(result))
 }
 
-func (h *AuthHandler) StartEmailLink(c *gin.Context) {
+func (h *AuthHandler) StartEmailLink(ctx *appctx.APIContext) {
 	var req structs.EmailLinkStartRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "email_link_start", req.Email, 10, 3, time.Hour) {
+	actor, ok := ctx.VerifiedActor()
+	if !ok {
+		ctx.AuthenticationRequired()
 		return
 	}
-	if err := h.auth.StartEmailLink(c.Request.Context(), appctx.AccountID(c), req.Email, req.PhoneCode, h.resetSender); err != nil {
-		appctx.Error(c, err)
+	if !h.limiter.AllowAPI(ctx, "email_link_start", req.Email, 10, 3, time.Hour) {
 		return
 	}
-	c.Status(http.StatusAccepted)
+	if err := h.auth.StartEmailLink(ctx, actor.AccountID, req.Email, req.PhoneCode, h.resetSender); err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
+	ctx.Status(http.StatusAccepted)
 }
 
-func (h *AuthHandler) ConfirmEmailLink(c *gin.Context) {
+func (h *AuthHandler) ConfirmEmailLink(ctx *appctx.APIContext) {
 	var req structs.EmailLinkConfirmRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "email_link_verify", req.Token, 20, 5, time.Hour) {
+	actor, ok := ctx.VerifiedActor()
+	if !ok {
+		ctx.AuthenticationRequired()
 		return
 	}
-	if err := h.auth.ConfirmEmailLink(c.Request.Context(), appctx.AccountID(c), req.Token); err != nil {
-		appctx.Error(c, err)
+	if !h.limiter.AllowAPI(ctx, "email_link_verify", req.Token, 20, 5, time.Hour) {
 		return
 	}
-	c.Status(http.StatusNoContent)
+	if err := h.auth.ConfirmEmailLink(ctx, actor.AccountID, req.Token); err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
+	ctx.Status(http.StatusNoContent)
 }
 
 // RequestPasswordReset owns only HTTP input/admission; non-enumerating reset

@@ -231,18 +231,10 @@ func Routes() *web.Router {
 		m.Get("/users/oauth2/callback", appctx.GinActions(d.OAuth2.Callback)...)
 	}
 	if d.PhoneEnabled {
-		m.Post("/users/phone/register/start", appctx.GinActions(
-			d.IPActive.For(ipactive.StartPhoneRegister), d.Auth.StartPhoneRegister,
-		)...)
-		m.Post("/users/phone/register/verify", appctx.GinActions(
-			d.IPActive.For(ipactive.VerifyPhoneRegister), d.Auth.VerifyPhoneRegister,
-		)...)
-		m.Post("/users/phone/login/start", appctx.GinActions(
-			d.IPActive.For(ipactive.StartPhoneLogin), d.Auth.StartPhoneLogin,
-		)...)
-		m.Post("/users/phone/login/verify", appctx.GinActions(
-			d.IPActive.For(ipactive.VerifyPhoneLogin), d.Auth.VerifyPhoneLogin,
-		)...)
+		m.Post("/users/phone/register/start", security.IPActiveFor(d.IPActive, ipactive.StartPhoneRegister), d.Auth.StartPhoneRegister)
+		m.Post("/users/phone/register/verify", security.IPActiveFor(d.IPActive, ipactive.VerifyPhoneRegister), d.Auth.VerifyPhoneRegister)
+		m.Post("/users/phone/login/start", security.IPActiveFor(d.IPActive, ipactive.StartPhoneLogin), d.Auth.StartPhoneLogin)
+		m.Post("/users/phone/login/verify", security.IPActiveFor(d.IPActive, ipactive.VerifyPhoneLogin), d.Auth.VerifyPhoneLogin)
 	}
 
 	// The live first-party PostgreSQL session is verified once at ingress.
@@ -265,12 +257,8 @@ func Routes() *web.Router {
 		m.Get("/users/me/sessions", user.ListSessions)
 		m.Delete("/users/me/sessions/:id", user.RevokeOwnSession)
 		m.Post("/users/me/sessions/revoke_all", user.RevokeAllSessions)
-		m.Post("/users/me/email/start", appctx.GinActions(
-			d.IPActive.For(ipactive.StartEmailLink), d.Auth.StartEmailLink,
-		)...)
-		m.Post("/users/me/email/verify", appctx.GinActions(
-			d.IPActive.For(ipactive.ConfirmEmailLink), d.Auth.ConfirmEmailLink,
-		)...)
+		m.Post("/users/me/email/start", security.IPActiveFor(d.IPActive, ipactive.StartEmailLink), d.Auth.StartEmailLink)
+		m.Post("/users/me/email/verify", security.IPActiveFor(d.IPActive, ipactive.ConfirmEmailLink), d.Auth.ConfirmEmailLink)
 
 		// Team invitation still owns an immutable signing dependency, but all
 		// route registration follows one typed Group pattern.
@@ -331,12 +319,8 @@ func Routes() *web.Router {
 		}
 		if d.PhoneEnabled {
 			m.Group("/users/me/phone", func() {
-				m.Post("/start", appctx.GinActions(
-					d.IPActive.For(ipactive.StartPhoneBind), d.Auth.StartPhoneBind,
-				)...)
-				m.Post("/verify", appctx.GinActions(
-					d.IPActive.For(ipactive.VerifyPhoneBind), d.Auth.VerifyPhoneBind,
-				)...)
+				m.Post("/start", security.IPActiveFor(d.IPActive, ipactive.StartPhoneBind), d.Auth.StartPhoneBind)
+				m.Post("/verify", security.IPActiveFor(d.IPActive, ipactive.VerifyPhoneBind), d.Auth.VerifyPhoneBind)
 			}, appctx.VerifiedEmail())
 		}
 	}, appctx.Authenticate(d.TokenMaker), appctx.RequireSession())
