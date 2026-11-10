@@ -982,3 +982,34 @@ func TestMethodsRejectsPartialRegistrationWhenAnyMethodInvalid(t *testing.T) {
 		})
 	}
 }
+
+func TestBeforeRoutingRunsOnMethodNotAllowedWithGin405Enabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	// Gin.New does not enable 405 routing by default. The coordinator
+	// decides this production policy at the actual engine entrypoint.
+	engine.HandleMethodNotAllowed = true
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	var steps []string
+	r.BeforeRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			steps = append(steps, "before")
+			next.ServeHTTP(w, req)
+			steps = append(steps, "after")
+		})
+	})
+	engine.NoMethod(func(c *gin.Context) {
+		steps = append(steps, "method-not-allowed")
+		c.Status(http.StatusMethodNotAllowed)
+	})
+	r.Get("/read-only", func(c *gin.Context) {
+		steps = append(steps, "endpoint")
+		c.Status(http.StatusNoContent)
+	})
+	rec := httptest.NewRecorder()
+	r.WrapIngress(engine).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/read-only", nil))
+	want := []string{"before", "method-not-allowed", "after"}
+	if rec.Code != http.StatusMethodNotAllowed || !reflect.DeepEqual(steps, want) {
+		t.Fatalf("405 routing: status=%d steps=%v, want %d %v", rec.Code, steps, http.StatusMethodNotAllowed, want)
+	}
+}
