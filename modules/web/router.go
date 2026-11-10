@@ -19,7 +19,8 @@ import (
 type ingressContinuationKey struct{}
 
 type ingressContinuationState struct {
-	called []atomic.Bool
+	called   []atomic.Bool
+	finished atomic.Bool
 }
 
 func isNilOrFuncNil(handler any) bool {
@@ -188,6 +189,9 @@ func (r *Router[T]) WrapIngress(engine http.Handler) http.Handler {
 			if !ok || index >= len(state.called) {
 				panic("web: before-routing middleware lost request-local continuation state")
 			}
+			if state.finished.Load() {
+				panic("web: before-routing middleware continued after request completion")
+			}
 			if state.called[index].Swap(true) {
 				panic("web: before-routing middleware called next more than once")
 			}
@@ -200,6 +204,7 @@ func (r *Router[T]) WrapIngress(engine http.Handler) http.Handler {
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		state := &ingressContinuationState{called: make([]atomic.Bool, len(r.beforeRouting))}
+		defer state.finished.Store(true)
 		scoped := req.WithContext(context.WithValue(req.Context(), ingressContinuationKey{}, state))
 		handler.ServeHTTP(w, scoped)
 	})
