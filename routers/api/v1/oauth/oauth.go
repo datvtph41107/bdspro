@@ -137,13 +137,23 @@ func DeleteClient(ctx *appctx.APIContext) {
 // decision owned by services/oauth. GET does not consume or issue grants.
 func AuthorizePreview(ctx *appctx.APIContext) {
 	s, ok := service(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	accountID, ok := actorID(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	req, err := oauth_service.ParseAuthorizationRequest(ctx.CurrentRequest().URL.Query())
-	if err != nil { serviceFailure(ctx, err); return }
+	if err != nil {
+		serviceFailure(ctx, err)
+		return
+	}
 	preview, err := s.PreviewConsent(ctx, accountID, req, oauth_service.ProofsFromContext(ctx), time.Now())
-	if err != nil { serviceFailure(ctx, err); return }
+	if err != nil {
+		serviceFailure(ctx, err)
+		return
+	}
 	ctx.Header("Cache-Control", "no-store")
 	ctx.Header("Referrer-Policy", "no-referrer")
 	ctx.Header("X-Frame-Options", "DENY")
@@ -159,9 +169,13 @@ func AuthorizePreview(ctx *appctx.APIContext) {
 // to services/oauth; HTTP retains body limits, response and redirect policy.
 func Authorize(ctx *appctx.APIContext, w http.ResponseWriter) {
 	s, ok := service(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	accountID, ok := actorID(ctx)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	req := ctx.CurrentRequest()
 	req.Body = http.MaxBytesReader(w, req.Body, 8<<10)
 	if err := req.ParseForm(); err != nil {
@@ -169,12 +183,21 @@ func Authorize(ctx *appctx.APIContext, w http.ResponseWriter) {
 		return
 	}
 	decision, approved, proof, err := oauth_service.ParseConsentDecision(req.PostForm)
-	if err != nil { serviceFailure(ctx, err); return }
+	if err != nil {
+		serviceFailure(ctx, err)
+		return
+	}
 	payload, ok := ctx.SignedPrincipal()
-	if !ok { ctx.AuthenticationRequired(); return }
+	if !ok {
+		ctx.AuthenticationRequired()
+		return
+	}
 	redirect, err := s.DecideConsent(ctx, accountID, payload.SessionID,
 		decision, approved, proof, oauth_service.ProofsFromContext(ctx), time.Now())
-	if err != nil { serviceFailure(ctx, err); return }
+	if err != nil {
+		serviceFailure(ctx, err)
+		return
+	}
 	ctx.Header("Cache-Control", "no-store")
 	ctx.Header("Referrer-Policy", "no-referrer")
 	http.Redirect(w, req, redirect, http.StatusFound)
@@ -263,7 +286,7 @@ func UserInfo(ctx *appctx.APIContext) {
 		return
 	}
 	if access.Scope != oauth_service.ScopeProfile {
-	failure(ctx,http.StatusServiceUnavailable,"temporarily_unavailable")
+		failure(ctx, http.StatusServiceUnavailable, "temporarily_unavailable")
 		failure(ctx, http.StatusForbidden, "insufficient_scope")
 		return
 	}

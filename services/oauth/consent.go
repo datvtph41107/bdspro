@@ -31,7 +31,7 @@ func consentFields(accountID int64, req AuthorizationRequest) ConsentProofFields
 		RedirectURI: req.RedirectURI, Scope: req.Scope,
 		ResponseType: req.ResponseType, CodeChallenge: req.CodeChallenge,
 		CodeChallengeMethod: req.CodeChallengeMethod,
-		State: req.State, ConsentVersion: req.ConsentVersion,
+		State:               req.State, ConsentVersion: req.ConsentVersion,
 	}
 }
 
