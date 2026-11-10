@@ -20,7 +20,7 @@ type ProfilePatch struct {
 // same-transaction read. No driver value or generated SQLC param escapes
 // models/account; no result is returned when the commit fails.
 func UpdateProfile(ctx context.Context, patch ProfilePatch) (*account_model.Profile, error) {
-	actor, _, err := actingUser(ctx)
+	actor, err := actingUser(ctx)
 	if err != nil {
 		return nil, err
 	}
