@@ -3,8 +3,8 @@ package organization_test
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,7 +26,7 @@ func TestTeamInvitationRejectsInvalidInput(t *testing.T) {
 func TestCreatedTeamInviteNeverSerializesProof(t *testing.T) {
 	value := organization.CreatedTeamInvite{
 		Invite: organization.TeamInvite{
-			ID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+			ID:     uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 			TeamID: 8, InvitedEmail: "member@example.test",
 		},
 		Token: "NEVER_LEAK_ME",
