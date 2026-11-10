@@ -897,3 +897,29 @@ func TestBeforeRoutingRejectsInvalidAndLateRegistration(t *testing.T) {
 	}()
 	r.BeforeRouting(func(next http.Handler) http.Handler { return next })
 }
+
+func TestBeforeRoutingRejectsDuplicateContinuation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	r.BeforeRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			next.ServeHTTP(w, req)
+			next.ServeHTTP(w, req)
+		})
+	})
+	reached := 0
+	r.Get("/once", func(c *gin.Context) {
+		reached++
+		c.Status(http.StatusNoContent)
+	})
+	defer func() {
+		if recover() == nil {
+			t.Error("BeforeRouting allowed the same request to enter Gin twice")
+		}
+		if reached != 1 {
+			t.Errorf("Gin endpoint executed %d times; want exactly once", reached)
+		}
+	}()
+	r.WrapIngress(engine).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/once", nil))
+}
