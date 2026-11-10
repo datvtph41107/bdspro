@@ -12,6 +12,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
+	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
@@ -151,7 +152,23 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		)
 	}
 
-	server.router = NormalRoutes(server)
+	// Process startup installs immutable API and router capabilities once;
+	// per-request actors, sessions and transactions remain request-scoped.
+	apiv1.InitRuntime(apiv1.Runtime{
+		Auth:          server.authHandler,
+		OAuth2:        server.oauth2Handler,
+		Authorization: server.authorizationHandler,
+		Browser:       server.browserHandler,
+		PhoneEnabled:  server.phoneEnabled,
+		TokenMaker:    server.tokenMaker,
+		IPActive:      server.ipActive,
+		Store:         server.store,
+		InviteKey:     server.config.TokenSymmetricKey,
+	})
+	InitRouterRuntime(server)
+	routes := NormalRoutes()
+	server.router = routes.GinEngine()
+	server.httpHandler = routes.WrapIngress()
 	if err := server.router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
 	}

@@ -125,23 +125,11 @@ type Router struct {
 	routes           []routeDefinition
 }
 
-// NewRouter owns its Gin engine, matching Gitea's construction boundary.
-// The optional existing engine is a temporary compatibility path for legacy
-// registrations; new routing code must call NewRouter() without arguments.
-func NewRouter(legacyEngine ...*gin.Engine) *Router {
-	if len(legacyEngine) > 1 {
-		panic("web: NewRouter accepts at most one legacy engine")
-	}
-	var engine *gin.Engine
-	if len(legacyEngine) == 1 {
-		engine = legacyEngine[0]
-		if engine == nil {
-			panic("web: nil Gin engine")
-		}
-	} else {
-		engine = gin.New()
-		_ = engine.SetTrustedProxies(nil)
-	}
+// NewRouter constructs and owns its Gin matcher. There is no legacy-engine
+// registration path; Mount always installs routes onto the parent matcher.
+func NewRouter() *Router {
+	engine := gin.New()
+	_ = engine.SetTrustedProxies(nil)
 	return &Router{engine: engine, group: engine.Group("")}
 }
 

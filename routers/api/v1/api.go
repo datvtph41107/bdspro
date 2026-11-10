@@ -6,33 +6,16 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
-	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 	api "github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/modules/web/middleware"
-	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	"github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
-	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/gin-gonic/gin"
 )
-
-// Dependencies are process-scoped HTTP capabilities. cmd and routers/init.go
-// construct them; this package owns registration, not external resource lifetime.
-type Dependencies struct {
-	Auth          *user.AuthHandler
-	OAuth2        *user.OAuth2Handler
-	Authorization *oauth.Handler
-	Browser       *weboauth.Handler
-	PhoneEnabled  bool
-	TokenMaker    authcrypto.Maker
-	IPActive      *ipactive.Middleware
-	Store         db.Store
-	InviteKey     string
-}
 
 // orgAssignment loads the resource visible through the caller's active
 // Account -> Person -> Organization membership. It is not write authority.
@@ -161,27 +144,11 @@ func bind[T any](_ T) func(*appctx.APIContext) {
 	}
 }
 
-// Routes preserves the older explicit-engine registration while callers
-// transition to independently constructed routers. Do not use it for new
-// production mounting: it registers directly on the supplied Gin engine.
-func Routes(root *gin.Engine, d Dependencies) *web.Router {
-	root.Use(appctx.APIContexter())
-	m := web.NewRouter(root)
-	registerRoutes(m, d)
-	return m
-}
-
-// MountedRoutes builds an independent API router, for composition by
-// web.Router.Mount. No Gin engine is passed down from routers/init.go.
-func MountedRoutes(d Dependencies) *web.Router {
+// Routes returns an independently constructed API subrouter, following
+// Gitea's route composition contract. Capabilities are initialized at startup.
+func Routes() *web.Router {
+	d := getRuntime()
 	m := web.NewRouter()
-	registerRoutes(m, d)
-	return m
-}
-
-// registerRoutes contains the v1 API route declarations for both the legacy
-// direct-engine registration and the production mounted router.
-func registerRoutes(m *web.Router, d Dependencies) {
 	m.Get("/health", Health)
 
 	// The v1 route tree owns group declarations. Bind process-scoped capabilities
@@ -365,6 +332,7 @@ func registerRoutes(m *web.Router, d Dependencies) {
 	}, appctx.GinActions(
 		appctx.Authenticate(d.TokenMaker), appctx.RequireSession(d.Store),
 	)...)
+	return m
 }
 
 // @Summary Check API health

@@ -3,6 +3,7 @@ package routers
 
 import (
 	"os"
+	"sync"
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -28,11 +29,30 @@ func InitWebInstalled(cfg setting.Config, store db.Store, redisClient *redis.Cli
 	return NewServer(cfg, store, redisClient, sender)
 }
 
-// NormalRoutes registers the API and Swagger on one Gin matcher, then binds
-// the HTTP BeforeRouting chain around that exact matcher. The resulting
-// handler is the only production HTTP ingress; Server.Handler serves it.
-func NormalRoutes(server *Server) *gin.Engine {
-	// The parent web.Router owns the only production Gin matcher.
+// Router composition follows the Gitea pattern: NormalRoutes has no
+// dependency arguments, and API routes are mounted as an independent Router.
+// Dependencies are installed once in InitRouterRuntime during startup.
+var (
+	routerRuntimeMu sync.Mutex
+	routerRuntime   *Server
+)
+
+func InitRouterRuntime(server *Server) {
+	routerRuntimeMu.Lock()
+	defer routerRuntimeMu.Unlock()
+	if server == nil || routerRuntime != nil {
+		panic("routers: invalid or duplicate router initialization")
+	}
+	routerRuntime = server
+}
+
+func NormalRoutes() *web.Router {
+	routerRuntimeMu.Lock()
+	server := routerRuntime
+	routerRuntimeMu.Unlock()
+	if server == nil {
+		panic("routers: runtime not initialized")
+	}
 	r := web.NewRouter()
 	router := r.GinEngine()
 
@@ -51,23 +71,10 @@ func NormalRoutes(server *Server) *gin.Engine {
 		c.Next()
 	})
 
-	// Gin transport constructs APIContext after a route is resolved. The
-	// mounted subrouter owns route declarations; the parent owns transport.
+	// Until the remaining Gin protocol actions become native HTTP actions,
+	// APIContext is installed once by the parent matcher before typed actions.
 	router.Use(appctx.APIContexter())
-	r.Mount("/", apiv1.MountedRoutes(apiv1.Dependencies{
-		Auth:          server.authHandler,
-		OAuth2:        server.oauth2Handler,
-		Authorization: server.authorizationHandler,
-		Browser:       server.browserHandler,
-		PhoneEnabled:  server.phoneEnabled,
-		TokenMaker:    server.tokenMaker,
-		IPActive:      server.ipActive,
-		Store:         server.store,
-		InviteKey:     server.config.TokenSymmetricKey,
-	}))
+	r.Mount("/", apiv1.Routes())
 	api.RegisterSwagger(router, server.config.Environment)
-
-	// Serve the single parent matcher behind its pre-routing HTTP ingress.
-	server.httpHandler = r.WrapIngress()
-	return router
+	return r
 }
