@@ -54,6 +54,16 @@ func NewBaseContext(source RequestSource) *Base {
 	return &Base{source: source, Data: data}
 }
 
+// ClientIP is assigned by the trusted HTTP transport, not derived from an
+// unvalidated request header. An unsupported transport fails closed.
+func (b *Base) ClientIP() string {
+	source, ok := b.source.(interface{ ClientIP() string })
+	if !ok {
+		panic("context: request transport has no trusted client IP")
+	}
+	return source.ClientIP()
+}
+
 func (b *Base) GetData() reqctx.ContextData   { return b.Data }
 func (b *Base) CurrentRequest() *http.Request { return b.source.CurrentRequest() }
 func (b *Base) CurrentRequestContext() context.Context {

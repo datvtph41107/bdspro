@@ -20,6 +20,7 @@ type ginRequestSource struct {
 }
 
 func (s ginRequestSource) CurrentRequest() *http.Request { return s.ctx.Request }
+func (s ginRequestSource) ClientIP() string             { return s.ctx.ClientIP() }
 func (s ginRequestSource) PathParam(name string) string  { return s.ctx.Param(name) }
 func (s ginRequestSource) BindJSON(value any) error      { return s.ctx.ShouldBindJSON(value) }
 func (s ginRequestSource) QueryDefault(name, fallback string) string {

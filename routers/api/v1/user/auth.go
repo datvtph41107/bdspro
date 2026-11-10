@@ -27,39 +27,43 @@ func NewAuthHandler(auth *auth_service.AuthService, limiter *security.AuthThrott
 	return &AuthHandler{auth: auth, limiter: limiter, resetSender: sender}
 }
 
-func (h *AuthHandler) Register(c *gin.Context) {
+// Register is a typed Gitea-style HTTP action. Credential creation stays in
+// AuthService, while the security limiter is shared with legacy endpoints.
+func (h *AuthHandler) Register(ctx *appctx.APIContext) {
 	var req structs.RegisterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "register", req.Email, 10, 3, time.Hour) {
+	if !h.limiter.AllowAPI(ctx, "register", req.Email, 10, 3, time.Hour) {
 		return
 	}
-	account, err := h.auth.Register(c.Request.Context(), req.Email, req.Password)
+	account, err := h.auth.Register(ctx, req.Email, req.Password)
 	if err != nil {
-		appctx.Error(c, err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	appctx.GetAPIContext(c).JSON(http.StatusCreated, convert.ToUser(account))
+	ctx.JSON(http.StatusCreated, convert.ToUser(account))
 }
 
-func (h *AuthHandler) Login(c *gin.Context) {
+// Login is a typed API action. It does not inspect Gin keys, trust raw proxy
+// headers, or create a second session-issuance implementation.
+func (h *AuthHandler) Login(ctx *appctx.APIContext) {
 	var req structs.LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "login", req.Email, 30, 10, time.Minute) {
+	if !h.limiter.AllowAPI(ctx, "login", req.Email, 30, 10, time.Minute) {
 		return
 	}
-	result, err := h.auth.Login(c.Request.Context(),
-		req.Email, req.Password, c.Request.UserAgent(), c.ClientIP())
+	result, err := h.auth.Login(ctx, req.Email, req.Password,
+		ctx.CurrentRequest().UserAgent(), ctx.ClientIP())
 	if err != nil {
-		appctx.Error(c, err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	appctx.GetAPIContext(c).JSON(http.StatusOK, convert.ToLogin(result))
+	ctx.JSON(http.StatusOK, convert.ToLogin(result))
 }
 
 func (h *AuthHandler) StartPhoneBind(c *gin.Context) {
