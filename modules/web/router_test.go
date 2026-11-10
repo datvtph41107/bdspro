@@ -564,3 +564,40 @@ func TestRegisteredTypedHandlerWithoutWriteContinues(t *testing.T) {
 		t.Fatalf("typed HTTP action did not continue: steps=%v status=%d", steps, w.Code)
 	}
 }
+
+func TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	var steps []string
+	r := NewRouter[*typedHTTPContext](engine.Group(""), func(c *gin.Context) *typedHTTPContext {
+		return c.Request.Context().Value(typedHTTPContextKey{}).(*typedHTTPContext)
+	})
+	r.AfterRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			ctx := &typedHTTPContext{writer: w}
+			next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), typedHTTPContextKey{}, ctx)))
+		})
+	})
+	trace := func(name string) func(http.Handler) http.Handler {
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				steps = append(steps, name)
+				next.ServeHTTP(w, req)
+			})
+		}
+	}
+	r.Group("/teams", func() {
+		r.Post("", web_types.PreMiddlewareProvider(trace("route-pre")),
+			trace("route-normal"),
+			func(ctx *typedHTTPContext) {
+				steps = append(steps, "action")
+				ctx.writer.WriteHeader(http.StatusCreated)
+			})
+	}, trace("group-normal"), web_types.PreMiddlewareProvider(trace("group-pre")))
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/teams", nil))
+	want := []string{"group-pre", "route-pre", "group-normal", "route-normal", "action"}
+	if w.Code != http.StatusCreated || !reflect.DeepEqual(steps, want) {
+		t.Fatalf("status=%d order=%v want=%v", w.Code, steps, want)
+	}
+}
