@@ -67,18 +67,18 @@ func UpdateTeam(ctx context.Context, team *organization_model.Team) error {
 
 // AddTeamMember checks the acting session in the same SQLC transaction as the
 // current owner-scoped membership mutation.
-func AddTeamMember(ctx context.Context, teamID, personID int64) (db.TeamMember, error) {
+func AddTeamMember(ctx context.Context, teamID, personID int64) (*organization_model.TeamMember, error) {
 	actor, ok := auth_model.ActorFromContext(ctx)
 	if !ok {
-		return db.TeamMember{}, auth_model.ErrSessionUnavailable
+		return nil, auth_model.ErrSessionUnavailable
 	}
-	return db.WithTx2(ctx, func(txCtx context.Context) (db.TeamMember, error) {
+	return db.WithTx2(ctx, func(txCtx context.Context) (*organization_model.TeamMember, error) {
 		q, err := db.TxQueries(txCtx)
 		if err != nil {
-			return db.TeamMember{}, err
+			return nil, err
 		}
 		if err := auth_model.RequireActingSession(txCtx, q, actor.AccountID, actor.SessionID); err != nil {
-			return db.TeamMember{}, err
+			return nil, err
 		}
 		return organization_model.AddTeamUser(txCtx, q, actor.AccountID, teamID, personID)
 	})
