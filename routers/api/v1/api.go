@@ -166,6 +166,8 @@ func bind[T any](_ T) func(*appctx.APIContext) {
 // registration; no second router, registry, or handler dispatch exists.
 func Routes(root *gin.Engine, d Dependencies) {
 	m := web.NewRouter[*appctx.APIContext](root.Group(""), appctx.GetAPIContext)
+	// Gitea-style post-routing setup: one APIContext per matched API route.
+	m.AfterRouting(appctx.APIContexter())
 	m.Get("/health", Health)
 	registerPublicRoutes(m, d)
 }
