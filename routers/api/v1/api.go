@@ -282,7 +282,7 @@ func registerAuthenticatedRoutes(m *web.Router, d Dependencies) {
 	m.Patch("/users/me/profile", bind(api.ProfileUpdateRequest{}), user.UpdateProfile)
 	m.Get("/users/me/settings", user.GetUserSettings)
 	m.Patch("/users/me/settings", bind(api.SettingsUpdateRequest{}), user.UpdateUserSettings)
-	m.Get("/users/me/connections", appctx.GinActions(d.Auth.GetConnections)...)
+	m.Get("/users/me/connections", user.GetConnections)
 	m.Get("/users/me/sessions", appctx.GinActions(d.Auth.ListSessions)...)
 	m.Delete("/users/me/sessions/:id", appctx.GinActions(d.Auth.RevokeOwnSession)...)
 	m.Post("/users/me/sessions/revoke_all", appctx.GinActions(d.Auth.RevokeAllSessions)...)
