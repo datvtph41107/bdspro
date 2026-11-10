@@ -259,6 +259,21 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 	if len(actions) == 0 {
 		panic("web: route requires an action")
 	}
+	// Validate the entire declaration before touching Gin's route tree.
+	// Otherwise "GET, " registers GET before failing on its next token.
+	candidates := strings.Split(method, ",")
+	seen := make(map[string]struct{}, len(candidates))
+	for i, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			panic("web: empty HTTP method")
+		}
+		if _, duplicate := seen[candidate]; duplicate {
+			panic(fmt.Sprintf("web: duplicate HTTP method %s", candidate))
+		}
+		seen[candidate] = struct{}{}
+		candidates[i] = candidate
+	}
 	handlers := make([]gin.HandlerFunc, 0, len(r.afterRouting)+len(r.curMiddlewares)+len(actions))
 	handlers = append(handlers, r.afterRouting...)
 	if _, registered := responseStatusProviders[reflect.TypeFor[T]()]; registered {
@@ -309,11 +324,7 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 	pattern := r.getPattern(path)
 	// Gitea permits comma-separated method registration at the canonical
 	// Methods boundary. Compile the handler chain once for every method.
-	for _, candidate := range strings.Split(method, ",") {
-		candidate = strings.TrimSpace(candidate)
-		if candidate == "" {
-			panic("web: empty HTTP method")
-		}
+	for _, candidate := range candidates {
 		r.group.Handle(candidate, pattern, handlers...)
 	}
 }
