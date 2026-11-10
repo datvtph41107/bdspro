@@ -197,3 +197,25 @@ func TestTypedGinAbortWithoutResponseStopsNextAction(t *testing.T) {
 		t.Fatalf("aborted Gin action continued=%v, scope cleanup=%d, want false and 1", reached, cleanupCount)
 	}
 }
+
+func TestTypedStatusSelectionWithoutAbortContinues(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	router := web.NewRouter[*APIContext](engine.Group(""), GetAPIContext)
+	router.AfterRouting(APIContexter())
+	reached := false
+	router.Get("/selected", func(api *APIContext) {
+		api.Status(http.StatusAccepted)
+		if api.WrittenStatus() != 0 {
+			t.Error("selecting status should not commit an HTTP response")
+		}
+	}, func(api *APIContext) {
+		reached = true
+		api.Status(http.StatusNoContent)
+	})
+	response := httptest.NewRecorder()
+	engine.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/selected", nil))
+	if !reached || response.Code != http.StatusNoContent {
+		t.Fatalf("uncommitted typed status stopped continuation: reached=%v status=%d", reached, response.Code)
+	}
+}
