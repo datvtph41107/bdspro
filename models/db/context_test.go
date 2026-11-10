@@ -346,3 +346,43 @@ func TestTransactionContextExpiresAfterPanic(t *testing.T) {
 		t.Fatal("panicked transaction committed")
 	}
 }
+
+// contextTxOnly deliberately does not embed Store or implement Querier.
+// Context-first transaction callbacks must work with narrow transaction
+// capabilities without inventing another transaction entrypoint.
+type contextTxOnly struct {
+	owner *contextTestStore
+}
+
+func (s contextTxOnly) ExecTx(ctx context.Context, fn func(*Queries) error) error {
+	return s.owner.ExecTx(ctx, fn)
+}
+
+func TestWithTxNarrowTransactionerUsesOneOwner(t *testing.T) {
+	owner := &contextTestStore{}
+	ctx := WithStore(context.Background(), contextTxOnly{owner: owner})
+
+	if _, err := StoreFromContext(ctx); !errors.Is(err, ErrStoreMissing) {
+		t.Fatalf("transaction-only capability passed as full query Store: %v", err)
+	}
+	result, err := WithTx2(ctx, func(txCtx context.Context) (int, error) {
+		first, err := TxQueries(txCtx)
+		if err != nil {
+			return 0, err
+		}
+		inner, err := WithTx2(txCtx, func(nested context.Context) (int, error) {
+			q, err := TxQueries(nested)
+			if err != nil {
+				return 0, err
+			}
+			if q != first {
+				t.Fatal("narrow nested transaction acquired another executor")
+			}
+			return 42, nil
+		})
+		return inner, err
+	})
+	if err != nil || result != 42 || !owner.committed || owner.transactions != 1 {
+		t.Fatalf("nested result=%d err=%v owner=%+v", result, err, owner)
+	}
+}
