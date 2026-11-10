@@ -156,14 +156,15 @@ func Routes() *web.Router {
 	// only at registration; request-scoped actor/resources belong to APIContext.
 	// GinActions is the explicit adapter for existing Gin protocol handlers.
 	// New API actions use func(*context.APIContext) directly.
-	m.Post("/users", append(
-		appctx.GinActions(d.IPActive.For(ipactive.Register)),
+	m.Post("/users",
+		security.IPActiveFor(d.IPActive, ipactive.Register),
 		d.Auth.Register,
-	)...)
-	m.Post("/users/login", append(
-		appctx.GinActions(security.LogLoginResponse(), d.IPActive.For(ipactive.Login)),
+	)
+	m.Post("/users/login",
+		security.LogLoginResponse(),
+		security.IPActiveFor(d.IPActive, ipactive.Login),
 		d.Auth.Login,
-	)...)
+	)
 	m.Get("/users/verify_email", appctx.GinActions(d.Auth.VerifyEmailPage)...)
 	m.Post("/users/verify_email", appctx.GinActions(
 		d.IPActive.For(ipactive.VerifyEmail), d.Auth.VerifyEmail,

@@ -1,6 +1,7 @@
 package ipactive
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,15 @@ type Middleware struct {
 
 func NewMiddleware(limiter *Limiter, reject Reject) *Middleware {
 	return &Middleware{limiter: limiter, reject: reject}
+}
+
+// Check is the transport-independent admission mechanism. The trusted source
+// IP is supplied by the HTTP transport and validated by Limiter.Check.
+func (m *Middleware) Check(ctx context.Context, action Action, sourceIP string) (Event, error) {
+	if m == nil || m.limiter == nil {
+		return Event{Action: action}, ErrUnavailable
+	}
+	return m.limiter.Check(ctx, action, sourceIP)
 }
 
 func (m *Middleware) For(action Action) gin.HandlerFunc {
