@@ -25,7 +25,7 @@ Three **parallel coding producers** are realistic in the first wave (A, B, C). D
 
 ## Required read order for every newly opened chat
 
-1. This file (shared mission, source of truth).
+1. This file (shared mission, source of truth) and [TASK_BOARD.md](./TASK_BOARD.md) (dated current workstream/CI snapshot; verify live HEAD).
 2. [OWNERSHIP_AND_CONTRACTS.md](./OWNERSHIP_AND_CONTRACTS.md) (permissions and API boundary).
 3. [SOURCE_MAP.md](./SOURCE_MAP.md) (Gitea → BDSPro source and ownership mapping).
 4. [TRUST_AND_VERIFICATION.md](./TRUST_AND_VERIFICATION.md) (evidence gates and trust ladder).
