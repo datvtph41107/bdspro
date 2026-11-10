@@ -63,7 +63,7 @@ func oidcOAuthForm(s *oidcBrowserOAuthStore) url.Values {
 }
 func oidcRequest(t *testing.T, handler http.Handler, method, path string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest(method, oidcBrowserTestOrigin+path)
+	req := httptest.NewRequest(method, oidcBrowserTestOrigin+path, nil)
 	req.Header.Set("Accept", "text/html")
 	for _, cookie := range cookies {
 		req.AddCookie(cookie)
@@ -191,7 +191,7 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 	authService := auth_service.NewAuthService(store, maker, setting.Config{
 		OIDC: provider, TokenSymmetricKey: secret, AuditKey: strings.Repeat("a", 32),
 		AccessTokenDuration: 15 * time.Minute, RefreshTokenDuration: 24 * time.Hour,
-	})
+	}, nil)
 	clientStore := &oidcBrowserOAuthStore{client: db.OauthClient{
 		ID: uuid.New(), Name: "OIDC browser client", RedirectUri: "https://client.example.test/callback",
 	}}
