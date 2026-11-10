@@ -143,6 +143,16 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 		if err := state.failure(); err != nil {
 			return err
 		}
+		// A nested callback must not silently retain SQLStore A's executor
+		// when a model replaces its Store in the context with SQLStore B.
+		// This is the same context-engine authority as GetEngine in Gitea.
+		if owner := ctx.Value(rawTxStoreContextKey{}); owner != nil {
+			store, ok := ctx.Value(storeContextKey{}).(*SQLStore)
+			if !ok || store == nil || store.pool != owner {
+				state.fail(ErrTxStoreUnavailable)
+				return ErrTxStoreUnavailable
+			}
+		}
 		if err := ctx.Err(); err != nil {
 			state.fail(err)
 			return err
