@@ -185,42 +185,46 @@ func matchedRouteFromRequest(req *http.Request) *matchedRouteScope {
 // live-session verification); that replacement takes precedence, matching
 // the prior bridge's propagation rule.
 func ginMatchedHandler(providers []middlewareProvider, endpoint http.HandlerFunc) gin.HandlerFunc {
-	var chain http.Handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	// Bind the Gin execution boundary without rebuilding providers per
+	// request. The canonical HTTP compiler below composes this list once.
+	bound := make([]middlewareProvider, len(providers))
+	for i, provider := range providers {
+		index, middleware := i, provider
+		bound[i] = func(next http.Handler) http.Handler {
+			forward := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				scope := matchedRouteFromRequest(req)
+				if scope.finished.Load() {
+					panic("web: matched route middleware continued after request completion")
+				}
+				if scope.called[index].Swap(true) {
+					panic("web: HTTP middleware called next more than once")
+				}
+				// Gin protocol actions may update c.Request. Ordinary HTTP
+				// middleware instead propagates a new request to next.
+				if scope.gin.Request != scope.incoming[index] {
+					req = scope.gin.Request
+				}
+				ginScopedHandler(scope.gin, next).ServeHTTP(w, req)
+			})
+			compiled := middleware(forward)
+			if compiled == nil {
+				panic("web: matched route middleware returned nil handler")
+			}
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				scope := matchedRouteFromRequest(req)
+				if scope.finished.Load() {
+					panic("web: matched route middleware executed after request completion")
+				}
+				scope.incoming[index] = req
+				ginScopedHandler(scope.gin, compiled).ServeHTTP(w, req)
+			})
+		}
+	}
+	endpointHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		scope := matchedRouteFromRequest(req)
 		ginScopedHandler(scope.gin, endpoint).ServeHTTP(w, req)
 	})
-	for i := len(providers) - 1; i >= 0; i-- {
-		index := i
-		provider := providers[i]
-		downstream := chain
-		next := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			scope := matchedRouteFromRequest(req)
-			if scope.finished.Load() {
-				panic("web: matched route middleware continued after request completion")
-			}
-			if scope.called[index].Swap(true) {
-				panic("web: HTTP middleware called next more than once")
-			}
-			// c.Request changes are made by a Gin protocol action, while
-			// req changes are supplied directly by HTTP middleware.
-			if scope.gin.Request != scope.incoming[index] {
-				req = scope.gin.Request
-			}
-			ginScopedHandler(scope.gin, downstream).ServeHTTP(w, req)
-		})
-		compiled := provider(next)
-		if compiled == nil {
-			panic("web: matched route middleware returned nil handler")
-		}
-		chain = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			scope := matchedRouteFromRequest(req)
-			if scope.finished.Load() {
-				panic("web: matched route middleware executed after request completion")
-			}
-			scope.incoming[index] = req
-			ginScopedHandler(scope.gin, compiled).ServeHTTP(w, req)
-		})
-	}
+	chain := compileMiddlewaresHandler(bound, endpointHandler)
 	return func(c *gin.Context) {
 		scope := &matchedRouteScope{
 			gin:      c,
