@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"reflect"
-	"slices"
 
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 )
@@ -151,60 +150,6 @@ func executeMiddlewaresHandler(w http.ResponseWriter, req *http.Request, middlew
 		handler = middleware(handler)
 	}
 	handler.ServeHTTP(w, req)
-}
-
-func isNilOrFuncNil(handler any) bool {
-	if handler == nil {
-		return true
-	}
-	value := reflect.ValueOf(handler)
-	return value.Kind() == reflect.Func && value.IsNil()
-}
-
-func wrapMiddlewareAppendPre(all []middlewareProvider, handlers []any) []middlewareProvider {
-	for _, handler := range handlers {
-		if pre, ok := handler.(web_types.PreMiddlewareProvider); ok && pre != nil {
-			all = append(all, toHandlerProvider(middlewareProvider(pre)))
-		}
-	}
-	return all
-}
-
-func wrapMiddlewareAppendNormal(all []middlewareProvider, handlers []any) []middlewareProvider {
-	for _, handler := range handlers {
-		if _, pre := handler.(web_types.PreMiddlewareProvider); !pre && !isNilOrFuncNil(handler) {
-			all = append(all, toHandlerProvider(handler))
-		}
-	}
-	return all
-}
-
-// wrapMiddlewareAndHandler is the single matched-route HTTP compiler.
-// Pre providers run ahead of ordinary middleware from the same scopes;
-// the final non-nil action is the endpoint and cannot be a pre middleware.
-func wrapMiddlewareAndHandler(useMiddlewares, curMiddlewares, handlers []any) ([]middlewareProvider, http.HandlerFunc, bool) {
-	if len(handlers) == 0 {
-		panic("web: no endpoint handler provided")
-	}
-	if isNilOrFuncNil(handlers[len(handlers)-1]) {
-		panic("web: endpoint handler cannot be nil")
-	}
-	if _, pre := handlers[len(handlers)-1].(web_types.PreMiddlewareProvider); pre {
-		panic("web: endpoint cannot be pre middleware")
-	}
-	providers := make([]middlewareProvider, 0, len(useMiddlewares)+len(curMiddlewares)+len(handlers))
-	providers = wrapMiddlewareAppendPre(providers, useMiddlewares)
-	providers = wrapMiddlewareAppendPre(providers, curMiddlewares)
-	providers = wrapMiddlewareAppendPre(providers, handlers)
-	hasPre := len(providers) != 0
-	providers = wrapMiddlewareAppendNormal(providers, useMiddlewares)
-	providers = wrapMiddlewareAppendNormal(providers, curMiddlewares)
-	providers = wrapMiddlewareAppendNormal(providers, handlers)
-	if len(providers) == 0 {
-		panic("web: no compilable endpoint handler")
-	}
-	last := len(providers) - 1
-	return providers[:last], providers[last](nil).ServeHTTP, hasPre
 }
 
 // toHandlerProvider is framework-independent. Gin integration belongs to
