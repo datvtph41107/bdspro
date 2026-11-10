@@ -106,6 +106,50 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 	store := NewStore(pool)
 	ctx := WithStore(base, store)
 
+	t.Run("captured SQLC executor rejects parent context and poisons owner", func(t *testing.T) {
+		var escaped context.Context
+		var captured *Queries
+		var created int64
+		err := WithTx(ctx, func(txCtx context.Context) error {
+			escaped = txCtx
+			q, err := TxQueries(txCtx)
+			if err != nil {
+				return err
+			}
+			captured = q
+			created, err = q.CreateParty(txCtx)
+			if err != nil {
+				return err
+			}
+			// Deliberately supply the original ctx to a captured *Queries.
+			// The executor must reject it, rather than relying on the
+			// TxQueries accessor being called again.
+			if _, err := q.CreateParty(ctx); !errors.Is(err, ErrTransactionRequired) {
+				t.Fatalf("QueryRow used a parent context: %v", err)
+			}
+			if err := q.CreatePerson(ctx, created); !errors.Is(err, ErrTransactionRequired) {
+				t.Fatalf("Exec used a parent context: %v", err)
+			}
+			if _, err := q.ListPendingJobOutbox(ctx, 1); !errors.Is(err, ErrTransactionRequired) {
+				t.Fatalf("Query used a parent context: %v", err)
+			}
+			return nil // Swallowed wrong-context query must poison commit.
+		})
+		if !errors.Is(err, ErrTransactionRequired) {
+			t.Fatalf("owner accepted ignored wrong-context query: %v", err)
+		}
+		var persisted int
+		if err := pool.QueryRow(base, "SELECT count(*) FROM parties WHERE id=$1", created).Scan(&persisted); err != nil {
+			t.Fatal(err)
+		}
+		if persisted != 0 {
+			t.Fatal("wrong-context SQLC query committed the parent write")
+		}
+		if _, err := captured.CreateParty(escaped); !errors.Is(err, ErrTransactionClosed) {
+			t.Fatalf("captured SQLC executor escaped after owner closed: %v", err)
+		}
+	})
+
 	t.Run("one transaction commits nested changes", func(t *testing.T) {
 		var created int64
 		err := WithTx(ctx, func(txCtx context.Context) error {
