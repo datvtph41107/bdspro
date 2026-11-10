@@ -727,3 +727,34 @@ func TestRegisteredTypedRouterRejectsNilSecurityGuardsAtRegistration(t *testing.
 		})
 	}
 }
+
+func TestRegisteredTypedRouterRejectsDuplicateHTTPContinuation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*typedHTTPContext](engine.Group(""), func(c *gin.Context) *typedHTTPContext {
+		return c.Request.Context().Value(typedHTTPContextKey{}).(*typedHTTPContext)
+	})
+	r.AfterRouting(
+		func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := &typedHTTPContext{writer: w}
+				request := req.WithContext(context.WithValue(req.Context(), typedHTTPContextKey{}, ctx))
+				next.ServeHTTP(w, request)
+				next.ServeHTTP(w, request)
+			})
+		},
+	)
+	calls := 0
+	r.Get("/duplicate-next", func(*typedHTTPContext) {
+		calls++
+	})
+	defer func() {
+		if recover() == nil {
+			t.Error("middleware calling next twice was accepted")
+		}
+		if calls != 1 {
+			t.Errorf("endpoint executed %d times, want once before duplicate-next rejection", calls)
+		}
+	}()
+	engine.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/duplicate-next", nil))
+}
