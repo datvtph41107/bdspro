@@ -14,7 +14,6 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	api_oauth "github.com/datvtph41107/bdspro/routers/api/v1/oauth"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
@@ -207,108 +206,110 @@ func RequireBrowserSession(ctx *appctx.APIContext, w http.ResponseWriter) {
 	setVerifiedSession(ctx, session)
 }
 
+// oauthFailure emits an OAuth2 protocol response, not the first-party API
+// error envelope. Its body never contains credential or database details.
+func oauthFailure(ctx *appctx.APIContext, err error) {
+	status, code := http.StatusServiceUnavailable, "temporarily_unavailable"
+	switch {
+	case errors.Is(err, oauth_service.ErrInvalidRequest),
+		errors.Is(err, oauth_service.ErrConsentProofInvalid):
+		status, code = http.StatusBadRequest, "invalid_request"
+	case errors.Is(err, oauth_service.ErrInvalidClient):
+		status, code = http.StatusUnauthorized, "invalid_client"
+	case errors.Is(err, oauth_service.ErrAccessDenied):
+		status, code = http.StatusForbidden, "access_denied"
+	}
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Header("Pragma", "no-cache")
+	ctx.JSON(status, map[string]any{"error": code})
+}
+
+// AuthorizePreview renders one service-owned consent decision as HTML or JSON.
+// No router package imports another router's OAuth HTTP handlers.
 func AuthorizePreview(ctx *appctx.APIContext, w http.ResponseWriter) {
-	b := FromContext(ctx)
-	if b == nil {
-		api_oauth.AuthorizePreview(ctx)
-		return
-	}
-	sessionID, _ := ctx.Data[browserSessionKey].(string)
-	if sessionID == "" || !wantsHTML(ctx) {
-		api_oauth.AuthorizePreview(ctx)
-		return
-	}
 	actor, ok := ctx.VerifiedActor()
-	if !ok {
-		ctx.AuthenticationRequired()
-		return
-	}
-	request, err := oauth_service.ParseAuthorizationRequest(ctx.CurrentRequest().URL.Query())
-	if err != nil {
-		ctx.Status(http.StatusBadRequest)
-		return
-	}
+	if !ok { ctx.AuthenticationRequired(); return }
 	s := oauth_service.ServiceFromContext(ctx)
-	if s == nil {
-		ctx.APIErrorNotFound()
-		return
-	}
-	client, version, err := s.ReviewConsent(ctx, actor.AccountID, request)
-	if err != nil {
-		if errors.Is(err, oauth_service.ErrInvalidRequest) || errors.Is(err, oauth_service.ErrInvalidClient) {
-			ctx.Status(http.StatusBadRequest)
-		} else {
-			ctx.Status(http.StatusServiceUnavailable)
-		}
-		return
-	}
-	request.ConsentVersion = version
+	if s == nil { ctx.APIErrorNotFound(); return }
+	request, err := oauth_service.ParseAuthorizationRequest(ctx.CurrentRequest().URL.Query())
+	if err != nil { oauthFailure(ctx, err); return }
 	now := time.Now()
-	proofs := oauth_service.ProofsFromContext(ctx)
-	if proofs == nil {
-		ctx.Status(http.StatusServiceUnavailable)
-		return
-	}
-	proof, err := proofs.Issue(oauth_service.ConsentProofFields{
-		AccountID: actor.AccountID, ClientID: request.ClientID.String(),
-		RedirectURI: request.RedirectURI, Scope: request.Scope,
-		ResponseType: request.ResponseType, CodeChallenge: request.CodeChallenge,
-		CodeChallengeMethod: request.CodeChallengeMethod,
-		State:               request.State, ConsentVersion: version,
-	}, now)
-	if err != nil {
-		ctx.Status(http.StatusServiceUnavailable)
+	preview, err := s.PreviewConsent(ctx, actor.AccountID, request,
+		oauth_service.ProofsFromContext(ctx), now)
+	if err != nil { oauthFailure(ctx, err); return }
+	b := FromContext(ctx)
+	sessionID, _ := ctx.Data[browserSessionKey].(string)
+	if b == nil || sessionID == "" || !wantsHTML(ctx) {
+		ctx.Header("Cache-Control", "no-store")
+		ctx.Header("Referrer-Policy", "no-referrer")
+		ctx.Header("X-Frame-Options", "DENY")
+		ctx.JSON(http.StatusOK, map[string]any{
+			"client_id": preview.Client.ID.String(), "name": preview.Client.Name,
+			"redirect_uri": preview.Client.RedirectURI, "scope": preview.Request.Scope,
+			"consent_required": true, "consent_version": preview.Request.ConsentVersion,
+			"consent_proof": preview.Proof,
+		})
 		return
 	}
 	csrf, err := b.Codec.IssueCSRF(sessionID, "oauth-consent", now)
-	if err != nil {
-		ctx.Status(http.StatusServiceUnavailable)
-		return
-	}
+	if err != nil { ctx.Status(http.StatusServiceUnavailable); return }
 	logoutCSRF, err := b.Codec.IssueCSRF(sessionID, "oauth-logout", now)
-	if err != nil {
-		ctx.Status(http.StatusServiceUnavailable)
-		return
-	}
+	if err != nil { ctx.Status(http.StatusServiceUnavailable); return }
 	browserHeaders(ctx)
-	if !consentHeaders(ctx, client.RedirectURI) {
-		return
-	}
+	if !consentHeaders(ctx, preview.Client.RedirectURI) { return }
 	_ = templates.OAuthConsentPage.Execute(w, struct {
-		ClientName, ClientID, RedirectURI, ResponseType, Scope, State      string
+		ClientName, ClientID, RedirectURI, ResponseType, Scope, State string
 		CodeChallenge, CodeChallengeMethod, ConsentProof, CSRF, LogoutCSRF string
-		ConsentVersion                                                     int64
+		ConsentVersion int64
 	}{
-		ClientName: client.Name, ClientID: client.ID.String(),
-		RedirectURI: request.RedirectURI, ResponseType: request.ResponseType,
-		Scope: request.Scope, State: request.State,
-		CodeChallenge: request.CodeChallenge, CodeChallengeMethod: request.CodeChallengeMethod,
-		ConsentProof: proof, CSRF: csrf, LogoutCSRF: logoutCSRF, ConsentVersion: version,
+		ClientName: preview.Client.Name, ClientID: preview.Client.ID.String(),
+		RedirectURI: preview.Request.RedirectURI,
+		ResponseType: preview.Request.ResponseType, Scope: preview.Request.Scope,
+		State: preview.Request.State,
+		CodeChallenge: preview.Request.CodeChallenge,
+		CodeChallengeMethod: preview.Request.CodeChallengeMethod,
+		ConsentProof: preview.Proof, CSRF: csrf, LogoutCSRF: logoutCSRF,
+		ConsentVersion: preview.Request.ConsentVersion,
 	})
 }
 
+// Authorize enforces browser origin/CSRF only for cookie-based approval.
+// Both browser and bearer flows share services/oauth's proof and grant checks.
 func Authorize(ctx *appctx.APIContext, w http.ResponseWriter) {
 	b := FromContext(ctx)
-	if b == nil {
-		api_oauth.Authorize(ctx, w)
-		return
-	}
 	sessionID, _ := ctx.Data[browserSessionKey].(string)
-	if sessionID != "" {
+	req := ctx.CurrentRequest()
+	req.Body = http.MaxBytesReader(w, req.Body, 8<<10)
+	if b != nil && sessionID != "" {
 		if !validPOST(ctx, b) ||
-			!strings.HasPrefix(ctx.CurrentRequest().Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+			!strings.HasPrefix(req.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
 			ctx.Status(http.StatusForbidden)
 			return
 		}
-		req := ctx.CurrentRequest()
-		req.Body = http.MaxBytesReader(w, req.Body, 8<<10)
 		if err := req.ParseForm(); err != nil ||
 			b.Codec.VerifyCSRF(req.PostForm.Get("csrf"), sessionID, "oauth-consent", time.Now()) != nil {
 			ctx.Status(http.StatusForbidden)
 			return
 		}
 	}
-	api_oauth.Authorize(ctx, w)
+	actor, ok := ctx.VerifiedActor()
+	if !ok { ctx.AuthenticationRequired(); return }
+	s := oauth_service.ServiceFromContext(ctx)
+	if s == nil { ctx.APIErrorNotFound(); return }
+	if err := req.ParseForm(); err != nil {
+		oauthFailure(ctx, oauth_service.ErrInvalidRequest)
+		return
+	}
+	decision, approved, proof, err := oauth_service.ParseConsentDecision(req.PostForm)
+	if err != nil { oauthFailure(ctx, err); return }
+	payload, ok := ctx.SignedPrincipal()
+	if !ok { ctx.AuthenticationRequired(); return }
+	redirect, err := s.DecideConsent(ctx, actor.AccountID, payload.SessionID,
+		decision, approved, proof, oauth_service.ProofsFromContext(ctx), time.Now())
+	if err != nil { oauthFailure(ctx, err); return }
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Header("Referrer-Policy", "no-referrer")
+	http.Redirect(w, req, redirect, http.StatusFound)
 }
 
 func LoginPage(ctx *appctx.APIContext, w http.ResponseWriter) {
