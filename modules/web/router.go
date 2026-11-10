@@ -211,7 +211,7 @@ type Router[T any] struct {
 	getContext     func(*gin.Context) T
 	afterRouting   []gin.HandlerFunc
 	curGroupPrefix string
-	curMiddlewares []func(T)
+	curMiddlewares []any
 }
 
 func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *Router[T] {
@@ -252,7 +252,7 @@ func (r *Router[T]) AfterRouting(middlewares ...any) {
 // Group scopes route patterns and middlewares at registration, as in Gitea.
 // Gin receives the compiled chain at Methods; it never owns a second scope
 // that would reorder group guards ahead of AfterRouting.
-func (r *Router[T]) Group(path string, register func(), guards ...func(T)) {
+func (r *Router[T]) Group(path string, register func(), guards ...any) {
 	previousPrefix := r.curGroupPrefix
 	previousMiddlewares := r.curMiddlewares
 	r.curGroupPrefix += path
@@ -278,18 +278,25 @@ func (r *Router[T]) getPattern(path string) string {
 // compileActions selects the registered net/http typed handler contract
 // when available. Legacy Gin-only test contexts use the compatibility path;
 // normal APIContext routes use the package-level provider from handler.go.
-func (r *Router[T]) compileActions(actions []func(T)) []gin.HandlerFunc {
+func (r *Router[T]) compileActions(actions []any) []gin.HandlerFunc {
 	if _, registered := responseStatusProviders[reflect.TypeFor[T]()]; !registered {
-		return r.handlers(actions)
+		// Transitional Gin-only registrations still require typed actions.
+		// Reject unexpected providers at registration rather than on request.
+		legacy := make([]func(T), 0, len(actions))
+		for _, action := range actions {
+			fn, ok := action.(func(T))
+			if !ok || fn == nil {
+				panic(fmt.Sprintf("web: unsupported legacy route action %T", action))
+			}
+			legacy = append(legacy, fn)
+		}
+		return r.handlers(legacy)
 	}
 	out := make([]gin.HandlerFunc, 0, len(actions))
 	for _, action := range actions {
 		provider := ginHandlerProvider(toHandlerProvider(action))
 		out = append(out, func(c *gin.Context) {
-			// The old Router contract explicitly supplied getContext. Keep
-			// that initialization boundary for routes registered without
-			// APIContexter (including direct route callers) until P02
-			// makes APIContexter mandatory for the non-generic Router.
+			// Transitional context accessor for direct-registered typed routes.
 			r.getContext(c)
 			provider(c)
 		})
@@ -300,7 +307,7 @@ func (r *Router[T]) compileActions(actions []func(T)) []gin.HandlerFunc {
 // Methods compiles the route-scoped middleware chain during registration.
 // Routing order: AfterRouting -> group guards -> endpoint actions.
 // Gin is still the only route matcher and executor.
-func (r *Router[T]) Methods(method, path string, actions ...func(T)) {
+func (r *Router[T]) Methods(method, path string, actions ...any) {
 	if len(actions) == 0 {
 		panic("web: route requires an action")
 	}
@@ -309,15 +316,7 @@ func (r *Router[T]) Methods(method, path string, actions ...func(T)) {
 	if _, registered := responseStatusProviders[reflect.TypeFor[T]()]; registered {
 		// Gitea compiles group guards and endpoint actions as one HTTP
 		// continuation chain. Gin only runs the compiled matched route.
-		groupActions := make([]any, 0, len(r.curMiddlewares))
-		for _, guard := range r.curMiddlewares {
-			groupActions = append(groupActions, guard)
-		}
-		routeActions := make([]any, 0, len(actions))
-		for _, action := range actions {
-			routeActions = append(routeActions, action)
-		}
-		middlewares, endpoint, _ := wrapMiddlewareAndHandler(nil, groupActions, routeActions)
+		middlewares, endpoint, _ := wrapMiddlewareAndHandler(nil, r.curMiddlewares, actions)
 		compiled := ginHandlerProvider(func(http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				executeMiddlewaresHandler(w, req, middlewares, endpoint)
@@ -347,22 +346,22 @@ func (r *Router[T]) Methods(method, path string, actions ...func(T)) {
 	}
 }
 
-func (r *Router[T]) Get(path string, actions ...func(T)) {
+func (r *Router[T]) Get(path string, actions ...any) {
 	r.Methods(http.MethodGet, path, actions...)
 }
-func (r *Router[T]) Head(path string, actions ...func(T)) {
+func (r *Router[T]) Head(path string, actions ...any) {
 	r.Methods(http.MethodHead, path, actions...)
 }
-func (r *Router[T]) Post(path string, actions ...func(T)) {
+func (r *Router[T]) Post(path string, actions ...any) {
 	r.Methods(http.MethodPost, path, actions...)
 }
-func (r *Router[T]) Put(path string, actions ...func(T)) {
+func (r *Router[T]) Put(path string, actions ...any) {
 	r.Methods(http.MethodPut, path, actions...)
 }
-func (r *Router[T]) Patch(path string, actions ...func(T)) {
+func (r *Router[T]) Patch(path string, actions ...any) {
 	r.Methods(http.MethodPatch, path, actions...)
 }
-func (r *Router[T]) Delete(path string, actions ...func(T)) {
+func (r *Router[T]) Delete(path string, actions ...any) {
 	r.Methods(http.MethodDelete, path, actions...)
 }
 
