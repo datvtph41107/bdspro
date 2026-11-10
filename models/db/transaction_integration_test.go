@@ -468,6 +468,23 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 		if !errors.Is(err, abort) {
 			t.Fatalf("wrong-pool StoreFromContext did not abort parent: %v", err)
 		}
+
+		// A nested WithTx also must reject an overridden foreign Store,
+		// even when its callback does not explicitly call a query.
+		err = WithTx(ctx, func(txCtx context.Context) error {
+			crossCtx := WithStore(txCtx, foreignStore)
+			inner := WithTx(crossCtx, func(context.Context) error {
+				t.Fatal("nested transaction accepted a foreign Store owner")
+				return nil
+			})
+			if !errors.Is(inner, abort) {
+				t.Fatalf("foreign nested Store accepted: %v", inner)
+			}
+			return nil // Ignoring this violation still must poison parent.
+		})
+		if !errors.Is(err, abort) {
+			t.Fatalf("foreign nested WithTx did not poison parent: %v", err)
+		}
 	})
 
 	t.Run("second Store on same pool shares transaction owner", func(t *testing.T) {
@@ -475,6 +492,24 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 		abort := errors.New("rollback same-pool Store")
 		var id int64
 		err := WithTx(ctx, func(txCtx context.Context) error {
+			// A different Store instance for the SAME pool must reuse
+			// the existing executor and must not start a second owner.
+			if err := WithTx(WithStore(txCtx, otherStore), func(inner context.Context) error {
+				parentQ, err := TxQueries(txCtx)
+				if err != nil {
+					return err
+				}
+				innerQ, err := TxQueries(inner)
+				if err != nil {
+					return err
+				}
+				if innerQ != parentQ {
+					t.Fatal("same-pool nested transaction changed SQLC executor")
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
 			var err error
 			id, err = otherStore.CreateParty(txCtx)
 			if err != nil {
