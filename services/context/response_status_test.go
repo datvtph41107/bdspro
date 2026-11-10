@@ -42,7 +42,7 @@ func TestTypedAPIContextResponseStatusControlsActionChain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(APIContexter())
-	m := web.NewRouter[*APIContext](router.Group(""), GetAPIContext)
+	m := web.NewRouter(router)
 
 	reachedAfterWritten := false
 	m.Get("/written", func(c *APIContext) {
