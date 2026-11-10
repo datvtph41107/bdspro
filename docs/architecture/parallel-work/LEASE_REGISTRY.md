@@ -45,6 +45,16 @@ The coordinator must decide whether to keep these as approved one-time migration
 | `docs/architecture/gitea-alignment/**` | **KEEP as A evidence**, not a substitute for coordinator canonical records | Verify source links and accurate final HEAD |
 | `modules/web/**`, `services/context/**` | **KEEP A ownership**, contingent on removing generic/legacy code and passing final tests | G1–G6 |
 
+## P04-B-SERVICES-20261110 — REQUEST REVIEWED / NOT APPROVED
+
+- **Requester:** Chat B, PR [#221](https://github.com/datvtph41107/bdspro/pull/221), starting source HEAD `d73e3ecada31898a59c625431dd4ce890c099348`.
+- **Requested paths:** `services/user/update.go`, `services/user/settings.go` (with affected `services/user/user.go`), and retirement of `models/db/transaction.go::WithTxResult` once all consumers migrate.
+- **Decision by Chat 0:** **NO NEW LEASE to Chat B while A #218 still carries its historical modifications to the exact services/user files.** Granting it now would recreate the G2 conflict under the guise of solving G5. This is an explicit *deferred* lease decision, not silence or a refusal of the transaction correctness objective.
+- **Owner next:** Chat 0 reconciles those three files from #218 against the final B transaction API on an integration branch; Chat B reviews the diff and may request a **new exact-file lease only if there remains uncovered model/consumer work**. Until then B may only change its owned `models/**`.
+- **Worker outbox:** `services/worker/outbox_dispatcher.go` remains **Chat 0 integration** responsibility for a separately reviewed worker transaction conversion, not a B/C implicit lease. Must preserve at-least-once outbox claims, error retry and rollback.
+- **Closeout:** current decision expires upon accepted combined A/B transaction integration, at which point all caller references to `WithTxResult` are inventoried before Chat B removes legacy API. See [CHAT0_TO_CHATB_HANDOFF.md](./CHAT0_TO_CHATB_HANDOFF.md).
+- **Status:** **REQUESTED → DEFERRED / NO WRITE PERMISSION**. This is a G2 safety hold, not an authorization to merge PR #221.
+
 ## New leases
 
 Use the following template for each request (no entries approved at plan creation):
