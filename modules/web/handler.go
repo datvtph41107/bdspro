@@ -55,6 +55,11 @@ func toHandlerProvider(handler any) middlewareProvider {
 			panic("web: nil HTTP middleware")
 		}
 		return func(next http.Handler) http.Handler { return h(next) }
+	case func(http.ResponseWriter, *http.Request):
+		if h == nil {
+			panic("web: nil HTTP action")
+		}
+		return toHandlerProvider(http.HandlerFunc(h))
 	case http.HandlerFunc:
 		if h == nil {
 			panic("web: nil HTTP action")
