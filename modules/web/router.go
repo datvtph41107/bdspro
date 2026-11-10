@@ -350,7 +350,7 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 							next.ServeHTTP(w, nextReq)
 						})
 						middleware(forward).ServeHTTP(w, req)
-						}))
+					}))
 				}
 			}
 			scopedEndpoint := ginScopedHandler(c, http.HandlerFunc(endpoint))
