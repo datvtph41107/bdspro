@@ -1,6 +1,10 @@
 package structs
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type UserResponse struct {
 	AccountID       int64     `json:"account_id"`
@@ -33,4 +37,14 @@ type ConnectionResponse struct {
 	IPAddress string    `json:"ip_address"`
 	UserAgent string    `json:"user_agent"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// SessionResponse preserves the existing first-party /users/me/sessions JSON
+// contract, without leaking an auth session's refresh-token fingerprint.
+type SessionResponse struct {
+	ID        uuid.UUID `json:"id"`
+	UserAgent string    `json:"user_agent"`
+	ClientIP  string    `json:"client_ip"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
 }

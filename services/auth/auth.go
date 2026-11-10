@@ -46,22 +46,22 @@ func NewAuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config, 
 // HasPhone indicates that the HTTP phone channel is configured.
 func (s *AuthService) HasPhone() bool { return s != nil && s.sender != nil }
 
-func (s *AuthService) Register(ctx context.Context, email, password string) (db.Account, error) {
+func (s *AuthService) Register(ctx context.Context, email, password string) (*account_model.Account, error) {
 	// Gin validates rune length; bcrypt limits passwords to 72 bytes.
 	// Enforce this again for non-HTTP callers before hashing or DB writes.
 	if !validation.PasswordLength(password) {
-		return db.Account{}, auth_model.ErrInvalidPassword
+		return nil, auth_model.ErrInvalidPassword
 	}
 	hash, err := authcrypto.HashPassword(password)
 	if err != nil {
-		return db.Account{}, err
+		return nil, err
 	}
 	account, err := account_model.Register(ctx, s.store, account_model.RegisterParams{
 		Email:        strings.ToLower(strings.TrimSpace(email)),
 		PasswordHash: hash,
 	})
 	if err != nil {
-		return db.Account{}, err
+		return nil, err
 	}
 	return account, nil
 }
@@ -70,8 +70,8 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 // already-verified addresses get the same response as a queued message.
 // Delivery uses the existing durable outbox and email verification job.
 func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string) error {
-	account, err := s.store.GetAccountByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
-	if errors.Is(err, pgx.ErrNoRows) {
+	account, err := account_model.GetByEmail(ctx, s.store, strings.ToLower(strings.TrimSpace(email)))
+	if errors.Is(err, account_model.ErrAccountUnavailable) {
 		return nil
 	}
 	if err != nil {
@@ -84,8 +84,8 @@ func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string)
 }
 
 type LoginResult struct {
-	Account          db.Account
-	Session          db.Session
+	Account          *account_model.Account
+	Session          *auth_model.Session
 	AccessToken      string
 	AccessExpiresAt  time.Time
 	RefreshToken     string
@@ -94,8 +94,8 @@ type LoginResult struct {
 
 func (s *AuthService) Login(ctx context.Context, email, password, userAgent, clientIP string) (LoginResult, error) {
 	var result LoginResult
-	account, err := s.store.GetAccountByEmail(ctx, strings.TrimSpace(email))
-	if errors.Is(err, pgx.ErrNoRows) {
+	account, err := account_model.GetByEmail(ctx, s.store, strings.TrimSpace(email))
+	if errors.Is(err, account_model.ErrAccountUnavailable) {
 		checkUnknownPassword(password)
 		s.recordLoginRejected(ctx, audit_model.LoginRejected{AccountID: 0, Method: audit_model.MethodPassword, Reason: audit_model.ReasonUnknownAccount, Identifier: email, IP: clientIP})
 		return result, auth_model.ErrInvalidCredentials
@@ -183,7 +183,7 @@ func (s *AuthService) Revoke(ctx context.Context, refreshToken string) error {
 
 // issueSession is the single issuance point shared by password, OIDC and phone logins.
 // Every caller must authenticate its proof before reaching this operation.
-func (s *AuthService) issueSession(ctx context.Context, account db.Account, userAgent, clientIP string, expectedPasswordHash ...string) (LoginResult, error) {
+func (s *AuthService) issueSession(ctx context.Context, account *account_model.Account, userAgent, clientIP string, expectedPasswordHash ...string) (LoginResult, error) {
 	var result LoginResult
 	auth := s.config.Authentication()
 	refreshToken, refreshPayload, err := s.maker.CreateToken(account.ID, auth.RefreshTokenTTL, authcrypto.TokenTypeRefresh)
@@ -212,8 +212,8 @@ func (s *AuthService) issueSession(ctx context.Context, account db.Account, user
 // synchronous SMTP or reveals whether an email is registered. Workers create
 // time-bound proofs after the durable job reaches Asynq.
 func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
-	account, err := s.store.GetAccountByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
-	if errors.Is(err, pgx.ErrNoRows) {
+	account, err := account_model.GetByEmail(ctx, s.store, strings.ToLower(strings.TrimSpace(email)))
+	if errors.Is(err, account_model.ErrAccountUnavailable) {
 		return nil
 	}
 	if err != nil {
@@ -256,18 +256,18 @@ func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email
 	if !valid {
 		return auth_model.ErrInvalidEmail
 	}
-	account, err := s.store.GetAccountByID(ctx, accountID)
+	account, err := account_model.GetByID(ctx, s.store, accountID)
 	if err != nil {
 		return err
 	}
 	if account.Email != "" {
 		return auth_model.ErrEmailAlreadyLinked
 	}
-	_, err = s.store.GetAccountByEmail(ctx, email)
+	_, err = account_model.GetByEmail(ctx, s.store, email)
 	if err == nil {
 		return account_model.ErrEmailRegistered
 	}
-	if !errors.Is(err, pgx.ErrNoRows) {
+	if !errors.Is(err, account_model.ErrAccountUnavailable) {
 		return err
 	}
 	if err := s.AuthorizePhoneProof(ctx, accountID, phoneCode); err != nil {
@@ -398,7 +398,7 @@ func (s *AuthService) StartOAuth2PhoneBind(ctx context.Context, accountID int64,
 }
 
 func (s *AuthService) startPhoneBind(ctx context.Context, accountID int64, phone string) error {
-	if _, err := s.store.GetAccountByID(ctx, accountID); err != nil {
+	if _, err := account_model.GetByID(ctx, s.store, accountID); err != nil {
 		return err
 	}
 	// A previously verified account cannot start binding another number.
@@ -481,7 +481,7 @@ func (s *AuthService) VerifyPhoneRegister(ctx context.Context, phone, code, user
 	if err != nil {
 		return empty, err
 	}
-	return s.issueSession(ctx, a, userAgent, clientIP)
+	return s.issueSession(ctx, account_model.AccountFromDB(a), userAgent, clientIP)
 }
 
 // StartLogin does not reveal whether a number exists. Unknown numbers
@@ -533,7 +533,7 @@ func (s *AuthService) VerifyPhoneLogin(ctx context.Context, phone, code, userAge
 		}
 		return empty, err
 	}
-	account, err := s.store.GetAccountByID(ctx, accountID)
+	account, err := account_model.GetByID(ctx, s.store, accountID)
 	if err != nil {
 		return empty, err
 	}
@@ -561,7 +561,7 @@ func (s *AuthService) AuthorizePhoneProof(ctx context.Context, accountID int64, 
 	return err
 }
 
-func (s *AuthService) ListSessions(ctx context.Context, accountID int64) ([]db.ListActiveSessionsRow, error) {
+func (s *AuthService) ListSessions(ctx context.Context, accountID int64) ([]auth_model.SessionInfo, error) {
 	return auth_model.ListSessions(ctx, s.store, accountID)
 }
 
@@ -579,7 +579,7 @@ func (s *AuthService) RevokeAllSessions(ctx context.Context, accountID int64, ac
 
 // CurrentAccount reads persisted identity instead of echoing a JWT claim.
 // All credentials converge on the same account representation.
-func (s *AuthService) CurrentAccount(ctx context.Context, id int64) (db.Account, error) {
+func (s *AuthService) CurrentAccount(ctx context.Context, id int64) (*account_model.Account, error) {
 	return account_model.GetByID(ctx, s.store, id)
 }
 
@@ -595,7 +595,7 @@ func checkUnknownPassword(password string) {
 
 // GetConnections reads the authenticated Account's latest connection events.
 // The HTTP boundary supplies accountID from verified JWT claims, not request input.
-func (s *AuthService) GetConnections(ctx context.Context, accountID int64) ([]db.ListAccountConnectionHistoriesRow, error) {
+func (s *AuthService) GetConnections(ctx context.Context, accountID int64) ([]account_model.Connection, error) {
 	return account_model.GetConnections(ctx, s.store, accountID)
 }
 

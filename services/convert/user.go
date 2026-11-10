@@ -1,12 +1,13 @@
 package convert
 
 import (
-	db "github.com/datvtph41107/bdspro/models/db"
+	account_model "github.com/datvtph41107/bdspro/models/account"
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 )
 
-func ToUser(a db.Account) structs.UserResponse {
+func ToUser(a *account_model.Account) structs.UserResponse {
 	return structs.UserResponse{
 		AccountID:       a.ID,
 		PersonID:        a.PersonID,
@@ -27,16 +28,32 @@ func ToLogin(v auth_service.LoginResult) structs.LoginResponse {
 	}
 }
 
-func ToConnections(rows []db.ListAccountConnectionHistoriesRow) []structs.ConnectionResponse {
+func ToConnections(rows []account_model.Connection) []structs.ConnectionResponse {
 	out := make([]structs.ConnectionResponse, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, structs.ConnectionResponse{
 			ID:        row.ID,
 			SessionID: row.SessionID.String(),
 			Action:    row.Action,
-			IPAddress: row.IpAddress,
+			IPAddress: row.IPAddress,
 			UserAgent: row.UserAgent,
 			CreatedAt: row.CreatedAt,
+		})
+	}
+	return out
+}
+
+// ToSessions maps model-owned session-list values to the existing public
+// `id,user_agent,client_ip,created_at,expires_at` wire representation.
+func ToSessions(rows []auth_model.SessionInfo) []structs.SessionResponse {
+	out := make([]structs.SessionResponse, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, structs.SessionResponse{
+			ID: row.ID,
+			UserAgent: row.UserAgent,
+			ClientIP: row.ClientIP,
+			CreatedAt: row.CreatedAt,
+			ExpiresAt: row.ExpiresAt,
 		})
 	}
 	return out

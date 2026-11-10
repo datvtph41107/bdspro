@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
@@ -335,10 +334,7 @@ func (h *AuthHandler) ListSessions(c *gin.Context) {
 		appctx.Error(c, err)
 		return
 	}
-	if sessions == nil {
-		sessions = []db.ListActiveSessionsRow{}
-	}
-	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"sessions": sessions})
+	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"sessions": convert.ToSessions(sessions)})
 }
 
 func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {

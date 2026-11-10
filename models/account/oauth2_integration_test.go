@@ -107,7 +107,11 @@ func TestOAuth2IdentityIsIssuerScopedAndPasswordless(t *testing.T) {
 	for range 2 {
 		go func() {
 			created, createErr := account_model.CreateOAuth2Account(ctx, store, racing)
-			results <- outcome{accountID: created.ID, err: createErr}
+			if createErr != nil {
+				results <- outcome{err: createErr}
+				return
+			}
+			results <- outcome{accountID: created.ID}
 		}()
 	}
 	successes := 0

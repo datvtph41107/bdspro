@@ -8,7 +8,6 @@ import (
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
-	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/jackc/pgx/v5"
 )
@@ -62,10 +61,11 @@ func (s *AuthService) LoginOIDC(ctx context.Context, identity auth_model.OIDCCla
 		return empty, err
 	}
 	accountID, err := auth_model.GetOAuth2AccountID(ctx, s.store, key)
-	var account db.Account
+	var account *account_model.Account
 	switch {
 	case err == nil:
-		account, err = s.store.GetAccountByID(ctx, accountID)
+		// The model owns the persistence-to-domain projection.
+		account, err = account_model.GetByID(ctx, s.store, accountID)
 	case errors.Is(err, pgx.ErrNoRows):
 		if !identity.EmailVerified || strings.TrimSpace(identity.Email) == "" {
 			s.recordLoginRejected(ctx, audit_model.LoginRejected{Method: audit_model.MethodOIDC, Reason: audit_model.ReasonEmailUnverified, Identifier: key.Issuer + "\x00" + key.Subject, IP: clientIP})
@@ -75,8 +75,8 @@ func (s *AuthService) LoginOIDC(ctx context.Context, identity auth_model.OIDCCla
 		if err != nil {
 			linkedID, lookupErr := auth_model.GetOAuth2AccountID(ctx, s.store, key)
 			if lookupErr == nil {
-				account, err = s.store.GetAccountByID(ctx, linkedID)
-			} else if _, emailErr := s.store.GetAccountByEmail(ctx, identity.Email); emailErr == nil {
+				account, err = account_model.GetByID(ctx, s.store, linkedID)
+			} else if _, emailErr := account_model.GetByEmail(ctx, s.store, identity.Email); emailErr == nil {
 				s.recordLoginRejected(ctx, audit_model.LoginRejected{Method: audit_model.MethodOIDC, Reason: audit_model.ReasonLinkRequired, Identifier: key.Issuer + "\x00" + key.Subject, IP: clientIP})
 				return empty, auth_model.ErrOAuth2EmailAlreadyRegistered
 			}
