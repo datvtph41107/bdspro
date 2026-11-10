@@ -12,6 +12,7 @@ type storeContextKey struct{}
 type queriesContextKey struct{}
 type txStateContextKey struct{}
 type rawTxContextKey struct{}
+type rawTxStoreContextKey struct{}
 
 // A recovered panic in a nested operation must not allow its parent to commit.
 // The original panic is re-thrown; this error is only the rollback-only cause.
@@ -87,7 +88,8 @@ func StoreFromContext(ctx context.Context) (Store, error) {
 			return nil, err
 		}
 		store, ok := ctx.Value(storeContextKey{}).(*SQLStore)
-		if !ok || store == nil {
+		if !ok || store == nil || ctx.Value(rawTxStoreContextKey{}) == nil ||
+			ctx.Value(rawTxStoreContextKey{}) != store.pool {
 			if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
 				state.fail(ErrTxStoreUnavailable)
 			}
@@ -186,6 +188,7 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 	if sqlStore, ok := store.(*SQLStore); ok {
 		return sqlStore.ExecTxRaw(ctx, func(tx pgx.Tx) error {
 			txCtx := context.WithValue(ctx, rawTxContextKey{}, tx)
+			txCtx = context.WithValue(txCtx, rawTxStoreContextKey{}, sqlStore.pool)
 			return run(txCtx, New(tx))
 		})
 	}
