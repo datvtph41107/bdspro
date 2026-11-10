@@ -7,12 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
-	"github.com/datvtph41107/bdspro/modules/web"
-	"github.com/google/uuid"
+	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -51,7 +51,7 @@ func TestVerifiedEmailGuardsBusinessRoutes(t *testing.T) {
 			r.GinEngine().Use(func(c *gin.Context) {
 				c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), emailVerificationStore{
 					account: db.Account{ID: 3, IsEmailVerified: tc.verified},
-					err: tc.storeError,
+					err:     tc.storeError,
 				}))
 				c.Next()
 			})

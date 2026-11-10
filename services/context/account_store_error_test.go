@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
-	"github.com/datvtph41107/bdspro/modules/web"
-	"github.com/google/uuid"
+	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
@@ -46,7 +46,7 @@ func TestAccountStoreErrorDoesNotExposePrivateDetails(t *testing.T) {
 		scope := logger.WithContext(c.Request.Context())
 		scope = db.WithStore(scope, emailVerificationStore{
 			account: db.Account{ID: 7},
-			err: errors.New(private),
+			err:     errors.New(private),
 		})
 		c.Request = c.Request.WithContext(scope)
 		c.Next()

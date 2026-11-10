@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/gin-gonic/gin"
 )
 
 func TestSharedProtocolResponses(t *testing.T) {
@@ -69,7 +69,12 @@ func TestSharedProtocolResponses(t *testing.T) {
 				t.Fatalf("Retry-After %q, want %q", got, tt.retryAfter)
 			}
 			if trace == nil || trace.GetString(ErrorCodeKey) != tt.code {
-				t.Fatalf("request error code %q, want %q", func() string { if trace == nil { return "" }; return trace.GetString(ErrorCodeKey) }(), tt.code)
+				t.Fatalf("request error code %q, want %q", func() string {
+					if trace == nil {
+						return ""
+					}
+					return trace.GetString(ErrorCodeKey)
+				}(), tt.code)
 			}
 		})
 	}

@@ -1,11 +1,10 @@
 package ipactive
 
 import (
-	"errors"
 	"context"
+	"errors"
 	"testing"
 	"time"
-
 )
 
 func TestDefaultPolicyParityAndValidation(t *testing.T) {

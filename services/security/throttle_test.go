@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
+	"github.com/gin-gonic/gin"
 )
 
 func TestAuthThrottleFailsClosedWithoutRedis(t *testing.T) {

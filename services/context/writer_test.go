@@ -9,8 +9,8 @@ import (
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
-	"github.com/gin-gonic/gin"
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/gin-gonic/gin"
 )
 
 func TestPublicErrorContract(t *testing.T) {
