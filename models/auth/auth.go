@@ -86,7 +86,13 @@ func StartChallenge(ctx context.Context, store db.Store, phone, purpose string, 
 // its failed-attempt counter, while all credential writes remain atomic.
 func ConsumeChallenge(ctx context.Context, store db.Store, phone, purpose string, accountID int64, mac []byte) error {
 	invalidCode := false
-	err := store.ExecTx(ctx, func(q *db.Queries) error {
+	err := db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return err
+		}
+		// All SQLC statements below share the transaction-scoped executor.
+		ctx := txCtx
 		challenge, err := q.LockPhoneChallengeQuery(ctx, db.LockPhoneChallengeQueryParams{
 			PhoneE164: phone, Purpose: purpose,
 		})
@@ -170,7 +176,13 @@ func StartPhoneSignup(ctx context.Context, store db.Store, phone string, mac []b
 func CompletePhoneSignup(ctx context.Context, store db.Store, phone string, mac []byte) (db.Account, error) {
 	var account db.Account
 	invalidCode := false
-	err := store.ExecTx(ctx, func(q *db.Queries) error {
+	err := db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return err
+		}
+		// All SQLC statements below share the transaction-scoped executor.
+		ctx := txCtx
 		row, err := q.LockPhoneSignup(ctx, phone)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrOTPInvalid
