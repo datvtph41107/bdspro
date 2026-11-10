@@ -134,4 +134,4 @@ Proof of correctness requires both a source/ownership review **and** regression 
 5. Report before/after snippets, exact file paths, commit SHA, workflow URL and which targets **remain unsatisfied**.
 6. Do not merge into `dev` while architecture or full CI is incomplete. No ungrounded claims of successful tests, local execution or merging.
 
-See [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) for detailed phased delivery and [CONTINUE_PROMPT.md](./CONTINUE_PROMPT.md) for a self-contained prompt to resume in a new chat.
+See [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) for detailed phased delivery, [CONTINUE_PROMPT.md](./CONTINUE_PROMPT.md) for a self-contained prompt to resume in a new chat, and [SKILL.md](./SKILL.md) for the repeatable source-review and implementation protocol.
