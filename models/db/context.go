@@ -56,9 +56,12 @@ var (
 	ErrRawTransactionInSQLC = errors.New("db: raw transaction cannot nest inside SQLC transaction")
 )
 
-// WithStore is called by the request/worker/test entrypoint, not by each model
-// operation. The Store remains request-scoped, never a mutable global.
-func WithStore(ctx context.Context, store Store) context.Context {
+// WithStore installs the transaction capability in the request context. The
+// ingress normally supplies a full Store; model operations which only require
+// transactions may supply their existing narrow Transactioner. Reads that need
+// a full Store continue through StoreFromContext and cannot use a tx-only fake.
+// No process-global mutable database dependency is introduced.
+func WithStore(ctx context.Context, store Transactioner) context.Context {
 	if store == nil {
 		panic("db: nil store")
 	}
@@ -133,9 +136,9 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	store, err := StoreFromContext(ctx)
-	if err != nil {
-		return err
+	store, ok := ctx.Value(storeContextKey{}).(Transactioner)
+	if !ok || store == nil {
+		return ErrStoreMissing
 	}
 	state := &transactionState{}
 	return store.ExecTx(ctx, func(q *Queries) error {
