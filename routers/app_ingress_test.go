@@ -49,7 +49,6 @@ func TestServerHandlerRejectsMissingIngress(t *testing.T) {
 	_ = server.Handler()
 }
 
-
 // This exercises the actual web.Router's HTTP ingress served by Server.Handler
 // against the *same* Gin route matcher, including unmatched requests.
 func TestServerHandlerBeforeRoutingCoversGin404405AndHEAD(t *testing.T) {
@@ -69,8 +68,8 @@ func TestServerHandlerBeforeRoutingCoversGin404405AndHEAD(t *testing.T) {
 	routes.Get("/alive", handler)
 	routes.Head("/alive", handler)
 	server := &Server{
-		config: setting.Config{AllowedOrigins: []string{"https://client.example"}},
-		router: engine,
+		config:      setting.Config{AllowedOrigins: []string{"https://client.example"}},
+		router:      engine,
 		httpHandler: routes.WrapIngress(),
 	}
 	for _, tc := range []struct {
