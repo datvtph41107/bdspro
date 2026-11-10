@@ -161,7 +161,10 @@ func isNilOrFuncNil(handler any) bool {
 
 func wrapMiddlewareAppendPre(all []middlewareProvider, handlers []any) []middlewareProvider {
 	for _, handler := range handlers {
-		if pre, ok := handler.(web_types.PreMiddlewareProvider); ok && pre != nil {
+		if pre, ok := handler.(web_types.PreMiddlewareProvider); ok {
+			if pre == nil {
+				panic("web: nil pre middleware")
+			}
 			all = append(all, toHandlerProvider(middlewareProvider(pre)))
 		}
 	}
@@ -170,9 +173,13 @@ func wrapMiddlewareAppendPre(all []middlewareProvider, handlers []any) []middlew
 
 func wrapMiddlewareAppendNormal(all []middlewareProvider, handlers []any) []middlewareProvider {
 	for _, handler := range handlers {
-		if _, pre := handler.(web_types.PreMiddlewareProvider); !pre && !isNilOrFuncNil(handler) {
-			all = append(all, toHandlerProvider(handler))
+		if _, pre := handler.(web_types.PreMiddlewareProvider); pre {
+			continue
 		}
+		if isNilOrFuncNil(handler) {
+			panic("web: nil middleware or route action")
+		}
+		all = append(all, toHandlerProvider(handler))
 	}
 	return all
 }
