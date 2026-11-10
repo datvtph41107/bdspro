@@ -14,7 +14,7 @@
 
 ## First inspection (before any new patch)
 1. Read shared docs in [../README.md](../README.md), [../OWNERSHIP_AND_CONTRACTS.md](../OWNERSHIP_AND_CONTRACTS.md), [../TRUST_AND_VERIFICATION.md](../TRUST_AND_VERIFICATION.md), [../INTEGRATION_PROTOCOL.md](../INTEGRATION_PROTOCOL.md).
-2. Inspect **live** PR #218 HEAD + CI. The last historical snapshot is *not* guaranteed to be green. Resolve red CI before refactor.
+2. Inspect **live** PR #218 HEAD + CI. Most recently observed source HEAD `ad1f0138` FAILED [CI run 42759268838](https://github.com/datvtph41107/bdspro/actions/runs/42759268838) at `Test and compile`: `TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods` panics because the typed context is fetched before its HTTP `AfterRouting` provider publishes it, and `TestAfterRoutingHTTPPreAndTypedAPIContextShareRequestLifecycle` reports request-context divergence. **Repair execution/lifecycle semantics; do not remove either test or hide the panic.** Refresh CI in case A's branch has advanced.
 3. Read PR branch `docs/architecture/gitea-alignment/{README,IMPLEMENTATION_STATUS,CONTINUE_PROMPT,SKILL}.md`.
 4. Compare Gitea `modules/web/{router,handler}.go`, `modules/web/types/premiddleware.go`, `services/context/{base,api}.go`, `routers/api/v1/api.go`.
 5. Inspect BDSPro exact counterpart files, callers, tests, and actual Gin behavior.
