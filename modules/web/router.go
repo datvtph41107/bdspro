@@ -336,4 +336,3 @@ func (r *Router[T]) Patch(path string, actions ...any) {
 func (r *Router[T]) Delete(path string, actions ...any) {
 	r.Methods(http.MethodDelete, path, actions...)
 }
-
