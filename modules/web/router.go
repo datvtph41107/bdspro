@@ -142,22 +142,26 @@ func (r *Router[T]) BeforeRouting(middlewares ...any) {
 	if r.routesRegistered {
 		panic("web: BeforeRouting middleware must be declared before routes")
 	}
+	// Compile the entire batch before mutating router configuration.
+	// A recovered startup panic must not leave a partially installed chain.
+	compiled := make([]middlewareProvider, 0, len(middlewares))
 	for _, middleware := range middlewares {
 		if isNilOrFuncNil(middleware) {
 			panic("web: nil before-routing middleware")
 		}
 		if pre, ok := middleware.(web_types.PreMiddlewareProvider); ok {
-			r.beforeRouting = append(r.beforeRouting, toHandlerProvider(middlewareProvider(pre)))
+			compiled = append(compiled, toHandlerProvider(middlewareProvider(pre)))
 			continue
 		}
 		switch middleware.(type) {
 		case middlewareProvider, func(http.Handler) http.HandlerFunc,
 			http.HandlerFunc, func(http.ResponseWriter, *http.Request):
-			r.beforeRouting = append(r.beforeRouting, toHandlerProvider(middleware))
+			compiled = append(compiled, toHandlerProvider(middleware))
 		default:
 			panic(fmt.Sprintf("web: BeforeRouting requires an HTTP-native middleware, got %T", middleware))
 		}
 	}
+	r.beforeRouting = append(r.beforeRouting, compiled...)
 }
 
 // WrapIngress composes BeforeRouting middleware around the SAME Gin engine
@@ -207,6 +211,10 @@ func (r *Router[T]) WrapIngress(engine http.Handler) http.Handler {
 // stay on the explicit compatibility boundary until P02 context migration.
 // Gin bootstrap must run first to install the request-local APIContext.
 func (r *Router[T]) AfterRouting(middlewares ...any) {
+	// Build both Gin and HTTP lists before publishing either one.
+	// Do not let a bad later middleware leave a half-configured route chain.
+	compiledGin := make([]gin.HandlerFunc, 0, len(middlewares))
+	compiledHTTP := make([]any, 0, len(middlewares))
 	for _, middleware := range middlewares {
 		switch middleware.(type) {
 		case web_types.PreMiddlewareProvider, func(http.Handler) http.Handler,
@@ -218,16 +226,18 @@ func (r *Router[T]) AfterRouting(middlewares ...any) {
 			if _, pre := middleware.(web_types.PreMiddlewareProvider); !pre {
 				_ = toHandlerProvider(middleware) // validate at registration
 			}
-			r.afterRoutingHTTP = append(r.afterRoutingHTTP, middleware)
+			compiledHTTP = append(compiledHTTP, middleware)
 		default:
 			if isRegisteredTypedHandler(middleware) {
 				_ = toHandlerProvider(middleware) // fail before serving requests
-				r.afterRoutingHTTP = append(r.afterRoutingHTTP, middleware)
+				compiledHTTP = append(compiledHTTP, middleware)
 			} else {
-				r.afterRouting = append(r.afterRouting, r.toGinHandler(middleware))
+				compiledGin = append(compiledGin, r.toGinHandler(middleware))
 			}
 		}
 	}
+	r.afterRouting = append(r.afterRouting, compiledGin...)
+	r.afterRoutingHTTP = append(r.afterRoutingHTTP, compiledHTTP...)
 }
 
 // Group scopes route patterns and middlewares at registration, as in Gitea.
