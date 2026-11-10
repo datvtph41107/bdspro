@@ -63,6 +63,15 @@ func (d contextDBTX) executor(ctx context.Context) (DBTX, error) {
 	if _, err := TxQueries(ctx); err != nil {
 		return nil, err
 	}
+	// A context from SQLStore A must not redirect SQLStore B to A's pool.
+	// Bind by pool identity so two stores for the same pool can interoperate,
+	// while a different database/tenant fails closed.
+	if ctx.Value(rawTxStoreContextKey{}) == nil || ctx.Value(rawTxStoreContextKey{}) != d.pool {
+		if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
+			state.fail(ErrTxStoreUnavailable)
+		}
+		return nil, ErrTxStoreUnavailable
+	}
 	tx, ok := ctx.Value(rawTxContextKey{}).(pgx.Tx)
 	if !ok || tx == nil {
 		if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
