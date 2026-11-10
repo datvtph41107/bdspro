@@ -45,6 +45,18 @@ func (s *SQLStore) Close() {
 
 // ExecTx owns transaction creation, commit and rollback.
 func (s *SQLStore) ExecTx(ctx context.Context, fn func(*Queries) error) error {
+	// A transaction-scoped context owns the executor. Never acquire a second
+	// pool connection or commit independently of its outer transaction.
+	if ctx.Value(queriesContextKey{}) != nil {
+		return WithTx(ctx, func(txCtx context.Context) error {
+			q, err := TxQueries(txCtx)
+			if err != nil {
+				return err
+			}
+			return fn(q)
+		})
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
