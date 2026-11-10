@@ -13,17 +13,27 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/modules/web"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type connectionsStoreFake struct {
 	db.Store
 	accountID int64
+	sessionID uuid.UUID
 	calls     []int64
 	err       error
+}
+
+func (s *connectionsStoreFake) GetSession(_ context.Context, id uuid.UUID) (db.Session, error) {
+	if id != s.sessionID {
+		return db.Session{}, pgx.ErrNoRows
+	}
+	return db.Session{ID: id, AccountID: s.accountID, ExpiresAt: time.Now().Add(time.Hour)}, nil
 }
 
 func (s *connectionsStoreFake) ListAccountConnectionHistories(_ context.Context, accountID int64) ([]db.ListAccountConnectionHistoriesRow, error) {
@@ -47,14 +57,24 @@ func TestGetConnectionsUsesVerifiedAccountAndSafeErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	access, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeAccess)
+	sessionID := uuid.New()
+	access, _, err := maker.CreateSessionAccessToken(42, time.Minute, sessionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := &connectionsStoreFake{accountID: 42}
-	handler := NewAuthHandler(auth_service.NewAuthService(store, maker, setting.Config{}, nil), nil, nil)
-	router := gin.New()
-	router.GET("/users/me/connections", appctx.Authenticate(maker), handler.GetConnections)
+	store := &connectionsStoreFake{accountID: 42, sessionID: sessionID}
+	service := auth_service.NewAuthService(store, maker, setting.Config{}, nil)
+	router := web.NewRouter()
+	router.AfterRouting(appctx.APIContexter())
+	engine := router.GinEngine()
+	engine.Use(func(c *gin.Context) {
+		ctx := db.WithStore(c.Request.Context(), store)
+		ctx = authcrypto.WithMaker(ctx, maker)
+		ctx = auth_service.WithService(ctx, service)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	})
+	router.Get("/users/me/connections", appctx.Authenticate(), appctx.RequireSession(), GetConnections)
 	request := func(bearer string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodGet, "/users/me/connections?account_id=777", nil)
 		if bearer != "" {
