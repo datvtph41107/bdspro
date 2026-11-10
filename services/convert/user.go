@@ -49,9 +49,9 @@ func ToSessions(rows []auth_model.SessionInfo) []structs.SessionResponse {
 	out := make([]structs.SessionResponse, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, structs.SessionResponse{
-			ID: row.ID,
+			ID:        row.ID,
 			UserAgent: row.UserAgent,
-			ClientIP: row.ClientIP,
+			ClientIP:  row.ClientIP,
 			CreatedAt: row.CreatedAt,
 			ExpiresAt: row.ExpiresAt,
 		})

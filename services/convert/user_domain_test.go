@@ -16,9 +16,9 @@ func TestLoginConversionPreservesTokenContractOnlyInPublicFields(t *testing.T) {
 	now := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
 	id := uuid.New()
 	login := auth_service.LoginResult{
-		Account: &account_model.Account{ID: 23, PersonID: 31, Email: "person@example.test", CreatedAt: now},
-		Session: &auth_model.Session{ID: id, AccountID: 23, CreatedAt: now, ExpiresAt: now.Add(time.Hour)},
-		AccessToken: "jwt-access", AccessExpiresAt: now.Add(15*time.Minute),
+		Account:     &account_model.Account{ID: 23, PersonID: 31, Email: "person@example.test", CreatedAt: now},
+		Session:     &auth_model.Session{ID: id, AccountID: 23, CreatedAt: now, ExpiresAt: now.Add(time.Hour)},
+		AccessToken: "jwt-access", AccessExpiresAt: now.Add(15 * time.Minute),
 		RefreshToken: "jwt-refresh", RefreshExpiresAt: now.Add(time.Hour),
 	}
 	dto := ToLogin(login)
