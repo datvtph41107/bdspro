@@ -92,8 +92,8 @@ func Wrap(handler APIHandler) gin.HandlerFunc {
 // registration time. It is the only compatibility bridge while authentication
 // and OAuth endpoints still use Gin signatures. The request has one Gin source
 // and one APIContext; no alternate middleware engine is introduced.
-func GinActions(handlers ...gin.HandlerFunc) []func(*APIContext) {
-	actions := make([]func(*APIContext), len(handlers))
+func GinActions(handlers ...gin.HandlerFunc) []any {
+	actions := make([]any, len(handlers))
 	for i, handler := range handlers {
 		if handler == nil {
 			panic("context: nil Gin HTTP handler")
