@@ -1,5 +1,19 @@
 # Integration Protocol — Three Parallel Producers, One Merger
 
+## P07 FINAL source-composition decision — supersedes W0/W1 proposed order
+
+**Applicable to November 10, 2026 integrated candidate; the phase-by-phase plan below remains as historical reference.**
+
+- **Single release source:** [Draft PR #223](https://github.com/datvtph41107/bdspro/pull/223), branch `integration/p07-gitea-abc-20261110`, base `dev@8dea6dc9aa321beb7e9e362255807f2c10eb0cc8`. Its ancestry includes A #218 `46dfc9e4`, coordinator HTTP #222 `b1cb51c4`, B #221 `d73e3eca`, C #220 `07287479` **and** governance #219 `ffb0da92` (included by `252b008b`). This source already contains all five; it must **not** be merged into dev together with separate unreviewed merges of these same PRs.
+- **Candidate verification:** pre-governance code HEAD `e3d74dae` passed [24/24 GitHub Actions steps](https://github.com/datvtph41107/bdspro/actions/runs/42803884672). After governance changes, require **new exact-head CI**; never recycle the older green check.
+- **Release preflight:** re-read `dev` and #223 HEADs, compare ancestry/changed paths and confirm `behind_by=0`; verify exact-head CI (SQLC, Go1.27.3 unit/race/vet, PG18 migrations and security tests, Redis/Asynq worker recovery, Docker/HTTP smoke), authenticated Auth/OAuth/cookie/CSRF expectations, no new risky migrations or secrets, config template behavior. Review all exceptions from `LEASE_REGISTRY.md`.
+- **Branch protections:** GitHub protection API returned 403 to Chat 0 integration; this is **UNKNOWN**, not an implied PASS. Check repository rules/review requirements through an authorized maintainer before treating #223 as merge-approved. A `mergeable: true` signal only indicates technical merge compatibility.
+- **Execution (only after explicit release decision):** merge **one** canonical #223 PR using a history-preserving method (no source rewrites). Pin expected HEAD; halt if dev/head changed. Do not silently auto-merge or bypass required reviews. Upon successful merge, confirm `dev` contains the exact candidate tree (modulo merge metadata), rerun CI on actual dev HEAD and Docker/HTTP smoke; then close worker PRs as **superseded by #223** with links, not falsely as individually merged.
+- **Rollback:** keep `dev` pre-merge SHA, integrated PR HEAD, and a tested revert strategy. Since this candidate preserves the existing canonical schema and does not introduce migrations in P07 changes, code-level reversal may be possible via a revert PR; **never reset shared dev or blindly rollback PostgreSQL data**, and retest the revert. For auth/session state or Redis queue side effects, revoking/reverting binaries does not undo already issued tokens/jobs; evaluate incident-specific remediation.
+- **Deferred work:** live PostgreSQL/Redis server failover, uncooperative handler cancellation, and `WithTxResult` retirement remain explicitly unverified/out of current merge scope. Their existence does not justify untested new adapters in the release candidate. Gate P03/P05 source changes separately after the integrated dev baseline is stable.
+
+---
+
 ## 0. Relationship between branches
 
 - Stable merge target: `dev`.
