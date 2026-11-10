@@ -338,7 +338,19 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 			bound := make([]middlewareProvider, len(middlewares))
 			for i, middleware := range middlewares {
 				bound[i] = func(next http.Handler) http.Handler {
-					return ginScopedHandler(c, middleware(next))
+					return ginScopedHandler(c, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+						// HTTP providers propagate their own next request; Gin
+						// compatibility actions may instead replace c.Request
+						// (for example after verifying the live session).
+						// Preserve either update in the downstream HTTP chain.
+						forward := http.HandlerFunc(func(w http.ResponseWriter, nextReq *http.Request) {
+							if c.Request != req {
+								nextReq = c.Request
+							}
+							next.ServeHTTP(w, nextReq)
+						})
+						middleware(forward).ServeHTTP(w, req)
+						}))
 				}
 			}
 			scopedEndpoint := ginScopedHandler(c, http.HandlerFunc(endpoint))
