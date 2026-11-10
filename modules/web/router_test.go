@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -297,4 +298,84 @@ func TestMethodsRejectsEmptyHTTPMethodAtRegistration(t *testing.T) {
 		}
 	}()
 	r.Methods("GET, ", "/invalid", func(*gin.Context) {})
+}
+
+type httpMiddlewareKey struct{}
+
+func TestAfterRoutingNativeHTTPMiddlewarePassesRequestContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	var order []string
+	r.AfterRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			order = append(order, "http-before")
+			next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), httpMiddlewareKey{}, "verified")))
+			order = append(order, "http-after")
+		})
+	})
+	r.Group("/teams", func() {
+		r.Get("/:id", func(c *gin.Context) {
+			order = append(order, "action")
+			if c.Param("id") != "42" || c.Request.Context().Value(httpMiddlewareKey{}) != "verified" {
+				t.Errorf("lost route parameter or HTTP context: id=%q", c.Param("id"))
+			}
+			c.Status(http.StatusNoContent)
+		})
+	}, func(*gin.Context) { order = append(order, "guard") })
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/teams/42", nil))
+	if w.Code != http.StatusNoContent ||
+		!reflect.DeepEqual(order, []string{"http-before", "guard", "action", "http-after"}) {
+		t.Fatalf("order=%v status=%d", order, w.Code)
+	}
+}
+
+func TestAfterRoutingNativeHTTPMiddlewareStopsGinChain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	hit := false
+	r.AfterRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+			// Intentionally do not call next.
+		})
+	})
+	r.Get("/blocked", func(*gin.Context) { hit = true })
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/blocked", nil))
+	if hit || w.Code != http.StatusForbidden {
+		t.Fatalf("HTTP middleware failed to short-circuit: hit=%v status=%d", hit, w.Code)
+	}
+}
+
+func TestAfterRoutingHTTPHandlerFuncProvider(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	r.AfterRouting(func(next http.Handler) http.HandlerFunc {
+		return func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("X-HTTP-Provider", "yes")
+			next.ServeHTTP(w, req)
+		}
+	})
+	r.Get("/provider", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/provider", nil))
+	if w.Code != http.StatusNoContent || w.Header().Get("X-HTTP-Provider") != "yes" {
+		t.Fatalf("HTTP provider failed: status=%d header=%q", w.Code, w.Header().Get("X-HTTP-Provider"))
+	}
+}
+
+func TestAfterRoutingRejectsNilHTTPProvider(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := NewRouter[*gin.Context](gin.New().Group(""), func(c *gin.Context) *gin.Context { return c })
+	var absent func(http.Handler) http.Handler
+	defer func() {
+		if recover() == nil {
+			t.Fatal("nil HTTP middleware was accepted")
+		}
+	}()
+	r.AfterRouting(absent)
 }
