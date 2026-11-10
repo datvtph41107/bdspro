@@ -85,4 +85,30 @@ func TestOrganizationCreateWorkflowPostgres(t *testing.T) {
 	if count != 0 {
 		t.Fatal("missing account created organization")
 	}
+
+	// A lock proof cannot be carried between transactions. The prior
+	// account row lock was released by COMMIT and must not authorize a
+	// subsequent operation on a different SQLC executor.
+	var stale LockedCreator
+	err = store.ExecTx(ctx, func(q *db.Queries) error {
+		var inner error
+		stale, inner = LockCreator(ctx, q, account.ID)
+		return inner
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unauthorizedName := "Stale creator proof " + uuid.NewString()
+	_, err = db.WithTxResult(ctx, store, func(q *db.Queries) (*Organization, error) {
+		return CreateOrganizationForCreator(ctx, q, stale, unauthorizedName)
+	})
+	if !errors.Is(err, account_model.ErrAccountUnavailable) {
+		t.Fatalf("stale proof accepted by new transaction: %v", err)
+	}
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM organizations WHERE name=$1", unauthorizedName).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatal("stale creator proof created organization")
+	}
 }
