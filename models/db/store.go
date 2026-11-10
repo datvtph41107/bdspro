@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/jackc/pgx/v5"
@@ -77,7 +78,14 @@ func (s *SQLStore) ExecTxRaw(ctx context.Context, fn func(pgx.Tx) error) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	// PostgreSQL cleanup must not inherit a canceled request context.
+	// The transaction owner still decides COMMIT using the original ctx;
+	// rollback uses an independent bounded context to release the connection.
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanupCtx)
+	}()
 
 	if err := fn(tx); err != nil {
 		return err
