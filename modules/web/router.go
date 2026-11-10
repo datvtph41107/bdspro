@@ -298,12 +298,26 @@ func (r *Router[T]) WrapIngress(engine http.Handler) http.Handler {
 		panic("web: ingress has already been composed")
 	}
 	r.ingressBound = true
+	// Keep the middleware chain in registration order, but give each
+	// incoming request its own continuation guard. A provider that invokes
+	// next twice must not enter Gin's matcher twice for one HTTP request.
 	handler := engine
 	for i := len(r.beforeRouting) - 1; i >= 0; i-- {
-		handler = r.beforeRouting[i](handler)
-		if handler == nil {
+		provider, downstream := r.beforeRouting[i], handler
+		if provider(downstream) == nil {
 			panic("web: before-routing middleware returned nil handler")
 		}
+		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			continued := false
+			next := http.HandlerFunc(func(w http.ResponseWriter, nextReq *http.Request) {
+				if continued {
+					panic("web: before-routing middleware called next more than once")
+				}
+				continued = true
+				downstream.ServeHTTP(w, nextReq)
+			})
+			provider(next).ServeHTTP(w, req)
+		})
 	}
 	return handler
 }
