@@ -12,6 +12,8 @@ import (
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/modules/web/middleware"
+	"github.com/datvtph41107/bdspro/routers/common"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -23,28 +25,23 @@ func TestCreateOrgActionPreservesCommitOrder(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	sessionID := uuid.New()
 	store := &organizationHTTPStoreFake{sessionID: sessionID}
-	r := gin.New()
-	r.Use(appctx.RequestIngress(), appctx.APIContexter(), func(c *gin.Context) {
-		scope := db.WithStore(c.Request.Context(), store)
-		scope = auth_model.WithActor(scope, auth_model.Actor{
-			AccountID: 42,
-			SessionID: sessionID,
-		})
-		c.Request = c.Request.WithContext(scope)
-		api := appctx.GetAPIContext(c)
-		api.Doer = &authcrypto.Payload{AccountID: 42, SessionID: sessionID}
-		api.IsSigned = true
+	r := web.NewRouter()
+	r.AfterRouting(appctx.APIContexter())
+	r.GinEngine().Use(common.RequestIngress(), func(c *gin.Context) {
+		c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), store))
 		c.Next()
 	})
-	r.POST("/orgs", func(c *gin.Context) {
-		var form structs.CreateOrgOption
-		if err := c.ShouldBindJSON(&form); err != nil {
-			appctx.Validation(c, err, &form)
+	r.Post("/orgs", func(api *appctx.APIContext) {
+		api.Doer = &authcrypto.Payload{AccountID: 42, SessionID: sessionID}
+		api.PublishVerifiedActor(auth_model.Actor{AccountID: 42, SessionID: sessionID})
+	}, func(api *appctx.APIContext) {
+		form, err := middleware.BindJSON[structs.CreateOrgOption](api)
+		if err != nil {
+			api.Validation(err, form)
 			return
 		}
-		web.SetForm(appctx.GetAPIContext(c), &form)
-		c.Next()
-	}, appctx.Wrap(Create))
+		web.SetForm(api, form)
+	}, Create)
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/orgs", strings.NewReader(`{"name":"  Example  "}`))

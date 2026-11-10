@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/datvtph41107/bdspro/modules/web"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 )
 
 func TestVerificationGETOnlyShowsConfirmation(t *testing.T) {
@@ -20,10 +22,11 @@ func TestVerificationGETOnlyShowsConfirmation(t *testing.T) {
 	} {
 		t.Run(tc.path, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(recorder)
-			c.Request = httptest.NewRequest(http.MethodGet, tc.path, nil)
+			router := web.NewRouter()
+			router.AfterRouting(appctx.APIContexter())
+			router.Get("/users/verify_email", VerifyEmailPage)
 			// No AuthService or store exists: GET must not attempt consumption.
-			(&AuthHandler{}).VerifyEmailPage(c)
+			router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, tc.path, nil))
 			if recorder.Code != tc.want {
 				t.Fatalf("status=%d want=%d", recorder.Code, tc.want)
 			}
