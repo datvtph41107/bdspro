@@ -63,7 +63,7 @@ func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *
 func (r *Router[T]) AfterRouting(middlewares ...any) {
 	for _, middleware := range middlewares {
 		switch middleware.(type) {
-		case func(http.Handler) http.Handler, func(http.Handler) http.HandlerFunc:
+		case func(http.Handler) http.Handler, func(http.Handler) http.HandlerFunc, http.HandlerFunc:
 			r.afterRouting = append(r.afterRouting, ginHandlerProvider(toHandlerProvider(middleware)))
 		default:
 			r.afterRouting = append(r.afterRouting, r.toGinHandler(middleware))
