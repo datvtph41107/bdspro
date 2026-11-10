@@ -38,3 +38,36 @@ func TestMigrateInitializesConfiguredLoggerBeforeDatabaseAction(t *testing.T) {
 		t.Fatalf("migration did not log through configured sink: %s", contentOnDisk)
 	}
 }
+
+func TestMigrationRelativeLogRootUsesApplicationWorkPath(t *testing.T) {
+	workPath := t.TempDir()
+	configFile := filepath.Join(workPath, "custom", "conf", "app.ini")
+	if err := os.MkdirAll(filepath.Dir(configFile), 0700); err != nil {
+		t.Fatal(err)
+	}
+	content := "RUN_MODE = development\n" +
+		"[database]\nDB_SOURCE = postgresql://invalid:invalid@127.0.0.1:1/bdspro\n" +
+		"MIGRATION_URL = file://db/migration\n" +
+		"[log]\nMODE = file\nFORMAT = json\nLEVEL = info\nROOT_PATH = data/log\n" +
+		"[log.file]\nFILE_NAME = migration.log\n"
+	if err := os.WriteFile(configFile, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := log.SetupStderrLogger(log.INFO); err != nil {
+			t.Errorf("restore console logger: %v", err)
+		}
+	})
+	app := NewMainApp(AppVersion{Version: "test"})
+	err := app.Run(context.Background(), []string{
+		"bdspro", "--work-path", workPath, "migrate", "--steps=-1",
+	})
+	if err == nil || !strings.Contains(err.Error(), "--steps cannot be negative") {
+		t.Fatalf("migration reached dependencies instead of validating arguments: %v", err)
+	}
+	logFile := filepath.Join(workPath, "data", "log", "migration.log")
+	data, err := os.ReadFile(logFile)
+	if err != nil || !strings.Contains(string(data), "Using configuration file: ") {
+		t.Fatalf("relative log root did not resolve under work path: file=%q data=%q err=%v", logFile, data, err)
+	}
+}

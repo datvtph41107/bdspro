@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/datvtph41107/bdspro/modules/log"
@@ -26,7 +27,8 @@ func PrepareConsoleLoggerLevel(level log.Level) func(context.Context, *cli.Comma
 }
 
 func loadSettings(command *cli.Command) (setting.Config, error) {
-	filename, err := resolveConfigFile(command)
+	paths, err := resolveConfigPaths(command)
+	filename := paths.ConfigFile
 	if err != nil {
 		return setting.Config{}, err
 	}
@@ -35,7 +37,7 @@ func loadSettings(command *cli.Command) (setting.Config, error) {
 	if err != nil {
 		return cfg, fmt.Errorf("load config %q: %w", filename, err)
 	}
-	if err := configureCommandLoggers(filename, setting.LogGlobalConfig{
+	if err := configureCommandLoggers(paths, setting.LogGlobalConfig{
 		Mode: cfg.LogMode, Format: cfg.LogFormat, Level: cfg.LogLevel,
 		RootPath: cfg.LogRootPath, FileName: cfg.LogFileName,
 	}); err != nil {
@@ -50,30 +52,38 @@ func isValidDefaultSubCommand(command *cli.Command) (string, bool) {
 	return "", true
 }
 
-func resolveConfigFile(command *cli.Command) (string, error) {
+// resolveConfigPaths is the canonical source for both the selected app.ini
+// and the application work path used by relative runtime resources.
+func resolveConfigPaths(command *cli.Command) (setting.Paths, error) {
 	paths, err := setting.ResolvePaths(setting.PathOptions{
 		Config:   command.Root().String("config"),
 		WorkPath: command.Root().String("work-path"),
 	})
 	if err != nil {
-		return "", fmt.Errorf("resolve config path: %w", err)
+		return setting.Paths{}, fmt.Errorf("resolve config path: %w", err)
 	}
-	return paths.ConfigFile, nil
+	return paths, nil
 }
 
 // configureCommandLoggers is the single command-level logger initialization
 // path. It is called only after the selected command's settings validate.
-func configureCommandLoggers(filename string, logger setting.LogGlobalConfig) error {
+func configureCommandLoggers(paths setting.Paths, logger setting.LogGlobalConfig) error {
+	// Gitea resolves relative runtime paths against its application work
+	// path. Do not redirect an absolute ROOT_PATH or the app.ini location.
+	if !filepath.IsAbs(logger.RootPath) {
+		logger.RootPath = filepath.Join(paths.WorkPath, logger.RootPath)
+	}
 	if err := setting.InitLoggers(logger); err != nil {
 		return fmt.Errorf("initialize loggers: %w", err)
 	}
-	setting.CustomConf = filename
+	setting.CustomConf = paths.ConfigFile
 	return nil
 }
 
 // Database-only commands must not require HTTP, Redis, JWT or OAuth settings.
 func loadDatabaseCommandSettings(command *cli.Command) (setting.DatabaseCommandSettings, error) {
-	filename, err := resolveConfigFile(command)
+	paths, err := resolveConfigPaths(command)
+	filename := paths.ConfigFile
 	if err != nil {
 		return setting.DatabaseCommandSettings{}, err
 	}
@@ -81,7 +91,7 @@ func loadDatabaseCommandSettings(command *cli.Command) (setting.DatabaseCommandS
 	if err != nil {
 		return cfg, fmt.Errorf("load database command settings %q: %w", filename, err)
 	}
-	if err := configureCommandLoggers(filename, cfg.Log); err != nil {
+	if err := configureCommandLoggers(paths, cfg.Log); err != nil {
 		return cfg, err
 	}
 	log.Info("Using configuration file: %s", filename)
@@ -89,7 +99,8 @@ func loadDatabaseCommandSettings(command *cli.Command) (setting.DatabaseCommandS
 }
 
 func loadCleanupSettings(command *cli.Command) (setting.CleanupSettings, error) {
-	filename, err := resolveConfigFile(command)
+	paths, err := resolveConfigPaths(command)
+	filename := paths.ConfigFile
 	if err != nil {
 		return setting.CleanupSettings{}, err
 	}
@@ -97,7 +108,7 @@ func loadCleanupSettings(command *cli.Command) (setting.CleanupSettings, error) 
 	if err != nil {
 		return cfg, fmt.Errorf("load cleanup settings %q: %w", filename, err)
 	}
-	if err := configureCommandLoggers(filename, cfg.Log); err != nil {
+	if err := configureCommandLoggers(paths, cfg.Log); err != nil {
 		return cfg, err
 	}
 	log.Info("Using configuration file: %s", filename)
@@ -105,7 +116,8 @@ func loadCleanupSettings(command *cli.Command) (setting.CleanupSettings, error) 
 }
 
 func loadWorkerSettings(command *cli.Command) (setting.WorkerSettings, error) {
-	filename, err := resolveConfigFile(command)
+	paths, err := resolveConfigPaths(command)
+	filename := paths.ConfigFile
 	if err != nil {
 		return setting.WorkerSettings{}, err
 	}
@@ -113,7 +125,7 @@ func loadWorkerSettings(command *cli.Command) (setting.WorkerSettings, error) {
 	if err != nil {
 		return cfg, fmt.Errorf("load worker settings %q: %w", filename, err)
 	}
-	if err := configureCommandLoggers(filename, cfg.Log); err != nil {
+	if err := configureCommandLoggers(paths, cfg.Log); err != nil {
 		return cfg, err
 	}
 	log.Info("Using configuration file: %s", filename)
@@ -123,7 +135,8 @@ func loadWorkerSettings(command *cli.Command) (setting.WorkerSettings, error) {
 // loadMigrationSettings shares the database and logger initialization policy
 // with other database-only commands, without requiring HTTP or Redis settings.
 func loadMigrationSettings(command *cli.Command) (setting.DatabaseSettings, error) {
-	filename, err := resolveConfigFile(command)
+	paths, err := resolveConfigPaths(command)
+	filename := paths.ConfigFile
 	if err != nil {
 		return setting.DatabaseSettings{}, err
 	}
@@ -131,7 +144,7 @@ func loadMigrationSettings(command *cli.Command) (setting.DatabaseSettings, erro
 	if err != nil {
 		return cfg, fmt.Errorf("load migration settings %q: %w", filename, err)
 	}
-	if err := configureCommandLoggers(filename, cfg.Log); err != nil {
+	if err := configureCommandLoggers(paths, cfg.Log); err != nil {
 		return cfg, err
 	}
 	log.Info("Using configuration file: %s", filename)
