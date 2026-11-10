@@ -29,4 +29,3 @@ func Authenticate() func(*APIContext) {
 		// IsSigned is set only by RequireSession after live DB verification.
 	}
 }
-

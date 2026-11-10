@@ -2,11 +2,11 @@ package security
 
 import (
 	"context"
-	"errors"
-	"net/http"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -74,7 +74,6 @@ func (l *AuthThrottle) check(ctx context.Context, clientIP, operation, credentia
 	}
 	return allowed == 1, nil
 }
-
 
 func rateHash(value string) string {
 	sum := sha256.Sum256([]byte(value))
