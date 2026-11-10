@@ -1013,3 +1013,21 @@ func TestBeforeRoutingRunsOnMethodNotAllowedWithGin405Enabled(t *testing.T) {
 		t.Fatalf("405 routing: status=%d steps=%v, want %d %v", rec.Code, steps, http.StatusMethodNotAllowed, want)
 	}
 }
+
+func TestBeforeRoutingCannotRegisterAfterRouteMatchingWasConfigured(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	r.Get("/already-registered", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+	defer func() {
+		if recover() == nil {
+			t.Fatal("BeforeRouting was accepted after route registration")
+		}
+		if len(r.beforeRouting) != 0 {
+			t.Fatalf("late BeforeRouting changed configured ingress: %d handlers", len(r.beforeRouting))
+		}
+	}()
+	r.BeforeRouting(func(next http.Handler) http.Handler { return next })
+}
