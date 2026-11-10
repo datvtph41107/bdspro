@@ -7,7 +7,7 @@
 | Ownership | Sole code writer | Allowed paths during wave 1 | Out of scope |
 |---|---|---|---|
 | HTTP, routing, context | **A** | `modules/web/**`, `services/context/**`; route **fixtures** only through cross-owner lease | `models/**`, `cmd/**`, Auth/OAuth service implementation |
-| DB and domain | **B** | `models/**`, `services/user/**` if explicitly in a reviewed B task | `modules/web/**`, `services/context/**`, `routers/**`, `services/auth/**` |
+| DB and domain | **B** | `models/**` only in wave 1; `services/user/**` frozen until PR #218 overlap is reconciled and a coordinator lease is granted | `modules/web/**`, `services/context/**`, `routers/**`, `services/auth/**` |
 | Runtime foundations | **C** | `cmd/**`, `modules/setting/**`, `modules/log/**`, `modules/cache/**`, `modules/queue/**`, `modules/graceful/**` | `routers/init.go`, `modules/web/**`, `models/**`, Auth/OAuth |
 | API/Auth | **D** | **No production writes initially**. Later: `routers/api/v1/**`, agreed `routers/web/oauth/**`, `services/auth/**`, `modules/auth/**`, subject to gateway | A/B source or DB migration ownership |
 | Integration, checks | **0** | `docs/architecture/parallel-work/**`, selected `.github/workflows/**`, `routers/init.go` and other shared contracts **only through approved integration** | unreviewed rewrites of worker-owned packages |
