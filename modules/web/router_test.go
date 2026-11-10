@@ -271,3 +271,30 @@ func TestAfterRoutingTypedGinActionStopsAfterResponse(t *testing.T) {
 		t.Fatalf("typed post-route action continued: reached=%v status=%d", hit, w.Code)
 	}
 }
+
+func TestMethodsRegistersMultipleHTTPMethods(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	r.Methods("GET, POST", "/multi", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		w := httptest.NewRecorder()
+		engine.ServeHTTP(w, httptest.NewRequest(method, "/multi", nil))
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("%s /multi status=%d", method, w.Code)
+		}
+	}
+}
+
+func TestMethodsRejectsEmptyHTTPMethodAtRegistration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := NewRouter[*gin.Context](gin.New().Group(""), func(c *gin.Context) *gin.Context { return c })
+	defer func() {
+		if recover() == nil {
+			t.Fatal("empty HTTP method must be rejected during registration")
+		}
+	}()
+	r.Methods("GET, ", "/invalid", func(*gin.Context) {})
+}
