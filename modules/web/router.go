@@ -230,7 +230,15 @@ func (r *Router[T]) compileActions(actions []func(T)) []gin.HandlerFunc {
 	}
 	out := make([]gin.HandlerFunc, 0, len(actions))
 	for _, action := range actions {
-		out = append(out, ginHandlerProvider(toHandlerProvider(action)))
+		provider := ginHandlerProvider(toHandlerProvider(action))
+		out = append(out, func(c *gin.Context) {
+			// The old Router contract explicitly supplied getContext. Keep
+			// that initialization boundary for routes registered without
+			// APIContexter (including direct route callers) until P02
+			// makes APIContexter mandatory for the non-generic Router.
+			r.getContext(c)
+			provider(c)
+		})
 	}
 	return out
 }
