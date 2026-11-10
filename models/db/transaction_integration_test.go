@@ -302,4 +302,46 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 		}
 	})
 
+	t.Run("caught nested panic poisons PostgreSQL rollback", func(t *testing.T) {
+		var partyID int64
+		err := WithTx(ctx, func(txCtx context.Context) error {
+			q, err := TxQueries(txCtx)
+			if err != nil {
+				return err
+			}
+			partyID, err = q.CreateParty(txCtx)
+			if err != nil {
+				return err
+			}
+			func() {
+				defer func() {
+					if got := recover(); got != "caught inner panic" {
+						t.Fatalf("recovered=%v, want caught inner panic", got)
+					}
+				}()
+				_ = WithTx(txCtx, func(innerCtx context.Context) error {
+					nested, err := TxQueries(innerCtx)
+					if err != nil {
+						return err
+					}
+					if _, err = nested.CreateParty(innerCtx); err != nil {
+						return err
+					}
+					panic("caught inner panic")
+				})
+			}()
+			return nil // malicious or buggy caller catches panic and tries commit
+		})
+		if !errors.Is(err, errTransactionPanicked) {
+			t.Fatalf("outer did not roll back after recovered nested panic: %v", err)
+		}
+		var count int
+		if err := pool.QueryRow(base, "SELECT count(*) FROM parties WHERE id=$1", partyID).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Fatal("recovered nested panic committed a PostgreSQL Party")
+		}
+	})
+
 }
