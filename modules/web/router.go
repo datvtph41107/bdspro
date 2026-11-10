@@ -2,17 +2,28 @@ package web
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"reflect"
 	"strings"
+	"sync/atomic"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
 )
+
+// ingressContinuationState belongs to one HTTP request, not to a compiled
+// middleware provider. An atomic per-provider flag prevents duplicate matcher
+// execution even if a defective middleware calls next concurrently.
+type ingressContinuationKey struct{}
+
+type ingressContinuationState struct {
+	called []atomic.Bool
+}
 
 // ginDelegatingWriter adapts a response writer supplied by net/http
 // middleware to Gin's response writer contract. It ensures downstream Gin
@@ -298,28 +309,32 @@ func (r *Router[T]) WrapIngress(engine http.Handler) http.Handler {
 		panic("web: ingress has already been composed")
 	}
 	r.ingressBound = true
-	// Keep the middleware chain in registration order, but give each
-	// incoming request its own continuation guard. A provider that invokes
-	// next twice must not enter Gin's matcher twice for one HTTP request.
+	// Compile providers once, as in Gitea. Continuation guards use a
+	// request-local state so stateful providers are never reconstructed on
+	// every request (which would reset rate limiters or other state).
 	handler := engine
 	for i := len(r.beforeRouting) - 1; i >= 0; i-- {
-		provider, downstream := r.beforeRouting[i], handler
-		if provider(downstream) == nil {
+		index, downstream := i, handler
+		next := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			state, ok := req.Context().Value(ingressContinuationKey{}).(*ingressContinuationState)
+			if !ok || index >= len(state.called) {
+				panic("web: before-routing middleware lost request-local continuation state")
+			}
+			if state.called[index].Swap(true) {
+				panic("web: before-routing middleware called next more than once")
+			}
+			downstream.ServeHTTP(w, req)
+		})
+		handler = r.beforeRouting[i](next)
+		if handler == nil {
 			panic("web: before-routing middleware returned nil handler")
 		}
-		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			continued := false
-			next := http.HandlerFunc(func(w http.ResponseWriter, nextReq *http.Request) {
-				if continued {
-					panic("web: before-routing middleware called next more than once")
-				}
-				continued = true
-				downstream.ServeHTTP(w, nextReq)
-			})
-			provider(next).ServeHTTP(w, req)
-		})
 	}
-	return handler
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		state := &ingressContinuationState{called: make([]atomic.Bool, len(r.beforeRouting))}
+		scoped := req.WithContext(context.WithValue(req.Context(), ingressContinuationKey{}, state))
+		handler.ServeHTTP(w, scoped)
+	})
 }
 
 // AfterRouting registers middleware after Gin has selected the route.
