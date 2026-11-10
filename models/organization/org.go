@@ -34,7 +34,7 @@ func OrganizationFromDB(row db.Organization) *Organization {
 // Access includes the account-scoped membership returned by SQL. It is not an
 // HTTP representation and does not grant permission by itself.
 type Access struct {
-	Organization db.Organization
+	Organization Organization
 	MembershipID int64
 	Role         string
 	JoinedAt     time.Time
@@ -42,11 +42,7 @@ type Access struct {
 
 // OrganizationModel is a read projection for an already authorized API request.
 func (a Access) OrganizationModel() *Organization {
-	return &Organization{
-		ID:        a.Organization.PartyID,
-		Name:      a.Organization.Name,
-		CreatedAt: a.Organization.CreatedAt,
-	}
+	return &a.Organization
 }
 
 // ListForDoer is the account-scoped model read for a verified request.
@@ -102,49 +98,49 @@ func LockCreator(ctx context.Context, q *db.Queries, actorAccountID int64) (Lock
 // CreateOrganizationForCreator completes the party/organization/owner write
 // in the transaction that already holds the account lock. The session-aware
 // service holds its session lock as well. There is no nested transaction.
-func CreateOrganizationForCreator(ctx context.Context, q *db.Queries, creator LockedCreator, name string) (db.Organization, error) {
+func CreateOrganizationForCreator(ctx context.Context, q *db.Queries, creator LockedCreator, name string) (*Organization, error) {
 	name, err := OrganizationName(name)
 	if err != nil {
-		return db.Organization{}, err
+		return nil, err
 	}
 	if creator.personID <= 0 {
-		return db.Organization{}, account_model.ErrAccountUnavailable
+		return nil, account_model.ErrAccountUnavailable
 	}
 	partyID, err := q.CreateParty(ctx)
 	if err != nil {
-		return db.Organization{}, fmt.Errorf("create party: %w", err)
+		return nil, fmt.Errorf("create party: %w", err)
 	}
 	organization, err := q.CreateOrganization(ctx, db.CreateOrganizationParams{
 		PartyID: partyID, Name: name,
 	})
 	if err != nil {
-		return db.Organization{}, fmt.Errorf("create organization: %w", err)
+		return nil, fmt.Errorf("create organization: %w", err)
 	}
 	if _, err := q.CreateOrganizationMember(ctx, db.CreateOrganizationMemberParams{
 		OrganizationID: partyID, PersonID: creator.personID, Role: RoleOwner,
 	}); err != nil {
-		return db.Organization{}, fmt.Errorf("create owner membership: %w", err)
+		return nil, fmt.Errorf("create owner membership: %w", err)
 	}
-	return organization, nil
+	return OrganizationFromDB(organization), nil
 }
 
 // CreateOrganization preserves the trusted standalone model API. Production
 // first-party HTTP calls the service, which additionally checks/locks session
 // authority within this same account-first transaction.
-func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int64, name string) (db.Organization, error) {
+func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int64, name string) (*Organization, error) {
 	name, err := OrganizationName(name)
 	if err != nil {
-		return db.Organization{}, err
+		return nil, err
 	}
-	created, err := db.WithTxResult(ctx, store, func(q *db.Queries) (db.Organization, error) {
+	created, err := db.WithTxResult(ctx, store, func(q *db.Queries) (*Organization, error) {
 		creator, err := LockCreator(ctx, q, actorAccountID)
 		if err != nil {
-			return db.Organization{}, err
+			return nil, err
 		}
 		return CreateOrganizationForCreator(ctx, q, creator, name)
 	})
 	if err != nil {
-		return db.Organization{}, fmt.Errorf("create organization: %w", err)
+		return nil, fmt.Errorf("create organization: %w", err)
 	}
 	return created, nil
 }
@@ -157,7 +153,7 @@ func ListForAccount(ctx context.Context, store db.Store, actorAccountID int64) (
 	out := make([]Access, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, Access{
-			Organization: db.Organization{PartyID: row.PartyID, Name: row.Name, CreatedAt: row.CreatedAt},
+			Organization: Organization{ID: row.PartyID, Name: row.Name, CreatedAt: row.CreatedAt},
 			MembershipID: row.MembershipID, Role: row.Role, JoinedAt: row.JoinedAt,
 		})
 	}
@@ -176,7 +172,7 @@ func GetForAccount(ctx context.Context, store db.Store, actorAccountID, organiza
 		return Access{}, err
 	}
 	return Access{
-		Organization: db.Organization{PartyID: row.PartyID, Name: row.Name, CreatedAt: row.CreatedAt},
+		Organization: Organization{ID: row.PartyID, Name: row.Name, CreatedAt: row.CreatedAt},
 		MembershipID: row.MembershipID, Role: row.Role, JoinedAt: row.JoinedAt,
 	}, nil
 }
@@ -191,19 +187,22 @@ type OrganizationWriter interface {
 
 // UpdateOrganization must keep the owner-guarded atomic SQLC UPDATE; replacing
 // this with a separate "check permission, then update" introduces a race.
-func UpdateOrganization(ctx context.Context, writer OrganizationWriter, actorAccountID, organizationID int64, name string) (db.Organization, error) {
+func UpdateOrganization(ctx context.Context, writer OrganizationWriter, actorAccountID, organizationID int64, name string) (*Organization, error) {
 	name, err := OrganizationName(name)
 	if err != nil {
-		return db.Organization{}, err
+		return nil, err
 	}
 	updated, err := writer.UpdateOrganization(ctx, db.UpdateOrganizationParams{
 		OrganizationID: organizationID, ActorAccountID: actorAccountID,
 		Name: pgtype.Text{String: name, Valid: true},
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.Organization{}, ErrOrganizationOwnerRequired
+		return nil, ErrOrganizationOwnerRequired
 	}
-	return updated, err
+	if err != nil {
+		return nil, err
+	}
+	return OrganizationFromDB(updated), nil
 }
 
 // Stored role names are constrained by the organization_members table.

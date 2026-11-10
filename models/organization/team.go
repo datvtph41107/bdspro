@@ -52,7 +52,7 @@ func InsertTeam(ctx context.Context, actorAccountID int64, input *Team) (*Team, 
 	if err != nil {
 		return nil, err
 	}
-	return TeamFromDB(row), nil
+	return row, nil
 }
 
 type CreateTeamOptions struct {
@@ -77,10 +77,10 @@ func ValidTeamName(name string) bool {
 }
 
 // CreateTeam checks the owner role atomically in the SQL INSERT.
-func CreateTeam(ctx context.Context, writer TeamWriter, opts CreateTeamOptions) (db.Team, error) {
+func CreateTeam(ctx context.Context, writer TeamWriter, opts CreateTeamOptions) (*Team, error) {
 	name := strings.TrimSpace(opts.Name)
 	if !ValidTeamName(name) {
-		return db.Team{}, ErrTeamNameInvalid
+		return nil, ErrTeamNameInvalid
 	}
 	team, err := writer.CreateTeamForOwner(ctx, db.CreateTeamForOwnerParams{
 		OrganizationID: opts.OrganizationID,
@@ -88,7 +88,10 @@ func CreateTeam(ctx context.Context, writer TeamWriter, opts CreateTeamOptions) 
 		Name:           name,
 		Description:    opts.Description,
 	})
-	return team, teamWriteError(err)
+	if err := teamWriteError(err); err != nil {
+		return nil, err
+	}
+	return TeamFromDB(team), nil
 }
 
 // UpdateTeam resolves the SQLC writer from the enclosing transaction context.
@@ -106,7 +109,7 @@ func UpdateTeam(ctx context.Context, actorAccountID int64, team *Team) (*Team, e
 	if err != nil {
 		return nil, err
 	}
-	return TeamFromDB(saved), nil
+	return saved, nil
 }
 
 // GetTeam never exposes a team outside the caller's active organization membership.
@@ -123,15 +126,18 @@ func GetTeam(ctx context.Context, store db.Store, actorAccountID, teamID int64) 
 	return TeamFromDB(row), nil
 }
 
-func RenameTeam(ctx context.Context, writer TeamWriter, actorAccountID, teamID int64, name string) (db.Team, error) {
+func RenameTeam(ctx context.Context, writer TeamWriter, actorAccountID, teamID int64, name string) (*Team, error) {
 	name = strings.TrimSpace(name)
 	if !ValidTeamName(name) {
-		return db.Team{}, ErrTeamNameInvalid
+		return nil, ErrTeamNameInvalid
 	}
 	team, err := writer.RenameTeamForOwner(ctx, db.RenameTeamForOwnerParams{
 		TeamID: teamID, ActorAccountID: actorAccountID, Name: name,
 	})
-	return team, teamWriteError(err)
+	if err := teamWriteError(err); err != nil {
+		return nil, err
+	}
+	return TeamFromDB(team), nil
 }
 
 func teamWriteError(err error) error {

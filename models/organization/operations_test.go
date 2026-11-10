@@ -89,7 +89,7 @@ func TestOrganizationCreateValidatesBeforeTransaction(t *testing.T) {
 
 	store.txErr = errors.New("transaction failed")
 	created, err := CreateOrganization(context.Background(), store, 11, "  Example Company  ")
-	if !errors.Is(err, store.txErr) || store.txCalls != 1 || created.PartyID != 0 {
+	if !errors.Is(err, store.txErr) || store.txCalls != 1 || created != nil {
 		t.Fatalf("transaction error not propagated or result leaked: calls=%d created=%+v err=%v", store.txCalls, created, err)
 	}
 }

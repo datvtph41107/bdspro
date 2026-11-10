@@ -6,7 +6,7 @@ import (
 )
 
 // ToOrganizationModel maps domain data without hidden database queries.
-func ToOrganizationModel(v *organization_model.Organization) structs.Organization {
+func ToOrganization(v *organization_model.Organization) structs.Organization {
 	return structs.Organization{
 		PartyID:   v.ID,
 		Name:      v.Name,
@@ -28,7 +28,7 @@ func PermissionsForRole(role string) []string {
 
 func ToOrganizationAccess(v organization_model.Access) structs.OrganizationAccess {
 	return structs.OrganizationAccess{
-		PartyID: v.Organization.PartyID, Name: v.Organization.Name, CreatedAt: v.Organization.CreatedAt,
+		PartyID: v.Organization.ID, Name: v.Organization.Name, CreatedAt: v.Organization.CreatedAt,
 		Membership:  structs.OrganizationMembership{ID: v.MembershipID, Role: v.Role, JoinedAt: v.JoinedAt},
 		Permissions: PermissionsForRole(v.Role),
 	}

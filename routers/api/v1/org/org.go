@@ -45,7 +45,7 @@ func Create(ctx *appctx.APIContext) {
 		ctx.APIErrorAuto(err)
 		return
 	}
-	ctx.JSON(http.StatusCreated, convert.ToOrganizationModel(org))
+	ctx.JSON(http.StatusCreated, convert.ToOrganization(org))
 }
 
 // Edit uses the assigned Organization ID, never an ID supplied by the body.
@@ -64,5 +64,5 @@ func Edit(ctx *appctx.APIContext) {
 		ctx.APIErrorAuto(err)
 		return
 	}
-	ctx.JSON(http.StatusOK, convert.ToOrganizationModel(org))
+	ctx.JSON(http.StatusOK, convert.ToOrganization(org))
 }

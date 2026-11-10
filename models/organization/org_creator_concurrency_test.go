@@ -96,7 +96,11 @@ func TestOrganizationCreationWaitsForAccountDeletion(t *testing.T) {
 	done := make(chan outcome, 1)
 	go func() {
 		created, err := organization.CreateOrganization(ctx, pinned, actor.ID, name)
-		done <- outcome{organizationID: created.PartyID, err: err}
+		if err != nil {
+			done <- outcome{err: err}
+			return
+		}
+		done <- outcome{organizationID: created.ID}
 	}()
 
 	// A real PostgreSQL backend lock is the acceptance condition.

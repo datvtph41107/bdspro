@@ -77,11 +77,11 @@ func newTeamCase(t *testing.T, ctx context.Context, store db.Store) teamCase {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := organization_model.AddOrgUser(ctx, store, owner.ID, org.PartyID, recipient.PersonID); err != nil {
+	if _, err := organization_model.AddOrgUser(ctx, store, owner.ID, org.ID, recipient.PersonID); err != nil {
 		t.Fatal(err)
 	}
 	team, err := organization_model.CreateTeam(ctx, store, organization_model.CreateTeamOptions{
-		OrganizationID: org.PartyID, ActorAccountID: owner.ID, Name: "Backend",
+		OrganizationID: org.ID, ActorAccountID: owner.ID, Name: "Backend",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func newTeamCase(t *testing.T, ctx context.Context, store db.Store) teamCase {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	return teamCase{accountID: owner.ID, orgID: org.PartyID, teamID: team.ID,
+	return teamCase{accountID: owner.ID, orgID: org.ID, teamID: team.ID,
 		recipientPersonID: recipient.PersonID, sessionID: sessionID}
 }
 

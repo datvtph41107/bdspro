@@ -53,7 +53,7 @@ func NewOrganization(ctx context.Context, target *organization_model.Organizatio
 		if err != nil {
 			return nil, err
 		}
-		return organization_model.OrganizationFromDB(row), nil
+		return row, nil
 	})
 	if err != nil {
 		return err
@@ -89,7 +89,7 @@ func EditOrganization(ctx context.Context, target *organization_model.Organizati
 		if err != nil {
 			return nil, err
 		}
-		return organization_model.OrganizationFromDB(row), nil
+		return row, nil
 	})
 	if err != nil {
 		return err

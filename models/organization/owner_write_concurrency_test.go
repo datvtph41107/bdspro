@@ -84,7 +84,7 @@ func TestOwnerRevocationSerializesOrganizationWrites(t *testing.T) {
 				t.Fatal(err)
 			}
 			members, err := store.ListOrganizationMembersForOwner(ctx, db.ListOrganizationMembersForOwnerParams{
-				OrganizationID: org.PartyID,
+				OrganizationID: org.ID,
 				ActorAccountID: owner.ID,
 			})
 			if err != nil || len(members) != 1 {
@@ -121,10 +121,10 @@ func TestOwnerRevocationSerializesOrganizationWrites(t *testing.T) {
 			go func() {
 				switch kind {
 				case "rename":
-					_, err := organization.UpdateOrganization(ctx, pinned, owner.ID, org.PartyID, "unlawful rename")
+					_, err := organization.UpdateOrganization(ctx, pinned, owner.ID, org.ID, "unlawful rename")
 					result <- err
 				case "add_member":
-					_, err := organization.AddOrgUser(ctx, pinned, owner.ID, org.PartyID, target.PersonID)
+					_, err := organization.AddOrgUser(ctx, pinned, owner.ID, org.ID, target.PersonID)
 					result <- err
 				}
 			}()
@@ -165,7 +165,7 @@ func TestOwnerRevocationSerializesOrganizationWrites(t *testing.T) {
 			}
 
 			var actualName string
-			if err := pool.QueryRow(ctx, "SELECT name FROM organizations WHERE party_id=$1", org.PartyID).Scan(&actualName); err != nil {
+			if err := pool.QueryRow(ctx, "SELECT name FROM organizations WHERE party_id=$1", org.ID).Scan(&actualName); err != nil {
 				t.Fatal(err)
 			}
 			if actualName != orgName {
@@ -174,7 +174,7 @@ func TestOwnerRevocationSerializesOrganizationWrites(t *testing.T) {
 			var activeAdded int
 			if err := pool.QueryRow(ctx,
 				"SELECT count(*) FROM organization_members WHERE organization_id=$1 AND person_id=$2 AND ended_at IS NULL",
-				org.PartyID, target.PersonID,
+				org.ID, target.PersonID,
 			).Scan(&activeAdded); err != nil {
 				t.Fatal(err)
 			}

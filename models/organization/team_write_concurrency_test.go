@@ -106,7 +106,7 @@ func TestTeamWriteMembershipRevocationRace(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.PartyID, recipient.PersonID); err != nil {
+			if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.ID, recipient.PersonID); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := store.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{
@@ -115,7 +115,7 @@ func TestTeamWriteMembershipRevocationRace(t *testing.T) {
 				t.Fatal(err)
 			}
 			team, err := organization.CreateTeam(ctx, store, organization.CreateTeamOptions{
-				OrganizationID: org.PartyID, ActorAccountID: owner.ID, Name: "Initial",
+				OrganizationID: org.ID, ActorAccountID: owner.ID, Name: "Initial",
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -157,7 +157,7 @@ func TestTeamWriteMembershipRevocationRace(t *testing.T) {
 			var ownerMembership int64
 			if err := tx.QueryRow(ctx,
 				"SELECT id FROM organization_members WHERE organization_id=$1 AND person_id=$2 AND ended_at IS NULL",
-				org.PartyID, targetID,
+				org.ID, targetID,
 			).Scan(&ownerMembership); err != nil {
 				t.Fatal(err)
 			}
@@ -175,7 +175,7 @@ func TestTeamWriteMembershipRevocationRace(t *testing.T) {
 				switch tc.name {
 				case "create_team":
 					_, err = organization.CreateTeam(ctx, pinned, organization.CreateTeamOptions{
-						OrganizationID: org.PartyID, ActorAccountID: owner.ID, Name: "Unauthorized",
+						OrganizationID: org.ID, ActorAccountID: owner.ID, Name: "Unauthorized",
 					})
 				case "rename_team":
 					_, err = organization.RenameTeam(ctx, pinned, owner.ID, team.ID, "Unauthorized")
@@ -261,7 +261,7 @@ func TestTeamWriteMembershipRevocationRace(t *testing.T) {
 				if consumed {
 					t.Fatal("failed acceptance consumed one-time invitation")
 				}
-				if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.PartyID, recipient.PersonID); err != nil {
+				if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.ID, recipient.PersonID); err != nil {
 					t.Fatal(err)
 				}
 				// A rejoin must never restore a proof from the previous
