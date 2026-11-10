@@ -158,15 +158,25 @@ func shouldStopContinuation(args []reflect.Value) bool {
 
 type middlewareProvider = func(next http.Handler) http.Handler
 
-// executeMiddlewaresHandler composes providers in reverse so the first
-// registered middleware is the first one entered. This is Gitea's
-// continuation convention; an action that commits a response stops the chain.
-func executeMiddlewaresHandler(w http.ResponseWriter, req *http.Request, middlewares []middlewareProvider, endpoint http.HandlerFunc) {
+// compileMiddlewaresHandler owns the one middleware composition algorithm.
+// It runs at route registration for Gin's matched HTTP bridge, as Chi/Gitea
+// compiles route middleware into the registered handler chain.
+func compileMiddlewaresHandler(middlewares []middlewareProvider, endpoint http.HandlerFunc) http.Handler {
 	handler := http.Handler(endpoint)
 	for _, middleware := range slices.Backward(middlewares) {
 		handler = middleware(handler)
+		if handler == nil {
+			panic("web: middleware provider returned nil handler")
+		}
 	}
-	handler.ServeHTTP(w, req)
+	return handler
+}
+
+// executeMiddlewaresHandler supports direct HTTP handler execution with the
+// same compiler. Route registration must reuse the compiled result instead of
+// calling this function for every request.
+func executeMiddlewaresHandler(w http.ResponseWriter, req *http.Request, middlewares []middlewareProvider, endpoint http.HandlerFunc) {
+	compileMiddlewaresHandler(middlewares, endpoint).ServeHTTP(w, req)
 }
 
 // toHandlerProvider is framework-independent. Gin integration belongs to
