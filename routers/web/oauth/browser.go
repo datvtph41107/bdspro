@@ -241,7 +241,7 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 		return
 	}
 	browserHeaders(c)
-	consentHeaders(c, client.RedirectUri)
+	consentHeaders(c, client.RedirectURI)
 	if c.IsAborted() {
 		return
 	}

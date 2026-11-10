@@ -15,6 +15,7 @@ import (
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
 	appctx "github.com/datvtph41107/bdspro/services/context"
+	"github.com/datvtph41107/bdspro/services/convert"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -37,15 +38,6 @@ func NewHandler(service *oauth_service.Service, store db.Store, proofs ...*oauth
 type clientRequest struct {
 	Name        string `json:"name" binding:"required"`
 	RedirectURI string `json:"redirect_uri" binding:"required"`
-}
-
-func clientResponse(client db.OauthClient) gin.H {
-	return gin.H{
-		"client_id":    client.ID.String(),
-		"name":         client.Name,
-		"redirect_uri": client.RedirectUri,
-		"created_at":   client.CreatedAt,
-	}
 }
 
 func failure(c *gin.Context, status int, code string) {
@@ -81,7 +73,7 @@ func (h *Handler) CreateClient(c *gin.Context) {
 		serviceFailure(c, err)
 		return
 	}
-	appctx.GetAPIContext(c).JSON(http.StatusCreated, clientResponse(client))
+	appctx.GetAPIContext(c).JSON(http.StatusCreated, convert.ToOAuthClient(client))
 }
 
 func (h *Handler) ListClients(c *gin.Context) {
@@ -90,10 +82,7 @@ func (h *Handler) ListClients(c *gin.Context) {
 		serviceFailure(c, err)
 		return
 	}
-	out := make([]gin.H, 0, len(clients))
-	for _, client := range clients {
-		out = append(out, clientResponse(client))
-	}
+	out := convert.ToOAuthClients(clients)
 	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"clients": out})
 }
 
@@ -183,7 +172,7 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 	c.Header("X-Frame-Options", "DENY")
 	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{
 		"client_id": client.ID.String(), "name": client.Name,
-		"redirect_uri": client.RedirectUri, "scope": request.Scope,
+		"redirect_uri": client.RedirectURI, "scope": request.Scope,
 		"consent_required": true, "consent_version": version, "consent_proof": proof,
 	})
 }
