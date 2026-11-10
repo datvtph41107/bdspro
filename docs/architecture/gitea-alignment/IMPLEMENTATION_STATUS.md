@@ -101,7 +101,7 @@ Do not equate progress through P04's partial user-service refactor with P01 comp
 - Gitea `modules/web/handler.go`'s `responseWriter.Hijack` forwards to the underlying `http.Hijacker`, returning `http.ErrNotSupported` otherwise.
 - BDSPro now implements the same capability at `modules/web/handler.go`; tests in `modules/web/handler_test.go` verify forwarding, unsupported writer, and committed status on an implicit body write.
 - Source commits: `1c17e6e7` (implementation), `79b67c14` (tests). This is a **small part of P01**, NOT sufficient to close P01.
-- GitHub Actions run for code/test commit `79b67c14`: https://github.com/datvtph41107/bdspro/actions/runs/42754777539. It was queued when checked; refresh to determine final result.
+- GitHub Actions run for code/test commit `79b67c14`: https://github.com/datvtph41107/bdspro/actions/runs/42754777539 **FAILED gofmt** (two doc-comment indentation lines in handler.go, not a behavior-test failure). Corrective commit `531f43d3` fixed the comment formatting. Refresh CI of the corrected/latest HEAD before accepting this patch.
 - Verified earlier pre-document code `9579336f` CI **succeeded** at https://github.com/datvtph41107/bdspro/actions/runs/42753671358; newer documentation and writer commits require their own CI.
 
 ## Suggested acceptance commands in a compatible Go 1.27.3 environment
