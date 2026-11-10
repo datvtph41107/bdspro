@@ -9,6 +9,33 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// responseWriter observes whether an HTTP action committed a response.
+// A selected Gin status is not enough: only an explicit HTTP write commits.
+// Unwrap permits http.ResponseController to reach the underlying writer.
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *responseWriter) WrittenStatus() int { return w.status }
+
+func (w *responseWriter) WriteHeader(status int) {
+	if w.status != 0 {
+		return
+	}
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *responseWriter) Write(body []byte) (int, error) {
+	if w.status == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+func (w *responseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
 // middlewareProvider is the net/http continuation contract used by Gitea.
 // It is independent of both the Gin route matcher and typed API contexts.
 type middlewareProvider = func(next http.Handler) http.Handler
@@ -28,6 +55,22 @@ func toHandlerProvider(handler any) middlewareProvider {
 			panic("web: nil HTTP middleware")
 		}
 		return func(next http.Handler) http.Handler { return h(next) }
+	case http.HandlerFunc:
+		if h == nil {
+			panic("web: nil HTTP action")
+		}
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				tracked, ok := w.(*responseWriter)
+				if !ok {
+					tracked = &responseWriter{ResponseWriter: w}
+				}
+				h(tracked, req)
+				if next != nil && tracked.WrittenStatus() == 0 {
+					next.ServeHTTP(tracked, req)
+				}
+			})
+		}
 	default:
 		panic(fmt.Sprintf("web: unsupported HTTP middleware %T", handler))
 	}
