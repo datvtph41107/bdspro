@@ -3,7 +3,6 @@ package web
 import (
 	"fmt"
 	"net/http"
-
 )
 
 // responseWriter observes whether an HTTP action committed a response.
