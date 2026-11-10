@@ -1,7 +1,8 @@
+// Package oauth implements browser consent/session transport on top of the
+// same context-aware services and OAuth authorization actions used by the API.
 package oauth
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -19,7 +20,6 @@ import (
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/datvtph41107/bdspro/templates"
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -27,428 +27,314 @@ import (
 const browserSessionKey = "oauth_browser_session"
 const loginNonceMaxAge = int(authcrypto.BrowserCSRFTokenTTL / time.Second)
 
-// Login uses the existing credential service: it must create a normal DB session.
-// The result's JWTs must never be exposed to a browser cookie or HTML appctx.
-type LoginFunc func(context.Context, string, string, string, string) (auth_service.LoginResult, error)
-
+// Browser owns only HTTP cookie policy and a validated browser origin.
+// SQLC, login, OAuth grants and Redis throttle belong to domain packages.
 type Config struct {
-	Store        db.Store
-	OAuth        *oauth_service.Service
-	Proofs       *oauth_service.ConsentProofs
-	Login        LoginFunc
-	Maker        authcrypto.Maker
-	Codec        *authcrypto.BrowserSessionCodec
+	Codec *authcrypto.BrowserSessionCodec
 	PublicOrigin string
-	Throttle     *security.AuthThrottle
-	OIDCEnabled  bool
+	OIDCEnabled bool
 }
 
-type Handler struct {
+type Browser struct {
 	Config
 	originHost string
-	secure     bool
+	secure bool
 }
 
-func NewHandler(cfg Config) (*Handler, error) {
-	if cfg.Store == nil || cfg.OAuth == nil ||
-		cfg.Proofs == nil || cfg.Login == nil || cfg.Maker == nil || cfg.Codec == nil {
-		return nil, errors.New("browser OAuth requires store, services and signing keys")
+func NewBrowser(cfg Config) (*Browser, error) {
+	if cfg.Codec == nil {
+		return nil, errors.New("browser OAuth requires a cookie codec")
 	}
-	u, err := url.Parse(cfg.PublicOrigin)
-	if err != nil || u == nil || u.Host == "" ||
-		(u.Scheme != "https" && u.Scheme != "http") || u.Path != "" ||
-		u.RawQuery != "" || u.Fragment != "" || u.User != nil {
-		return nil, errors.New("invalid browser public origin")
+	u,err:=url.Parse(cfg.PublicOrigin)
+	if err!=nil || u==nil || u.Host=="" ||
+		(u.Scheme!="https" && u.Scheme!="http") || u.Path!="" ||
+		u.RawQuery!="" || u.Fragment!="" || u.User!=nil {
+		return nil,errors.New("invalid browser public origin")
 	}
-	return &Handler{Config: cfg, originHost: u.Host, secure: u.Scheme == "https"}, nil
+	return &Browser{Config:cfg,originHost:u.Host,secure:u.Scheme=="https"},nil
 }
 
-func wantsHTML(c *gin.Context) bool {
-	return strings.Contains(c.GetHeader("Accept"), "text/html")
+func wantsHTML(ctx *appctx.APIContext) bool {
+	return strings.Contains(ctx.CurrentRequest().Header.Get("Accept"),"text/html")
+}
+func browserHeaders(ctx *appctx.APIContext) {
+	ctx.Header("Cache-Control","no-store")
+	ctx.Header("Pragma","no-cache")
+	ctx.Header("Referrer-Policy","no-referrer")
+	ctx.Header("X-Frame-Options","DENY")
+	ctx.Header("Content-Security-Policy","default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+	ctx.Header("Content-Type","text/html; charset=utf-8")
 }
 
-func browserHeaders(c *gin.Context) {
-	c.Header("Cache-Control", "no-store")
-	c.Header("Pragma", "no-cache")
-	c.Header("Referrer-Policy", "no-referrer")
-	c.Header("X-Frame-Options", "DENY")
-	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
-	c.Header("Content-Type", "text/html; charset=utf-8")
-}
-
-// consentHeaders permits only the registered callback origin as a possible
-// redirect after the same-origin consent POST. Chromium checks form-action
-// against redirects, not just the HTML form action. Never allow arbitrary hosts.
-func consentHeaders(c *gin.Context, registeredRedirect string) {
-	u, err := url.Parse(registeredRedirect)
-	if err != nil || u == nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
+// Chromium checks form-action across redirects: only a registered client
+// callback origin may be allowed, never an arbitrary user-supplied host.
+func consentHeaders(ctx *appctx.APIContext, redirectURI string) bool {
+	u,err:=url.Parse(redirectURI)
+	if err!=nil || u==nil || (u.Scheme!="https"&&u.Scheme!="http")||
+		u.Host==""||u.User!=nil {
+		ctx.APIError(http.StatusBadRequest,"invalid_request","invalid request")
+		return false
 	}
-	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self' "+u.Scheme+"://"+u.Host+"; base-uri 'none'; frame-ancestors 'none'")
+	ctx.Header("Content-Security-Policy",
+		"default-src 'none'; form-action 'self' "+u.Scheme+"://"+u.Host+"; base-uri 'none'; frame-ancestors 'none'")
+	return true
 }
 
 func loginCookieName(secure bool) string {
-	if secure {
-		return "__Host-bdspro-login"
-	}
+	if secure {return "__Host-bdspro-login"}
 	return "bdspro_login_dev"
 }
-
-func (h *Handler) clearCookie(c *gin.Context, name string) {
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name: name, Path: "/", MaxAge: -1, HttpOnly: true,
-		Secure: h.secure, SameSite: http.SameSiteLaxMode,
-	})
+func clearCookie(w http.ResponseWriter,name string,secure bool) {
+	http.SetCookie(w,&http.Cookie{Name:name,Path:"/",MaxAge:-1,
+		HttpOnly:true,Secure:secure,SameSite:http.SameSiteLaxMode})
+}
+func sameHost(ctx *appctx.APIContext,b *Browser) bool {
+	return strings.EqualFold(ctx.CurrentRequest().Host,b.originHost)
+}
+func validPOST(ctx *appctx.APIContext,b *Browser) bool {
+	return sameHost(ctx,b) &&
+		authcrypto.VerifyBrowserPostOrigin(ctx.CurrentRequest(),b.PublicOrigin)==nil
+}
+func browser(ctx *appctx.APIContext) (*Browser,bool) {
+	b:=FromContext(ctx)
+	if b==nil {ctx.APIErrorNotFound();return nil,false}
+	return b,true
 }
 
-func (h *Handler) sameHost(c *gin.Context) bool {
-	// Host is never the authority for deciding an origin. Only the configured
-	// value is; Host is checked merely to reject mismatched ingress routing.
-	return strings.EqualFold(c.Request.Host, h.originHost)
+// loadSession never trusts a cookie as account/session authority without a
+// PostgreSQL read. Stale cookies are cleared; DB outages fail closed.
+func loadSession(ctx *appctx.APIContext,w http.ResponseWriter,b *Browser) (db.Session,bool) {
+	cookie,err:=ctx.CurrentRequest().Cookie(authcrypto.BrowserCookieName(b.secure))
+	if err!=nil{return db.Session{},false}
+	rawID,err:=b.Codec.ReadCookie(cookie.Value,time.Now())
+	if err!=nil {
+		clearCookie(w,authcrypto.BrowserCookieName(b.secure),b.secure)
+		return db.Session{},false
+	}
+	id,err:=uuid.Parse(rawID)
+	if err!=nil{return db.Session{},false}
+	store,err:=db.StoreFromContext(ctx)
+	if err!=nil {
+		ctx.APIError(http.StatusServiceUnavailable,"identity_store_unavailable","identity store unavailable")
+		return db.Session{},false
+	}
+	session,err:=store.GetSession(ctx,id)
+	if errors.Is(err,pgx.ErrNoRows) {
+		clearCookie(w,authcrypto.BrowserCookieName(b.secure),b.secure)
+		return db.Session{},false
+	}
+	if err!=nil {
+		ctx.APIError(http.StatusServiceUnavailable,"identity_store_unavailable","identity store unavailable")
+		return db.Session{},false
+	}
+	if session.ID!=id||session.AccountID<=0||session.IsBlocked||!session.ExpiresAt.After(time.Now()) {
+		clearCookie(w,authcrypto.BrowserCookieName(b.secure),b.secure)
+		return db.Session{},false
+	}
+	return session,true
 }
 
-func (h *Handler) validPOST(c *gin.Context) bool {
-	return h.sameHost(c) &&
-		authcrypto.VerifyBrowserPostOrigin(c.Request, h.PublicOrigin) == nil
-}
-
-func (h *Handler) loadSession(c *gin.Context) (db.Session, bool) {
-	cookie, err := c.Request.Cookie(authcrypto.BrowserCookieName(h.secure))
-	if err != nil {
-		return db.Session{}, false
-	}
-	rawID, err := h.Codec.ReadCookie(cookie.Value, time.Now())
-	if err != nil {
-		h.clearCookie(c, authcrypto.BrowserCookieName(h.secure))
-		return db.Session{}, false
-	}
-	id, err := uuid.Parse(rawID)
-	if err != nil {
-		return db.Session{}, false
-	}
-	session, err := h.Store.GetSession(c.Request.Context(), id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		h.clearCookie(c, authcrypto.BrowserCookieName(h.secure))
-		return db.Session{}, false
-	}
-	if err != nil {
-		c.AbortWithStatus(http.StatusServiceUnavailable)
-		return db.Session{}, false
-	}
-	if session.ID != id || session.AccountID <= 0 || session.IsBlocked || !session.ExpiresAt.After(time.Now()) {
-		h.clearCookie(c, authcrypto.BrowserCookieName(h.secure))
-		return db.Session{}, false
-	}
-	return session, true
-}
-
-func (h *Handler) notAuthenticated(c *gin.Context) {
-	if c.IsAborted() {
-		return
-	}
-	if c.Request.Method == http.MethodGet && wantsHTML(c) {
-		next, err := authcrypto.BrowserNextPath(c.Request.URL.RequestURI())
-		if err == nil {
-			c.Redirect(http.StatusSeeOther, "/oauth/login?next="+url.QueryEscape(next))
-			c.Abort()
+func notAuthenticated(ctx *appctx.APIContext,w http.ResponseWriter) {
+	if ctx.IsAborted(){return}
+	if ctx.CurrentRequest().Method==http.MethodGet && wantsHTML(ctx) {
+		next,err:=authcrypto.BrowserNextPath(ctx.CurrentRequest().URL.RequestURI())
+		if err==nil {
+			http.Redirect(w,ctx.CurrentRequest(),"/oauth/login?next="+url.QueryEscape(next),http.StatusSeeOther)
 			return
 		}
 	}
-	appctx.BearerRequired(c)
-	c.Abort()
+	ctx.Header("WWW-Authenticate","Bearer")
+	ctx.APIError(http.StatusUnauthorized,"unauthenticated","missing or invalid bearer token")
 }
 
-// Authenticate preserves the existing Bearer-JWT API contract. An explicitly
-// supplied bad Authorization header is NEVER replaced by a browser cookie.
-// Browser requests must resolve their DB session on EVERY authorization call.
-func (h *Handler) Authenticate(c *gin.Context) {
-	if value := c.GetHeader("Authorization"); value != "" {
-		api := appctx.GetAPIContext(c)
-		appctx.Authenticate()(api)
-		if api.IsAborted() { return }
-		appctx.RequireSession()(api)
-		if api.IsAborted() { return }
-		c.Next()
-		return
-	}
-	session, ok := h.loadSession(c)
-	if !ok {
-		h.notAuthenticated(c)
-		return
-	}
-	payload := &authcrypto.Payload{
-		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess, SessionID: session.ID,
-	}
-	c.Set(appctx.AuthorizationPayloadKey, payload)
-	api := appctx.GetAPIContext(c)
-	api.Doer = payload
-	api.PublishVerifiedActor(auth_model.Actor{AccountID: session.AccountID, SessionID: session.ID})
-	c.Set(browserSessionKey, session.ID.String())
-	c.Next()
+func setVerifiedSession(ctx *appctx.APIContext,session db.Session) {
+	payload:=&authcrypto.Payload{AccountID:session.AccountID,
+		TokenType:authcrypto.TokenTypeAccess,SessionID:session.ID}
+	ctx.Doer=payload
+	ctx.PublishVerifiedActor(auth_model.Actor{AccountID:session.AccountID,SessionID:session.ID})
+	ctx.Data[browserSessionKey]=session.ID.String()
 }
 
-func (h *Handler) RequireBrowserSession(c *gin.Context) {
-	session, ok := h.loadSession(c)
-	if !ok {
-		h.notAuthenticated(c)
+// Authenticate accepts either a verified bearer JWT or a verified browser
+// cookie. An explicitly bad Authorization header cannot fall back to cookie.
+func Authenticate(ctx *appctx.APIContext,w http.ResponseWriter) {
+	b,ok:=browser(ctx);if !ok{return}
+	if ctx.CurrentRequest().Header.Get("Authorization")!="" {
+		appctx.Authenticate()(ctx)
+		if ctx.IsAborted(){return}
+		appctx.RequireSession()(ctx)
 		return
 	}
-	payload := &authcrypto.Payload{
-		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess, SessionID: session.ID,
-	}
-	c.Set(appctx.AuthorizationPayloadKey, payload)
-	api := appctx.GetAPIContext(c)
-	api.Doer = payload
-	api.PublishVerifiedActor(auth_model.Actor{AccountID: session.AccountID, SessionID: session.ID})
-	c.Set(browserSessionKey, session.ID.String())
-	c.Next()
+	session,ok:=loadSession(ctx,w,b)
+	if !ok {notAuthenticated(ctx,w);return}
+	setVerifiedSession(ctx,session)
 }
 
-func (h *Handler) AuthorizePreview(c *gin.Context) {
-	sessionID := c.GetString(browserSessionKey)
-	if sessionID == "" || !wantsHTML(c) {
-		api_oauth.AuthorizePreview(appctx.GetAPIContext(c))
+// Logout must use browser cookie authority; a bearer JWT alone is insufficient.
+func RequireBrowserSession(ctx *appctx.APIContext,w http.ResponseWriter) {
+	b,ok:=browser(ctx);if !ok{return}
+	session,ok:=loadSession(ctx,w,b)
+	if !ok {notAuthenticated(ctx,w);return}
+	setVerifiedSession(ctx,session)
+}
+
+func AuthorizePreview(ctx *appctx.APIContext,w http.ResponseWriter) {
+	b,ok:=browser(ctx);if !ok{return}
+	sessionID,_:=ctx.Data[browserSessionKey].(string)
+	if sessionID=="" || !wantsHTML(ctx) {
+		api_oauth.AuthorizePreview(ctx)
 		return
 	}
-	request, err := oauth_service.ParseAuthorizationRequest(c.Request.URL.Query())
-	if err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
+	actor,ok:=ctx.VerifiedActor()
+	if !ok {ctx.AuthenticationRequired();return}
+	request,err:=oauth_service.ParseAuthorizationRequest(ctx.CurrentRequest().URL.Query())
+	if err!=nil {ctx.Status(http.StatusBadRequest);return}
+	s:=oauth_service.ServiceFromContext(ctx)
+	if s==nil {ctx.APIErrorNotFound();return}
+	client,version,err:=s.ReviewConsent(ctx,actor.AccountID,request)
+	if err!=nil {
+		if errors.Is(err,oauth_service.ErrInvalidRequest)||errors.Is(err,oauth_service.ErrInvalidClient) {
+			ctx.Status(http.StatusBadRequest)
+		} else {ctx.Status(http.StatusServiceUnavailable)}
 		return
 	}
-	client, version, err := h.OAuth.ReviewConsent(c.Request.Context(), appctx.AccountID(c), request)
-	if err != nil {
-		if errors.Is(err, oauth_service.ErrInvalidRequest) || errors.Is(err, oauth_service.ErrInvalidClient) {
-			c.AbortWithStatus(http.StatusBadRequest)
-		} else {
-			c.AbortWithStatus(http.StatusServiceUnavailable)
-		}
-		return
-	}
-	request.ConsentVersion = version
-	now := time.Now()
-	proof, err := h.Proofs.Issue(oauth_service.ConsentProofFields{
-		AccountID:           appctx.AccountID(c),
-		ClientID:            request.ClientID.String(),
-		RedirectURI:         request.RedirectURI,
-		Scope:               request.Scope,
-		ResponseType:        request.ResponseType,
-		CodeChallenge:       request.CodeChallenge,
-		CodeChallengeMethod: request.CodeChallengeMethod,
-		State:               request.State,
-		ConsentVersion:      version,
-	}, now)
-	if err != nil {
-		c.AbortWithStatus(http.StatusServiceUnavailable)
-		return
-	}
-	csrf, err := h.Codec.IssueCSRF(sessionID, "oauth-consent", now)
-	if err != nil {
-		c.AbortWithStatus(http.StatusServiceUnavailable)
-		return
-	}
-	logoutCSRF, err := h.Codec.IssueCSRF(sessionID, "oauth-logout", now)
-	if err != nil {
-		c.AbortWithStatus(http.StatusServiceUnavailable)
-		return
-	}
-	browserHeaders(c)
-	consentHeaders(c, client.RedirectURI)
-	if c.IsAborted() {
-		return
-	}
-	c.Status(http.StatusOK)
-	if err := templates.OAuthConsentPage.Execute(c.Writer, struct {
-		ClientName, ClientID, RedirectURI, ResponseType, Scope, State      string
-		CodeChallenge, CodeChallengeMethod, ConsentProof, CSRF, LogoutCSRF string
-		ConsentVersion                                                     int64
+	request.ConsentVersion=version
+	now:=time.Now()
+	proofs:=oauth_service.ProofsFromContext(ctx)
+	if proofs==nil {ctx.Status(http.StatusServiceUnavailable);return}
+	proof,err:=proofs.Issue(oauth_service.ConsentProofFields{
+		AccountID:actor.AccountID,ClientID:request.ClientID.String(),
+		RedirectURI:request.RedirectURI,Scope:request.Scope,
+		ResponseType:request.ResponseType,CodeChallenge:request.CodeChallenge,
+		CodeChallengeMethod:request.CodeChallengeMethod,
+		State:request.State,ConsentVersion:version,
+	},now)
+	if err!=nil {ctx.Status(http.StatusServiceUnavailable);return}
+	csrf,err:=b.Codec.IssueCSRF(sessionID,"oauth-consent",now)
+	if err!=nil {ctx.Status(http.StatusServiceUnavailable);return}
+	logoutCSRF,err:=b.Codec.IssueCSRF(sessionID,"oauth-logout",now)
+	if err!=nil {ctx.Status(http.StatusServiceUnavailable);return}
+	browserHeaders(ctx)
+	if !consentHeaders(ctx,client.RedirectURI){return}
+	_ = templates.OAuthConsentPage.Execute(w,struct {
+		ClientName,ClientID,RedirectURI,ResponseType,Scope,State string
+		CodeChallenge,CodeChallengeMethod,ConsentProof,CSRF,LogoutCSRF string
+		ConsentVersion int64
 	}{
-		ClientName: client.Name, ClientID: client.ID.String(),
-		RedirectURI: request.RedirectURI, ResponseType: request.ResponseType,
-		Scope: request.Scope, State: request.State,
-		CodeChallenge:       request.CodeChallenge,
-		CodeChallengeMethod: request.CodeChallengeMethod,
-		ConsentProof:        proof, CSRF: csrf, LogoutCSRF: logoutCSRF,
-		ConsentVersion: version,
-	}); err != nil {
-		// Never log the sensitive authorization query string.
-		_ = err
-	}
+		ClientName:client.Name,ClientID:client.ID.String(),
+		RedirectURI:request.RedirectURI,ResponseType:request.ResponseType,
+		Scope:request.Scope,State:request.State,
+		CodeChallenge:request.CodeChallenge,CodeChallengeMethod:request.CodeChallengeMethod,
+		ConsentProof:proof,CSRF:csrf,LogoutCSRF:logoutCSRF,ConsentVersion:version,
+	})
 }
 
-func (h *Handler) Authorize(c *gin.Context) {
-	sessionID := c.GetString(browserSessionKey)
-	if sessionID != "" {
-		if !h.validPOST(c) ||
-			!strings.HasPrefix(c.ContentType(), "application/x-www-form-urlencoded") {
-			c.AbortWithStatus(http.StatusForbidden)
-			return
+func Authorize(ctx *appctx.APIContext,w http.ResponseWriter) {
+	b,ok:=browser(ctx);if !ok{return}
+	sessionID,_:=ctx.Data[browserSessionKey].(string)
+	if sessionID!="" {
+		if !validPOST(ctx,b)||
+			!strings.HasPrefix(ctx.CurrentRequest().Header.Get("Content-Type"),"application/x-www-form-urlencoded") {
+			ctx.Status(http.StatusForbidden);return
 		}
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 8<<10)
-		if err := c.Request.ParseForm(); err != nil ||
-			h.Codec.VerifyCSRF(c.Request.PostForm.Get("csrf"), sessionID, "oauth-consent", time.Now()) != nil {
-			c.AbortWithStatus(http.StatusForbidden)
-			return
+		req:=ctx.CurrentRequest()
+		req.Body=http.MaxBytesReader(w,req.Body,8<<10)
+		if err:=req.ParseForm();err!=nil ||
+			b.Codec.VerifyCSRF(req.PostForm.Get("csrf"),sessionID,"oauth-consent",time.Now())!=nil {
+			ctx.Status(http.StatusForbidden);return
 		}
 	}
-	api_oauth.Authorize(appctx.GetAPIContext(c), c.Writer) // Shared verified consent and code issuance.
+	api_oauth.Authorize(ctx,w)
 }
 
-func (h *Handler) LoginPage(c *gin.Context) {
-	if !h.sameHost(c) {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-	next, err := authcrypto.BrowserNextPath(c.Query("next"))
-	if err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
+func LoginPage(ctx *appctx.APIContext,w http.ResponseWriter) {
+	b,ok:=browser(ctx);if !ok{return}
+	if !sameHost(ctx,b){ctx.Status(http.StatusBadRequest);return}
+	next,err:=authcrypto.BrowserNextPath(ctx.CurrentRequest().URL.Query().Get("next"))
+	if err!=nil {ctx.Status(http.StatusBadRequest);return}
 	var nonce [32]byte
-	if _, err := rand.Read(nonce[:]); err != nil {
-		c.AbortWithStatus(http.StatusServiceUnavailable)
-		return
-	}
-	encoded := base64.RawURLEncoding.EncodeToString(nonce[:])
-	csrf, err := h.Codec.IssueCSRF(encoded, "oauth-login", time.Now())
-	if err != nil {
-		c.AbortWithStatus(http.StatusServiceUnavailable)
-		return
-	}
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name: loginCookieName(h.secure), Value: encoded, Path: "/",
-		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
-		MaxAge: loginNonceMaxAge,
-	})
-	link := ""
-	if h.OIDCEnabled {
-		link = "/oauth/login/oidc/start?next=" + url.QueryEscape(next)
-	}
-	browserHeaders(c)
-	c.Status(http.StatusOK)
-	_ = templates.OAuthLoginPage.Execute(c.Writer, struct{ Next, CSRF, OIDCStartURL string }{next, csrf, link})
+	if _,err:=rand.Read(nonce[:]);err!=nil {ctx.Status(http.StatusServiceUnavailable);return}
+	encoded:=base64.RawURLEncoding.EncodeToString(nonce[:])
+	csrf,err:=b.Codec.IssueCSRF(encoded,"oauth-login",time.Now())
+	if err!=nil {ctx.Status(http.StatusServiceUnavailable);return}
+	http.SetCookie(w,&http.Cookie{Name:loginCookieName(b.secure),Value:encoded,Path:"/",
+		HttpOnly:true,Secure:b.secure,SameSite:http.SameSiteLaxMode,MaxAge:loginNonceMaxAge})
+	link:=""
+	if b.OIDCEnabled {link="/oauth/login/oidc/start?next="+url.QueryEscape(next)}
+	browserHeaders(ctx)
+	_ = templates.OAuthLoginPage.Execute(w,struct{Next,CSRF,OIDCStartURL string}{next,csrf,link})
 }
 
-func (h *Handler) Login(c *gin.Context) {
-	if !h.validPOST(c) ||
-		!strings.HasPrefix(c.ContentType(), "application/x-www-form-urlencoded") {
-		c.AbortWithStatus(http.StatusForbidden)
+func Login(ctx *appctx.APIContext,w http.ResponseWriter) {
+	b,ok:=browser(ctx);if !ok{return}
+	if !validPOST(ctx,b)||
+		!strings.HasPrefix(ctx.CurrentRequest().Header.Get("Content-Type"),"application/x-www-form-urlencoded") {
+		ctx.Status(http.StatusForbidden);return
+	}
+	req:=ctx.CurrentRequest()
+	req.Body=http.MaxBytesReader(w,req.Body,8<<10)
+	if err:=req.ParseForm();err!=nil {ctx.Status(http.StatusBadRequest);return}
+	form:=req.PostForm
+	next,err:=authcrypto.BrowserNextPath(form.Get("next"))
+	if err!=nil {ctx.Status(http.StatusBadRequest);return}
+	nonce,err:=req.Cookie(loginCookieName(b.secure))
+	if err!=nil||b.Codec.VerifyCSRF(form.Get("csrf"),nonce.Value,"oauth-login",time.Now())!=nil {
+		ctx.Status(http.StatusForbidden);return
+	}
+	email,password:=form.Get("email"),form.Get("password")
+	if len(email)>254||len(password)>1024 {ctx.Status(http.StatusBadRequest);return}
+	if !security.ThrottleFromContext(ctx).AllowAPI(ctx,"login",email,30,10,time.Minute){return}
+	result,err:=auth_service.FromContext(ctx).Login(ctx,email,password,req.UserAgent(),ctx.ClientIP())
+	if err!=nil {
+		if errors.Is(err,auth_model.ErrInvalidCredentials) {ctx.Status(http.StatusUnauthorized)}
+		else {ctx.Status(http.StatusServiceUnavailable)}
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 8<<10)
-	if err := c.Request.ParseForm(); err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-	form := c.Request.PostForm
-	next, err := authcrypto.BrowserNextPath(form.Get("next"))
-	if err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-	loginNonce, err := c.Request.Cookie(loginCookieName(h.secure))
-	if err != nil || h.Codec.VerifyCSRF(form.Get("csrf"), loginNonce.Value, "oauth-login", time.Now()) != nil {
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-	email, password := form.Get("email"), form.Get("password")
-	if len(email) > 254 || len(password) > 1024 {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-	if h.Throttle != nil && !h.Throttle.Allow(c, "login", email, 30, 10, time.Minute) {
-		c.Abort()
-		return
-	}
-	result, err := h.Config.Login(c.Request.Context(), email, password, c.Request.UserAgent(), c.ClientIP())
-	if err != nil {
-		if errors.Is(err, auth_model.ErrInvalidCredentials) {
-			c.AbortWithStatus(http.StatusUnauthorized)
-		} else {
-			c.AbortWithStatus(http.StatusServiceUnavailable)
-		}
-		return
-	}
-	h.completeSessionLogin(c, result, next)
+	completeSessionLogin(ctx,w,b,result,next)
 }
 
-// CompleteOIDCLogin writes a canonical browser cookie only after OIDC state,
-// nonce, PKCE and identity verification. No JWT enters the browser cookie.
-func (h *Handler) CompleteOIDCLogin(ctx *appctx.APIContext, w http.ResponseWriter, result auth_service.LoginResult, next string) {
-	if !h.OIDCEnabled || !strings.EqualFold(ctx.CurrentRequest().Host, h.originHost) {
-		ctx.APIError(http.StatusForbidden, "oauth2.browser_forbidden", "forbidden")
-		return
-	}
-	if _, err := authcrypto.BrowserNextPath(next); err != nil {
-		ctx.APIError(http.StatusBadRequest, "oauth2.invalid_return_path", "invalid consent return path")
-		return
-	}
-	if result.Session.ID == uuid.Nil || result.Session.AccountID <= 0 {
-		ctx.APIError(http.StatusServiceUnavailable, "oauth2.browser_unavailable", "browser OAuth login unavailable")
-		return
-	}
-	token, err := h.Codec.IssueCookie(result.Session.ID.String(), time.Now(), result.Session.ExpiresAt)
-	if err != nil {
-		ctx.APIError(http.StatusServiceUnavailable, "oauth2.browser_unavailable", "browser OAuth login unavailable")
-		return
-	}
-	http.SetCookie(w, authcrypto.BrowserSessionCookie(token, h.secure))
-	http.SetCookie(w, &http.Cookie{
-		Name: loginCookieName(h.secure), Path: "/", MaxAge: -1,
-		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
-	})
-	ctx.Header("Cache-Control", "no-store")
-	ctx.Header("Referrer-Policy", "no-referrer")
-	http.Redirect(w, ctx.CurrentRequest(), next, http.StatusSeeOther)
+func CompleteOIDCLogin(ctx *appctx.APIContext,w http.ResponseWriter,result auth_service.LoginResult,next string) {
+	b,ok:=browser(ctx);if !ok{return}
+	if !b.OIDCEnabled||!sameHost(ctx,b) {ctx.Status(http.StatusForbidden);return}
+	if _,err:=authcrypto.BrowserNextPath(next);err!=nil {ctx.Status(http.StatusBadRequest);return}
+	completeSessionLogin(ctx,w,b,result,next)
 }
 
-func (h *Handler) completeSessionLogin(c *gin.Context, result auth_service.LoginResult, next string) {
-	if result.Session.ID == uuid.Nil || result.Session.AccountID <= 0 {
-		c.AbortWithStatus(http.StatusServiceUnavailable)
-		return
-	}
-	now := time.Now()
-	token, err := h.Codec.IssueCookie(result.Session.ID.String(), now, result.Session.ExpiresAt)
-	if err != nil {
-		c.AbortWithStatus(http.StatusServiceUnavailable)
-		return
-	}
-	http.SetCookie(c.Writer, authcrypto.BrowserSessionCookie(token, h.secure))
-	h.clearCookie(c, loginCookieName(h.secure))
-	c.Header("Cache-Control", "no-store")
-	c.Header("Referrer-Policy", "no-referrer")
-	c.Redirect(http.StatusSeeOther, next)
+func completeSessionLogin(ctx *appctx.APIContext,w http.ResponseWriter,b *Browser,result auth_service.LoginResult,next string) {
+	if result.Session.ID==uuid.Nil||result.Session.AccountID<=0 {ctx.Status(http.StatusServiceUnavailable);return}
+	token,err:=b.Codec.IssueCookie(result.Session.ID.String(),time.Now(),result.Session.ExpiresAt)
+	if err!=nil {ctx.Status(http.StatusServiceUnavailable);return}
+	http.SetCookie(w,authcrypto.BrowserSessionCookie(token,b.secure))
+	clearCookie(w,loginCookieName(b.secure),b.secure)
+	ctx.Header("Cache-Control","no-store")
+	ctx.Header("Referrer-Policy","no-referrer")
+	http.Redirect(w,ctx.CurrentRequest(),next,http.StatusSeeOther)
 }
 
-func (h *Handler) Logout(c *gin.Context) {
-	if !h.validPOST(c) || !strings.HasPrefix(c.ContentType(), "application/x-www-form-urlencoded") {
-		c.AbortWithStatus(http.StatusForbidden)
+func Logout(ctx *appctx.APIContext,w http.ResponseWriter) {
+	b,ok:=browser(ctx);if !ok{return}
+	if !validPOST(ctx,b)||
+		!strings.HasPrefix(ctx.CurrentRequest().Header.Get("Content-Type"),"application/x-www-form-urlencoded") {
+		ctx.Status(http.StatusForbidden);return
+	}
+	req:=ctx.CurrentRequest()
+	req.Body=http.MaxBytesReader(w,req.Body,8<<10)
+	if err:=req.ParseForm();err!=nil {ctx.Status(http.StatusBadRequest);return}
+	sessionID,_:=ctx.Data[browserSessionKey].(string)
+	if b.Codec.VerifyCSRF(req.PostForm.Get("csrf"),sessionID,"oauth-logout",time.Now())!=nil {
+		ctx.Status(http.StatusForbidden);return
+	}
+	id,err:=uuid.Parse(sessionID)
+	if err!=nil {ctx.Status(http.StatusUnauthorized);return}
+	actor,ok:=ctx.VerifiedActor()
+	if !ok {ctx.AuthenticationRequired();return}
+	if err:=auth_model.RevokeOwnedSession(ctx,actor.AccountID,id,id);err!=nil {
+		if errors.Is(err,auth_model.ErrSessionUnavailable)||errors.Is(err,auth_model.ErrSessionNotFound) {
+			ctx.Status(http.StatusUnauthorized)
+		} else {ctx.Status(http.StatusServiceUnavailable)}
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 8<<10)
-	if err := c.Request.ParseForm(); err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-	sessionID := c.GetString(browserSessionKey)
-	if h.Codec.VerifyCSRF(c.Request.PostForm.Get("csrf"), sessionID, "oauth-logout", time.Now()) != nil {
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-	id, err := uuid.Parse(sessionID)
-	if err != nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-	if err := auth_model.RevokeOwnedSession(c.Request.Context(), appctx.AccountID(c), id, id); err != nil {
-		if errors.Is(err, auth_model.ErrSessionUnavailable) || errors.Is(err, auth_model.ErrSessionNotFound) {
-			c.AbortWithStatus(http.StatusUnauthorized)
-		} else {
-			c.AbortWithStatus(http.StatusServiceUnavailable)
-		}
-		return
-	}
-	h.clearCookie(c, authcrypto.BrowserCookieName(h.secure))
-	c.Header("Cache-Control", "no-store")
-	c.Status(http.StatusNoContent)
+	clearCookie(w,authcrypto.BrowserCookieName(b.secure),b.secure)
+	ctx.Header("Cache-Control","no-store")
+	ctx.Status(http.StatusNoContent)
 }

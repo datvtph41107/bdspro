@@ -2,16 +2,17 @@ package oauth
 
 import "context"
 
-type handlerKey struct{}
+type browserKey struct{}
 
-// Browser protocol state is app-local; no global handler registry.
-func WithHandler(ctx context.Context, h *Handler) context.Context {
+// Browser configuration is bound to the serving app's request and never
+// obtained from a mutable global Handler registry.
+func WithBrowser(ctx context.Context,b *Browser) context.Context {
 	if ctx==nil {panic("browser: nil request context")}
-	if h==nil {return ctx}
-	return context.WithValue(ctx,handlerKey{},h)
+	if b==nil {return ctx}
+	return context.WithValue(ctx,browserKey{},b)
 }
-func FromContext(ctx context.Context) *Handler {
+func FromContext(ctx context.Context) *Browser {
 	if ctx==nil{return nil}
-	h,_:=ctx.Value(handlerKey{}).(*Handler)
-	return h
+	b,_:=ctx.Value(browserKey{}).(*Browser)
+	return b
 }
