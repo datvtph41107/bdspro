@@ -29,7 +29,6 @@ func init() {
 	})
 }
 
-
 func TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
@@ -64,7 +63,6 @@ func TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods(t *testing.T
 		t.Fatalf("status=%d order=%v want=%v", w.Code, steps, want)
 	}
 }
-
 
 func TestRegisteredRouterAfterRoutingPreMiddlewareRunsBeforeNormalScopes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -110,7 +108,6 @@ func TestRegisteredRouterAfterRoutingPreMiddlewareRunsBeforeNormalScopes(t *test
 	}
 }
 
-
 func TestAfterRoutingRegisteredTypedHandlerRejectsBadSignatureEarly(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	m := NewRouter(gin.New())
@@ -121,7 +118,6 @@ func TestAfterRoutingRegisteredTypedHandlerRejectsBadSignatureEarly(t *testing.T
 	}()
 	m.AfterRouting(func(*typedHTTPContext) error { return nil })
 }
-
 
 func TestRegisteredTypedRouterRejectsNilSecurityGuardsAtRegistration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -188,7 +184,6 @@ func TestRegisteredTypedRouterRejectsNilSecurityGuardsAtRegistration(t *testing.
 	}
 }
 
-
 func TestRegisteredTypedRouterRejectsDuplicateHTTPContinuation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
@@ -219,7 +214,6 @@ func TestRegisteredTypedRouterRejectsDuplicateHTTPContinuation(t *testing.T) {
 }
 
 type ingressTraceKey struct{}
-
 
 func TestRegisteredHTTPMiddlewareProviderCompiledOnceForRepeatedRequests(t *testing.T) {
 	gin.SetMode(gin.TestMode)
