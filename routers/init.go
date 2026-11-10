@@ -9,8 +9,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/web"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/common"
-	appctx "github.com/datvtph41107/bdspro/services/context"
-	"github.com/datvtph41107/bdspro/services/mail"
+		"github.com/datvtph41107/bdspro/services/mail"
 	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -33,7 +32,7 @@ func NormalRoutes() *web.Router {
 	r := web.NewRouter()
 	router := r.GinEngine()
 	router.Use(common.ProtocolMiddlewares()...)
-	router.Use(security.RequestMonitor(), appctx.RequestIngress())
+	router.Use(security.RequestMonitor(), common.RequestIngress())
 	r.Mount("/", apiv1.Routes())
 	return r
 }
