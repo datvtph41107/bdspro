@@ -96,6 +96,14 @@ Do not equate progress through P04's partial user-service refactor with P01 comp
 - No generic Router, no legacy typed/Gin action compiler, no misleading duplicate context source, true pre/post route separation, CI final HEAD green.
 - Only then mark P01 **ACCEPTED** and proceed to P02.
 
+## P01 incremental source patch after documentation creation
+
+- Gitea `modules/web/handler.go`'s `responseWriter.Hijack` forwards to the underlying `http.Hijacker`, returning `http.ErrNotSupported` otherwise.
+- BDSPro now implements the same capability at `modules/web/handler.go`; tests in `modules/web/handler_test.go` verify forwarding, unsupported writer, and committed status on an implicit body write.
+- Source commits: `1c17e6e7` (implementation), `79b67c14` (tests). This is a **small part of P01**, NOT sufficient to close P01.
+- GitHub Actions run for code/test commit `79b67c14`: https://github.com/datvtph41107/bdspro/actions/runs/42754777539. It was queued when checked; refresh to determine final result.
+- Verified earlier pre-document code `9579336f` CI **succeeded** at https://github.com/datvtph41107/bdspro/actions/runs/42753671358; newer documentation and writer commits require their own CI.
+
 ## Suggested acceptance commands in a compatible Go 1.27.3 environment
 
 ~~~sh
