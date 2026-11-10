@@ -140,6 +140,22 @@ func hasResponseBeenWritten(args []reflect.Value) bool {
 	return false
 }
 
+// shouldStopContinuation preserves Gin's Abort semantics at the single
+// typed-handler bridge. Gitea's HTTP actions stop after response commitment;
+// Gin can also deliberately abort without writing a response. Both conditions
+// must stop downstream actions, or a denied route may continue by accident.
+func shouldStopContinuation(args []reflect.Value) bool {
+	if hasResponseBeenWritten(args) {
+		return true
+	}
+	for _, arg := range args {
+		if state, ok := arg.Interface().(interface{ IsAborted() bool }); ok && state.IsAborted() {
+			return true
+		}
+	}
+	return false
+}
+
 type middlewareProvider = func(next http.Handler) http.Handler
 
 // executeMiddlewaresHandler composes providers in reverse so the first
@@ -178,7 +194,7 @@ func toHandlerProvider(handler any) middlewareProvider {
 			}
 			args := prepareHandleArgsIn(resp, req, typ)
 			fn.Call(args)
-			if next != nil && !hasResponseBeenWritten(args) {
+			if next != nil && !shouldStopContinuation(args) {
 				next.ServeHTTP(resp, req)
 			}
 		})
