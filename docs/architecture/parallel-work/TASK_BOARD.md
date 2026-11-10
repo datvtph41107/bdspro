@@ -60,6 +60,13 @@
 - **P05 remains CLOSED** until G5 combined transaction consumers, session TOCTOU, integration tests and final-HEAD CI are accepted. B remains available only for evidence-backed model defect fixes and transaction contract review.
 - Current critical blocker remains Chat A Router/API compile/cutover and Chat 0 stacked [PR #222](https://github.com/datvtph41107/bdspro/pull/222); keep PR #220/#221 untouched while Chat 0 performs integration.
 
+## Chat A final cutover handoff / coordinator ingress integration — 2026-11-10
+
+- **Chat A PR #218** independently refetched at **HEAD `46dfc9e4d5b0c0dacd3ca47359ed90d88d32842f`**, exact [CI 42797385297](https://github.com/datvtph41107/bdspro/actions/runs/42797385297) completed **SUCCESS**. Source `modules/web/router.go` has non-generic `Router`, `NewRouter(*gin.Engine)`, `WrapIngress() http.Handler`; `routers/api/v1/api.go::Routes(*gin.Engine,Dependencies) *web.Router`. No generic `Router[T]` in canonical Router implementation. P01 source delivered, not yet overall G6 ACCEPT.
+- **G2 five fixtures exception:** Chat 0 directly compared `33bb3c68` → `46dfc9e4` changes to `routers/api/v1/organization_context_test.go`, `org/{org_validation,team,team_invite}_test.go`, `user/me_test.go`; approved/closed narrowly scoped [`A-P01.7-FIXTURES-20261110`](./LEASE_REGISTRY.md). This does **not** grant new API test or services/user write permission.
+- **PR #222 coordinator integration** was advanced from A old base to final A HEAD via two-parent merge commit **`b1cb51c47f4f0dc1c1b19a808f560fa1bf6d0f32`**, retaining coordinator changes and all A source. PR #222 base now `46dfc9e4`; its diff against A is **only** `routers/{init,app}.go` and `routers/app_ingress_test.go`; no duplicate Router/Matcher. [Actions 42799499986](https://github.com/datvtph41107/bdspro/actions/runs/42799499986) was **IN PROGRESS** when recorded; do not infer success from A's earlier CI.
+- **Remaining G3/G5/G6:** verify merged HEAD in CI/HTTP smoke; CORS/pre-matcher execution, 404/405/HEAD, trusted proxies, request-local APIContext, Auth/OAuth/session/CSRF and panic/cancellation; independent review historical `services/user/**` against B transaction contract. Do not merge #218 or #222 to dev until gate decision.
+
 ## Guard script independent verification
 
 `tools/parallel/check-owned-paths.sh` at corrected `f631ad54` was manually syntax-checked with `bash -n` and behavior-tested against a **temporary local Git repository** using the matching script text:
