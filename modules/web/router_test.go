@@ -216,3 +216,42 @@ func TestAfterRoutingRejectsNilMiddleware(t *testing.T) {
 	}()
 	m.AfterRouting(nil)
 }
+
+func TestAfterRoutingSupportsTypedMiddleware(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	m := NewRouter[*providerTestContext](engine.Group(""), func(c *gin.Context) *providerTestContext {
+		if existing, ok := c.Get("context"); ok {
+			return existing.(*providerTestContext)
+		}
+		value := &providerTestContext{transport: c}
+		c.Set("context", value)
+		return value
+	})
+	var calls []string
+	m.AfterRouting(func(ctx *providerTestContext) {
+		calls = append(calls, "after")
+	}, func(c *gin.Context) {
+		calls = append(calls, "gin")
+		c.Next()
+	})
+	m.Get("/typed", func(*providerTestContext) {
+		calls = append(calls, "action")
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/typed", nil))
+	if w.Code != http.StatusOK || !reflect.DeepEqual(calls, []string{"after", "gin", "action"}) {
+		t.Fatalf("typed post-routing middleware order=%v status=%d", calls, w.Code)
+	}
+}
+
+func TestAfterRoutingRejectsUnsupportedSignature(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	m := NewRouter[*gin.Context](gin.New().Group(""), func(c *gin.Context) *gin.Context { return c })
+	defer func() {
+		if recover() == nil {
+			t.Fatal("unsupported post-routing signature was accepted")
+		}
+	}()
+	m.AfterRouting(func(_ int) {})
+}
