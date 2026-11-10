@@ -22,7 +22,7 @@ func (h *Handler) ListAuthorizations(c *gin.Context) {
 		})
 	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, gin.H{"authorizations": out})
+	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"authorizations": out})
 }
 
 // RevokeAuthorization invalidates credentials for the signed-in account only.

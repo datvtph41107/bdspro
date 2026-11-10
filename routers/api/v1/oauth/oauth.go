@@ -51,7 +51,7 @@ func clientResponse(client db.OauthClient) gin.H {
 func failure(c *gin.Context, status int, code string) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Pragma", "no-cache")
-	c.JSON(status, gin.H{"error": code})
+	appctx.GetAPIContext(c).JSON(status, gin.H{"error": code})
 }
 
 func serviceFailure(c *gin.Context, err error) {
@@ -81,7 +81,7 @@ func (h *Handler) CreateClient(c *gin.Context) {
 		serviceFailure(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, clientResponse(client))
+	appctx.GetAPIContext(c).JSON(http.StatusCreated, clientResponse(client))
 }
 
 func (h *Handler) ListClients(c *gin.Context) {
@@ -94,7 +94,7 @@ func (h *Handler) ListClients(c *gin.Context) {
 	for _, client := range clients {
 		out = append(out, clientResponse(client))
 	}
-	c.JSON(http.StatusOK, gin.H{"clients": out})
+	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"clients": out})
 }
 
 func (h *Handler) DeleteClient(c *gin.Context) {
@@ -181,7 +181,7 @@ func (h *Handler) AuthorizePreview(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	c.Header("Referrer-Policy", "no-referrer")
 	c.Header("X-Frame-Options", "DENY")
-	c.JSON(http.StatusOK, gin.H{
+	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{
 		"client_id": client.ID.String(), "name": client.Name,
 		"redirect_uri": client.RedirectUri, "scope": request.Scope,
 		"consent_required": true, "consent_version": version, "consent_proof": proof,
@@ -271,7 +271,7 @@ func (h *Handler) Token(c *gin.Context) {
 	}
 	c.Header("Cache-Control", "no-store")
 	c.Header("Pragma", "no-cache")
-	c.JSON(http.StatusOK, result)
+	appctx.GetAPIContext(c).JSON(http.StatusOK, result)
 }
 
 func (h *Handler) Revoke(c *gin.Context) {
@@ -328,7 +328,7 @@ func (h *Handler) UserInfo(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	// The sole current OAuth scope, profile:read, grants a subject identifier;
 	// contact data requires a separate explicit scope and consent policy.
-	c.JSON(http.StatusOK, gin.H{"sub": account.ID})
+	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"sub": account.ID})
 }
 
 // Do not disguise a failed PostgreSQL lookup as a rejected OAuth credential.
