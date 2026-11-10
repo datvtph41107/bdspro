@@ -214,6 +214,20 @@ func (r *Router[T]) getPattern(path string) string {
 	return strings.TrimSuffix(pattern, "/")
 }
 
+// compileActions selects the registered net/http typed handler contract
+// when available. Legacy Gin-only test contexts use the compatibility path;
+// normal APIContext routes use the package-level provider from handler.go.
+func (r *Router[T]) compileActions(actions []func(T)) []gin.HandlerFunc {
+	if _, registered := responseStatusProviders[reflect.TypeFor[T]()]; !registered {
+		return r.handlers(actions)
+	}
+	out := make([]gin.HandlerFunc, 0, len(actions))
+	for _, action := range actions {
+		out = append(out, ginHandlerProvider(toHandlerProvider(action)))
+	}
+	return out
+}
+
 // Methods compiles the route-scoped middleware chain during registration.
 // Routing order: AfterRouting -> group guards -> endpoint actions.
 // Gin is still the only route matcher and executor.
@@ -224,9 +238,9 @@ func (r *Router[T]) Methods(method, path string, actions ...func(T)) {
 	handlers := make([]gin.HandlerFunc, 0, len(r.afterRouting)+len(r.curMiddlewares)+len(actions))
 	handlers = append(handlers, r.afterRouting...)
 	if len(r.curMiddlewares) > 0 {
-		handlers = append(handlers, r.handlers(r.curMiddlewares)...)
+		handlers = append(handlers, r.compileActions(r.curMiddlewares)...)
 	}
-	handlers = append(handlers, r.handlers(actions)...)
+	handlers = append(handlers, r.compileActions(actions)...)
 	pattern := r.getPattern(path)
 	// Gitea permits comma-separated method registration at the canonical
 	// Methods boundary. Compile the handler chain once for every method.
