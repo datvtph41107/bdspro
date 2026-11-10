@@ -9,23 +9,23 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 )
 
-// actingUser resolves the middleware-verified actor and request-scoped
-// database capability. Neither JWT claims nor HTTP handlers grant writes.
-func actingUser(ctx context.Context) (auth_model.Actor, db.Store, error) {
+// actingUser resolves the middleware-verified actor; it does not open or
+// select a SQL executor. The caller's read/write workflow owns DB access.
+func actingUser(ctx context.Context) (auth_model.Actor, error) {
 	actor, ok := auth_model.ActorFromContext(ctx)
 	if !ok {
-		return auth_model.Actor{}, nil, auth_model.ErrSessionUnavailable
+		return auth_model.Actor{}, auth_model.ErrSessionUnavailable
 	}
-	store, err := db.StoreFromContext(ctx)
-	if err != nil {
-		return auth_model.Actor{}, nil, err
-	}
-	return actor, store, nil
+	return actor, nil
 }
 
 // GetAuthenticatedUser loads the currently signed-in account projection.
 func GetAuthenticatedUser(ctx context.Context) (*account_model.Profile, error) {
-	actor, store, err := actingUser(ctx)
+	actor, err := actingUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	store, err := db.StoreFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
