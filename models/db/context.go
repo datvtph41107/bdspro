@@ -38,6 +38,7 @@ var (
 	ErrStoreMissing        = errors.New("db: store missing from context")
 	ErrTransactionRequired = errors.New("db: transaction required")
 	ErrNestedTransaction   = errors.New("db: nested transaction context has no owner")
+	ErrRawTransactionInSQLC = errors.New("db: raw transaction cannot nest inside SQLC transaction")
 )
 
 // WithStore is called by the request/worker/test entrypoint, not by each model
