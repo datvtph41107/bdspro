@@ -386,3 +386,44 @@ func TestWithTxNarrowTransactionerUsesOneOwner(t *testing.T) {
 		t.Fatalf("nested result=%d err=%v owner=%+v", result, err, owner)
 	}
 }
+
+func TestStoreFromContextRejectsUnboundStoreInsideTransaction(t *testing.T) {
+	owner := &contextTestStore{}
+	ctx := WithStore(context.Background(), owner)
+	if got, err := StoreFromContext(ctx); err != nil || got != owner {
+		t.Fatalf("ordinary context lost its original store: got=%p err=%v", got, err)
+	}
+	var escaped context.Context
+	err := WithTx(ctx, func(txCtx context.Context) error {
+		escaped = txCtx
+		got, inner := StoreFromContext(txCtx)
+		if got != nil || !errors.Is(inner, ErrTxStoreUnavailable) {
+			t.Fatalf("unbound pool store was exposed in transaction: got=%v err=%v", got, inner)
+		}
+		return nil // Ignored unsafe DB access must still poison outer commit.
+	})
+	if !errors.Is(err, ErrTxStoreUnavailable) || owner.committed || owner.transactions != 1 {
+		t.Fatalf("transaction should not commit after unbound Store request: err=%v owner=%+v", err, owner)
+	}
+	if got, err := StoreFromContext(escaped); got != nil || !errors.Is(err, ErrTransactionClosed) {
+		t.Fatalf("expired owner was exposed through StoreFromContext: got=%v err=%v", got, err)
+	}
+}
+
+func TestSQLStoreWithoutPoolCannotBeginIndependentTransaction(t *testing.T) {
+	// A StoreFromContext(txCtx) view has an executor but no pool. A caller
+	// which loses txCtx must not implicitly start an unrelated transaction.
+	view := &SQLStore{Queries: &Queries{}}
+	if err := view.ExecTx(context.Background(), func(*Queries) error {
+		t.Fatal("transaction view started an independent executor")
+		return nil
+	}); !errors.Is(err, ErrTransactionClosed) {
+		t.Fatalf("pool-less view opened transaction: %v", err)
+	}
+	if err := view.ExecTxRaw(context.Background(), func(pgx.Tx) error {
+		t.Fatal("transaction view started an independent raw transaction")
+		return nil
+	}); !errors.Is(err, ErrTransactionClosed) {
+		t.Fatalf("pool-less view opened raw transaction: %v", err)
+	}
+}
