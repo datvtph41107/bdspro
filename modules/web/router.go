@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
@@ -12,9 +13,11 @@ import (
 // Router maps typed HTTP actions into Gin at registration time. Gin remains
 // the only middleware executor. Do not mutate this router after startup.
 type Router[T any] struct {
-	group        *gin.RouterGroup
-	getContext   func(*gin.Context) T
-	afterRouting []gin.HandlerFunc
+	group          *gin.RouterGroup
+	getContext     func(*gin.Context) T
+	afterRouting   []gin.HandlerFunc
+	curGroupPrefix string
+	curMiddlewares []func(T)
 }
 
 func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *Router[T] {
@@ -44,22 +47,46 @@ func (r *Router[T]) AfterRouting(middlewares ...gin.HandlerFunc) {
 	r.afterRouting = append(r.afterRouting, middlewares...)
 }
 
-// Group follows Gitea's Group(path, func() {...}, guards...) declaration.
-// Its mutable group state exists only during single-threaded route registration.
+// Group scopes route patterns and middlewares at registration, as in Gitea.
+// Gin receives the compiled chain at Methods; it never owns a second scope
+// that would reorder group guards ahead of AfterRouting.
 func (r *Router[T]) Group(path string, register func(), guards ...func(T)) {
-	parent := r.group
-	r.group = parent.Group(path, r.handlersIfAny(guards)...)
-	defer func() { r.group = parent }()
+	previousPrefix := r.curGroupPrefix
+	previousMiddlewares := r.curMiddlewares
+	r.curGroupPrefix += path
+	r.curMiddlewares = append(r.curMiddlewares, guards...)
+	defer func() {
+		r.curGroupPrefix = previousPrefix
+		r.curMiddlewares = previousMiddlewares
+	}()
 	register()
 }
 
-// Methods is the one HTTP method registration boundary. Gin owns route
-// matching and execution; this facade owns conversion of typed API actions.
+func (r *Router[T]) getPattern(path string) string {
+	pattern := r.curGroupPrefix + path
+	if !strings.HasPrefix(pattern, "/") {
+		pattern = "/" + pattern
+	}
+	if pattern == "/" {
+		return pattern
+	}
+	return strings.TrimSuffix(pattern, "/")
+}
+
+// Methods compiles the route-scoped middleware chain during registration.
+// Routing order: AfterRouting -> group guards -> endpoint actions.
+// Gin is still the only route matcher and executor.
 func (r *Router[T]) Methods(method, path string, actions ...func(T)) {
-	handlers := make([]gin.HandlerFunc, 0, len(r.afterRouting)+len(actions))
+	if len(actions) == 0 {
+		panic("web: route requires an action")
+	}
+	handlers := make([]gin.HandlerFunc, 0, len(r.afterRouting)+len(r.curMiddlewares)+len(actions))
 	handlers = append(handlers, r.afterRouting...)
+	if len(r.curMiddlewares) > 0 {
+		handlers = append(handlers, r.handlers(r.curMiddlewares)...)
+	}
 	handlers = append(handlers, r.handlers(actions)...)
-	r.group.Handle(method, path, handlers...)
+	r.group.Handle(method, r.getPattern(path), handlers...)
 }
 
 func (r *Router[T]) Get(path string, actions ...func(T)) {
