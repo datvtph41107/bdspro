@@ -165,10 +165,8 @@ func Routes() *web.Router {
 		security.IPActiveFor(d.IPActive, ipactive.Login),
 		d.Auth.Login,
 	)
-	m.Get("/users/verify_email", appctx.GinActions(d.Auth.VerifyEmailPage)...)
-	m.Post("/users/verify_email", appctx.GinActions(
-		d.IPActive.For(ipactive.VerifyEmail), d.Auth.VerifyEmail,
-	)...)
+	m.Get("/users/verify_email", d.Auth.VerifyEmailPage)
+	m.Post("/users/verify_email", security.IPActiveFor(d.IPActive, ipactive.VerifyEmail), d.Auth.VerifyEmail)
 	m.Post("/users/verify_email/resend",
 		security.IPActiveFor(d.IPActive, ipactive.ResendVerificationEmail),
 		d.Auth.ResendVerificationEmail,
@@ -185,10 +183,8 @@ func Routes() *web.Router {
 		security.IPActiveFor(d.IPActive, ipactive.RequestPasswordReset),
 		d.Auth.RequestPasswordReset,
 	)
-	m.Get("/users/password/reset", appctx.GinActions(d.Auth.PasswordResetPage)...)
-	m.Post("/users/password/reset", appctx.GinActions(
-		d.IPActive.For(ipactive.ConfirmPasswordReset), d.Auth.ResetPassword,
-	)...)
+	m.Get("/users/password/reset", d.Auth.PasswordResetPage)
+	m.Post("/users/password/reset", security.IPActiveFor(d.IPActive, ipactive.ConfirmPasswordReset), d.Auth.ResetPassword)
 
 	if d.Authorization != nil {
 		preview := d.Authorization.AuthorizePreview

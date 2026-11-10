@@ -1,7 +1,9 @@
 package user
 
 import (
+	"errors"
 	"net/http"
+	"unicode/utf8"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +15,6 @@ import (
 	"github.com/datvtph41107/bdspro/services/mail"
 	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/datvtph41107/bdspro/templates"
-	"github.com/gin-gonic/gin"
 )
 
 // AuthHandler handles HTTP input and output; authentication operations belong to AuthService.
@@ -234,39 +235,47 @@ func (h *AuthHandler) RequestPasswordReset(ctx *appctx.APIContext) {
 }
 
 // GET is a non-consuming preview; passwords are submitted only with POST.
-func (h *AuthHandler) PasswordResetPage(c *gin.Context) {
-	token := c.Query("token")
+func (h *AuthHandler) PasswordResetPage(ctx *appctx.APIContext, w http.ResponseWriter) {
+	token := ctx.CurrentRequest().URL.Query().Get("token")
 	if len(token) != 43 {
-		appctx.Reject(c, http.StatusBadRequest, "invalid_reset_token", "invalid or expired reset token")
+		ctx.APIError(http.StatusBadRequest, "invalid_reset_token", "invalid or expired reset token")
 		return
 	}
-	c.Header("Cache-Control", "no-store")
-	c.Header("Referrer-Policy", "no-referrer")
-	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	_ = templates.PasswordResetPage.Execute(c.Writer, token)
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Header("Referrer-Policy", "no-referrer")
+	ctx.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
+	ctx.Header("Content-Type", "text/html; charset=utf-8")
+	_ = templates.PasswordResetPage.Execute(w, token)
 }
 
-func (h *AuthHandler) ResetPassword(c *gin.Context) {
+func (h *AuthHandler) ResetPassword(ctx *appctx.APIContext) {
 	var req structs.PasswordResetConfirmRequest
 	var err error
-	if strings.HasPrefix(c.ContentType(), "application/json") {
-		err = c.ShouldBindJSON(&req)
+	if strings.HasPrefix(ctx.CurrentRequest().Header.Get("Content-Type"), "application/json") {
+		err = ctx.BindJSON(&req)
 	} else {
-		err = c.ShouldBind(&req)
+		var values = ctx.CurrentRequest()
+		if err = values.ParseForm(); err == nil {
+			req.Token = values.FormValue("token")
+			req.Password = values.FormValue("password")
+			length := utf8.RuneCountInString(req.Password)
+			if req.Token == "" || length < 8 || length > 72 {
+				err = errors.New("invalid reset form")
+			}
+		}
 	}
 	if err != nil {
-		appctx.Invalid(c, err)
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "password_reset_confirm", req.Token, 20, 6, time.Hour) {
+	if !h.limiter.AllowAPI(ctx, "password_reset_confirm", req.Token, 20, 6, time.Hour) {
 		return
 	}
-	if err := h.auth.ResetPassword(c.Request.Context(), req.Token, req.Password); err != nil {
-		appctx.Error(c, err)
+	if err := h.auth.ResetPassword(ctx, req.Token, req.Password); err != nil {
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.Status(http.StatusNoContent)
+	ctx.Status(http.StatusNoContent)
 }
 
 func (h *AuthHandler) ResendVerificationEmail(ctx *appctx.APIContext) {
@@ -288,33 +297,40 @@ func (h *AuthHandler) ResendVerificationEmail(ctx *appctx.APIContext) {
 }
 
 // VerifyEmailPage is safe for mail scanners: GET never consumes a token.
-func (h *AuthHandler) VerifyEmailPage(c *gin.Context) {
-	var req structs.VerifyEmailQuery
-	if err := c.ShouldBindQuery(&req); err != nil {
-		appctx.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
+func (h *AuthHandler) VerifyEmailPage(ctx *appctx.APIContext, w http.ResponseWriter) {
+	values := ctx.CurrentRequest().URL.Query()
+	id, err := strconv.ParseInt(values.Get("email_id"), 10, 64)
+	if err != nil || id <= 0 || values.Get("secret_code") == "" {
+		ctx.APIError(http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
 	}
-	c.Header("Cache-Control", "no-store")
-	c.Header("Referrer-Policy", "no-referrer")
-	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	_ = templates.VerifyEmailPage.Execute(c.Writer, req)
+	req := structs.VerifyEmailQuery{EmailID: id, SecretCode: values.Get("secret_code")}
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Header("Referrer-Policy", "no-referrer")
+	ctx.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'")
+	ctx.Header("Content-Type", "text/html; charset=utf-8")
+	_ = templates.VerifyEmailPage.Execute(w, req)
 }
 
-func (h *AuthHandler) VerifyEmail(c *gin.Context) {
-	var req structs.VerifyEmailQuery
-	if err := c.ShouldBind(&req); err != nil {
-		appctx.Reject(c, http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
+func (h *AuthHandler) VerifyEmail(ctx *appctx.APIContext) {
+	if err := ctx.CurrentRequest().ParseForm(); err != nil {
+		ctx.APIError(http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
 	}
-	if !h.limiter.Allow(c, "verify_email", strconv.FormatInt(req.EmailID, 10), 60, 10, time.Minute) {
+	values := ctx.CurrentRequest().Form
+	id, err := strconv.ParseInt(values.Get("email_id"), 10, 64)
+	if err != nil || id <= 0 || values.Get("secret_code") == "" {
+		ctx.APIError(http.StatusBadRequest, "invalid_verification_link", "invalid verification link")
 		return
 	}
-	if err := h.auth.VerifyEmail(c.Request.Context(), req.EmailID, req.SecretCode); err != nil {
-		appctx.Error(c, err)
+	if !h.limiter.AllowAPI(ctx, "verify_email", strconv.FormatInt(id, 10), 60, 10, time.Minute) {
 		return
 	}
-	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"verified": true})
+	if err := h.auth.VerifyEmail(ctx, id, values.Get("secret_code")); err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
+	ctx.JSON(http.StatusOK, map[string]any{"verified": true})
 }
 
 // Renew uses the same refresh-session service and Redis admission as before,
