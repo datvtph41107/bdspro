@@ -10,6 +10,10 @@ type storeContextKey struct{}
 type queriesContextKey struct{}
 type txStateContextKey struct{}
 
+// A recovered panic in a nested operation must not allow its parent to commit.
+// The original panic is re-thrown; this error is only the rollback-only cause.
+var errTransactionPanicked = errors.New("db: nested transaction callback panicked")
+
 // transactionState ensures an inner transaction error poisons the outer commit
 // even if its caller ignores the returned error. It is request-local.
 type transactionState struct {
@@ -87,6 +91,14 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 			state.fail(err)
 			return err
 		}
+		// A caller may recover an inner panic and accidentally return nil from
+		// the outer callback. Preserve the panic AND poison the shared owner.
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				state.fail(errTransactionPanicked)
+				panic(recovered)
+			}
+		}()
 		err := fn(ctx)
 		state.fail(err)
 		state.fail(ctx.Err())
