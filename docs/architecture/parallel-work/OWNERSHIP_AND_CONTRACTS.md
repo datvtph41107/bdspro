@@ -41,6 +41,31 @@ There is legitimate coupling: the HTTP context's `context.Context` carries DB/se
 - D may **document** new desired route signatures now, but cannot refactor `routers/api/v1/**` concurrently with A's router call-site migration. Integration coordinator grants a serialized edit window when contract is accepted.
 - A may request an explicit lease to migrate D's route declarations **only for compilation** and must not refactor Auth/OAuth behavior under that lease.
 
+### P01.7 cutover — FROZEN Router/ingress interface (Chat 0, 2026-11-10)
+
+**Lease `A-P01.7-API-20261110` is APPROVED** for `routers/api/v1/api.go` only, starting at PR #218 A HEAD `33bb3c68`. Exact allowed modifications, duration and historical out-of-owner dispositions are in [LEASE_REGISTRY.md](./LEASE_REGISTRY.md). The Chat 0 implementation is stacked [PR #222](https://github.com/datvtph41107/bdspro/pull/222) based on A; it owns `routers/init.go` and `routers/app.go`. **Neither PR is accepted or merge-ready merely because the interface is frozen.**
+
+```go
+// modules/web — Chat A implementation, no generic Router[T].
+func NewRouter(engine *gin.Engine) *Router
+func (r *Router) BeforeRouting(middlewares ...any)
+func (r *Router) AfterRouting(middlewares ...any)
+func (r *Router) Group(path string, register func(), guards ...any)
+func (r *Router) Methods(methods, path string, actions ...any)
+func (r *Router) WrapIngress() http.Handler // wraps the same captured engine, exactly once
+
+// routers/api/v1 — sole cross-lane file leased to Chat A.
+func Routes(root *gin.Engine, d Dependencies) *web.Router
+
+// routers — sole coordinator wiring and process HTTP entrypoint.
+func NormalRoutes(server *Server) *gin.Engine // preserves existing route/test API
+func (server *Server) Handler() http.Handler // CORS(singleRouter.WrapIngress())
+```
+
+**Runtime invariants:** one Gin matcher, one HTTP provider compiler, one APIContext/request, no legacy/Gin-only secondary dispatch, no new Router/adapter. `BeforeRouting` executes outside/before Gin routing for matching and unmatched/405/HEAD requests, while CORS remains the outer security/protocol middleware and Gin trusted-proxy policy is unchanged. `AfterRouting` can access resolved path parameters. Preserve exact route paths, HTTP methods, public response/status, signed+live-session authority, OIDC/OAuth cookies/CSRF, IPActive, cancellation and shutdown.
+
+**Cutover dependency:** coordinator PR #222 intentionally does not compile against pre-cutover generic Router. It must be rebased/refreshed on Chat A's final non-generic implementation, then tested on final HEAD. This is one coordinated cutover, **not** permission to introduce a compatibility shim or merge a red integration PR.
+
 ### C ↔ A/D: process/bootstrap
 - C may design and implement settings/logging/cache/queue/graceful process components in owned files.
 - `routers/init.go` and dependency constructors are shared integration points; changes require coordinator-owned integration PR. C proposes a constructor/initializer contract and tests, does not inject it into A's live router branch.
