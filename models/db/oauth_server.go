@@ -341,4 +341,3 @@ func (s *SQLStore) RevokeOAuthBearer(ctx context.Context, clientID uuid.UUID, ha
 		return err
 	})
 }
-
