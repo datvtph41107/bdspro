@@ -219,3 +219,43 @@ func TestTypedStatusSelectionWithoutAbortContinues(t *testing.T) {
 		t.Fatalf("uncommitted typed status stopped continuation: reached=%v status=%d", reached, response.Code)
 	}
 }
+
+func TestBeforeRoutingAndTypedAPIContextShareOneCurrentRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	router := web.NewRouter[*APIContext](engine.Group(""), GetAPIContext)
+	router.BeforeRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			scoped := req.WithContext(context.WithValue(req.Context(), typedIngressKey{}, "before-routing"))
+			scoped.URL.Path = "/orgs/42"
+			next.ServeHTTP(w, scoped)
+		})
+	})
+	router.AfterRouting(APIContexter())
+	cleanupCount := 0
+	router.Get("/orgs/:id", func(api *APIContext) {
+		if api.Value(typedIngressKey{}) != "before-routing" {
+			t.Errorf("APIContext lost BeforeRouting context value: %v", api.Value(typedIngressKey{}))
+		}
+		if api.CurrentRequest().URL.Path != "/orgs/42" {
+			t.Errorf("APIContext observed stale ingress path %q", api.CurrentRequest().URL.Path)
+		}
+		if GetAPIContextFromRequest(api.CurrentRequest()) != api {
+			t.Error("BeforeRouting created a second APIContext or lost the request-local provider")
+		}
+		if id, err := api.PositivePathID("id"); err != nil || id != 42 {
+			t.Errorf("Gin route params after ingress rewrite: id=%d err=%v", id, err)
+		}
+		scope := reqctx.FromContext(api.CurrentRequest().Context())
+		if scope == nil {
+			t.Fatal("AfterRouting did not establish a request-local scope")
+		}
+		scope.AddCleanup(func() { cleanupCount++ })
+		api.Status(http.StatusNoContent)
+	})
+	w := httptest.NewRecorder()
+	router.WrapIngress(engine).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/incoming", nil))
+	if w.Code != http.StatusNoContent || cleanupCount != 1 {
+		t.Fatalf("ingress/typed context lifecycle status=%d cleanup=%d", w.Code, cleanupCount)
+	}
+}
