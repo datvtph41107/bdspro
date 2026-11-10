@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -485,5 +486,81 @@ func TestAfterRoutingPreservesWrappedHTTPResponseWriter(t *testing.T) {
 	if observed == nil || observed.status != http.StatusCreated ||
 		observed.writtenBytes == 0 || w.Code != http.StatusCreated {
 		t.Fatalf("Gin bypassed HTTP wrapper: observed=%+v code=%d", observed, w.Code)
+	}
+}
+
+type typedHTTPContextKey struct{}
+
+type typedHTTPContext struct {
+	writer http.ResponseWriter
+	status int
+}
+
+func (ctx *typedHTTPContext) WrittenStatus() int { return ctx.status }
+
+func init() {
+	RegisterResponseStatusProvider[*typedHTTPContext](func(req *http.Request) web_types.ResponseStatusProvider {
+		return req.Context().Value(typedHTTPContextKey{}).(*typedHTTPContext)
+	})
+}
+
+func TestAfterRoutingRegisteredTypedHTTPContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	hit := false
+	r.AfterRouting(
+		func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := &typedHTTPContext{writer: w}
+				next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), typedHTTPContextKey{}, ctx)))
+			})
+		},
+		func(ctx *typedHTTPContext) {
+			ctx.status = http.StatusForbidden
+			ctx.writer.WriteHeader(ctx.status)
+		},
+	)
+	r.Get("/typed-http", func(*gin.Context) { hit = true })
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/typed-http", nil))
+	if hit || w.Code != http.StatusForbidden {
+		t.Fatalf("typed HTTP provider did not terminate chain: hit=%v status=%d", hit, w.Code)
+	}
+}
+
+func TestRegisteredTypedHandlerRejectsReturnValueAtRegistration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := NewRouter[*gin.Context](gin.New().Group(""), func(c *gin.Context) *gin.Context { return c })
+	defer func() {
+		if recover() == nil {
+			t.Fatal("typed handler with a return value was accepted")
+		}
+	}()
+	r.AfterRouting(func(*typedHTTPContext) error { return nil })
+}
+
+func TestRegisteredTypedHandlerWithoutWriteContinues(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	var steps []string
+	r.AfterRouting(
+		func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := &typedHTTPContext{writer: w}
+				next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), typedHTTPContextKey{}, ctx)))
+			})
+		},
+		func(*typedHTTPContext) { steps = append(steps, "typed") },
+	)
+	r.Get("/continue-typed", func(c *gin.Context) {
+		steps = append(steps, "endpoint")
+		c.Status(http.StatusNoContent)
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/continue-typed", nil))
+	if w.Code != http.StatusNoContent || !reflect.DeepEqual(steps, []string{"typed", "endpoint"}) {
+		t.Fatalf("typed HTTP action did not continue: steps=%v status=%d", steps, w.Code)
 	}
 }
