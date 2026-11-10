@@ -60,4 +60,3 @@ func (r *Router[T]) Patch(path string, actions ...func(T)) {
 func (r *Router[T]) Delete(path string, actions ...func(T)) {
 	r.Methods(http.MethodDelete, path, actions...)
 }
-
