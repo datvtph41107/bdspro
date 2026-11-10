@@ -158,7 +158,12 @@ func setVerifiedSession(ctx *appctx.APIContext,session db.Session) {
 // Authenticate accepts either a verified bearer JWT or a verified browser
 // cookie. An explicitly bad Authorization header cannot fall back to cookie.
 func Authenticate(ctx *appctx.APIContext,w http.ResponseWriter) {
-	b,ok:=browser(ctx);if !ok{return}
+	b:=FromContext(ctx)
+	if b==nil {
+		appctx.Authenticate()(ctx)
+		if !ctx.IsAborted() { appctx.RequireSession()(ctx) }
+		return
+	}
 	if ctx.CurrentRequest().Header.Get("Authorization")!="" {
 		appctx.Authenticate()(ctx)
 		if ctx.IsAborted(){return}
@@ -179,7 +184,11 @@ func RequireBrowserSession(ctx *appctx.APIContext,w http.ResponseWriter) {
 }
 
 func AuthorizePreview(ctx *appctx.APIContext,w http.ResponseWriter) {
-	b,ok:=browser(ctx);if !ok{return}
+	b:=FromContext(ctx)
+	if b==nil {
+		api_oauth.AuthorizePreview(ctx)
+		return
+	}
 	sessionID,_:=ctx.Data[browserSessionKey].(string)
 	if sessionID=="" || !wantsHTML(ctx) {
 		api_oauth.AuthorizePreview(ctx)
@@ -230,7 +239,11 @@ func AuthorizePreview(ctx *appctx.APIContext,w http.ResponseWriter) {
 }
 
 func Authorize(ctx *appctx.APIContext,w http.ResponseWriter) {
-	b,ok:=browser(ctx);if !ok{return}
+	b:=FromContext(ctx)
+	if b==nil {
+		api_oauth.Authorize(ctx,w)
+		return
+	}
 	sessionID,_:=ctx.Data[browserSessionKey].(string)
 	if sessionID!="" {
 		if !validPOST(ctx,b)||
@@ -286,8 +299,11 @@ func Login(ctx *appctx.APIContext,w http.ResponseWriter) {
 	if !security.ThrottleFromContext(ctx).AllowAPI(ctx,"login",email,30,10,time.Minute){return}
 	result,err:=auth_service.FromContext(ctx).Login(ctx,email,password,req.UserAgent(),ctx.ClientIP())
 	if err!=nil {
-		if errors.Is(err,auth_model.ErrInvalidCredentials) {ctx.Status(http.StatusUnauthorized)}
-		else {ctx.Status(http.StatusServiceUnavailable)}
+		if errors.Is(err,auth_model.ErrInvalidCredentials) {
+			ctx.Status(http.StatusUnauthorized)
+		} else {
+			ctx.Status(http.StatusServiceUnavailable)
+		}
 		return
 	}
 	completeSessionLogin(ctx,w,b,result,next)
@@ -309,6 +325,14 @@ func completeSessionLogin(ctx *appctx.APIContext,w http.ResponseWriter,b *Browse
 	ctx.Header("Cache-Control","no-store")
 	ctx.Header("Referrer-Policy","no-referrer")
 	http.Redirect(w,ctx.CurrentRequest(),next,http.StatusSeeOther)
+}
+
+// RequireEnabled denies browser-only routes when this server has no browser
+// session configuration; generic OAuth authorization still accepts JWTs.
+func RequireEnabled(ctx *appctx.APIContext) {
+	if FromContext(ctx)==nil {
+		ctx.APIErrorNotFound()
+	}
 }
 
 func Logout(ctx *appctx.APIContext,w http.ResponseWriter) {
