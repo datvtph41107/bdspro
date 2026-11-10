@@ -19,6 +19,7 @@ func InitCfgProvider(filename string) (*ConfigProvider, error) {
 	}
 	return &ConfigProvider{file: f}, nil
 }
+
 // Lookup distinguishes a missing option from an explicitly empty INI key or
 // environment override. Use it for settings where an empty override is invalid.
 func (p *ConfigProvider) Lookup(section, key string) (string, bool) {
