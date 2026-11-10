@@ -69,6 +69,17 @@ func TxQueries(ctx context.Context) (*Queries, error) {
 	if !ok || q == nil {
 		return nil, ErrTransactionRequired
 	}
+	state, ok := ctx.Value(txStateContextKey{}).(*transactionState)
+	if !ok || state == nil {
+		return nil, ErrNestedTransaction
+	}
+	if err := state.failure(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		state.fail(err)
+		return nil, err
+	}
 	return q, nil
 }
 
