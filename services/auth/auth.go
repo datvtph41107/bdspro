@@ -593,7 +593,6 @@ func checkUnknownPassword(password string) {
 	_ = authcrypto.CheckPassword(password, dummyPasswordHash)
 }
 
-
 // boundedConnectionUserAgent preserves valid Unicode while respecting the
 // connection-history column's 2048-character constraint. Invalid UTF-8 and
 // PostgreSQL-disallowed NUL bytes must not turn valid login proofs into 500s.

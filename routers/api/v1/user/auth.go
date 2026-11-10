@@ -371,4 +371,3 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-
