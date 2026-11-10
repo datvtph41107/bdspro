@@ -48,9 +48,9 @@ func TestTeamPackageActionsRejectMalformedInputsWithoutDatabase(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			router := gin.New()
-			router.Use(appctx.APIContexter())
-			m := web.NewRouter(router)
+			m := web.NewRouter()
+			m.AfterRouting(appctx.APIContexter())
+			router := m.GinEngine()
 			m.Methods(tc.method, tc.pattern, tc.bind, tc.action)
 			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 			req.Header.Set("Content-Type", "application/json")
@@ -72,10 +72,11 @@ func TestListTeamsActionRejectsInvalidPaginationWithoutDatabase(t *testing.T) {
 		"/orgs/1/teams?page=999999999999999999999999999",
 	} {
 		t.Run(path, func(t *testing.T) {
-			router := gin.New()
-			router.GET("/orgs/:id/teams", appctx.Wrap(ListTeams))
+			m := web.NewRouter()
+			m.AfterRouting(appctx.APIContexter())
+			m.Get("/orgs/:id/teams", ListTeams)
 			response := httptest.NewRecorder()
-			router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+			m.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
 			if response.Code != http.StatusBadRequest {
 				t.Fatalf("status=%d want=400: %s", response.Code, response.Body.String())
 			}
