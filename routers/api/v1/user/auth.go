@@ -195,20 +195,22 @@ func (h *AuthHandler) ConfirmEmailLink(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
+// RequestPasswordReset owns only HTTP input/admission; non-enumerating reset
+// behavior remains in AuthService.
+func (h *AuthHandler) RequestPasswordReset(ctx *appctx.APIContext) {
 	var req structs.PasswordResetRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "password_reset", req.Email, 10, 3, time.Hour) {
+	if !h.limiter.AllowAPI(ctx, "password_reset", req.Email, 10, 3, time.Hour) {
 		return
 	}
-	if err := h.auth.RequestPasswordReset(c.Request.Context(), req.Email); err != nil {
-		appctx.Error(c, err)
+	if err := h.auth.RequestPasswordReset(ctx, req.Email); err != nil {
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.Status(http.StatusAccepted)
+	ctx.Status(http.StatusAccepted)
 }
 
 // GET is a non-consuming preview; passwords are submitted only with POST.
@@ -247,22 +249,22 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func (h *AuthHandler) ResendVerificationEmail(c *gin.Context) {
+func (h *AuthHandler) ResendVerificationEmail(ctx *appctx.APIContext) {
 	var req struct {
 		Email string `json:"email" binding:"required,email"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "verify_email_resend", req.Email, 10, 2, time.Hour) {
+	if !h.limiter.AllowAPI(ctx, "verify_email_resend", req.Email, 10, 2, time.Hour) {
 		return
 	}
-	if err := h.auth.ResendVerificationEmail(c.Request.Context(), req.Email); err != nil {
-		appctx.Error(c, err)
+	if err := h.auth.ResendVerificationEmail(ctx, req.Email); err != nil {
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.Status(http.StatusAccepted)
+	ctx.Status(http.StatusAccepted)
 }
 
 // VerifyEmailPage is safe for mail scanners: GET never consumes a token.
