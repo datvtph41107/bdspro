@@ -17,8 +17,8 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/datvtph41107/bdspro/modules/web"
+	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
@@ -203,9 +203,13 @@ func TestBrowserLoginConsentAndRevokedSession(t *testing.T) {
 	// Password verification and actual session creation are covered by the
 	// disposable-Postgres browser integration test, not a production login mock.
 	codec, err := authcrypto.NewBrowserSessionCodec(strings.Repeat("s", 32))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	token, err := codec.IssueCookie(store.session.ID.String(), time.Now(), store.session.ExpiresAt)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	sessionCookie := authcrypto.BrowserSessionCookie(token, true)
 	if !sessionCookie.Secure || !sessionCookie.HttpOnly || sessionCookie.Domain != "" {
 		t.Fatalf("unsafe browser cookie: %+v", sessionCookie)
@@ -318,7 +322,9 @@ func TestCompleteOIDCLoginIssuesBrowserSessionNotJWT(t *testing.T) {
 		t.Fatal(err)
 	}
 	browser, err := NewBrowser(Config{Codec: codec, PublicOrigin: browserTestOrigin, OIDCEnabled: true})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	r := web.NewRouter()
 	r.AfterRouting(appctx.APIContexter())
 	r.GinEngine().Use(func(c *gin.Context) {

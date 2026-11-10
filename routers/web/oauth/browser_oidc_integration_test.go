@@ -3,16 +3,16 @@ package oauth_test
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"strings"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -20,11 +20,11 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	"github.com/datvtph41107/bdspro/modules/web"
-	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
+	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -39,6 +39,7 @@ type oidcBrowserOAuthStore struct {
 	db.OAuthServerStore
 	client db.OauthClient
 }
+
 func (s *oidcBrowserOAuthStore) GetOAuthClient(_ context.Context, id uuid.UUID) (db.OauthClient, error) {
 	if id != s.client.ID {
 		return db.OauthClient{}, db.ErrOAuthClientMissing
@@ -51,12 +52,12 @@ func (s *oidcBrowserOAuthStore) GetOAuthConsentVersion(_ context.Context, _ int6
 func oidcOAuthForm(s *oidcBrowserOAuthStore) url.Values {
 	challenge := sha256.Sum256([]byte(strings.Repeat("x", 43)))
 	return url.Values{
-		"client_id": {s.client.ID.String()},
-		"redirect_uri": {s.client.RedirectUri},
-		"response_type": {"code"},
-		"scope": {"profile:read"},
-		"state": {"0123456789abcdef"},
-		"code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])},
+		"client_id":             {s.client.ID.String()},
+		"redirect_uri":          {s.client.RedirectUri},
+		"response_type":         {"code"},
+		"scope":                 {"profile:read"},
+		"state":                 {"0123456789abcdef"},
+		"code_challenge":        {base64.RawURLEncoding.EncodeToString(challenge[:])},
 		"code_challenge_method": {"S256"},
 	}
 }
@@ -74,7 +75,9 @@ func oidcRequest(t *testing.T, handler http.Handler, method, path string, cookie
 func oidcCookieNamed(t *testing.T, rec *httptest.ResponseRecorder, name string) *http.Cookie {
 	t.Helper()
 	for _, cookie := range rec.Result().Cookies() {
-		if cookie.Name == name { return cookie }
+		if cookie.Name == name {
+			return cookie
+		}
 	}
 	t.Fatalf("missing %s cookie from %v", name, rec.Result().Cookies())
 	return nil
