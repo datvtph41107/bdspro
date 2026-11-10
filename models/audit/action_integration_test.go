@@ -145,12 +145,12 @@ func TestAuditActionsTransactionalAcrossAuthAndTeam(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := q.CreateOrganizationMember(ctx, db.CreateOrganizationMemberParams{
-		OrganizationID: org.PartyID, PersonID: recipient.PersonID, Role: "member",
+		OrganizationID: org.ID, PersonID: recipient.PersonID, Role: "member",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	team, err := q.CreateTeamForOwner(ctx, db.CreateTeamForOwnerParams{
-		OrganizationID: org.PartyID, ActorAccountID: owner.ID,
+		OrganizationID: org.ID, ActorAccountID: owner.ID,
 		Name: "audit team", Description: "",
 	})
 	if err != nil {

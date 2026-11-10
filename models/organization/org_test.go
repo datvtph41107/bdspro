@@ -70,19 +70,19 @@ func TestCreateOrganizationAndOwnerPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.Name != name || created.PartyID <= 0 {
+	if created.Name != name || created.ID <= 0 {
 		t.Fatalf("created %+v", created)
 	}
-	members, err := organization.GetOrgMembers(ctx, store, owner.ID, created.PartyID)
+	members, err := organization.GetOrgMembers(ctx, store, owner.ID, created.ID)
 	if err != nil || len(members) != 1 || members[0].PersonID != owner.PersonID || members[0].Role != "owner" {
 		t.Fatalf("owner membership %+v err=%v", members, err)
 	}
 
-	_, err = organization.UpdateOrganization(ctx, store, outsider.ID, created.PartyID, "tampered")
+	_, err = organization.UpdateOrganization(ctx, store, outsider.ID, created.ID, "tampered")
 	if !errors.Is(err, organization.ErrOrganizationOwnerRequired) {
 		t.Fatalf("outsider update: %v", err)
 	}
-	visible, err := organization.GetForAccount(ctx, store, owner.ID, created.PartyID)
+	visible, err := organization.GetForAccount(ctx, store, owner.ID, created.ID)
 	if err != nil || visible.Organization.Name != name {
 		t.Fatalf("unauthorized mutation persisted: %+v err=%v", visible, err)
 	}

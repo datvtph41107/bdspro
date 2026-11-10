@@ -59,11 +59,11 @@ func TestOrganizationCreateWorkflowPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.Name != "Workflow owner" || created.PartyID <= 0 {
+	if created.Name != "Workflow owner" || created.ID <= 0 {
 		t.Fatalf("unexpected organization: %+v", created)
 	}
 	member, err := store.ListOrganizationMembersForOwner(ctx, db.ListOrganizationMembersForOwnerParams{
-		OrganizationID: created.PartyID,
+		OrganizationID: created.ID,
 		ActorAccountID: account.ID,
 	})
 	if err != nil || len(member) != 1 || member[0].Role != "owner" || member[0].PersonID != account.PersonID {

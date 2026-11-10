@@ -22,7 +22,7 @@ func TestTeamMembershipAndInvitationPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	team, err := organization.CreateTeam(ctx, store, organization.CreateTeamOptions{
-		OrganizationID: org.PartyID, ActorAccountID: owner.ID, Name: "Engineering", Description: "Backend",
+		OrganizationID: org.ID, ActorAccountID: owner.ID, Name: "Engineering", Description: "Backend",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func TestTeamMembershipAndInvitationPostgres(t *testing.T) {
 		t.Fatalf("missing team list must return not found: %v", err)
 	}
 	// Out-of-range pages are legitimate empty lists for authorized callers.
-	outOfRange, err := organization.ListTeams(ctx, store, owner.ID, org.PartyID,
+	outOfRange, err := organization.ListTeams(ctx, store, owner.ID, org.ID,
 		db.NewListOptions(99, 20, 20, 100))
 	if err != nil || len(outOfRange) != 0 {
 		t.Fatalf("authorized empty team page: count=%d err=%v", len(outOfRange), err)
@@ -53,22 +53,22 @@ func TestTeamMembershipAndInvitationPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	emptyTeams, err := organization.ListTeams(ctx, store, owner.ID, emptyOrg.PartyID,
+	emptyTeams, err := organization.ListTeams(ctx, store, owner.ID, emptyOrg.ID,
 		db.NewListOptions(1, 20, 20, 100))
 	if err != nil || len(emptyTeams) != 0 {
 		t.Fatalf("valid empty organization teams: count=%d err=%v", len(emptyTeams), err)
 	}
-	if _, err := organization.ListTeams(ctx, store, outsider.ID, emptyOrg.PartyID,
+	if _, err := organization.ListTeams(ctx, store, outsider.ID, emptyOrg.ID,
 		db.NewListOptions(1, 20, 20, 100)); !errors.Is(err, organization.ErrOrganizationNotFound) {
 		t.Fatalf("outsider enumerated empty organization: %v", err)
 	}
 	if _, err := organization.CreateTeam(ctx, store, organization.CreateTeamOptions{
-		OrganizationID: org.PartyID, ActorAccountID: owner.ID, Name: "engineering",
+		OrganizationID: org.ID, ActorAccountID: owner.ID, Name: "engineering",
 	}); !errors.Is(err, organization.ErrTeamAlreadyExists) {
 		t.Fatalf("case-insensitive duplicate team accepted: %v", err)
 	}
 	if _, err := organization.CreateTeam(ctx, store, organization.CreateTeamOptions{
-		OrganizationID: org.PartyID, ActorAccountID: outsider.ID, Name: "Unauthorized",
+		OrganizationID: org.ID, ActorAccountID: outsider.ID, Name: "Unauthorized",
 	}); !errors.Is(err, organization.ErrTeamOwnerRequired) {
 		t.Fatalf("non-owner created a team: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestTeamMembershipAndInvitationPostgres(t *testing.T) {
 	if _, err := organization.RenameTeam(ctx, store, outsider.ID, team.ID, "Unauthorized rename"); !errors.Is(err, organization.ErrTeamOwnerRequired) {
 		t.Fatalf("non-owner renamed a team: %v", err)
 	}
-	if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.PartyID, invitee.PersonID); err != nil {
+	if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.ID, invitee.PersonID); err != nil {
 		t.Fatal(err)
 	}
 	member, err := organization.AddTeamUser(ctx, store, owner.ID, team.ID, invitee.PersonID)
@@ -91,17 +91,17 @@ func TestTeamMembershipAndInvitationPostgres(t *testing.T) {
 	if _, err := organization.AddTeamUser(ctx, store, owner.ID, team.ID, invitee.PersonID); !errors.Is(err, organization.ErrTeamMemberExists) {
 		t.Fatalf("duplicate team user accepted: %v", err)
 	}
-	teams, err := organization.ListTeams(ctx, store, invitee.ID, org.PartyID, db.NewListOptions(1, 20, 20, 100))
+	teams, err := organization.ListTeams(ctx, store, invitee.ID, org.ID, db.NewListOptions(1, 20, 20, 100))
 	if err != nil || len(teams) != 1 {
 		t.Fatalf("member team listing: %d / %v", len(teams), err)
 	}
-	teams, err = organization.ListTeams(ctx, store, outsider.ID, org.PartyID, db.NewListOptions(1, 20, 20, 100))
+	teams, err = organization.ListTeams(ctx, store, outsider.ID, org.ID, db.NewListOptions(1, 20, 20, 100))
 	if !errors.Is(err, organization.ErrOrganizationNotFound) || len(teams) != 0 {
 		t.Fatalf("outsider must receive not found for private teams: %d / %v", len(teams), err)
 	}
 
 	another := makeActor(t, ctx, store)
-	if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.PartyID, another.PersonID); err != nil {
+	if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.ID, another.PersonID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{
@@ -137,14 +137,14 @@ func TestConcurrentTeamInviteConsumption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.PartyID, invitee.PersonID); err != nil {
+	if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.ID, invitee.PersonID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{ID: invitee.ID, Email: invitee.Email}); err != nil {
 		t.Fatal(err)
 	}
 	team, err := organization.CreateTeam(ctx, store, organization.CreateTeamOptions{
-		OrganizationID: org.PartyID, ActorAccountID: owner.ID, Name: "QA",
+		OrganizationID: org.ID, ActorAccountID: owner.ID, Name: "QA",
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -36,7 +36,7 @@ func TestTeamInviteRecordsOutboxWithoutPlaintext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.PartyID, recipient.PersonID); err != nil {
+	if _, err := organization.AddOrgUser(ctx, store, owner.ID, org.ID, recipient.PersonID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{
@@ -45,7 +45,7 @@ func TestTeamInviteRecordsOutboxWithoutPlaintext(t *testing.T) {
 		t.Fatal(err)
 	}
 	team, err := organization.CreateTeam(ctx, store, organization.CreateTeamOptions{
-		OrganizationID: org.PartyID, ActorAccountID: owner.ID, Name: "Operations",
+		OrganizationID: org.ID, ActorAccountID: owner.ID, Name: "Operations",
 	})
 	if err != nil {
 		t.Fatal(err)

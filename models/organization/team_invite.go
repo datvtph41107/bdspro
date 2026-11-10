@@ -15,10 +15,29 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// CreatedTeamInvite contains the raw secret once; never persist or log Token.
+// TeamInvite is an invitation model without the SQLC proof hash or
+// internal state columns. Consumers need only these public metadata fields.
+type TeamInvite struct {
+	ID                 uuid.UUID
+	TeamID             int64
+	InvitedEmail       string
+	InvitedByAccountID int64
+	ExpiresAt          time.Time
+	CreatedAt          time.Time
+}
+
+func TeamInviteFromDB(row db.TeamInvite) TeamInvite {
+	return TeamInvite{
+		ID: row.ID, TeamID: row.TeamID,
+		InvitedEmail: row.InvitedEmail, InvitedByAccountID: row.InvitedByAccountID,
+		ExpiresAt: row.ExpiresAt, CreatedAt: row.CreatedAt,
+	}
+}
+
+// CreatedTeamInvite carries a proof transiently for delivery, never JSON.
 type CreatedTeamInvite struct {
-	Invite db.TeamInvite
-	Token  string
+	Invite TeamInvite
+	Token  string `json:"-"`
 }
 
 // CreateTeamInvite atomically stores the hashed proof and a durable delivery intent.
@@ -73,7 +92,7 @@ func CreateTeamInviteTx(ctx context.Context, q *db.Queries, actorAccountID, team
 	if err := q.RecordTeamInviteJob(ctx, record.ID); err != nil {
 		return CreatedTeamInvite{}, err
 	}
-	return CreatedTeamInvite{Invite: record, Token: token}, nil
+	return CreatedTeamInvite{Invite: TeamInviteFromDB(record), Token: token}, nil
 }
 
 // AcceptTeamInvite commits proof consumption and membership creation together.
