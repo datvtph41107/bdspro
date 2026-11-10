@@ -19,26 +19,36 @@ func InitCfgProvider(filename string) (*ConfigProvider, error) {
 	}
 	return &ConfigProvider{file: f}, nil
 }
-func (p *ConfigProvider) String(section, key string) string {
+// Lookup distinguishes a missing option from an explicitly empty INI key or
+// environment override. Use it for settings where an empty override is invalid.
+func (p *ConfigProvider) Lookup(section, key string) (string, bool) {
 	name := "BDS__" + strings.ToUpper(section) + "__" + strings.ToUpper(key)
 	if section == "" {
 		name = "BDS__" + strings.ToUpper(key)
 	}
 	if value, ok := os.LookupEnv(name); ok {
-		return value
+		return value, true
+	}
+	if p == nil || p.file == nil {
+		return "", false
 	}
 	if section == "" {
 		section = ini.DefaultSection
 	}
 	sec, err := p.file.GetSection(section)
 	if err != nil {
-		return ""
+		return "", false
 	}
 	k, err := sec.GetKey(key)
 	if err != nil {
-		return ""
+		return "", false
 	}
-	return k.String()
+	return k.String(), true
+}
+
+func (p *ConfigProvider) String(section, key string) string {
+	value, _ := p.Lookup(section, key)
+	return value
 }
 func (p *ConfigProvider) StringDefault(section, key, fallback string) string {
 	if s := p.String(section, key); s != "" {

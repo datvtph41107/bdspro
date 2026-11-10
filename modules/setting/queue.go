@@ -38,8 +38,8 @@ func LoadQueueSettings(provider *ConfigProvider) (QueueSettings, error) {
 		{"CRITICAL_WEIGHT", &cfg.CriticalWeight},
 		{"DEFAULT_WEIGHT", &cfg.DefaultWeight},
 	} {
-		value := provider.String("queue", option.key)
-		if value == "" {
+		value, defined := provider.Lookup("queue", option.key)
+		if !defined {
 			continue
 		}
 		n, err := strconv.Atoi(value)
