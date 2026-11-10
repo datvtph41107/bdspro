@@ -105,11 +105,23 @@ func (r *Router[T]) Methods(method, path string, actions ...func(T)) {
 		handlers = append(handlers, r.handlers(r.curMiddlewares)...)
 	}
 	handlers = append(handlers, r.handlers(actions)...)
-	r.group.Handle(method, r.getPattern(path), handlers...)
+	pattern := r.getPattern(path)
+	// Gitea permits comma-separated method registration at the canonical
+	// Methods boundary. Compile the handler chain once for every method.
+	for _, candidate := range strings.Split(method, ",") {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			panic("web: empty HTTP method")
+		}
+		r.group.Handle(candidate, pattern, handlers...)
+	}
 }
 
 func (r *Router[T]) Get(path string, actions ...func(T)) {
 	r.Methods(http.MethodGet, path, actions...)
+}
+func (r *Router[T]) Head(path string, actions ...func(T)) {
+	r.Methods(http.MethodHead, path, actions...)
 }
 func (r *Router[T]) Post(path string, actions ...func(T)) {
 	r.Methods(http.MethodPost, path, actions...)
