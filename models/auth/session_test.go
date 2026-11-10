@@ -133,7 +133,7 @@ func (s *testSessionStore) RevokeAllAccountSessions(_ context.Context, _ int64) 
 func TestRevokeOwnedSession(t *testing.T) {
 	actingID, targetID := uuid.New(), uuid.New()
 	store := &testSessionStore{}
-	err := RevokeOwnedSession(context.Background(), store, 42, actingID, targetID)
+	err := RevokeOwnedSession(db.WithStore(context.Background(), store), 42, actingID, targetID)
 	if !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("unknown account session accepted: %v", err)
 	}
@@ -146,21 +146,21 @@ func TestRevokeOwnedSession(t *testing.T) {
 
 	store.affected = 1
 	store.actorGone = true
-	if err := RevokeOwnedSession(context.Background(), store, 42, actingID, targetID); !errors.Is(err, ErrSessionUnavailable) {
+	if err := RevokeOwnedSession(db.WithStore(context.Background(), store), 42, actingID, targetID); !errors.Is(err, ErrSessionUnavailable) {
 		t.Fatalf("revoked actor was accepted: %v", err)
 	}
 	if store.auditCalls != 0 {
 		t.Fatal("revoked actor recorded a successful revoke")
 	}
 	store.actorGone = false
-	if err := RevokeOwnedSession(context.Background(), store, 42, actingID, targetID); err != nil {
+	if err := RevokeOwnedSession(db.WithStore(context.Background(), store), 42, actingID, targetID); err != nil {
 		t.Fatalf("owned session cannot be revoked: %v", err)
 	}
 	if store.auditCalls != 1 {
 		t.Fatalf("successful revoke must write exactly one event: %d", store.auditCalls)
 	}
 	store.auditErr = errors.New("failed to audit")
-	if err := RevokeOwnedSession(context.Background(), store, 42, actingID, targetID); !errors.Is(err, store.auditErr) {
+	if err := RevokeOwnedSession(db.WithStore(context.Background(), store), 42, actingID, targetID); !errors.Is(err, store.auditErr) {
 		t.Fatalf("audit failure must fail owning transaction: %v", err)
 	}
 	if store.auditCalls != 2 {
@@ -176,7 +176,7 @@ func TestRevokeOwnedSession(t *testing.T) {
 		{42, uuid.Nil, targetID, ErrSessionUnavailable},
 		{42, actingID, uuid.Nil, ErrSessionNotFound},
 	} {
-		if err := RevokeOwnedSession(context.Background(), store, tc.accountID, tc.actingID, tc.targetID); !errors.Is(err, tc.want) {
+		if err := RevokeOwnedSession(db.WithStore(context.Background(), store), tc.accountID, tc.actingID, tc.targetID); !errors.Is(err, tc.want) {
 			t.Fatalf("invalid authority or target not rejected: %v", err)
 		}
 	}
@@ -185,7 +185,7 @@ func TestRevokeOwnedSession(t *testing.T) {
 func TestRevokeAllSessionsPreservesStorageError(t *testing.T) {
 	databaseErr := errors.New("database unavailable")
 	store := &testSessionStore{err: databaseErr}
-	if err := RevokeAllSessions(context.Background(), store, 42, uuid.New()); !errors.Is(err, databaseErr) {
+	if err := RevokeAllSessions(db.WithStore(context.Background(), store), 42, uuid.New()); !errors.Is(err, databaseErr) {
 		t.Fatalf("database error lost: %v", err)
 	}
 }

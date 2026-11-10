@@ -36,7 +36,7 @@ func TestRevokeOwnedCannotOutliveActingSession(t *testing.T) {
 	}
 	done := make(chan error, 1)
 	go func() {
-		done <- RevokeOwnedSession(ctx, sessionRevokeOnConn{SessionStore: store, conn: writer}, accountID, actorID, targetID)
+		done <- RevokeOwnedSession(db.WithStore(ctx, sessionRevokeOnConn{SessionStore: store, conn: writer}), accountID, actorID, targetID)
 	}()
 	revokerPID := int32(revoker.Conn().PgConn().PID())
 	writerPID := int32(writer.Conn().PgConn().PID())
@@ -80,8 +80,8 @@ func TestCrossRevokeOwnedSessionsSerializeWithoutDeadlock(t *testing.T) {
 	ctx, _, store := g12cStore(t)
 	accountID, first, second := g12cSessions(t, ctx, store)
 	done := make(chan error, 2)
-	go func() { done <- RevokeOwnedSession(ctx, store, accountID, first, second) }()
-	go func() { done <- RevokeOwnedSession(ctx, store, accountID, second, first) }()
+	go func() { done <- RevokeOwnedSession(db.WithStore(ctx, store), accountID, first, second) }()
+	go func() { done <- RevokeOwnedSession(db.WithStore(ctx, store), accountID, second, first) }()
 	var succeeded, rejected int
 	for i := 0; i < 2; i++ {
 		select {
@@ -120,8 +120,8 @@ func TestRevokeOwnedAndAllShareLockOrder(t *testing.T) {
 	ctx, _, store := g12cStore(t)
 	accountID, first, second := g12cSessions(t, ctx, store)
 	done := make(chan error, 2)
-	go func() { done <- RevokeOwnedSession(ctx, store, accountID, first, second) }()
-	go func() { done <- RevokeAllSessions(ctx, store, accountID, second) }()
+	go func() { done <- RevokeOwnedSession(db.WithStore(ctx, store), accountID, first, second) }()
+	go func() { done <- RevokeAllSessions(db.WithStore(ctx, store), accountID, second) }()
 	var success, rejected int
 	for i := 0; i < 2; i++ {
 		select {
@@ -147,14 +147,14 @@ func TestRevokeOwnedDoesNotRevealAnotherAccountSession(t *testing.T) {
 	ctx, _, store := g12cStore(t)
 	accountID, actingID, _ := g12cSessions(t, ctx, store)
 	_, foreignID, _ := g12cSessions(t, ctx, store)
-	if err := RevokeOwnedSession(ctx, store, accountID, actingID, foreignID); !errors.Is(err, ErrSessionNotFound) {
+	if err := RevokeOwnedSession(db.WithStore(ctx, store), accountID, actingID, foreignID); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("foreign session not masked as missing: %v", err)
 	}
 	foreign, err := store.GetSession(ctx, foreignID)
 	if err != nil || foreign.IsBlocked {
 		t.Fatalf("foreign session changed: %+v err=%v", foreign, err)
 	}
-	if err := RevokeOwnedSession(ctx, store, accountID, actingID, actingID); err != nil {
+	if err := RevokeOwnedSession(db.WithStore(ctx, store), accountID, actingID, actingID); err != nil {
 		t.Fatalf("self-revocation failed: %v", err)
 	}
 	self, err := store.GetSession(ctx, actingID)
@@ -162,7 +162,7 @@ func TestRevokeOwnedDoesNotRevealAnotherAccountSession(t *testing.T) {
 		t.Fatalf("self-revocation not committed: %+v err=%v", self, err)
 	}
 	// A second request from the same, now-invalid actor cannot revoke.
-	if err := RevokeOwnedSession(ctx, store, accountID, actingID, uuid.New()); !errors.Is(err, ErrSessionUnavailable) {
+	if err := RevokeOwnedSession(db.WithStore(ctx, store), accountID, actingID, uuid.New()); !errors.Is(err, ErrSessionUnavailable) {
 		t.Fatalf("revoked actor retained authority: %v", err)
 	}
 }
