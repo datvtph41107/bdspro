@@ -243,9 +243,13 @@ func (r *Router[T]) AfterRouting(middlewares ...any) {
 			if isNilOrFuncNil(middleware) {
 				panic("web: nil after-routing middleware")
 			}
+			if _, pre := middleware.(web_types.PreMiddlewareProvider); !pre {
+				_ = toHandlerProvider(middleware) // validate at registration
+			}
 			r.afterRoutingHTTP = append(r.afterRoutingHTTP, middleware)
 		default:
 			if isRegisteredTypedHandler(middleware) {
+				_ = toHandlerProvider(middleware) // fail before serving requests
 				r.afterRoutingHTTP = append(r.afterRoutingHTTP, middleware)
 			} else {
 				r.afterRouting = append(r.afterRouting, r.toGinHandler(middleware))
