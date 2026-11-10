@@ -442,3 +442,29 @@ func TestBeforeRoutingRejectsLateContinuation(t *testing.T) {
 	}()
 	resume()
 }
+
+func TestAfterRoutingRejectsRegistrationAfterCompiledRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter(engine)
+	r.AfterRouting(func(next http.Handler) http.Handler { return next })
+	r.Get("/before", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("late AfterRouting registration must panic instead of silently omitting earlier routes")
+		}
+		if got := len(engine.Routes()); got != 1 {
+			t.Fatalf("late AfterRouting changed route inventory: got %d, want 1", got)
+		}
+		w := httptest.NewRecorder()
+		engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/before", nil))
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("previously compiled route changed status: got %d", w.Code)
+		}
+	}()
+
+	r.AfterRouting(func(next http.Handler) http.Handler { return next })
+}

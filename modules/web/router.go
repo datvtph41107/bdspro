@@ -202,6 +202,11 @@ func (r *Router) WrapIngress() http.Handler {
 // AfterRouting validates HTTP actions after Gin path matching. It does
 // not create a second Gin-only middleware dispatch path.
 func (r *Router) AfterRouting(middlewares ...any) {
+	// Route handlers are compiled by Methods at registration time. A late
+	// AfterRouting declaration would silently affect only subsequent routes.
+	if r.routesRegistered {
+		panic("web: AfterRouting middleware must be declared before routes")
+	}
 	for _, middleware := range middlewares {
 		if isNilOrFuncNil(middleware) {
 			panic("web: nil after-routing middleware")
