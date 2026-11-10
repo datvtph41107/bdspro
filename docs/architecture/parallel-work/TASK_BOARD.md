@@ -44,6 +44,13 @@
 - **Chat C PR #220:** verified `07287479864a33304c243913d5d99d29f1ba48c7`, 41 paths within C scope, CI [42779188456](https://github.com/datvtph41107/bdspro/actions/runs/42779188456) SUCCESS. **CONDITIONAL ACCEPT scoped P06 runtime source; freeze changes**, docs/templates/go.mod and combined P07 remain Chat 0. No unused cache/channel/graceful module resurrection. See [C handoff](./CHAT0_TO_CHATC_HANDOFF.md) and [PR220 comment](https://github.com/datvtph41107/bdspro/pull/220#issuecomment-6764138330).
 - **Integration ordering:** A non-generic router + Chat0 stacked PR #222; cross-owner `services/user/**` reconciliation and worker outbox transaction migration; B/C integration in isolated branch with final-head A/B/C P07 tests; only then consider merges to `dev`. A/B/C CI green independently does NOT prove combined HEAD passes. Chat D remains read-only until A+B contracts accepted in combined source.
 
+## Chat C final freeze confirmed — 2026-11-10
+
+- Chat 0 independently refetched [PR #220](https://github.com/datvtph41107/bdspro/pull/220): **DRAFT**, unchanged **HEAD `07287479864a33304c243913d5d99d29f1ba48c7`** and original `dev@8dea6dc9`; exact-head [workflow 42779188456](https://github.com/datvtph41107/bdspro/actions/runs/42779188456) succeeded. 41 changed paths in Chat C scope.
+- Chat C delivered the complete [Runtime Integration Contract](https://github.com/datvtph41107/bdspro/pull/220#issuecomment-6764418034), including CLI dependency/cleanup matrix, constructor and import contracts, failure policy, startup/shutdown and P07 verification checklist.
+- **C-01..C-04 CLOSED; Chat C source FROZEN**, no further refactor absent a new evidenced defect; **C-05 docs, C-06 templates/deps, C-07 combined integration, C-10 deleted imports** remain coordinator tasks; **C-08 full failover and uncooperative shutdown, C-09 graceful manager** deferred with documented operational limitations. P06 is **CONDITIONALLY ACCEPTED owner slice**, **NOT INTEGRATED**.
+- Next coordinator action: remove stale cache/channel descriptions in `docs/architecture/{cache-queue,modules}.md` and `docs/operations/configuration.md`; check `custom/conf/app.example.ini` and `docker/root/etc/templates/app.ini`, `go.mod` after combined A/B/C; do not modify C branch. No dev merge until final combined P07 CI and security/runtime acceptance.
+
 ## Guard script independent verification
 
 `tools/parallel/check-owned-paths.sh` at corrected `f631ad54` was manually syntax-checked with `bash -n` and behavior-tested against a **temporary local Git repository** using the matching script text:
