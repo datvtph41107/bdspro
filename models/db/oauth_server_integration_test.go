@@ -271,3 +271,45 @@ func TestOAuthDirectRevocationRollsBackWithParent(t *testing.T) {
 		t.Fatalf("client revocation survived rollback: %v", err)
 	}
 }
+
+func TestOAuthRawTransactionRefusesSQLCNesting(t *testing.T) {
+	ctx, store, accountID := oauthTestStore(t)
+	clientID := uuid.New()
+	if _, err := store.CreateOAuthClient(ctx, OauthClient{
+		ID: clientID, OwnerAccountID: accountID,
+		Name: "raw nesting owner", RedirectUri: "https://raw-nesting.example.test/callback",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var uncommittedParty int64
+	err := WithTx(WithStore(ctx, store), func(txCtx context.Context) error {
+		var err error
+		uncommittedParty, err = store.CreateParty(txCtx)
+		if err != nil {
+			return err
+		}
+		// This OAuth operation intentionally owns a raw transaction.
+		// Until replay/revocation commit semantics are explicitly designed
+		// for nesting, it must refuse to start a second transaction.
+		innerErr := store.RevokeOAuthAuthorization(txCtx, accountID, clientID)
+		if !errors.Is(innerErr, ErrRawTransactionInSQLC) {
+			t.Fatalf("nested raw OAuth transaction was accepted: %v", innerErr)
+		}
+		return nil // A swallowed refusal must not commit earlier SQLC writes.
+	})
+	if !errors.Is(err, ErrRawTransactionInSQLC) {
+		t.Fatalf("raw OAuth refusal did not poison outer transaction: %v", err)
+	}
+	var count int
+	if err := store.pool.QueryRow(ctx,
+		"SELECT count(*) FROM parties WHERE id=$1", uncommittedParty).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatal("outer SQLC write committed after nested raw OAuth refusal")
+	}
+	if _, err := store.GetOAuthClient(ctx, clientID); err != nil {
+		t.Fatalf("nested OAuth refusal revoked client unexpectedly: %v", err)
+	}
+}
