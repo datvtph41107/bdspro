@@ -255,3 +255,19 @@ func TestAfterRoutingRejectsUnsupportedSignature(t *testing.T) {
 	}()
 	m.AfterRouting(func(_ int) {})
 }
+
+func TestAfterRoutingTypedGinActionStopsAfterResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	m := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	hit := false
+	m.AfterRouting(func(c *gin.Context) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "denied"})
+	})
+	m.Get("/guarded", func(*gin.Context) { hit = true })
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/guarded", nil))
+	if hit || w.Code != http.StatusForbidden {
+		t.Fatalf("typed post-route action continued: reached=%v status=%d", hit, w.Code)
+	}
+}
