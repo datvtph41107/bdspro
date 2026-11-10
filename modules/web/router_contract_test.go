@@ -48,7 +48,6 @@ func TestCanonicalMethodsRegisterAllMethods(t *testing.T) {
 func TestCanonicalBeforeRoutingRewritesMethodPathAndContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := NewRouter()
-	engine := router.GinEngine()
 	var wrapped *contractRecordingWriter
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -78,7 +77,6 @@ func TestCanonicalBeforeRoutingRewritesMethodPathAndContext(t *testing.T) {
 func TestCanonicalBeforeRoutingCanRejectBeforeMatchingAndHandleHEAD(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := NewRouter()
-	engine := router.GinEngine()
 	matched, seen := 0, 0
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -134,7 +132,6 @@ func TestCanonicalBeforeRoutingRejectsInvalidAndLateRegistration(t *testing.T) {
 func TestCanonicalBeforeRoutingRejectsDuplicateContinuation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := NewRouter()
-	engine := router.GinEngine()
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			next.ServeHTTP(w, req)
@@ -160,7 +157,6 @@ func TestCanonicalBeforeRoutingRejectsDuplicateContinuation(t *testing.T) {
 func TestCanonicalBeforeRoutingCompilesProviderOnce(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := NewRouter()
-	engine := router.GinEngine()
 	compiled, entered, action := 0, 0, 0
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		compiled++
