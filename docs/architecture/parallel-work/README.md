@@ -27,11 +27,12 @@ Three **parallel coding producers** are realistic in the first wave (A, B, C). D
 
 1. This file (shared mission, source of truth).
 2. [OWNERSHIP_AND_CONTRACTS.md](./OWNERSHIP_AND_CONTRACTS.md) (permissions and API boundary).
-3. [TRUST_AND_VERIFICATION.md](./TRUST_AND_VERIFICATION.md) (evidence gates and trust ladder).
-4. [INTEGRATION_PROTOCOL.md](./INTEGRATION_PROTOCOL.md) (branch/PR/handoff).
-5. Exactly one specialist file: [A](./tasks/CHAT_A_HTTP.md), [B](./tasks/CHAT_B_DATA.md), [C](./tasks/CHAT_C_RUNTIME.md), [D](./tasks/CHAT_D_API_AUTH.md), or [0](./tasks/CHAT_0_INTEGRATOR.md).
-6. [SKILL.md](./SKILL.md) (execution checklist); compare **live Gitea and BDSPro source** as directed by the selected task.
-7. When working on P01, read the existing PR #218 documents at `docs/architecture/gitea-alignment/{README,IMPLEMENTATION_STATUS,CONTINUE_PROMPT,SKILL}.md` **on that PR branch**. They are not necessarily on `dev`.
+3. [SOURCE_MAP.md](./SOURCE_MAP.md) (Gitea → BDSPro source and ownership mapping).
+4. [TRUST_AND_VERIFICATION.md](./TRUST_AND_VERIFICATION.md) (evidence gates and trust ladder).
+5. [INTEGRATION_PROTOCOL.md](./INTEGRATION_PROTOCOL.md) (branch/PR/handoff).
+6. Exactly one specialist file: [A](./tasks/CHAT_A_HTTP.md), [B](./tasks/CHAT_B_DATA.md), [C](./tasks/CHAT_C_RUNTIME.md), [D](./tasks/CHAT_D_API_AUTH.md), or [0](./tasks/CHAT_0_INTEGRATOR.md).
+7. [SKILL.md](./SKILL.md) (execution checklist); compare **live Gitea and BDSPro source** as directed by the selected task.
+8. When working on P01, read the existing PR #218 documents at `docs/architecture/gitea-alignment/{README,IMPLEMENTATION_STATUS,CONTINUE_PROMPT,SKILL}.md` **on that PR branch**. They are not necessarily on `dev`.
 
 **Context minimization:** all sessions read a small shared kernel and only their specialist task; do not dump the complete previous 100+ message transcript into every chat. Persist meaningful decisions and test evidence in PR/handoff documents instead.
 
@@ -51,6 +52,7 @@ Every worker produces **one focused branch, one reviewable PR, reproducible test
 
 ## Pointers
 
+- [source/function mapping](./SOURCE_MAP.md)
 - [ownership/contract registry](./OWNERSHIP_AND_CONTRACTS.md)
 - [trust and verification](./TRUST_AND_VERIFICATION.md)
 - [integration plan and gates](./INTEGRATION_PROTOCOL.md)
