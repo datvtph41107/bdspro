@@ -25,7 +25,7 @@ func CreateTeam(ctx *context.APIContext) {
 		ctx.APIErrorAuto(err)
 		return
 	}
-	ctx.JSON(http.StatusCreated, convert.ToTeamModel(team))
+	ctx.JSON(http.StatusCreated, convert.ToTeam(team))
 }
 
 // EditTeam follows Gitea's package-action pattern. The route owns typed
@@ -42,12 +42,12 @@ func EditTeam(ctx *context.APIContext) {
 		ctx.APIErrorAuto(err)
 		return
 	}
-	ctx.JSON(http.StatusOK, convert.ToTeamModel(team))
+	ctx.JSON(http.StatusOK, convert.ToTeam(team))
 }
 
 // GetTeam consumes the model assigned by teamAssignment.
 func GetTeam(ctx *context.APIContext) {
-	ctx.JSON(http.StatusOK, convert.ToTeamModel(ctx.Org.Team))
+	ctx.JSON(http.StatusOK, convert.ToTeam(ctx.Org.Team))
 }
 
 // ListTeams uses the Organization assigned at the HTTP boundary. The SQLC
