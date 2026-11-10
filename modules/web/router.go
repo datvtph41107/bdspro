@@ -57,14 +57,31 @@ func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *
 // AfterRouting installs middleware after Gin has resolved the route, before
 // group guards, binding, and the endpoint action. A request context belongs to
 // the selected API route rather than to unmatched or non-API requests.
+// Supports native Gin middleware at the framework boundary and typed actions;
+// unsupported signatures fail during route registration.
 // Register these middlewares before the routes that should receive them.
-func (r *Router[T]) AfterRouting(middlewares ...gin.HandlerFunc) {
+func (r *Router[T]) AfterRouting(middlewares ...any) {
 	for _, middleware := range middlewares {
-		if middleware == nil {
-			panic("web: nil after-routing middleware")
+		switch handler := middleware.(type) {
+		case gin.HandlerFunc:
+			if handler == nil {
+				panic("web: nil after-routing middleware")
+			}
+			r.afterRouting = append(r.afterRouting, handler)
+		case func(*gin.Context):
+			if handler == nil {
+				panic("web: nil after-routing middleware")
+			}
+			r.afterRouting = append(r.afterRouting, gin.HandlerFunc(handler))
+		case func(T):
+			if handler == nil {
+				panic("web: nil after-routing middleware")
+			}
+			r.afterRouting = append(r.afterRouting, r.handlers([]func(T){handler})...)
+		default:
+			panic(fmt.Sprintf("web: unsupported after-routing middleware %T", middleware))
 		}
 	}
-	r.afterRouting = append(r.afterRouting, middlewares...)
 }
 
 // Group scopes route patterns and middlewares at registration, as in Gitea.
