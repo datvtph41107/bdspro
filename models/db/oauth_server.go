@@ -6,7 +6,6 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -343,23 +342,3 @@ func (s *SQLStore) RevokeOAuthBearer(ctx context.Context, clientID uuid.UUID, ha
 	})
 }
 
-// ExecTxRaw supports OAuth protocol transactions and atomic password recovery
-// that revokes delegated OAuth grants. SQLC remains the default query layer.
-func (s *SQLStore) ExecTxRaw(ctx context.Context, fn func(pgx.Tx) error) error {
-	// A SQLC transaction cannot expose its pgx.Tx through the generated
-	// Queries interface. Reject nesting rather than commit on another pool
-	// connection, and poison the enclosing transaction even if ignored.
-	if ctx.Value(queriesContextKey{}) != nil {
-		return WithTx(ctx, func(context.Context) error { return ErrRawTransactionInSQLC })
-	}
-
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin oauth transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-	if err = fn(tx); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
-}
