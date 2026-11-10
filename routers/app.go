@@ -31,7 +31,7 @@ import (
 // Its httpHandler is the canonical pre-matcher ingress. Listener, readiness,
 // timeouts and graceful shutdown remain in cmd/http.go.
 type Server struct {
-	authHandler          *user.AuthHandler
+	authService          *auth_service.AuthService
 	oauth2Handler        *user.OAuth2Handler
 	authorizationHandler *oauth.Handler
 	browserHandler       *weboauth.Handler
@@ -96,12 +96,12 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	if err != nil {
 		return nil, err
 	}
-	authService := auth_service.NewAuthService(store, maker, cfg, phoneSender)
 	var resetSender mail.EmailSender
 	if len(resetMailers) > 0 {
 		resetSender = resetMailers[0]
 	}
-	server.authHandler = user.NewAuthHandler(authService, server.authThrottle, resetSender)
+	authService := auth_service.NewAuthService(store, maker, cfg, phoneSender, resetSender)
+	server.authService = authService
 	server.phoneEnabled = phoneSender != nil
 	// Provider callback and browser origin must coincide before offering the
 	// browser OIDC option. Mismatched deployments retain their existing API OIDC
@@ -155,7 +155,6 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	// Process startup installs immutable API and router capabilities once;
 	// per-request actors, sessions and transactions remain request-scoped.
 	apiv1.InitRuntime(apiv1.Runtime{
-		Auth:          server.authHandler,
 		OAuth2:        server.oauth2Handler,
 		Authorization: server.authorizationHandler,
 		Browser:       server.browserHandler,
@@ -172,7 +171,13 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	})
 	routes := NormalRoutes()
 	server.router = routes.GinEngine()
-	server.httpHandler = routes
+	// Each Server owns its own AuthService and throttle. Request-local binding
+	// preserves package-level HTTP actions without a global service registry.
+	server.httpHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := auth_service.WithService(req.Context(), server.authService)
+		ctx = security.WithThrottle(ctx, server.authThrottle)
+		routes.ServeHTTP(w, req.WithContext(ctx))
+	})
 	if err := server.router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
 	}

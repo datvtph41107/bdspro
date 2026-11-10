@@ -16,7 +16,6 @@ import (
 // Routes compiles its handlers. Gitea also requires package initialization
 // before calling its parameterless route constructors.
 type Runtime struct {
-	Auth          *user.AuthHandler
 	OAuth2        *user.OAuth2Handler
 	Authorization *oauth.Handler
 	Browser       *weboauth.Handler

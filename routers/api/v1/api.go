@@ -158,33 +158,33 @@ func Routes() *web.Router {
 	// New API actions use func(*context.APIContext) directly.
 	m.Post("/users",
 		security.IPActiveFor(d.IPActive, ipactive.Register),
-		d.Auth.Register,
+		user.Register,
 	)
 	m.Post("/users/login",
 		security.LogLoginResponse(),
 		security.IPActiveFor(d.IPActive, ipactive.Login),
-		d.Auth.Login,
+		user.Login,
 	)
-	m.Get("/users/verify_email", d.Auth.VerifyEmailPage)
-	m.Post("/users/verify_email", security.IPActiveFor(d.IPActive, ipactive.VerifyEmail), d.Auth.VerifyEmail)
+	m.Get("/users/verify_email", user.VerifyEmailPage)
+	m.Post("/users/verify_email", security.IPActiveFor(d.IPActive, ipactive.VerifyEmail), user.VerifyEmail)
 	m.Post("/users/verify_email/resend",
 		security.IPActiveFor(d.IPActive, ipactive.ResendVerificationEmail),
-		d.Auth.ResendVerificationEmail,
+		user.ResendVerificationEmail,
 	)
 	m.Post("/tokens/renew_access",
 		security.IPActiveFor(d.IPActive, ipactive.RenewAccess),
-		d.Auth.Renew,
+		user.Renew,
 	)
 	m.Post("/tokens/revoke",
 		security.IPActiveFor(d.IPActive, ipactive.RevokeToken),
-		d.Auth.Revoke,
+		user.Revoke,
 	)
 	m.Post("/users/password/reset/request",
 		security.IPActiveFor(d.IPActive, ipactive.RequestPasswordReset),
-		d.Auth.RequestPasswordReset,
+		user.RequestPasswordReset,
 	)
-	m.Get("/users/password/reset", d.Auth.PasswordResetPage)
-	m.Post("/users/password/reset", security.IPActiveFor(d.IPActive, ipactive.ConfirmPasswordReset), d.Auth.ResetPassword)
+	m.Get("/users/password/reset", user.PasswordResetPage)
+	m.Post("/users/password/reset", security.IPActiveFor(d.IPActive, ipactive.ConfirmPasswordReset), user.ResetPassword)
 
 	if d.Authorization != nil {
 		preview := d.Authorization.AuthorizePreview
@@ -227,10 +227,10 @@ func Routes() *web.Router {
 		m.Get("/users/oauth2/callback", appctx.GinActions(d.OAuth2.Callback)...)
 	}
 	if d.PhoneEnabled {
-		m.Post("/users/phone/register/start", security.IPActiveFor(d.IPActive, ipactive.StartPhoneRegister), d.Auth.StartPhoneRegister)
-		m.Post("/users/phone/register/verify", security.IPActiveFor(d.IPActive, ipactive.VerifyPhoneRegister), d.Auth.VerifyPhoneRegister)
-		m.Post("/users/phone/login/start", security.IPActiveFor(d.IPActive, ipactive.StartPhoneLogin), d.Auth.StartPhoneLogin)
-		m.Post("/users/phone/login/verify", security.IPActiveFor(d.IPActive, ipactive.VerifyPhoneLogin), d.Auth.VerifyPhoneLogin)
+		m.Post("/users/phone/register/start", security.IPActiveFor(d.IPActive, ipactive.StartPhoneRegister), user.StartPhoneRegister)
+		m.Post("/users/phone/register/verify", security.IPActiveFor(d.IPActive, ipactive.VerifyPhoneRegister), user.VerifyPhoneRegister)
+		m.Post("/users/phone/login/start", security.IPActiveFor(d.IPActive, ipactive.StartPhoneLogin), user.StartPhoneLogin)
+		m.Post("/users/phone/login/verify", security.IPActiveFor(d.IPActive, ipactive.VerifyPhoneLogin), user.VerifyPhoneLogin)
 	}
 
 	// The live first-party PostgreSQL session is verified once at ingress.
@@ -249,12 +249,12 @@ func Routes() *web.Router {
 		m.Patch("/users/me/profile", bind(api.ProfileUpdateRequest{}), user.UpdateProfile)
 		m.Get("/users/me/settings", user.GetUserSettings)
 		m.Patch("/users/me/settings", bind(api.SettingsUpdateRequest{}), user.UpdateUserSettings)
-		m.Get("/users/me/connections", d.Auth.GetConnections)
+		m.Get("/users/me/connections", user.GetConnections)
 		m.Get("/users/me/sessions", user.ListSessions)
 		m.Delete("/users/me/sessions/:id", user.RevokeOwnSession)
 		m.Post("/users/me/sessions/revoke_all", user.RevokeAllSessions)
-		m.Post("/users/me/email/start", security.IPActiveFor(d.IPActive, ipactive.StartEmailLink), d.Auth.StartEmailLink)
-		m.Post("/users/me/email/verify", security.IPActiveFor(d.IPActive, ipactive.ConfirmEmailLink), d.Auth.ConfirmEmailLink)
+		m.Post("/users/me/email/start", security.IPActiveFor(d.IPActive, ipactive.StartEmailLink), user.StartEmailLink)
+		m.Post("/users/me/email/verify", security.IPActiveFor(d.IPActive, ipactive.ConfirmEmailLink), user.ConfirmEmailLink)
 
 		// Team invitation still owns an immutable signing dependency, but all
 		// route registration follows one typed Group pattern.
@@ -315,8 +315,8 @@ func Routes() *web.Router {
 		}
 		if d.PhoneEnabled {
 			m.Group("/users/me/phone", func() {
-				m.Post("/start", security.IPActiveFor(d.IPActive, ipactive.StartPhoneBind), d.Auth.StartPhoneBind)
-				m.Post("/verify", security.IPActiveFor(d.IPActive, ipactive.VerifyPhoneBind), d.Auth.VerifyPhoneBind)
+				m.Post("/start", security.IPActiveFor(d.IPActive, ipactive.StartPhoneBind), user.StartPhoneBind)
+				m.Post("/verify", security.IPActiveFor(d.IPActive, ipactive.VerifyPhoneBind), user.VerifyPhoneBind)
 			}, appctx.VerifiedEmail())
 		}
 	}, appctx.Authenticate(d.TokenMaker), appctx.RequireSession())
