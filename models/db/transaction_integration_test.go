@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -102,7 +103,8 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 	if err := pool.Ping(base); err != nil {
 		t.Fatal(err)
 	}
-	ctx := WithStore(base, NewStore(pool))
+	store := NewStore(pool)
+	ctx := WithStore(base, store)
 
 	t.Run("one transaction commits nested changes", func(t *testing.T) {
 		var created int64
@@ -186,4 +188,87 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 			t.Fatal("ignored nested failure committed PostgreSQL data")
 		}
 	})
+	t.Run("mixed entrypoints reuse one PostgreSQL transaction", func(t *testing.T) {
+		sentinel := errors.New("force outer rollback")
+		var partyID int64
+		err := WithTx(ctx, func(txCtx context.Context) error {
+			outer, err := TxQueries(txCtx)
+			if err != nil {
+				return err
+			}
+			partyID, err = outer.CreateParty(txCtx)
+			if err != nil {
+				return err
+			}
+			_, err = WithTxResult(txCtx, store, func(q *Queries) (int64, error) {
+				if q != outer {
+					t.Fatal("WithTxResult used another SQLC executor")
+				}
+				return CreatePersonWithParty(txCtx, q)
+			})
+			if err != nil {
+				return err
+			}
+			if err := store.ExecTx(txCtx, func(q *Queries) error {
+				if q != outer {
+					t.Fatal("SQLStore.ExecTx used another SQLC executor")
+				}
+				_, err := q.CreateParty(txCtx)
+				return err
+			}); err != nil {
+				return err
+			}
+			var visible int
+			if err := pool.QueryRow(txCtx, "SELECT count(*) FROM parties WHERE id=$1", partyID).Scan(&visible); err != nil {
+				return err
+			}
+			if visible != 0 {
+				t.Fatal("nested entrypoint committed before its parent")
+			}
+			return sentinel
+		})
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("outer rollback=%v", err)
+		}
+		var visible int
+		if err := pool.QueryRow(base, "SELECT count(*) FROM parties WHERE id=$1", partyID).Scan(&visible); err != nil {
+			t.Fatal(err)
+		}
+		if visible != 0 {
+			t.Fatal("mixed nested entrypoints leaked a committed Party")
+		}
+	})
+
+	t.Run("nested raw transaction refusal poisons outer commit", func(t *testing.T) {
+		var partyID int64
+		err := WithTx(ctx, func(txCtx context.Context) error {
+			q, err := TxQueries(txCtx)
+			if err != nil {
+				return err
+			}
+			partyID, err = q.CreateParty(txCtx)
+			if err != nil {
+				return err
+			}
+			inner := store.ExecTxRaw(txCtx, func(pgx.Tx) error {
+				t.Fatal("raw transaction escaped the outer transaction")
+				return nil
+			})
+			if !errors.Is(inner, ErrRawTransactionInSQLC) {
+				t.Fatalf("unexpected raw transaction error: %v", inner)
+			}
+			return nil // parent must still roll back
+		})
+		if !errors.Is(err, ErrRawTransactionInSQLC) {
+			t.Fatalf("outer did not preserve rollback-only failure: %v", err)
+		}
+		var visible int
+		if err := pool.QueryRow(base, "SELECT count(*) FROM parties WHERE id=$1", partyID).Scan(&visible); err != nil {
+			t.Fatal(err)
+		}
+		if visible != 0 {
+			t.Fatal("SQLC outer transaction committed after raw nesting violation")
+		}
+	})
+
 }
