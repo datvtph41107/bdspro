@@ -381,6 +381,62 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 		}
 	})
 
+
+	t.Run("transaction-scoped Store follows owner rollback", func(t *testing.T) {
+		abort := errors.New("rollback owning transaction")
+		var created int64
+		var scoped Store
+		var escaped context.Context
+		err := WithTx(ctx, func(txCtx context.Context) error {
+			escaped = txCtx
+			owner, err := TxQueries(txCtx)
+			if err != nil {
+				return err
+			}
+			scoped, err = StoreFromContext(txCtx)
+			if err != nil {
+				return err
+			}
+			view, ok := scoped.(*SQLStore)
+			if !ok || view.Queries != owner || view.pool != nil {
+				t.Fatal("StoreFromContext returned pool executor instead of active transaction")
+			}
+			// Emulate existing model code calling a Store query rather than
+			// TxQueries directly. It must still write to the same executor.
+			created, err = scoped.CreateParty(txCtx)
+			if err != nil {
+				return err
+			}
+			var ownerVisible int
+			if err := pool.QueryRow(txCtx, "SELECT count(*) FROM parties WHERE id=$1", created).Scan(&ownerVisible); err != nil {
+				return err
+			}
+			if ownerVisible != 0 {
+				t.Fatal("scoped Store wrote outside the owning PostgreSQL transaction")
+			}
+			return abort
+		})
+		if !errors.Is(err, abort) || created <= 0 {
+			t.Fatalf("parent rollback err=%v id=%d", err, created)
+		}
+		var persisted int
+		if err := pool.QueryRow(base, "SELECT count(*) FROM parties WHERE id=$1", created).Scan(&persisted); err != nil {
+			t.Fatal(err)
+		}
+		if persisted != 0 {
+			t.Fatal("StoreFromContext committed a write outside parent transaction")
+		}
+		if got, err := StoreFromContext(escaped); got != nil || !errors.Is(err, ErrTransactionClosed) {
+			t.Fatalf("StoreFromContext exposed expired owner: store=%v err=%v", got, err)
+		}
+		if err := scoped.ExecTx(base, func(*Queries) error {
+			t.Fatal("expired scoped Store started another transaction")
+			return nil
+		}); !errors.Is(err, ErrTransactionClosed) {
+			t.Fatalf("escaped Store opened a separate SQLC transaction: %v", err)
+		}
+	})
+
 }
 
 func TestExecTxRawCancellationRollsBackAndReleasesConnection(t *testing.T) {
