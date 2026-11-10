@@ -82,7 +82,7 @@ func StartLink(ctx *appctx.APIContext,w http.ResponseWriter) {
 	ctx.JSON(http.StatusOK,map[string]any{"authorization_url":start.AuthorizationURL})
 }
 
-func StartPhoneBind(ctx *appctx.APIContext,w http.ResponseWriter) {
+func StartOAuth2PhoneBind(ctx *appctx.APIContext,w http.ResponseWriter) {
 	client,secure,ok:=oidc(ctx);if !ok{return}
 	auth:=auth_service.FromContext(ctx)
 	if !auth.HasPhone() {ctx.APIErrorNotFound();return}

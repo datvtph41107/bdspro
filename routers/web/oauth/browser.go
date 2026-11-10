@@ -372,18 +372,34 @@ func (h *Handler) Login(c *gin.Context) {
 	h.completeSessionLogin(c, result, next)
 }
 
-// CompleteOIDCLogin finishes an already verified OIDC identity with the
-// canonical browser session cookie, without returning any JWT in the appctx.
-func (h *Handler) CompleteOIDCLogin(c *gin.Context, result auth_service.LoginResult, next string) {
-	if !h.OIDCEnabled || !h.sameHost(c) {
-		c.AbortWithStatus(http.StatusForbidden)
+// CompleteOIDCLogin writes a canonical browser cookie only after OIDC state,
+// nonce, PKCE and identity verification. No JWT enters the browser cookie.
+func (h *Handler) CompleteOIDCLogin(ctx *appctx.APIContext, w http.ResponseWriter, result auth_service.LoginResult, next string) {
+	if !h.OIDCEnabled || !strings.EqualFold(ctx.CurrentRequest().Host, h.originHost) {
+		ctx.APIError(http.StatusForbidden, "oauth2.browser_forbidden", "forbidden")
 		return
 	}
 	if _, err := authcrypto.BrowserNextPath(next); err != nil {
-		c.AbortWithStatus(http.StatusBadRequest)
+		ctx.APIError(http.StatusBadRequest, "oauth2.invalid_return_path", "invalid consent return path")
 		return
 	}
-	h.completeSessionLogin(c, result, next)
+	if result.Session.ID == uuid.Nil || result.Session.AccountID <= 0 {
+		ctx.APIError(http.StatusServiceUnavailable, "oauth2.browser_unavailable", "browser OAuth login unavailable")
+		return
+	}
+	token, err := h.Codec.IssueCookie(result.Session.ID.String(), time.Now(), result.Session.ExpiresAt)
+	if err != nil {
+		ctx.APIError(http.StatusServiceUnavailable, "oauth2.browser_unavailable", "browser OAuth login unavailable")
+		return
+	}
+	http.SetCookie(w, authcrypto.BrowserSessionCookie(token, h.secure))
+	http.SetCookie(w, &http.Cookie{
+		Name: loginCookieName(h.secure), Path: "/", MaxAge: -1,
+		HttpOnly: true, Secure: h.secure, SameSite: http.SameSiteLaxMode,
+	})
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Header("Referrer-Policy", "no-referrer")
+	http.Redirect(w, ctx.CurrentRequest(), next, http.StatusSeeOther)
 }
 
 func (h *Handler) completeSessionLogin(c *gin.Context, result auth_service.LoginResult, next string) {
@@ -424,7 +440,7 @@ func (h *Handler) Logout(c *gin.Context) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-	if err := auth_model.RevokeOwnedSession(c.Request.Context(), h.Store, appctx.AccountID(c), id, id); err != nil {
+	if err := auth_model.RevokeOwnedSession(c.Request.Context(), appctx.AccountID(c), id, id); err != nil {
 		if errors.Is(err, auth_model.ErrSessionUnavailable) || errors.Is(err, auth_model.ErrSessionNotFound) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		} else {
