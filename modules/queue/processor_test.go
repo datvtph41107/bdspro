@@ -33,7 +33,6 @@ func TestTaskRegistrationSupportsIndependentHandlers(t *testing.T) {
 	}
 }
 
-
 // Real Asynq worker drain: cmd/worker.go closes the database and producer
 // after queue.Manager.Shutdown. Active handlers must finish before Shutdown
 // returns; this protects their borrowed DB dependencies. This test does not
