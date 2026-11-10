@@ -179,7 +179,11 @@ func (r *Router[T]) AfterRouting(middlewares ...any) {
 		case func(http.Handler) http.Handler, func(http.Handler) http.HandlerFunc, http.HandlerFunc, func(http.ResponseWriter, *http.Request):
 			r.afterRouting = append(r.afterRouting, ginHandlerProvider(toHandlerProvider(middleware)))
 		default:
-			r.afterRouting = append(r.afterRouting, r.toGinHandler(middleware))
+			if isRegisteredTypedHandler(middleware) {
+				r.afterRouting = append(r.afterRouting, ginHandlerProvider(toHandlerProvider(middleware)))
+			} else {
+				r.afterRouting = append(r.afterRouting, r.toGinHandler(middleware))
+			}
 		}
 	}
 }
