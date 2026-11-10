@@ -382,3 +382,64 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 	})
 
 }
+
+func TestExecTxRawCancellationRollsBackAndReleasesConnection(t *testing.T) {
+	source := os.Getenv("BDS_TEST_DB_URL")
+	if source == "" {
+		t.Skip("requires migrated disposable PostgreSQL")
+	}
+	if os.Getenv("BDS_TEST_MODE") != "disposable" {
+		t.Fatal("BDS_TEST_MODE=disposable is mandatory for database writes")
+	}
+	cfg, err := pgxpool.ParseConfig(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ConnConfig.Database != "bdspro_test" {
+		t.Fatal("refusing to write outside bdspro_test")
+	}
+	// A single-connection pool detects an owner that fails to release its tx.
+	cfg.MaxConns = 1
+	base, stop := context.WithTimeout(context.Background(), 20*time.Second)
+	defer stop()
+	pool, err := pgxpool.NewWithConfig(base, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if err := pool.Ping(base); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(pool)
+	requestCtx, cancel := context.WithCancel(base)
+	defer cancel()
+	var uncommittedID int64
+	err = store.ExecTxRaw(requestCtx, func(tx pgx.Tx) error {
+		q := New(tx)
+		var insertErr error
+		uncommittedID, insertErr = q.CreateParty(requestCtx)
+		if insertErr != nil {
+			return insertErr
+		}
+		cancel()
+		// Simulate a canceled request after an in-transaction write.
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled raw owner returned %v", err)
+	}
+	if uncommittedID <= 0 {
+		t.Fatal("test did not insert a party before cancellation")
+	}
+	// If the canceled context were reused for ROLLBACK, cleanup can fail;
+	// a fresh, bounded context must be able to acquire the sole connection.
+	checkCtx, checkCancel := context.WithTimeout(base, 5*time.Second)
+	defer checkCancel()
+	var count int
+	if err := pool.QueryRow(checkCtx, "SELECT count(*) FROM parties WHERE id=$1", uncommittedID).Scan(&count); err != nil {
+		t.Fatalf("raw transaction did not release connection after cancel: %v", err)
+	}
+	if count != 0 {
+		t.Fatal("canceled raw transaction committed its PostgreSQL write")
+	}
+}
