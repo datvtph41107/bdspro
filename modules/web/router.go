@@ -1,7 +1,10 @@
 package web
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"reflect"
 	"strings"
@@ -10,6 +13,113 @@ import (
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
 )
+
+// ginDelegatingWriter adapts a response writer supplied by net/http
+// middleware to Gin's response writer contract. It ensures downstream Gin
+// actions write through HTTP middleware wrappers rather than bypassing them.
+type ginDelegatingWriter struct {
+	http.ResponseWriter
+	original gin.ResponseWriter
+	status   int
+	size     int
+}
+
+var _ gin.ResponseWriter = (*ginDelegatingWriter)(nil)
+
+func newGinDelegatingWriter(w http.ResponseWriter, original gin.ResponseWriter) *ginDelegatingWriter {
+	return &ginDelegatingWriter{
+		ResponseWriter: w,
+		original:       original,
+		status:         original.Status(),
+		size:           original.Size(),
+	}
+}
+
+func (w *ginDelegatingWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *ginDelegatingWriter) WriteHeader(status int) {
+	if status > 0 && !w.Written() {
+		w.status = status
+	}
+}
+
+func (w *ginDelegatingWriter) WriteHeaderNow() {
+	if !w.Written() {
+		w.size = 0
+		w.ResponseWriter.WriteHeader(w.status)
+	}
+}
+
+func (w *ginDelegatingWriter) Write(body []byte) (int, error) {
+	w.WriteHeaderNow()
+	n, err := w.ResponseWriter.Write(body)
+	w.size += n
+	return n, err
+}
+
+func (w *ginDelegatingWriter) WriteString(body string) (int, error) {
+	w.WriteHeaderNow()
+	n, err := io.WriteString(w.ResponseWriter, body)
+	w.size += n
+	return n, err
+}
+
+func (w *ginDelegatingWriter) Status() int { return w.status }
+func (w *ginDelegatingWriter) Size() int   { return w.size }
+func (w *ginDelegatingWriter) Written() bool { return w.size >= 0 }
+
+func (w *ginDelegatingWriter) Flush() {
+	w.WriteHeaderNow()
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (w *ginDelegatingWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hijacker, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return hijacker.Hijack()
+	}
+	return nil, nil, http.ErrNotSupported
+}
+
+func (w *ginDelegatingWriter) CloseNotify() <-chan bool {
+	if notifier, ok := w.ResponseWriter.(http.CloseNotifier); ok {
+		return notifier.CloseNotify()
+	}
+	return w.original.CloseNotify()
+}
+
+func (w *ginDelegatingWriter) Pusher() http.Pusher {
+	if pusher, ok := w.ResponseWriter.(http.Pusher); ok {
+		return pusher
+	}
+	return nil
+}
+
+// ginHandlerProvider is the Gin execution boundary for a net/http provider.
+// It preserves both the Request and any ResponseWriter supplied to next.
+func ginHandlerProvider(provider middlewareProvider) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		continued := false
+		next := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if continued {
+				panic("web: HTTP middleware called next more than once")
+			}
+			continued = true
+			c.Request = req
+			original := c.Writer
+			if w != original {
+				c.Writer = newGinDelegatingWriter(w, original)
+				defer func() { c.Writer = original }()
+			}
+			c.Next()
+		})
+		provider(next).ServeHTTP(c.Writer, c.Request)
+		if !continued {
+			c.Abort()
+		}
+	}
+}
 
 // FormStore owns request-local data through reqctx; web does not manage a
 // separate registry or a global cache. The form is exposed only after binding.
