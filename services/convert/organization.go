@@ -1,7 +1,6 @@
 package convert
 
 import (
-	db "github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/structs"
 )
@@ -13,10 +12,6 @@ func ToOrganizationModel(v *organization_model.Organization) structs.Organizatio
 		Name:      v.Name,
 		CreatedAt: v.CreatedAt,
 	}
-}
-
-func ToOrganization(v db.Organization) structs.Organization {
-	return structs.Organization{PartyID: v.PartyID, Name: v.Name, CreatedAt: v.CreatedAt}
 }
 
 // PermissionsForRole is public display metadata, never an authorization source.
@@ -47,19 +42,16 @@ func ToOrganizationAccessList(list []organization_model.Access) []structs.Organi
 	return out
 }
 
-func ToOrganizationMember(v db.OrganizationMember) structs.OrganizationMember {
+func ToOrganizationMember(v *organization_model.Member) structs.OrganizationMember {
 	result := structs.OrganizationMember{
 		ID: v.ID, OrganizationID: v.OrganizationID, PersonID: v.PersonID,
 		Role: v.Role, JoinedAt: v.JoinedAt,
 	}
-	if v.EndedAt.Valid {
-		value := v.EndedAt.Time
-		result.EndedAt = &value
-	}
+	result.EndedAt = v.EndedAt
 	return result
 }
 
-func ToActiveOrganizationMembers(rows []db.ListOrganizationMembersForOwnerRow) []structs.ActiveOrganizationMember {
+func ToActiveOrganizationMembers(rows []*organization_model.Member) []structs.ActiveOrganizationMember {
 	out := make([]structs.ActiveOrganizationMember, 0, len(rows))
 	for _, v := range rows {
 		out = append(out, structs.ActiveOrganizationMember{

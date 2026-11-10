@@ -3,6 +3,7 @@ package organization
 import (
 	"context"
 	"errors"
+	"time"
 
 	audit_model "github.com/datvtph41107/bdspro/models/audit"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
@@ -11,9 +12,42 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// Member is the Organization membership domain model. SQLC's nullable
+// fields and owner foreign-key projection never leave models/organization.
+// Like Gitea's models/organization.OrgUser, it is owned by the domain package.
+type Member struct {
+	ID             int64
+	OrganizationID int64
+	PersonID       int64
+	Role           string
+	JoinedAt       time.Time
+	EndedAt        *time.Time
+}
+
+// MemberFromDB is the canonical SQLC membership to domain mapping.
+func MemberFromDB(row db.OrganizationMember) *Member {
+	member := &Member{
+		ID: row.ID, OrganizationID: row.OrganizationID,
+		PersonID: row.PersonID, Role: row.Role, JoinedAt: row.JoinedAt,
+	}
+	if row.EndedAt.Valid {
+		endedAt := row.EndedAt.Time
+		member.EndedAt = &endedAt
+	}
+	return member
+}
+
+// memberFromListRow owns the owner-scoped SQLC read projection.
+func memberFromListRow(row db.ListOrganizationMembersForOwnerRow) *Member {
+	return &Member{
+		ID: row.ID, OrganizationID: row.OrganizationID,
+		PersonID: row.PersonID, Role: row.Role, JoinedAt: row.JoinedAt,
+	}
+}
+
 // GetOrgMembersForDoer resolves the verified session actor and Store from the
 // request context. SQLC retains the owner/visibility predicate.
-func GetOrgMembersForDoer(ctx context.Context, organizationID int64) ([]db.ListOrganizationMembersForOwnerRow, error) {
+func GetOrgMembersForDoer(ctx context.Context, organizationID int64) ([]*Member, error) {
 	actor, ok := auth_model.ActorFromContext(ctx)
 	if !ok {
 		return nil, auth_model.ErrSessionUnavailable
@@ -25,7 +59,7 @@ func GetOrgMembersForDoer(ctx context.Context, organizationID int64) ([]db.ListO
 	return GetOrgMembers(ctx, store, actor.AccountID, organizationID)
 }
 
-func GetOrgMembers(ctx context.Context, store db.Store, actorAccountID, organizationID int64) ([]db.ListOrganizationMembersForOwnerRow, error) {
+func GetOrgMembers(ctx context.Context, store db.Store, actorAccountID, organizationID int64) ([]*Member, error) {
 	members, err := store.ListOrganizationMembersForOwner(ctx, db.ListOrganizationMembersForOwnerParams{
 		OrganizationID: organizationID, ActorAccountID: actorAccountID,
 	})
@@ -36,25 +70,32 @@ func GetOrgMembers(ctx context.Context, store db.Store, actorAccountID, organiza
 	if len(members) == 0 {
 		return nil, ErrOrganizationNotFound
 	}
-	return members, nil
+	out := make([]*Member, 0, len(members))
+	for _, row := range members {
+		out = append(out, memberFromListRow(row))
+	}
+	return out, nil
 }
 
 // AddOrgUser delegates the authorization check to the single SQL INSERT WHERE
 // EXISTS, while interpreting PostgreSQL constraints as model failures.
-func AddOrgUser(ctx context.Context, writer OrganizationWriter, actorAccountID, organizationID, personID int64) (db.OrganizationMember, error) {
+func AddOrgUser(ctx context.Context, writer OrganizationWriter, actorAccountID, organizationID, personID int64) (*Member, error) {
 	member, err := writer.AddOrganizationMember(ctx, db.AddOrganizationMemberParams{
 		OrganizationID: organizationID, PersonID: personID, ActorAccountID: actorAccountID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.OrganizationMember{}, util.WithCause(ErrOrganizationOwnerRequired, err)
+		return nil, util.WithCause(ErrOrganizationOwnerRequired, err)
 	}
 	if isPGConstraint(err, "23505", "organization_members_one_open_uq") {
-		return db.OrganizationMember{}, util.WithCause(ErrMembershipExists, err)
+		return nil, util.WithCause(ErrMembershipExists, err)
 	}
 	if isPGConstraint(err, "23503", "organization_members_person_id_fkey") {
-		return db.OrganizationMember{}, util.WithCause(ErrPersonUnavailable, err)
+		return nil, util.WithCause(ErrPersonUnavailable, err)
 	}
-	return member, err
+	if err != nil {
+		return nil, err
+	}
+	return MemberFromDB(member), nil
 }
 
 // RemoveOrdinaryOrgMemberTx ends an ordinary membership and removes all
@@ -105,24 +146,30 @@ func RequireRoleChangeOwner(ctx context.Context, q *db.Queries, organizationID, 
 
 // PromoteOwnerTx changes a verified, active ordinary member to an owner.
 // Call only after RequireRoleChangeOwner under the same organization lock.
-func PromoteOwnerTx(ctx context.Context, q *db.Queries, organizationID, personID int64) (db.OrganizationMember, error) {
+func PromoteOwnerTx(ctx context.Context, q *db.Queries, organizationID, personID int64) (*Member, error) {
 	member, err := q.PromoteOrganizationMember(ctx, db.PromoteOrganizationMemberParams{
 		OrganizationID: organizationID, PersonID: personID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.OrganizationMember{}, ErrOwnerCandidateInvalid
+		return nil, ErrOwnerCandidateInvalid
 	}
-	return member, err
+	if err != nil {
+		return nil, err
+	}
+	return MemberFromDB(member), nil
 }
 
 // DemoteOwnerTx never deletes organization membership or team grants.
 // The caller must serialize owner changes and protect the last owner.
-func DemoteOwnerTx(ctx context.Context, q *db.Queries, organizationID, personID int64) (db.OrganizationMember, error) {
+func DemoteOwnerTx(ctx context.Context, q *db.Queries, organizationID, personID int64) (*Member, error) {
 	member, err := q.DemoteOrganizationOwner(ctx, db.DemoteOrganizationOwnerParams{
 		OrganizationID: organizationID, PersonID: personID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.OrganizationMember{}, ErrOwnerNotFound
+		return nil, ErrOwnerNotFound
 	}
-	return member, err
+	if err != nil {
+		return nil, err
+	}
+	return MemberFromDB(member), nil
 }
