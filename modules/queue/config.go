@@ -34,9 +34,20 @@ func (c Config) Validate() error {
 	if c.Concurrency < 1 || len(c.Queues) == 0 {
 		return fmt.Errorf("queue concurrency and weights must be positive")
 	}
+	if c.Concurrency > setting.MaxQueueConcurrency {
+		return fmt.Errorf("queue concurrency must not exceed %d", setting.MaxQueueConcurrency)
+	}
+	totalWeight := 0
 	for name, weight := range c.Queues {
 		if strings.TrimSpace(name) == "" || weight < 1 {
 			return fmt.Errorf("queue name and weight must be valid")
+		}
+		if weight > setting.MaxQueueWeight {
+			return fmt.Errorf("queue %q weight must not exceed %d", name, setting.MaxQueueWeight)
+		}
+		totalWeight += weight
+		if totalWeight > setting.MaxQueueTotalWeight {
+			return fmt.Errorf("total queue weight must not exceed %d", setting.MaxQueueTotalWeight)
 		}
 	}
 	return nil

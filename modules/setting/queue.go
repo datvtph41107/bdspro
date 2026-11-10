@@ -5,6 +5,16 @@ import (
 	"strconv"
 )
 
+// Asynq v0.23 builds a priority-weighted queue-name slice on every fetch.
+// Unbounded priorities can exhaust CPU/memory, and unbounded concurrency can
+// launch excessive worker goroutines. These are BDSPro operational caps,
+// not hard limits imposed by Asynq.
+const (
+	MaxQueueConcurrency = 256
+	MaxQueueWeight      = 100
+	MaxQueueTotalWeight = 1000
+)
+
 // QueueSettings is the worker's validated Asynq execution policy.
 // Redis connectivity is owned separately by the worker's Redis manager.
 type QueueSettings struct {
@@ -47,6 +57,15 @@ func LoadQueueSettings(provider *ConfigProvider) (QueueSettings, error) {
 			return QueueSettings{}, fmt.Errorf("queue.%s must be a positive integer", option.key)
 		}
 		*option.target = n
+	}
+	if cfg.Concurrency > MaxQueueConcurrency {
+		return QueueSettings{}, fmt.Errorf("queue.CONCURRENCY must not exceed %d", MaxQueueConcurrency)
+	}
+	if cfg.CriticalWeight > MaxQueueWeight {
+		return QueueSettings{}, fmt.Errorf("queue.CRITICAL_WEIGHT must not exceed %d", MaxQueueWeight)
+	}
+	if cfg.DefaultWeight > MaxQueueWeight {
+		return QueueSettings{}, fmt.Errorf("queue.DEFAULT_WEIGHT must not exceed %d", MaxQueueWeight)
 	}
 	return cfg, nil
 }

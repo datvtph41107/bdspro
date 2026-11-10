@@ -66,3 +66,37 @@ func TestQueueSettingsMissingOverridesRetainDefaults(t *testing.T) {
 		t.Fatalf("missing queue options changed defaults: %+v", got)
 	}
 }
+
+func TestQueueSettingsRejectsResourceExhaustionOptions(t *testing.T) {
+	for _, tc := range []struct {
+		name, option, want string
+	}{
+		{"too_many_workers", "CONCURRENCY = 257", "CONCURRENCY"},
+		{"critical_weight_bomb", "CRITICAL_WEIGHT = 1000000000", "CRITICAL_WEIGHT"},
+		{"default_weight_bomb", "DEFAULT_WEIGHT = 101", "DEFAULT_WEIGHT"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f, err := ini.Load([]byte("[queue]\n" + tc.option + "\n"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := LoadQueueSettings(&ConfigProvider{file: f}); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("resource-exhausting %q accepted: %v", tc.option, err)
+			}
+		})
+	}
+}
+
+func TestQueueSettingsAcceptsResourceBounds(t *testing.T) {
+	f, err := ini.Load([]byte("[queue]\nCONCURRENCY = 256\nCRITICAL_WEIGHT = 100\nDEFAULT_WEIGHT = 100\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadQueueSettings(&ConfigProvider{file: f})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Concurrency != MaxQueueConcurrency || cfg.CriticalWeight != MaxQueueWeight || cfg.DefaultWeight != MaxQueueWeight {
+		t.Fatalf("resource-bound configuration not preserved: %+v", cfg)
+	}
+}

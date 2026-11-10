@@ -108,3 +108,11 @@ func TestWorkerRejectsInvalidQueuePolicyBeforeOpeningDependencies(t *testing.T) 
 		})
 	}
 }
+
+func TestWorkerRejectsOversizedQueueConfigBeforeDependencies(t *testing.T) {
+	file := workerConfigFile(t, minimumWorkerConfig+"[queue]\nCONCURRENCY = 1000000000\n")
+	_, err := LoadWorkerSettings(file)
+	if err == nil || !strings.Contains(err.Error(), "CONCURRENCY") {
+		t.Fatalf("oversized worker config accepted: %v", err)
+	}
+}
