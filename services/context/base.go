@@ -10,6 +10,7 @@ import (
 	appjson "github.com/datvtph41107/bdspro/modules/json"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/reqctx"
+	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 )
 
 // RequestSource is the HTTP transport contract. A framework adapter owns
@@ -38,6 +39,7 @@ type Base struct {
 }
 
 var _ context.Context = (*Base)(nil)
+var _ web_types.ResponseStatusProvider = (*Base)(nil)
 
 func NewBaseContext(source RequestSource) *Base {
 	if source == nil {

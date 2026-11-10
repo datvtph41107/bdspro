@@ -1,6 +1,9 @@
 package web
 
-import "github.com/gin-gonic/gin"
+import (
+	web_types "github.com/datvtph41107/bdspro/modules/web/types"
+	"github.com/gin-gonic/gin"
+)
 
 // handlers adapts Gitea-style typed route actions into the single Gin
 // execution chain. This package owns the conversion and continuation policy,
@@ -16,11 +19,22 @@ func (r *Router[T]) handlers(actions []func(T)) []gin.HandlerFunc {
 		}
 		fn := action
 		handlers = append(handlers, func(c *gin.Context) {
-			fn(r.getContext(c))
-			// Gitea stops the typed handler chain after a committed response.
-			// Gin JSON/Write does not itself abort following route handlers.
-			// Selecting Status without writing headers must not abort.
-			if c.Writer.Written() && !c.IsAborted() {
+			ctx := r.getContext(c)
+			fn(ctx)
+			// The typed API context owns the response lifecycle, as in Gitea's
+			// hasResponseBeenWritten. This checks the committed response, not
+			// Gin's selected-but-unwritten status code. Only legacy *gin.Context
+			// actions fall back to Gin's writer.
+			if c.IsAborted() {
+				return
+			}
+			written := false
+			if status, ok := any(ctx).(web_types.ResponseStatusProvider); ok {
+				written = status.WrittenStatus() != 0
+			} else {
+				written = c.Writer.Written()
+			}
+			if written {
 				c.Abort()
 			}
 		})
