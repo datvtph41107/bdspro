@@ -295,40 +295,44 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"verified": true})
 }
 
-func (h *AuthHandler) Renew(c *gin.Context) {
+// Renew uses the same refresh-session service and Redis admission as before,
+// but the HTTP action now consumes only APIContext, not Gin request state.
+func (h *AuthHandler) Renew(ctx *appctx.APIContext) {
 	var req structs.TokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "refresh", req.RefreshToken, 60, 20, time.Minute) {
+	if !h.limiter.AllowAPI(ctx, "refresh", req.RefreshToken, 60, 20, time.Minute) {
 		return
 	}
-	result, err := h.auth.Renew(c.Request.Context(), req.RefreshToken)
+	result, err := h.auth.Renew(ctx, req.RefreshToken)
 	if err != nil {
-		appctx.Error(c, err)
+		ctx.APIErrorAuto(err)
 		return
 	}
-	appctx.GetAPIContext(c).JSON(http.StatusOK, structs.RenewAccessTokenResponse{
+	ctx.JSON(http.StatusOK, structs.RenewAccessTokenResponse{
 		AccessToken:          result.AccessToken,
 		AccessTokenExpiresAt: result.AccessTokenExpiresAt,
 	})
 }
 
-func (h *AuthHandler) Revoke(c *gin.Context) {
+// Revoke preserves the existing refresh-token ownership and revocation
+// semantics; request scope and response emission belong to APIContext.
+func (h *AuthHandler) Revoke(ctx *appctx.APIContext) {
 	var req structs.TokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		appctx.Invalid(c, err)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.APIInvalid(err)
 		return
 	}
-	if !h.limiter.Allow(c, "revoke", req.RefreshToken, 60, 20, time.Minute) {
+	if !h.limiter.AllowAPI(ctx, "revoke", req.RefreshToken, 60, 20, time.Minute) {
 		return
 	}
-	if err := h.auth.Revoke(c.Request.Context(), req.RefreshToken); err != nil {
-		appctx.Error(c, err)
+	if err := h.auth.Revoke(ctx, req.RefreshToken); err != nil {
+		ctx.APIErrorAuto(err)
 		return
 	}
-	c.Status(http.StatusNoContent)
+	ctx.Status(http.StatusNoContent)
 }
 
 // GetConnections returns a bounded history of this Account's session issuance.

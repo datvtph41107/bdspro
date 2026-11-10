@@ -172,12 +172,14 @@ func Routes() *web.Router {
 	m.Post("/users/verify_email/resend", appctx.GinActions(
 		d.IPActive.For(ipactive.ResendVerificationEmail), d.Auth.ResendVerificationEmail,
 	)...)
-	m.Post("/tokens/renew_access", appctx.GinActions(
-		d.IPActive.For(ipactive.RenewAccess), d.Auth.Renew,
-	)...)
-	m.Post("/tokens/revoke", appctx.GinActions(
-		d.IPActive.For(ipactive.RevokeToken), d.Auth.Revoke,
-	)...)
+	m.Post("/tokens/renew_access",
+		security.IPActiveFor(d.IPActive, ipactive.RenewAccess),
+		d.Auth.Renew,
+	)
+	m.Post("/tokens/revoke",
+		security.IPActiveFor(d.IPActive, ipactive.RevokeToken),
+		d.Auth.Revoke,
+	)
 	m.Post("/users/password/reset/request", appctx.GinActions(
 		d.IPActive.For(ipactive.RequestPasswordReset), d.Auth.RequestPasswordReset,
 	)...)
