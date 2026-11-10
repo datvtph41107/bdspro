@@ -126,3 +126,46 @@ func TestTypedHTTPChainPropagatesGinContextMutation(t *testing.T) {
 		t.Fatalf("status=%d want=%d", response.Code, http.StatusNoContent)
 	}
 }
+
+func TestTypedAPIContextCancellationPropagatesAndCleansScope(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	router := web.NewRouter[*APIContext](engine.Group(""), GetAPIContext)
+	router.AfterRouting(APIContexter())
+
+	requestContext, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cleanupCount := 0
+	router.Get("/cancel/:id", func(api *APIContext) {
+		if api.Err() != nil {
+			t.Errorf("request was already canceled: %v", api.Err())
+		}
+		if GetAPIContextFromRequest(api.CurrentRequest()) != api {
+			t.Error("cancellation test received a different APIContext instance")
+		}
+		if id, err := api.PositivePathID("id"); err != nil || id != 42 {
+			t.Errorf("matched route parameter id=%d err=%v", id, err)
+		}
+		store := reqctx.FromContext(api.CurrentRequest().Context())
+		if store == nil {
+			t.Fatal("request scope missing before cancellation")
+		}
+		store.AddCleanup(func() { cleanupCount++ })
+		cancel()
+		if api.Err() != context.Canceled {
+			t.Errorf("APIContext.Err()=%v, want context.Canceled", api.Err())
+		}
+		select {
+		case <-api.Done():
+		default:
+			t.Error("APIContext.Done() did not close after request cancellation")
+		}
+		api.Status(http.StatusNoContent)
+	})
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/cancel/42", nil).WithContext(requestContext)
+	engine.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent || cleanupCount != 1 {
+		t.Fatalf("canceled request status=%d cleanup=%d, want 204 and exactly one cleanup", response.Code, cleanupCount)
+	}
+}
