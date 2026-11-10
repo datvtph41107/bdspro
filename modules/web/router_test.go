@@ -923,3 +923,37 @@ func TestBeforeRoutingRejectsDuplicateContinuation(t *testing.T) {
 	}()
 	r.WrapIngress(engine).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/once", nil))
 }
+
+func TestBeforeRoutingCompilesStatefulProviderOnceAcrossRequests(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	compiled := 0
+	entered := 0
+	r.BeforeRouting(func(next http.Handler) http.Handler {
+		compiled++
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			entered++
+			next.ServeHTTP(w, req)
+		})
+	})
+	actions := 0
+	r.Get("/repeat", func(c *gin.Context) {
+		actions++
+		c.Status(http.StatusNoContent)
+	})
+	ingress := r.WrapIngress(engine)
+	if compiled != 1 {
+		t.Fatalf("provider compiled %d times during ingress setup, want once", compiled)
+	}
+	for i := 0; i < 3; i++ {
+		response := httptest.NewRecorder()
+		ingress.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/repeat", nil))
+		if response.Code != http.StatusNoContent {
+			t.Fatalf("request %d status=%d, want 204", i, response.Code)
+		}
+	}
+	if compiled != 1 || entered != 3 || actions != 3 {
+		t.Fatalf("compiled=%d entered=%d actions=%d, want 1/3/3", compiled, entered, actions)
+	}
+}
