@@ -18,7 +18,7 @@ type SettingsPatch struct {
 // UpdateUserSettings coordinates validation, current-session authority, a
 // model-owned SQLC update, and the projection read within one transaction.
 func UpdateUserSettings(ctx context.Context, patch SettingsPatch) (*account_model.Profile, error) {
-	actor, _, err := actingUser(ctx)
+	actor, err := actingUser(ctx)
 	if err != nil {
 		return nil, err
 	}
