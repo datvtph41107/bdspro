@@ -9,17 +9,20 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/routers/common"
+	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
 func TestRecoveryBeforeResponseWritesOnePublicError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.Use(common.Recovery(io.Discard), appctx.APIContexter())
-	router.GET("/panic", func(*gin.Context) { panic("private provider error") })
+	m := web.NewRouter()
+	m.AfterRouting(appctx.APIContexter())
+	router := m.GinEngine()
+	router.Use(common.Recovery(io.Discard))
+	m.Get("/panic", func(*appctx.APIContext) { panic("private provider error") })
 	record := httptest.NewRecorder()
-	router.ServeHTTP(record, httptest.NewRequest(http.MethodGet, "/panic", nil))
+	m.ServeHTTP(record, httptest.NewRequest(http.MethodGet, "/panic", nil))
 	if record.Code != http.StatusInternalServerError {
 		t.Fatalf("status=%d, want 500", record.Code)
 	}
@@ -40,14 +43,16 @@ func TestRecoveryBeforeResponseWritesOnePublicError(t *testing.T) {
 
 func TestRecoveryAfterCommittedResponseDoesNotAppendJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.Use(common.Recovery(io.Discard), appctx.APIContexter())
-	router.GET("/panic", func(ctx *gin.Context) {
+	m := web.NewRouter()
+	m.AfterRouting(appctx.APIContexter())
+	router := m.GinEngine()
+	router.Use(common.Recovery(io.Discard))
+	m.Get("/panic", func(ctx *appctx.APIContext) {
 		ctx.JSON(http.StatusAccepted, map[string]string{"result": "accepted"})
 		panic("private provider error")
 	})
 	record := httptest.NewRecorder()
-	router.ServeHTTP(record, httptest.NewRequest(http.MethodGet, "/panic", nil))
+	m.ServeHTTP(record, httptest.NewRequest(http.MethodGet, "/panic", nil))
 	if record.Code != http.StatusAccepted {
 		t.Fatalf("committed status changed to %d", record.Code)
 	}
