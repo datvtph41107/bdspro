@@ -112,7 +112,7 @@ func (h *OAuth2Handler) StartLink(c *gin.Context) {
 	}
 	h.stateCookie(c, start.State, start.MaxAge)
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, gin.H{"authorization_url": start.AuthorizationURL})
+	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"authorization_url": start.AuthorizationURL})
 }
 
 // StartPhoneBind reauthenticates using an already linked OIDC identity before
@@ -136,7 +136,7 @@ func (h *OAuth2Handler) StartPhoneBind(c *gin.Context) {
 	}
 	h.stateCookie(c, start.State, start.MaxAge)
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, gin.H{"authorization_url": start.AuthorizationURL})
+	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"authorization_url": start.AuthorizationURL})
 }
 
 func (h *OAuth2Handler) Callback(c *gin.Context) {
@@ -187,7 +187,7 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 			appctx.Error(c, err)
 			return
 		}
-		c.JSON(http.StatusAccepted, gin.H{"phone_verification_started": true})
+		appctx.GetAPIContext(c).JSON(http.StatusAccepted, gin.H{"phone_verification_started": true})
 	case "link":
 		if pending.AccountID <= 0 {
 			appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
@@ -197,7 +197,7 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 			appctx.Error(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"linked": true})
+		appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"linked": true})
 	case "login":
 		if pending.AccountID != 0 {
 			appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "invalid authorization state")
@@ -216,7 +216,7 @@ func (h *OAuth2Handler) Callback(c *gin.Context) {
 			h.browserLogin.CompleteOIDCLogin(c, result, pending.ReturnPath)
 			return
 		}
-		c.JSON(http.StatusOK, convert.ToLogin(result))
+		appctx.GetAPIContext(c).JSON(http.StatusOK, convert.ToLogin(result))
 	default:
 		appctx.Reject(c, http.StatusBadRequest, "oauth2.invalid_state", "unsupported authorization purpose")
 	}

@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
+	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,6 +20,13 @@ type Router[T any] struct {
 func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *Router[T] {
 	if group == nil || getContext == nil {
 		panic("web: route group and context accessor are required")
+	}
+	// Gitea prechecks that typed actions have a ResponseStatusProvider.
+	// Gin-only compatibility actions use Gin's own response writer instead;
+	// do not allocate a reflection registry for this already typed router.
+	typ := reflect.TypeFor[T]()
+	if typ != reflect.TypeFor[*gin.Context]() && !typ.Implements(reflect.TypeFor[web_types.ResponseStatusProvider]()) {
+		panic(fmt.Sprintf("web: action context %s must implement ResponseStatusProvider", typ))
 	}
 	return &Router[T]{group: group, getContext: getContext}
 }

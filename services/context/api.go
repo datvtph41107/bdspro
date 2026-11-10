@@ -10,6 +10,7 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
+	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 )
 
 // APIContext is the API-specific request state. It does not embed or import
@@ -36,6 +37,7 @@ func (c *APIContext) SignedPrincipal() (*authcrypto.Payload, bool) {
 type APIHandler func(*APIContext)
 
 var _ context.Context = (*APIContext)(nil)
+var _ web_types.ResponseStatusProvider = (*APIContext)(nil)
 
 // VerifiedActor is the sole HTTP-to-domain verified principal accessor.
 func (c *APIContext) VerifiedActor() (auth_model.Actor, bool) {

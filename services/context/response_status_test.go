@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,5 +33,37 @@ func TestBaseWrittenStatusMatchesGinResponse(t *testing.T) {
 	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/status", nil))
 	if w.Code != http.StatusCreated {
 		t.Fatalf("response status=%d", w.Code)
+	}
+}
+
+// End-to-end typed action execution must consult APIContext.WrittenStatus,
+// while retaining the selected-but-unwritten status semantics.
+func TestTypedAPIContextResponseStatusControlsActionChain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(APIContexter())
+	m := web.NewRouter[*APIContext](router.Group(""), GetAPIContext)
+
+	reachedAfterWritten := false
+	m.Get("/written", func(c *APIContext) {
+		c.JSON(http.StatusAccepted, map[string]bool{"ok": true})
+	}, func(*APIContext) { reachedAfterWritten = true })
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/written", nil))
+	if reachedAfterWritten || w.Code != http.StatusAccepted {
+		t.Fatalf("committed response did not stop action chain: reached=%v status=%d", reachedAfterWritten, w.Code)
+	}
+
+	reachedAfterStatusOnly := false
+	m.Get("/status-only", func(c *APIContext) {
+		c.Status(http.StatusAccepted)
+	}, func(c *APIContext) {
+		reachedAfterStatusOnly = true
+		c.JSON(http.StatusOK, map[string]bool{"ok": true})
+	})
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/status-only", nil))
+	if !reachedAfterStatusOnly || w.Code != http.StatusOK {
+		t.Fatalf("status-only prematurely aborted: reached=%v status=%d", reachedAfterStatusOnly, w.Code)
 	}
 }

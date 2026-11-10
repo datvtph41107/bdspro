@@ -43,7 +43,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		appctx.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, convert.ToUser(account))
+	appctx.GetAPIContext(c).JSON(http.StatusCreated, convert.ToUser(account))
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -61,7 +61,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		appctx.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, convert.ToLogin(result))
+	appctx.GetAPIContext(c).JSON(http.StatusOK, convert.ToLogin(result))
 }
 
 func (h *AuthHandler) StartPhoneBind(c *gin.Context) {
@@ -127,7 +127,7 @@ func (h *AuthHandler) VerifyPhoneRegister(c *gin.Context) {
 		appctx.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, convert.ToLogin(result))
+	appctx.GetAPIContext(c).JSON(http.StatusCreated, convert.ToLogin(result))
 }
 func (h *AuthHandler) StartPhoneLogin(c *gin.Context) {
 	var req structs.PhoneStartRequest
@@ -158,7 +158,7 @@ func (h *AuthHandler) VerifyPhoneLogin(c *gin.Context) {
 		appctx.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, convert.ToLogin(result))
+	appctx.GetAPIContext(c).JSON(http.StatusOK, convert.ToLogin(result))
 }
 
 func (h *AuthHandler) StartEmailLink(c *gin.Context) {
@@ -290,7 +290,7 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 		appctx.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"verified": true})
+	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"verified": true})
 }
 
 func (h *AuthHandler) Renew(c *gin.Context) {
@@ -307,7 +307,7 @@ func (h *AuthHandler) Renew(c *gin.Context) {
 		appctx.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, structs.RenewAccessTokenResponse{
+	appctx.GetAPIContext(c).JSON(http.StatusOK, structs.RenewAccessTokenResponse{
 		AccessToken:          result.AccessToken,
 		AccessTokenExpiresAt: result.AccessTokenExpiresAt,
 	})
@@ -338,7 +338,7 @@ func (h *AuthHandler) ListSessions(c *gin.Context) {
 	if sessions == nil {
 		sessions = []db.ListActiveSessionsRow{}
 	}
-	c.JSON(http.StatusOK, gin.H{"sessions": sessions})
+	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"sessions": sessions})
 }
 
 func (h *AuthHandler) RevokeOwnSession(c *gin.Context) {
@@ -380,5 +380,5 @@ func (h *AuthHandler) GetConnections(c *gin.Context) {
 		appctx.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"connections": convert.ToConnections(connections)})
+	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"connections": convert.ToConnections(connections)})
 }

@@ -108,3 +108,71 @@ func TestTypedRouterStatusOnlyDoesNotShortCircuit(t *testing.T) {
 		t.Fatalf("selected-but-uncommitted status blocked endpoint: reached=%v status=%d", reached, w.Code)
 	}
 }
+
+type providerTestContext struct {
+	transport *gin.Context
+	status    int
+}
+
+func (c *providerTestContext) WrittenStatus() int { return c.status }
+
+// Model the typed status provider separately from Gin. Gitea's web handler
+// checks its ResponseStatusProvider and does not require a direct Gin import
+// from a context implementation.
+func TestTypedRouterUsesResponseStatusProvider(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	reached := false
+	router := NewRouter[*providerTestContext](engine.Group(""), func(c *gin.Context) *providerTestContext {
+		if ctx, ok := c.Get("provider"); ok {
+			return ctx.(*providerTestContext)
+		}
+		ctx := &providerTestContext{transport: c}
+		c.Set("provider", ctx)
+		return ctx
+	})
+	router.Get("/provider", func(ctx *providerTestContext) {
+		ctx.transport.Status(http.StatusAccepted)
+		ctx.status = http.StatusAccepted
+	}, func(*providerTestContext) {
+		reached = true
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/provider", nil))
+	if reached || w.Code != http.StatusAccepted {
+		t.Fatalf("provider did not terminate actions: reached=%v status=%d", reached, w.Code)
+	}
+}
+
+// Merely choosing a status is not a committed response. A typed provider
+// returning zero must not short-circuit later actions.
+func TestTypedRouterProviderStatusOnlyContinues(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	reached := false
+	router := NewRouter[*providerTestContext](engine.Group(""), func(c *gin.Context) *providerTestContext {
+		return &providerTestContext{transport: c}
+	})
+	router.Get("/status", func(ctx *providerTestContext) {
+		ctx.transport.Status(http.StatusAccepted)
+	}, func(ctx *providerTestContext) {
+		reached = true
+		ctx.transport.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/status", nil))
+	if !reached || w.Code != http.StatusOK {
+		t.Fatalf("status-only provider action interrupted: reached=%v status=%d", reached, w.Code)
+	}
+}
+
+func TestTypedRouterRejectsMissingResponseStatusProvider(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	defer func() {
+		if recover() == nil {
+			t.Fatal("invalid typed action context did not fail at route registration")
+		}
+	}()
+	_ = NewRouter[*struct{}](engine.Group(""), func(*gin.Context) *struct{} { return &struct{}{} })
+}
