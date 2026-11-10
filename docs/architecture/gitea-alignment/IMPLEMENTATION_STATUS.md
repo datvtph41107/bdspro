@@ -96,6 +96,18 @@ Do not equate progress through P04's partial user-service refactor with P01 comp
 - No generic Router, no legacy typed/Gin action compiler, no misleading duplicate context source, true pre/post route separation, CI final HEAD green.
 - Only then mark P01 **ACCEPTED** and proceed to P02.
 
+## P01.6a — Shared AfterRouting HTTP compilation (not the full P01.6 acceptance)
+
+**Source comparison:** Gitea's `Router.Methods` calls `wrapMiddlewareAndHandler(r.afterRouting, r.curMiddlewares, h)`. Earlier BDSPro passed `nil` for the first argument and ran every `AfterRouting` through a separately compiled Gin chain. Therefore `PreMiddlewareProvider` from AfterRouting could not precede the normal group or route handlers.
+
+**Implemented in this PR:**
+
+- `modules/web/router.go`: `afterRoutingHTTP []any` stores native HTTP middleware, `PreMiddlewareProvider`, and registered typed context actions; `AfterRouting` validates supported HTTP/typed signatures at registration. `Methods` calls `wrapMiddlewareAndHandler(r.afterRoutingHTTP, r.curMiddlewares, actions)` and runs the resulting HTTP chain under the matched Gin route. Gin remains the only route matcher.
+- **Intentional transitional limitation:** Gin-only bootstrap middleware (including `services/context.APIContexter()`) still executes before that common HTTP chain from `afterRouting []gin.HandlerFunc`; it cannot be safely reordered behind route-pre middleware until P02 supplies net/http APIContexter. Legacy unregistered Gin test contexts keep an explicit adapter.
+- Tests in `modules/web/router_test.go`: `TestRegisteredRouterAfterRoutingPreMiddlewareRunsBeforeNormalScopes` and `TestAfterRoutingRegisteredTypedHandlerRejectsBadSignatureEarly`. Existing provider/writer tests remain.
+- Commits: `bb1a9ac9`, `480a3637`, `98e5d6a5`. Full CI for final HEAD must pass before acceptance.
+- **Next:** replace Gin bootstrap with canonical net/http context provider after preserving one APIContext, reqctx cleanup, cookies, Auth/OAuth and status behavior. Then remove generic `Router[T]`, getContext and toGinHandler; implement true pre-match `BeforeRouting`.
+
 ## P01.5 — Route declaration contract migration (IN PROGRESS, not accepted)
 
 Source review: Gitea `modules/web/router.go` declares `Group(pattern string, fn func(), middlewares ...any)` and `Methods(methods, pattern string, h ...any)`. This is required for route-local `types.PreMiddlewareProvider` and typed actions to coexist. Previous BDSPro `Router[T]` declared `Group(...guards ...func(T))` and `Methods(...actions ...func(T))`, which prevented such combinations even after the compiler was implemented.
