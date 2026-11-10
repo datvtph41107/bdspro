@@ -6,7 +6,7 @@
 
 | Lane | Scope / phase | Working branch | PR | Current decision and next executable task |
 |---|---|---|---|---|
-| **A** | P01/P02 HTTP+request context | `refactor/gitea-web-ownership-20261110` | [#218](https://github.com/datvtph41107/bdspro/pull/218) (draft) | **BLOCKED — CI red** on historical `c97c480e` because `gofmt` import ordering in `routers/api/v1/organization_context_test.go`. Fix as A via approved historical PR #218 cross-owner scope; then rerun final-HEAD CI. Continue net/http APIContexter + non-generic Router only after green baseline. |
+| **A** | P01/P02 HTTP+request context | `refactor/gitea-web-ownership-20261110` | [#218](https://github.com/datvtph41107/bdspro/pull/218) (draft) | **BLOCKED — actual test failures** at current observed branch HEAD `ad1f0138`, CI run 42759268838: `TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods` panics (typed context not published before `getContext`), and `TestAfterRoutingHTTPPreAndTypedAPIContextShareRequestLifecycle` fails (HTTP/typed request context divergence). A should repair **context creation/order**, not remove or weaken these tests; final HEAD CI must pass before further refactor. |
 | **B** | P04 DB / P05 scoped models | `work/gitea-b-data-20261110` | none yet | **READY TO START** from `dev`; wave-1 write scope only `models/**`. First task: Tx API / nested rollback / actor-session authority inventory, then isolated PR. `services/user/**` frozen pending #218 reconciliation. |
 | **C** | P06 process/shared runtime | `work/gitea-c-runtime-20261110` | none yet | **READY TO START** from `dev`; write only `cmd/**` and approved `modules/setting/log/cache/queue/graceful/**`; no `routers/init.go`. First task: Gitea-vs-BDSPro imports and startup lifecycle inventory. |
 | **D** | P03 API/Auth/OAuth | not created | none yet | **READ-ONLY REVIEW**; build endpoint/contract/test inventory; wait for accepted A HTTP context and B DB transaction interfaces before source changes. |
@@ -14,10 +14,11 @@
 
 ## Actual CI evidence at this snapshot
 
-- P01 code PR #218, historical HEAD `c97c480e`: [run 42758853017](https://github.com/datvtph41107/bdspro/actions/runs/42758853017) **failure**, failed step **Verify Go formatting**. Diff is import sorting in `routers/api/v1/organization_context_test.go` (`context`, `encoding/json`, `net/http`, `net/http/httptest`, `reflect`, `testing`). This failure prevents the later tests from establishing correctness. Do not claim P01 complete.
+- P01 code PR #218, prior HEAD `c97c480e`: [run 42758853017](https://github.com/datvtph41107/bdspro/actions/runs/42758853017) failed **Verify Go formatting** in `routers/api/v1/organization_context_test.go`; corrected by commit [`ad1f0138`](https://github.com/datvtph41107/bdspro/commit/ad1f01385ac9db3032070c04b2f12d85be43fe11).
+- P01 follow-up HEAD `ad1f0138`: [run 42759268838](https://github.com/datvtph41107/bdspro/actions/runs/42759268838) **FAILED Test and compile**, specifically: `modules/web.TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods` panic `interface conversion: interface {} is nil, not *web.typedHTTPContext` at `modules/web/router_test.go:573`, invoked from `Router.Methods.func2` at `router.go:322`; and `routers/api/v1.TestAfterRoutingHTTPPreAndTypedAPIContextShareRequestLifecycle` reports HTTP/typed APIContext divergence at `organization_context_test.go:170`. **Do not fix by deleting tests, introducing another global context registry, or masking panic.**
 - Docs PR #219 `2b312cd2`: [run 42762359493](https://github.com/datvtph41107/bdspro/actions/runs/42762359493) **success**. Later coordinator edits created new HEADs, so that run **does not** certify the latest PR.
 - Ownership script correction `f631ad54`: [run 42763221965](https://github.com/datvtph41107/bdspro/actions/runs/42763221965) was **in progress** when last checked. This board commit will create an even newer HEAD needing validation.
-- The two B/C branches were created from `dev`, but no source PRs were opened by Chat 0. They are independent only if B/C stay within their assigned write sets.
+- Current observed `dev` SHA `8dea6dc9` matches the HEADs of both B/C starter branches (verified by GitHub commit-ref fetch). No source PRs were opened by Chat 0; independence requires B/C to stay within their write sets. Refresh before each action.
 
 ## Guard script independent verification
 
