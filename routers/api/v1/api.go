@@ -330,9 +330,7 @@ func Routes() *web.Router {
 				)...)
 			}, appctx.GinActions(appctx.VerifiedEmail(d.Store))...)
 		}
-	}, appctx.GinActions(
-		appctx.Authenticate(d.TokenMaker), appctx.RequireSession(d.Store),
-	)...)
+	}, appctx.Authenticate(d.TokenMaker), appctx.RequireSession())
 	return m
 }
 
