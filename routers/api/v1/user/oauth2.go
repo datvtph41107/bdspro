@@ -177,7 +177,7 @@ func Callback(ctx *appctx.APIContext,w http.ResponseWriter) {
 		result,err:=auth.LoginOIDC(ctx,identity,ctx.CurrentRequest().UserAgent(),ctx.ClientIP())
 		if err!=nil {ctx.APIErrorAuto(err);return}
 		if pending.ReturnPath!="" {
-			completer.CompleteOIDCLogin(ctx,w,result,pending.ReturnPath)
+			browser.CompleteOIDCLogin(ctx, w, result, pending.ReturnPath)
 			return
 		}
 		ctx.JSON(http.StatusOK,convert.ToLogin(result))
