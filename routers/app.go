@@ -10,17 +10,15 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
-	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	api "github.com/datvtph41107/bdspro/routers/api"
 	"github.com/datvtph41107/bdspro/routers/common"
 	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
-	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
+	org_service "github.com/datvtph41107/bdspro/services/org"
 	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -35,8 +33,7 @@ type Server struct {
 	oidcSecure           bool
 	oauthService         *oauth_service.Service
 	oauthProofs          *oauth_service.ConsentProofs
-	browserHandler       *weboauth.Handler
-	phoneEnabled         bool
+	browser               *weboauth.Browser
 	config               setting.Config
 	store                db.Store
 	tokenMaker           authcrypto.Maker
@@ -74,24 +71,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	if err != nil {
 		return nil, fmt.Errorf("initialize IPActive: %w", err)
 	}
-	server.ipActive = ipactive.NewMiddleware(limiter, func(c *gin.Context, event ipactive.Event, admissionErr error) {
-		if admissionErr != nil {
-			log.Ctx(c.Request.Context()).Error().
-				Str("action", string(event.Action)).
-				Str("error_type", fmt.Sprintf("%T", admissionErr)).
-				Msg("ipactive.admission_unavailable")
-			appctx.RateLimitUnavailable(c)
-			return
-		}
-		// Log the actual admission-decision time, not a later handler timestamp.
-		// No raw client IP or Redis key is written to the application log.
-		log.Ctx(c.Request.Context()).Warn().
-			Str("action", string(event.Action)).
-			Int64("occurred_at_unix", int64(event.OccurredAt)).
-			Int64("attempts", event.Attempts).
-			Msg("ipactive.rate_limited")
-		appctx.RateLimited(c, event.RetryAfter)
-	})
+	server.ipActive = ipactive.NewMiddleware(limiter)
 	// Construct a single authentication owner for all credential methods.
 	phoneSender, err := notification.NewPhoneCodeSender(cfg)
 	if err != nil {
@@ -103,7 +83,6 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	}
 	authService := auth_service.NewAuthService(store, maker, cfg, phoneSender, resetSender)
 	server.authService = authService
-	server.phoneEnabled = phoneSender != nil
 	// Provider callback and browser origin must coincide before offering the
 	// browser OIDC option. Mismatched deployments retain their existing API OIDC
 	// callback and password-based browser consent without a misleading link.
@@ -125,10 +104,8 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 			if err != nil {
 				return nil, fmt.Errorf("configure browser session: %w", err)
 			}
-			server.browserHandler, err = weboauth.NewHandler(weboauth.Config{
-				Store: store, OAuth: oauthService,
-				Proofs: proofs, Login: authService.Login, Maker: maker, Codec: codec,
-				PublicOrigin: cfg.BrowserPublicOrigin, Throttle: server.authThrottle,
+			server.browser, err = weboauth.NewBrowser(weboauth.Config{
+				Codec: codec, PublicOrigin: cfg.BrowserPublicOrigin,
 				OIDCEnabled: browserOIDC,
 			})
 			if err != nil {
@@ -149,16 +126,6 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		server.oidcSecure = strings.HasPrefix(cfg.OIDC.RedirectURI, "https://")
 	}
 
-	// Process startup installs immutable API and router capabilities once;
-	// per-request actors, sessions and transactions remain request-scoped.
-	apiv1.InitRuntime(apiv1.Runtime{
-		OAuth2Enabled: server.oidcClient != nil,
-		AuthorizationEnabled: server.oauthService != nil,
-		Browser:       server.browserHandler,
-		PhoneEnabled:  server.phoneEnabled,
-		IPActive:      server.ipActive,
-		InviteKey:     server.config.TokenSymmetricKey,
-	})
 	routes := NormalRoutes()
 	server.router = routes.GinEngine()
 	api.RegisterSwagger(server.router, cfg.Environment)
@@ -168,11 +135,12 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		ctx = auth_service.WithService(ctx, server.authService)
 		ctx = oauth_service.WithService(ctx, server.oauthService, server.oauthProofs)
 		ctx = auth_service.WithOAuth2(ctx, server.oidcClient, server.oidcSecure)
-		ctx = weboauth.WithHandler(ctx, server.browserHandler)
+		ctx = weboauth.WithBrowser(ctx, server.browser)
 		ctx = security.WithThrottle(ctx, server.authThrottle)
 		ctx = security.WithMonitorRedis(ctx, server.authRateRedis)
 		ctx = authcrypto.WithMaker(ctx, server.tokenMaker)
 		ctx = ipactive.WithMiddleware(ctx, server.ipActive)
+		ctx = org_service.WithInviteSigningKey(ctx, server.config.TokenSymmetricKey)
 		if server.store != nil {
 			ctx = db.WithStore(ctx, server.store)
 		}
