@@ -176,3 +176,43 @@ func TestTypedRouterRejectsMissingResponseStatusProvider(t *testing.T) {
 	}()
 	_ = NewRouter[*struct{}](engine.Group(""), func(*gin.Context) *struct{} { return &struct{}{} })
 }
+
+func TestAfterRoutingRunsAfterMatchBeforeGuards(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	var calls []string
+	m := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	m.AfterRouting(func(c *gin.Context) {
+		if c.Param("id") != "42" {
+			t.Fatalf("route params unavailable after matching: %q", c.Param("id"))
+		}
+		calls = append(calls, "after")
+		c.Next()
+	})
+	m.Group("/orgs/:id", func() {
+		m.Get("", func(c *gin.Context) {
+			calls = append(calls, "action")
+			c.Status(http.StatusNoContent)
+		})
+	}, func(*gin.Context) { calls = append(calls, "guard") })
+	engine.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/not-an-api-route", nil))
+	if len(calls) != 0 {
+		t.Fatalf("post-route middleware ran for unmatched path: %v", calls)
+	}
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/orgs/42", nil))
+	if w.Code != http.StatusNoContent || !reflect.DeepEqual(calls, []string{"after", "guard", "action"}) {
+		t.Fatalf("post-route order=%v status=%d", calls, w.Code)
+	}
+}
+
+func TestAfterRoutingRejectsNilMiddleware(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	m := NewRouter[*gin.Context](gin.New().Group(""), func(c *gin.Context) *gin.Context { return c })
+	defer func() {
+		if recover() == nil {
+			t.Fatal("nil post-routing middleware was accepted")
+		}
+	}()
+	m.AfterRouting(nil)
+}
