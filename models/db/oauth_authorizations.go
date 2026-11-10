@@ -38,7 +38,11 @@ func lockOAuthAuthorization(ctx context.Context, tx pgx.Tx, accountID int64, cli
 // ListOAuthAuthorizations lists active, persistently approved grants even if
 // their access tokens have expired. Application owner != authorizing account.
 func (s *SQLStore) ListOAuthAuthorizations(ctx context.Context, accountID int64) ([]OAuthAuthorizedClient, error) {
-	rows, err := s.pool.Query(ctx, `SELECT c.id,c.name FROM oauth_grants g
+	dbx, resolveErr := s.queryExecutor(ctx)
+	if resolveErr != nil {
+		return nil, resolveErr
+	}
+	rows, err := dbx.Query(ctx, `SELECT c.id,c.name FROM oauth_grants g
         JOIN oauth_clients c ON c.id=g.client_id
         WHERE g.account_id=$1 AND g.revoked_at IS NULL AND c.revoked_at IS NULL
         ORDER BY g.approved_at DESC,c.id LIMIT 100`, accountID)
