@@ -109,6 +109,7 @@ type Router[T any] struct {
 	getContext       func(*gin.Context) T
 	beforeRouting    []middlewareProvider // outer HTTP ingress, before Gin selects a route
 	ingressBound     bool                 // ingress registration freezes after composition
+	routesRegistered bool                 // Chi/Gitea-style BeforeRouting must precede route registration
 	afterRouting     []gin.HandlerFunc    // Gin-only bootstrap / compatibility boundary
 	afterRoutingHTTP []any                // canonical HTTP provider compilation
 	curGroupPrefix   string
@@ -137,6 +138,9 @@ func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *
 func (r *Router[T]) BeforeRouting(middlewares ...any) {
 	if r.ingressBound {
 		panic("web: cannot register BeforeRouting after ingress composition")
+	}
+	if r.routesRegistered {
+		panic("web: BeforeRouting middleware must be declared before routes")
 	}
 	for _, middleware := range middlewares {
 		if isNilOrFuncNil(middleware) {
@@ -331,6 +335,10 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 	pattern := r.getPattern(path)
 	// Gitea permits comma-separated method registration at the canonical
 	// Methods boundary. Compile the handler chain once for every method.
+	// As in Chi, lock the BeforeRouting phase before Gin's first
+	// registration. Never allow a later pre-matcher middleware to appear
+	// effective in source while actually being absent from ingress.
+	r.routesRegistered = true
 	for _, candidate := range candidates {
 		r.group.Handle(candidate, pattern, handlers...)
 	}
