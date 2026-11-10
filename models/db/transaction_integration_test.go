@@ -532,6 +532,7 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 	t.Run("transaction-scoped Store follows owner rollback", func(t *testing.T) {
 		abort := errors.New("rollback owning transaction")
 		var created int64
+		var nestedCreated int64
 		var scoped Store
 		var escaped context.Context
 		err := WithTx(ctx, func(txCtx context.Context) error {
@@ -547,6 +548,25 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 			view, ok := scoped.(*SQLStore)
 			if !ok || view.Queries != owner || view.pool != nil {
 				t.Fatal("StoreFromContext returned pool executor instead of active transaction")
+			}
+			// The scoped view itself is a valid transaction capability.
+			// Nested model entrypoints must not reject it as a foreign Store.
+			if err := WithTx(WithStore(txCtx, scoped), func(innerCtx context.Context) error {
+				innerQ, err := TxQueries(innerCtx)
+				if err != nil {
+					return err
+				}
+				if innerQ != owner {
+					t.Fatal("scoped view did not reuse the exact SQLC executor")
+				}
+				nestedStore, err := StoreFromContext(innerCtx)
+				if err != nil {
+					return err
+				}
+				nestedCreated, err = nestedStore.CreateParty(innerCtx)
+				return err
+			}); err != nil {
+				return err
 			}
 			// Emulate existing model code calling a Store query rather than
 			// TxQueries directly. It must still write to the same executor.
@@ -572,6 +592,15 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 		}
 		if persisted != 0 {
 			t.Fatal("StoreFromContext committed a write outside parent transaction")
+		}
+		if nestedCreated <= 0 {
+			t.Fatal("nested scoped Store callback did not write a Party")
+		}
+		if err := pool.QueryRow(base, "SELECT count(*) FROM parties WHERE id=$1", nestedCreated).Scan(&persisted); err != nil {
+			t.Fatal(err)
+		}
+		if persisted != 0 {
+			t.Fatal("nested scoped Store write committed outside parent transaction")
 		}
 		if got, err := StoreFromContext(escaped); got != nil || !errors.Is(err, ErrTransactionClosed) {
 			t.Fatalf("StoreFromContext exposed expired owner: store=%v err=%v", got, err)
