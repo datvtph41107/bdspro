@@ -424,6 +424,76 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 		}
 	})
 
+	t.Run("cross-pool ingress Store cannot hijack transaction", func(t *testing.T) {
+		otherPool, err := pgxpool.New(base, source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer otherPool.Close()
+		foreignStore := NewStore(otherPool)
+		abort := ErrTxStoreUnavailable
+		var parentID int64
+		err = WithTx(ctx, func(txCtx context.Context) error {
+			var err error
+			parentID, err = store.CreateParty(txCtx)
+			if err != nil {
+				return err
+			}
+			_, refused := foreignStore.CreateParty(txCtx)
+			if !errors.Is(refused, abort) {
+				t.Fatalf("foreign Store used another pool's transaction: %v", refused)
+			}
+			return nil // Even swallowed cross-pool access must abort parent.
+		})
+		if !errors.Is(err, abort) {
+			t.Fatalf("cross-pool failure did not poison owner: %v", err)
+		}
+		var count int
+		if err := pool.QueryRow(base, "SELECT count(*) FROM parties WHERE id=$1", parentID).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Fatal("wrong-pool access left parent write committed")
+		}
+
+		err = WithTx(ctx, func(txCtx context.Context) error {
+			// Replacing the context's Store must not create a valid domain
+			// accessor for another pool while keeping the old tx executor.
+			crossCtx := WithStore(txCtx, foreignStore)
+			if other, err := StoreFromContext(crossCtx); other != nil || !errors.Is(err, abort) {
+				t.Fatalf("StoreFromContext accepted wrong pool: store=%v err=%v", other, err)
+			}
+			return nil
+		})
+		if !errors.Is(err, abort) {
+			t.Fatalf("wrong-pool StoreFromContext did not abort parent: %v", err)
+		}
+	})
+
+	t.Run("second Store on same pool shares transaction owner", func(t *testing.T) {
+		otherStore := NewStore(pool)
+		abort := errors.New("rollback same-pool Store")
+		var id int64
+		err := WithTx(ctx, func(txCtx context.Context) error {
+			var err error
+			id, err = otherStore.CreateParty(txCtx)
+			if err != nil {
+				return err
+			}
+			return abort
+		})
+		if !errors.Is(err, abort) {
+			t.Fatalf("same-pool Store query lost owner: %v", err)
+		}
+		var count int
+		if err := pool.QueryRow(base, "SELECT count(*) FROM parties WHERE id=$1", id).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Fatal("second Store on same pool committed independently")
+		}
+	})
+
 	t.Run("transaction-scoped Store follows owner rollback", func(t *testing.T) {
 		abort := errors.New("rollback owning transaction")
 		var created int64
