@@ -316,7 +316,7 @@ func TestTeamMembershipCommitPrecedesRevocation(t *testing.T) {
 func TestTeamMembershipServiceRequiresSignedActorAndOwner(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	data := newTeamCase(t, ctx, store)
-	action := func(accountID int64, sessionID uuid.UUID, teamID int64) (db.TeamMember, error) {
+	action := func(accountID int64, sessionID uuid.UUID, teamID int64) (*organization_model.TeamMember, error) {
 		return AddTeamMember(teamActionContext(ctx, store, accountID, sessionID), teamID, data.recipientPersonID)
 	}
 	if _, err := action(data.accountID, uuid.Nil, data.teamID); !errors.Is(err, auth_model.ErrSessionUnavailable) {
