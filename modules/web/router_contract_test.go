@@ -220,10 +220,10 @@ func TestCanonicalAfterRoutingOrderAndContext(t *testing.T) {
 func TestCanonicalAfterRoutingResponseTermination(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, tc := range []struct {
-		name string
+		name   string
 		action func(http.ResponseWriter, *http.Request)
 		status int
-		body string
+		body   string
 	}{
 		{"explicit status", func(w http.ResponseWriter, req *http.Request) {
 			w.WriteHeader(http.StatusForbidden)
