@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +41,8 @@ func serviceFailure(ctx *appctx.APIContext, err error) {
 		failure(ctx, http.StatusBadRequest, "invalid_request")
 	case errors.Is(err, oauth_service.ErrAccessDenied):
 		failure(ctx, http.StatusForbidden, "access_denied")
+	case errors.Is(err, oauth_service.ErrConsentProofUnavailable):
+		failure(ctx, http.StatusServiceUnavailable, "temporarily_unavailable")
 	default:
 		failure(ctx, http.StatusInternalServerError, "server_error")
 	}
@@ -133,121 +133,48 @@ func DeleteClient(ctx *appctx.APIContext) {
 	ctx.Status(http.StatusNoContent)
 }
 
-func authorizationRequest(values url.Values) (oauth_service.AuthorizationRequest, error) {
-	return oauth_service.ParseAuthorizationRequest(values)
-}
-
-func consentProofFields(accountID int64, req oauth_service.AuthorizationRequest) oauth_service.ConsentProofFields {
-	return oauth_service.ConsentProofFields{
-		AccountID: accountID, ClientID: req.ClientID.String(),
-		RedirectURI: req.RedirectURI, Scope: req.Scope, ResponseType: req.ResponseType,
-		CodeChallenge: req.CodeChallenge, CodeChallengeMethod: req.CodeChallengeMethod,
-		State: req.State, ConsentVersion: req.ConsentVersion,
-	}
-}
-
-// GET is a non-consuming consent preview, not an authorization grant.
+// AuthorizePreview is an HTTP representation of the canonical OAuth consent
+// decision owned by services/oauth. GET does not consume or issue grants.
 func AuthorizePreview(ctx *appctx.APIContext) {
 	s, ok := service(ctx)
-	if !ok {
-		return
-	}
+	if !ok { return }
 	accountID, ok := actorID(ctx)
-	if !ok {
-		return
-	}
-	request, err := authorizationRequest(ctx.CurrentRequest().URL.Query())
-	if err != nil {
-		serviceFailure(ctx, err)
-		return
-	}
-	client, version, err := s.ReviewConsent(ctx, accountID, request)
-	if err != nil {
-		serviceFailure(ctx, err)
-		return
-	}
-	proofs := oauth_service.ProofsFromContext(ctx)
-	if proofs == nil {
-		failure(ctx, http.StatusServiceUnavailable, "temporarily_unavailable")
-		return
-	}
-	request.ConsentVersion = version
-	proof, err := proofs.Issue(consentProofFields(accountID, request), time.Now())
-	if err != nil {
-		serviceFailure(ctx, err)
-		return
-	}
+	if !ok { return }
+	req, err := oauth_service.ParseAuthorizationRequest(ctx.CurrentRequest().URL.Query())
+	if err != nil { serviceFailure(ctx, err); return }
+	preview, err := s.PreviewConsent(ctx, accountID, req, oauth_service.ProofsFromContext(ctx), time.Now())
+	if err != nil { serviceFailure(ctx, err); return }
 	ctx.Header("Cache-Control", "no-store")
 	ctx.Header("Referrer-Policy", "no-referrer")
 	ctx.Header("X-Frame-Options", "DENY")
 	ctx.JSON(http.StatusOK, map[string]any{
-		"client_id": client.ID.String(), "name": client.Name,
-		"redirect_uri": client.RedirectURI, "scope": request.Scope,
-		"consent_required": true, "consent_version": version, "consent_proof": proof,
+		"client_id": preview.Client.ID.String(), "name": preview.Client.Name,
+		"redirect_uri": preview.Client.RedirectURI, "scope": preview.Request.Scope,
+		"consent_required": true, "consent_version": preview.Request.ConsentVersion,
+		"consent_proof": preview.Proof,
 	})
 }
 
-// Authorize requires a persisted first-party session and a matching consent
-// proof. RedirectURI is validated by services/oauth before http.Redirect.
+// Authorize delegates signed consent approval and registered redirect validation
+// to services/oauth; HTTP retains body limits, response and redirect policy.
 func Authorize(ctx *appctx.APIContext, w http.ResponseWriter) {
 	s, ok := service(ctx)
-	if !ok {
-		return
-	}
+	if !ok { return }
 	accountID, ok := actorID(ctx)
-	if !ok {
-		return
-	}
+	if !ok { return }
 	req := ctx.CurrentRequest()
 	req.Body = http.MaxBytesReader(w, req.Body, 8<<10)
 	if err := req.ParseForm(); err != nil {
 		failure(ctx, http.StatusBadRequest, "invalid_request")
 		return
 	}
-	request, err := authorizationRequest(req.PostForm)
-	if err != nil {
-		serviceFailure(ctx, err)
-		return
-	}
-	if req.PostForm.Get("approve") == "true" {
-		version, err := strconv.ParseInt(req.PostForm.Get("consent_version"), 10, 64)
-		if err != nil || version < 0 {
-			failure(ctx, http.StatusBadRequest, "invalid_request")
-			return
-		}
-		request.ConsentVersion = version
-		proofs := oauth_service.ProofsFromContext(ctx)
-		if proofs == nil || proofs.Verify(req.PostForm.Get("consent_proof"),
-			consentProofFields(accountID, request), time.Now()) != nil {
-			failure(ctx, http.StatusBadRequest, "invalid_request")
-			return
-		}
-	}
-	if _, err := s.ReviewAuthorization(ctx, request); err != nil {
-		serviceFailure(ctx, err)
-		return
-	}
-	if req.PostForm.Get("approve") != "true" {
-		target, _ := url.Parse(request.RedirectURI)
-		q := target.Query()
-		q.Set("error", "access_denied")
-		q.Set("state", request.State)
-		target.RawQuery = q.Encode()
-		ctx.Header("Cache-Control", "no-store")
-		ctx.Header("Referrer-Policy", "no-referrer")
-		http.Redirect(w, req, target.String(), http.StatusFound)
-		return
-	}
+	decision, approved, proof, err := oauth_service.ParseConsentDecision(req.PostForm)
+	if err != nil { serviceFailure(ctx, err); return }
 	payload, ok := ctx.SignedPrincipal()
-	if !ok {
-		ctx.AuthenticationRequired()
-		return
-	}
-	redirect, err := s.Authorize(ctx, accountID, payload.SessionID, request)
-	if err != nil {
-		serviceFailure(ctx, err)
-		return
-	}
+	if !ok { ctx.AuthenticationRequired(); return }
+	redirect, err := s.DecideConsent(ctx, accountID, payload.SessionID,
+		decision, approved, proof, oauth_service.ProofsFromContext(ctx), time.Now())
+	if err != nil { serviceFailure(ctx, err); return }
 	ctx.Header("Cache-Control", "no-store")
 	ctx.Header("Referrer-Policy", "no-referrer")
 	http.Redirect(w, req, redirect, http.StatusFound)
