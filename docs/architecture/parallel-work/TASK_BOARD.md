@@ -51,6 +51,15 @@
 - **C-01..C-04 CLOSED; Chat C source FROZEN**, no further refactor absent a new evidenced defect; **C-05 docs, C-06 templates/deps, C-07 combined integration, C-10 deleted imports** remain coordinator tasks; **C-08 full failover and uncooperative shutdown, C-09 graceful manager** deferred with documented operational limitations. P06 is **CONDITIONALLY ACCEPTED owner slice**, **NOT INTEGRATED**.
 - Next coordinator action: remove stale cache/channel descriptions in `docs/architecture/{cache-queue,modules}.md` and `docs/operations/configuration.md`; check `custom/conf/app.example.ini` and `docker/root/etc/templates/app.ini`, `go.mod` after combined A/B/C; do not modify C branch. No dev merge until final combined P07 CI and security/runtime acceptance.
 
+## Chat B final post-acceptance handoff confirmed — 2026-11-10
+
+- Chat 0 verified [PR #221](https://github.com/datvtph41107/bdspro/pull/221) still **DRAFT**, frozen **HEAD `d73e3ecada31898a59c625431dd4ce890c099348`**; exact-head [workflow 42790012175](https://github.com/datvtph41107/bdspro/actions/runs/42790012175) completed **SUCCESS**.
+- Chat B delivered [Transaction consumer inventory + security contract](https://github.com/datvtph41107/bdspro/pull/221#issuecomment-6764511290) and [G5 integration RFC](https://github.com/datvtph41107/bdspro/pull/219#issuecomment-6764574911). No source commits since conditional P04 acceptance. **B P04 post-acceptance owner deliverable CLOSED / source FROZEN**. This does not close G5 for integrated code and does not grant unconditional acceptance or dev merge.
+- **Chat 0 owns G5 execution:** reconcile pre-existing A `services/user/{user,update,settings}.go` changes with B `WithTx2(txCtx)` contract, preserving `RequireActingSession(txCtx,q)`/commit-time authority; migrate `services/worker/outbox_dispatcher.go::Dispatch` with preserved `FOR UPDATE SKIP LOCKED`, TaskID, enqueue/ack order, rollback and fault-injection behavior. Explicitly inventory all `WithTxResult` references on **combined** branch before any B-owned retirement.
+- **Security exceptions to preserve:** OAuth refresh replay commits token-family revocation *then* returns replay error, incorrect OTP commits failed-attempt counter, password reset locks account first and atomically revokes sessions/OAuth. `SQLStore.ExecTxRaw` is the physical PG transaction owner; no global context registry, false universal `WithTx` rewriting or new DB adapter.
+- **P05 remains CLOSED** until G5 combined transaction consumers, session TOCTOU, integration tests and final-HEAD CI are accepted. B remains available only for evidence-backed model defect fixes and transaction contract review.
+- Current critical blocker remains Chat A Router/API compile/cutover and Chat 0 stacked [PR #222](https://github.com/datvtph41107/bdspro/pull/222); keep PR #220/#221 untouched while Chat 0 performs integration.
+
 ## Guard script independent verification
 
 `tools/parallel/check-owned-paths.sh` at corrected `f631ad54` was manually syntax-checked with `bash -n` and behavior-tested against a **temporary local Git repository** using the matching script text:
