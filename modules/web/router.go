@@ -104,6 +104,15 @@ func GetForm[T any](store FormStore) T {
 }
 
 // Router owns one Gin matcher and one Gitea-style HTTP handler compiler.
+// routeDefinition describes an HTTP action compiled once at registration.
+// Mount rebinds the already compiled chain onto its parent's Gin matcher.
+type routeDefinition struct {
+	method    string
+	path      string
+	providers []middlewareProvider
+	endpoint  http.HandlerFunc
+}
+
 type Router struct {
 	engine           *gin.Engine
 	group            *gin.RouterGroup
@@ -113,13 +122,98 @@ type Router struct {
 	afterRouting     []any
 	curGroupPrefix   string
 	curMiddlewares   []any
+	routes           []routeDefinition
 }
 
-func NewRouter(engine *gin.Engine) *Router {
-	if engine == nil {
-		panic("web: nil Gin engine")
+// NewRouter owns its Gin engine, matching Gitea's construction boundary.
+// The optional existing engine is a temporary compatibility path for legacy
+// registrations; new routing code must call NewRouter() without arguments.
+func NewRouter(legacyEngine ...*gin.Engine) *Router {
+	if len(legacyEngine) > 1 {
+		panic("web: NewRouter accepts at most one legacy engine")
+	}
+	var engine *gin.Engine
+	if len(legacyEngine) == 1 {
+		engine = legacyEngine[0]
+		if engine == nil {
+			panic("web: nil Gin engine")
+		}
+	} else {
+		engine = gin.New()
+		_ = engine.SetTrustedProxies(nil)
 	}
 	return &Router{engine: engine, group: engine.Group("")}
+}
+
+// GinEngine exposes the one transport matcher to composition and bootstrap.
+// Domain routers must not access it or install routes outside web.Router.
+func (r *Router) GinEngine() *gin.Engine {
+	return r.engine
+}
+
+// Mount composes a subrouter by installing its compiled route descriptors on
+// the *parent's* Gin matcher. Gin has no equivalent of Chi's Mux.Mount; using
+// nested engine.ServeHTTP here would introduce a second production matcher.
+// Mounted route middleware runs: parent AfterRouting/group, then child
+// AfterRouting/group, then endpoint actions.
+func (r *Router) Mount(pattern string, sub *Router) {
+	if sub == nil || sub == r {
+		panic("web: nil or self-mounted router")
+	}
+	if r.ingressBound || sub.ingressBound {
+		panic("web: cannot mount a router after ingress composition")
+	}
+	if r.engine == sub.engine {
+		panic("web: mounted router must own an independent registration engine")
+	}
+	if len(sub.routes) == 0 {
+		panic("web: cannot mount an empty router")
+	}
+	prefix := r.getPattern(pattern)
+	parentMiddleware := make([]middlewareProvider, 0, len(r.afterRouting)+len(r.curMiddlewares))
+	parentMiddleware = wrapMiddlewareAppendPre(parentMiddleware, r.afterRouting)
+	parentMiddleware = wrapMiddlewareAppendPre(parentMiddleware, r.curMiddlewares)
+	parentMiddleware = wrapMiddlewareAppendNormal(parentMiddleware, r.afterRouting)
+	parentMiddleware = wrapMiddlewareAppendNormal(parentMiddleware, r.curMiddlewares)
+
+	// A subrouter's BeforeRouting handlers are scoped to its mount point.
+	// They run before the parent Gin matcher, not as matched-route middleware.
+	if len(sub.beforeRouting) > 0 {
+		for _, provider := range sub.beforeRouting {
+			mountPrefix := prefix
+			scoped := provider
+			r.beforeRouting = append(r.beforeRouting, func(next http.Handler) http.Handler {
+				child := scoped(next)
+				if child == nil {
+					panic("web: mounted BeforeRouting middleware returned nil")
+				}
+				return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					if mountPrefix == "/" || req.URL.Path == mountPrefix || strings.HasPrefix(req.URL.Path, mountPrefix+"/") {
+						child.ServeHTTP(w, req)
+						return
+					}
+					next.ServeHTTP(w, req)
+				})
+			})
+		}
+	}
+
+	for _, entry := range sub.routes {
+		path := prefix
+		if entry.path != "/" {
+			if prefix == "/" {
+				path = entry.path
+			} else {
+				path = prefix + entry.path
+			}
+		}
+		providers := make([]middlewareProvider, 0, len(parentMiddleware)+len(entry.providers))
+		providers = append(providers, parentMiddleware...)
+		providers = append(providers, entry.providers...)
+		r.group.Handle(entry.method, path, ginMatchedHandler(providers, entry.endpoint))
+		r.routes = append(r.routes, routeDefinition{method: entry.method, path: path, providers: providers, endpoint: entry.endpoint})
+	}
+	r.routesRegistered = true
 }
 
 // BeforeRouting installs HTTP-native middleware ahead of Gin's route matcher.
@@ -287,6 +381,9 @@ func (r *Router) Methods(method, path string, actions ...any) {
 	r.routesRegistered = true
 	for _, candidate := range candidates {
 		r.group.Handle(candidate, pattern, handlers...)
+		r.routes = append(r.routes, routeDefinition{
+			method: candidate, path: pattern, providers: middlewares, endpoint: endpoint,
+		})
 	}
 }
 
