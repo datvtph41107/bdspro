@@ -61,10 +61,10 @@ func newInviteRaceCase(t *testing.T, ctx context.Context, pool *pgxpool.Pool, st
 }
 
 func applyTeamInvite(ctx context.Context, store db.Store, d inviteRaceCase, operation string) error {
-	ctx = teamActionContext(ctx, store, d.actorID, d.actorSession)
+	ctx = WithInviteSigningKey(teamActionContext(ctx, store, d.actorID, d.actorSession), teamInviteTestKey)
 	switch operation {
 	case "issue":
-		_, err := CreateTeamInvite(ctx, d.teamID, d.email, time.Hour, teamInviteTestKey)
+		_, err := CreateTeamInvite(ctx, d.teamID, d.email, time.Hour)
 		return err
 	case "accept":
 		_, err := AcceptTeamInvite(ctx, d.token)
@@ -219,8 +219,7 @@ func TestTeamInviteCommitPrecedesRevocation(t *testing.T) {
 			waitTeamBlocking(t, ctx, pool, blocker, writer, done)
 			revokeDone := make(chan error, 1)
 			go func() {
-				revokeDone <- auth_model.RevokeOwnedSession(ctx,
-					teamPinnedStore{Store: store, conn: revoker}, d.actorID,
+				revokeDone <- auth_model.RevokeOwnedSession(db.WithStore(ctx, teamPinnedStore{Store: store, conn: revoker}), d.actorID,
 					d.actorSession, d.actorSession)
 			}()
 			waitTeamBlocking(t, ctx, pool, writer, revoker, revokeDone)
@@ -252,14 +251,14 @@ func TestTeamInviteServiceRejectsInvalidActorAndProof(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	d := newInviteRaceCase(t, ctx, pool, store, "issue")
 	action := func(actorID int64, session uuid.UUID) context.Context {
-		return teamActionContext(ctx, store, actorID, session)
+		return WithInviteSigningKey(teamActionContext(ctx, store, actorID, session), teamInviteTestKey)
 	}
 	if _, err := CreateTeamInvite(action(d.actorID, uuid.Nil), d.teamID,
-		d.email, time.Hour, teamInviteTestKey); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+		d.email, time.Hour); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("nil actor session issued invitation: %v", err)
 	}
 	if _, err := CreateTeamInvite(action(d.actorID+1, d.actorSession), d.teamID,
-		d.email, time.Hour, teamInviteTestKey); !errors.Is(err, auth_model.ErrSessionUnavailable) {
+		d.email, time.Hour); !errors.Is(err, auth_model.ErrSessionUnavailable) {
 		t.Fatalf("foreign actor/session issued invitation: %v", err)
 	}
 	if _, err := AcceptTeamInvite(action(d.actorID, uuid.Nil), "not hex"); !errors.Is(err, org_model.ErrTeamInviteInvalid) {
