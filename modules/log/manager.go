@@ -123,9 +123,11 @@ func (m *LoggerManager) ConfigureOutputs(mode, format, level, rootPath, fileName
 			if fileName == "" || filepath.Base(fileName) != fileName || rootPath == "" {
 				return errors.New("invalid log file destination")
 			}
-			st, statErr := os.Stat(rootPath)
-			if statErr != nil || !st.IsDir() {
-				return fmt.Errorf("log root directory is unavailable: %s", rootPath)
+			// File logging must work on the first startup, before data/log
+			// exists. Like Gitea, prepare the directory only when a file
+			// writer is selected; never fall back silently to console.
+			if err := os.MkdirAll(rootPath, 0700); err != nil {
+				return fmt.Errorf("prepare log directory %q: %w", rootPath, err)
 			}
 			f, openErr := os.OpenFile(filepath.Join(rootPath, fileName), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 			if openErr != nil {

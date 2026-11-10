@@ -60,3 +60,33 @@ func TestDoctorRejectsNegativeCursorBeforeOpeningDatabase(t *testing.T) {
 		t.Fatalf("doctor accepted negative cursor or reached config/database: %v", err)
 	}
 }
+
+func TestServeAliasRejectsArgumentsBeforeLoadingConfig(t *testing.T) {
+	app := NewMainApp(AppVersion{Version: "test"})
+	err := app.Run(context.Background(), []string{"bdspro", "serve", "unexpected"})
+	if err == nil || !strings.Contains(err.Error(), "unknown command: unexpected") {
+		t.Fatalf("serve alias failed to dispatch to web command validation: %v", err)
+	}
+}
+
+func TestWorkerRejectsArgumentsBeforeLoadingConfig(t *testing.T) {
+	app := NewMainApp(AppVersion{Version: "test"})
+	err := app.Run(context.Background(), []string{"bdspro", "worker", "unexpected"})
+	if err == nil || !strings.Contains(err.Error(), "unexpected worker argument") {
+		t.Fatalf("worker parsed config before rejecting argument: %v", err)
+	}
+}
+
+func TestHelpCommandRequiresNoConfigurationOrDependencies(t *testing.T) {
+	app := NewMainApp(AppVersion{Version: "test"})
+	var output bytes.Buffer
+	app.Writer = &output
+	if err := app.Run(context.Background(), []string{"bdspro", "help"}); err != nil {
+		t.Fatalf("built-in help must work without app.ini: %v", err)
+	}
+	for _, name := range []string{"web", "migrate", "worker"} {
+		if !strings.Contains(output.String(), name) {
+			t.Fatalf("help output omitted %s: %s", name, output.String())
+		}
+	}
+}
