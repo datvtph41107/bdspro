@@ -71,7 +71,9 @@ func ValidRefreshSession(session db.Session, accountID int64, refreshToken strin
 		MatchesRefreshToken(session.RefreshToken, refreshToken) && !timeutil.Expired(now, session.ExpiresAt)
 }
 
-func ListSessions(ctx context.Context, store SessionStore, accountID int64) ([]db.ListActiveSessionsRow, error) {
+func ListSessions(ctx context.Context, accountID int64) ([]db.ListActiveSessionsRow, error) {
+	store, err := db.StoreFromContext(ctx)
+	if err != nil { return nil, err }
 	return store.ListActiveSessions(ctx, accountID)
 }
 
@@ -79,14 +81,14 @@ func ListSessions(ctx context.Context, store SessionStore, accountID int64) ([]d
 // action is still active. Always lock the account before the acting session:
 // concurrent A->B and B->A revocations otherwise create a row-lock cycle.
 // Target ownership and state are enforced by the SQLC UPDATE predicate.
-func RevokeOwnedSession(ctx context.Context, store SessionStore, accountID int64, actingSessionID, targetSessionID uuid.UUID) error {
+func RevokeOwnedSession(ctx context.Context, accountID int64, actingSessionID, targetSessionID uuid.UUID) error {
 	if accountID <= 0 || actingSessionID == uuid.Nil {
 		return ErrSessionUnavailable
 	}
 	if targetSessionID == uuid.Nil {
 		return ErrSessionNotFound
 	}
-	return db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
+	return db.WithTx(ctx, func(txCtx context.Context) error {
 		q, txErr := db.TxQueries(txCtx)
 		if txErr != nil {
 			return txErr
@@ -123,11 +125,11 @@ func RevokeOwnedSession(ctx context.Context, store SessionStore, accountID int64
 // RevokeAllSessions is authorized at commit time, not only at the HTTP
 // boundary. An account-level NO KEY UPDATE lock serializes concurrent
 // revoke-all requests; the acting session is then locked before any updates.
-func RevokeAllSessions(ctx context.Context, store SessionStore, accountID int64, actingSessionID uuid.UUID) error {
+func RevokeAllSessions(ctx context.Context, accountID int64, actingSessionID uuid.UUID) error {
 	if accountID <= 0 || actingSessionID == uuid.Nil {
 		return ErrSessionUnavailable
 	}
-	return db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
+	return db.WithTx(ctx, func(txCtx context.Context) error {
 		q, txErr := db.TxQueries(txCtx)
 		if txErr != nil {
 			return txErr

@@ -17,12 +17,7 @@ func ListSessions(ctx *context.APIContext) {
 		ctx.AuthenticationRequired()
 		return
 	}
-	store, err := db.StoreFromContext(ctx)
-	if err != nil {
-		ctx.APIErrorAuto(err)
-		return
-	}
-	sessions, err := auth_model.ListSessions(ctx, store, actor.AccountID)
+	sessions, err := auth_model.ListSessions(ctx, actor.AccountID)
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return
@@ -46,12 +41,7 @@ func RevokeOwnSession(ctx *context.APIContext) {
 		ctx.AuthenticationRequired()
 		return
 	}
-	store, err := db.StoreFromContext(ctx)
-	if err != nil {
-		ctx.APIErrorAuto(err)
-		return
-	}
-	if err := auth_model.RevokeOwnedSession(ctx, store, actor.AccountID, actor.SessionID, id); err != nil {
+	if err := auth_model.RevokeOwnedSession(ctx, actor.AccountID, actor.SessionID, id); err != nil {
 		ctx.APIErrorAuto(err)
 		return
 	}
@@ -66,12 +56,7 @@ func RevokeAllSessions(ctx *context.APIContext) {
 		ctx.AuthenticationRequired()
 		return
 	}
-	store, err := db.StoreFromContext(ctx)
-	if err != nil {
-		ctx.APIErrorAuto(err)
-		return
-	}
-	if err := auth_model.RevokeAllSessions(ctx, store, actor.AccountID, actor.SessionID); err != nil {
+	if err := auth_model.RevokeAllSessions(ctx, actor.AccountID, actor.SessionID); err != nil {
 		ctx.APIErrorAuto(err)
 		return
 	}
