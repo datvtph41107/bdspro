@@ -448,3 +448,42 @@ func TestAfterRoutingPlainHTTPFunctionUsesCommonProvider(t *testing.T) {
 		t.Fatalf("raw HTTP action did not stop Gin chain: hit=%v status=%d", hit, w.Code)
 	}
 }
+
+type recordingHTTPWriter struct {
+	http.ResponseWriter
+	writtenBytes int
+	status       int
+}
+
+func (w *recordingHTTPWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *recordingHTTPWriter) Write(body []byte) (int, error) {
+	n, err := w.ResponseWriter.Write(body)
+	w.writtenBytes += n
+	return n, err
+}
+
+func TestAfterRoutingPreservesWrappedHTTPResponseWriter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	r := NewRouter[*gin.Context](engine.Group(""), func(c *gin.Context) *gin.Context { return c })
+	var observed *recordingHTTPWriter
+	r.AfterRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			observed = &recordingHTTPWriter{ResponseWriter: w}
+			next.ServeHTTP(observed, req)
+		})
+	})
+	r.Get("/wrapped", func(c *gin.Context) {
+		c.JSON(http.StatusCreated, gin.H{"ok": true})
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/wrapped", nil))
+	if observed == nil || observed.status != http.StatusCreated ||
+		observed.writtenBytes == 0 || w.Code != http.StatusCreated {
+		t.Fatalf("Gin bypassed HTTP wrapper: observed=%+v code=%d", observed, w.Code)
+	}
+}
