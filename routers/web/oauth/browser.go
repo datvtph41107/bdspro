@@ -34,7 +34,6 @@ type LoginFunc func(context.Context, string, string, string, string) (auth_servi
 type Config struct {
 	Store        db.Store
 	OAuth        *oauth_service.Service
-	API          *api_oauth.Handler
 	Proofs       *oauth_service.ConsentProofs
 	Login        LoginFunc
 	Maker        authcrypto.Maker
@@ -51,7 +50,7 @@ type Handler struct {
 }
 
 func NewHandler(cfg Config) (*Handler, error) {
-	if cfg.Store == nil || cfg.OAuth == nil || cfg.API == nil ||
+	if cfg.Store == nil || cfg.OAuth == nil ||
 		cfg.Proofs == nil || cfg.Login == nil || cfg.Maker == nil || cfg.Codec == nil {
 		return nil, errors.New("browser OAuth requires store, services and signing keys")
 	}
@@ -165,7 +164,12 @@ func (h *Handler) notAuthenticated(c *gin.Context) {
 // Browser requests must resolve their DB session on EVERY authorization call.
 func (h *Handler) Authenticate(c *gin.Context) {
 	if value := c.GetHeader("Authorization"); value != "" {
-		h.API.Authenticate(h.Maker)(c)
+		api := appctx.GetAPIContext(c)
+		appctx.Authenticate()(api)
+		if api.IsAborted() { return }
+		appctx.RequireSession()(api)
+		if api.IsAborted() { return }
+		c.Next()
 		return
 	}
 	session, ok := h.loadSession(c)
@@ -173,9 +177,13 @@ func (h *Handler) Authenticate(c *gin.Context) {
 		h.notAuthenticated(c)
 		return
 	}
-	c.Set(appctx.AuthorizationPayloadKey, &authcrypto.Payload{
+	payload := &authcrypto.Payload{
 		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess, SessionID: session.ID,
-	})
+	}
+	c.Set(appctx.AuthorizationPayloadKey, payload)
+	api := appctx.GetAPIContext(c)
+	api.Doer = payload
+	api.PublishVerifiedActor(auth_model.Actor{AccountID: session.AccountID, SessionID: session.ID})
 	c.Set(browserSessionKey, session.ID.String())
 	c.Next()
 }
@@ -186,9 +194,13 @@ func (h *Handler) RequireBrowserSession(c *gin.Context) {
 		h.notAuthenticated(c)
 		return
 	}
-	c.Set(appctx.AuthorizationPayloadKey, &authcrypto.Payload{
+	payload := &authcrypto.Payload{
 		AccountID: session.AccountID, TokenType: authcrypto.TokenTypeAccess, SessionID: session.ID,
-	})
+	}
+	c.Set(appctx.AuthorizationPayloadKey, payload)
+	api := appctx.GetAPIContext(c)
+	api.Doer = payload
+	api.PublishVerifiedActor(auth_model.Actor{AccountID: session.AccountID, SessionID: session.ID})
 	c.Set(browserSessionKey, session.ID.String())
 	c.Next()
 }
@@ -196,7 +208,7 @@ func (h *Handler) RequireBrowserSession(c *gin.Context) {
 func (h *Handler) AuthorizePreview(c *gin.Context) {
 	sessionID := c.GetString(browserSessionKey)
 	if sessionID == "" || !wantsHTML(c) {
-		h.API.AuthorizePreview(c)
+		api_oauth.AuthorizePreview(appctx.GetAPIContext(c))
 		return
 	}
 	request, err := oauth_service.ParseAuthorizationRequest(c.Request.URL.Query())
@@ -279,7 +291,7 @@ func (h *Handler) Authorize(c *gin.Context) {
 			return
 		}
 	}
-	h.API.Authorize(c) // Same consent version and signed request proof as the API.
+	api_oauth.Authorize(appctx.GetAPIContext(c), c.Writer) // Shared verified consent and code issuance.
 }
 
 func (h *Handler) LoginPage(c *gin.Context) {
