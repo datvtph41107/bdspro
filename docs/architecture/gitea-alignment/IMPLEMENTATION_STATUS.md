@@ -96,6 +96,14 @@ Do not equate progress through P04's partial user-service refactor with P01 comp
 - No generic Router, no legacy typed/Gin action compiler, no misleading duplicate context source, true pre/post route separation, CI final HEAD green.
 - Only then mark P01 **ACCEPTED** and proceed to P02.
 
+## P01.6b — CI correction and APIContext end-to-end regression
+
+- Historical code HEAD `ee760949` **FAILED** `Verify Go formatting` on the `Router[T]` struct alignment, workflow https://github.com/datvtph41107/bdspro/actions/runs/42758399197. This is a formatting error, not evidence of an API regression. Fixed in `ee5d85ed`.
+- Added end-to-end test `TestAfterRoutingHTTPPreAndTypedAPIContextShareRequestLifecycle` at `routers/api/v1/organization_context_test.go` (commit `db7bad88`) to prove current Gin `APIContexter`, a native HTTP AfterRouting provider, route PreMiddlewareProvider, group guard and registered typed APIContext endpoint use the same request and that a committed response halts later actions.
+- Workflow https://github.com/datvtph41107/bdspro/actions/runs/42758801273 was `in_progress` when recorded. **Do not claim test pass without job evidence.**
+- Intentional remaining difference with Gitea: `AfterRouting` HTTP providers share one compiler, but Gin `APIContexter` still bootstraps separately to supply existing Base/Gin request source. It must be migrated without breaking Auth/OAuth, request data lifetime or response writers.
+- P01 is still **NOT ACCEPTED**; `Router[T]`, `getContext`, `toGinHandler` and missing true `BeforeRouting` remain.
+
 ## P01.6a — Shared AfterRouting HTTP compilation (not the full P01.6 acceptance)
 
 **Source comparison:** Gitea's `Router.Methods` calls `wrapMiddlewareAndHandler(r.afterRouting, r.curMiddlewares, h)`. Earlier BDSPro passed `nil` for the first argument and ran every `AfterRouting` through a separately compiled Gin chain. Therefore `PreMiddlewareProvider` from AfterRouting could not precede the normal group or route handlers.
