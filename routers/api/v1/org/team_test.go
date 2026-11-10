@@ -50,7 +50,7 @@ func TestTeamPackageActionsRejectMalformedInputsWithoutDatabase(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			router := gin.New()
 			router.Use(appctx.APIContexter())
-			m := web.NewRouter[*appctx.APIContext](router.Group(""), appctx.GetAPIContext)
+			m := web.NewRouter(router)
 			m.Methods(tc.method, tc.pattern, tc.bind, tc.action)
 			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 			req.Header.Set("Content-Type", "application/json")

@@ -226,7 +226,7 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 	// Model a request that *already passed* RequireSession. This deliberately
 	// admits a stale token as well, to verify the write transaction checks the
 	// acting session again after admission instead of trusting that snapshot.
-	admitted := r.Group("", appctx.Authenticate(maker), func(c *gin.Context) {
+	r.Use(appctx.Authenticate(maker), func(c *gin.Context) {
 		payload, ok := appctx.AuthorizationPayload(c)
 		if !ok {
 			appctx.AuthenticationRequired(c)
@@ -238,7 +238,7 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 		appctx.GetAPIContext(c).IsSigned = true
 		c.Next()
 	})
-	m := web.NewRouter[*appctx.APIContext](admitted, appctx.GetAPIContext)
+	m := web.NewRouter(r)
 	bindProfile := func(ctx *appctx.APIContext) {
 		form, err := middleware.BindJSON[api.ProfileUpdateRequest](ctx)
 		if err != nil {

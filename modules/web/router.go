@@ -103,32 +103,23 @@ func GetForm[T any](store FormStore) T {
 	return form
 }
 
-// Router maps typed HTTP actions into Gin at registration time. Gin remains
-// the only middleware executor. Do not mutate this router after startup.
-type Router[T any] struct {
+// Router owns one Gin matcher and one Gitea-style HTTP handler compiler.
+type Router struct {
+	engine           *gin.Engine
 	group            *gin.RouterGroup
-	getContext       func(*gin.Context) T
-	beforeRouting    []middlewareProvider // outer HTTP ingress, before Gin selects a route
-	ingressBound     bool                 // ingress registration freezes after composition
-	routesRegistered bool                 // Chi/Gitea-style BeforeRouting must precede route registration
-	afterRouting     []gin.HandlerFunc    // Gin-only bootstrap / compatibility boundary
-	afterRoutingHTTP []any                // canonical HTTP provider compilation
+	beforeRouting    []middlewareProvider
+	ingressBound     bool
+	routesRegistered bool
+	afterRouting     []any
 	curGroupPrefix   string
 	curMiddlewares   []any
 }
 
-func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *Router[T] {
-	if group == nil || getContext == nil {
-		panic("web: route group and context accessor are required")
+func NewRouter(engine *gin.Engine) *Router {
+	if engine == nil {
+		panic("web: nil Gin engine")
 	}
-	// Gitea prechecks that typed actions have a ResponseStatusProvider.
-	// Gin-only compatibility actions use Gin's own response writer instead;
-	// do not allocate a reflection registry for this already typed router.
-	typ := reflect.TypeFor[T]()
-	if typ != reflect.TypeFor[*gin.Context]() && !typ.Implements(reflect.TypeFor[web_types.ResponseStatusProvider]()) {
-		panic(fmt.Sprintf("web: action context %s must implement ResponseStatusProvider", typ))
-	}
-	return &Router[T]{group: group, getContext: getContext}
+	return &Router{engine: engine, group: engine.Group("")}
 }
 
 // BeforeRouting installs HTTP-native middleware ahead of Gin's route matcher.
@@ -136,7 +127,7 @@ func NewRouter[T any](group *gin.RouterGroup, getContext func(*gin.Context) T) *
 // here would give incorrect semantics for unmatched routes and method rewrites.
 // Only HTTP-native handlers are permitted: APIContext and Gin route parameters
 // do not exist until the engine selects the route.
-func (r *Router[T]) BeforeRouting(middlewares ...any) {
+func (r *Router) BeforeRouting(middlewares ...any) {
 	if r.ingressBound {
 		panic("web: cannot register BeforeRouting after ingress composition")
 	}
@@ -170,10 +161,8 @@ func (r *Router[T]) BeforeRouting(middlewares ...any) {
 // The application HTTP entrypoint must serve the returned handler: simply
 // invoking BeforeRouting without wrapping the engine does not activate it.
 // Unlike AfterRouting, this outer chain also executes for Gin 404/405 routes.
-func (r *Router[T]) WrapIngress(engine http.Handler) http.Handler {
-	if engine == nil {
-		panic("web: nil HTTP engine for ingress")
-	}
+func (r *Router) WrapIngress() http.Handler {
+	engine := http.Handler(r.engine)
 	if r.ingressBound {
 		panic("web: ingress has already been composed")
 	}
@@ -210,45 +199,26 @@ func (r *Router[T]) WrapIngress(engine http.Handler) http.Handler {
 	})
 }
 
-// AfterRouting registers middleware after Gin has selected the route.
-// Native HTTP and registered typed handlers are compiled together with group
-// guards and actions by wrapMiddlewareAndHandler. Gin-only bootstrap handlers
-// stay on the explicit compatibility boundary until P02 context migration.
-// Gin bootstrap must run first to install the request-local APIContext.
-func (r *Router[T]) AfterRouting(middlewares ...any) {
-	// Build both Gin and HTTP lists before publishing either one.
-	// Do not let a bad later middleware leave a half-configured route chain.
-	compiledGin := make([]gin.HandlerFunc, 0, len(middlewares))
-	compiledHTTP := make([]any, 0, len(middlewares))
+// AfterRouting validates HTTP actions after Gin path matching. It does
+// not create a second Gin-only middleware dispatch path.
+func (r *Router) AfterRouting(middlewares ...any) {
 	for _, middleware := range middlewares {
-		switch middleware.(type) {
-		case web_types.PreMiddlewareProvider, func(http.Handler) http.Handler,
-			func(http.Handler) http.HandlerFunc, http.HandlerFunc,
-			func(http.ResponseWriter, *http.Request):
-			if isNilOrFuncNil(middleware) {
-				panic("web: nil after-routing middleware")
-			}
-			if _, pre := middleware.(web_types.PreMiddlewareProvider); !pre {
-				_ = toHandlerProvider(middleware) // validate at registration
-			}
-			compiledHTTP = append(compiledHTTP, middleware)
-		default:
-			if isRegisteredTypedHandler(middleware) {
-				_ = toHandlerProvider(middleware) // fail before serving requests
-				compiledHTTP = append(compiledHTTP, middleware)
-			} else {
-				compiledGin = append(compiledGin, r.toGinHandler(middleware))
-			}
+		if isNilOrFuncNil(middleware) {
+			panic("web: nil after-routing middleware")
+		}
+		if pre, ok := middleware.(web_types.PreMiddlewareProvider); ok {
+			_ = toHandlerProvider(middlewareProvider(pre))
+		} else {
+			_ = toHandlerProvider(middleware)
 		}
 	}
-	r.afterRouting = append(r.afterRouting, compiledGin...)
-	r.afterRoutingHTTP = append(r.afterRoutingHTTP, compiledHTTP...)
+	r.afterRouting = append(r.afterRouting, middlewares...)
 }
 
 // Group scopes route patterns and middlewares at registration, as in Gitea.
 // Gin receives the compiled chain at Methods; it never owns a second scope
 // that would reorder group guards ahead of AfterRouting.
-func (r *Router[T]) Group(path string, register func(), guards ...any) {
+func (r *Router) Group(path string, register func(), guards ...any) {
 	previousPrefix := r.curGroupPrefix
 	previousMiddlewares := r.curMiddlewares
 	r.curGroupPrefix += path
@@ -260,7 +230,7 @@ func (r *Router[T]) Group(path string, register func(), guards ...any) {
 	register()
 }
 
-func (r *Router[T]) getPattern(path string) string {
+func (r *Router) getPattern(path string) string {
 	pattern := r.curGroupPrefix + path
 	if !strings.HasPrefix(pattern, "/") {
 		pattern = "/" + pattern
@@ -274,7 +244,7 @@ func (r *Router[T]) getPattern(path string) string {
 // Methods compiles the route-scoped middleware chain during registration.
 // Routing order: AfterRouting -> group guards -> endpoint actions.
 // Gin is still the only route matcher and executor.
-func (r *Router[T]) Methods(method, path string, actions ...any) {
+func (r *Router) Methods(method, path string, actions ...any) {
 	if len(actions) == 0 {
 		panic("web: route requires an action")
 	}
@@ -300,24 +270,9 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 		seen[candidate] = struct{}{}
 		candidates[i] = candidate
 	}
-	handlers := make([]gin.HandlerFunc, 0, len(r.afterRouting)+len(r.curMiddlewares)+len(actions))
-	handlers = append(handlers, r.afterRouting...)
-	if _, registered := responseStatusProviders[reflect.TypeFor[T]()]; registered {
-		// Gitea compiles group guards and endpoint actions as one HTTP
-		// continuation chain. Gin only runs the compiled matched route.
-		middlewares, endpoint, _ := wrapMiddlewareAndHandler(r.afterRoutingHTTP, r.curMiddlewares, actions)
-		handlers = append(handlers, ginMatchedHandler(middlewares, endpoint))
-	} else {
-		// Gin-only test contexts retain their execution contract; HTTP
-		// providers are bridged in registration order for compatibility.
-		for _, middleware := range r.afterRoutingHTTP {
-			handlers = append(handlers, ginHandlerProvider(toHandlerProvider(middleware)))
-		}
-		if len(r.curMiddlewares) > 0 {
-			handlers = append(handlers, r.legacyActions(r.curMiddlewares)...)
-		}
-		handlers = append(handlers, r.legacyActions(actions)...)
-	}
+	// A single registered HTTP provider chain owns all typed actions.
+	middlewares, endpoint, _ := wrapMiddlewareAndHandler(r.afterRouting, r.curMiddlewares, actions)
+	handlers := []gin.HandlerFunc{ginMatchedHandler(middlewares, endpoint)}
 	pattern := r.getPattern(path)
 	// Gitea permits comma-separated method registration at the canonical
 	// Methods boundary. Compile the handler chain once for every method.
@@ -330,21 +285,21 @@ func (r *Router[T]) Methods(method, path string, actions ...any) {
 	}
 }
 
-func (r *Router[T]) Get(path string, actions ...any) {
+func (r *Router) Get(path string, actions ...any) {
 	r.Methods(http.MethodGet, path, actions...)
 }
-func (r *Router[T]) Head(path string, actions ...any) {
+func (r *Router) Head(path string, actions ...any) {
 	r.Methods(http.MethodHead, path, actions...)
 }
-func (r *Router[T]) Post(path string, actions ...any) {
+func (r *Router) Post(path string, actions ...any) {
 	r.Methods(http.MethodPost, path, actions...)
 }
-func (r *Router[T]) Put(path string, actions ...any) {
+func (r *Router) Put(path string, actions ...any) {
 	r.Methods(http.MethodPut, path, actions...)
 }
-func (r *Router[T]) Patch(path string, actions ...any) {
+func (r *Router) Patch(path string, actions ...any) {
 	r.Methods(http.MethodPatch, path, actions...)
 }
-func (r *Router[T]) Delete(path string, actions ...any) {
+func (r *Router) Delete(path string, actions ...any) {
 	r.Methods(http.MethodDelete, path, actions...)
 }
