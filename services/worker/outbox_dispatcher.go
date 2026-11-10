@@ -57,8 +57,12 @@ func (d *OutboxDispatcher) Wait() { <-d.done }
 // duplicates. Jobs must tolerate at-least-once execution.
 func (d *OutboxDispatcher) Dispatch(ctx context.Context) (int, error) {
 	count := 0
-	err := d.store.ExecTx(ctx, func(q *db.Queries) error {
-		pending, err := q.ListPendingJobOutbox(ctx, outboxBatchSize)
+	err := db.WithTx(db.WithStore(ctx, d.store), func(txCtx context.Context) error {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return err
+		}
+		pending, err := q.ListPendingJobOutbox(txCtx, outboxBatchSize)
 		if err != nil {
 			return err
 		}
@@ -75,13 +79,13 @@ func (d *OutboxDispatcher) Dispatch(ctx context.Context) (int, error) {
 				asynq.ProcessAt(record.RunAt),
 				asynq.Retention(24 * time.Hour),
 			}
-			enqueueCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			enqueueCtx, cancel := context.WithTimeout(txCtx, 3*time.Second)
 			err := d.enqueuer.Enqueue(enqueueCtx, task, opts...)
 			cancel()
 			if err != nil && !errors.Is(err, asynq.ErrTaskIDConflict) {
 				return fmt.Errorf("enqueue outbox record %d: %w", record.ID, err)
 			}
-			if err := q.MarkJobOutboxQueued(ctx, record.ID); err != nil {
+			if err := q.MarkJobOutboxQueued(txCtx, record.ID); err != nil {
 				return err
 			}
 			count++
