@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"sync"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type storeContextKey struct{}
 type queriesContextKey struct{}
 type txStateContextKey struct{}
+type rawTxContextKey struct{}
 
 // A recovered panic in a nested operation must not allow its parent to commit.
 // The original panic is re-thrown; this error is only the rollback-only cause.
@@ -167,16 +170,27 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 		return ErrStoreMissing
 	}
 	state := &transactionState{}
-	return store.ExecTx(ctx, func(q *Queries) error {
-		// The callback defines the lifetime of this executor. Invalidate any
-		// escaped txCtx before the Store commits, rolls back, or unwinds a panic.
+	// The SQLStore implementation exposes the pgx.Tx to the context-aware
+	// SQLC executor, so even an ingress Store passed directly to a model uses
+	// the active transaction when the model forwards txCtx. The same
+	// ExecTxRaw implementation owns Begin/Commit/Rollback as before.
+	run := func(parentCtx context.Context, q *Queries) error {
 		defer state.close()
-		txCtx := context.WithValue(ctx, queriesContextKey{}, q)
+		txCtx := context.WithValue(parentCtx, queriesContextKey{}, q)
 		txCtx = context.WithValue(txCtx, txStateContextKey{}, state)
 		err := fn(txCtx)
 		state.fail(err)
 		state.fail(txCtx.Err())
 		return state.failure()
+	}
+	if sqlStore, ok := store.(*SQLStore); ok {
+		return sqlStore.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+			txCtx := context.WithValue(ctx, rawTxContextKey{}, tx)
+			return run(txCtx, New(tx))
+		})
+	}
+	return store.ExecTx(ctx, func(q *Queries) error {
+		return run(ctx, q)
 	})
 }
 
