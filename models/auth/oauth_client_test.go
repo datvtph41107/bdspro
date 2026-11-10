@@ -16,7 +16,7 @@ func TestOAuthClientProjectionNeverExportsSecretHash(t *testing.T) {
 	row := db.OauthClient{
 		ID: uuid.New(), OwnerAccountID: 41, Name: "Partner",
 		RedirectUri: "https://client.example.test/callback",
-		SecretHash: []byte(secret), CreatedAt: now,
+		SecretHash:  []byte(secret), CreatedAt: now,
 	}
 	model := OAuthClientFromDB(row)
 	if model.ID != row.ID || model.OwnerAccountID != 41 ||

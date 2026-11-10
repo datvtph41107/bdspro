@@ -15,7 +15,7 @@ func TestOAuthClientConversionPreservesPublicContract(t *testing.T) {
 	client := &auth_model.OAuthClient{
 		ID: uuid.New(), OwnerAccountID: 42, Name: "Integration",
 		RedirectURI: "https://client.example.test/callback",
-		CreatedAt: now,
+		CreatedAt:   now,
 	}
 	dto := ToOAuthClient(client)
 	if dto.ClientID != client.ID.String() || dto.Name != client.Name ||

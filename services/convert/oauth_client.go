@@ -9,10 +9,10 @@ import (
 // Exactly like Gitea's ToOAuth2Application, API serialization is owned here.
 func ToOAuthClient(client *auth_model.OAuthClient) structs.OAuthClientResponse {
 	return structs.OAuthClientResponse{
-		ClientID: client.ID.String(),
-		Name: client.Name,
+		ClientID:    client.ID.String(),
+		Name:        client.Name,
 		RedirectURI: client.RedirectURI,
-		CreatedAt: client.CreatedAt,
+		CreatedAt:   client.CreatedAt,
 	}
 }
 

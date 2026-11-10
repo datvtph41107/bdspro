@@ -14,7 +14,7 @@ import (
 
 type clientDomainStore struct {
 	db.OAuthServerStore
-	row db.OauthClient
+	row          db.OauthClient
 	consentCalls int
 }
 
@@ -65,7 +65,7 @@ func TestOAuthServerOnlyReturnsDomainClient(t *testing.T) {
 		ClientID: id, RedirectURI: store.row.RedirectUri, ResponseType: "code",
 		Scope: ScopeProfile, CodeChallengeMethod: "S256",
 		CodeChallenge: base64.RawURLEncoding.EncodeToString(challenge[:]),
-		State: "state_0123456789abcdef",
+		State:         "state_0123456789abcdef",
 	}
 	if client, err := svc.ReviewAuthorization(ctx, req); !errors.Is(err, ErrInvalidClient) || client != nil {
 		t.Fatalf("confidential client was admitted: %+v, %v", client, err)

@@ -23,10 +23,10 @@ type OAuthClient struct {
 // This function must never copy credential hashes to an HTTP-facing result.
 func OAuthClientFromDB(row db.OauthClient) *OAuthClient {
 	return &OAuthClient{
-		ID: row.ID,
+		ID:             row.ID,
 		OwnerAccountID: row.OwnerAccountID,
-		Name: row.Name,
-		RedirectURI: row.RedirectUri,
-		CreatedAt: row.CreatedAt,
+		Name:           row.Name,
+		RedirectURI:    row.RedirectUri,
+		CreatedAt:      row.CreatedAt,
 	}
 }
