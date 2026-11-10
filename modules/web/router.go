@@ -72,7 +72,14 @@ func (r *Router[T]) AfterRouting(middlewares ...any) {
 			if handler == nil {
 				panic("web: nil after-routing middleware")
 			}
-			r.afterRouting = append(r.afterRouting, gin.HandlerFunc(handler))
+			// For a Gin-context typed router, plain functions are actions
+			// and must short-circuit when they write a response. A named
+			// gin.HandlerFunc remains native middleware (and owns Next/Abort).
+			if reflect.TypeFor[T]() == reflect.TypeFor[*gin.Context]() {
+				r.afterRouting = append(r.afterRouting, r.handlers([]func(T){any(handler).(func(T))})...)
+			} else {
+				r.afterRouting = append(r.afterRouting, gin.HandlerFunc(handler))
+			}
 		case func(T):
 			if handler == nil {
 				panic("web: nil after-routing middleware")
