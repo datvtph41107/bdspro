@@ -47,9 +47,8 @@ func (s *transactionScope) close() {
 	s.mu.Unlock()
 }
 
-// GetEngine returns the same SQL execution authority selected by context.
-// It mirrors Gitea's GetEngine(ctx), but uses SQLC's DBTX interface instead
-// of XORM. It never creates a second transaction or a database Store.
+// GetEngine selects the native pgx executor for the current scope.
+// Callers must propagate txCtx; native pgx cannot verify context identity.
 func GetEngine(ctx context.Context) (DBTX, error) {
 	if ctx == nil {
 		return nil, ErrTransactionContext
@@ -65,13 +64,13 @@ func GetEngine(ctx context.Context) (DBTX, error) {
 		if err := scope.failure(); err != nil {
 			return nil, err
 		}
-		return transactionDBTX{scope: scope}, nil
+		return scope.tx, nil
 	}
 	current, err := getDefaultEngine()
 	if err != nil {
 		return nil, err
 	}
-	return poolDBTX{pool: current.pool}, nil
+	return current.pool, nil
 }
 
 // GetQueries returns the transaction's SQLC executor if a transaction exists,
@@ -139,7 +138,7 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 		return err
 	}
 	scope := &transactionScope{tx: tx}
-	scope.queries = New(transactionDBTX{scope: scope})
+	scope.queries = New(tx)
 	txCtx := context.WithValue(ctx, transactionContextKey{}, scope)
 
 	defer func() {
