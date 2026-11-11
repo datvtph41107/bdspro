@@ -116,7 +116,6 @@ type routeDefinition struct {
 
 type Router struct {
 	engine           *gin.Engine
-	group            *gin.RouterGroup
 	beforeRouting    []middlewareProvider
 	ingressBound     bool
 	routesRegistered bool
@@ -133,7 +132,7 @@ type Router struct {
 func NewRouter() *Router {
 	engine := gin.New()
 	_ = engine.SetTrustedProxies(nil)
-	return &Router{engine: engine, group: engine.Group("")}
+	return &Router{engine: engine}
 }
 
 // GinEngine exposes the one transport matcher to composition and bootstrap.
@@ -205,7 +204,7 @@ func (r *Router) Mount(pattern string, sub *Router) {
 		providers := make([]middlewareProvider, 0, len(parentMiddleware)+len(entry.providers))
 		providers = append(providers, parentMiddleware...)
 		providers = append(providers, entry.providers...)
-		r.group.Handle(entry.method, path, ginMatchedHandler(providers, entry.endpoint))
+		r.engine.Handle(entry.method, path, ginMatchedHandler(providers, entry.endpoint))
 		r.routes = append(r.routes, routeDefinition{method: entry.method, path: path, providers: providers, endpoint: entry.endpoint})
 	}
 	r.routesRegistered = true
@@ -384,7 +383,7 @@ func (r *Router) Methods(method, path string, actions ...any) {
 	// effective in source while actually being absent from ingress.
 	r.routesRegistered = true
 	for _, candidate := range candidates {
-		r.group.Handle(candidate, pattern, handlers...)
+		r.engine.Handle(candidate, pattern, handlers...)
 		r.routes = append(r.routes, routeDefinition{
 			method: candidate, path: pattern, providers: middlewares, endpoint: endpoint,
 		})
