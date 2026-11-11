@@ -105,6 +105,15 @@ func GetQueries(ctx context.Context) (*Queries, error) {
 	return current.queries, nil
 }
 
+// InTransaction matches Gitea's context-based transaction inspection.
+func InTransaction(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	scope, ok := ctx.Value(transactionContextKey{}).(*transactionScope)
+	return ok && scope != nil && scope.failure() == nil
+}
+
 // WithTx owns Begin/Commit/Rollback. Nested calls reuse the same transaction;
 // an ignored nested failure marks the outer transaction rollback-only.
 func WithTx(ctx context.Context, fn func(context.Context) error) error {

@@ -39,7 +39,7 @@ func InsertTeam(ctx context.Context, actorAccountID int64, input *Team) (*Team, 
 	if input == nil {
 		return nil, ErrTeamNameInvalid
 	}
-	q, err := db.TxQueries(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func UpdateTeam(ctx context.Context, actorAccountID int64, team *Team) (*Team, e
 	if team == nil || team.ID <= 0 {
 		return nil, ErrTeamNotFound
 	}
-	q, err := db.TxQueries(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}

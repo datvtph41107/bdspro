@@ -87,12 +87,12 @@ func LockCreator(ctx context.Context, q *db.Queries, actorAccountID int64) (Lock
 	if actorAccountID <= 0 {
 		return LockedCreator{}, account_model.ErrAccountUnavailable
 	}
-	owner, err := db.TxQueries(ctx)
+	owner, err := db.GetQueries(ctx)
 	if err != nil {
 		return LockedCreator{}, err
 	}
-	if owner != q {
-		return LockedCreator{}, db.ErrTransactionRequired
+	if !db.InTransaction(ctx) || owner != q {
+		return LockedCreator{}, db.ErrTransactionContext
 	}
 	personID, err := q.LockOrganizationCreator(ctx, actorAccountID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -115,12 +115,12 @@ func CreateOrganizationForCreator(ctx context.Context, q *db.Queries, creator Lo
 	if creator.personID <= 0 || creator.executor == nil || creator.executor != q {
 		return nil, account_model.ErrAccountUnavailable
 	}
-	owner, err := db.TxQueries(ctx)
+	owner, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if owner != q {
-		return nil, db.ErrTransactionRequired
+	if !db.InTransaction(ctx) || owner != q {
+		return nil, db.ErrTransactionContext
 	}
 	partyID, err := q.CreateParty(ctx)
 	if err != nil {
@@ -143,13 +143,13 @@ func CreateOrganizationForCreator(ctx context.Context, q *db.Queries, creator Lo
 // CreateOrganization preserves the trusted standalone model API. Production
 // first-party HTTP calls the service, which additionally checks/locks session
 // authority within this same account-first transaction.
-func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int64, name string) (*Organization, error) {
+func CreateOrganization(ctx context.Context, actorAccountID int64, name string) (*Organization, error) {
 	name, err := OrganizationName(name)
 	if err != nil {
 		return nil, err
 	}
-	created, err := db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (*Organization, error) {
-		q, err := db.TxQueries(txCtx)
+	created, err := db.WithTx2(ctx, func(txCtx context.Context) (*Organization, error) {
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
