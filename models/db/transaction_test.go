@@ -15,7 +15,7 @@ func (run txResultRunner) ExecTx(_ context.Context, fn func(*Queries) error) err
 func TestWithTxResultCommitsBeforeReturningValue(t *testing.T) {
 	committed := false
 	runner := txResultRunner(func(fn func(*Queries) error) error {
-		if err := fn(nil); err != nil {
+		if err := fn(&Queries{}); err != nil {
 			return err
 		}
 		committed = true
@@ -35,7 +35,7 @@ func TestWithTxResultCommitsBeforeReturningValue(t *testing.T) {
 func TestWithTxResultDiscardsUncommittedResult(t *testing.T) {
 	commitErr := errors.New("commit rejected")
 	runner := txResultRunner(func(fn func(*Queries) error) error {
-		if err := fn(nil); err != nil {
+		if err := fn(&Queries{}); err != nil {
 			return err
 		}
 		return commitErr
@@ -50,7 +50,7 @@ func TestWithTxResultDiscardsUncommittedResult(t *testing.T) {
 
 func TestWithTxResultCallbackFailureDoesNotPublishValue(t *testing.T) {
 	callbackErr := errors.New("transaction must roll back")
-	runner := txResultRunner(func(fn func(*Queries) error) error { return fn(nil) })
+	runner := txResultRunner(func(fn func(*Queries) error) error { return fn(&Queries{}) })
 	got, err := WithTxResult(context.Background(), runner, func(_ *Queries) (string, error) {
 		return "uncommitted secret", callbackErr
 	})
