@@ -18,6 +18,7 @@ var (
 var processRedis struct {
 	mu      sync.Mutex
 	manager *RedisManager
+	client  *redis.Client
 	closed  bool
 }
 
@@ -43,6 +44,7 @@ func InitRedis(ctx context.Context) (*redis.Client, error) {
 
 	graceful.GetManager().RunAtTerminate(CloseRedis)
 	processRedis.manager = manager
+	processRedis.client = client
 	return client, nil
 }
 
@@ -56,7 +58,7 @@ func ProcessRedis() (*redis.Client, error) {
 	if processRedis.manager == nil {
 		return nil, errors.New("conn: Redis not initialized")
 	}
-	return processRedis.manager.clients[setting.Redis.Address], nil
+	return processRedis.client, nil
 }
 
 // CloseRedis closes only process-owned clients, after graceful drain.
@@ -64,6 +66,7 @@ func CloseRedis() {
 	processRedis.mu.Lock()
 	manager := processRedis.manager
 	processRedis.manager = nil
+	processRedis.client = nil
 	processRedis.closed = true
 	processRedis.mu.Unlock()
 	if manager != nil {
