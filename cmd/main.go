@@ -1,11 +1,48 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"os"
 
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/urfave/cli/v3"
 )
+
+// PrepareSubcommandWithGlobalFlags prepares canonical configuration before
+// executing a config-dependent command, preserving its own Before hook.
+func PrepareSubcommandWithGlobalFlags(command *cli.Command) {
+	previousBefore := command.Before
+	command.Before = func(ctx context.Context, current *cli.Command) (context.Context, error) {
+		if previousBefore != nil {
+			var err error
+			ctx, err = previousBefore(ctx, current)
+			if err != nil {
+				return ctx, err
+			}
+		}
+		if err := prepareWorkPathAndCustomConf(current); err != nil {
+			return ctx, err
+		}
+		if err := setting.InitLoggers(setting.Common.Log); err != nil {
+			return ctx, err
+		}
+		log.Info("Using configuration file: %s", setting.CustomConf)
+		return ctx, nil
+	}
+}
+
+// prepareWorkPathAndCustomConf delegates path resolution and INI loading
+// to modules/setting, keeping CLI flag ownership in cmd.
+func prepareWorkPathAndCustomConf(command *cli.Command) error {
+	root := command.Root()
+	return setting.InitWorkPathAndCommonConfig(setting.PathOptions{
+		WorkPath: root.String("work-path"),
+		CustomPath: root.String("custom-path"),
+		Config: root.String("config"),
+	}, os.Environ())
+}
 
 // AppVersion contains the application version and
 // optional build information provided by main.go.
