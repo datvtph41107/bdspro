@@ -78,6 +78,11 @@ jobs:
       - name: Verify OAuth domain persistence compiles independently
         run: go test ./models/oauth -count=1
 
+      - name: Verify context-first account, auth and OAuth model compilation
+        run: |
+          go build ./models/account ./models/auth ./models/oauth
+          go build ./services/oauth
+
       - name: Verify OpenAPI contract
         run: go test ./routers -run TestOpenAPICoverage -count=1
 
