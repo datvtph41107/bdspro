@@ -50,12 +50,11 @@ func newManager(parent context.Context, hammerAfter time.Duration) *Manager {
  return g
 }
 
-// DoGracefulShutdown requests graceful shutdown once. A repeated request triggers Hammer.
+// DoGracefulShutdown is idempotent. Hammer is a separate timeout/escalation phase.
 func (g *Manager) DoGracefulShutdown() {
  g.lock.Lock()
  if g.state != stateRunning {
   g.lock.Unlock()
-  g.DoImmediateHammer()
   return
  }
  g.state = stateShuttingDown
@@ -87,7 +86,6 @@ func (g *Manager) finishShutdown() {
  g.shutdownCallbacks.Wait()
  g.running.Wait()
  close(hammerDone)
- g.DoImmediateHammer()
  g.lock.Lock()
  g.state = stateTerminate
  hooks := append([]func(){}, g.terminateHooks...)
