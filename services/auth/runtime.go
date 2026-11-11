@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/conn"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -25,10 +24,6 @@ var processAuth struct {
 // Init builds authentication capabilities once, after DB, Redis and token
 // infrastructure. Request routing does not construct authentication services.
 func Init() error {
-	store, err := db.ProcessStore()
-	if err != nil {
-		return err
-	}
 	redisClient, err := conn.ProcessRedis()
 	if err != nil {
 		return err
@@ -40,7 +35,7 @@ func Init() error {
 	}
 	mailer := mail.NewSMTPSender(cfg.EmailSenderName, cfg.EmailSenderAddress,
 		cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
-	service := NewAuthService(store, authcrypto.ProcessMaker(), cfg, phoneSender, mailer)
+	service := NewAuthService(authcrypto.ProcessMaker(), cfg, phoneSender, mailer)
 	var oidc *OAuth2Client
 	var secure bool
 	if cfg.OIDC.Enabled() {
