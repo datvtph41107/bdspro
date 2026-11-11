@@ -73,7 +73,7 @@ func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *server
 		VerifyEmailURL:       "http://localhost:8080/users/verify_email",
 	}
 	mailer := &authAcceptanceMail{}
-	server, err := newServerFixture(cfg, db.NewStore(pool), redisClient, mailer)
+	server, err := newServerFixture(cfg, redisClient, mailer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,13 +158,13 @@ func TestPhoneSignupLoginAndBusinessHTTPAcceptance(t *testing.T) {
 
 func TestPasswordResetAndOAuth2CreatedAccountHTTPAcceptance(t *testing.T) {
 	ctx, pool, server, mailer := authAcceptanceServer(t)
-	store := db.NewStore(pool)
+	queries := db.New(pool)
 	email := uuid.NewString() + "@example.test"
-	account, err := account_model.CreateOAuth2Account(ctx, store, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: uuid.NewString(), Email: email, EmailVerified: true})
+	account, err := account_model.CreateOAuth2Account(ctx, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: uuid.NewString(), Email: email, EmailVerified: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.GetPasswordHash(ctx, account.ID); err != pgx.ErrNoRows {
+	if _, err := queries.GetPasswordHash(ctx, account.ID); err != pgx.ErrNoRows {
 		t.Fatalf("OIDC account unexpectedly has a password: %v", err)
 	}
 	status, _ := authAcceptanceCall(t, server, "/users/password/reset/request", http.MethodPost, map[string]string{"email": email}, "")
@@ -172,7 +172,7 @@ func TestPasswordResetAndOAuth2CreatedAccountHTTPAcceptance(t *testing.T) {
 		t.Fatalf("reset request status=%d", status)
 	}
 	assertPasswordResetIntent(t, ctx, pool, account.ID)
-	if err := jobs.SendPasswordResetEmail(ctx, store, mailer, "http://localhost:8080/users/verify_email", account.ID); err != nil {
+	if err := jobs.SendPasswordResetEmail(ctx, mailer, "http://localhost:8080/users/verify_email", account.ID); err != nil {
 		t.Fatal(err)
 	}
 	match := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)
@@ -275,7 +275,7 @@ func TestPhoneOnlyAccountAttachesEmailAndPasswordOnSameAccount(t *testing.T) {
 	if status != http.StatusNoContent {
 		t.Fatalf("email confirm: %d %v", status, result)
 	}
-	current, err := db.NewStore(pool).GetAccountByID(ctx, int64(id.(float64)))
+	current, err := account_model.ReadByID(ctx, int64(id.(float64)))
 	if err != nil || current.Email != email || !current.IsEmailVerified {
 		t.Fatalf("email link mutated identity: %+v err=%v", current, err)
 	}
@@ -289,7 +289,7 @@ func TestPhoneOnlyAccountAttachesEmailAndPasswordOnSameAccount(t *testing.T) {
 		t.Fatalf("password setup request: %d", status)
 	}
 	assertPasswordResetIntent(t, ctx, pool, int64(id.(float64)))
-	if err := jobs.SendPasswordResetEmail(ctx, db.NewStore(pool), mailer, "http://localhost:8080/users/verify_email", int64(id.(float64))); err != nil {
+	if err := jobs.SendPasswordResetEmail(ctx, mailer, "http://localhost:8080/users/verify_email", int64(id.(float64))); err != nil {
 		t.Fatal(err)
 	}
 	reset := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)
