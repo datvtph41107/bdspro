@@ -136,6 +136,19 @@ func GetQueries(ctx context.Context) (*Queries, error) {
 	if hasTransactionMetadata(ctx) {
 		return TxQueries(ctx)
 	}
+	// An explicitly bound request/test engine precedes the process default,
+	// matching Gitea's GetEngine(ctx) context-first selection. Never fall
+	// back to another database if a bound capability is malformed.
+	if value := ctx.Value(storeContextKey{}); value != nil {
+		store, ok := value.(*SQLStore)
+		if !ok || store == nil || store.Queries == nil {
+			return nil, ErrStoreMissing
+		}
+		if store.pool == nil {
+			return nil, ErrTransactionClosed
+		}
+		return store.Queries, nil
+	}
 	defaultEngine.mu.RLock()
 	defer defaultEngine.mu.RUnlock()
 	if defaultEngine.closed {
