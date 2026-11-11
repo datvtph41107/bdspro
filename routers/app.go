@@ -130,6 +130,11 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	routes := NormalRoutes()
 	server.router = routes.GinEngine()
 	api.RegisterSwagger(server.router, cfg.Environment)
+	if err := server.router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
+	}
+	// Complete the ingress chain during startup, before HTTP readiness.
+	ingress := routes.WrapIngress()
 	// Capabilities are instance-owned, not process-global route dependencies.
 	server.httpHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
@@ -145,11 +150,8 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		if server.store != nil {
 			ctx = db.WithStore(ctx, server.store)
 		}
-		routes.ServeHTTP(w, req.WithContext(ctx))
+		ingress.ServeHTTP(w, req.WithContext(ctx))
 	})
-	if err := server.router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
-		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
-	}
 	return server, nil
 }
 
