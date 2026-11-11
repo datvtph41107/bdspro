@@ -37,7 +37,7 @@ func runWeb(ctx context.Context, _ *cli.Command) error {
 	)
 	defer finished()
 
-	server, err := routers.InitWebInstalled(webCtx)
+	err := routers.InitWebInstalled(webCtx)
 	if err != nil {
 		manager.ServerDone()
 		manager.DoGracefulShutdown()
@@ -45,10 +45,17 @@ func runWeb(ctx context.Context, _ *cli.Command) error {
 		return err
 	}
 	// DB and Redis terminate hooks run after the HTTP activity is drained.
+	handler, err := routers.NormalHandler()
+	if err != nil {
+		manager.ServerDone()
+		manager.DoGracefulShutdown()
+		<-manager.Done()
+		return err
+	}
 
 	serveErr := func() error {
 		defer manager.ServerDone()
-		return serveHTTP(manager.ShutdownContext(), server.Handler(), setting.Server.HTTPServerAddress, func(_ net.Addr) {
+		return serveHTTP(manager.ShutdownContext(), handler, setting.Server.HTTPServerAddress, func(_ net.Addr) {
 			log.Info("HTTP server ready in %s", time.Since(startedAt))
 		})
 	}()

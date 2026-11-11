@@ -61,6 +61,20 @@ func InitEngine(ctx context.Context) (*SQLStore, error) {
 	return store, nil
 }
 
+// ProcessStore returns the initialized borrowed store for subsystem setup.
+// Domain SQLC queries must continue to use context-aware transaction APIs.
+func ProcessStore() (Store, error) {
+	defaultEngine.mu.RLock()
+	defer defaultEngine.mu.RUnlock()
+	if defaultEngine.closed {
+		return nil, ErrEngineClosed
+	}
+	if defaultEngine.store == nil {
+		return nil, ErrEngineNotInitialized
+	}
+	return defaultEngine.store, nil
+}
+
 // CloseEngine is terminal and idempotent for this process.
 // The graceful terminate phase, after active operations have drained,
 // is the only production caller.

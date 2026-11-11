@@ -46,6 +46,19 @@ func InitRedis(ctx context.Context) (*redis.Client, error) {
 	return client, nil
 }
 
+// ProcessRedis returns the validated process-owned Redis client.
+func ProcessRedis() (*redis.Client, error) {
+	processRedis.mu.Lock()
+	defer processRedis.mu.Unlock()
+	if processRedis.closed {
+		return nil, ErrRedisClosed
+	}
+	if processRedis.manager == nil {
+		return nil, errors.New("conn: Redis not initialized")
+	}
+	return processRedis.manager.clients[setting.Redis.Address], nil
+}
+
 // CloseRedis closes only process-owned clients, after graceful drain.
 func CloseRedis() {
 	processRedis.mu.Lock()

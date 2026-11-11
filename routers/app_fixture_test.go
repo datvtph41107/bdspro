@@ -1,5 +1,8 @@
 package routers
 
+// This per-instance constructor is a test fixture only. Production lifecycle
+// uses package-owned Init methods and routers.NormalHandler.
+
 import (
 	"errors"
 	"fmt"
@@ -24,7 +27,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-// Server owns initialized HTTP dependencies and the one configured Gin matcher.
+// Server is a test-only HTTP fixture that owns isolated dependencies and the one configured Gin matcher.
 // Its httpHandler is the canonical pre-matcher ingress. Listener, readiness,
 // timeouts and graceful shutdown remain in cmd/http.go.
 type Server struct {
