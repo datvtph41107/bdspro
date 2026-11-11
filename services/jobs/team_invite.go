@@ -18,7 +18,9 @@ import (
 
 func SendTeamInviteEmail(ctx context.Context, sender mail.EmailSender, signingKey string, id uuid.UUID) error {
 	q, err := db.GetQueries(ctx)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	invite, err := q.GetTeamInviteForDelivery(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil // Expired, revoked, accepted or no longer eligible.

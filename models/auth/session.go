@@ -192,7 +192,9 @@ func RequireActiveSession(ctx context.Context, accountID int64, sessionID uuid.U
 		return ErrSessionUnavailable
 	}
 	q, err := db.GetQueries(ctx)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	session, err := q.GetSession(ctx, sessionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrSessionUnavailable

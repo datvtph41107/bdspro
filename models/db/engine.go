@@ -113,7 +113,7 @@ func (d transactionDBTX) QueryRow(ctx context.Context, query string, args ...any
 }
 
 var (
-	_ DBTX = poolDBTX{}
-	_ DBTX = transactionDBTX{}
+	_ DBTX    = poolDBTX{}
+	_ DBTX    = transactionDBTX{}
 	_ pgx.Row = errorRow{}
 )

@@ -29,7 +29,9 @@ func (s *AuthService) credentialKey(identity auth_model.OIDCClaims) (auth_model.
 // A verified external email address cannot authorize linking by itself.
 func (s *AuthService) CheckPassword(ctx context.Context, accountID int64, password string) error {
 	q, err := db.GetQueries(ctx)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	hash, err := q.GetPasswordHash(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return auth_model.ErrInvalidCredentials
@@ -52,7 +54,9 @@ func (s *AuthService) LinkOIDC(ctx context.Context, accountID int64, identity au
 		return err
 	}
 	q, err := db.GetQueries(ctx)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	return auth_model.LinkOAuth2Credential(ctx, q, accountID, key)
 }
 
@@ -66,7 +70,9 @@ func (s *AuthService) LoginOIDC(ctx context.Context, identity auth_model.OIDCCla
 		return empty, err
 	}
 	q, err := db.GetQueries(ctx)
-	if err != nil { return empty, err }
+	if err != nil {
+		return empty, err
+	}
 	accountID, err := auth_model.GetOAuth2AccountID(ctx, q, key)
 	var account db.Account
 	switch {

@@ -40,7 +40,6 @@ type OAuthAuthorizedClient struct {
 	Name     string
 }
 
-
 func CreateOAuthClient(ctx context.Context, input db.OauthClient) (db.OauthClient, error) {
 	dbx, resolveErr := db.GetEngine(ctx)
 	if resolveErr != nil {

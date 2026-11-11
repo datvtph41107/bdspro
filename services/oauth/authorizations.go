@@ -1,8 +1,8 @@
 package oauth
 
 import (
-	oauth_model "github.com/datvtph41107/bdspro/models/oauth"
 	"context"
+	oauth_model "github.com/datvtph41107/bdspro/models/oauth"
 
 	"github.com/google/uuid"
 )

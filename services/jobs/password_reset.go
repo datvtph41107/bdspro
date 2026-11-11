@@ -44,7 +44,9 @@ func SendPasswordResetEmailForVersion(ctx context.Context, sender mail.EmailSend
 	link.Path = "/users/password/reset"
 	link.RawQuery = url.Values{"token": {secret}}.Encode()
 	q, err := db.GetQueries(ctx)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	affected, err := q.IssuePasswordResetTokenIfCurrentVersion(ctx, db.IssuePasswordResetTokenIfCurrentVersionParams{
 		TokenHash: digest[:], AccountID: account.ID, ResetVersion: resetVersion,
 	})

@@ -72,14 +72,18 @@ func ResetPassword(ctx context.Context, tokenHash []byte, passwordHash string) e
 // AccountIDForPhone returns the account with the verified phone credential.
 func AccountIDForPhone(ctx context.Context, phone string) (int64, error) {
 	q, err := db.GetQueries(ctx)
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 	return q.GetPhoneAccountIDQuery(ctx, phone)
 }
 
 // StartChallenge enforces the rate/cooldown predicate in the SQLC upsert.
 func StartChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte, devCode string) error {
 	q, err := db.GetQueries(ctx)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	affected, err := q.UpsertPhoneChallengeQuery(ctx, db.UpsertPhoneChallengeQueryParams{
 		PhoneE164: phone, Purpose: purpose, AccountID: accountID,
 		CodeMac: mac, DevCode: devCode,
@@ -170,7 +174,9 @@ func ConsumeChallenge(ctx context.Context, phone, purpose string, accountID int6
 // StartPhoneSignup owns the cooldown predicate; it does not create an account.
 func StartPhoneSignup(ctx context.Context, phone string, mac []byte, devCode string) error {
 	q, err := db.GetQueries(ctx)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	n, err := q.UpsertPhoneSignup(ctx, db.UpsertPhoneSignupParams{
 		PhoneE164: phone, CodeMac: mac, DevCode: devCode,
 	})

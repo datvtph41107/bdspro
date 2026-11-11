@@ -68,7 +68,9 @@ func RecordLoginRejected(ctx context.Context, key string, event LoginRejected) e
 		ip = parsed.String()
 	}
 	q, err := db.GetQueries(ctx)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	return q.InsertAuditEvent(ctx, db.InsertAuditEventParams{
 		AccountID:  accountID,
 		Method:     pgtype.Text{String: event.Method, Valid: true},

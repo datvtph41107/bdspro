@@ -37,7 +37,9 @@ func NewLoginRetention(retentionDays int) *LoginRetention {
 // the next scheduled sweep and never roll back committed deletions.
 func (w *LoginRetention) Sweep(ctx context.Context, now time.Time) (int64, error) {
 	q, err := db.GetQueries(ctx)
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 	cutoff := now.UTC().Add(-w.retention)
 	var deleted int64
 	var connectionErr error
