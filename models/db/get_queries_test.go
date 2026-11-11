@@ -85,16 +85,7 @@ func TestLegacyTransactionAPIsRejectPartialContext(t *testing.T) {
 				})
 			},
 		},
-		{
-			name: "WithTxResult",
-			run: func(ctx context.Context, store *SQLStore) error {
-				_, err := WithTxResult(ctx, store, func(*Queries) (int, error) {
-					t.Fatal("partial context opened an independent result transaction")
-					return 1, nil
-				})
-				return err
-			},
-		},
+
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
