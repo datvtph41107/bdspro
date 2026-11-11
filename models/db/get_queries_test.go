@@ -37,3 +37,25 @@ func TestGetQueriesRejectsCanceledContext(t *testing.T) {
 		t.Fatalf("canceled context must not execute SQL: %v", err)
 	}
 }
+
+func TestIncompleteTransactionCannotReachPoolOrStartAnotherTransaction(t *testing.T) {
+	state := &transactionState{}
+	ctx := context.WithValue(context.Background(), txStateContextKey{}, state)
+
+	executor := contextDBTX{}
+	if _, err := executor.executor(ctx); !errors.Is(err, ErrTxStoreUnavailable) {
+		t.Fatalf("pool executor accepted incomplete transaction: %v", err)
+	}
+	if err := state.failure(); !errors.Is(err, ErrTxStoreUnavailable) {
+		t.Fatalf("incomplete transaction did not mark rollback-only: %v", err)
+	}
+	if err := WithTx(ctx, func(context.Context) error {
+		t.Fatal("nested callback must not run with incomplete state")
+		return nil
+	}); !errors.Is(err, ErrNestedTransaction) {
+		t.Fatalf("WithTx accepted incomplete transaction: %v", err)
+	}
+	if _, err := StoreFromContext(ctx); !errors.Is(err, ErrTxStoreUnavailable) {
+		t.Fatalf("StoreFromContext escaped incomplete transaction: %v", err)
+	}
+}
