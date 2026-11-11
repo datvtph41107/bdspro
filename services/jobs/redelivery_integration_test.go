@@ -44,8 +44,11 @@ func TestPasswordResetRedeliveryCannotLeaveAnotherUsableProofAfterRecovery(t *te
 	if err := pool.Ping(ctx); err != nil {
 		t.Fatal(err)
 	}
-	store := db.NewStore(pool)
-	account, err := account_model.Register(ctx, store, account_model.RegisterParams{
+	if err := initJobTestDB(source); err != nil {
+		t.Fatal(err)
+	}
+	store := db.New(pool)
+	account, err := account_model.Register(ctx, account_model.RegisterParams{
 		Email: uuid.NewString() + "@example.test", PasswordHash: "initial-test-hash",
 	})
 	if err != nil {
@@ -57,10 +60,10 @@ func TestPasswordResetRedeliveryCannotLeaveAnotherUsableProofAfterRecovery(t *te
 		t.Fatal(err)
 	}
 	mailer := &ambiguousAcceptanceMailer{}
-	if err := SendPasswordResetEmailForVersion(ctx, store, mailer, "https://example.test", account.ID, 0); err == nil {
+	if err := SendPasswordResetEmailForVersion(ctx, mailer, "https://example.test", account.ID, 0); err == nil {
 		t.Fatal("ambiguous SMTP acceptance must remain retryable")
 	}
-	if err := SendPasswordResetEmailForVersion(ctx, store, mailer, "https://example.test", account.ID, 0); err != nil {
+	if err := SendPasswordResetEmailForVersion(ctx, mailer, "https://example.test", account.ID, 0); err != nil {
 		t.Fatal(err)
 	}
 	if len(mailer.messages) != 2 {
@@ -84,7 +87,7 @@ func TestPasswordResetRedeliveryCannotLeaveAnotherUsableProofAfterRecovery(t *te
 	if string(proofs[0]) == string(proofs[1]) {
 		t.Fatal("retry unexpectedly reused an old reset proof; update the explicit contract")
 	}
-	if err := auth_model.ResetPassword(ctx, store, proofs[0], "replacement-test-hash"); err != nil {
+	if err := auth_model.ResetPassword(ctx, proofs[0], "replacement-test-hash"); err != nil {
 		t.Fatal(err)
 	}
 	var count int
@@ -94,7 +97,7 @@ func TestPasswordResetRedeliveryCannotLeaveAnotherUsableProofAfterRecovery(t *te
 		t.Fatalf("recovery did not revoke all reset proofs: count=%d err=%v", count, err)
 	}
 	for _, proof := range proofs {
-		if err := auth_model.ResetPassword(ctx, store, proof, "again-test-hash"); !errors.Is(err, auth_model.ErrPasswordResetInvalid) {
+		if err := auth_model.ResetPassword(ctx, proof, "again-test-hash"); !errors.Is(err, auth_model.ErrPasswordResetInvalid) {
 			t.Fatalf("previously issued proof remained usable after recovery: %v", err)
 		}
 	}
