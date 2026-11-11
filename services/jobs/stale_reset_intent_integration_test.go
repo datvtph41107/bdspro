@@ -7,17 +7,33 @@ import (
 	"errors"
 	"os"
 	"regexp"
+	"sync"
 	"testing"
 	"time"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/graceful"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func g1ResetStore(t *testing.T) (context.Context, *pgxpool.Pool, *db.SQLStore) {
+var jobTestDBOnce sync.Once
+var jobTestDBErr error
+
+func initJobTestDB(source string) error {
+	jobTestDBOnce.Do(func() {
+		ctx := context.Background()
+		setting.Database.DBSource = source
+		graceful.InitManager(ctx)
+		jobTestDBErr = db.InitEngine(ctx)
+	})
+	return jobTestDBErr
+}
+
+func g1ResetStore(t *testing.T) (context.Context, *pgxpool.Pool, *db.Queries) {
 	t.Helper()
 	source := os.Getenv("BDS_TEST_DB_URL")
 	if source == "" {
@@ -43,7 +59,10 @@ func g1ResetStore(t *testing.T) (context.Context, *pgxpool.Pool, *db.SQLStore) {
 	if err := pool.Ping(ctx); err != nil {
 		t.Fatal(err)
 	}
-	return ctx, pool, db.NewStore(pool)
+	if err := initJobTestDB(source); err != nil {
+		t.Fatal(err)
+	}
+	return ctx, pool, db.New(pool)
 }
 
 func g1RequestedVersion(t *testing.T, ctx context.Context, pool *pgxpool.Pool, accountID int64) int64 {
@@ -67,7 +86,7 @@ func g1RequestedVersion(t *testing.T, ctx context.Context, pool *pgxpool.Pool, a
 
 func TestG1StalePasswordResetJobCannotReissueProofAfterRecovery(t *testing.T) {
 	ctx, pool, store := g1ResetStore(t)
-	account, err := account_model.Register(ctx, store, account_model.RegisterParams{
+	account, err := account_model.Register(ctx, account_model.RegisterParams{
 		Email:        uuid.NewString() + "@example.test",
 		PasswordHash: "initial-test-hash",
 	})
@@ -87,7 +106,7 @@ func TestG1StalePasswordResetJobCannotReissueProofAfterRecovery(t *testing.T) {
 		t.Fatalf("new account's initial reset generation=%d", oldVersion)
 	}
 	mailer := &fakeMailSender{}
-	if err := SendPasswordResetEmailForVersion(ctx, store, mailer, "https://example.test", account.ID, oldVersion); err != nil {
+	if err := SendPasswordResetEmailForVersion(ctx, mailer, "https://example.test", account.ID, oldVersion); err != nil {
 		t.Fatal(err)
 	}
 	if len(mailer.content) != 1 {
@@ -98,10 +117,10 @@ func TestG1StalePasswordResetJobCannotReissueProofAfterRecovery(t *testing.T) {
 		t.Fatal("first password reset link is missing")
 	}
 	digest := sha256.Sum256([]byte(match[1]))
-	if err := auth_model.ResetPassword(ctx, store, digest[:], "new-test-hash"); err != nil {
+	if err := auth_model.ResetPassword(ctx, digest[:], "new-test-hash"); err != nil {
 		t.Fatal(err)
 	}
-	if err := SendPasswordResetEmailForVersion(ctx, store, mailer, "https://example.test", account.ID, oldVersion); err != nil {
+	if err := SendPasswordResetEmailForVersion(ctx, mailer, "https://example.test", account.ID, oldVersion); err != nil {
 		t.Fatal(err)
 	}
 	if len(mailer.content) != 1 {
@@ -120,7 +139,7 @@ func TestG1StalePasswordResetJobCannotReissueProofAfterRecovery(t *testing.T) {
 	if newVersion != oldVersion+1 {
 		t.Fatalf("new request generation=%d; old=%d", newVersion, oldVersion)
 	}
-	if err := SendPasswordResetEmailForVersion(ctx, store, mailer, "https://example.test", account.ID, newVersion); err != nil {
+	if err := SendPasswordResetEmailForVersion(ctx, mailer, "https://example.test", account.ID, newVersion); err != nil {
 		t.Fatal(err)
 	}
 	if len(mailer.content) != 2 {
@@ -130,7 +149,7 @@ func TestG1StalePasswordResetJobCannotReissueProofAfterRecovery(t *testing.T) {
 
 func TestG1ProofIssuanceWaitsForCredentialRecoveryAccountLock(t *testing.T) {
 	ctx, pool, store := g1ResetStore(t)
-	account, err := account_model.Register(ctx, store, account_model.RegisterParams{
+	account, err := account_model.Register(ctx, account_model.RegisterParams{
 		Email: uuid.NewString() + "@example.test", PasswordHash: "initial-test-hash",
 	})
 	if err != nil {
