@@ -25,6 +25,12 @@ type contextDBTX struct {
 
 func (d contextDBTX) executor(ctx context.Context) (DBTX, error) {
 	if ctx.Value(queriesContextKey{}) == nil {
+		if hasTransactionMetadata(ctx) {
+			if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
+				state.fail(ErrTxStoreUnavailable)
+			}
+			return nil, ErrTxStoreUnavailable
+		}
 		return d.pool, nil
 	}
 	if _, err := TxQueries(ctx); err != nil {

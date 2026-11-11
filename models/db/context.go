@@ -84,7 +84,13 @@ func transactionStoreMatches(ctx context.Context, store *SQLStore, q *Queries) b
 // A narrow transaction-only mock has no complete query Store to rebind; fail
 // closed instead of silently returning an unrelated pool-backed executor.
 func StoreFromContext(ctx context.Context) (Store, error) {
-	if ctx.Value(queriesContextKey{}) != nil {
+	if hasTransactionMetadata(ctx) {
+		if ctx.Value(queriesContextKey{}) == nil {
+			if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
+				state.fail(ErrTxStoreUnavailable)
+			}
+			return nil, ErrTxStoreUnavailable
+		}
 		q, err := TxQueries(ctx)
 		if err != nil {
 			return nil, err
@@ -108,6 +114,15 @@ func StoreFromContext(ctx context.Context) (Store, error) {
 	return store, nil
 }
 
+// hasTransactionMetadata detects partial transaction contexts as well as
+// complete ones. An incomplete transaction must never route SQL to the pool.
+func hasTransactionMetadata(ctx context.Context) bool {
+	return ctx.Value(queriesContextKey{}) != nil ||
+		ctx.Value(txStateContextKey{}) != nil ||
+		ctx.Value(rawTxContextKey{}) != nil ||
+		ctx.Value(rawTxStoreContextKey{}) != nil
+}
+
 // GetQueries selects the transaction-scoped SQLC executor when present,
 // otherwise the process-owned pool executor. A partial or expired transaction
 // context never falls back to PostgreSQL outside its rollback boundary.
@@ -118,10 +133,7 @@ func GetQueries(ctx context.Context) (*Queries, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if ctx.Value(queriesContextKey{}) != nil ||
-		ctx.Value(txStateContextKey{}) != nil ||
-		ctx.Value(rawTxContextKey{}) != nil ||
-		ctx.Value(rawTxStoreContextKey{}) != nil {
+	if hasTransactionMetadata(ctx) {
 		return TxQueries(ctx)
 	}
 	defaultEngine.mu.RLock()
@@ -163,7 +175,13 @@ func TxQueries(ctx context.Context) (*Queries, error) {
 // An inner callback error marks the transaction rollback-only. The outermost
 // call cannot commit it even when an intermediate caller discards that error.
 func WithTx(ctx context.Context, fn func(context.Context) error) error {
-	if ctx.Value(queriesContextKey{}) != nil {
+	if hasTransactionMetadata(ctx) {
+		if ctx.Value(queriesContextKey{}) == nil {
+			if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok {
+				state.fail(ErrNestedTransaction)
+			}
+			return ErrNestedTransaction
+		}
 		state, ok := ctx.Value(txStateContextKey{}).(*transactionState)
 		if !ok || state == nil {
 			return ErrNestedTransaction
