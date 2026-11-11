@@ -5,7 +5,9 @@ import (
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/conn"
+	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/process"
 	"github.com/datvtph41107/bdspro/modules/queue"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/mail"
@@ -37,6 +39,25 @@ func runWorker(ctx context.Context, _ *cli.Command) error {
 		return err
 	}
 
+	graceful.InitManagerWithTimeout(ctx, setting.Common.Graceful.HammerTimeout)
+	lifecycle := graceful.GetManager()
+	lifecycle.RegisterServer()
+	err := func() error {
+		defer lifecycle.ServerDone()
+		workerCtx, _, finished := process.GetManager().AddTypedContext(
+			lifecycle.HammerContext(), "Worker: Asynq and outbox", process.SystemProcessType, true,
+		)
+		defer finished()
+		return runWorkerRuntime(workerCtx, lifecycle.ShutdownContext())
+	}()
+	lifecycle.DoGracefulShutdown()
+	<-lifecycle.Done()
+	return err
+}
+
+// runWorkerRuntime owns resources. All defers finish before the worker is
+// marked drained; database and Redis close only after the jobs stop.
+func runWorkerRuntime(ctx, shutdownCtx context.Context) error {
 	store, err := db.InitStore(ctx, setting.Database.DBSource)
 	if err != nil {
 		return err
@@ -87,7 +108,7 @@ func runWorker(ctx context.Context, _ *cli.Command) error {
 	defer func() { stopDispatch(); retention.Wait(); dispatcher.Wait() }()
 
 	log.Info("Asynq worker, outbox dispatcher and retention started")
-	<-ctx.Done()
+	<-shutdownCtx.Done()
 	log.Info("Worker shutdown requested")
 	return nil
 }
