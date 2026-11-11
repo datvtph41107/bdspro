@@ -34,8 +34,9 @@ type RequestSource interface {
 // Base is the single transport-independent HTTP context.
 // Its lifecycle is created by the HTTP ingress, never by business services.
 type Base struct {
-	source RequestSource
-	Data   reqctx.ContextData
+	source   RequestSource
+	lifetime context.Context
+	Data     reqctx.ContextData
 }
 
 var _ context.Context = (*Base)(nil)
@@ -47,11 +48,15 @@ func NewBaseContext(source RequestSource) *Base {
 	}
 	// In production APIContexter installs the datastore before creating Base.
 	// Direct HTTP unit tests without middleware receive isolated local data.
+	// The cancellation lifetime is immutable. Gin may temporarily replace
+	// c.Request while executing nested HTTP providers; an async cancel
+	// callback must never read that mutable pointer.
+	lifetime := source.CurrentRequest().Context()
 	data := make(reqctx.ContextData)
-	if store := reqctx.FromContext(source.CurrentRequest().Context()); store != nil {
+	if store := reqctx.FromContext(lifetime); store != nil {
 		data = store.GetData()
 	}
-	return &Base{source: source, Data: data}
+	return &Base{source: source, lifetime: lifetime, Data: data}
 }
 
 // ClientIP is assigned by the trusted HTTP transport, not derived from an
@@ -69,9 +74,11 @@ func (b *Base) CurrentRequest() *http.Request { return b.source.CurrentRequest()
 func (b *Base) CurrentRequestContext() context.Context {
 	return b.source.CurrentRequest().Context()
 }
-func (b *Base) Deadline() (time.Time, bool) { return b.CurrentRequestContext().Deadline() }
-func (b *Base) Done() <-chan struct{}       { return b.CurrentRequestContext().Done() }
-func (b *Base) Err() error                  { return b.CurrentRequestContext().Err() }
+// Cancellation and deadlines are anchored to the ingress request. Values may
+// be enriched synchronously by authentication/transaction middleware.
+func (b *Base) Deadline() (time.Time, bool) { return b.lifetime.Deadline() }
+func (b *Base) Done() <-chan struct{}       { return b.lifetime.Done() }
+func (b *Base) Err() error                  { return b.lifetime.Err() }
 func (b *Base) Value(key any) any           { return b.CurrentRequestContext().Value(key) }
 
 // These helpers are implemented by exactly one HTTP adapter. No extra Gin

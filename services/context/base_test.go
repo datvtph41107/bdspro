@@ -123,3 +123,31 @@ func TestBaseJSONUsesRelaxedCodecAndNeverExposesMarshalErrors(t *testing.T) {
 		t.Fatalf("invalid JSON escaped response contract: status=%d code=%q body=%s err=%v", source.status, source.code, source.body, err)
 	}
 }
+
+func TestBaseCancellationUsesImmutableRequestLifetime(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	source := &testRequestSource{
+		req: httptest.NewRequest(http.MethodGet, "/scope", nil).WithContext(ctx),
+	}
+	base := NewBaseContext(source)
+	originalDone := base.Done()
+	if originalDone == nil {
+		t.Fatal("cancellable request had no Done channel")
+	}
+	// Gin's nested middleware swaps the request pointer as a normal part of
+	// applying scoped values; it must not change the cancellation authority.
+	source.req = source.req.WithContext(context.Background())
+	if base.Done() != originalDone {
+		t.Fatal("request lifetime switched to a middleware-scoped request")
+	}
+	cancel()
+	select {
+	case <-base.Done():
+	default:
+		t.Fatal("request cancellation did not propagate")
+	}
+	if base.Err() != context.Canceled {
+		t.Fatalf("request error=%v, want context.Canceled", base.Err())
+	}
+}
