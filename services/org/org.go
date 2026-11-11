@@ -38,7 +38,7 @@ func NewOrganization(ctx context.Context, target *organization_model.Organizatio
 		return err
 	}
 	created, err := db.WithTx2(ctx, func(txCtx context.Context) (*organization_model.Organization, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -78,7 +78,7 @@ func EditOrganization(ctx context.Context, target *organization_model.Organizati
 		return err
 	}
 	updated, err := db.WithTx2(ctx, func(txCtx context.Context) (*organization_model.Organization, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +106,7 @@ func AddMember(ctx context.Context, organizationID, personID int64) (*organizati
 		return nil, err
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (*organization_model.Member, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +128,7 @@ func RemoveMember(ctx context.Context, organizationID, personID int64) error {
 		return err
 	}
 	return db.WithTx(ctx, func(txCtx context.Context) error {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return err
 		}
@@ -178,7 +178,7 @@ func changeOrganizationOwner(ctx context.Context, organizationID, targetPersonID
 		return nil, err
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (*organization_model.Member, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
