@@ -19,8 +19,17 @@ type QueueSettings struct {
 
 var Queue QueueSettings
 
+// DefaultQueueSettings is shared with modules/queue, not duplicated there.
+func DefaultQueueSettings() QueueSettings {
+	return QueueSettings{
+		Concurrency:    10,
+		CriticalWeight: 10,
+		DefaultWeight:  5,
+	}
+}
+
 func loadQueueFrom(rootCfg ConfigProvider) error {
-	cfg := QueueSettings{Concurrency: 10, CriticalWeight: 10, DefaultWeight: 5}
+	cfg := DefaultQueueSettings()
 	sec := rootCfg.Section("queue")
 	for _, option := range []struct {
 		name   string
