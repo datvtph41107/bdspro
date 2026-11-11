@@ -11,12 +11,14 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/jobs"
 	"github.com/gin-gonic/gin"
@@ -25,6 +27,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// The production database engine is process-owned, so the acceptance suite
+// initializes it once using the same lifecycle entrypoint as cmd/web.go.
+var acceptanceEngineOnce sync.Once
+var acceptanceEngineErr error
 
 type authAcceptanceMail struct {
 	body string
@@ -52,6 +59,14 @@ func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *server
 		t.Fatal("refusing application database")
 	}
 	ctx := context.Background()
+	acceptanceEngineOnce.Do(func() {
+		setting.Database.DBSource = url
+		graceful.InitManager(ctx)
+		acceptanceEngineErr = db.InitEngine(ctx)
+	})
+	if acceptanceEngineErr != nil {
+		t.Fatalf("initialize canonical test database engine: %v", acceptanceEngineErr)
+	}
 	pool, err := pgxpool.NewWithConfig(ctx, pgConfig)
 	if err != nil {
 		t.Fatal(err)
