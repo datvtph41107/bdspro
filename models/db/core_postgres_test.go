@@ -41,7 +41,7 @@ func TestCorePostgresTransactions(t *testing.T) {
 		defaultEngine.mu.Unlock()
 		t.Fatal("test requires a fresh database engine; do not share process state")
 	}
-	defaultEngine.value = &engine{pool: pool, queries: New(poolDBTX{pool: pool})}
+	defaultEngine.value = &engine{pool: pool, queries: New(pool)}
 	defaultEngine.mu.Unlock()
 	defer func() {
 		defaultEngine.mu.Lock()
@@ -68,7 +68,7 @@ func TestCorePostgresTransactions(t *testing.T) {
 			t.Fatal("GetQueries did not resolve transaction-scoped SQLC executor")
 		}
 		var missing int
-		scanErr := (transactionDBTX{scope: scope}).QueryRow(
+		scanErr := scope.tx.QueryRow(
 			txCtx, "SELECT 1 WHERE FALSE",
 		).Scan(&missing)
 		if !errors.Is(scanErr, pgx.ErrNoRows) {
