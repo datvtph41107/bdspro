@@ -109,3 +109,14 @@ func TestLegacyTransactionAPIsRejectPartialContext(t *testing.T) {
 		})
 	}
 }
+
+func TestTxQueriesPoisonsOwnerWhenQueriesMetadataIsMissing(t *testing.T) {
+	state := &transactionState{}
+	ctx := context.WithValue(context.Background(), txStateContextKey{}, state)
+	if _, err := TxQueries(ctx); !errors.Is(err, ErrTransactionRequired) {
+		t.Fatalf("missing executor must fail: %v", err)
+	}
+	if err := state.failure(); !errors.Is(err, ErrTransactionRequired) {
+		t.Fatalf("owner was not marked rollback-only: %v", err)
+	}
+}
