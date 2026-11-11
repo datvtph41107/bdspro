@@ -31,7 +31,7 @@ func InitWebInstalled(ctx context.Context) error {
 	if err := setting.LoadSettings(); err != nil {
 		return err
 	}
-	if _, err := db.InitEngine(ctx); err != nil {
+	if err := db.InitEngine(ctx); err != nil {
 		return fmt.Errorf("initialize PostgreSQL: %w", err)
 	}
 	log.Info("PostgreSQL connected")

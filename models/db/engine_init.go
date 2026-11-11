@@ -34,31 +34,31 @@ var defaultEngine struct {
 // InitEngine initializes the process-owned SQLC store exactly once.
 // The returned store is borrowed; subsystem consumers must not close it.
 // The graceful manager closes it after serving activities have drained.
-func InitEngine(ctx context.Context) (*SQLStore, error) {
+func InitEngine(ctx context.Context) error {
 	defaultEngine.mu.Lock()
 	defer defaultEngine.mu.Unlock()
 
 	if defaultEngine.closed {
-		return nil, ErrEngineClosed
+		return ErrEngineClosed
 	}
 	if defaultEngine.store != nil {
-		return nil, ErrEngineAlreadyInitialized
+		return ErrEngineAlreadyInitialized
 	}
 
 	store, err := InitStore(ctx, setting.Database.DBSource)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if err := ctx.Err(); err != nil {
 		store.Close()
-		return nil, err
+		return err
 	}
 
 	// Cleanup registration is part of initialization success, not a
 	// responsibility returned to routers/init.go or routers.Server.
 	graceful.GetManager().RunAtTerminate(CloseEngine)
 	defaultEngine.store = store
-	return store, nil
+	return nil
 }
 
 // ProcessStore returns the initialized borrowed store for subsystem setup.
