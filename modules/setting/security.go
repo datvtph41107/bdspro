@@ -11,6 +11,15 @@ var Security struct {
     RefreshTokenDuration time.Duration
 }
 
+// LoadTokenSigningKey loads the signing secret needed by background jobs.
+// Workers do not need access/refresh token lifetime configuration.
+func LoadTokenSigningKey() error {
+    key := CfgProvider.Section("security").Key("TOKEN_SYMMETRIC_KEY").String()
+    if err := validateTokenSigningKey(Common.RunMode, key); err != nil { return err }
+    Security.TokenSymmetricKey = key
+    return nil
+}
+
 // loadSecurityFrom owns signing-key and session-lifetime configuration.
 func loadSecurityFrom(rootCfg ConfigProvider) error {
     sec := rootCfg.Section("security")
