@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -207,5 +208,50 @@ func TestServeHTTPDrainsInFlightRequestBeforeStopping(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("HTTP did not finish shutdown after request completed")
+	}
+}
+
+func TestActiveHTTPHandlersCannotDrainWhileHandlerIsRunning(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	active := &activeHTTPHandlers{
+		next: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			close(entered)
+			<-release
+			w.WriteHeader(http.StatusNoContent)
+		}),
+	}
+	requestDone := make(chan struct{})
+	go func() {
+		defer close(requestDone)
+		active.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+	}()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("handler did not start")
+	}
+	drained := make(chan struct{})
+	go func() {
+		active.Drain()
+		close(drained)
+	}()
+	select {
+	case <-drained:
+		t.Fatal("drain completed while handler was active")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case <-drained:
+	case <-time.After(time.Second):
+		t.Fatal("drain did not finish after handler returned")
+	}
+	<-requestDone
+
+	recorder := httptest.NewRecorder()
+	active.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("shutdown accepted a new request: %d", recorder.Code)
 	}
 }
