@@ -56,16 +56,14 @@ func TestRepeatedShutdownTriggersHammer(t *testing.T) {
  g.ServerDone()
  await(t,g.Done(),"done")
 }
-type testRunner struct { done chan struct{}; canceled chan struct{}; once sync.Once }
-func (r *testRunner) Run(){ <-r.canceled;close(r.done) }
+type testRunner struct { started chan struct{}; done chan struct{}; canceled chan struct{}; once sync.Once }
+func (r *testRunner) Run(){ close(r.started); <-r.canceled;close(r.done) }
 func (r *testRunner) Cancel(){r.once.Do(func(){close(r.canceled)})}
 func TestRunWithCancel(t *testing.T){
  g:=newManager(context.Background(),time.Second)
- r:=&testRunner{done:make(chan struct{}),canceled:make(chan struct{})}
- started:=make(chan struct{})
- go func(){close(started);g.RunWithCancel(r)}()
- <-started
- g.lock.Lock();g.lock.Unlock()
+ r:=&testRunner{started:make(chan struct{}),done:make(chan struct{}),canceled:make(chan struct{})}
+ go g.RunWithCancel(r)
+ <-r.started
  g.DoGracefulShutdown()
  await(t,r.done,"runner")
  await(t,g.Done(),"done")
