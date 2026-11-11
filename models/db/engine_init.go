@@ -32,7 +32,8 @@ var defaultEngine struct {
 }
 
 // InitEngine initializes the process-owned SQLC store exactly once.
-// The returned store is borrowed; subsystem consumers must not close it.
+// Subsystems may borrow the initialized Store through ProcessStore during
+// the legacy migration, but they must not close the process-owned pool.
 // The graceful manager closes it after serving activities have drained.
 func InitEngine(ctx context.Context) error {
 	defaultEngine.mu.Lock()
