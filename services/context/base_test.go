@@ -6,8 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"testing"
 	"sync"
+	"testing"
 )
 
 type baseRequestKey struct{}
