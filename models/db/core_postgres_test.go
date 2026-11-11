@@ -67,6 +67,16 @@ func TestCorePostgresTransactions(t *testing.T) {
 		if q != scope.queries {
 			t.Fatal("GetQueries did not resolve transaction-scoped SQLC executor")
 		}
+		var missing int
+		scanErr := (transactionDBTX{scope: scope}).QueryRow(
+			txCtx, "SELECT 1 WHERE FALSE",
+		).Scan(&missing)
+		if !errors.Is(scanErr, pgx.ErrNoRows) {
+			t.Fatalf("expected normal no-rows lookup: %v", scanErr)
+		}
+		if err := scope.failure(); err != nil {
+			t.Fatalf("handled pgx.ErrNoRows poisoned transaction: %v", err)
+		}
 		if _, err := scope.tx.Exec(txCtx, "INSERT INTO "+table+" VALUES (1)"); err != nil {
 			return err
 		}
