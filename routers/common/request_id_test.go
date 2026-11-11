@@ -5,22 +5,25 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func TestRequestIDHeaderAndContext(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.Use(RequestID())
-	r.GET("/check", func(c *gin.Context) {
-		if c.Writer.Header().Get("X-Request-ID") == "" {
-			t.Error("no request id")
+	var innerID string
+	handler := RequestID()(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		innerID = w.Header().Get("X-Request-ID")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	for i := 0; i < 2; i++ {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/check", nil))
+		id := rec.Header().Get("X-Request-ID")
+		if rec.Code != http.StatusNoContent || id == "" || id != innerID {
+			t.Fatalf("status=%d header=%q forwarded=%q", rec.Code, id, innerID)
 		}
-		c.Status(http.StatusNoContent)
-	})
-	out := httptest.NewRecorder()
-	r.ServeHTTP(out, httptest.NewRequest(http.MethodGet, "/check", nil))
-	if out.Code != http.StatusNoContent || out.Header().Get("X-Request-ID") == "" {
-		t.Fatalf("bad middleware response: %d %v", out.Code, out.Header())
+		if _, err := uuid.Parse(id); err != nil {
+			t.Fatalf("invalid request ID %q: %v", id, err)
+		}
 	}
 }

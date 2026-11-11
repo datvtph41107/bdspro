@@ -10,14 +10,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ProtocolMiddlewares owns the order of global HTTP ingress behavior, as in
-// Gitea's routers/common/middleware.go. Keep Gin as the only executor.
-func ProtocolMiddlewares() []gin.HandlerFunc {
-	return []gin.HandlerFunc{
-		RequestID(),
-		AccessLogger(),
-		Recovery(nil),
-	}
+// ProtocolMiddlewares runs before Gin matches an HTTP route.
+// Matched-route logging and API recovery remain on the Gin boundary.
+func ProtocolMiddlewares() []any {
+	return []any{RequestID()}
 }
 
 // Recovery wraps the one public API panic policy. The optional writer allows
