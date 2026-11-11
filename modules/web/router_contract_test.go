@@ -279,3 +279,38 @@ func TestCanonicalAfterRoutingRejectsInvalidProviderAtRegistration(t *testing.T)
 	}()
 	router.AfterRouting(invalid)
 }
+
+// Root Gin middleware is registered after NewRouter, before route compilation.
+// Neither local routes nor mounted children may retain a stale RouterGroup
+// handler snapshot that silently bypasses RequestID/Recovery/security guards.
+func TestCanonicalRootGinMiddlewareAppliesToLocalAndMountedRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	parent := NewRouter()
+	engine := parent.GinEngine()
+	calls := 0
+	engine.Use(func(c *gin.Context) {
+		calls++
+		c.Header("X-Root-Guard", "executed")
+		c.Next()
+	})
+
+	child := NewRouter()
+	child.Get("/child", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	parent.Mount("/api", child)
+	parent.Get("/direct", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	for _, path := range []string{"/direct", "/api/child"} {
+		rec := httptest.NewRecorder()
+		parent.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusNoContent || rec.Header().Get("X-Root-Guard") != "executed" {
+			t.Fatalf("%s: status=%d guard=%q", path, rec.Code, rec.Header().Get("X-Root-Guard"))
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("global Gin middleware executed %d times; want once per matched request", calls)
+	}
+}
