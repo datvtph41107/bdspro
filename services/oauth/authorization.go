@@ -14,6 +14,7 @@ import (
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
+	oauth_model "github.com/datvtph41107/bdspro/models/oauth"
 	"github.com/google/uuid"
 )
 
@@ -31,13 +32,11 @@ var (
 	ErrAccessDenied   = errors.New("OAuth consent denied")
 )
 
-type Service struct {
-	store db.OAuthServerStore
-}
+// Service retains the routing-level OAuth operations; persistence is owned
+// by models/oauth and no Store or database injection is retained here.
+type Service struct{}
 
-func NewService(store db.OAuthServerStore) *Service {
-	return &Service{store: store}
-}
+func NewService() *Service { return &Service{} }
 
 type AuthorizationRequest struct {
 	ClientID            uuid.UUID
@@ -119,7 +118,7 @@ func (s *Service) RegisterClient(ctx context.Context, accountID int64, name, red
 	if err != nil {
 		return nil, err
 	}
-	row, err := s.store.CreateOAuthClient(ctx, db.OauthClient{
+	row, err := oauth_model.CreateOAuthClient(ctx, db.OauthClient{
 		ID: id, OwnerAccountID: accountID, Name: name, RedirectUri: redirect,
 	})
 	if err != nil {
@@ -132,7 +131,7 @@ func (s *Service) ListClients(ctx context.Context, accountID int64) ([]*auth_mod
 	if accountID <= 0 {
 		return nil, ErrInvalidRequest
 	}
-	rows, err := s.store.ListOAuthClients(ctx, accountID)
+	rows, err := oauth_model.ListOAuthClients(ctx, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +146,7 @@ func (s *Service) DeleteClient(ctx context.Context, accountID int64, id uuid.UUI
 	if accountID <= 0 || id == uuid.Nil {
 		return ErrInvalidRequest
 	}
-	deleted, err := s.store.RevokeOAuthClient(ctx, accountID, id)
+	deleted, err := oauth_model.RevokeOAuthClient(ctx, accountID, id)
 	if err != nil {
 		return err
 	}
@@ -161,8 +160,8 @@ func (s *Service) ReviewAuthorization(ctx context.Context, req AuthorizationRequ
 	if err := validateAuthorization(req); err != nil {
 		return nil, err
 	}
-	row, err := s.store.GetOAuthClient(ctx, req.ClientID)
-	if errors.Is(err, db.ErrOAuthClientMissing) {
+	row, err := oauth_model.GetOAuthClient(ctx, req.ClientID)
+	if errors.Is(err, oauth_model.ErrOAuthClientMissing) {
 		return nil, ErrInvalidClient
 	}
 	if err != nil {
@@ -186,7 +185,7 @@ func (s *Service) ReviewConsent(ctx context.Context, accountID int64, req Author
 	if err != nil {
 		return nil, 0, err
 	}
-	version, err := s.store.GetOAuthConsentVersion(ctx, accountID, req.ClientID)
+	version, err := oauth_model.GetOAuthConsentVersion(ctx, accountID, req.ClientID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -205,15 +204,15 @@ func (s *Service) Authorize(ctx context.Context, accountID int64, sessionID uuid
 		return "", err
 	}
 	digest := sha256.Sum256([]byte(code))
-	if err := s.store.ApproveOAuthAuthCode(ctx, req.ClientID, accountID,
+	if err := oauth_model.ApproveOAuthAuthCode(ctx, req.ClientID, accountID,
 		req.RedirectURI, req.Scope, req.CodeChallenge, digest[:], time.Now().Add(AuthCodeTTL), req.ConsentVersion, sessionID); err != nil {
-		if errors.Is(err, db.ErrOAuthConsentStale) {
+		if errors.Is(err, oauth_model.ErrOAuthConsentStale) {
 			return "", ErrInvalidRequest
 		}
-		if errors.Is(err, db.ErrOAuthClientMissing) {
+		if errors.Is(err, oauth_model.ErrOAuthClientMissing) {
 			return "", ErrInvalidClient
 		}
-		if errors.Is(err, db.ErrOAuthSessionInactive) {
+		if errors.Is(err, oauth_model.ErrOAuthSessionInactive) {
 			return "", ErrAccessDenied
 		}
 		return "", err
