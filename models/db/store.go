@@ -7,13 +7,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Transactioner is the sole transaction capability shared by account,
-// authentication and organization model operations.
+// Transactioner is the legacy callback-based transaction contract retained
+// for existing account/authentication consumers and test fixtures.
+// New model operations should use db.WithTx(ctx, fn).
 type Transactioner interface {
 	ExecTx(context.Context, func(*Queries) error) error
 }
 
-// Store exposes SQLC queries and the existing transaction operations.
+// Store is the legacy aggregate of SQLC, account and raw transaction methods.
+// New persistence code should use GetQueries(ctx) and WithTx(ctx, fn).
+// Remove this interface only after Auth/OAuth consumers migrate.
 type Store interface {
 	Querier
 	GetAccountByID(ctx context.Context, id int64) (Account, error)

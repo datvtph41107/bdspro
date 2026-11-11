@@ -66,11 +66,9 @@ func isNilTransactioner(store Transactioner) bool {
 	return false
 }
 
-// WithStore installs the transaction capability in the request context. The
-// ingress normally supplies a full Store; model operations which only require
-// transactions may supply their existing narrow Transactioner. Reads that need
-// a full Store continue through StoreFromContext and cannot use a tx-only fake.
-// No process-global mutable database dependency is introduced.
+// WithStore binds an explicit transaction capability for legacy callers or
+// isolated tests. Normal production requests use the process-owned DB engine;
+// neither HTTP ingress nor new model code needs to install a Store.
 func WithStore(ctx context.Context, store Transactioner) context.Context {
 	if store == nil || isNilTransactioner(store) {
 		panic("db: nil store")
@@ -91,8 +89,9 @@ func transactionStoreMatches(ctx context.Context, store *SQLStore, q *Queries) b
 		(store.pool == nil && store.Queries == q)
 }
 
-// StoreFromContext resolves a query capability for the current context.
-// Outside a transaction it returns the ingress Store. Inside a transaction
+// StoreFromContext is a legacy interface-based query capability selector.
+// Outside a transaction it uses an explicit request/test Store if present,
+// otherwise the process-owned engine. Inside a transaction
 // it MUST expose only the transaction's SQLC executor, matching Gitea's
 // context-aware GetEngine behavior. A pool-backed Store would silently allow
 // domain reads/writes to escape the caller's rollback boundary.
@@ -216,8 +215,8 @@ func TxQueries(ctx context.Context) (*Queries, error) {
 }
 
 // WithTx matches Gitea's context-first transaction pattern: reuse the
-// current executor when a transaction already exists; otherwise open exactly
-// one transaction from the Store installed at ingress.
+// current executor when a transaction already exists; otherwise start one
+// transaction using an explicit test/request owner or the process DB engine.
 //
 // An inner callback error marks the transaction rollback-only. The outermost
 // call cannot commit it even when an intermediate caller discards that error.

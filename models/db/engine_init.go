@@ -55,8 +55,9 @@ func InitEngine(ctx context.Context) error {
 	return nil
 }
 
-// ProcessStore returns the initialized borrowed store for subsystem setup.
-// Domain SQLC queries must continue to use context-aware transaction APIs.
+// ProcessStore exposes the borrowed legacy Store to existing Auth/OAuth
+// subsystem constructors. New domain operations use GetQueries/WithTx and
+// never close the process-owned engine.
 func ProcessStore() (Store, error) {
 	defaultEngine.mu.RLock()
 	defer defaultEngine.mu.RUnlock()
