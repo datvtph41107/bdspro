@@ -108,6 +108,33 @@ func StoreFromContext(ctx context.Context) (Store, error) {
 	return store, nil
 }
 
+// GetQueries selects the transaction-scoped SQLC executor when present,
+// otherwise the process-owned pool executor. A partial or expired transaction
+// context never falls back to PostgreSQL outside its rollback boundary.
+func GetQueries(ctx context.Context) (*Queries, error) {
+	if ctx == nil {
+		return nil, ErrTransactionRequired
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if ctx.Value(queriesContextKey{}) != nil ||
+		ctx.Value(txStateContextKey{}) != nil ||
+		ctx.Value(rawTxContextKey{}) != nil ||
+		ctx.Value(rawTxStoreContextKey{}) != nil {
+		return TxQueries(ctx)
+	}
+	defaultEngine.mu.RLock()
+	defer defaultEngine.mu.RUnlock()
+	if defaultEngine.closed {
+		return nil, ErrEngineClosed
+	}
+	if defaultEngine.store == nil {
+		return nil, ErrEngineNotInitialized
+	}
+	return defaultEngine.store.Queries, nil
+}
+
 // TxQueries retrieves the single SQLC executor belonging to the transaction.
 // It must never silently fall back to non-transactional queries.
 func TxQueries(ctx context.Context) (*Queries, error) {
