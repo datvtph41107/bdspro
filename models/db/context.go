@@ -287,7 +287,7 @@ func WithTx2[T any](ctx context.Context, fn func(context.Context) (T, error)) (T
 // An existing context-scoped SQLC executor always takes precedence over the
 // Store's pool; nested calls may not commit independently.
 func (s *SQLStore) ExecTx(ctx context.Context, fn func(*Queries) error) error {
-	if ctx.Value(queriesContextKey{}) != nil {
+	if hasTransactionMetadata(ctx) {
 		return WithTx(ctx, func(txCtx context.Context) error {
 			q, err := TxQueries(txCtx)
 			if err != nil {
@@ -316,7 +316,7 @@ func (s *SQLStore) ExecTx(ctx context.Context, fn func(*Queries) error) error {
 // not generate. Raw nesting inside an active SQLC transaction is forbidden:
 // opening another pool connection would permit an independent commit.
 func (s *SQLStore) ExecTxRaw(ctx context.Context, fn func(pgx.Tx) error) error {
-	if ctx.Value(queriesContextKey{}) != nil {
+	if hasTransactionMetadata(ctx) {
 		// Poison the parent so swallowing the error cannot commit it.
 		return WithTx(ctx, func(context.Context) error { return ErrRawTransactionInSQLC })
 	}

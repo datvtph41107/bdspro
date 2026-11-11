@@ -32,7 +32,7 @@ func WithTxResult[T any](ctx context.Context, tx Transactioner, fn func(*Queries
 	}
 
 	var err error
-	if ctx.Value(queriesContextKey{}) != nil {
+	if hasTransactionMetadata(ctx) {
 		err = WithTx(ctx, func(txCtx context.Context) error {
 			q, err := TxQueries(txCtx)
 			if err != nil {
