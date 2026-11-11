@@ -64,7 +64,7 @@ func runWorkerRuntime(ctx, shutdownCtx context.Context) error {
 
 	redisManager := conn.NewRedisManager()
 	defer redisManager.Close()
-	if _, err = redisManager.Client(ctx, setting.Redis.Address); err != nil {
+	if _, err := redisManager.Client(ctx, setting.Redis.Address); err != nil {
 		return err
 	}
 
