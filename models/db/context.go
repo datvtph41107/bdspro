@@ -50,7 +50,6 @@ func (s *transactionState) close() {
 	s.mu.Unlock()
 }
 
-
 // WithStore installs the transaction capability in the request context. The
 // ingress normally supplies a full Store; model operations which only require
 // transactions may supply their existing narrow Transactioner. Reads that need
