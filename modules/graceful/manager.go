@@ -13,10 +13,16 @@ var (
 
 // InitManager must be called by the application entrypoint before subsystem initialization.
 func InitManager(ctx context.Context) {
+ InitManagerWithTimeout(ctx, 15*time.Second)
+}
+
+// InitManagerWithTimeout starts the one process lifecycle manager.
+// It must run before creating any long-lived subsystem.
+func InitManagerWithTimeout(ctx context.Context, hammerAfter time.Duration) {
  managerMu.Lock()
  defer managerMu.Unlock()
  if manager != nil { panic("graceful: InitManager called more than once") }
- manager = newManager(ctx, 15*time.Second)
+ manager = newManager(ctx, hammerAfter)
 }
 func GetManager() *Manager {
  managerMu.RLock()
