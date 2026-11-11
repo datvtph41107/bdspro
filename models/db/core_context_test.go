@@ -81,19 +81,19 @@ func TestCoreClosedScopeCannotBeReused(t *testing.T) {
 
 // Native pgx executors do not validate per-query transaction context identity.
 func TestCoreGetEngineRejectsClosedTransaction(t *testing.T) {
-    scope := &transactionScope{queries: New(nil)}
-    ctx := context.WithValue(context.Background(), transactionContextKey{}, scope)
-    scope.close()
-    if _, err := GetEngine(ctx); !errors.Is(err, ErrTransactionClosed) {
-        t.Fatalf("closed scope exposed native executor: %v", err)
-    }
+	scope := &transactionScope{queries: New(nil)}
+	ctx := context.WithValue(context.Background(), transactionContextKey{}, scope)
+	scope.close()
+	if _, err := GetEngine(ctx); !errors.Is(err, ErrTransactionClosed) {
+		t.Fatalf("closed scope exposed native executor: %v", err)
+	}
 }
 
 func TestCoreGetEngineRejectsMalformedTransaction(t *testing.T) {
-    ctx := context.WithValue(context.Background(), transactionContextKey{}, struct{}{})
-    if _, err := GetEngine(ctx); !errors.Is(err, ErrTransactionContext) {
-        t.Fatalf("malformed transaction selected process pool: %v", err)
-    }
+	ctx := context.WithValue(context.Background(), transactionContextKey{}, struct{}{})
+	if _, err := GetEngine(ctx); !errors.Is(err, ErrTransactionContext) {
+		t.Fatalf("malformed transaction selected process pool: %v", err)
+	}
 }
 
 func TestCoreWithTx2PropagatesFailureAndZerosResult(t *testing.T) {
