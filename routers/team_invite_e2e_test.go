@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	db "github.com/datvtph41107/bdspro/models/db"
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	"github.com/datvtph41107/bdspro/modules/secret"
 	"github.com/google/uuid"
 )
@@ -14,11 +14,10 @@ import (
 // outbox write, and single-use invitation redemption over HTTP.
 func TestTeamInvitationAuthorizationAndReplayHTTP(t *testing.T) {
 	ctx, pool, server, _ := authAcceptanceServer(t)
-	store := db.NewStore(pool)
 	_, ownerBearer := organizationTestVerifiedAccount(t, ctx, pool)
 	recipientID, recipientBearer := organizationTestVerifiedAccount(t, ctx, pool)
 	_, outsiderBearer := organizationTestVerifiedAccount(t, ctx, pool)
-	recipient, err := store.GetAccountByID(ctx, recipientID)
+	recipient, err := account_model.ReadByID(ctx, recipientID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,10 +130,9 @@ func TestTeamInvitationAuthorizationAndReplayHTTP(t *testing.T) {
 
 func TestTeamInvitationRevokeHTTP(t *testing.T) {
 	ctx, pool, server, _ := authAcceptanceServer(t)
-	store := db.NewStore(pool)
 	_, ownerBearer := organizationTestVerifiedAccount(t, ctx, pool)
 	recipientID, recipientBearer := organizationTestVerifiedAccount(t, ctx, pool)
-	recipient, err := store.GetAccountByID(ctx, recipientID)
+	recipient, err := account_model.ReadByID(ctx, recipientID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,8 +187,7 @@ func TestTeamMembershipActionsPreserveOwnerAndSQLCContracts(t *testing.T) {
 	_, ownerBearer := organizationTestVerifiedAccount(t, ctx, pool)
 	recipientID, recipientBearer := organizationTestVerifiedAccount(t, ctx, pool)
 	_, outsiderBearer := organizationTestVerifiedAccount(t, ctx, pool)
-	store := db.NewStore(pool)
-	recipient, err := store.GetAccountByID(ctx, recipientID)
+	recipient, err := account_model.ReadByID(ctx, recipientID)
 	if err != nil {
 		t.Fatal(err)
 	}
