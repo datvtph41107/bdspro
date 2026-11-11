@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers"
@@ -25,13 +26,27 @@ func runWeb(ctx context.Context, _ *cli.Command) error {
 	log.Info("BDSPro version: %s%s", setting.AppVer, setting.AppBuiltWith)
 	log.Info("HTTP runtime starting in %s mode", setting.Common.RunMode)
 
-	server, err := routers.InitWebInstalled(ctx)
+	graceful.InitManagerWithTimeout(ctx, setting.Common.Graceful.HammerTimeout)
+	manager := graceful.GetManager()
+
+	server, err := routers.InitWebInstalled(manager.HammerContext())
 	if err != nil {
+		manager.DoGracefulShutdown()
+		<-manager.Done()
 		return err
 	}
+	// Resource cleanup follows HTTP drain, not the initial cancellation.
 	defer server.Close()
 
-	return serveHTTP(ctx, server.Handler(), setting.Server.HTTPServerAddress, func(_ net.Addr) {
-		log.Info("HTTP server ready in %s", time.Since(startedAt))
-	})
+	manager.RegisterServer()
+	serveErr := func() error {
+		defer manager.ServerDone()
+		return serveHTTP(manager.ShutdownContext(), server.Handler(), setting.Server.HTTPServerAddress, func(_ net.Addr) {
+			log.Info("HTTP server ready in %s", time.Since(startedAt))
+		})
+	}()
+
+	manager.DoGracefulShutdown()
+	<-manager.Done()
+	return serveErr
 }
