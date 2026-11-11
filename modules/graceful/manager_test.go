@@ -1,77 +1,72 @@
 package graceful
 
 import (
-	"context"
-	"testing"
-	"time"
+ "context"
+ "sync"
+ "testing"
+ "time"
 )
-
+func await(t *testing.T, ch <-chan struct{}, name string) {
+ t.Helper()
+ select { case <-ch: case <-time.After(time.Second): t.Fatalf("timeout waiting for %s",name) }
+}
 func TestShutdownDrainAndTerminate(t *testing.T) {
-	g := newManager(context.Background(), time.Second)
-	g.RegisterServer()
-	ended := make(chan struct{})
-	g.RunAtTerminate(func() { close(ended) })
-	g.DoGracefulShutdown()
-	select {
-	case <-g.IsShutdown():
-	default:
-		t.Fatal("shutdown context was not canceled")
-	}
-	select {
-	case <-g.Done():
-		t.Fatal("finished while server is running")
-	default:
-	}
-	g.ServerDone()
-	select {
-	case <-g.Done():
-	case <-time.After(time.Second):
-		t.Fatal("graceful manager did not finish")
-	}
-	select {
-	case <-ended:
-	default:
-		t.Fatal("terminate hook was not waited for")
-	}
+ g := newManager(context.Background(), time.Second)
+ g.RegisterServer()
+ callbackDone := make(chan struct{})
+ allowCallback := make(chan struct{})
+ g.RunAtShutdown(context.Background(), func(){ <-allowCallback; close(callbackDone) })
+ terminateDone := make(chan struct{})
+ g.RunAtTerminate(func(){ close(terminateDone) })
+ g.DoGracefulShutdown()
+ await(t,g.IsShutdown(),"shutdown")
+ g.ServerDone()
+ select { case <-g.Done(): t.Fatal("manager finished before shutdown callback"); default: }
+ close(allowCallback)
+ await(t,callbackDone,"shutdown callback")
+ await(t,g.Done(),"done")
+ select { case <-terminateDone: default: t.Fatal("termination callback not waited for") }
 }
-
-func TestShutdownTimeoutHammersRunningServer(t *testing.T) {
-	g := newManager(context.Background(), 10*time.Millisecond)
-	g.RegisterServer()
-	g.DoGracefulShutdown()
-	select {
-	case <-g.IsHammer():
-	case <-time.After(time.Second):
-		t.Fatal("hammer deadline was not enforced")
-	}
-	g.ServerDone()
-	<-g.Done()
+func TestHammerDeadlineCooperative(t *testing.T) {
+ g := newManager(context.Background(), 10*time.Millisecond)
+ g.RegisterServer()
+ g.DoGracefulShutdown()
+ await(t,g.IsHammer(),"hammer")
+ select { case <-g.Done(): t.Fatal("hammer incorrectly bypassed running work"); default: }
+ g.ServerDone()
+ await(t,g.Done(),"done")
 }
-
-func TestParentCancelDoesNotSkipDrain(t *testing.T) {
-	parent, cancel := context.WithCancel(context.Background())
-	g := newManager(parent, time.Second)
-	g.RegisterServer()
-	cancel()
-	select {
-	case <-g.IsShutdown():
-	case <-time.After(time.Second):
-		t.Fatal("parent cancellation did not initiate shutdown")
-	}
-	select {
-	case <-g.IsHammer():
-		t.Fatal("hammer happened before drain deadline")
-	default:
-	}
-	select {
-	case <-g.TerminateContext().Done():
-		t.Fatal("termination happened before running server completed")
-	default:
-	}
-	g.ServerDone()
-	select {
-	case <-g.Done():
-	case <-time.After(time.Second):
-		t.Fatal("shutdown did not finish")
-	}
+func TestParentCancelPreservesDrain(t *testing.T) {
+ parent,cancel:=context.WithCancel(context.Background())
+ g:=newManager(parent,time.Second)
+ g.RegisterServer()
+ cancel()
+ await(t,g.IsShutdown(),"shutdown")
+ select { case <-g.IsHammer(): t.Fatal("hammer before deadline"); default: }
+ select { case <-g.TerminateContext().Done(): t.Fatal("terminate before drain"); default: }
+ g.ServerDone()
+ await(t,g.Done(),"done")
+}
+func TestRepeatedShutdownTriggersHammer(t *testing.T) {
+ g:=newManager(context.Background(),time.Second)
+ g.RegisterServer()
+ g.DoGracefulShutdown()
+ g.DoGracefulShutdown()
+ await(t,g.IsHammer(),"second shutdown hammer")
+ g.ServerDone()
+ await(t,g.Done(),"done")
+}
+type testRunner struct { done chan struct{}; canceled chan struct{}; once sync.Once }
+func (r *testRunner) Run(){ <-r.canceled;close(r.done) }
+func (r *testRunner) Cancel(){r.once.Do(func(){close(r.canceled)})}
+func TestRunWithCancel(t *testing.T){
+ g:=newManager(context.Background(),time.Second)
+ r:=&testRunner{done:make(chan struct{}),canceled:make(chan struct{})}
+ started:=make(chan struct{})
+ go func(){close(started);g.RunWithCancel(r)}()
+ <-started
+ g.lock.Lock();g.lock.Unlock()
+ g.DoGracefulShutdown()
+ await(t,r.done,"runner")
+ await(t,g.Done(),"done")
 }
