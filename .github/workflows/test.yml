@@ -75,6 +75,9 @@ jobs:
             models/db/core_context_test.go \
             models/db/core_postgres_test.go
 
+      - name: Verify OAuth domain persistence compiles independently
+        run: go test ./models/oauth -count=1
+
       - name: Verify OpenAPI contract
         run: go test ./routers -run TestOpenAPICoverage -count=1
 
