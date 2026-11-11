@@ -27,7 +27,7 @@ func TestTrustedIngressPeersDetermineClientIP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := redis.NewClient(&redis.Options{Addr: "127.0.0.1:6379"})
 			defer client.Close()
-			server, err := NewServer(setting.Config{
+			server, err := newServerFixture(setting.Config{
 				Environment:       "production",
 				TokenSymmetricKey: strings.Repeat("x", 32),
 				TrustedProxies:    tc.peers,
@@ -54,7 +54,7 @@ func TestUntrustedProxyConfigurationFailsStartup(t *testing.T) {
 	client := redis.NewClient(&redis.Options{Addr: "127.0.0.1:6379"})
 	defer client.Close()
 	for _, unsafe := range []string{"not-an-ip", "0.0.0.0/0", "::/0", "192.0.2.0/0"} {
-		_, err := NewServer(setting.Config{
+		_, err := newServerFixture(setting.Config{
 			TokenSymmetricKey: strings.Repeat("x", 32),
 			TrustedProxies:    []string{unsafe},
 		}, nil, client)

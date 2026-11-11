@@ -49,10 +49,10 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	sid := uuid.New()
 	store := routeAccountStore{sessionID: sid}
 	routes := NormalRoutes()
-	base := &Server{
+	base := &serverFixture{
 		tokenMaker: maker, store: store, router: routes.GinEngine(),
 	}
-	// Bind the same package-owned request capabilities as NewServer without
+	// Bind the same package-owned request capabilities as newServerFixture without
 	// constructing external Redis, SMTP or OIDC infrastructure.
 	base.httpHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := authcrypto.WithMaker(req.Context(), maker)

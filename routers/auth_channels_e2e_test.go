@@ -35,7 +35,7 @@ func (m *authAcceptanceMail) SendEmail(_ string, content string, _, _, _, _ []st
 	return nil
 }
 
-func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *Server, *authAcceptanceMail) {
+func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *serverFixture, *authAcceptanceMail) {
 	t.Helper()
 	url := os.Getenv("BDS_TEST_DB_URL")
 	if url == "" {
@@ -73,7 +73,7 @@ func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *Server
 		VerifyEmailURL:       "http://localhost:8080/users/verify_email",
 	}
 	mailer := &authAcceptanceMail{}
-	server, err := NewServer(cfg, db.NewStore(pool), redisClient, mailer)
+	server, err := newServerFixture(cfg, db.NewStore(pool), redisClient, mailer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *Server
 	return ctx, pool, server, mailer
 }
 
-func authAcceptanceCall(t *testing.T, server *Server, path, method string, request any, bearer string) (int, map[string]any) {
+func authAcceptanceCall(t *testing.T, server *serverFixture, path, method string, request any, bearer string) (int, map[string]any) {
 	t.Helper()
 	body, err := json.Marshal(request)
 	if err != nil {

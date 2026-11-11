@@ -14,7 +14,7 @@ import (
 // application handler. Otherwise BeforeRouting is silently skipped.
 func TestServerHandlerServesComposedIngress(t *testing.T) {
 	ingressCalled := false
-	server := &Server{
+	server := &serverFixture{
 		config: setting.Config{AllowedOrigins: []string{"https://client.example"}},
 		router: gin.New(),
 		httpHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -40,16 +40,16 @@ func TestServerHandlerServesComposedIngress(t *testing.T) {
 }
 
 func TestServerHandlerRejectsMissingIngress(t *testing.T) {
-	server := &Server{router: gin.New()}
+	server := &serverFixture{router: gin.New()}
 	defer func() {
 		if recover() == nil {
-			t.Fatal("unwired Server.Handler silently served Gin and skipped BeforeRouting")
+			t.Fatal("unwired serverFixture.Handler silently served Gin and skipped BeforeRouting")
 		}
 	}()
 	_ = server.Handler()
 }
 
-// This exercises the actual web.Router's HTTP ingress served by Server.Handler
+// This exercises the actual web.Router's HTTP ingress served by serverFixture.Handler
 // against the *same* Gin route matcher, including unmatched requests.
 func TestServerHandlerBeforeRoutingCoversGin404405AndHEAD(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -67,8 +67,8 @@ func TestServerHandlerBeforeRoutingCoversGin404405AndHEAD(t *testing.T) {
 	}
 	routes.Get("/alive", handler)
 	routes.Head("/alive", handler)
-	// Compile ingress before serving, as the production NewServer does.
-	server := &Server{
+	// Compile ingress before serving, as the production newServerFixture does.
+	server := &serverFixture{
 		config:      setting.Config{AllowedOrigins: []string{"https://client.example"}},
 		router:      engine,
 		httpHandler: routes.WrapIngress(),

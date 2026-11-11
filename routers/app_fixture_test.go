@@ -27,10 +27,10 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-// Server is a test-only HTTP fixture that owns isolated dependencies and the one configured Gin matcher.
+// serverFixture is a test-only HTTP fixture that owns isolated dependencies and the one configured Gin matcher.
 // Its httpHandler is the canonical pre-matcher ingress. Listener, readiness,
 // timeouts and graceful shutdown remain in cmd/http.go.
-type Server struct {
+type serverFixture struct {
 	authService   *auth_service.AuthService
 	oidcClient    *auth_service.OAuth2Client
 	oidcSecure    bool
@@ -47,8 +47,8 @@ type Server struct {
 	ipActive      *ipactive.Middleware
 }
 
-// NewServer constructs dependencies and registers every HTTP route exactly once.
-func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, resetMailers ...mail.EmailSender) (*Server, error) {
+// newServerFixture constructs dependencies and registers every HTTP route exactly once.
+func newServerFixture(cfg setting.Config, store db.Store, redisClient *redis.Client, resetMailers ...mail.EmailSender) (*serverFixture, error) {
 	if redisClient == nil {
 		return nil, errors.New("authentication requires Redis")
 	}
@@ -59,7 +59,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	if err != nil {
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}
-	server := &Server{
+	server := &serverFixture{
 		config:        cfg,
 		store:         store,
 		tokenMaker:    maker,
@@ -160,7 +160,7 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 // Handler serves the one composed HTTP ingress. CORS remains the outer
 // protocol boundary and WrapIngress executes BeforeRouting before Gin matching.
 // Never bypass this handler by serving server.router directly.
-func (server *Server) Handler() http.Handler {
+func (server *serverFixture) Handler() http.Handler {
 	if server.httpHandler == nil {
 		panic("routers: HTTP ingress was not composed")
 	}
