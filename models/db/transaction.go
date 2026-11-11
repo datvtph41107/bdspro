@@ -2,21 +2,50 @@ package db
 
 import "context"
 
-// WithTxResult is retained for legacy model/test consumers. New code must use
-// WithTx2 and GetQueries(ctx). Transaction ownership is exclusively delegated
-// to WithTx: this compatibility entrypoint cannot open its own transaction.
+// WithTxResult runs a SQLC transaction and returns its result only after
+// the transaction owner commits. When ctx already carries a transaction,
+// it reuses that executor; the result is then provisional until the outer
+// transaction commits. A nested failure poisons that outer transaction.
 //
-// Deprecated: migrate callers to WithTx2 with a transaction-scoped context.
+// tx is the standalone transaction capability. It must not open a second
+// transaction when the caller supplies a transaction-scoped context.
+//
+// The callback receives only *Queries, not a new transaction context. Use q
+// for all database work, including calls to other model operations accepting
+// q. Calling WithTx with the original parent ctx from inside a standalone
+// WithTxResult callback is unsupported: ctx has no transaction executor and
+// such a call would open an independent transaction. For context-first nested
+// composition use WithTx/WithTx2 and propagate their txCtx instead.
 func WithTxResult[T any](ctx context.Context, tx Transactioner, fn func(*Queries) (T, error)) (T, error) {
-	if !hasTransactionMetadata(ctx) {
-		ctx = WithStore(ctx, tx)
+	var result T
+	if err := ctx.Err(); err != nil {
+		return result, err
 	}
-	return WithTx2(ctx, func(txCtx context.Context) (T, error) {
-		q, err := TxQueries(txCtx)
+
+	run := func(q *Queries) error {
+		next, err := fn(q)
 		if err != nil {
-			var zero T
-			return zero, err
+			return err
 		}
-		return fn(q)
-	})
+		result = next
+		return ctx.Err()
+	}
+
+	var err error
+	if hasTransactionMetadata(ctx) {
+		err = WithTx(ctx, func(txCtx context.Context) error {
+			q, err := TxQueries(txCtx)
+			if err != nil {
+				return err
+			}
+			return run(q)
+		})
+	} else {
+		err = tx.ExecTx(ctx, run)
+	}
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return result, nil
 }
