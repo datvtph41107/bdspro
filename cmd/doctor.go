@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/graceful"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -35,14 +36,20 @@ func runDoctor(ctx context.Context, command *cli.Command) error {
 	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	store, err := db.InitStore(checkCtx, setting.Database.DBSource)
-	if err != nil {
+	graceful.InitManagerWithTimeout(ctx, setting.Common.Graceful.HammerTimeout)
+	lifecycle := graceful.GetManager()
+	lifecycle.RegisterServer()
+	defer func() {
+		lifecycle.ServerDone()
+		lifecycle.DoGracefulShutdown()
+		<-lifecycle.Done()
+	}()
+	if err := db.InitEngine(checkCtx); err != nil {
 		return err
 	}
-	defer store.Close()
 
 	afterID := command.Int64("after-id")
-	report, err := organization_model.CheckOwnerCoverage(checkCtx, store, afterID)
+	report, err := organization_model.CheckOwnerCoverage(checkCtx, afterID)
 	if err != nil {
 		return err
 	}

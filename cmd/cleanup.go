@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	oauth_model "github.com/datvtph41107/bdspro/models/oauth"
+	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/worker"
@@ -27,20 +29,26 @@ func runCleanup(ctx context.Context, _ *cli.Command) error {
 
 	cleanupCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	store, err := db.InitStore(cleanupCtx, setting.Database.DBSource)
-	if err != nil {
+	graceful.InitManagerWithTimeout(ctx, setting.Common.Graceful.HammerTimeout)
+	lifecycle := graceful.GetManager()
+	lifecycle.RegisterServer()
+	defer func() {
+		lifecycle.ServerDone()
+		lifecycle.DoGracefulShutdown()
+		<-lifecycle.Done()
+	}()
+	if err := db.InitEngine(cleanupCtx); err != nil {
 		return err
 	}
-	defer store.Close()
 
 	now := time.Now()
-	deleted, err := worker.NewLoginRetention(store, setting.Audit.RetentionDays).Sweep(cleanupCtx, now)
+	deleted, err := worker.NewLoginRetention(setting.Audit.RetentionDays).Sweep(cleanupCtx, now)
 	if err != nil {
 		return fmt.Errorf("cleanup login/audit history after %d deletions: %w", deleted, err)
 	}
 	log.Info("Login and audit cleanup completed, deleted=%d", deleted)
 
-	oauthCounts, err := store.CleanupExpiredOAuth(cleanupCtx, now)
+	oauthCounts, err := oauth_model.CleanupExpiredOAuth(cleanupCtx, now)
 	if err != nil {
 		return err
 	}
