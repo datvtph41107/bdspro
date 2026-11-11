@@ -245,9 +245,29 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	store, ok := ctx.Value(storeContextKey{}).(Transactioner)
-	if !ok || store == nil {
-		return ErrStoreMissing
+	// An explicit request/test binding takes precedence. When no binding
+	// exists, the process engine is the transaction owner, as it is for
+	// GetQueries(ctx). Never fall back for a malformed explicit binding.
+	var store Transactioner
+	if bound := ctx.Value(storeContextKey{}); bound != nil {
+		var ok bool
+		store, ok = bound.(Transactioner)
+		if !ok || store == nil {
+			return ErrStoreMissing
+		}
+	} else {
+		defaultEngine.mu.RLock()
+		if defaultEngine.closed {
+			defaultEngine.mu.RUnlock()
+			return ErrEngineClosed
+		}
+		if defaultEngine.store == nil {
+			defaultEngine.mu.RUnlock()
+			return ErrStoreMissing
+		}
+		store = defaultEngine.store
+		defaultEngine.mu.RUnlock()
+		ctx = WithStore(ctx, store)
 	}
 	state := &transactionState{}
 	// The SQLStore implementation exposes the pgx.Tx to the context-aware
