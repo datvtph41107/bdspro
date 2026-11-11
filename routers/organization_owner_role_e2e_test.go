@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	db "github.com/datvtph41107/bdspro/models/db"
+	account_model "github.com/datvtph41107/bdspro/models/account"
 )
 
 func TestOrganizationOwnerLifecycleHTTP(t *testing.T) {
@@ -13,11 +13,11 @@ func TestOrganizationOwnerLifecycleHTTP(t *testing.T) {
 	ownerID, ownerToken := organizationTestVerifiedAccount(t, ctx, pool)
 	candidateID, candidateToken := organizationTestVerifiedAccount(t, ctx, pool)
 	_, outsiderToken := organizationTestVerifiedAccount(t, ctx, pool)
-	owner, err := db.NewStore(pool).GetAccountByID(ctx, ownerID)
+	owner, err := account_model.ReadByID(ctx, ownerID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidate, err := db.NewStore(pool).GetAccountByID(ctx, candidateID)
+	candidate, err := account_model.ReadByID(ctx, candidateID)
 	if err != nil {
 		t.Fatal(err)
 	}
