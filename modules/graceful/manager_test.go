@@ -47,12 +47,12 @@ func TestParentCancelPreservesDrain(t *testing.T) {
  g.ServerDone()
  await(t,g.Done(),"done")
 }
-func TestRepeatedShutdownTriggersHammer(t *testing.T) {
+func TestRepeatedShutdownIsIdempotent(t *testing.T) {
  g:=newManager(context.Background(),time.Second)
  g.RegisterServer()
  g.DoGracefulShutdown()
  g.DoGracefulShutdown()
- await(t,g.IsHammer(),"second shutdown hammer")
+ select { case <-g.IsHammer(): t.Fatal("repeated shutdown escalated prematurely"); default: }
  g.ServerDone()
  await(t,g.Done(),"done")
 }
