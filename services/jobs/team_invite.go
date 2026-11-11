@@ -16,14 +16,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// TeamInviteStore exposes only the query required to deliver an invitation.
-// The proof never appears in the task payload or in PostgreSQL as plaintext.
-type TeamInviteStore interface {
-	GetTeamInviteForDelivery(context.Context, uuid.UUID) (db.GetTeamInviteForDeliveryRow, error)
-}
-
-func SendTeamInviteEmail(ctx context.Context, store TeamInviteStore, sender mail.EmailSender, signingKey string, id uuid.UUID) error {
-	invite, err := store.GetTeamInviteForDelivery(ctx, id)
+func SendTeamInviteEmail(ctx context.Context, sender mail.EmailSender, signingKey string, id uuid.UUID) error {
+	q, err := db.GetQueries(ctx)
+	if err != nil { return err }
+	invite, err := q.GetTeamInviteForDelivery(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil // Expired, revoked, accepted or no longer eligible.
 	}

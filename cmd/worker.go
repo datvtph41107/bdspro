@@ -58,11 +58,9 @@ func runWorker(ctx context.Context, _ *cli.Command) error {
 // runWorkerRuntime owns resources. All defers finish before the worker is
 // marked drained; database and Redis close only after the jobs stop.
 func runWorkerRuntime(ctx, shutdownCtx context.Context) error {
-	store, err := db.InitStore(ctx, setting.Database.DBSource)
-	if err != nil {
+	if err := db.InitEngine(ctx); err != nil {
 		return err
 	}
-	defer store.Close()
 
 	redisManager := conn.NewRedisManager()
 	defer redisManager.Close()
@@ -86,9 +84,9 @@ func runWorkerRuntime(ctx, shutdownCtx context.Context) error {
 	if err != nil {
 		return err
 	}
-	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, setting.Mailer.VerifyEmailURL))
-	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(store, mailer, setting.Mailer.VerifyEmailURL))
-	processor.Handle(worker.TaskSendTeamInvite, worker.NewTeamInviteHandler(store, mailer, setting.Security.TokenSymmetricKey))
+	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(mailer, setting.Mailer.VerifyEmailURL))
+	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(mailer, setting.Mailer.VerifyEmailURL))
+	processor.Handle(worker.TaskSendTeamInvite, worker.NewTeamInviteHandler(mailer, setting.Security.TokenSymmetricKey))
 	if err = processor.Start(); err != nil {
 		return err
 	}
@@ -101,9 +99,9 @@ func runWorkerRuntime(ctx, shutdownCtx context.Context) error {
 	defer manager.Shutdown()
 
 	dispatchCtx, stopDispatch := context.WithCancel(ctx)
-	dispatcher := worker.NewOutboxDispatcher(store, enqueuer)
+	dispatcher := worker.NewOutboxDispatcher(enqueuer)
 	dispatcher.Start(dispatchCtx)
-	retention := worker.NewLoginRetention(store, setting.Audit.RetentionDays)
+	retention := worker.NewLoginRetention(setting.Audit.RetentionDays)
 	retention.Start(dispatchCtx)
 	defer func() { stopDispatch(); retention.Wait(); dispatcher.Wait() }()
 

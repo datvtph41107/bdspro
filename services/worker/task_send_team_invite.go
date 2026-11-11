@@ -20,7 +20,7 @@ type PayloadSendTeamInvite struct {
 
 // NewTeamInviteHandler delivers a durable outbox intent. The payload contains
 // an opaque UUID only. The worker derives the token from its stable key.
-func NewTeamInviteHandler(store jobs.TeamInviteStore, sender mail.EmailSender, signingKey string) asynq.Handler {
+func NewTeamInviteHandler(sender mail.EmailSender, signingKey string) asynq.Handler {
 	return asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
 		var payload PayloadSendTeamInvite
 		if err := json.Unmarshal(task.Payload(), &payload); err != nil {
@@ -29,6 +29,6 @@ func NewTeamInviteHandler(store jobs.TeamInviteStore, sender mail.EmailSender, s
 		if payload.InviteID == uuid.Nil {
 			return fmt.Errorf("missing invitation ID: %w", asynq.SkipRetry)
 		}
-		return jobs.SendTeamInviteEmail(ctx, store, sender, signingKey, payload.InviteID)
+		return jobs.SendTeamInviteEmail(ctx, sender, signingKey, payload.InviteID)
 	})
 }
