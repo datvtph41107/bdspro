@@ -59,6 +59,19 @@ jobs:
           export PATH="$(go env GOPATH)/bin:$PATH"
           make sqlc-check
 
+      # Test the canonical db execution core independently while legacy
+      # domain consumers are being migrated out of models/db.
+      - name: Verify canonical database core
+        run: |
+          go test -race -count=1 \
+            models/db/conn.go \
+            models/db/engine.go \
+            models/db/engine_init.go \
+            models/db/context.go \
+            models/db/error.go \
+            models/db/sqlc_types.gen.go \
+            models/db/core_context_test.go
+
       - name: Verify OpenAPI contract
         run: go test ./routers -run TestOpenAPICoverage -count=1
 
