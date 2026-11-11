@@ -29,7 +29,7 @@ func GetAuthenticatedUser(ctx context.Context) (*account_model.Profile, error) {
 	if err != nil {
 		return nil, err
 	}
-	q, err := db.GetQueries(ctx)
+	store, err := db.StoreFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
