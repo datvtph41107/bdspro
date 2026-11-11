@@ -1,20 +1,19 @@
-# BDSPro configuration and runtime lifecycle
+# Vòng đời cấu hình và khởi tạo BDSPro
 
-BDSPro adopts Gitea's division of responsibilities, not its Git-specific features. This keeps one configuration provider and predictable initialization paths.
+BDSPro học cơ chế tổ chức source của Gitea, không sao chép nghiệp vụ Git. Mục tiêu là mỗi cấu hình có một owner, mỗi subsystem được khởi tạo đúng thời điểm và mỗi tài nguyên được đóng ở đúng runtime.
 
-## Startup
+## Call graph
 
-1. `cmd/main.go` declares commands and global flags. The CLI `Before` hook in `cmd/config.go` resolves paths, reads `app.ini`, applies `BDS__SECTION__KEY` overrides and configures logging once.
-2. `modules/setting/setting.go` loads settings from `CfgProvider`. Each domain owns its loader: `database.go`, `server.go`, `security.go`, `oauth2.go`, `redis.go`, `queue.go`, `audit.go`, `mailer.go`, `phone.go`, `ipactive.go`. No domain reloads INI.
-3. `routers.InitWebInstalled(ctx)` loads Web settings, initializes PostgreSQL and Redis, applies development migrations and builds HTTP services. `routers.NormalRoutes()` registers routes; `cmd/http.go` owns listener readiness and graceful shutdown.
-4. `Server.Close()` releases resources initialized for that Web instance after HTTP requests have drained.
+`cmd/main.go` khai báo command và global flags. `cmd/config.go` chuẩn bị đường dẫn, đọc `app.ini`, áp dụng `BDS__SECTION__KEY` và khởi tạo logger. Các domain loader thuộc `modules/setting` cùng đọc một `CfgProvider`, không tự mở INI lần nữa.
 
-## Command isolation
+`routers.InitWebInstalled(ctx)` điều phối Web startup: nạp settings → PostgreSQL → migration ở môi trường development → Redis → auth/OAuth/HTTP services. `routers.NormalRoutes()` là owner đăng ký routes; `cmd/http.go` sở hữu listener, readiness và graceful shutdown. `Server.Close()` giải phóng tài nguyên sau khi HTTP đã drain.
 
-`migrate` and `doctor` need database configuration only. `cleanup` additionally loads audit retention. `worker` loads database, Redis, queue, signing secret, mailer and audit retention; it does not initialize an HTTP server or require OIDC configuration.
+`migrate` và `doctor` chỉ cần database; `cleanup` cần thêm audit retention. `worker` dùng database, Redis, queue, signing key, mailer, audit retention, không khởi tạo HTTP/OIDC.
 
-## Ownership and behavior
+## Nguyên tắc phát triển
 
-Gitea is the reference for CLI hooks, per-domain setting loaders and the initialization graph. BDSPro retains its PostgreSQL/Redis/Gin dependencies and existing authentication, OAuth2, trusted-proxy, audit and queue validation rules. `setting.Config` remains a runtime input for existing HTTP services; `WebConfig()` projects the loaded domain settings without another parse or persistent duplicate configuration.
+Từng file có counterpart và trách nhiệm rõ ràng: `database.go`, `server.go`, `security.go`, `oauth2.go`, `redis.go`, `queue.go`, `audit.go`, `mailer.go`, `phone.go`, `ipactive.go`. Chỉ thêm hàm khi có consumer; khi cần mở rộng, quay lại owner và cập nhật call graph. BDSPro giữ các invariant riêng về signing key, trusted proxies, OAuth2, audit và giới hạn queue.
 
-Reference files: [Gitea cmd/main.go](https://github.com/go-gitea/gitea/blob/main/cmd/main.go), [Gitea modules/setting/setting.go](https://github.com/go-gitea/gitea/blob/main/modules/setting/setting.go), [Gitea routers/init.go](https://github.com/go-gitea/gitea/blob/main/routers/init.go).
+`setting.Config` là kiểu dữ liệu đầu vào cho các HTTP service hiện hữu; `WebConfig()` chiếu từ domain settings đã nạp, không đọc lại hoặc lưu thêm một bản cấu hình global.
+
+Tham chiếu kỹ thuật: [Gitea cmd/main.go](https://github.com/go-gitea/gitea/blob/main/cmd/main.go), [Gitea modules/setting/setting.go](https://github.com/go-gitea/gitea/blob/main/modules/setting/setting.go), [Gitea routers/init.go](https://github.com/go-gitea/gitea/blob/main/routers/init.go).

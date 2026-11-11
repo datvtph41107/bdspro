@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/datvtph41107/bdspro/modules/log"
@@ -69,17 +68,7 @@ func prepareWorkPathAndCustomConf(
 		Config:     root.String("config"),
 	}
 
-	if err := setting.InitWorkPathAndCommonConfig(
-		options,
-		os.Environ(),
-	); err != nil {
-		return fmt.Errorf(
-			"prepare application configuration: %w",
-			err,
-		)
-	}
-
-	return nil
+	return setting.InitWorkPathAndCommonConfig(options, os.Environ())
 }
 
 // prepareCommandLoggers activates the logger
