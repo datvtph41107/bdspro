@@ -34,7 +34,7 @@ func InitEngine(ctx context.Context) error {
 		return err
 	}
 	graceful.GetManager().RunAtTerminate(CloseEngine)
-	defaultEngine.value = &engine{pool: pool, queries: New(poolDBTX{pool: pool})}
+	defaultEngine.value = &engine{pool: pool, queries: New(pool)}
 	return nil
 }
 
