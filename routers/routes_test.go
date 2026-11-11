@@ -1,43 +1,14 @@
 package routers
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
-
-// The registered route reads a real account through AuthService, while this
-// test remains independent from PostgreSQL.
-type routeAccountStore struct {
-	db.Store
-	sessionID uuid.UUID
-}
-
-func (s routeAccountStore) GetSession(_ context.Context, id uuid.UUID) (db.Session, error) {
-	if id != s.sessionID {
-		return db.Session{}, pgx.ErrNoRows
-	}
-	return db.Session{ID: id, AccountID: 42, ExpiresAt: time.Now().Add(time.Hour)}, nil
-}
-
-func (routeAccountStore) GetAccountProfile(_ context.Context, id int64) (db.GetAccountProfileRow, error) {
-	return db.GetAccountProfileRow{AccountID: id, PersonID: id + 1, Email: "route@example.test",
-		CreatedAt:       time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC),
-		IsEmailVerified: true, Locale: "vi", Timezone: "UTC", Currency: "VND"}, nil
-}
-
-func (routeAccountStore) GetAccountByID(_ context.Context, id int64) (db.Account, error) {
-	return db.Account{ID: id, Email: "route@example.test", CreatedAt: time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC), IsEmailVerified: true}, nil
-}
 
 func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -46,17 +17,14 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sid := uuid.New()
-	store := routeAccountStore{sessionID: sid}
 	routes := NormalRoutes()
 	base := &serverFixture{
-		tokenMaker: maker, store: store, router: routes.GinEngine(),
+		tokenMaker: maker, router: routes.GinEngine(),
 	}
-	// Bind the same package-owned request capabilities as newServerFixture without
-	// constructing external Redis, SMTP or OIDC infrastructure.
+	// Route registration needs no database. The successful authenticated request
+	// path is covered by the real-PostgreSQL G12 session HTTP acceptance tests.
 	base.httpHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := authcrypto.WithMaker(req.Context(), maker)
-		ctx = db.WithStore(ctx, store)
 		routes.ServeHTTP(w, req.WithContext(ctx))
 	})
 
@@ -138,10 +106,6 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		}
 	}
 
-	access, _, err := maker.CreateSessionAccessToken(42, time.Minute, sid)
-	if err != nil {
-		t.Fatal(err)
-	}
 	refresh, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeRefresh)
 	if err != nil {
 		t.Fatal(err)
@@ -153,7 +117,6 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	}{
 		{"missing", "", http.StatusUnauthorized},
 		{"refresh", "Bearer " + refresh, http.StatusUnauthorized},
-		{"access", "Bearer " + access, http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, "/users/me", nil)
