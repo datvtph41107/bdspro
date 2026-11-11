@@ -52,11 +52,11 @@ func ListForDoer(ctx context.Context) ([]Access, error) {
 	if !ok {
 		return nil, auth_model.ErrSessionUnavailable
 	}
-	store, err := db.StoreFromContext(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ListForAccount(ctx, store, actor.AccountID)
+	return ListForAccount(ctx, q, actor.AccountID)
 }
 
 // OrganizationName normalizes the canonical organization name. Both the
@@ -165,7 +165,7 @@ func CreateOrganization(ctx context.Context, store db.Store, actorAccountID int6
 	return created, nil
 }
 
-func ListForAccount(ctx context.Context, store db.Store, actorAccountID int64) ([]Access, error) {
+func ListForAccount(ctx context.Context, store db.Querier, actorAccountID int64) ([]Access, error) {
 	rows, err := store.ListOrganizationsForAccount(ctx, actorAccountID)
 	if err != nil {
 		return nil, err
@@ -181,7 +181,7 @@ func ListForAccount(ctx context.Context, store db.Store, actorAccountID int64) (
 }
 
 // GetForAccount preserves the account visibility predicate in SQLC.
-func GetForAccount(ctx context.Context, store db.Store, actorAccountID, organizationID int64) (Access, error) {
+func GetForAccount(ctx context.Context, store db.Querier, actorAccountID, organizationID int64) (Access, error) {
 	row, err := store.GetOrganizationForAccount(ctx, db.GetOrganizationForAccountParams{
 		AccountID: actorAccountID, OrganizationID: organizationID,
 	})

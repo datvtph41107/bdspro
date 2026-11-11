@@ -72,11 +72,11 @@ func ValidRefreshSession(session db.Session, accountID int64, refreshToken strin
 }
 
 func ListSessions(ctx context.Context, accountID int64) ([]db.ListActiveSessionsRow, error) {
-	store, err := db.StoreFromContext(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return store.ListActiveSessions(ctx, accountID)
+	return q.ListActiveSessions(ctx, accountID)
 }
 
 // RevokeOwnedSession commits only while the session which initiated this
