@@ -18,7 +18,10 @@ func TestOrganizationInvalidRequestsStopBeforeService(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	// Invalid public requests must be rejected before any model/DB access.
 	router := gin.New()
-	m := web.NewRouter[*appctx.APIContext](router.Group(""), appctx.GetAPIContext)
+	// Typed API actions require the same request-local APIContext lifecycle
+	// that production installs before route actions.
+	router.Use(appctx.APIContexter())
+	m := web.NewRouter(router)
 	m.Post("/orgs", func(c *appctx.APIContext) {
 		form, err := middleware.BindJSON[structs.CreateOrgOption](c)
 		if err != nil {

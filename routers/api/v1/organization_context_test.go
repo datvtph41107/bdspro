@@ -1,14 +1,17 @@
 package apiv1
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/web"
+	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -58,7 +61,7 @@ func TestReqTokenRequiresVerifiedSession(t *testing.T) {
 				c.Next()
 			})
 			reached := false
-			m := web.NewRouter[*appctx.APIContext](r.Group(""), appctx.GetAPIContext)
+			m := web.NewRouter(r)
 			m.Get("/guard", reqToken(), func(ctx *appctx.APIContext) {
 				reached = true
 				ctx.Status(http.StatusNoContent)
@@ -100,7 +103,7 @@ func TestOrgAssignmentRejectsMismatchedAuthorityBeforeDatabase(t *testing.T) {
 		c.Next()
 	})
 	reached := false
-	m := web.NewRouter[*appctx.APIContext](r.Group(""), appctx.GetAPIContext)
+	m := web.NewRouter(r)
 	m.Group("/orgs/:id", func() {
 		m.Get("", func(*appctx.APIContext) { reached = true })
 	}, orgAssignment(nil))
@@ -126,7 +129,7 @@ func TestOrgAssignmentRejectsInvalidIDForTeamListBeforeDatabase(t *testing.T) {
 		c.Next()
 	})
 	reached := false
-	m := web.NewRouter[*appctx.APIContext](r.Group(""), appctx.GetAPIContext)
+	m := web.NewRouter(r)
 	m.Group("/orgs/:id", func() {
 		m.Get("/teams", func(*appctx.APIContext) { reached = true })
 	}, orgAssignment(nil))
@@ -135,5 +138,51 @@ func TestOrgAssignmentRejectsInvalidIDForTeamListBeforeDatabase(t *testing.T) {
 	if response.Code != http.StatusBadRequest || reached {
 		t.Fatalf("bad organization ID passed assignment: status=%d reached=%v body=%s",
 			response.Code, reached, response.Body.String())
+	}
+}
+
+type providerIngressKey struct{}
+
+func TestAfterRoutingHTTPPreAndTypedAPIContextShareRequestLifecycle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.Use(appctx.APIContexter())
+	m := web.NewRouter(engine)
+	m.AfterRouting(
+		func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), providerIngressKey{}, "from-http")))
+			})
+		},
+	)
+	var order []string
+	var first *appctx.APIContext
+	m.Group("/teams", func() {
+		m.Post("", web_types.PreMiddlewareProvider(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				order = append(order, "pre-route")
+				next.ServeHTTP(w, req)
+			})
+		}), func(ctx *appctx.APIContext) {
+			order = append(order, "action")
+			first = ctx
+			if ctx.Value(providerIngressKey{}) != "from-http" || appctx.GetAPIContextFromRequest(ctx.CurrentRequest()) != ctx {
+				t.Error("HTTP request context and typed APIContext diverged")
+			}
+			ctx.JSON(http.StatusCreated, map[string]bool{"ok": true})
+		}, func(*appctx.APIContext) {
+			t.Error("action after committed response executed")
+		})
+	}, func(ctx *appctx.APIContext) {
+		order = append(order, "group")
+		if first != nil {
+			t.Error("typed endpoint context existed before guard")
+		}
+	})
+	response := httptest.NewRecorder()
+	engine.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/teams", nil))
+	if response.Code != http.StatusCreated || first == nil ||
+		!reflect.DeepEqual(order, []string{"pre-route", "group", "action"}) {
+		t.Fatalf("status=%d order=%v APIContext=%v", response.Code, order, first != nil)
 	}
 }

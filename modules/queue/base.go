@@ -1,25 +1,10 @@
 package queue
 
-import (
-	"context"
-	"errors"
+import "errors"
 
-	"github.com/hibiken/asynq"
-)
-
-var (
-	ErrQueueClosed        = errors.New("queue is closed")
-	ErrQueueFull          = errors.New("queue is full")
-	ErrUnsupportedOptions = errors.New("queue backend does not support Asynq options")
-	ErrUnknownTask        = errors.New("queue task handler not registered")
-)
-
-// baseQueue is the submission boundary shared by Redis and channel adapters.
-// It does not promise equivalent durability or retry behavior.
-type baseQueue interface {
-	Enqueue(context.Context, *asynq.Task, ...asynq.Option) error
-	Close() error
-}
+// ErrQueueClosed indicates that the process-owned queue manager no longer
+// accepts worker registrations after shutdown.
+var ErrQueueClosed = errors.New("queue is closed")
 
 // ManagedQueue is a process-owned worker with explicit shutdown.
 type ManagedQueue interface {

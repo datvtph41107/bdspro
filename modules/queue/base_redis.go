@@ -11,8 +11,6 @@ type RedisEnqueuer struct {
 	client *asynq.Client
 }
 
-var _ baseQueue = (*RedisEnqueuer)(nil)
-
 func NewRedisEnqueuer(options asynq.RedisClientOpt) *RedisEnqueuer {
 	return &RedisEnqueuer{client: asynq.NewClient(options)}
 }

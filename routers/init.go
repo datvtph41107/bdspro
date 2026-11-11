@@ -27,8 +27,9 @@ func InitWebInstalled(cfg setting.Config, store db.Store, redisClient *redis.Cli
 	return NewServer(cfg, store, redisClient, sender)
 }
 
-// NormalRoutes installs the shared ingress chain and mounts the existing API
-// and local Swagger UI. Gin remains the only routing engine; no new wrappers.
+// NormalRoutes registers the API and Swagger on one Gin matcher, then binds
+// the HTTP BeforeRouting chain around that exact matcher. The resulting
+// handler is the only production HTTP ingress; Server.Handler serves it.
 func NormalRoutes(server *Server) *gin.Engine {
 	router := gin.New()
 	// Safe default for internal/registration-only routers: never trust forwarded
@@ -48,9 +49,9 @@ func NormalRoutes(server *Server) *gin.Engine {
 			c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), server.store))
 		}
 		c.Next()
-	}, appctx.APIContexter())
+	})
 
-	apiv1.Routes(router, apiv1.Dependencies{
+	apiRouter := apiv1.Routes(router, apiv1.Dependencies{
 		Auth:          server.authHandler,
 		OAuth2:        server.oauth2Handler,
 		Authorization: server.authorizationHandler,
@@ -63,5 +64,10 @@ func NormalRoutes(server *Server) *gin.Engine {
 	})
 	api.RegisterSwagger(router, server.config.Environment)
 
+	// BeforeRouting is a net/http ingress concern, not Gin.Engine.Use:
+	// it must run even for unmatched paths and method mismatches, before
+	// Gin resolves routes. WrapIngress captures the same Gin matcher that
+	// registered all API routes, not an independent router or dispatcher.
+	server.httpHandler = apiRouter.WrapIngress()
 	return router
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
-	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/urfave/cli/v3"
 )
 
@@ -27,12 +26,7 @@ func runMigrate(ctx context.Context, command *cli.Command) error {
 	if command.Args().Len() != 0 {
 		return fmt.Errorf("unexpected migrate argument: %s", command.Args().First())
 	}
-	filename, err := resolveConfigFile(command)
-	if err != nil {
-		return err
-	}
-	log.Info("Using configuration file: %s", filename)
-	cfg, err := setting.LoadDatabaseSettings(filename)
+	cfg, err := loadMigrationSettings(command)
 	if err != nil {
 		return err
 	}

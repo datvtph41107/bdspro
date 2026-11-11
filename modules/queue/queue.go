@@ -1,5 +1,5 @@
-// Package queue owns task transport, worker execution and process lifecycle.
-// Redis uses Asynq. The channel backend is deliberately non-durable.
+// Package queue owns durable Asynq task transport and worker lifecycle.
+// BDSPro's committed SQL outbox must not silently fall back to an in-memory queue.
 package queue
 
 import (

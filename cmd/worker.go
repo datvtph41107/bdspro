@@ -46,7 +46,16 @@ func runWorker(ctx context.Context, command *cli.Command) error {
 	defer enqueuer.Close()
 	mailer := mail.NewSMTPSender(cfg.EmailSenderName, cfg.EmailSenderAddress,
 		cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
-	processor := queue.NewRedisTaskProcessor(options)
+	processor, err := queue.NewRedisTaskProcessorWithConfig(options, queue.Config{
+		Queues: map[string]int{
+			queue.QueueCritical: cfg.Queue.CriticalWeight,
+			queue.QueueDefault:  cfg.Queue.DefaultWeight,
+		},
+		Concurrency: cfg.Queue.Concurrency,
+	})
+	if err != nil {
+		return fmt.Errorf("configure Asynq worker: %w", err)
+	}
 	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, cfg.VerifyEmailURL))
 	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(store, mailer, cfg.VerifyEmailURL))
 	processor.Handle(worker.TaskSendTeamInvite, worker.NewTeamInviteHandler(store, mailer, cfg.TokenSymmetricKey))

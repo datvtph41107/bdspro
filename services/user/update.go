@@ -20,7 +20,7 @@ type ProfilePatch struct {
 // same-transaction read. No driver value or generated SQLC param escapes
 // models/account; no result is returned when the commit fails.
 func UpdateProfile(ctx context.Context, patch ProfilePatch) (*account_model.Profile, error) {
-	actor, store, err := actingUser(ctx)
+	actor, err := actingUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -32,13 +32,17 @@ func UpdateProfile(ctx context.Context, patch ProfilePatch) (*account_model.Prof
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (*account_model.Profile, error) {
-		if err := auth_model.RequireActingSession(ctx, q, actor.AccountID, actor.SessionID); err != nil {
+	return db.WithTx2(ctx, func(txCtx context.Context) (*account_model.Profile, error) {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
 			return nil, err
 		}
-		if err := account_model.UpdateProfile(ctx, q, actor.AccountID, opts); err != nil {
+		if err := auth_model.RequireActingSession(txCtx, q, actor.AccountID, actor.SessionID); err != nil {
 			return nil, err
 		}
-		return account_model.GetProfile(ctx, q, actor.AccountID)
+		if err := account_model.UpdateProfile(txCtx, q, actor.AccountID, opts); err != nil {
+			return nil, err
+		}
+		return account_model.GetProfile(txCtx, q, actor.AccountID)
 	})
 }

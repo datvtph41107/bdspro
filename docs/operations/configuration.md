@@ -67,21 +67,22 @@ must migrate any populated legacy keys to `[oauth2]` in the existing
 volume, preserving actual credentials securely; do not delete the app.ini
 volume or overwrite it with example secrets.
 
-## Optional cache configuration (R28)
+## Worker queue and log configuration (post-P06)
 
-The optional `[cache]` section is read only by `setting.LoadCacheSettings` when
-an explicit consumer builds `modules/cache`. It does **not** replace `[redis]`
-used by rate limits, OIDC state and Asynq.
+The **optional worker-only** `[queue]` section controls Asynq concurrency and priority weights. Missing keys use the existing defaults 10/10/5; explicit empty, invalid or zero values **fail worker initialization before opening PostgreSQL or Redis**. `web`, `migrate`, `help` do not require the worker queue section.
 
 ```ini
-[cache]
-ADAPTER = memory
-HOST = 127.0.0.1:11211  ; only for Memcached
-PREFIX = cache:
-MAX_ENTRIES = 10000
-ITEM_TTL = 5m
+; Optional worker-specific queue configuration
+[queue]
+CONCURRENCY = 10
+CRITICAL_WEIGHT = 10
+DEFAULT_WEIGHT = 5
 ```
 
-`ADAPTER = redis` requires a client borrowed from `modules/conn`.
-Cache errors are returned to the caller; they are not silently treated as
-misses. A memory backend is per-process, not a multi-instance shared cache.
+BDSPro bounds concurrency at 256, each queue weight at 100 and total queue weight at 1000; these are application operational safeguards, not Asynq/Gitea library restrictions. Queue names `critical` and `default` must match durable outbox task producers. The deployed worker uses Asynq + PostgreSQL outbox, not an in-process channel queue.
+
+The configured `[log] ROOT_PATH` is resolved relative to the canonical `--work-path` when not absolute. Only selecting a file logger creates the directory (mode 0700) and file (0600); an unusable output fails startup rather than silently falling back to console. `main` closes the process log sink.
+
+**Removed configuration:** P06 removed the unused `modules/cache/**`, `modules/setting/cache.go` and channel task queue backends. Do not set a `[cache]` stanza in current templates or rely on old `LoadCacheSettings`/Memcached constructors. Redis remains mandatory for web authentication throttling and Asynq worker preflight, independent of generic caching. Existing persisted Docker `app.ini` is **not** overwritten by updating the image template; operators should inspect it for deprecated keys before rollout.
+
+See [current queue/Redis ownership](../architecture/cache-queue.md) and the [Chat C P06 handoff](https://github.com/datvtph41107/bdspro/pull/220#issuecomment-6764418034). Final behavior is verified only on the P07 combined HEAD and PostgreSQL18/Redis/HTTP runtime tests.

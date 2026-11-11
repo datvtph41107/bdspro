@@ -15,6 +15,7 @@ type WorkerSettings struct {
 	RedisAddress       string
 	TokenSymmetricKey  string
 	AuditRetentionDays int
+	Queue              QueueSettings
 
 	EmailSenderName     string
 	EmailSenderAddress  string
@@ -43,6 +44,10 @@ func LoadWorkerSettings(filename string) (WorkerSettings, error) {
 		EmailSenderPassword:     provider.String("mailer", "EMAIL_SENDER_PASSWORD"),
 		SMTPAddress:             provider.String("mailer", "SMTP_ADDRESS"),
 		VerifyEmailURL:          provider.String("mailer", "VERIFY_EMAIL_URL"),
+	}
+	cfg.Queue, err = LoadQueueSettings(provider)
+	if err != nil {
+		return cfg, err
 	}
 	if cfg.RedisAddress == "" {
 		return cfg, fmt.Errorf("redis.ADDR is required for worker")

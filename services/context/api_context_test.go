@@ -57,3 +57,21 @@ func TestGinAdapterCarriesPathAndUpdatedContext(t *testing.T) {
 		t.Fatalf("status=%d", w.Code)
 	}
 }
+
+func TestAPIContextRegisteredOnHTTPRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.Use(APIContexter())
+	engine.GET("/provider", func(c *gin.Context) {
+		api := GetAPIContext(c)
+		if fromHTTP := GetAPIContextFromRequest(c.Request); fromHTTP != api {
+			t.Fatal("net/http and Gin did not resolve the same APIContext")
+		}
+		api.Status(http.StatusNoContent)
+	})
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/provider", nil))
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("status=%d", w.Code)
+	}
+}

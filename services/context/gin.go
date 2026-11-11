@@ -1,6 +1,7 @@
 package context
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
@@ -39,17 +40,28 @@ func (s ginRequestSource) WrittenStatus() int {
 	return s.ctx.Writer.Status()
 }
 
+// publishAPIContext attaches the same Gin-owned APIContext to the standard
+// HTTP request, allowing modules/web to resolve typed actions without a
+// router-specific accessor. It does not allocate another APIContext.
+func publishAPIContext(c *gin.Context, api *APIContext) {
+	if c.Request.Context().Value(apiContextRequestKey{}) != api {
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), apiContextRequestKey{}, api))
+	}
+}
+
 // GetAPIContext returns one initialized context per request. Resource
 // assignment, form binding and HTTP action share that exact instance.
 func GetAPIContext(c *gin.Context) *APIContext {
 	if value, ok := c.Get(apiContextKey); ok {
 		if api, ok := value.(*APIContext); ok && api != nil {
+			publishAPIContext(c, api)
 			return api
 		}
 		panic("context: APIContext type mismatch")
 	}
 	api := &APIContext{Base: NewBaseContext(ginRequestSource{ctx: c}), Org: &APIOrganization{}}
 	c.Set(apiContextKey, api)
+	publishAPIContext(c, api)
 	return api
 }
 
@@ -80,8 +92,8 @@ func Wrap(handler APIHandler) gin.HandlerFunc {
 // registration time. It is the only compatibility bridge while authentication
 // and OAuth endpoints still use Gin signatures. The request has one Gin source
 // and one APIContext; no alternate middleware engine is introduced.
-func GinActions(handlers ...gin.HandlerFunc) []func(*APIContext) {
-	actions := make([]func(*APIContext), len(handlers))
+func GinActions(handlers ...gin.HandlerFunc) []any {
+	actions := make([]any, len(handlers))
 	for i, handler := range handlers {
 		if handler == nil {
 			panic("context: nil Gin HTTP handler")

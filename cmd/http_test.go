@@ -129,3 +129,83 @@ func TestShutdownHTTPServerForcesActiveConnectionCloseOnTimeout(t *testing.T) {
 		t.Fatal("HTTP Serve goroutine did not exit")
 	}
 }
+
+func TestServeHTTPDrainsInFlightRequestBeforeStopping(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	listening := make(chan net.Addr, 1)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	}()
+	stopped := make(chan error, 1)
+	go func() {
+		stopped <- serveHTTP(ctx, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			close(entered)
+			<-release
+			w.WriteHeader(http.StatusNoContent)
+		}), "127.0.0.1:0", func(addr net.Addr) { listening <- addr })
+	}()
+
+	var addr net.Addr
+	select {
+	case addr = <-listening:
+	case err := <-stopped:
+		t.Fatalf("HTTP exited before listening: %v", err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("HTTP did not begin listening")
+	}
+
+	requestDone := make(chan error, 1)
+	go func() {
+		client := &http.Client{Timeout: 3 * time.Second}
+		response, err := client.Get("http://" + addr.String())
+		if err != nil {
+			requestDone <- err
+			return
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusNoContent {
+			err = fmt.Errorf("request status = %d", response.StatusCode)
+		}
+		requestDone <- err
+	}()
+	select {
+	case <-entered:
+	case err := <-requestDone:
+		t.Fatalf("request did not enter handler: %v", err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("request did not enter handler")
+	}
+
+	cancel()
+	select {
+	case err := <-stopped:
+		t.Fatalf("HTTP stopped before active request drained: %v", err)
+	case <-time.After(100 * time.Millisecond):
+		// The shutdown must wait for the request to finish.
+	}
+	close(release)
+	select {
+	case err := <-requestDone:
+		if err != nil {
+			t.Fatalf("request interrupted by graceful shutdown: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("active request did not complete")
+	}
+	select {
+	case err := <-stopped:
+		if err != nil {
+			t.Fatalf("graceful shutdown failed: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("HTTP did not finish shutdown after request completed")
+	}
+}

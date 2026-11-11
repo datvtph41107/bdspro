@@ -25,10 +25,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      memcached:
-        image: memcached:1.6-alpine
-        ports:
-          - 11211:11211
       redis:
         image: redis:7-alpine
         ports:
@@ -45,6 +41,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
+      - name: Verify Go module graph is tidy
+        run: go mod tidy -diff
 
       - name: Install golang-migrate
         run: |
@@ -102,7 +101,6 @@ jobs:
           BDS_TEST_MODE: disposable
           BDS_TEST_DB_URL: postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable
           BDS_TEST_REDIS_ADDR: 127.0.0.1:6379
-          BDS_TEST_MEMCACHE_ADDR: 127.0.0.1:11211
         run: |
           make test
           go test -race ./...

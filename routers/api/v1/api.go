@@ -164,13 +164,17 @@ func bind[T any](_ T) func(*appctx.APIContext) {
 // Routes owns all API method/path/group declarations. A single Gin engine
 // executes all middleware. web.Router converts typed request actions at
 // registration; no second router, registry, or handler dispatch exists.
-func Routes(root *gin.Engine, d Dependencies) {
-	m := web.NewRouter[*appctx.APIContext](root.Group(""), appctx.GetAPIContext)
+func Routes(root *gin.Engine, d Dependencies) *web.Router {
+	// Gin applies APIContexter after route matching, before typed actions.
+	// It is the sole request-local APIContext owner.
+	root.Use(appctx.APIContexter())
+	m := web.NewRouter(root)
 	m.Get("/health", Health)
 	registerPublicRoutes(m, d)
+	return m
 }
 
-func registerPublicRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {
+func registerPublicRoutes(m *web.Router, d Dependencies) {
 	// GinActions is the explicit adapter for existing Gin protocol handlers.
 	// New API actions use func(*context.APIContext) directly.
 	m.Post("/users", appctx.GinActions(
@@ -264,7 +268,7 @@ func registerPublicRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {
 	)...)
 }
 
-func registerAuthenticatedRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {
+func registerAuthenticatedRoutes(m *web.Router, d Dependencies) {
 	if d.Authorization != nil {
 		m.Get("/oauth/clients", appctx.GinActions(d.Authorization.ListClients)...)
 		m.Post("/oauth/clients", appctx.GinActions(
@@ -315,7 +319,7 @@ func registerAuthenticatedRoutes(m *web.Router[*appctx.APIContext], d Dependenci
 	}
 }
 
-func registerOrgRoutes(m *web.Router[*appctx.APIContext]) {
+func registerOrgRoutes(m *web.Router) {
 	m.Get("", org.List)
 	m.Get("/:id/members", org.Members)
 	m.Post("/:id/members", org.AddMember)
@@ -338,7 +342,7 @@ func registerOrgRoutes(m *web.Router[*appctx.APIContext]) {
 	}, orgAssignment(organization_model.ErrTeamOwnerRequired))
 }
 
-func registerTeamRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {
+func registerTeamRoutes(m *web.Router, d Dependencies) {
 	m.Post("/invites/accept", append(
 		appctx.GinActions(d.IPActive.For(ipactive.AcceptTeamInvite)),
 		bind(api.AcceptTeamInviteOption{}), org.AcceptInvite,
@@ -359,7 +363,7 @@ func registerTeamRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {
 	})
 }
 
-func registerPhoneBindRoutes(m *web.Router[*appctx.APIContext], d Dependencies) {
+func registerPhoneBindRoutes(m *web.Router, d Dependencies) {
 	m.Post("/start", appctx.GinActions(
 		d.IPActive.For(ipactive.StartPhoneBind), d.Auth.StartPhoneBind,
 	)...)

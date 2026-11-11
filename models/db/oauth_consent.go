@@ -15,8 +15,12 @@ var ErrOAuthSessionInactive = errors.New("OAuth authorizing session is missing o
 // GetOAuthConsentVersion is a read-only consent-preview operation. Zero means
 // no prior decision; revoked rows retain their version as a durable tombstone.
 func (s *SQLStore) GetOAuthConsentVersion(ctx context.Context, accountID int64, clientID uuid.UUID) (int64, error) {
+	dbx, resolveErr := s.queryExecutor(ctx)
+	if resolveErr != nil {
+		return 0, resolveErr
+	}
 	var version int64
-	err := s.pool.QueryRow(ctx, `SELECT version FROM oauth_grants
+	err := dbx.QueryRow(ctx, `SELECT version FROM oauth_grants
         WHERE account_id=$1 AND client_id=$2`, accountID, clientID).Scan(&version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, nil

@@ -53,8 +53,12 @@ func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamI
 	if !secret.ValidDerivationKey(signingKey) {
 		return CreatedTeamInvite{}, ErrTeamInviteInvalid
 	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (CreatedTeamInvite, error) {
-		return CreateTeamInviteTx(ctx, q, actorAccountID, teamID, email, ttl, signingKey)
+	return db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (CreatedTeamInvite, error) {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return CreatedTeamInvite{}, err
+		}
+		return CreateTeamInviteTx(txCtx, q, actorAccountID, teamID, email, ttl, signingKey)
 	})
 }
 
@@ -108,8 +112,12 @@ func AcceptTeamInvite(ctx context.Context, store db.Store, accountID int64, toke
 	if !ValidTeamInviteProof(token) {
 		return nil, ErrTeamInviteInvalid
 	}
-	return db.WithTxResult(ctx, store, func(q *db.Queries) (*TeamMember, error) {
-		return AcceptTeamInviteTx(ctx, q, accountID, token)
+	return db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (*TeamMember, error) {
+		q, err := db.TxQueries(txCtx)
+		if err != nil {
+			return nil, err
+		}
+		return AcceptTeamInviteTx(txCtx, q, accountID, token)
 	})
 }
 
