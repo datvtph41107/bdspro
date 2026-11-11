@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -17,8 +16,6 @@ type rawTxStoreContextKey struct{}
 
 // A recovered panic in a nested operation must not allow its parent to commit.
 // The original panic is re-thrown; this error is only the rollback-only cause.
-var errTransactionPanicked = errors.New("db: nested transaction callback panicked")
-
 // transactionState ensures an inner transaction error poisons the outer commit
 // even if its caller ignores the returned error. It is request-local.
 type transactionState struct {
@@ -53,14 +50,6 @@ func (s *transactionState) close() {
 	s.mu.Unlock()
 }
 
-var (
-	ErrStoreMissing         = errors.New("db: store missing from context")
-	ErrTxStoreUnavailable   = errors.New("db: transaction-bound store unavailable")
-	ErrTransactionRequired  = errors.New("db: transaction required")
-	ErrTransactionClosed    = errors.New("db: transaction context is no longer active")
-	ErrNestedTransaction    = errors.New("db: nested transaction context has no owner")
-	ErrRawTransactionInSQLC = errors.New("db: raw transaction cannot nest inside SQLC transaction")
-)
 
 // WithStore installs the transaction capability in the request context. The
 // ingress normally supplies a full Store; model operations which only require
