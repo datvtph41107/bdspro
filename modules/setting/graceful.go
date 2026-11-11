@@ -11,10 +11,21 @@ type GracefulSettings struct {
 	HammerTimeout       time.Duration
 }
 
+const defaultHTTPShutdownTimeout = 10 * time.Second
+
+// HTTPShutdownTimeout returns the configured HTTP drain deadline.
+// The default also applies to standalone HTTP integration tests.
+func HTTPShutdownTimeout() time.Duration {
+	if Common.Graceful.HTTPShutdownTimeout > 0 {
+		return Common.Graceful.HTTPShutdownTimeout
+	}
+	return defaultHTTPShutdownTimeout
+}
+
 func loadGracefulSettingsFrom(cfg ConfigProvider) (GracefulSettings, error) {
 	sec := cfg.Section("server")
 	result := GracefulSettings{
-		HTTPShutdownTimeout: 10 * time.Second,
+		HTTPShutdownTimeout: defaultHTTPShutdownTimeout,
 		HammerTimeout:       15 * time.Second,
 	}
 	if key := sec.Key("HTTP_SHUTDOWN_TIMEOUT"); key.IsSet() {
