@@ -95,7 +95,7 @@ func RevokeOAuthAuthorization(ctx context.Context, accountID int64, clientID uui
 			WHERE account_id=$1 AND client_id=$2 AND revoked_at IS NULL`, accountID, clientID); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `UPDATE oauth_access_tokens SET revoked_at=now()
+		_, err = tx.Exec(ctx, `UPDATE oauth_access_tokens SET revoked_at=now()
 			WHERE account_id=$1 AND client_id=$2 AND revoked_at IS NULL`, accountID, clientID)
 		return err
 	})

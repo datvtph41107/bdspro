@@ -54,7 +54,7 @@ func ApproveOAuthAuthCode(ctx context.Context, clientID uuid.UUID,
 		// UPDATE this row. FOR SHARE makes their transaction and this code
 		// issuance linearizable: revoked sessions cannot create new codes.
 		var lockedSession uuid.UUID
-		err := tx.QueryRow(ctx, `SELECT id FROM sessions
+		err = tx.QueryRow(ctx, `SELECT id FROM sessions
 			WHERE id=$1 AND account_id=$2 AND is_blocked=FALSE AND expires_at>clock_timestamp()
 			FOR SHARE`, sessionID, accountID).Scan(&lockedSession)
 		if errors.Is(err, pgx.ErrNoRows) {

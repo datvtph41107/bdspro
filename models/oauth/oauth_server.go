@@ -125,7 +125,7 @@ func RedeemOAuthAuthCode(ctx context.Context, clientID uuid.UUID, codeHash []byt
 		// Read the immutable account lock key without a row lock, then
 		// re-check the code under the shared account/client serialization.
 		var accountID int64
-		err := tx.QueryRow(ctx, `SELECT account_id FROM oauth_auth_codes
+		err = tx.QueryRow(ctx, `SELECT account_id FROM oauth_auth_codes
 			WHERE code_hash=$1 AND client_id=$2 AND redirect_uri=$3`,
 			codeHash, clientID, redirect).Scan(&accountID)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -195,7 +195,7 @@ func RotateOAuthRefreshToken(ctx context.Context, clientID uuid.UUID, oldHash, n
 		var accountID int64
 		// Look up immutable lock keys without a row lock. Neither read
 		// grants authority: the state is checked again under both locks.
-		err := tx.QueryRow(ctx, `SELECT t.family_id,t.account_id
+		err = tx.QueryRow(ctx, `SELECT t.family_id,t.account_id
 			FROM oauth_refresh_tokens t JOIN oauth_clients c ON c.id=t.client_id
             JOIN oauth_grants g ON g.account_id=t.account_id AND g.client_id=t.client_id
                 AND g.revoked_at IS NULL AND g.scope=t.scope
@@ -318,7 +318,7 @@ func RevokeOAuthBearer(ctx context.Context, clientID uuid.UUID, hash []byte) err
 		ctx := txCtx
 		var family uuid.UUID
 		var accountID int64
-		err := tx.QueryRow(ctx, `SELECT family_id,account_id FROM oauth_refresh_tokens
+		err = tx.QueryRow(ctx, `SELECT family_id,account_id FROM oauth_refresh_tokens
 			WHERE token_hash=$1 AND client_id=$2`, hash, clientID).Scan(&family, &accountID)
 		if err == nil {
 			// All writes follow account/client -> family -> token row order.
