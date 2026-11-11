@@ -6,11 +6,42 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 )
+
+// activeHTTPHandlers tracks all requests already admitted by the server.
+// It prevents database/Redis termination before a handler has actually
+// returned, even when http.Server.Close interrupts client connections.
+type activeHTTPHandlers struct {
+	next    http.Handler
+	mu      sync.Mutex
+	closing bool
+	running sync.WaitGroup
+}
+
+func (a *activeHTTPHandlers) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	if a.closing {
+		a.mu.Unlock()
+		http.Error(w, "server shutting down", http.StatusServiceUnavailable)
+		return
+	}
+	a.running.Add(1)
+	a.mu.Unlock()
+	defer a.running.Done()
+	a.next.ServeHTTP(w, r)
+}
+
+func (a *activeHTTPHandlers) Drain() {
+	a.mu.Lock()
+	a.closing = true
+	a.mu.Unlock()
+	a.running.Wait()
+}
 
 // serveHTTP owns listener readiness, serving, graceful shutdown and drain.
 func serveHTTP(ctx context.Context, handler http.Handler, address string, onListening func(net.Addr)) error {
@@ -26,8 +57,11 @@ func serveHTTP(ctx context.Context, handler http.Handler, address string, onList
 		return fmt.Errorf("start HTTP: %w", err)
 	}
 
+	active := &activeHTTPHandlers{next: handler}
+	defer active.Drain()
+
 	httpServer := &http.Server{
-		Handler:           handler,
+		Handler:           active,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
