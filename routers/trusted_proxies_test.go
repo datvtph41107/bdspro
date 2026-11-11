@@ -57,7 +57,7 @@ func TestUntrustedProxyConfigurationFailsStartup(t *testing.T) {
 		_, err := newServerFixture(setting.Config{
 			TokenSymmetricKey: strings.Repeat("x", 32),
 			TrustedProxies:    []string{unsafe},
-		}, nil, client)
+		}, client)
 		if err == nil {
 			t.Fatalf("unsafe proxy policy accepted: %q", unsafe)
 		}
