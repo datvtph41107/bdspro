@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
 )
 
 func TestValidationContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-
 	type input struct {
 		FullName string `json:"full_name" binding:"required"`
 		PersonID int64  `json:"person_id" binding:"required,min=1"`
@@ -32,23 +32,22 @@ func TestValidationContract(t *testing.T) {
 		{name: "malformed JSON", body: `{"full_name":`, code: "malformed_json"},
 		{name: "empty body", body: "", code: "request_body_required"},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := gin.New()
-			router.POST("/", func(c *gin.Context) {
+			router := web.NewRouter()
+			router.AfterRouting(APIContexter())
+			router.Post("/", func(ctx *APIContext) {
 				var req input
-				if err := c.ShouldBindJSON(&req); err != nil {
-					Validation(c, err, &req)
+				if err := ctx.BindJSON(&req); err != nil {
+					ctx.Validation(err, &req)
 					return
 				}
-				c.Status(http.StatusNoContent)
+				ctx.Status(http.StatusNoContent)
 			})
 			w := httptest.NewRecorder()
 			request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tt.body))
 			request.Header.Set("Content-Type", "application/json")
 			router.ServeHTTP(w, request)
-
 			if w.Code != http.StatusBadRequest {
 				t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
 			}
@@ -75,10 +74,13 @@ func TestValidationContract(t *testing.T) {
 
 func TestValidationDoesNotExposeBindingError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.Post("/", func(ctx *APIContext) {
+		ctx.Validation(errors.New("private provider password"), struct{}{})
+	})
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
-	Validation(c, errors.New("private provider password"), struct{}{})
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/", nil))
 	if w.Code != http.StatusBadRequest || strings.Contains(w.Body.String(), "private provider password") {
 		t.Fatalf("unexpected error contract: %d %s", w.Code, w.Body.String())
 	}
@@ -86,20 +88,24 @@ func TestValidationDoesNotExposeBindingError(t *testing.T) {
 
 func TestFieldErrorContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.Patch("/", func(ctx *APIContext) {
+		ctx.FieldError("name", "required", "name is required")
+	})
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodPatch, "/", nil)
-	FieldError(c, "name", "required", "name is required")
-	if w.Code != http.StatusBadRequest || c.GetString(ErrorCodeKey) != "validation_failed" {
-		t.Fatalf("status=%d code=%q", w.Code, c.GetString(ErrorCodeKey))
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPatch, "/", nil))
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
 	}
 	var got struct {
+		Code   string                  `json:"code"`
 		Errors map[string][]FieldIssue `json:"errors"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Errors["name"]) != 1 || got.Errors["name"][0].Code != "required" {
-		t.Fatalf("unexpected field errors: %+v", got.Errors)
+	if got.Code != "validation_failed" || len(got.Errors["name"]) != 1 || got.Errors["name"][0].Code != "required" {
+		t.Fatalf("unexpected field errors: %+v", got)
 	}
 }

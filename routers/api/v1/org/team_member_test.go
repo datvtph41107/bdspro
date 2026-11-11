@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
@@ -13,7 +14,7 @@ func TestTeamMemberActionsRejectInvalidInputsBeforeDatabase(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cases := []struct {
 		method, path, pattern string
-		action                appctx.APIHandler
+		action                func(*appctx.APIContext)
 	}{
 		{http.MethodGet, "/teams/invalid/members", "/teams/:team_id/members", ListTeamMembers},
 		{http.MethodGet, "/teams/1/members?page=invalid", "/teams/:team_id/members", ListTeamMembers},
@@ -23,9 +24,9 @@ func TestTeamMemberActionsRejectInvalidInputsBeforeDatabase(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
-			r := gin.New()
-			r.Use(appctx.APIContexter())
-			r.Handle(tc.method, tc.pattern, appctx.Wrap(tc.action))
+			r := web.NewRouter()
+			r.AfterRouting(appctx.APIContexter())
+			r.Methods(tc.method, tc.pattern, tc.action)
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, httptest.NewRequest(tc.method, tc.path, nil))
 			if w.Code != http.StatusBadRequest {

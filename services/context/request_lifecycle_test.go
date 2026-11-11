@@ -227,7 +227,6 @@ func TestBeforeRoutingAndTypedAPIContextShareOneCurrentRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := web.NewRouter()
 	router.AfterRouting(APIContexter())
-	engine := router.GinEngine()
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			scoped := req.WithContext(context.WithValue(req.Context(), typedIngressKey{}, "before-routing"))
