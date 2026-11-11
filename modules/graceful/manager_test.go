@@ -104,3 +104,26 @@ func TestRunWithCancel(t *testing.T) {
 	await(t, r.done, "runner")
 	await(t, g.Done(), "done")
 }
+
+func TestTerminateRegistrationDuringDrain(t *testing.T) {
+	g := newManager(context.Background(), time.Second)
+	g.RegisterServer()
+	g.DoGracefulShutdown()
+
+	terminated := make(chan struct{})
+	g.RunAtTerminate(func() { close(terminated) })
+
+	select {
+	case <-terminated:
+		t.Fatal("subsystem cleaned up while the Web activity was still running")
+	default:
+	}
+
+	g.ServerDone()
+	await(t, g.Done(), "done")
+	select {
+	case <-terminated:
+	default:
+		t.Fatal("late registration did not run at termination")
+	}
+}
