@@ -36,8 +36,13 @@ func newOrganizationRaceCase(t *testing.T, ctx context.Context, pool *pgxpool.Po
 		Scan(&actorPersonID); err != nil {
 		t.Fatal(err)
 	}
-	personID, err := db.WithTxResult(ctx, store, func(q *db.Queries) (int64, error) {
-		return db.CreatePersonWithParty(ctx, q)
+	personID, err := db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (int64, error) {
+		q, getQueriesErr := db.GetQueries(txCtx)
+		if getQueriesErr != nil {
+			var zero int64
+			return zero, getQueriesErr
+		}
+		return db.CreatePersonWithParty(txCtx, q)
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// The value returned by WithTxResult must describe committed PostgreSQL rows,
+// The value returned by WithTx2 must describe committed PostgreSQL rows,
 // not merely a successful callback. Runs only against disposable migrated DB.
-func TestWithTxResultPostgresAtomicity(t *testing.T) {
+func TestWithTx2PostgresAtomicity(t *testing.T) {
 	source := os.Getenv("BDS_TEST_DB_URL")
 	if source == "" {
 		t.Skip("requires disposable migrated PostgreSQL")
@@ -42,8 +42,13 @@ func TestWithTxResultPostgresAtomicity(t *testing.T) {
 
 	var rolledBackID int64
 	expectedErr := errors.New("abort after inserted Party")
-	result, err := WithTxResult(ctx, store, func(q *Queries) (int64, error) {
-		id, err := q.CreateParty(ctx)
+	result, err := WithTx2(WithStore(ctx, store), func(txCtx context.Context) (int64, error) {
+		q, getQueriesErr := GetQueries(txCtx)
+		if getQueriesErr != nil {
+			var zero int64
+			return zero, getQueriesErr
+		}
+		id, err := q.CreateParty(txCtx)
 		if err != nil {
 			return 0, err
 		}
@@ -61,8 +66,13 @@ func TestWithTxResultPostgresAtomicity(t *testing.T) {
 		t.Fatal("failed transaction committed an unpaired Party")
 	}
 
-	committedID, err := WithTxResult(ctx, store, func(q *Queries) (int64, error) {
-		return CreatePersonWithParty(ctx, q)
+	committedID, err := WithTx2(WithStore(ctx, store), func(txCtx context.Context) (int64, error) {
+		q, getQueriesErr := GetQueries(txCtx)
+		if getQueriesErr != nil {
+			var zero int64
+			return zero, getQueriesErr
+		}
+		return CreatePersonWithParty(txCtx, q)
 	})
 	if err != nil || committedID <= 0 {
 		t.Fatalf("commit result=%d err=%v", committedID, err)
@@ -244,9 +254,14 @@ func TestWithTxNestedPostgresAtomicity(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			_, err = WithTxResult(txCtx, store, func(q *Queries) (int64, error) {
+			_, err = WithTx2(txCtx, func(txCtx context.Context) (int64, error) {
+				q, getQueriesErr := GetQueries(txCtx)
+				if getQueriesErr != nil {
+					var zero int64
+					return zero, getQueriesErr
+				}
 				if q != outer {
-					t.Fatal("WithTxResult used another SQLC executor")
+					t.Fatal("WithTx2 used another SQLC executor")
 				}
 				return CreatePersonWithParty(txCtx, q)
 			})
