@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/jackc/pgx/v5"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // TestCorePostgresTransactions exercises the canonical engine and transaction
@@ -58,12 +58,14 @@ func TestCorePostgresTransactions(t *testing.T) {
 		return total
 	}
 
+	var escapedQueries *Queries
 	err = WithTx(ctx, func(txCtx context.Context) error {
 		q, err := GetQueries(txCtx)
 		if err != nil {
 			return err
 		}
 		scope := txCtx.Value(transactionContextKey{}).(*transactionScope)
+		escapedQueries = q
 		if q != scope.queries {
 			t.Fatal("GetQueries did not resolve transaction-scoped SQLC executor")
 		}
@@ -90,6 +92,12 @@ func TestCorePostgresTransactions(t *testing.T) {
 	})
 	if err != nil || count() != 2 {
 		t.Fatalf("commit/nested reuse failed: err=%v committed=%d", err, count())
+	}
+	// Native pgx rejects a captured SQLC query after its transaction commits.
+	// Scope accessors also reject closed contexts, but cannot prevent callers
+	// from retaining a query object obtained inside the callback.
+	if _, err := escapedQueries.CreateParty(ctx); !errors.Is(err, pgx.ErrTxClosed) {
+		t.Fatalf("captured SQLC queries after commit: got %v, want pgx.ErrTxClosed", err)
 	}
 
 	cause := errors.New("abort mutation")
