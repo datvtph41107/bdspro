@@ -11,9 +11,9 @@ import (
 
 // GetOrCreateVerifyEmail locks the account row to serialize verification
 // workers. Retry after failed SMTP delivery reuses the still-valid proof.
-func GetOrCreateVerifyEmail(ctx context.Context, tx Transactioner, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error) {
-	return db.WithTx2(db.WithStore(ctx, tx), func(txCtx context.Context) (db.VerifyEmail, error) {
-		q, txErr := db.TxQueries(txCtx)
+func GetOrCreateVerifyEmail(ctx context.Context, arg db.CreateVerifyEmailParams) (db.VerifyEmail, error) {
+	return db.WithTx2(ctx, func(txCtx context.Context) (db.VerifyEmail, error) {
+		q, txErr := db.GetQueries(txCtx)
 		if txErr != nil {
 			return db.VerifyEmail{}, txErr
 		}
@@ -39,9 +39,9 @@ func GetOrCreateVerifyEmail(ctx context.Context, tx Transactioner, arg db.Create
 
 // VerifyEmail atomically consumes a single-use proof and marks the owning
 // account's email as verified. Failed consumption leaves account state unchanged.
-func VerifyEmail(ctx context.Context, tx Transactioner, arg db.ConsumeVerifyEmailParams) (db.Account, error) {
-	return db.WithTx2(db.WithStore(ctx, tx), func(txCtx context.Context) (db.Account, error) {
-		q, txErr := db.TxQueries(txCtx)
+func VerifyEmail(ctx context.Context, arg db.ConsumeVerifyEmailParams) (db.Account, error) {
+	return db.WithTx2(ctx, func(txCtx context.Context) (db.Account, error) {
+		q, txErr := db.GetQueries(txCtx)
 		if txErr != nil {
 			return db.Account{}, txErr
 		}
@@ -57,9 +57,9 @@ func VerifyEmail(ctx context.Context, tx Transactioner, arg db.ConsumeVerifyEmai
 
 // BeginEmailLink serializes a phone-first account's email-link request.
 // The current SQLC query owns the resend cooldown and address availability.
-func BeginEmailLink(ctx context.Context, tx Transactioner, accountID int64, email string, hash []byte) error {
-	return db.WithTx(db.WithStore(ctx, tx), func(txCtx context.Context) error {
-		q, txErr := db.TxQueries(txCtx)
+func BeginEmailLink(ctx context.Context, accountID int64, email string, hash []byte) error {
+	return db.WithTx(ctx, func(txCtx context.Context) error {
+		q, txErr := db.GetQueries(txCtx)
 		if txErr != nil {
 			return txErr
 		}
@@ -92,9 +92,9 @@ func BeginEmailLink(ctx context.Context, tx Transactioner, accountID int64, emai
 
 // ConfirmEmailLink consumes the single-use challenge and adds a verified email
 // in one transaction, leaving the existing Account and credentials intact.
-func ConfirmEmailLink(ctx context.Context, tx Transactioner, accountID int64, hash []byte) error {
-	err := db.WithTx(db.WithStore(ctx, tx), func(txCtx context.Context) error {
-		q, txErr := db.TxQueries(txCtx)
+func ConfirmEmailLink(ctx context.Context, accountID int64, hash []byte) error {
+	err := db.WithTx(ctx, func(txCtx context.Context) error {
+		q, txErr := db.GetQueries(txCtx)
 		if txErr != nil {
 			return txErr
 		}
