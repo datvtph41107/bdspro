@@ -36,8 +36,8 @@ func TestSharedProtocolResponses(t *testing.T) {
 		{"internal error", "internal_error", "internal server error", "", "", 500, func(c *APIContext) {
 			c.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
 		}},
-		{"endpoint local failure", "google_invalid_state", "invalid Google authorization state", "", "", 400, func(c *APIContext) {
-			c.APIError(http.StatusBadRequest, "google_invalid_state", "invalid Google authorization state")
+		{"endpoint local failure", "oauth_invalid_state", "invalid OAuth authorization state", "", "", 400, func(c *APIContext) {
+			c.APIError(http.StatusBadRequest, "oauth_invalid_state", "invalid OAuth authorization state")
 		}},
 	}
 	for _, tt := range tests {
@@ -45,9 +45,11 @@ func TestSharedProtocolResponses(t *testing.T) {
 			w := httptest.NewRecorder()
 			router := web.NewRouter()
 			router.AfterRouting(APIContexter())
-			router.Get("/", tt.write)
 			var trace *gin.Context
+			// Gin snapshots root middleware when a route is registered.
+			// Register request metadata before compiling the typed HTTP action.
 			router.GinEngine().Use(func(c *gin.Context) { trace = c; c.Next() })
+			router.Get("/", tt.write)
 			router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
 			if w.Code != tt.status {
 				t.Fatalf("status %d, want %d", w.Code, tt.status)
