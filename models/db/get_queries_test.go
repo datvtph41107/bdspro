@@ -174,3 +174,49 @@ func TestWithTxRejectsTypedNilFunctionTransactioner(t *testing.T) {
 		t.Fatalf("typed-nil transactioner must fail closed: %v", err)
 	}
 }
+
+func TestContextDatabaseSelectionUsesProcessOwnerWithoutIngressStore(t *testing.T) {
+	// This is a selector test, not a PostgreSQL transaction test. The
+	// borrowed process store has no pool, so opening a transaction must
+	// fail with ErrTransactionClosed, not ErrStoreMissing.
+	owner := &SQLStore{Queries: new(Queries)}
+	defaultEngine.mu.Lock()
+	previousStore, previousClosed := defaultEngine.store, defaultEngine.closed
+	if previousStore != nil || previousClosed {
+		defaultEngine.mu.Unlock()
+		t.Skip("process engine was already initialized by another test")
+	}
+	defaultEngine.store = owner
+	defaultEngine.mu.Unlock()
+	t.Cleanup(func() {
+		defaultEngine.mu.Lock()
+		defaultEngine.store, defaultEngine.closed = previousStore, previousClosed
+		defaultEngine.mu.Unlock()
+	})
+
+	ctx := context.Background()
+	q, err := GetQueries(ctx)
+	if err != nil || q != owner.Queries {
+		t.Fatalf("GetQueries did not select default owner: q=%p err=%v", q, err)
+	}
+	store, err := StoreFromContext(ctx)
+	if err != nil || store != owner {
+		t.Fatalf("StoreFromContext did not select default owner: store=%v err=%v", store, err)
+	}
+	if err := WithTx(ctx, func(context.Context) error {
+		t.Fatal("transaction callback executed without an initialized pool")
+		return nil
+	}); !errors.Is(err, ErrTransactionClosed) {
+		t.Fatalf("WithTx bypassed default owner: %v", err)
+	}
+
+	// A narrow request-scoped transactioner must still override the
+	// default process owner: test isolation cannot depend on global DB.
+	scoped := &contextTestStore{}
+	if err := WithTx(WithStore(ctx, scoped), func(txCtx context.Context) error {
+		_, err := GetQueries(txCtx)
+		return err
+	}); err != nil || !scoped.committed || scoped.transactions != 1 {
+		t.Fatalf("scoped owner was not preferred: err=%v owner=%+v", err, scoped)
+	}
+}
