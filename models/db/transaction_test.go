@@ -12,16 +12,16 @@ func (run txResultRunner) ExecTx(_ context.Context, fn func(*Queries) error) err
 	return run(fn)
 }
 
-func TestWithTxResultCommitsBeforeReturningValue(t *testing.T) {
+func TestWithTx2CommitsBeforeReturningValue(t *testing.T) {
 	committed := false
 	runner := txResultRunner(func(fn func(*Queries) error) error {
-		if err := fn(nil); err != nil {
+		if err := fn(&Queries{}); err != nil {
 			return err
 		}
 		committed = true
 		return nil
 	})
-	got, err := WithTxResult(context.Background(), runner, func(_ *Queries) (int64, error) {
+	got, err := WithTx2(WithStore(context.Background(), runner), func(txCtx context.Context) (int64, error) {
 		if committed {
 			t.Fatal("result callback ran after commit")
 		}
@@ -32,15 +32,15 @@ func TestWithTxResultCommitsBeforeReturningValue(t *testing.T) {
 	}
 }
 
-func TestWithTxResultDiscardsUncommittedResult(t *testing.T) {
+func TestWithTx2DiscardsUncommittedResult(t *testing.T) {
 	commitErr := errors.New("commit rejected")
 	runner := txResultRunner(func(fn func(*Queries) error) error {
-		if err := fn(nil); err != nil {
+		if err := fn(&Queries{}); err != nil {
 			return err
 		}
 		return commitErr
 	})
-	got, err := WithTxResult(context.Background(), runner, func(_ *Queries) (int64, error) {
+	got, err := WithTx2(WithStore(context.Background(), runner), func(txCtx context.Context) (int64, error) {
 		return 99, nil
 	})
 	if got != 0 || !errors.Is(err, commitErr) {
@@ -48,10 +48,10 @@ func TestWithTxResultDiscardsUncommittedResult(t *testing.T) {
 	}
 }
 
-func TestWithTxResultCallbackFailureDoesNotPublishValue(t *testing.T) {
+func TestWithTx2CallbackFailureDoesNotPublishValue(t *testing.T) {
 	callbackErr := errors.New("transaction must roll back")
-	runner := txResultRunner(func(fn func(*Queries) error) error { return fn(nil) })
-	got, err := WithTxResult(context.Background(), runner, func(_ *Queries) (string, error) {
+	runner := txResultRunner(func(fn func(*Queries) error) error { return fn(&Queries{}) })
+	got, err := WithTx2(WithStore(context.Background(), runner), func(txCtx context.Context) (string, error) {
 		return "uncommitted secret", callbackErr
 	})
 	if got != "" || !errors.Is(err, callbackErr) {
@@ -59,7 +59,7 @@ func TestWithTxResultCallbackFailureDoesNotPublishValue(t *testing.T) {
 	}
 }
 
-func TestWithTxResultReusesActiveExecutor(t *testing.T) {
+func TestWithTx2ReusesActiveExecutor(t *testing.T) {
 	owner := &contextTestStore{}
 	stray := &contextTestStore{}
 	ctx := WithStore(context.Background(), owner)
@@ -69,9 +69,14 @@ func TestWithTxResultReusesActiveExecutor(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		result, err := WithTxResult(txCtx, stray, func(q *Queries) (int, error) {
+		result, err := WithTx2(txCtx, func(txCtx context.Context) (int, error) {
+			q, getQueriesErr := GetQueries(txCtx)
+			if getQueriesErr != nil {
+				var zero int
+				return zero, getQueriesErr
+			}
 			if q != expected {
-				t.Fatal("WithTxResult escaped the transaction-bound executor")
+				t.Fatal("WithTx2 escaped the transaction-bound executor")
 			}
 			return 17, nil
 		})
@@ -85,14 +90,14 @@ func TestWithTxResultReusesActiveExecutor(t *testing.T) {
 	}
 }
 
-func TestWithTxResultIgnoredNestedErrorPoisonsOwner(t *testing.T) {
+func TestWithTx2IgnoredNestedErrorPoisonsOwner(t *testing.T) {
 	owner := &contextTestStore{}
 	stray := &contextTestStore{}
 	sentinel := errors.New("reject nested write")
 	ctx := WithStore(context.Background(), owner)
 
 	err := WithTx(ctx, func(txCtx context.Context) error {
-		result, nestedErr := WithTxResult(txCtx, stray, func(*Queries) (string, error) {
+		result, nestedErr := WithTx2(txCtx, func(txCtx context.Context) (string, error) {
 			return "must not publish", sentinel
 		})
 		if result != "" || !errors.Is(nestedErr, sentinel) {
@@ -106,10 +111,10 @@ func TestWithTxResultIgnoredNestedErrorPoisonsOwner(t *testing.T) {
 	}
 }
 
-func TestWithTxResultRejectsOrphanedTransaction(t *testing.T) {
+func TestWithTx2RejectsOrphanedTransaction(t *testing.T) {
 	stray := &contextTestStore{}
 	ctx := context.WithValue(context.Background(), queriesContextKey{}, &Queries{})
-	result, err := WithTxResult(ctx, stray, func(*Queries) (int, error) {
+	result, err := WithTx2(WithStore(ctx, stray), func(txCtx context.Context) (int, error) {
 		t.Fatal("orphaned executor must not execute")
 		return 1, nil
 	})
@@ -118,7 +123,7 @@ func TestWithTxResultRejectsOrphanedTransaction(t *testing.T) {
 	}
 }
 
-func TestWithTxResultCancellationPreventsCommit(t *testing.T) {
+func TestWithTx2CancellationPreventsCommit(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	committed := false
@@ -129,7 +134,7 @@ func TestWithTxResultCancellationPreventsCommit(t *testing.T) {
 		committed = true
 		return nil
 	})
-	result, err := WithTxResult(ctx, runner, func(*Queries) (int, error) {
+	result, err := WithTx2(WithStore(ctx, runner), func(txCtx context.Context) (int, error) {
 		cancel()
 		return 41, nil
 	})

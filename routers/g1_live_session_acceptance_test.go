@@ -3,10 +3,13 @@ package routers
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
+	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
@@ -41,12 +44,28 @@ func TestG12LiveSessionRejectsLegacyAndCrossAccountJWT(t *testing.T) {
 }
 
 func TestG12LiveSessionPostgresFailureFailsClosedHTTP(t *testing.T) {
-	_, pool, server, _ := authAcceptanceServer(t)
+	// The application now owns one process PostgreSQL pool. Run the terminal
+	// shutdown scenario in a child test process so other HTTP tests retain
+	// their engine, and close the actual engine rather than a fixture pool.
+	const childEnv = "BDS_G07_POSTGRES_CLOSED_CHILD"
+	if os.Getenv(childEnv) != "1" {
+		if os.Getenv("BDS_TEST_DB_URL") == "" {
+			t.Skip("requires disposable test database")
+		}
+		cmd := exec.CommandContext(t.Context(), os.Args[0],
+			"-test.run=^TestG12LiveSessionPostgresFailureFailsClosedHTTP$")
+		cmd.Env = append(os.Environ(), childEnv+"=1")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("process-owned PostgreSQL outage check: %v\n%s", err, output)
+		}
+		return
+	}
+	_, _, server, _ := authAcceptanceServer(t)
 	_, login := g12RegisterAndLogin(t, server)
-	pool.Close() // This server uses a disposable per-test pool.
+	db.CloseEngine()
 	status, body := authAcceptanceCall(t, server, "/users/me", http.MethodGet, nil, login["access_token"].(string))
 	if status != http.StatusServiceUnavailable || body["code"] != "identity_store_unavailable" {
-		t.Fatalf("Postgres failure permitted a protected request: status=%d body=%v", status, body)
+		t.Fatalf("Postgres shutdown permitted a protected request: status=%d body=%v", status, body)
 	}
 }
 

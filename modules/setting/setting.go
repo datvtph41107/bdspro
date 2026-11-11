@@ -19,8 +19,9 @@ var (
 )
 
 type CommonSettings struct {
-	RunMode string
-	Log     LogGlobalConfig
+	RunMode  string
+	Log      LogGlobalConfig
+	Graceful GracefulSettings
 }
 
 // Config is the immutable Web subsystem input consumed by existing services.
@@ -97,7 +98,11 @@ func loadCommonSettingsFrom(cfg ConfigProvider, workPath string) (CommonSettings
 	if err != nil {
 		return CommonSettings{}, err
 	}
-	return CommonSettings{RunMode: runMode, Log: logCfg}, nil
+	gracefulCfg, err := loadGracefulSettingsFrom(cfg)
+	if err != nil {
+		return CommonSettings{}, err
+	}
+	return CommonSettings{RunMode: runMode, Log: logCfg, Graceful: gracefulCfg}, nil
 }
 
 // LoadSettings reads Web settings; connection ownership belongs to routers/init.go.

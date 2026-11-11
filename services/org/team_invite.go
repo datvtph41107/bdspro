@@ -22,7 +22,7 @@ func CreateTeamInvite(ctx context.Context, teamID int64, email string, ttl time.
 		return org_model.CreatedTeamInvite{}, err
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (org_model.CreatedTeamInvite, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return org_model.CreatedTeamInvite{}, err
 		}
@@ -44,7 +44,7 @@ func AcceptTeamInvite(ctx context.Context, token string) (*org_model.TeamMember,
 		return nil, err
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (*org_model.TeamMember, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -63,7 +63,7 @@ func RevokeTeamInvite(ctx context.Context, teamID int64, inviteID uuid.UUID) err
 		return err
 	}
 	return db.WithTx(ctx, func(txCtx context.Context) error {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return err
 		}

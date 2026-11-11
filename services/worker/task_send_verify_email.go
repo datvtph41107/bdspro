@@ -32,7 +32,7 @@ func NewSendVerifyEmailTask(accountID int64) (*asynq.Task, error) {
 }
 
 // NewVerifyEmailHandler adapts the email verification job to native Asynq.
-func NewVerifyEmailHandler(store jobs.VerificationStore, sender mail.EmailSender, url string) asynq.Handler {
+func NewVerifyEmailHandler(sender mail.EmailSender, url string) asynq.Handler {
 	return asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
 		var payload PayloadSendVerifyEmail
 		if err := json.Unmarshal(task.Payload(), &payload); err != nil {
@@ -41,7 +41,7 @@ func NewVerifyEmailHandler(store jobs.VerificationStore, sender mail.EmailSender
 		if payload.AccountID <= 0 {
 			return fmt.Errorf("invalid verification account: %w", asynq.SkipRetry)
 		}
-		if err := jobs.SendVerificationEmail(ctx, store, sender, url, payload.AccountID); err != nil {
+		if err := jobs.SendVerificationEmail(ctx, sender, url, payload.AccountID); err != nil {
 			return err
 		}
 		taskID, _ := asynq.GetTaskID(ctx)

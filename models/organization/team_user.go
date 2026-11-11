@@ -69,15 +69,15 @@ func ListTeamUsersForDoer(ctx context.Context, teamID int64, opts db.ListOptions
 	if !ok {
 		return nil, auth_model.ErrSessionUnavailable
 	}
-	store, err := db.StoreFromContext(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ListTeamUsers(ctx, store, actor.AccountID, teamID, opts)
+	return ListTeamUsers(ctx, q, actor.AccountID, teamID, opts)
 }
 
 // ListTeamUsers enforces bounded SQL pagination and active organization membership.
-func ListTeamUsers(ctx context.Context, store db.Store, actorAccountID, teamID int64, opts db.ListOptions) ([]*TeamMember, error) {
+func ListTeamUsers(ctx context.Context, store db.Querier, actorAccountID, teamID int64, opts db.ListOptions) ([]*TeamMember, error) {
 	skip, take, ok := opts.GetSkipTake32()
 	if !ok {
 		return nil, ErrTeamPaginationInvalid
@@ -101,9 +101,9 @@ func ListTeamUsers(ctx context.Context, store db.Store, actorAccountID, teamID i
 
 // RemoveTeamUser retains the standalone transaction contract for model callers.
 // API writes use the service-owned transaction to include session authority.
-func RemoveTeamUser(ctx context.Context, store db.Store, actorAccountID, teamID, personID int64) error {
-	return db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
-		q, err := db.TxQueries(txCtx)
+func RemoveTeamUser(ctx context.Context, actorAccountID, teamID, personID int64) error {
+	return db.WithTx(ctx, func(txCtx context.Context) error {
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return err
 		}

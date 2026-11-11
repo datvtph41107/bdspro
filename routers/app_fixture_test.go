@@ -1,5 +1,8 @@
 package routers
 
+// This per-instance constructor is a test fixture only. Production lifecycle
+// uses package-owned Init methods and routers.NormalHandler.
+
 import (
 	"errors"
 	"fmt"
@@ -7,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -24,10 +26,10 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-// Server owns initialized HTTP dependencies and the one configured Gin matcher.
+// serverFixture is a test-only HTTP fixture that owns isolated dependencies and the one configured Gin matcher.
 // Its httpHandler is the canonical pre-matcher ingress. Listener, readiness,
 // timeouts and graceful shutdown remain in cmd/http.go.
-type Server struct {
+type serverFixture struct {
 	authService   *auth_service.AuthService
 	oidcClient    *auth_service.OAuth2Client
 	oidcSecure    bool
@@ -35,18 +37,16 @@ type Server struct {
 	oauthProofs   *oauth_service.ConsentProofs
 	browser       *weboauth.Browser
 	config        setting.Config
-	store         db.Store
 	tokenMaker    authcrypto.Maker
 	router        *gin.Engine
 	httpHandler   http.Handler
 	authRateRedis *redis.Client
 	authThrottle  *security.AuthThrottle
 	ipActive      *ipactive.Middleware
-	runtimeClose  func()
 }
 
-// NewServer constructs dependencies and registers every HTTP route exactly once.
-func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, resetMailers ...mail.EmailSender) (*Server, error) {
+// newServerFixture constructs dependencies and registers every HTTP route exactly once.
+func newServerFixture(cfg setting.Config, redisClient *redis.Client, resetMailers ...mail.EmailSender) (*serverFixture, error) {
 	if redisClient == nil {
 		return nil, errors.New("authentication requires Redis")
 	}
@@ -57,9 +57,8 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	if err != nil {
 		return nil, fmt.Errorf("create token maker: %w", err)
 	}
-	server := &Server{
+	server := &serverFixture{
 		config:        cfg,
-		store:         store,
 		tokenMaker:    maker,
 		authRateRedis: redisClient,
 		authThrottle:  security.NewAuthThrottle(redisClient),
@@ -82,19 +81,19 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 	if len(resetMailers) > 0 {
 		resetSender = resetMailers[0]
 	}
-	authService := auth_service.NewAuthService(store, maker, cfg, phoneSender, resetSender)
+	authService := auth_service.NewAuthService(maker, cfg, phoneSender, resetSender)
 	server.authService = authService
 	// Provider callback and browser origin must coincide before offering the
 	// browser OIDC option. Mismatched deployments retain their existing API OIDC
 	// callback and password-based browser consent without a misleading link.
 	browserOIDC := cfg.OIDC.Enabled() && cfg.BrowserPublicOrigin != "" &&
 		cfg.OIDC.RedirectURI == cfg.BrowserPublicOrigin+"/users/oauth2/callback"
-	if oauthStore, ok := store.(db.OAuthServerStore); ok {
+	{
 		proofs, err := oauth_service.NewConsentProofs(cfg.Authentication().JWTSecret)
 		if err != nil {
 			return nil, fmt.Errorf("configure OAuth consent proof: %w", err)
 		}
-		oauthService := oauth_service.NewService(oauthStore)
+		oauthService := oauth_service.NewService()
 		server.oauthService = oauthService
 		server.oauthProofs = proofs
 		if cfg.BrowserPublicOrigin != "" {
@@ -147,9 +146,6 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 		ctx = authcrypto.WithMaker(ctx, server.tokenMaker)
 		ctx = ipactive.WithMiddleware(ctx, server.ipActive)
 		ctx = org_service.WithInviteSigningKey(ctx, server.config.TokenSymmetricKey)
-		if server.store != nil {
-			ctx = db.WithStore(ctx, server.store)
-		}
 		ingress.ServeHTTP(w, req.WithContext(ctx))
 	})
 	return server, nil
@@ -158,18 +154,9 @@ func NewServer(cfg setting.Config, store db.Store, redisClient *redis.Client, re
 // Handler serves the one composed HTTP ingress. CORS remains the outer
 // protocol boundary and WrapIngress executes BeforeRouting before Gin matching.
 // Never bypass this handler by serving server.router directly.
-func (server *Server) Handler() http.Handler {
+func (server *serverFixture) Handler() http.Handler {
 	if server.httpHandler == nil {
 		panic("routers: HTTP ingress was not composed")
 	}
 	return common.CORS(server.httpHandler, server.config.AllowedOrigins)
-}
-
-// Close releases only resources owned by InitWebInstalled, never resources
-// borrowed by NewServer in tests or embedding applications.
-func (server *Server) Close() {
-	if server != nil && server.runtimeClose != nil {
-		server.runtimeClose()
-		server.runtimeClose = nil
-	}
 }

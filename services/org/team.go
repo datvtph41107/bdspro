@@ -21,7 +21,7 @@ func NewTeam(ctx context.Context, team *organization_model.Team) error {
 		return auth_model.ErrSessionUnavailable
 	}
 	saved, err := db.WithTx2(ctx, func(txCtx context.Context) (*organization_model.Team, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -49,7 +49,7 @@ func UpdateTeam(ctx context.Context, team *organization_model.Team) error {
 		return auth_model.ErrSessionUnavailable
 	}
 	saved, err := db.WithTx2(ctx, func(txCtx context.Context) (*organization_model.Team, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +73,7 @@ func AddTeamMember(ctx context.Context, teamID, personID int64) (*organization_m
 		return nil, auth_model.ErrSessionUnavailable
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (*organization_model.TeamMember, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +92,7 @@ func RemoveTeamMember(ctx context.Context, teamID, personID int64) error {
 		return auth_model.ErrSessionUnavailable
 	}
 	return db.WithTx(ctx, func(txCtx context.Context) error {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return err
 		}

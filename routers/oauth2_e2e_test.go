@@ -104,7 +104,7 @@ func TestOAuth2BrowserLoginAndStateReplay(t *testing.T) {
 	// belonging to this Server, without replacing a global handler container.
 	server.oidcClient = oauth2
 	server.oidcSecure = false
-	server.authService = auth_service.NewAuthService(server.store, server.tokenMaker, cfg, nil)
+	server.authService = auth_service.NewAuthService(server.tokenMaker, cfg, nil)
 	gin.SetMode(gin.TestMode)
 
 	doLogin := func() (int64, string, string) {

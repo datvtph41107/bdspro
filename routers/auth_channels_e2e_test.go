@@ -11,12 +11,14 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/jobs"
 	"github.com/gin-gonic/gin"
@@ -25,6 +27,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// The production database engine is process-owned, so the acceptance suite
+// initializes it once using the same lifecycle entrypoint as cmd/web.go.
+var acceptanceEngineOnce sync.Once
+var acceptanceEngineErr error
 
 type authAcceptanceMail struct {
 	body string
@@ -35,7 +42,7 @@ func (m *authAcceptanceMail) SendEmail(_ string, content string, _, _, _, _ []st
 	return nil
 }
 
-func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *Server, *authAcceptanceMail) {
+func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *serverFixture, *authAcceptanceMail) {
 	t.Helper()
 	url := os.Getenv("BDS_TEST_DB_URL")
 	if url == "" {
@@ -52,6 +59,14 @@ func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *Server
 		t.Fatal("refusing application database")
 	}
 	ctx := context.Background()
+	acceptanceEngineOnce.Do(func() {
+		setting.Database.DBSource = url
+		graceful.InitManager(ctx)
+		acceptanceEngineErr = db.InitEngine(ctx)
+	})
+	if acceptanceEngineErr != nil {
+		t.Fatalf("initialize canonical test database engine: %v", acceptanceEngineErr)
+	}
 	pool, err := pgxpool.NewWithConfig(ctx, pgConfig)
 	if err != nil {
 		t.Fatal(err)
@@ -73,7 +88,7 @@ func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *Server
 		VerifyEmailURL:       "http://localhost:8080/users/verify_email",
 	}
 	mailer := &authAcceptanceMail{}
-	server, err := NewServer(cfg, db.NewStore(pool), redisClient, mailer)
+	server, err := newServerFixture(cfg, redisClient, mailer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +96,7 @@ func authAcceptanceServer(t *testing.T) (context.Context, *pgxpool.Pool, *Server
 	return ctx, pool, server, mailer
 }
 
-func authAcceptanceCall(t *testing.T, server *Server, path, method string, request any, bearer string) (int, map[string]any) {
+func authAcceptanceCall(t *testing.T, server *serverFixture, path, method string, request any, bearer string) (int, map[string]any) {
 	t.Helper()
 	body, err := json.Marshal(request)
 	if err != nil {
@@ -158,13 +173,13 @@ func TestPhoneSignupLoginAndBusinessHTTPAcceptance(t *testing.T) {
 
 func TestPasswordResetAndOAuth2CreatedAccountHTTPAcceptance(t *testing.T) {
 	ctx, pool, server, mailer := authAcceptanceServer(t)
-	store := db.NewStore(pool)
+	queries := db.New(pool)
 	email := uuid.NewString() + "@example.test"
-	account, err := account_model.CreateOAuth2Account(ctx, store, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: uuid.NewString(), Email: email, EmailVerified: true})
+	account, err := account_model.CreateOAuth2Account(ctx, auth_model.OIDCClaims{Issuer: "https://issuer.example.test", Subject: uuid.NewString(), Email: email, EmailVerified: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.GetPasswordHash(ctx, account.ID); err != pgx.ErrNoRows {
+	if _, err := queries.GetPasswordHash(ctx, account.ID); err != pgx.ErrNoRows {
 		t.Fatalf("OIDC account unexpectedly has a password: %v", err)
 	}
 	status, _ := authAcceptanceCall(t, server, "/users/password/reset/request", http.MethodPost, map[string]string{"email": email}, "")
@@ -172,7 +187,7 @@ func TestPasswordResetAndOAuth2CreatedAccountHTTPAcceptance(t *testing.T) {
 		t.Fatalf("reset request status=%d", status)
 	}
 	assertPasswordResetIntent(t, ctx, pool, account.ID)
-	if err := jobs.SendPasswordResetEmail(ctx, store, mailer, "http://localhost:8080/users/verify_email", account.ID); err != nil {
+	if err := jobs.SendPasswordResetEmail(ctx, mailer, "http://localhost:8080/users/verify_email", account.ID); err != nil {
 		t.Fatal(err)
 	}
 	match := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)
@@ -275,7 +290,7 @@ func TestPhoneOnlyAccountAttachesEmailAndPasswordOnSameAccount(t *testing.T) {
 	if status != http.StatusNoContent {
 		t.Fatalf("email confirm: %d %v", status, result)
 	}
-	current, err := db.NewStore(pool).GetAccountByID(ctx, int64(id.(float64)))
+	current, err := account_model.ReadByID(ctx, int64(id.(float64)))
 	if err != nil || current.Email != email || !current.IsEmailVerified {
 		t.Fatalf("email link mutated identity: %+v err=%v", current, err)
 	}
@@ -289,7 +304,7 @@ func TestPhoneOnlyAccountAttachesEmailAndPasswordOnSameAccount(t *testing.T) {
 		t.Fatalf("password setup request: %d", status)
 	}
 	assertPasswordResetIntent(t, ctx, pool, int64(id.(float64)))
-	if err := jobs.SendPasswordResetEmail(ctx, db.NewStore(pool), mailer, "http://localhost:8080/users/verify_email", int64(id.(float64))); err != nil {
+	if err := jobs.SendPasswordResetEmail(ctx, mailer, "http://localhost:8080/users/verify_email", int64(id.(float64))); err != nil {
 		t.Fatal(err)
 	}
 	reset := regexp.MustCompile(`token=([A-Za-z0-9_-]{43})`).FindStringSubmatch(mailer.body)

@@ -39,7 +39,7 @@ func InsertTeam(ctx context.Context, actorAccountID int64, input *Team) (*Team, 
 	if input == nil {
 		return nil, ErrTeamNameInvalid
 	}
-	q, err := db.TxQueries(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func UpdateTeam(ctx context.Context, actorAccountID int64, team *Team) (*Team, e
 	if team == nil || team.ID <= 0 {
 		return nil, ErrTeamNotFound
 	}
-	q, err := db.TxQueries(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func UpdateTeam(ctx context.Context, actorAccountID int64, team *Team) (*Team, e
 }
 
 // GetTeam never exposes a team outside the caller's active organization membership.
-func GetTeam(ctx context.Context, store db.Store, actorAccountID, teamID int64) (*Team, error) {
+func GetTeam(ctx context.Context, store db.Querier, actorAccountID, teamID int64) (*Team, error) {
 	row, err := store.GetTeamForAccount(ctx, db.GetTeamForAccountParams{
 		TeamID: teamID, ActorAccountID: actorAccountID,
 	})
@@ -159,15 +159,15 @@ func ListTeamsForDoer(ctx context.Context, organizationID int64, opts db.ListOpt
 	if !ok {
 		return nil, auth_model.ErrSessionUnavailable
 	}
-	store, err := db.StoreFromContext(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ListTeams(ctx, store, actor.AccountID, organizationID, opts)
+	return ListTeams(ctx, q, actor.AccountID, organizationID, opts)
 }
 
 // ListTeams applies the same authorization predicate as the single-team query.
-func ListTeams(ctx context.Context, store db.Store, actorAccountID, organizationID int64, opts db.ListOptions) ([]*Team, error) {
+func ListTeams(ctx context.Context, store db.Querier, actorAccountID, organizationID int64, opts db.ListOptions) ([]*Team, error) {
 	skip, take, ok := opts.GetSkipTake32()
 	if !ok {
 		return nil, ErrTeamPaginationInvalid

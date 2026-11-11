@@ -42,18 +42,23 @@ func TestAccountConnectionHistoryAtomicSessionAndIsolation(t *testing.T) {
 	store := db.NewStore(pool)
 	createAccount := func() db.Account {
 		t.Helper()
-		account, err := db.WithTxResult(ctx, store, func(q *db.Queries) (db.Account, error) {
-			personID, err := db.CreatePersonWithParty(ctx, q)
+		account, err := db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (db.Account, error) {
+			q, getQueriesErr := db.GetQueries(txCtx)
+			if getQueriesErr != nil {
+				var zero db.Account
+				return zero, getQueriesErr
+			}
+			personID, err := db.CreatePersonWithParty(txCtx, q)
 			if err != nil {
 				return db.Account{}, err
 			}
-			account, err := q.CreateAccount(ctx, db.CreateAccountParams{
+			account, err := q.CreateAccount(txCtx, db.CreateAccountParams{
 				PersonID: personID, Email: "history-" + uuid.NewString() + "@example.test",
 			})
 			if err != nil {
 				return db.Account{}, err
 			}
-			return account, q.CreateAccountSettings(ctx, account.ID)
+			return account, q.CreateAccountSettings(txCtx, account.ID)
 		})
 		if err != nil {
 			t.Fatal(err)

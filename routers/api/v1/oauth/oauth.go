@@ -11,7 +11,6 @@ import (
 	"time"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
-	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
@@ -286,16 +285,10 @@ func UserInfo(ctx *appctx.APIContext) {
 		return
 	}
 	if access.Scope != oauth_service.ScopeProfile {
-		failure(ctx, http.StatusServiceUnavailable, "temporarily_unavailable")
 		failure(ctx, http.StatusForbidden, "insufficient_scope")
 		return
 	}
-	store, err := db.StoreFromContext(ctx)
-	if err != nil {
-		userinfoStoreUnavailable(ctx, err)
-		return
-	}
-	account, err := account_model.GetByID(ctx, store, access.AccountID)
+	account, err := account_model.GetByID(ctx, access.AccountID)
 	if errors.Is(err, account_model.ErrAccountUnavailable) {
 		ctx.Header("WWW-Authenticate", "Bearer")
 		failure(ctx, http.StatusUnauthorized, "invalid_token")

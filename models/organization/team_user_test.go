@@ -33,7 +33,7 @@ func TestListTeamUsersForDoerRequiresActorAndStore(t *testing.T) {
 		t.Fatalf("missing actor: %v", err)
 	}
 	ctx := auth_model.WithActor(context.Background(), auth_model.Actor{AccountID: 42, SessionID: uuid.New()})
-	if _, err := organization.ListTeamUsersForDoer(ctx, 1, opts); !errors.Is(err, db.ErrStoreMissing) {
+	if _, err := organization.ListTeamUsersForDoer(ctx, 1, opts); !errors.Is(err, db.ErrEngineNotInitialized) {
 		t.Fatalf("missing Store: %v", err)
 	}
 }

@@ -17,13 +17,12 @@ const outboxBatchSize int32 = 10
 // OutboxDispatcher delivers committed job intents to Asynq.
 // It does not know which business operation a task represents.
 type OutboxDispatcher struct {
-	store    db.Store
 	enqueuer queue.TaskEnqueuer
 	done     chan struct{}
 }
 
-func NewOutboxDispatcher(store db.Store, enqueuer queue.TaskEnqueuer) *OutboxDispatcher {
-	return &OutboxDispatcher{store: store, enqueuer: enqueuer, done: make(chan struct{})}
+func NewOutboxDispatcher(enqueuer queue.TaskEnqueuer) *OutboxDispatcher {
+	return &OutboxDispatcher{enqueuer: enqueuer, done: make(chan struct{})}
 }
 
 func (d *OutboxDispatcher) Start(ctx context.Context) {
@@ -57,8 +56,8 @@ func (d *OutboxDispatcher) Wait() { <-d.done }
 // duplicates. Jobs must tolerate at-least-once execution.
 func (d *OutboxDispatcher) Dispatch(ctx context.Context) (int, error) {
 	count := 0
-	err := db.WithTx(db.WithStore(ctx, d.store), func(txCtx context.Context) error {
-		q, err := db.TxQueries(txCtx)
+	err := db.WithTx(ctx, func(txCtx context.Context) error {
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return err
 		}

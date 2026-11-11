@@ -16,25 +16,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// SessionStore provides session reads, revocations and the shared SQLC transaction primitive.
-// Authentication owns the session + connection-history commit invariant.
-type SessionStore interface {
-	db.Transactioner
-	GetSession(context.Context, uuid.UUID) (db.Session, error)
-	ListActiveSessions(context.Context, int64) ([]db.ListActiveSessionsRow, error)
-	RevokeOwnedSession(context.Context, db.RevokeOwnedSessionParams) (int64, error)
-	RevokeAllAccountSessions(context.Context, int64) (int64, error)
-}
-
 // When expectedPasswordHash is supplied, the credential must still match
 // inside the session transaction. The session FK holds KEY SHARE on accounts;
 // recovery's account FOR UPDATE lock serializes password reset with issuance.
-func NewSession(ctx context.Context, store SessionStore, params db.CreateSessionParams, expectedPasswordHash ...string) (db.Session, error) {
+func NewSession(ctx context.Context, params db.CreateSessionParams, expectedPasswordHash ...string) (db.Session, error) {
 	if len(expectedPasswordHash) > 1 {
 		return db.Session{}, ErrInvalidCredentials
 	}
-	return db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (db.Session, error) {
-		q, txErr := db.TxQueries(txCtx)
+	return db.WithTx2(ctx, func(txCtx context.Context) (db.Session, error) {
+		q, txErr := db.GetQueries(txCtx)
 		if txErr != nil {
 			return db.Session{}, txErr
 		}
@@ -72,11 +62,11 @@ func ValidRefreshSession(session db.Session, accountID int64, refreshToken strin
 }
 
 func ListSessions(ctx context.Context, accountID int64) ([]db.ListActiveSessionsRow, error) {
-	store, err := db.StoreFromContext(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return store.ListActiveSessions(ctx, accountID)
+	return q.ListActiveSessions(ctx, accountID)
 }
 
 // RevokeOwnedSession commits only while the session which initiated this
@@ -91,7 +81,7 @@ func RevokeOwnedSession(ctx context.Context, accountID int64, actingSessionID, t
 		return ErrSessionNotFound
 	}
 	return db.WithTx(ctx, func(txCtx context.Context) error {
-		q, txErr := db.TxQueries(txCtx)
+		q, txErr := db.GetQueries(txCtx)
 		if txErr != nil {
 			return txErr
 		}
@@ -132,7 +122,7 @@ func RevokeAllSessions(ctx context.Context, accountID int64, actingSessionID uui
 		return ErrSessionUnavailable
 	}
 	return db.WithTx(ctx, func(txCtx context.Context) error {
-		q, txErr := db.TxQueries(txCtx)
+		q, txErr := db.GetQueries(txCtx)
 		if txErr != nil {
 			return txErr
 		}
@@ -197,13 +187,15 @@ func RequireActingSession(ctx context.Context, q *db.Queries, accountID int64, s
 
 // RequireActiveSession validates persisted session authority for session-bound
 // access JWTs, including first-party protected API admission and OAuth consent.
-func RequireActiveSession(ctx context.Context, reader interface {
-	GetSession(context.Context, uuid.UUID) (db.Session, error)
-}, accountID int64, sessionID uuid.UUID, now time.Time) error {
+func RequireActiveSession(ctx context.Context, accountID int64, sessionID uuid.UUID, now time.Time) error {
 	if accountID <= 0 || sessionID == uuid.Nil {
 		return ErrSessionUnavailable
 	}
-	session, err := reader.GetSession(ctx, sessionID)
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
+	session, err := q.GetSession(ctx, sessionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrSessionUnavailable
 	}

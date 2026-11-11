@@ -1,11 +1,11 @@
-package db
+package oauth
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	db "github.com/datvtph41107/bdspro/models/db"
 )
 
 // OAuthCleanupCounts records a bounded, committed sweep; counts are returned
@@ -25,12 +25,17 @@ const oauthCleanupBatch = 2000
 // access ON DELETE CASCADE FK: delete expired refresh rows first, then delete
 // an expired access row ONLY if no refresh row still references it.
 // Expired/consumed refresh rows remain until expiry to allow replay detection.
-func (s *SQLStore) CleanupExpiredOAuth(ctx context.Context, cutoff time.Time) (OAuthCleanupCounts, error) {
+func CleanupExpiredOAuth(ctx context.Context, cutoff time.Time) (OAuthCleanupCounts, error) {
 	if cutoff.IsZero() {
 		return OAuthCleanupCounts{}, fmt.Errorf("OAuth cleanup requires a nonzero cutoff")
 	}
 	var result OAuthCleanupCounts
-	err := s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+	err := db.WithTx(ctx, func(txCtx context.Context) error {
+		tx, err := db.GetEngine(txCtx)
+		if err != nil {
+			return err
+		}
+		ctx := txCtx
 		codes, err := tx.Exec(ctx, `WITH expired AS (
 			SELECT code_hash FROM oauth_auth_codes
 			WHERE expires_at <= $1

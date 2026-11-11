@@ -3,13 +3,9 @@ package organization
 import (
 	"context"
 	"fmt"
-)
 
-// OwnerCoverageReader holds only the SQLC query needed by this read-only
-// diagnostic. It does not grant account or organization mutation capability.
-type OwnerCoverageReader interface {
-	ListOrganizationsWithoutActiveOwner(context.Context, int64) ([]int64, error)
-}
+	db "github.com/datvtph41107/bdspro/models/db"
+)
 
 // OwnerCoverage lists at most 20 affected organizations. HasMore means there
 // are additional results and the count must NOT be reported as exact.
@@ -24,11 +20,15 @@ const maxReportedOwnerlessOrganizations = 20
 // afterID is an exclusive lower bound, allowing bounded operator inspection.
 // It does not try to construct a replacement owner or mutate data. Repair requires
 // independently reviewed authority proof and a separate explicit operation.
-func CheckOwnerCoverage(ctx context.Context, reader OwnerCoverageReader, afterID int64) (OwnerCoverage, error) {
+func CheckOwnerCoverage(ctx context.Context, afterID int64) (OwnerCoverage, error) {
 	if afterID < 0 {
 		return OwnerCoverage{}, fmt.Errorf("owner coverage after-id must not be negative")
 	}
-	ids, err := reader.ListOrganizationsWithoutActiveOwner(ctx, afterID)
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return OwnerCoverage{}, err
+	}
+	ids, err := q.ListOrganizationsWithoutActiveOwner(ctx, afterID)
 	if err != nil {
 		return OwnerCoverage{}, err
 	}

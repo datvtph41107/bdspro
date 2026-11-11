@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	oauth_model "github.com/datvtph41107/bdspro/models/oauth"
 
 	"github.com/google/uuid"
 )
@@ -18,7 +19,7 @@ func (s *Service) ListAuthorizations(ctx context.Context, accountID int64) ([]Au
 	if accountID <= 0 {
 		return nil, ErrAccessDenied
 	}
-	clients, err := s.store.ListOAuthAuthorizations(ctx, accountID)
+	clients, err := oauth_model.ListOAuthAuthorizations(ctx, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -33,5 +34,5 @@ func (s *Service) RevokeAuthorization(ctx context.Context, accountID int64, clie
 	if accountID <= 0 || clientID == uuid.Nil {
 		return ErrInvalidRequest
 	}
-	return s.store.RevokeOAuthAuthorization(ctx, accountID, clientID)
+	return oauth_model.RevokeOAuthAuthorization(ctx, accountID, clientID)
 }

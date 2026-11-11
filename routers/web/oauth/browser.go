@@ -121,12 +121,12 @@ func loadSession(ctx *appctx.APIContext, w http.ResponseWriter, b *Browser) (db.
 	if err != nil {
 		return db.Session{}, false
 	}
-	store, err := db.StoreFromContext(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		ctx.APIError(http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
 		return db.Session{}, false
 	}
-	session, err := store.GetSession(ctx, id)
+	session, err := q.GetSession(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		clearCookie(w, authcrypto.BrowserCookieName(b.secure), b.secure)
 		return db.Session{}, false

@@ -59,6 +59,43 @@ jobs:
           export PATH="$(go env GOPATH)/bin:$PATH"
           make sqlc-check
 
+      # Test the canonical db execution core independently while legacy
+      # domain consumers are being migrated out of models/db.
+      - name: Verify canonical database core
+        env:
+          BDS_TEST_DB_URL: postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable
+        run: |
+          go test -race -count=1 \
+            models/db/conn.go \
+            models/db/engine.go \
+            models/db/engine_init.go \
+            models/db/context.go \
+            models/db/error.go \
+            models/db/sqlc_types.gen.go \
+            models/db/core_context_test.go \
+            models/db/core_postgres_test.go
+
+      - name: Verify OAuth domain persistence compiles independently
+        run: go test ./models/oauth -count=1
+
+      - name: Verify context-first account, auth and OAuth model compilation
+        run: |
+          go build ./models/account ./models/auth ./models/oauth
+          go build ./services/oauth
+
+      - name: Verify production packages compile without legacy Store
+        run: go build ./...
+
+      - name: Verify Go formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            gofmt -d .
+            exit 1
+          fi
+
+
       - name: Verify OpenAPI contract
         run: go test ./routers -run TestOpenAPICoverage -count=1
 
@@ -74,15 +111,6 @@ jobs:
           PGPASSWORD: secret
           BDS_TEST_MODE: disposable
         run: bash tests/integration/migrations/canonical-schema.sh
-
-      - name: Verify Go formatting
-        run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "$unformatted"
-            gofmt -d .
-            exit 1
-          fi
 
       - name: Verify embedded OpenAPI contract and UI
         run: |

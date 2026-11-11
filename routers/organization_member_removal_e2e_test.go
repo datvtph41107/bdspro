@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	db "github.com/datvtph41107/bdspro/models/db"
+	account_model "github.com/datvtph41107/bdspro/models/account"
 )
 
 func TestOrganizationRemoveOrdinaryMemberHTTP(t *testing.T) {
@@ -13,11 +13,11 @@ func TestOrganizationRemoveOrdinaryMemberHTTP(t *testing.T) {
 	ownerID, ownerToken := organizationTestVerifiedAccount(t, ctx, pool)
 	memberID, memberToken := organizationTestVerifiedAccount(t, ctx, pool)
 	_, outsiderToken := organizationTestVerifiedAccount(t, ctx, pool)
-	ownerAccount, err := db.NewStore(pool).GetAccountByID(ctx, ownerID)
+	ownerAccount, err := account_model.ReadByID(ctx, ownerID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	memberAccount, err := db.NewStore(pool).GetAccountByID(ctx, memberID)
+	memberAccount, err := account_model.ReadByID(ctx, memberID)
 	if err != nil {
 		t.Fatal(err)
 	}

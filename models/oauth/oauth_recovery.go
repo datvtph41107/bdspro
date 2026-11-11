@@ -1,15 +1,15 @@
-package db
+package oauth
 
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
+	db "github.com/datvtph41107/bdspro/models/db"
 )
 
 // LockAccountForCredentialRecovery serializes a reset with session inserts
 // (accounts FK KEY SHARE) and OAuth writes (explicit accounts FOR SHARE).
 // Caller holds this lock through the final commit or rollback.
-func LockAccountForCredentialRecovery(ctx context.Context, tx pgx.Tx, accountID int64) error {
+func LockAccountForCredentialRecovery(ctx context.Context, tx db.DBTX, accountID int64) error {
 	var id int64
 	return tx.QueryRow(ctx, `SELECT id FROM accounts WHERE id=$1 FOR UPDATE`, accountID).Scan(&id)
 }
@@ -17,7 +17,7 @@ func LockAccountForCredentialRecovery(ctx context.Context, tx pgx.Tx, accountID 
 // RevokeOAuthForCredentialRecovery must be called in the transaction holding
 // the account FOR UPDATE lock. Do not revoke OAuth clients; they can belong
 // to a different user and remain registered for their other authorizations.
-func RevokeOAuthForCredentialRecovery(ctx context.Context, tx pgx.Tx, accountID int64) error {
+func RevokeOAuthForCredentialRecovery(ctx context.Context, tx db.DBTX, accountID int64) error {
 	if _, err := tx.Exec(ctx, `UPDATE oauth_grants
 		SET revoked_at=COALESCE(revoked_at,now()),version=version+1,updated_at=now()
 		WHERE account_id=$1`, accountID); err != nil {

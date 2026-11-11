@@ -32,15 +32,14 @@ import (
 // access renewal and session revocation. No Gin or HTTP response types enter
 // these operations.
 type AuthService struct {
-	store       db.Store
 	maker       authcrypto.Maker
 	config      setting.Config
 	sender      notification.PhoneCodeSender
 	emailSender mail.EmailSender
 }
 
-func NewAuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config, sender notification.PhoneCodeSender, emailSender ...mail.EmailSender) *AuthService {
-	s := &AuthService{store: store, maker: maker, config: cfg, sender: sender}
+func NewAuthService(maker authcrypto.Maker, cfg setting.Config, sender notification.PhoneCodeSender, emailSender ...mail.EmailSender) *AuthService {
+	s := &AuthService{maker: maker, config: cfg, sender: sender}
 	if len(emailSender) > 0 {
 		s.emailSender = emailSender[0]
 	}
@@ -60,7 +59,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 	if err != nil {
 		return db.Account{}, err
 	}
-	account, err := account_model.Register(ctx, s.store, account_model.RegisterParams{
+	account, err := account_model.Register(ctx, account_model.RegisterParams{
 		Email:        strings.ToLower(strings.TrimSpace(email)),
 		PasswordHash: hash,
 	})
@@ -74,7 +73,11 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (db.
 // already-verified addresses get the same response as a queued message.
 // Delivery uses the existing durable outbox and email verification job.
 func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string) error {
-	account, err := s.store.GetAccountByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
+	account, err := account_model.ReadByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -84,7 +87,7 @@ func (s *AuthService) ResendVerificationEmail(ctx context.Context, email string)
 	if account.IsEmailVerified {
 		return nil
 	}
-	return s.store.RecordEmailVerificationJob(ctx, account.ID)
+	return q.RecordEmailVerificationJob(ctx, account.ID)
 }
 
 type LoginResult struct {
@@ -97,8 +100,12 @@ type LoginResult struct {
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password, userAgent, clientIP string) (LoginResult, error) {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return LoginResult{}, err
+	}
 	var result LoginResult
-	account, err := s.store.GetAccountByEmail(ctx, strings.TrimSpace(email))
+	account, err := account_model.ReadByEmail(ctx, strings.TrimSpace(email))
 	if errors.Is(err, pgx.ErrNoRows) {
 		checkUnknownPassword(password)
 		s.recordLoginRejected(ctx, audit_model.LoginRejected{AccountID: 0, Method: audit_model.MethodPassword, Reason: audit_model.ReasonUnknownAccount, Identifier: email, IP: clientIP})
@@ -107,7 +114,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 	if err != nil {
 		return result, err
 	}
-	hash, err := s.store.GetPasswordHash(ctx, account.ID)
+	hash, err := q.GetPasswordHash(ctx, account.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		checkUnknownPassword(password)
 		s.recordLoginRejected(ctx, audit_model.LoginRejected{AccountID: account.ID, Method: audit_model.MethodPassword, Reason: audit_model.ReasonPasswordUnset, Identifier: email, IP: clientIP})
@@ -124,7 +131,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, cli
 }
 
 func (s *AuthService) VerifyEmail(ctx context.Context, emailID int64, secretCode string) error {
-	_, err := account_model.VerifyEmail(ctx, s.store, db.ConsumeVerifyEmailParams{
+	_, err := account_model.VerifyEmail(ctx, db.ConsumeVerifyEmailParams{
 		ID: emailID, SecretCode: secretCode,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -139,12 +146,16 @@ type RenewResult struct {
 }
 
 func (s *AuthService) Renew(ctx context.Context, refreshToken string) (RenewResult, error) {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return RenewResult{}, err
+	}
 	var result RenewResult
 	payload, err := s.maker.VerifyToken(refreshToken, authcrypto.TokenTypeRefresh)
 	if err != nil {
 		return result, auth_model.ErrInvalidRefreshToken
 	}
-	session, err := s.store.GetSession(ctx, payload.ID)
+	session, err := q.GetSession(ctx, payload.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return result, auth_model.ErrSessionUnavailable
 	}
@@ -164,6 +175,10 @@ func (s *AuthService) Renew(ctx context.Context, refreshToken string) (RenewResu
 }
 
 func (s *AuthService) Revoke(ctx context.Context, refreshToken string) error {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
 	payload, err := s.maker.VerifyToken(refreshToken, authcrypto.TokenTypeRefresh)
 	if err != nil {
 		return auth_model.ErrInvalidRefreshToken
@@ -172,12 +187,12 @@ func (s *AuthService) Revoke(ctx context.Context, refreshToken string) error {
 		ID: payload.ID, AccountID: payload.AccountID,
 		RefreshToken: auth_model.RefreshTokenDigest(refreshToken),
 	}
-	_, err = s.store.BlockSession(ctx, params)
+	_, err = q.BlockSession(ctx, params)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Transition compatibility: sessions written before digest storage
 		// contain the raw JWT. Remove this fallback after their maximum TTL.
 		params.RefreshToken = refreshToken
-		_, err = s.store.BlockSession(ctx, params)
+		_, err = q.BlockSession(ctx, params)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return auth_model.ErrSessionUnavailable
@@ -198,7 +213,7 @@ func (s *AuthService) issueSession(ctx context.Context, account db.Account, user
 	if err != nil {
 		return result, err
 	}
-	session, err := auth_model.NewSession(ctx, s.store, db.CreateSessionParams{
+	session, err := auth_model.NewSession(ctx, db.CreateSessionParams{
 		ID: refreshPayload.ID, AccountID: account.ID, RefreshToken: auth_model.RefreshTokenDigest(refreshToken),
 		UserAgent: boundedConnectionUserAgent(userAgent), ClientIp: clientIP, ExpiresAt: refreshPayload.ExpiredAt,
 	}, expectedPasswordHash...)
@@ -216,7 +231,11 @@ func (s *AuthService) issueSession(ctx context.Context, account db.Account, user
 // synchronous SMTP or reveals whether an email is registered. Workers create
 // time-bound proofs after the durable job reaches Asynq.
 func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
-	account, err := s.store.GetAccountByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
+	account, err := account_model.ReadByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -226,7 +245,7 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 	if !account.IsEmailVerified {
 		return nil
 	}
-	return s.store.RecordPasswordResetJob(ctx, account.ID)
+	return q.RecordPasswordResetJob(ctx, account.ID)
 }
 
 // ResetPassword consumes its token transactionally and revokes refresh sessions.
@@ -245,7 +264,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, secret, password string
 	if err != nil {
 		return err
 	}
-	err = auth_model.ResetPassword(ctx, s.store, digest[:], hash)
+	err = auth_model.ResetPassword(ctx, digest[:], hash)
 	if errors.Is(err, auth_model.ErrPasswordResetInvalid) {
 		return auth_model.ErrInvalidResetToken
 	}
@@ -260,14 +279,14 @@ func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email
 	if !valid {
 		return auth_model.ErrInvalidEmail
 	}
-	account, err := s.store.GetAccountByID(ctx, accountID)
+	account, err := account_model.ReadByID(ctx, accountID)
 	if err != nil {
 		return err
 	}
 	if account.Email != "" {
 		return auth_model.ErrEmailAlreadyLinked
 	}
-	_, err = s.store.GetAccountByEmail(ctx, email)
+	_, err = account_model.ReadByEmail(ctx, email)
 	if err == nil {
 		return account_model.ErrEmailRegistered
 	}
@@ -283,7 +302,7 @@ func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email
 	}
 	secret := base64.RawURLEncoding.EncodeToString(raw)
 	hash := sha256.Sum256([]byte(secret))
-	if err := account_model.BeginEmailLink(ctx, s.store, accountID, email, hash[:]); err != nil {
+	if err := account_model.BeginEmailLink(ctx, accountID, email, hash[:]); err != nil {
 		switch {
 		case errors.Is(err, account_model.ErrEmailLinkTaken):
 			return account_model.ErrEmailRegistered
@@ -303,7 +322,7 @@ func (s *AuthService) ConfirmEmailLink(ctx context.Context, accountID int64, sec
 		return auth_model.ErrInvalidEmailLink
 	}
 	hash := sha256.Sum256([]byte(secret))
-	err := account_model.ConfirmEmailLink(ctx, s.store, accountID, hash[:])
+	err := account_model.ConfirmEmailLink(ctx, accountID, hash[:])
 	if errors.Is(err, account_model.ErrEmailLinkInvalid) {
 		return auth_model.ErrInvalidEmailLink
 	}
@@ -347,7 +366,7 @@ func (s *AuthService) startPhoneChallenge(ctx context.Context, phone, purpose st
 	if s.config.Environment == "development" {
 		devCode = code
 	}
-	if err := auth_model.StartChallenge(ctx, s.store, phone, purpose, accountID, s.phoneCodeMAC(phone, purpose, accountID, code), devCode); err != nil {
+	if err := auth_model.StartChallenge(ctx, phone, purpose, accountID, s.phoneCodeMAC(phone, purpose, accountID, code), devCode); err != nil {
 		return err
 	}
 	if s.sender == nil {
@@ -359,13 +378,17 @@ func (s *AuthService) startPhoneChallenge(ctx context.Context, phone, purpose st
 // StartBind authenticates an account with its existing BDSPro password.
 // The challenge can only be created after fresh proof of account control.
 func (s *AuthService) StartPhoneBind(ctx context.Context, accountID int64, password, phone string) error {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
 	if err := s.phoneAllowed(); err != nil {
 		return err
 	}
 	if !phoneE164.MatchString(phone) {
 		return auth_model.ErrInvalidPhone
 	}
-	hash, err := s.store.GetPasswordHash(ctx, accountID)
+	hash, err := q.GetPasswordHash(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return auth_model.ErrInvalidCredentials
 	}
@@ -381,6 +404,10 @@ func (s *AuthService) StartPhoneBind(ctx context.Context, accountID int64, passw
 // StartOAuth2Bind requires a fresh OIDC assertion whose issuer/subject is
 // already linked to this very account. Matching email never authorizes binding.
 func (s *AuthService) StartOAuth2PhoneBind(ctx context.Context, accountID int64, identity auth_model.OIDCClaims, phone string) error {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
 	if err := s.phoneAllowed(); err != nil {
 		return err
 	}
@@ -391,7 +418,7 @@ func (s *AuthService) StartOAuth2PhoneBind(ctx context.Context, accountID int64,
 	if err != nil || !s.config.OIDC.Enabled() || key.Issuer != s.config.OIDC.Issuer {
 		return auth_model.ErrInvalidCredentials
 	}
-	linkedID, err := auth_model.GetOAuth2AccountID(ctx, s.store, key)
+	linkedID, err := auth_model.GetOAuth2AccountID(ctx, q, key)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && linkedID != accountID) {
 		return auth_model.ErrInvalidCredentials
 	}
@@ -402,17 +429,21 @@ func (s *AuthService) StartOAuth2PhoneBind(ctx context.Context, accountID int64,
 }
 
 func (s *AuthService) startPhoneBind(ctx context.Context, accountID int64, phone string) error {
-	if _, err := s.store.GetAccountByID(ctx, accountID); err != nil {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
+	if _, err := account_model.ReadByID(ctx, accountID); err != nil {
 		return err
 	}
 	// A previously verified account cannot start binding another number.
 	// The unique account_id constraint remains the concurrency safeguard.
-	if _, lookupErr := s.store.GetPhoneForAccount(ctx, accountID); lookupErr == nil {
+	if _, lookupErr := q.GetPhoneForAccount(ctx, accountID); lookupErr == nil {
 		return auth_model.ErrPhoneUnavailable
 	} else if !errors.Is(lookupErr, pgx.ErrNoRows) {
 		return lookupErr
 	}
-	existing, err := auth_model.AccountIDForPhone(ctx, s.store, phone)
+	existing, err := auth_model.AccountIDForPhone(ctx, phone)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -431,7 +462,7 @@ func (s *AuthService) VerifyPhoneBind(ctx context.Context, accountID int64, phon
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
 		return auth_model.ErrOTPInvalid
 	}
-	return auth_model.ConsumeChallenge(ctx, s.store, phone, "bind", accountID, s.phoneCodeMAC(phone, "bind", accountID, code))
+	return auth_model.ConsumeChallenge(ctx, phone, "bind", accountID, s.phoneCodeMAC(phone, "bind", accountID, code))
 }
 
 // StartRegister sends an OTP before any account is created. A registered
@@ -443,7 +474,7 @@ func (s *AuthService) StartPhoneRegister(ctx context.Context, phone string) erro
 	if !phoneE164.MatchString(phone) {
 		return auth_model.ErrInvalidPhone
 	}
-	_, err := auth_model.AccountIDForPhone(ctx, s.store, phone)
+	_, err := auth_model.AccountIDForPhone(ctx, phone)
 	if err == nil {
 		return auth_model.ErrPhoneRegistered
 	}
@@ -458,7 +489,7 @@ func (s *AuthService) StartPhoneRegister(ctx context.Context, phone string) erro
 	if s.config.Environment == "development" {
 		devCode = code
 	}
-	if err = auth_model.StartPhoneSignup(ctx, s.store, phone, s.phoneCodeMAC(phone, "register", 0, code), devCode); err != nil {
+	if err = auth_model.StartPhoneSignup(ctx, phone, s.phoneCodeMAC(phone, "register", 0, code), devCode); err != nil {
 		if errors.Is(err, auth_model.ErrOTPCooldown) {
 			return auth_model.ErrOTPCooldown
 		}
@@ -481,7 +512,7 @@ func (s *AuthService) VerifyPhoneRegister(ctx context.Context, phone, code, user
 	if !phoneE164.MatchString(phone) || !phoneCode.MatchString(code) {
 		return empty, auth_model.ErrOTPInvalid
 	}
-	a, err := auth_model.CompletePhoneSignup(ctx, s.store, phone, s.phoneCodeMAC(phone, "register", 0, code))
+	a, err := auth_model.CompletePhoneSignup(ctx, phone, s.phoneCodeMAC(phone, "register", 0, code))
 	if err != nil {
 		return empty, err
 	}
@@ -497,7 +528,7 @@ func (s *AuthService) StartPhoneLogin(ctx context.Context, phone string) error {
 	if !phoneE164.MatchString(phone) {
 		return auth_model.ErrInvalidPhone
 	}
-	accountID, err := auth_model.AccountIDForPhone(ctx, s.store, phone)
+	accountID, err := auth_model.AccountIDForPhone(ctx, phone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -522,7 +553,7 @@ func (s *AuthService) VerifyPhoneLogin(ctx context.Context, phone, code, userAge
 		}
 		return empty, auth_model.ErrOTPInvalid
 	}
-	accountID, err := auth_model.AccountIDForPhone(ctx, s.store, phone)
+	accountID, err := auth_model.AccountIDForPhone(ctx, phone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		s.recordLoginRejected(ctx, audit_model.LoginRejected{AccountID: 0, Method: audit_model.MethodPhoneOTP, Reason: audit_model.ReasonUnknownAccount, Identifier: phone, IP: clientIP})
 		return empty, auth_model.ErrOTPInvalid
@@ -530,14 +561,14 @@ func (s *AuthService) VerifyPhoneLogin(ctx context.Context, phone, code, userAge
 	if err != nil {
 		return empty, err
 	}
-	if err := auth_model.ConsumeChallenge(ctx, s.store, phone, "login", accountID, s.phoneCodeMAC(phone, "login", accountID, code)); err != nil {
+	if err := auth_model.ConsumeChallenge(ctx, phone, "login", accountID, s.phoneCodeMAC(phone, "login", accountID, code)); err != nil {
 		if errors.Is(err, auth_model.ErrOTPInvalid) {
 			s.recordLoginRejected(ctx, audit_model.LoginRejected{AccountID: accountID, Method: audit_model.MethodPhoneOTP, Reason: audit_model.ReasonInvalidOTP, Identifier: phone, IP: clientIP})
 			return empty, auth_model.ErrOTPInvalid
 		}
 		return empty, err
 	}
-	account, err := s.store.GetAccountByID(ctx, accountID)
+	account, err := account_model.ReadByID(ctx, accountID)
 	if err != nil {
 		return empty, err
 	}
@@ -548,17 +579,21 @@ func (s *AuthService) VerifyPhoneLogin(ctx context.Context, phone, code, userAge
 // The login OTP is single-use, so it cannot be replayed for OAuth linking.
 // A linked OAuth2 credential is not inferred from a matching email address.
 func (s *AuthService) AuthorizePhoneProof(ctx context.Context, accountID int64, code string) error {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
 	if !phoneCode.MatchString(code) {
 		return auth_model.ErrOTPInvalid
 	}
-	phone, err := s.store.GetPhoneForAccount(ctx, accountID)
+	phone, err := q.GetPhoneForAccount(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return auth_model.ErrInvalidCredentials
 	}
 	if err != nil {
 		return err
 	}
-	err = auth_model.ConsumeChallenge(ctx, s.store, phone, "login", accountID, s.phoneCodeMAC(phone, "login", accountID, code))
+	err = auth_model.ConsumeChallenge(ctx, phone, "login", accountID, s.phoneCodeMAC(phone, "login", accountID, code))
 	if errors.Is(err, auth_model.ErrOTPInvalid) {
 		return auth_model.ErrOTPInvalid
 	}
@@ -568,7 +603,7 @@ func (s *AuthService) AuthorizePhoneProof(ctx context.Context, accountID int64, 
 // CurrentAccount reads persisted identity instead of echoing a JWT claim.
 // All credentials converge on the same account representation.
 func (s *AuthService) CurrentAccount(ctx context.Context, id int64) (db.Account, error) {
-	return account_model.GetByID(ctx, s.store, id)
+	return account_model.GetByID(ctx, id)
 }
 
 // A fixed bcrypt hash at the same cost as freshly issued password hashes.
@@ -584,7 +619,7 @@ func checkUnknownPassword(password string) {
 // GetConnections reads the authenticated Account's latest connection events.
 // The HTTP boundary supplies accountID from verified JWT claims, not request input.
 func (s *AuthService) GetConnections(ctx context.Context, accountID int64) ([]db.ListAccountConnectionHistoriesRow, error) {
-	return account_model.GetConnections(ctx, s.store, accountID)
+	return account_model.GetConnections(ctx, accountID)
 }
 
 // boundedConnectionUserAgent preserves valid Unicode while respecting the
@@ -603,7 +638,7 @@ func boundedConnectionUserAgent(value string) string {
 // to record an unsuccessful login must not convert a 401 into a 5xx or allow
 // a credential to be issued. Successful session-history writes remain atomic.
 func (s *AuthService) recordLoginRejected(ctx context.Context, event audit_model.LoginRejected) {
-	if err := audit_model.RecordLoginRejected(ctx, s.store, s.config.AuditKey, event); err != nil {
+	if err := audit_model.RecordLoginRejected(ctx, s.config.AuditKey, event); err != nil {
 		log.Ctx(ctx).Warn().
 			Str("method", event.Method).
 			Str("error_type", fmt.Sprintf("%T", err)).

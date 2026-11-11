@@ -22,7 +22,7 @@ type PayloadSendPasswordReset struct {
 }
 
 // NewPasswordResetHandler adapts the business job to native Asynq.
-func NewPasswordResetHandler(store jobs.PasswordResetStore, sender mail.EmailSender, verifyURL string) asynq.Handler {
+func NewPasswordResetHandler(sender mail.EmailSender, verifyURL string) asynq.Handler {
 	return asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
 		var payload PayloadSendPasswordReset
 		if err := json.Unmarshal(task.Payload(), &payload); err != nil {
@@ -37,6 +37,6 @@ func NewPasswordResetHandler(store jobs.PasswordResetStore, sender mail.EmailSen
 			log.Ctx(ctx).Warn().Str("task", task.Type()).Msg("password_reset.legacy_job_skipped")
 			return nil
 		}
-		return jobs.SendPasswordResetEmailForVersion(ctx, store, sender, verifyURL, payload.AccountID, *payload.ResetVersion)
+		return jobs.SendPasswordResetEmailForVersion(ctx, sender, verifyURL, payload.AccountID, *payload.ResetVersion)
 	})
 }

@@ -100,8 +100,13 @@ func TestOrganizationCreateWorkflowPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	unauthorizedName := "Stale creator proof " + uuid.NewString()
-	_, err = db.WithTxResult(ctx, store, func(q *db.Queries) (*Organization, error) {
-		return CreateOrganizationForCreator(ctx, q, stale, unauthorizedName)
+	_, err = db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (*Organization, error) {
+		q, getQueriesErr := db.GetQueries(txCtx)
+		if getQueriesErr != nil {
+			var zero *Organization
+			return zero, getQueriesErr
+		}
+		return CreateOrganizationForCreator(txCtx, q, stale, unauthorizedName)
 	})
 	if !errors.Is(err, account_model.ErrAccountUnavailable) {
 		t.Fatalf("stale proof accepted by new transaction: %v", err)

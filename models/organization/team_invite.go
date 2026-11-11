@@ -43,7 +43,7 @@ type CreatedTeamInvite struct {
 // CreateTeamInvite atomically stores the hashed proof and a durable delivery intent.
 // The same secret can be recovered by the worker from the random invitation ID
 // and the signing key, without storing a plaintext proof in the outbox.
-func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamID int64, email string, ttl time.Duration, signingKey string) (CreatedTeamInvite, error) {
+func CreateTeamInvite(ctx context.Context, actorAccountID, teamID int64, email string, ttl time.Duration, signingKey string) (CreatedTeamInvite, error) {
 	// Reject obviously invalid invitations before acquiring a connection.
 	if _, valid := validation.EmailAddress(email); !valid || ttl <= 0 {
 		return CreatedTeamInvite{}, ErrTeamInviteInvalid
@@ -53,8 +53,8 @@ func CreateTeamInvite(ctx context.Context, store db.Store, actorAccountID, teamI
 	if !secret.ValidDerivationKey(signingKey) {
 		return CreatedTeamInvite{}, ErrTeamInviteInvalid
 	}
-	return db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (CreatedTeamInvite, error) {
-		q, err := db.TxQueries(txCtx)
+	return db.WithTx2(ctx, func(txCtx context.Context) (CreatedTeamInvite, error) {
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return CreatedTeamInvite{}, err
 		}
@@ -108,12 +108,12 @@ func ValidTeamInviteProof(token string) bool {
 	return err == nil && len(raw) == 32
 }
 
-func AcceptTeamInvite(ctx context.Context, store db.Store, accountID int64, token string) (*TeamMember, error) {
+func AcceptTeamInvite(ctx context.Context, accountID int64, token string) (*TeamMember, error) {
 	if !ValidTeamInviteProof(token) {
 		return nil, ErrTeamInviteInvalid
 	}
-	return db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (*TeamMember, error) {
-		q, err := db.TxQueries(txCtx)
+	return db.WithTx2(ctx, func(txCtx context.Context) (*TeamMember, error) {
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}

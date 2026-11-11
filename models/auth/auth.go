@@ -7,6 +7,7 @@ import (
 	"time"
 
 	db "github.com/datvtph41107/bdspro/models/db"
+	oauth_model "github.com/datvtph41107/bdspro/models/oauth"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
 )
@@ -14,17 +15,23 @@ import (
 // ResetPassword is a credential-recovery transaction: the reset token,
 // password, sessions and third-party OAuth grants commit or roll back together.
 // Internal stateless access JWTs still follow the existing expiry policy.
-type Transactioner = db.Transactioner
-
-func ResetPassword(ctx context.Context, store db.Store, tokenHash []byte, passwordHash string) error {
-	return store.ExecTxRaw(ctx, func(tx pgx.Tx) error {
-		q := db.New(tx)
+func ResetPassword(ctx context.Context, tokenHash []byte, passwordHash string) error {
+	return db.WithTx(ctx, func(txCtx context.Context) error {
+		tx, err := db.GetEngine(txCtx)
+		if err != nil {
+			return err
+		}
+		q, err := db.GetQueries(txCtx)
+		if err != nil {
+			return err
+		}
+		ctx := txCtx
 		// Read the immutable owner of the one-use proof without consuming it.
 		// Lock the account BEFORE deleting any proof: concurrent recovery
 		// requests for different proofs otherwise can deadlock while trying
 		// to delete each other's proof row.
 		var accountID int64
-		err := tx.QueryRow(ctx, `SELECT account_id FROM password_reset_tokens
+		err = tx.QueryRow(ctx, `SELECT account_id FROM password_reset_tokens
 			WHERE token_hash=$1 AND expires_at>now()`, tokenHash).Scan(&accountID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrPasswordResetInvalid
@@ -32,7 +39,7 @@ func ResetPassword(ctx context.Context, store db.Store, tokenHash []byte, passwo
 		if err != nil {
 			return err
 		}
-		if err := db.LockAccountForCredentialRecovery(ctx, tx, accountID); err != nil {
+		if err := oauth_model.LockAccountForCredentialRecovery(ctx, tx, accountID); err != nil {
 			return err
 		}
 		consumedID, err := q.ConsumePasswordResetToken(ctx, tokenHash)
@@ -58,18 +65,26 @@ func ResetPassword(ctx context.Context, store db.Store, tokenHash []byte, passwo
 		if err := q.DeleteSessionsForAccount(ctx, accountID); err != nil {
 			return err
 		}
-		return db.RevokeOAuthForCredentialRecovery(ctx, tx, accountID)
+		return oauth_model.RevokeOAuthForCredentialRecovery(ctx, tx, accountID)
 	})
 }
 
 // AccountIDForPhone returns the account with the verified phone credential.
-func AccountIDForPhone(ctx context.Context, store db.Store, phone string) (int64, error) {
-	return store.GetPhoneAccountIDQuery(ctx, phone)
+func AccountIDForPhone(ctx context.Context, phone string) (int64, error) {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return q.GetPhoneAccountIDQuery(ctx, phone)
 }
 
 // StartChallenge enforces the rate/cooldown predicate in the SQLC upsert.
-func StartChallenge(ctx context.Context, store db.Store, phone, purpose string, accountID int64, mac []byte, devCode string) error {
-	affected, err := store.UpsertPhoneChallengeQuery(ctx, db.UpsertPhoneChallengeQueryParams{
+func StartChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte, devCode string) error {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
+	affected, err := q.UpsertPhoneChallengeQuery(ctx, db.UpsertPhoneChallengeQueryParams{
 		PhoneE164: phone, Purpose: purpose, AccountID: accountID,
 		CodeMac: mac, DevCode: devCode,
 	})
@@ -84,10 +99,10 @@ func StartChallenge(ctx context.Context, store db.Store, phone, purpose string, 
 
 // ConsumeChallenge preserves the security invariant: a wrong OTP commits
 // its failed-attempt counter, while all credential writes remain atomic.
-func ConsumeChallenge(ctx context.Context, store db.Store, phone, purpose string, accountID int64, mac []byte) error {
+func ConsumeChallenge(ctx context.Context, phone, purpose string, accountID int64, mac []byte) error {
 	invalidCode := false
-	err := db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
-		q, err := db.TxQueries(txCtx)
+	err := db.WithTx(ctx, func(txCtx context.Context) error {
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return err
 		}
@@ -157,8 +172,12 @@ func ConsumeChallenge(ctx context.Context, store db.Store, phone, purpose string
 }
 
 // StartPhoneSignup owns the cooldown predicate; it does not create an account.
-func StartPhoneSignup(ctx context.Context, store db.Store, phone string, mac []byte, devCode string) error {
-	n, err := store.UpsertPhoneSignup(ctx, db.UpsertPhoneSignupParams{
+func StartPhoneSignup(ctx context.Context, phone string, mac []byte, devCode string) error {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
+	n, err := q.UpsertPhoneSignup(ctx, db.UpsertPhoneSignupParams{
 		PhoneE164: phone, CodeMac: mac, DevCode: devCode,
 	})
 	if err != nil {
@@ -172,11 +191,11 @@ func StartPhoneSignup(ctx context.Context, store db.Store, phone string, mac []b
 
 // CompletePhoneSignup commits failed attempts on wrong codes and atomically
 // creates the Party, Person, Account and PhoneCredential on successful proof.
-func CompletePhoneSignup(ctx context.Context, store db.Store, phone string, mac []byte) (db.Account, error) {
+func CompletePhoneSignup(ctx context.Context, phone string, mac []byte) (db.Account, error) {
 	var account db.Account
 	invalidCode := false
-	err := db.WithTx(db.WithStore(ctx, store), func(txCtx context.Context) error {
-		q, err := db.TxQueries(txCtx)
+	err := db.WithTx(ctx, func(txCtx context.Context) error {
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return err
 		}

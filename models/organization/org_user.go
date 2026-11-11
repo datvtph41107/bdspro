@@ -52,14 +52,14 @@ func GetOrgMembersForDoer(ctx context.Context, organizationID int64) ([]*Member,
 	if !ok {
 		return nil, auth_model.ErrSessionUnavailable
 	}
-	store, err := db.StoreFromContext(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return GetOrgMembers(ctx, store, actor.AccountID, organizationID)
+	return GetOrgMembers(ctx, q, actor.AccountID, organizationID)
 }
 
-func GetOrgMembers(ctx context.Context, store db.Store, actorAccountID, organizationID int64) ([]*Member, error) {
+func GetOrgMembers(ctx context.Context, store db.Querier, actorAccountID, organizationID int64) ([]*Member, error) {
 	members, err := store.ListOrganizationMembersForOwner(ctx, db.ListOrganizationMembersForOwnerParams{
 		OrganizationID: organizationID, ActorAccountID: actorAccountID,
 	})

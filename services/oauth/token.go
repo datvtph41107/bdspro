@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/models/db"
+	oauth_model "github.com/datvtph41107/bdspro/models/oauth"
 	"github.com/google/uuid"
 )
 
@@ -49,8 +49,8 @@ func (s *Service) tokenClient(ctx context.Context, id uuid.UUID) error {
 	if id == uuid.Nil {
 		return ErrInvalidClient
 	}
-	client, err := s.store.GetOAuthClient(ctx, id)
-	if errors.Is(err, db.ErrOAuthClientMissing) {
+	client, err := oauth_model.GetOAuthClient(ctx, id)
+	if errors.Is(err, oauth_model.ErrOAuthClientMissing) {
 		return ErrInvalidClient
 	}
 	if err != nil {
@@ -90,10 +90,10 @@ func (s *Service) ExchangeCode(ctx context.Context, clientID uuid.UUID,
 		return TokenResponse{}, err
 	}
 	now := time.Now()
-	grant, err := s.store.RedeemOAuthAuthCode(ctx, clientID, bearerHash(code),
+	grant, err := oauth_model.RedeemOAuthAuthCode(ctx, clientID, bearerHash(code),
 		redirect, challenge, bearerHash(access), bearerHash(refresh),
 		now.Add(AccessTokenTTL), now.Add(RefreshTokenTTL), family)
-	if errors.Is(err, db.ErrOAuthGrantInvalid) {
+	if errors.Is(err, oauth_model.ErrOAuthGrantInvalid) {
 		return TokenResponse{}, ErrInvalidGrant
 	}
 	if err != nil {
@@ -121,10 +121,10 @@ func (s *Service) RefreshToken(ctx context.Context,
 	if err != nil {
 		return TokenResponse{}, err
 	}
-	grant, err := s.store.RotateOAuthRefreshToken(ctx, clientID,
+	grant, err := oauth_model.RotateOAuthRefreshToken(ctx, clientID,
 		bearerHash(refresh), bearerHash(access), bearerHash(nextRefresh),
 		time.Now().Add(AccessTokenTTL))
-	if errors.Is(err, db.ErrOAuthGrantInvalid) || errors.Is(err, db.ErrOAuthGrantReplay) {
+	if errors.Is(err, oauth_model.ErrOAuthGrantInvalid) || errors.Is(err, oauth_model.ErrOAuthGrantReplay) {
 		return TokenResponse{}, ErrInvalidGrant
 	}
 	if err != nil {
@@ -145,16 +145,16 @@ func (s *Service) RevokeToken(ctx context.Context, clientID uuid.UUID, raw strin
 	if !validBearer(raw) {
 		return nil
 	}
-	return s.store.RevokeOAuthBearer(ctx, clientID, bearerHash(raw))
+	return oauth_model.RevokeOAuthBearer(ctx, clientID, bearerHash(raw))
 }
 
-func (s *Service) UserAccess(ctx context.Context, raw string) (db.OAuthAccess, error) {
+func (s *Service) UserAccess(ctx context.Context, raw string) (oauth_model.OAuthAccess, error) {
 	if !validBearer(raw) {
-		return db.OAuthAccess{}, ErrInvalidGrant
+		return oauth_model.OAuthAccess{}, ErrInvalidGrant
 	}
-	access, err := s.store.ResolveOAuthAccessToken(ctx, bearerHash(raw))
-	if errors.Is(err, db.ErrOAuthGrantInvalid) {
-		return db.OAuthAccess{}, ErrInvalidGrant
+	access, err := oauth_model.ResolveOAuthAccessToken(ctx, bearerHash(raw))
+	if errors.Is(err, oauth_model.ErrOAuthGrantInvalid) {
+		return oauth_model.OAuthAccess{}, ErrInvalidGrant
 	}
 	return access, err
 }

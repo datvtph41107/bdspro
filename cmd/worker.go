@@ -5,7 +5,9 @@ import (
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/conn"
+	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/process"
 	"github.com/datvtph41107/bdspro/modules/queue"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/mail"
@@ -37,15 +39,32 @@ func runWorker(ctx context.Context, _ *cli.Command) error {
 		return err
 	}
 
-	store, err := db.InitStore(ctx, setting.Database.DBSource)
-	if err != nil {
+	graceful.InitManagerWithTimeout(ctx, setting.Common.Graceful.HammerTimeout)
+	lifecycle := graceful.GetManager()
+	lifecycle.RegisterServer()
+	err := func() error {
+		defer lifecycle.ServerDone()
+		workerCtx, _, finished := process.GetManager().AddTypedContext(
+			lifecycle.HammerContext(), "Worker: Asynq and outbox", process.SystemProcessType, true,
+		)
+		defer finished()
+		return runWorkerRuntime(workerCtx, lifecycle.ShutdownContext())
+	}()
+	lifecycle.DoGracefulShutdown()
+	<-lifecycle.Done()
+	return err
+}
+
+// runWorkerRuntime owns resources. All defers finish before the worker is
+// marked drained; database and Redis close only after the jobs stop.
+func runWorkerRuntime(ctx, shutdownCtx context.Context) error {
+	if err := db.InitEngine(ctx); err != nil {
 		return err
 	}
-	defer store.Close()
 
 	redisManager := conn.NewRedisManager()
 	defer redisManager.Close()
-	if _, err = redisManager.Client(ctx, setting.Redis.Address); err != nil {
+	if _, err := redisManager.Client(ctx, setting.Redis.Address); err != nil {
 		return err
 	}
 
@@ -65,9 +84,9 @@ func runWorker(ctx context.Context, _ *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, setting.Mailer.VerifyEmailURL))
-	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(store, mailer, setting.Mailer.VerifyEmailURL))
-	processor.Handle(worker.TaskSendTeamInvite, worker.NewTeamInviteHandler(store, mailer, setting.Security.TokenSymmetricKey))
+	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(mailer, setting.Mailer.VerifyEmailURL))
+	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(mailer, setting.Mailer.VerifyEmailURL))
+	processor.Handle(worker.TaskSendTeamInvite, worker.NewTeamInviteHandler(mailer, setting.Security.TokenSymmetricKey))
 	if err = processor.Start(); err != nil {
 		return err
 	}
@@ -80,14 +99,14 @@ func runWorker(ctx context.Context, _ *cli.Command) error {
 	defer manager.Shutdown()
 
 	dispatchCtx, stopDispatch := context.WithCancel(ctx)
-	dispatcher := worker.NewOutboxDispatcher(store, enqueuer)
+	dispatcher := worker.NewOutboxDispatcher(enqueuer)
 	dispatcher.Start(dispatchCtx)
-	retention := worker.NewLoginRetention(store, setting.Audit.RetentionDays)
+	retention := worker.NewLoginRetention(setting.Audit.RetentionDays)
 	retention.Start(dispatchCtx)
 	defer func() { stopDispatch(); retention.Wait(); dispatcher.Wait() }()
 
 	log.Info("Asynq worker, outbox dispatcher and retention started")
-	<-ctx.Done()
+	<-shutdownCtx.Done()
 	log.Info("Worker shutdown requested")
 	return nil
 }

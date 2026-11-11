@@ -20,20 +20,12 @@ const (
 // audit events. This is operational maintenance, never a login dependency.
 // Multiple workers may run the SQLC SKIP LOCKED deletes concurrently.
 type LoginRetention struct {
-	store interface {
-		DeleteExpiredAccountConnectionHistories(context.Context, db.DeleteExpiredAccountConnectionHistoriesParams) (int64, error)
-		DeleteOldAuditEvents(context.Context, db.DeleteOldAuditEventsParams) (int64, error)
-	}
 	retention time.Duration
 	done      chan struct{}
 }
 
-func NewLoginRetention(store interface {
-	DeleteExpiredAccountConnectionHistories(context.Context, db.DeleteExpiredAccountConnectionHistoriesParams) (int64, error)
-	DeleteOldAuditEvents(context.Context, db.DeleteOldAuditEventsParams) (int64, error)
-}, retentionDays int) *LoginRetention {
+func NewLoginRetention(retentionDays int) *LoginRetention {
 	return &LoginRetention{
-		store:     store,
 		retention: time.Duration(retentionDays) * 24 * time.Hour,
 		done:      make(chan struct{}),
 	}
@@ -44,6 +36,10 @@ func NewLoginRetention(store interface {
 // rejected-proof cleanup is still attempted. Partial failures are retried on
 // the next scheduled sweep and never roll back committed deletions.
 func (w *LoginRetention) Sweep(ctx context.Context, now time.Time) (int64, error) {
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return 0, err
+	}
 	cutoff := now.UTC().Add(-w.retention)
 	var deleted int64
 	var connectionErr error
@@ -51,7 +47,7 @@ func (w *LoginRetention) Sweep(ctx context.Context, now time.Time) (int64, error
 		if err := ctx.Err(); err != nil {
 			return deleted, err
 		}
-		n, err := w.store.DeleteExpiredAccountConnectionHistories(ctx, db.DeleteExpiredAccountConnectionHistoriesParams{
+		n, err := q.DeleteExpiredAccountConnectionHistories(ctx, db.DeleteExpiredAccountConnectionHistoriesParams{
 			Cutoff: cutoff,
 			Take:   loginRetentionBatchSize,
 		})
@@ -68,7 +64,7 @@ func (w *LoginRetention) Sweep(ctx context.Context, now time.Time) (int64, error
 		if err := ctx.Err(); err != nil {
 			return deleted, errors.Join(connectionErr, err)
 		}
-		n, err := w.store.DeleteOldAuditEvents(ctx, db.DeleteOldAuditEventsParams{
+		n, err := q.DeleteOldAuditEvents(ctx, db.DeleteOldAuditEventsParams{
 			Cutoff: cutoff,
 			Take:   loginRetentionBatchSize,
 		})

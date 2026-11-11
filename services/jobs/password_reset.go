@@ -9,28 +9,22 @@ import (
 	"html"
 	"net/url"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/services/mail"
 )
 
-// PasswordResetStore is the minimal data needed to fulfill a reset intent.
-// The Asynq payload carries account ID and a non-secret recovery version.
-type PasswordResetStore interface {
-	GetAccountByID(ctx context.Context, id int64) (db.Account, error)
-	IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, arg db.IssuePasswordResetTokenIfCurrentVersionParams) (int64, error)
-}
-
 // SendPasswordResetEmail retains the pre-versioned entry point for callers
 // operating on a never-recovered account (generation zero). Worker transport
 // MUST use SendPasswordResetEmailForVersion with the persisted generation.
-func SendPasswordResetEmail(ctx context.Context, store PasswordResetStore, sender mail.EmailSender, verifyURL string, accountID int64) error {
-	return SendPasswordResetEmailForVersion(ctx, store, sender, verifyURL, accountID, 0)
+func SendPasswordResetEmail(ctx context.Context, sender mail.EmailSender, verifyURL string, accountID int64) error {
+	return SendPasswordResetEmailForVersion(ctx, sender, verifyURL, accountID, 0)
 }
 
 // SendPasswordResetEmailForVersion only issues proofs for the recovery version
 // captured when the durable job was requested. Provider failures remain retryable.
-func SendPasswordResetEmailForVersion(ctx context.Context, store PasswordResetStore, sender mail.EmailSender, verifyURL string, accountID, resetVersion int64) error {
-	account, err := store.GetAccountByID(ctx, accountID)
+func SendPasswordResetEmailForVersion(ctx context.Context, sender mail.EmailSender, verifyURL string, accountID, resetVersion int64) error {
+	account, err := account_model.ReadByID(ctx, accountID)
 	if err != nil {
 		return err
 	}
@@ -49,7 +43,11 @@ func SendPasswordResetEmailForVersion(ctx context.Context, store PasswordResetSt
 	}
 	link.Path = "/users/password/reset"
 	link.RawQuery = url.Values{"token": {secret}}.Encode()
-	affected, err := store.IssuePasswordResetTokenIfCurrentVersion(ctx, db.IssuePasswordResetTokenIfCurrentVersionParams{
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
+	affected, err := q.IssuePasswordResetTokenIfCurrentVersion(ctx, db.IssuePasswordResetTokenIfCurrentVersionParams{
 		TokenHash: digest[:], AccountID: account.ID, ResetVersion: resetVersion,
 	})
 	if err != nil {

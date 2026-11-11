@@ -31,7 +31,7 @@ func UpdateUserSettings(ctx context.Context, patch SettingsPatch) (*account_mode
 		return nil, err
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (*account_model.Profile, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}

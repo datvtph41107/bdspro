@@ -28,7 +28,11 @@ func (s *AuthService) credentialKey(identity auth_model.OIDCClaims) (auth_model.
 // CheckPassword authenticates the local account before starting a link.
 // A verified external email address cannot authorize linking by itself.
 func (s *AuthService) CheckPassword(ctx context.Context, accountID int64, password string) error {
-	hash, err := s.store.GetPasswordHash(ctx, accountID)
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
+	hash, err := q.GetPasswordHash(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return auth_model.ErrInvalidCredentials
 	}
@@ -49,7 +53,11 @@ func (s *AuthService) LinkOIDC(ctx context.Context, accountID int64, identity au
 	if err != nil {
 		return err
 	}
-	return auth_model.LinkOAuth2Credential(ctx, s.store, accountID, key)
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return err
+	}
+	return auth_model.LinkOAuth2Credential(ctx, q, accountID, key)
 }
 
 // Login never automatically links identities to an existing email account.
@@ -61,22 +69,26 @@ func (s *AuthService) LoginOIDC(ctx context.Context, identity auth_model.OIDCCla
 		s.recordLoginRejected(ctx, audit_model.LoginRejected{Method: audit_model.MethodOIDC, Reason: audit_model.ReasonInvalidIdentity, Identifier: identity.Issuer + "\x00" + identity.Subject, IP: clientIP})
 		return empty, err
 	}
-	accountID, err := auth_model.GetOAuth2AccountID(ctx, s.store, key)
+	q, err := db.GetQueries(ctx)
+	if err != nil {
+		return empty, err
+	}
+	accountID, err := auth_model.GetOAuth2AccountID(ctx, q, key)
 	var account db.Account
 	switch {
 	case err == nil:
-		account, err = s.store.GetAccountByID(ctx, accountID)
+		account, err = account_model.ReadByID(ctx, accountID)
 	case errors.Is(err, pgx.ErrNoRows):
 		if !identity.EmailVerified || strings.TrimSpace(identity.Email) == "" {
 			s.recordLoginRejected(ctx, audit_model.LoginRejected{Method: audit_model.MethodOIDC, Reason: audit_model.ReasonEmailUnverified, Identifier: key.Issuer + "\x00" + key.Subject, IP: clientIP})
 			return empty, auth_model.ErrOAuth2EmailUnverified
 		}
-		account, err = account_model.CreateOAuth2Account(ctx, s.store, identity)
+		account, err = account_model.CreateOAuth2Account(ctx, identity)
 		if err != nil {
-			linkedID, lookupErr := auth_model.GetOAuth2AccountID(ctx, s.store, key)
+			linkedID, lookupErr := auth_model.GetOAuth2AccountID(ctx, q, key)
 			if lookupErr == nil {
-				account, err = s.store.GetAccountByID(ctx, linkedID)
-			} else if _, emailErr := s.store.GetAccountByEmail(ctx, identity.Email); emailErr == nil {
+				account, err = account_model.ReadByID(ctx, linkedID)
+			} else if _, emailErr := account_model.ReadByEmail(ctx, identity.Email); emailErr == nil {
 				s.recordLoginRejected(ctx, audit_model.LoginRejected{Method: audit_model.MethodOIDC, Reason: audit_model.ReasonLinkRequired, Identifier: key.Issuer + "\x00" + key.Subject, IP: clientIP})
 				return empty, auth_model.ErrOAuth2EmailAlreadyRegistered
 			}

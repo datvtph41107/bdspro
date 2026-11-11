@@ -69,8 +69,13 @@ func TestOwnerAccountDeleteBlockedByDatabaseForeignKey(t *testing.T) {
 func TestOwnerAccountLinkRejectsForgedAndOrphanedOwnerButAllowsOrdinaryPerson(t *testing.T) {
 	ctx, pool, store := membershipTestDB(t)
 	d := newOwnerRoleCase(t, ctx, pool, store, true)
-	orphan, err := db.WithTxResult(ctx, store, func(q *db.Queries) (int64, error) {
-		return db.CreatePersonWithParty(ctx, q)
+	orphan, err := db.WithTx2(db.WithStore(ctx, store), func(txCtx context.Context) (int64, error) {
+		q, getQueriesErr := db.GetQueries(txCtx)
+		if getQueriesErr != nil {
+			var zero int64
+			return zero, getQueriesErr
+		}
+		return db.CreatePersonWithParty(txCtx, q)
 	})
 	if err != nil {
 		t.Fatal(err)
