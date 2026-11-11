@@ -13,23 +13,15 @@ import (
 	"github.com/datvtph41107/bdspro/services/mail"
 )
 
-// VerificationStore is the data contract required by email verification.
-// A job does not depend on the application's complete database Store.
-type VerificationStore interface {
-	account_model.Transactioner
-	GetAccountByID(ctx context.Context, id int64) (db.Account, error)
-}
-
 // SendVerificationEmail performs the business operation. Retry and transport
 // policy belong to Asynq; this function can be exercised without Redis.
 func SendVerificationEmail(
 	ctx context.Context,
-	store VerificationStore,
 	mailer mail.EmailSender,
 	verifyEmailURL string,
 	accountID int64,
 ) error {
-	account, err := store.GetAccountByID(ctx, accountID)
+	account, err := account_model.ReadByID(ctx, accountID)
 	if err != nil {
 		return err
 	}
@@ -41,7 +33,7 @@ func SendVerificationEmail(
 	if err != nil {
 		return err
 	}
-	record, err := account_model.GetOrCreateVerifyEmail(ctx, store, db.CreateVerifyEmailParams{
+	record, err := account_model.GetOrCreateVerifyEmail(ctx, db.CreateVerifyEmailParams{
 		AccountID: account.ID, Email: account.Email, SecretCode: secret,
 	})
 	if errors.Is(err, account_model.ErrEmailAlreadyVerified) {
