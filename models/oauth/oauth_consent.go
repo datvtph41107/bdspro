@@ -1,9 +1,11 @@
-package db
+package oauth
 
 import (
 	"context"
 	"errors"
 	"time"
+
+	db "github.com/datvtph41107/bdspro/models/db"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -14,8 +16,8 @@ var ErrOAuthSessionInactive = errors.New("OAuth authorizing session is missing o
 
 // GetOAuthConsentVersion is a read-only consent-preview operation. Zero means
 // no prior decision; revoked rows retain their version as a durable tombstone.
-func (s *SQLStore) GetOAuthConsentVersion(ctx context.Context, accountID int64, clientID uuid.UUID) (int64, error) {
-	dbx, resolveErr := s.queryExecutor(ctx)
+func GetOAuthConsentVersion(ctx context.Context, accountID int64, clientID uuid.UUID) (int64, error) {
+	dbx, resolveErr := db.GetEngine(ctx)
 	if resolveErr != nil {
 		return 0, resolveErr
 	}
@@ -31,7 +33,7 @@ func (s *SQLStore) GetOAuthConsentVersion(ctx context.Context, accountID int64, 
 // ApproveOAuthAuthCode commits the user's consent decision AND authorization
 // code together. A preview from before a revoke cannot be replayed afterward.
 // Both approve and revoke hold the account/client advisory lock before rows.
-func (s *SQLStore) ApproveOAuthAuthCode(ctx context.Context, clientID uuid.UUID,
+func ApproveOAuthAuthCode(ctx context.Context, clientID uuid.UUID,
 	accountID int64, redirect, scope, challenge string, hash []byte,
 	expires time.Time, expectedVersion int64, sessionID uuid.UUID) error {
 	if sessionID == uuid.Nil {
@@ -40,7 +42,12 @@ func (s *SQLStore) ApproveOAuthAuthCode(ctx context.Context, clientID uuid.UUID,
 	if expectedVersion < 0 || accountID <= 0 || clientID == uuid.Nil || scope != "profile:read" {
 		return ErrOAuthConsentStale
 	}
-	return s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+	return db.WithTx(ctx, func(txCtx context.Context) error {
+		tx, err := db.GetEngine(txCtx)
+		if err != nil {
+			return err
+		}
+		ctx := txCtx
 		if err := lockOAuthAuthorization(ctx, tx, accountID, clientID); err != nil {
 			return err
 		}

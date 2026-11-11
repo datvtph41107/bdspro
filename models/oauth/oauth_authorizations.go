@@ -1,12 +1,13 @@
-package db
+package oauth
 
 import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
 
+	db "github.com/datvtph41107/bdspro/models/db"
+
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 // oauthAuthorizationKey is a namespaced, deterministic advisory-lock key.
@@ -23,7 +24,7 @@ func oauthAuthorizationKey(accountID int64, clientID uuid.UUID) int64 {
 
 // All token/code issuance for the same account/client pair must acquire this
 // lock before any row lock; refreshing also acquires the family lock second.
-func lockOAuthAuthorization(ctx context.Context, tx pgx.Tx, accountID int64, clientID uuid.UUID) error {
+func lockOAuthAuthorization(ctx context.Context, tx db.DBTX, accountID int64, clientID uuid.UUID) error {
 	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1::bigint)`, oauthAuthorizationKey(accountID, clientID))
 	if err != nil {
 		return err
@@ -37,8 +38,8 @@ func lockOAuthAuthorization(ctx context.Context, tx pgx.Tx, accountID int64, cli
 
 // ListOAuthAuthorizations lists active, persistently approved grants even if
 // their access tokens have expired. Application owner != authorizing account.
-func (s *SQLStore) ListOAuthAuthorizations(ctx context.Context, accountID int64) ([]OAuthAuthorizedClient, error) {
-	dbx, resolveErr := s.queryExecutor(ctx)
+func ListOAuthAuthorizations(ctx context.Context, accountID int64) ([]OAuthAuthorizedClient, error) {
+	dbx, resolveErr := db.GetEngine(ctx)
 	if resolveErr != nil {
 		return nil, resolveErr
 	}
@@ -64,8 +65,13 @@ func (s *SQLStore) ListOAuthAuthorizations(ctx context.Context, accountID int64)
 // RevokeOAuthAuthorization revokes all live credentials and unused codes for
 // THIS account/client pair. It never revokes the application or other users.
 // Idempotent by design: unknown and already-revoked pairs return nil.
-func (s *SQLStore) RevokeOAuthAuthorization(ctx context.Context, accountID int64, clientID uuid.UUID) error {
-	return s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+func RevokeOAuthAuthorization(ctx context.Context, accountID int64, clientID uuid.UUID) error {
+	return db.WithTx(ctx, func(txCtx context.Context) error {
+		tx, err := db.GetEngine(txCtx)
+		if err != nil {
+			return err
+		}
+		ctx := txCtx
 		if err := lockOAuthAuthorization(ctx, tx, accountID, clientID); err != nil {
 			return err
 		}

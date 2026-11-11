@@ -1,4 +1,4 @@
-package db
+package oauth
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"time"
+
+	db "github.com/datvtph41107/bdspro/models/db"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -39,27 +41,13 @@ type OAuthAuthorizedClient struct {
 	Name     string
 }
 
-type OAuthServerStore interface {
-	CreateOAuthClient(context.Context, OauthClient) (OauthClient, error)
-	GetOAuthClient(context.Context, uuid.UUID) (OauthClient, error)
-	ListOAuthClients(context.Context, int64) ([]OauthClient, error)
-	RevokeOAuthClient(context.Context, int64, uuid.UUID) (bool, error)
-	GetOAuthConsentVersion(context.Context, int64, uuid.UUID) (int64, error)
-	ApproveOAuthAuthCode(context.Context, uuid.UUID, int64, string, string, string, []byte, time.Time, int64, uuid.UUID) error
-	RedeemOAuthAuthCode(context.Context, uuid.UUID, []byte, string, string, []byte, []byte, time.Time, time.Time, uuid.UUID) (OAuthGrant, error)
-	RotateOAuthRefreshToken(context.Context, uuid.UUID, []byte, []byte, []byte, time.Time) (OAuthGrant, error)
-	ResolveOAuthAccessToken(context.Context, []byte) (OAuthAccess, error)
-	RevokeOAuthBearer(context.Context, uuid.UUID, []byte) error
-	ListOAuthAuthorizations(context.Context, int64) ([]OAuthAuthorizedClient, error)
-	RevokeOAuthAuthorization(context.Context, int64, uuid.UUID) error
-}
 
-func (s *SQLStore) CreateOAuthClient(ctx context.Context, input OauthClient) (OauthClient, error) {
-	dbx, resolveErr := s.queryExecutor(ctx)
+func CreateOAuthClient(ctx context.Context, input db.OauthClient) (db.OauthClient, error) {
+	dbx, resolveErr := db.GetEngine(ctx)
 	if resolveErr != nil {
-		return OauthClient{}, resolveErr
+		return db.OauthClient{}, resolveErr
 	}
-	var result OauthClient
+	var result db.OauthClient
 	err := dbx.QueryRow(ctx, `INSERT INTO oauth_clients
 		(id, owner_account_id, name, redirect_uri, secret_hash)
 		VALUES ($1,$2,$3,$4,$5)
@@ -70,24 +58,24 @@ func (s *SQLStore) CreateOAuthClient(ctx context.Context, input OauthClient) (Oa
 	return result, err
 }
 
-func (s *SQLStore) GetOAuthClient(ctx context.Context, id uuid.UUID) (OauthClient, error) {
-	dbx, resolveErr := s.queryExecutor(ctx)
+func GetOAuthClient(ctx context.Context, id uuid.UUID) (db.OauthClient, error) {
+	dbx, resolveErr := db.GetEngine(ctx)
 	if resolveErr != nil {
-		return OauthClient{}, resolveErr
+		return db.OauthClient{}, resolveErr
 	}
-	var client OauthClient
+	var client db.OauthClient
 	err := dbx.QueryRow(ctx, `SELECT id,owner_account_id,name,redirect_uri,secret_hash,created_at,revoked_at
 		FROM oauth_clients WHERE id=$1 AND revoked_at IS NULL`, id).Scan(
 		&client.ID, &client.OwnerAccountID, &client.Name, &client.RedirectUri,
 		&client.SecretHash, &client.CreatedAt, &client.RevokedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return OauthClient{}, ErrOAuthClientMissing
+		return db.OauthClient{}, ErrOAuthClientMissing
 	}
 	return client, err
 }
 
-func (s *SQLStore) ListOAuthClients(ctx context.Context, owner int64) ([]OauthClient, error) {
-	dbx, resolveErr := s.queryExecutor(ctx)
+func ListOAuthClients(ctx context.Context, owner int64) ([]db.OauthClient, error) {
+	dbx, resolveErr := db.GetEngine(ctx)
 	if resolveErr != nil {
 		return nil, resolveErr
 	}
@@ -98,9 +86,9 @@ func (s *SQLStore) ListOAuthClients(ctx context.Context, owner int64) ([]OauthCl
 		return nil, err
 	}
 	defer rows.Close()
-	clients := make([]OauthClient, 0)
+	clients := make([]db.OauthClient, 0)
 	for rows.Next() {
-		var c OauthClient
+		var c db.OauthClient
 		if err = rows.Scan(&c.ID, &c.OwnerAccountID, &c.Name, &c.RedirectUri, &c.SecretHash, &c.CreatedAt, &c.RevokedAt); err != nil {
 			return nil, err
 		}
@@ -111,8 +99,8 @@ func (s *SQLStore) ListOAuthClients(ctx context.Context, owner int64) ([]OauthCl
 	return clients, rows.Err()
 }
 
-func (s *SQLStore) RevokeOAuthClient(ctx context.Context, owner int64, id uuid.UUID) (bool, error) {
-	dbx, resolveErr := s.queryExecutor(ctx)
+func RevokeOAuthClient(ctx context.Context, owner int64, id uuid.UUID) (bool, error) {
+	dbx, resolveErr := db.GetEngine(ctx)
 	if resolveErr != nil {
 		return false, resolveErr
 	}
@@ -127,9 +115,14 @@ func (s *SQLStore) RevokeOAuthClient(ctx context.Context, owner int64, id uuid.U
 // RedeemOAuthAuthCode serializes contenders on one code_hash with row locking.
 // An invalid verifier/redirect never consumes a code. The code is consumed
 // only if access (and optional refresh) persistence commits in the same tx.
-func (s *SQLStore) RedeemOAuthAuthCode(ctx context.Context, clientID uuid.UUID, codeHash []byte, redirect, challenge string, accessHash, refreshHash []byte, accessExpiry, refreshExpiry time.Time, family uuid.UUID) (OAuthGrant, error) {
+func RedeemOAuthAuthCode(ctx context.Context, clientID uuid.UUID, codeHash []byte, redirect, challenge string, accessHash, refreshHash []byte, accessExpiry, refreshExpiry time.Time, family uuid.UUID) (OAuthGrant, error) {
 	var grant OAuthGrant
-	err := s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+	err := db.WithTx(ctx, func(txCtx context.Context) error {
+		tx, err := db.GetEngine(txCtx)
+		if err != nil {
+			return err
+		}
+		ctx := txCtx
 		// Read the immutable account lock key without a row lock, then
 		// re-check the code under the shared account/client serialization.
 		var accountID int64
@@ -190,10 +183,15 @@ func (s *SQLStore) RedeemOAuthAuthCode(ctx context.Context, clientID uuid.UUID, 
 
 // A refresh token is one-use. Replaying a consumed token revokes the entire
 // refresh family and all access tokens issued by that family.
-func (s *SQLStore) RotateOAuthRefreshToken(ctx context.Context, clientID uuid.UUID, oldHash, newAccessHash, newRefreshHash []byte, accessExpiry time.Time) (OAuthGrant, error) {
+func RotateOAuthRefreshToken(ctx context.Context, clientID uuid.UUID, oldHash, newAccessHash, newRefreshHash []byte, accessExpiry time.Time) (OAuthGrant, error) {
 	var grant OAuthGrant
 	var replay bool
-	err := s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+	err := db.WithTx(ctx, func(txCtx context.Context) error {
+		tx, err := db.GetEngine(txCtx)
+		if err != nil {
+			return err
+		}
+		ctx := txCtx
 		var family uuid.UUID
 		var accountID int64
 		// Look up immutable lock keys without a row lock. Neither read
@@ -271,14 +269,14 @@ func (s *SQLStore) RotateOAuthRefreshToken(ctx context.Context, clientID uuid.UU
 // truncated SHA-256 key may collide only at the cost of extra serialization;
 // no identity, credential or authority is inferred from the lock key. Always
 // acquire it before token row locks. PostgreSQL releases it on commit/rollback.
-func lockOAuthFamily(ctx context.Context, tx pgx.Tx, family uuid.UUID) error {
+func lockOAuthFamily(ctx context.Context, tx db.DBTX, family uuid.UUID) error {
 	digest := sha256.Sum256(family[:])
 	key := int64(binary.BigEndian.Uint64(digest[:8]))
 	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1::bigint)`, key)
 	return err
 }
 
-func revokeOAuthFamily(ctx context.Context, tx pgx.Tx, family uuid.UUID) error {
+func revokeOAuthFamily(ctx context.Context, tx db.DBTX, family uuid.UUID) error {
 	if _, err := tx.Exec(ctx, `UPDATE oauth_refresh_tokens SET revoked_at=now()
 		WHERE family_id=$1 AND revoked_at IS NULL`, family); err != nil {
 		return err
@@ -291,8 +289,8 @@ func revokeOAuthFamily(ctx context.Context, tx pgx.Tx, family uuid.UUID) error {
 
 // OAuth access tokens are opaque 256-bit random values, never internal JWTs.
 // Every use consults current token, client, account and expiry authority.
-func (s *SQLStore) ResolveOAuthAccessToken(ctx context.Context, hash []byte) (OAuthAccess, error) {
-	dbx, resolveErr := s.queryExecutor(ctx)
+func ResolveOAuthAccessToken(ctx context.Context, hash []byte) (OAuthAccess, error) {
+	dbx, resolveErr := db.GetEngine(ctx)
 	if resolveErr != nil {
 		return OAuthAccess{}, resolveErr
 	}
@@ -312,8 +310,13 @@ func (s *SQLStore) ResolveOAuthAccessToken(ctx context.Context, hash []byte) (OA
 
 // Revoke is idempotent per RFC7009 and does not reveal whether the supplied
 // credential exists. Revoking a refresh family also blocks its access tokens.
-func (s *SQLStore) RevokeOAuthBearer(ctx context.Context, clientID uuid.UUID, hash []byte) error {
-	return s.ExecTxRaw(ctx, func(tx pgx.Tx) error {
+func RevokeOAuthBearer(ctx context.Context, clientID uuid.UUID, hash []byte) error {
+	return db.WithTx(ctx, func(txCtx context.Context) error {
+		tx, err := db.GetEngine(txCtx)
+		if err != nil {
+			return err
+		}
+		ctx := txCtx
 		var family uuid.UUID
 		var accountID int64
 		err := tx.QueryRow(ctx, `SELECT family_id,account_id FROM oauth_refresh_tokens
