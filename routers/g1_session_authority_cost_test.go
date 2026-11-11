@@ -7,8 +7,10 @@ import (
 	"testing"
 	"time"
 
+	db "github.com/datvtph41107/bdspro/models/db"
+	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
-	"github.com/gin-gonic/gin"
 )
 
 // This is an exploratory, within-run latency comparison. CI runners are
@@ -18,15 +20,22 @@ func TestG12SessionAuthorityRealPostgresReadCost(t *testing.T) {
 	_, login := g12RegisterAndLogin(t, server)
 	access := login["access_token"].(string)
 	const samples = 80
-	r := gin.New()
-	r.GET("/jwt-only", appctx.Authenticate(server.tokenMaker), func(c *gin.Context) {
+	r := web.NewRouter()
+	r.AfterRouting(appctx.APIContexter())
+	r.Get("/jwt-only", appctx.Authenticate(), func(c *appctx.APIContext) {
 		c.Status(http.StatusNoContent)
 	})
-	r.GET("/live", appctx.Authenticate(server.tokenMaker),
-		appctx.RequireSession(server.store),
-		func(c *gin.Context) {
+	r.Get("/live", appctx.Authenticate(), appctx.RequireSession(),
+		func(c *appctx.APIContext) {
 			c.Status(http.StatusNoContent)
 		})
+	// Request capability ownership matches Server.Handler. The two routes
+	// only differ in whether live session verification reads PostgreSQL.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := authcrypto.WithMaker(req.Context(), server.tokenMaker)
+		ctx = db.WithStore(ctx, server.store)
+		r.ServeHTTP(w, req.WithContext(ctx))
+	})
 	type measured struct {
 		durations []time.Duration
 		acquires  int64
@@ -39,7 +48,7 @@ func TestG12SessionAuthorityRealPostgresReadCost(t *testing.T) {
 			req.Header.Set("Authorization", "Bearer "+access)
 			w := httptest.NewRecorder()
 			started := time.Now()
-			r.ServeHTTP(w, req)
+			handler.ServeHTTP(w, req)
 			out.durations = append(out.durations, time.Since(started))
 			if w.Code != http.StatusNoContent {
 				t.Fatalf("%s: status=%d body=%s", path, w.Code, w.Body.String())

@@ -9,6 +9,7 @@ import (
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,13 +32,18 @@ func TestPublicErrorContract(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(w)
-			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
-			if tc.invalid {
-				Invalid(c, tc.err)
-			} else {
-				Error(c, tc.err)
-			}
+			router := web.NewRouter()
+			router.AfterRouting(APIContexter())
+			var trace *gin.Context
+			router.GinEngine().Use(func(c *gin.Context) { trace = c; c.Next() })
+			router.Get("/", func(c *APIContext) {
+				if tc.invalid {
+					c.APIInvalid(tc.err)
+				} else {
+					c.APIErrorAuto(tc.err)
+				}
+			})
+			router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
 			if w.Code != tc.status {
 				t.Fatalf("status=%d want=%d", w.Code, tc.status)
 			}
@@ -51,7 +57,7 @@ func TestPublicErrorContract(t *testing.T) {
 			if got.Error != tc.message || got.Code != tc.code {
 				t.Fatalf("response=%+v want error=%q code=%q", got, tc.message, tc.code)
 			}
-			if c.GetString(ErrorCodeKey) != tc.code {
+			if trace == nil || trace.GetString(ErrorCodeKey) != tc.code {
 				t.Fatal("missing monitor error code")
 			}
 		})

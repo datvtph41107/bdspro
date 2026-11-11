@@ -15,7 +15,7 @@ import (
 func ProtocolMiddlewares() []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		RequestID(),
-		appctx.AccessLogger(),
+		AccessLogger(),
 		Recovery(nil),
 	}
 }

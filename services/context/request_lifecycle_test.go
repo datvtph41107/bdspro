@@ -15,23 +15,27 @@ type requestStoreTraceKey struct{}
 
 func TestAPIContexterUsesModulesRequestDataAndCleanup(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.Use(APIContexter())
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.BeforeRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			next.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), requestStoreTraceKey{}, "current")))
+		})
+	})
 	cleanupCount := 0
-	router.GET("/orgs/:id", func(c *gin.Context) {
-		store := reqctx.FromContext(c.Request.Context())
+	router.Get("/orgs/:id", func(api *APIContext) {
+		store := reqctx.FromContext(api.CurrentRequest().Context())
 		if store == nil {
 			t.Fatal("request scope was not initialized before route action")
 		}
 		store.AddCleanup(func() { cleanupCount++ })
-		api := GetAPIContext(c)
 		api.GetData()["form"] = "bound"
 		if store.GetData()["form"] != "bound" {
 			t.Fatal("Base has a second datastore")
 		}
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), requestStoreTraceKey{}, "current"))
-		if api.Value(requestStoreTraceKey{}) != "current" || reqctx.FromContext(c.Request.Context()) != store {
-			t.Fatal("middleware lost request context or datastore")
+		if api.Value(requestStoreTraceKey{}) != "current" ||
+			reqctx.FromContext(api.CurrentRequest().Context()) != store {
+			t.Fatal("transport lost request context or datastore")
 		}
 		api.Status(http.StatusNoContent)
 	})
@@ -56,9 +60,9 @@ func (w *typedIngressWriter) WriteHeader(status int) {
 
 func TestTypedAPIContextPreservesHTTPIngressScope(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	engine.Use(APIContexter())
-	router := web.NewRouter(engine)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	engine := router.GinEngine()
 	cleanupCount := 0
 	var first *APIContext
 	var wrapped *typedIngressWriter
@@ -106,21 +110,20 @@ func TestTypedAPIContextPreservesHTTPIngressScope(t *testing.T) {
 
 func TestTypedHTTPChainPropagatesGinContextMutation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	engine.Use(APIContexter())
-	router := web.NewRouter(engine)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	engine := router.GinEngine()
 
-	router.Get("/gin-context", append(
-		GinActions(func(c *gin.Context) {
-			c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), requestStoreTraceKey{}, "verified"))
-		}),
-		func(api *APIContext) {
-			if api.Value(requestStoreTraceKey{}) != "verified" {
-				t.Error("Gin middleware context mutation was lost before the typed action")
-			}
-			api.Status(http.StatusNoContent)
-		},
-	)...)
+	engine.Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), requestStoreTraceKey{}, "verified"))
+		c.Next()
+	})
+	router.Get("/gin-context", func(api *APIContext) {
+		if api.Value(requestStoreTraceKey{}) != "verified" {
+			t.Error("Gin middleware context mutation was lost before the typed action")
+		}
+		api.Status(http.StatusNoContent)
+	})
 	response := httptest.NewRecorder()
 	engine.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/gin-context", nil))
 	if response.Code != http.StatusNoContent {
@@ -130,9 +133,9 @@ func TestTypedHTTPChainPropagatesGinContextMutation(t *testing.T) {
 
 func TestTypedAPIContextCancellationPropagatesAndCleansScope(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	engine.Use(APIContexter())
-	router := web.NewRouter(engine)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	engine := router.GinEngine()
 
 	requestContext, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -173,26 +176,23 @@ func TestTypedAPIContextCancellationPropagatesAndCleansScope(t *testing.T) {
 
 func TestTypedGinAbortWithoutResponseStopsNextAction(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	engine.Use(APIContexter())
-	router := web.NewRouter(engine)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	engine := router.GinEngine()
 
 	cleanupCount := 0
 	reached := false
-	router.Get("/abort", append(
-		GinActions(func(c *gin.Context) {
-			store := reqctx.FromContext(c.Request.Context())
-			if store == nil {
-				t.Fatal("request scope was not initialized before Gin action")
-			}
-			store.AddCleanup(func() { cleanupCount++ })
-			c.Abort()
-			if c.Writer.Written() {
-				t.Error("Abort alone unexpectedly committed an HTTP response")
-			}
-		}),
-		func(*APIContext) { reached = true },
-	)...)
+	router.Get("/abort", func(api *APIContext) {
+		store := reqctx.FromContext(api.CurrentRequest().Context())
+		if store == nil {
+			t.Fatal("request scope was not initialized before action")
+		}
+		store.AddCleanup(func() { cleanupCount++ })
+		api.Abort()
+		if api.Written() {
+			t.Error("Abort alone unexpectedly committed an HTTP response")
+		}
+	}, func(*APIContext) { reached = true })
 	response := httptest.NewRecorder()
 	engine.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/abort", nil))
 	if reached || cleanupCount != 1 {
@@ -202,9 +202,9 @@ func TestTypedGinAbortWithoutResponseStopsNextAction(t *testing.T) {
 
 func TestTypedStatusSelectionWithoutAbortContinues(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	engine.Use(APIContexter())
-	router := web.NewRouter(engine)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	engine := router.GinEngine()
 
 	reached := false
 	router.Get("/selected", func(api *APIContext) {
@@ -225,9 +225,8 @@ func TestTypedStatusSelectionWithoutAbortContinues(t *testing.T) {
 
 func TestBeforeRoutingAndTypedAPIContextShareOneCurrentRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	engine.Use(APIContexter())
-	router := web.NewRouter(engine)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			scoped := req.WithContext(context.WithValue(req.Context(), typedIngressKey{}, "before-routing"))
@@ -268,12 +267,13 @@ func TestBeforeRoutingAndTypedAPIContextShareOneCurrentRequest(t *testing.T) {
 // context. The same APIContexter owns scope finalization on success and panic.
 func TestAPIContexterCleanupAfterGinRecovery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	engine.Use(gin.Recovery(), APIContexter())
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	engine := router.GinEngine()
+	engine.Use(gin.Recovery())
 	cleanupCount := 0
 	var previous *APIContext
-	engine.GET("/panic", func(c *gin.Context) {
-		api := GetAPIContext(c)
+	router.Get("/panic", func(api *APIContext) {
 		if previous == api {
 			t.Error("APIContext was reused across recovered requests")
 		}

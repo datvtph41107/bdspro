@@ -9,6 +9,7 @@ import (
 	"time"
 
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,9 +28,18 @@ func TestAuthenticateAccessOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	router := gin.New()
-	router.GET("/me", Authenticate(maker), func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{"account_id": AccountID(ctx)})
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.GinEngine().Use(func(c *gin.Context) {
+		c.Request = c.Request.WithContext(authcrypto.WithMaker(c.Request.Context(), maker))
+		c.Next()
+	})
+	router.Get("/me", Authenticate(), func(ctx *APIContext) {
+		payload, ok := ctx.SignedPrincipal()
+		if !ok {
+			t.Fatal("JWT did not establish a signed principal")
+		}
+		ctx.JSON(http.StatusOK, gin.H{"account_id": payload.AccountID})
 	})
 
 	for _, tc := range []struct {

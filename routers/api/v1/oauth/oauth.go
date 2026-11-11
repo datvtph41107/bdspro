@@ -1,330 +1,316 @@
+// Package oauth owns OAuth2 authorization-server HTTP actions.
+// Browser and API frontends share these typed actions; grant validation,
+// revocation and transactional issuance remain in services/oauth and models.
 package oauth
 
 import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
 	account_model "github.com/datvtph41107/bdspro/models/account"
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
-	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/datvtph41107/bdspro/services/convert"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-type Handler struct {
-	service *oauth_service.Service
-	store   db.Store
-	proofs  *oauth_service.ConsentProofs
-}
-
-func NewHandler(service *oauth_service.Service, store db.Store, proofs ...*oauth_service.ConsentProofs) *Handler {
-	h := &Handler{service: service, store: store}
-	if len(proofs) > 0 {
-		h.proofs = proofs[0]
-	}
-	return h
-}
 
 type clientRequest struct {
 	Name        string `json:"name" binding:"required"`
 	RedirectURI string `json:"redirect_uri" binding:"required"`
 }
 
-func failure(c *gin.Context, status int, code string) {
-	c.Header("Cache-Control", "no-store")
-	c.Header("Pragma", "no-cache")
-	appctx.GetAPIContext(c).JSON(status, gin.H{"error": code})
+// OAuth protocol errors use the OAuth envelope rather than first-party API errors.
+func failure(ctx *appctx.APIContext, status int, code string) {
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Header("Pragma", "no-cache")
+	ctx.JSON(status, map[string]any{"error": code})
 }
 
-func serviceFailure(c *gin.Context, err error) {
+func serviceFailure(ctx *appctx.APIContext, err error) {
 	switch {
 	case errors.Is(err, oauth_service.ErrInvalidClient):
-		failure(c, http.StatusUnauthorized, "invalid_client")
+		failure(ctx, http.StatusUnauthorized, "invalid_client")
 	case errors.Is(err, oauth_service.ErrInvalidGrant):
-		failure(c, http.StatusBadRequest, "invalid_grant")
+		failure(ctx, http.StatusBadRequest, "invalid_grant")
 	case errors.Is(err, oauth_service.ErrInvalidRequest):
-		failure(c, http.StatusBadRequest, "invalid_request")
+		failure(ctx, http.StatusBadRequest, "invalid_request")
 	case errors.Is(err, oauth_service.ErrAccessDenied):
-		failure(c, http.StatusForbidden, "access_denied")
+		failure(ctx, http.StatusForbidden, "access_denied")
+	case errors.Is(err, oauth_service.ErrConsentProofUnavailable):
+		failure(ctx, http.StatusServiceUnavailable, "temporarily_unavailable")
 	default:
-		failure(c, http.StatusInternalServerError, "server_error")
+		failure(ctx, http.StatusInternalServerError, "server_error")
 	}
 }
 
-func (h *Handler) CreateClient(c *gin.Context) {
+func service(ctx *appctx.APIContext) (*oauth_service.Service, bool) {
+	s := oauth_service.ServiceFromContext(ctx)
+	if s == nil {
+		ctx.APIErrorNotFound()
+		return nil, false
+	}
+	return s, true
+}
+
+func actorID(ctx *appctx.APIContext) (int64, bool) {
+	actor, ok := ctx.VerifiedActor()
+	if !ok {
+		ctx.AuthenticationRequired()
+		return 0, false
+	}
+	return actor.AccountID, true
+}
+
+// RequireEnabled is evaluated before OAuth protocol operations.
+func RequireEnabled(ctx *appctx.APIContext) {
+	if oauth_service.ServiceFromContext(ctx) == nil {
+		ctx.APIErrorNotFound()
+	}
+}
+
+func CreateClient(ctx *appctx.APIContext) {
+	s, ok := service(ctx)
+	if !ok {
+		return
+	}
+	accountID, ok := actorID(ctx)
+	if !ok {
+		return
+	}
 	var request clientRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
-		failure(c, http.StatusBadRequest, "invalid_request")
+	if err := ctx.BindJSON(&request); err != nil {
+		failure(ctx, http.StatusBadRequest, "invalid_request")
 		return
 	}
-	client, err := h.service.RegisterClient(c.Request.Context(),
-		appctx.AccountID(c), request.Name, request.RedirectURI)
+	client, err := s.RegisterClient(ctx, accountID, request.Name, request.RedirectURI)
 	if err != nil {
-		serviceFailure(c, err)
+		serviceFailure(ctx, err)
 		return
 	}
-	appctx.GetAPIContext(c).JSON(http.StatusCreated, convert.ToOAuthClient(client))
+	ctx.JSON(http.StatusCreated, convert.ToOAuthClient(client))
 }
 
-func (h *Handler) ListClients(c *gin.Context) {
-	clients, err := h.service.ListClients(c.Request.Context(), appctx.AccountID(c))
-	if err != nil {
-		serviceFailure(c, err)
+func ListClients(ctx *appctx.APIContext) {
+	s, ok := service(ctx)
+	if !ok {
 		return
 	}
-	out := convert.ToOAuthClients(clients)
-	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"clients": out})
+	accountID, ok := actorID(ctx)
+	if !ok {
+		return
+	}
+	clients, err := s.ListClients(ctx, accountID)
+	if err != nil {
+		serviceFailure(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, map[string]any{"clients": convert.ToOAuthClients(clients)})
 }
 
-func (h *Handler) DeleteClient(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
+func DeleteClient(ctx *appctx.APIContext) {
+	s, ok := service(ctx)
+	if !ok {
+		return
+	}
+	accountID, ok := actorID(ctx)
+	if !ok {
+		return
+	}
+	id, err := uuid.Parse(ctx.PathParam("id"))
 	if err != nil {
-		failure(c, http.StatusBadRequest, "invalid_request")
+		failure(ctx, http.StatusBadRequest, "invalid_request")
 		return
 	}
-	if err := h.service.DeleteClient(c.Request.Context(), appctx.AccountID(c), id); err != nil {
-		serviceFailure(c, err)
+	if err = s.DeleteClient(ctx, accountID, id); err != nil {
+		serviceFailure(ctx, err)
 		return
 	}
-	c.Status(http.StatusNoContent)
+	ctx.Status(http.StatusNoContent)
 }
 
-// Authenticate is the high-trust OAuth authorization boundary. Unlike
-// ordinary API authentication, it resolves the access JWT's issuing session
-// from PostgreSQL on every request and fails closed if the session is gone.
-func (h *Handler) Authenticate(maker authcrypto.Maker) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		parts := strings.Fields(c.GetHeader("Authorization"))
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			appctx.BearerRequired(c)
-			return
-		}
-		payload, err := maker.VerifyToken(parts[1], authcrypto.TokenTypeAccess)
-		if err != nil {
-			appctx.InvalidAccessToken(c)
-			return
-		}
-		if err := auth_model.RequireActiveSession(c.Request.Context(), h.store,
-			payload.AccountID, payload.SessionID, time.Now()); err != nil {
-			if errors.Is(err, auth_model.ErrSessionUnavailable) {
-				appctx.InvalidAccessToken(c)
-			} else {
-				failure(c, http.StatusServiceUnavailable, "temporarily_unavailable")
-				c.Abort()
-			}
-			return
-		}
-		c.Set(appctx.AuthorizationPayloadKey, payload)
-		c.Next()
+// AuthorizePreview is an HTTP representation of the canonical OAuth consent
+// decision owned by services/oauth. GET does not consume or issue grants.
+func AuthorizePreview(ctx *appctx.APIContext) {
+	s, ok := service(ctx)
+	if !ok {
+		return
 	}
-}
-
-func authorizationRequest(values url.Values) (oauth_service.AuthorizationRequest, error) {
-	return oauth_service.ParseAuthorizationRequest(values)
-}
-
-// consentProofFields binds a preview to the authenticated Account and every
-// OAuth request attribute. Never take AccountID from user-submitted data.
-func consentProofFields(accountID int64, req oauth_service.AuthorizationRequest) oauth_service.ConsentProofFields {
-	return oauth_service.ConsentProofFields{
-		AccountID: accountID, ClientID: req.ClientID.String(),
-		RedirectURI: req.RedirectURI, Scope: req.Scope, ResponseType: req.ResponseType,
-		CodeChallenge: req.CodeChallenge, CodeChallengeMethod: req.CodeChallengeMethod,
-		State: req.State, ConsentVersion: req.ConsentVersion,
+	accountID, ok := actorID(ctx)
+	if !ok {
+		return
 	}
-}
-
-// AuthorizePreview supplies consent text to an already-authenticated browser
-// frontend; it never issues a code as a side effect of GET.
-func (h *Handler) AuthorizePreview(c *gin.Context) {
-	request, err := authorizationRequest(c.Request.URL.Query())
+	req, err := oauth_service.ParseAuthorizationRequest(ctx.CurrentRequest().URL.Query())
 	if err != nil {
-		serviceFailure(c, err)
+		serviceFailure(ctx, err)
 		return
 	}
-	client, version, err := h.service.ReviewConsent(c.Request.Context(), appctx.AccountID(c), request)
+	preview, err := s.PreviewConsent(ctx, accountID, req, oauth_service.ProofsFromContext(ctx), time.Now())
 	if err != nil {
-		serviceFailure(c, err)
+		serviceFailure(ctx, err)
 		return
 	}
-	if h.proofs == nil {
-		failure(c, http.StatusServiceUnavailable, "temporarily_unavailable")
-		return
-	}
-	request.ConsentVersion = version
-	proof, err := h.proofs.Issue(consentProofFields(appctx.AccountID(c), request), time.Now())
-	if err != nil {
-		serviceFailure(c, err)
-		return
-	}
-	c.Header("Cache-Control", "no-store")
-	c.Header("Referrer-Policy", "no-referrer")
-	c.Header("X-Frame-Options", "DENY")
-	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{
-		"client_id": client.ID.String(), "name": client.Name,
-		"redirect_uri": client.RedirectURI, "scope": request.Scope,
-		"consent_required": true, "consent_version": version, "consent_proof": proof,
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Header("Referrer-Policy", "no-referrer")
+	ctx.Header("X-Frame-Options", "DENY")
+	ctx.JSON(http.StatusOK, map[string]any{
+		"client_id": preview.Client.ID.String(), "name": preview.Client.Name,
+		"redirect_uri": preview.Client.RedirectURI, "scope": preview.Request.Scope,
+		"consent_required": true, "consent_version": preview.Request.ConsentVersion,
+		"consent_proof": preview.Proof,
 	})
 }
 
-// Authorize requires an explicit approval in an authenticated POST.
-// Untrusted redirect URIs are never used in Location responses.
-func (h *Handler) Authorize(c *gin.Context) {
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 8<<10)
-	if err := c.Request.ParseForm(); err != nil {
-		failure(c, http.StatusBadRequest, "invalid_request")
+// Authorize delegates signed consent approval and registered redirect validation
+// to services/oauth; HTTP retains body limits, response and redirect policy.
+func Authorize(ctx *appctx.APIContext, w http.ResponseWriter) {
+	s, ok := service(ctx)
+	if !ok {
 		return
 	}
-	request, err := authorizationRequest(c.Request.PostForm)
+	accountID, ok := actorID(ctx)
+	if !ok {
+		return
+	}
+	req := ctx.CurrentRequest()
+	req.Body = http.MaxBytesReader(w, req.Body, 8<<10)
+	if err := req.ParseForm(); err != nil {
+		failure(ctx, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	decision, approved, proof, err := oauth_service.ParseConsentDecision(req.PostForm)
 	if err != nil {
-		serviceFailure(c, err)
+		serviceFailure(ctx, err)
 		return
 	}
-	if c.Request.PostForm.Get("approve") == "true" {
-		version, err := strconv.ParseInt(c.Request.PostForm.Get("consent_version"), 10, 64)
-		if err != nil || version < 0 {
-			failure(c, http.StatusBadRequest, "invalid_request")
-			return
-		}
-		request.ConsentVersion = version
-		if h.proofs == nil || h.proofs.Verify(c.Request.PostForm.Get("consent_proof"),
-			consentProofFields(appctx.AccountID(c), request), time.Now()) != nil {
-			failure(c, http.StatusBadRequest, "invalid_request")
-			return
-		}
-	}
-	if _, err := h.service.ReviewAuthorization(c.Request.Context(), request); err != nil {
-		serviceFailure(c, err)
+	payload, ok := ctx.SignedPrincipal()
+	if !ok {
+		ctx.AuthenticationRequired()
 		return
 	}
-	if c.Request.PostForm.Get("approve") != "true" {
-		target, _ := url.Parse(request.RedirectURI)
-		q := target.Query()
-		q.Set("error", "access_denied")
-		q.Set("state", request.State)
-		target.RawQuery = q.Encode()
-		c.Header("Cache-Control", "no-store")
-		c.Header("Referrer-Policy", "no-referrer")
-		c.Redirect(http.StatusFound, target.String())
-		return
-	}
-	// The DB transaction locks this exact issuing session against revoke.
-	payload := c.MustGet(appctx.AuthorizationPayloadKey).(*authcrypto.Payload)
-	redirect, err := h.service.Authorize(c.Request.Context(), appctx.AccountID(c), payload.SessionID, request)
+	redirect, err := s.DecideConsent(ctx, accountID, payload.SessionID,
+		decision, approved, proof, oauth_service.ProofsFromContext(ctx), time.Now())
 	if err != nil {
-		serviceFailure(c, err)
+		serviceFailure(ctx, err)
 		return
 	}
-	c.Header("Cache-Control", "no-store")
-	c.Header("Referrer-Policy", "no-referrer")
-	c.Redirect(http.StatusFound, redirect)
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Header("Referrer-Policy", "no-referrer")
+	http.Redirect(w, req, redirect, http.StatusFound)
 }
 
-func (h *Handler) Token(c *gin.Context) {
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 8<<10)
-	if !strings.HasPrefix(c.GetHeader("Content-Type"), "application/x-www-form-urlencoded") ||
-		c.Request.ParseForm() != nil {
-		failure(c, http.StatusBadRequest, "invalid_request")
+// Authorization-server tokens are intentionally independent of first-party
+// login sessions. Preserve the exact OAuth error codes and form-size bound.
+func Token(ctx *appctx.APIContext, w http.ResponseWriter) {
+	s, ok := service(ctx)
+	if !ok {
 		return
 	}
-	form := c.Request.PostForm
+	req := ctx.CurrentRequest()
+	req.Body = http.MaxBytesReader(w, req.Body, 8<<10)
+	if !strings.HasPrefix(req.Header.Get("Content-Type"), "application/x-www-form-urlencoded") || req.ParseForm() != nil {
+		failure(ctx, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	form := req.PostForm
 	id, err := uuid.Parse(form.Get("client_id"))
 	if err != nil {
-		failure(c, http.StatusUnauthorized, "invalid_client")
+		failure(ctx, http.StatusUnauthorized, "invalid_client")
 		return
 	}
 	var result oauth_service.TokenResponse
 	switch form.Get("grant_type") {
 	case "authorization_code":
-		result, err = h.service.ExchangeCode(c.Request.Context(), id,
-			form.Get("code"), form.Get("redirect_uri"), form.Get("code_verifier"))
+		result, err = s.ExchangeCode(ctx, id, form.Get("code"), form.Get("redirect_uri"), form.Get("code_verifier"))
 	case "refresh_token":
-		result, err = h.service.RefreshToken(c.Request.Context(), id, form.Get("refresh_token"))
+		result, err = s.RefreshToken(ctx, id, form.Get("refresh_token"))
 	default:
-		failure(c, http.StatusBadRequest, "unsupported_grant_type")
+		failure(ctx, http.StatusBadRequest, "unsupported_grant_type")
 		return
 	}
 	if err != nil {
-		serviceFailure(c, err)
+		serviceFailure(ctx, err)
 		return
 	}
-	c.Header("Cache-Control", "no-store")
-	c.Header("Pragma", "no-cache")
-	appctx.GetAPIContext(c).JSON(http.StatusOK, result)
+	ctx.Header("Cache-Control", "no-store")
+	ctx.Header("Pragma", "no-cache")
+	ctx.JSON(http.StatusOK, result)
 }
 
-func (h *Handler) Revoke(c *gin.Context) {
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 8<<10)
-	if !strings.HasPrefix(c.GetHeader("Content-Type"), "application/x-www-form-urlencoded") ||
-		c.Request.ParseForm() != nil {
-		failure(c, http.StatusBadRequest, "invalid_request")
+func Revoke(ctx *appctx.APIContext, w http.ResponseWriter) {
+	s, ok := service(ctx)
+	if !ok {
 		return
 	}
-	id, err := uuid.Parse(c.Request.PostForm.Get("client_id"))
+	req := ctx.CurrentRequest()
+	req.Body = http.MaxBytesReader(w, req.Body, 8<<10)
+	if !strings.HasPrefix(req.Header.Get("Content-Type"), "application/x-www-form-urlencoded") || req.ParseForm() != nil {
+		failure(ctx, http.StatusBadRequest, "invalid_request")
+		return
+	}
+	id, err := uuid.Parse(req.PostForm.Get("client_id"))
 	if err != nil {
-		failure(c, http.StatusUnauthorized, "invalid_client")
+		failure(ctx, http.StatusUnauthorized, "invalid_client")
 		return
 	}
-	if err := h.service.RevokeToken(c.Request.Context(), id, c.Request.PostForm.Get("token")); err != nil {
-		serviceFailure(c, err)
+	if err := s.RevokeToken(ctx, id, req.PostForm.Get("token")); err != nil {
+		serviceFailure(ctx, err)
 		return
 	}
-	c.Status(http.StatusOK)
+	ctx.Status(http.StatusOK)
 }
 
-func (h *Handler) UserInfo(c *gin.Context) {
-	parts := strings.Fields(c.GetHeader("Authorization"))
+func UserInfo(ctx *appctx.APIContext) {
+	s, ok := service(ctx)
+	if !ok {
+		return
+	}
+	parts := strings.Fields(ctx.CurrentRequest().Header.Get("Authorization"))
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		c.Header("WWW-Authenticate", "Bearer")
-		failure(c, http.StatusUnauthorized, "invalid_token")
+		ctx.Header("WWW-Authenticate", "Bearer")
+		failure(ctx, http.StatusUnauthorized, "invalid_token")
 		return
 	}
-	access, err := h.service.UserAccess(c.Request.Context(), parts[1])
+	access, err := s.UserAccess(ctx, parts[1])
 	if errors.Is(err, oauth_service.ErrInvalidGrant) {
-		c.Header("WWW-Authenticate", "Bearer")
-		failure(c, http.StatusUnauthorized, "invalid_token")
+		ctx.Header("WWW-Authenticate", "Bearer")
+		failure(ctx, http.StatusUnauthorized, "invalid_token")
 		return
 	}
 	if err != nil {
-		userinfoStoreUnavailable(c, err)
+		userinfoStoreUnavailable(ctx, err)
 		return
 	}
 	if access.Scope != oauth_service.ScopeProfile {
-		c.Header("WWW-Authenticate", `Bearer error="insufficient_scope", scope="profile:read"`)
-		failure(c, http.StatusForbidden, "insufficient_scope")
+		failure(ctx, http.StatusServiceUnavailable, "temporarily_unavailable")
+		failure(ctx, http.StatusForbidden, "insufficient_scope")
 		return
 	}
-	account, err := account_model.GetByID(c.Request.Context(), h.store, access.AccountID)
+	store, err := db.StoreFromContext(ctx)
+	if err != nil {
+		userinfoStoreUnavailable(ctx, err)
+		return
+	}
+	account, err := account_model.GetByID(ctx, store, access.AccountID)
 	if errors.Is(err, account_model.ErrAccountUnavailable) {
-		c.Header("WWW-Authenticate", "Bearer")
-		failure(c, http.StatusUnauthorized, "invalid_token")
+		ctx.Header("WWW-Authenticate", "Bearer")
+		failure(ctx, http.StatusUnauthorized, "invalid_token")
 		return
 	}
 	if err != nil {
-		userinfoStoreUnavailable(c, err)
+		userinfoStoreUnavailable(ctx, err)
 		return
 	}
-	c.Header("Cache-Control", "no-store")
-	// The sole current OAuth scope, profile:read, grants a subject identifier;
-	// contact data requires a separate explicit scope and consent policy.
-	appctx.GetAPIContext(c).JSON(http.StatusOK, gin.H{"sub": account.ID})
+	ctx.Header("Cache-Control", "no-store")
+	ctx.JSON(http.StatusOK, map[string]any{"sub": account.ID})
 }
 
-// Do not disguise a failed PostgreSQL lookup as a rejected OAuth credential.
-func userinfoStoreUnavailable(c *gin.Context, err error) {
-	log.Ctx(c.Request.Context()).Error().
-		Str("dependency", "postgres").
-		Str("error_type", fmt.Sprintf("%T", err)).
-		Msg("oauth.userinfo_store_unavailable")
-	failure(c, http.StatusServiceUnavailable, "temporarily_unavailable")
+func userinfoStoreUnavailable(ctx *appctx.APIContext, err error) {
+	log.Ctx(ctx).Error().Str("dependency", "postgres").
+		Str("error_type", fmt.Sprintf("%T", err)).Msg("oauth.userinfo_store_unavailable")
+	failure(ctx, http.StatusServiceUnavailable, "temporarily_unavailable")
 }

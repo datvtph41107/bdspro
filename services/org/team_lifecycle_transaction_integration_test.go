@@ -148,8 +148,7 @@ func TestTeamLifecycleCommitPrecedesRevocation(t *testing.T) {
 			waitTeamBlocking(t, ctx, pool, blocker, writer, writeResult)
 			revokeResult := make(chan error, 1)
 			go func() {
-				revokeResult <- auth_model.RevokeOwnedSession(ctx,
-					teamPinnedStore{Store: store, conn: revoker},
+				revokeResult <- auth_model.RevokeOwnedSession(db.WithStore(ctx, teamPinnedStore{Store: store, conn: revoker}),
 					actor.accountID, actor.sessionID, actor.sessionID)
 			}()
 			waitTeamBlocking(t, ctx, pool, writer, revoker, revokeResult)

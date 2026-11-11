@@ -6,23 +6,24 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
 )
 
 func TestAPIContextIsSharedWithinRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.Use(APIContexter())
+	r := web.NewRouter()
+	r.AfterRouting(APIContexter())
 	var first *APIContext
-	r.GET("/one", func(c *gin.Context) {
-		first = GetAPIContext(c)
+	r.Get("/one", func(api *APIContext) {
+		first = api
 		first.GetData()["check"] = true
-	}, Wrap(func(api *APIContext) {
+	}, func(api *APIContext) {
 		if api != first || api.GetData()["check"] != true {
 			t.Fatal("APIContext was rebuilt between handlers")
 		}
 		api.Status(http.StatusNoContent)
-	}))
+	})
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/one", nil))
 	if w.Code != http.StatusNoContent {
@@ -34,10 +35,10 @@ type dynamicRequestKey struct{}
 
 func TestGinAdapterCarriesPathAndUpdatedContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.Use(APIContexter())
-	router.GET("/orgs/:id", func(c *gin.Context) {
-		api := GetAPIContext(c)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.Get("/orgs/:id", func(api *APIContext) {
+		c := api.Base.source.(ginRequestSource).ctx
 		id, err := api.PositivePathID("id")
 		if err != nil || id != 42 {
 			t.Fatalf("path ID=%d err=%v", id, err)
@@ -60,17 +61,16 @@ func TestGinAdapterCarriesPathAndUpdatedContext(t *testing.T) {
 
 func TestAPIContextRegisteredOnHTTPRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	engine.Use(APIContexter())
-	engine.GET("/provider", func(c *gin.Context) {
-		api := GetAPIContext(c)
-		if fromHTTP := GetAPIContextFromRequest(c.Request); fromHTTP != api {
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.Get("/provider", func(api *APIContext) {
+		if fromHTTP := GetAPIContextFromRequest(api.CurrentRequest()); fromHTTP != api {
 			t.Fatal("net/http and Gin did not resolve the same APIContext")
 		}
 		api.Status(http.StatusNoContent)
 	})
 	w := httptest.NewRecorder()
-	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/provider", nil))
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/provider", nil))
 	if w.Code != http.StatusNoContent {
 		t.Fatalf("status=%d", w.Code)
 	}

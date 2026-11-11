@@ -8,6 +8,7 @@ import (
 
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -24,9 +25,12 @@ func TestModelCauseUsesStablePublicResponse(t *testing.T) {
 		t.Fatal("model leaked an internal PostgreSQL message")
 	}
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
-	Error(c, err)
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.Post("/", func(ctx *APIContext) {
+		ctx.APIErrorAuto(err)
+	})
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/", nil))
 	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "organization.membership_exists") {
 		t.Fatalf("unexpected HTTP contract: %d %s", w.Code, w.Body.String())
 	}

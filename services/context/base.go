@@ -34,8 +34,9 @@ type RequestSource interface {
 // Base is the single transport-independent HTTP context.
 // Its lifecycle is created by the HTTP ingress, never by business services.
 type Base struct {
-	source RequestSource
-	Data   reqctx.ContextData
+	source   RequestSource
+	lifetime context.Context
+	Data     reqctx.ContextData
 }
 
 var _ context.Context = (*Base)(nil)
@@ -47,11 +48,25 @@ func NewBaseContext(source RequestSource) *Base {
 	}
 	// In production APIContexter installs the datastore before creating Base.
 	// Direct HTTP unit tests without middleware receive isolated local data.
+	// The cancellation lifetime is immutable. Gin may temporarily replace
+	// c.Request while executing nested HTTP providers; an async cancel
+	// callback must never read that mutable pointer.
+	lifetime := source.CurrentRequest().Context()
 	data := make(reqctx.ContextData)
-	if store := reqctx.FromContext(source.CurrentRequest().Context()); store != nil {
+	if store := reqctx.FromContext(lifetime); store != nil {
 		data = store.GetData()
 	}
-	return &Base{source: source, Data: data}
+	return &Base{source: source, lifetime: lifetime, Data: data}
+}
+
+// ClientIP is assigned by the trusted HTTP transport, not derived from an
+// unvalidated request header. An unsupported transport fails closed.
+func (b *Base) ClientIP() string {
+	source, ok := b.source.(interface{ ClientIP() string })
+	if !ok {
+		panic("context: request transport has no trusted client IP")
+	}
+	return source.ClientIP()
 }
 
 func (b *Base) GetData() reqctx.ContextData   { return b.Data }
@@ -59,10 +74,23 @@ func (b *Base) CurrentRequest() *http.Request { return b.source.CurrentRequest()
 func (b *Base) CurrentRequestContext() context.Context {
 	return b.source.CurrentRequest().Context()
 }
-func (b *Base) Deadline() (time.Time, bool) { return b.CurrentRequestContext().Deadline() }
-func (b *Base) Done() <-chan struct{}       { return b.CurrentRequestContext().Done() }
-func (b *Base) Err() error                  { return b.CurrentRequestContext().Err() }
-func (b *Base) Value(key any) any           { return b.CurrentRequestContext().Value(key) }
+
+// Cancellation and deadlines are anchored to the ingress request. Values may
+// be enriched synchronously by authentication/transaction middleware.
+func (b *Base) Deadline() (time.Time, bool) { return b.lifetime.Deadline() }
+func (b *Base) Done() <-chan struct{}       { return b.lifetime.Done() }
+func (b *Base) Err() error                  { return b.lifetime.Err() }
+
+// Stable ingress values (including stdlib context cancellation state) must
+// never be re-read through Gin's mutable c.Request during asynchronous work.
+// New request-local values, such as the verified actor, remain available after
+// middleware publishes them to the current request.
+func (b *Base) Value(key any) any {
+	if value := b.lifetime.Value(key); value != nil {
+		return value
+	}
+	return b.CurrentRequestContext().Value(key)
+}
 
 // These helpers are implemented by exactly one HTTP adapter. No extra Gin
 // middleware executor, HTTP response writer or request parser is introduced.
@@ -87,6 +115,10 @@ func (b *Base) DefaultQuery(name, fallback string) string {
 }
 func (b *Base) Header(name, value string) { b.source.SetHeader(name, value) }
 func (b *Base) IsAborted() bool           { return b.source.IsAborted() }
+
+// Abort ends the typed matched-route chain without committing a response.
+// This is a transport control, not a second HTTP response writer.
+func (b *Base) Abort() { b.source.Abort() }
 
 // Written and WrittenStatus distinguish a committed response from a status
 // merely selected for later emission. This is a request/transport capability,

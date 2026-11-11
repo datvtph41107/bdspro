@@ -214,8 +214,7 @@ func TestOrganizationWritesCommitBeforeRevocation(t *testing.T) {
 			waitTeamBlocking(t, ctx, pool, blocker, writer, done)
 			revokeDone := make(chan error, 1)
 			go func() {
-				revokeDone <- auth_model.RevokeOwnedSession(ctx,
-					teamPinnedStore{Store: store, conn: revoker},
+				revokeDone <- auth_model.RevokeOwnedSession(db.WithStore(ctx, teamPinnedStore{Store: store, conn: revoker}),
 					d.accountID, d.sessionID, d.sessionID)
 			}()
 			waitTeamBlocking(t, ctx, pool, writer, revoker, revokeDone)

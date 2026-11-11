@@ -8,16 +8,24 @@ import (
 	"strings"
 	"testing"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
 func TestVerifiedContactWithoutStoreFailsClosed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.GET("/orgs", VerifiedContact(nil), func(c *gin.Context) {
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.Get("/orgs", func(c *APIContext) {
+		id := uuid.New()
+		c.Doer = &authcrypto.Payload{AccountID: 7, SessionID: id}
+		c.PublishVerifiedActor(auth_model.Actor{AccountID: 7, SessionID: id})
+	}, VerifiedContact(), func(c *APIContext) {
 		c.Status(http.StatusOK)
 	})
 	w := httptest.NewRecorder()
@@ -32,19 +40,22 @@ func TestAccountStoreErrorDoesNotExposePrivateDetails(t *testing.T) {
 	var output bytes.Buffer
 	logger := zerolog.New(&output)
 	const private = "sensitive-database-credential"
-	router := gin.New()
-	router.GET("/business",
-		func(c *gin.Context) {
-			c.Set(AuthorizationPayloadKey, &authcrypto.Payload{AccountID: 7})
-			c.Request = c.Request.WithContext(logger.WithContext(c.Request.Context()))
-			c.Next()
-		},
-		VerifiedEmail(emailVerificationStore{
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
+	router.GinEngine().Use(func(c *gin.Context) {
+		scope := logger.WithContext(c.Request.Context())
+		scope = db.WithStore(scope, emailVerificationStore{
 			account: db.Account{ID: 7},
 			err:     errors.New(private),
-		}),
-		func(c *gin.Context) { c.Status(http.StatusOK) },
-	)
+		})
+		c.Request = c.Request.WithContext(scope)
+		c.Next()
+	})
+	router.Get("/business", func(c *APIContext) {
+		id := uuid.New()
+		c.Doer = &authcrypto.Payload{AccountID: 7, SessionID: id}
+		c.PublishVerifiedActor(auth_model.Actor{AccountID: 7, SessionID: id})
+	}, VerifiedEmail(), func(c *APIContext) { c.Status(http.StatusOK) })
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/business", nil))
 	if w.Code != http.StatusServiceUnavailable {

@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/modules/reqctx"
+	"github.com/datvtph41107/bdspro/modules/web"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +20,7 @@ type ginRequestSource struct {
 }
 
 func (s ginRequestSource) CurrentRequest() *http.Request { return s.ctx.Request }
+func (s ginRequestSource) ClientIP() string              { return s.ctx.ClientIP() }
 func (s ginRequestSource) PathParam(name string) string  { return s.ctx.Param(name) }
 func (s ginRequestSource) BindJSON(value any) error      { return s.ctx.ShouldBindJSON(value) }
 func (s ginRequestSource) QueryDefault(name, fallback string) string {
@@ -65,50 +68,41 @@ func GetAPIContext(c *gin.Context) *APIContext {
 	return api
 }
 
-func APIContexter() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Request-local data and cleanup belong to modules/reqctx.
-		// Preserve an existing scope if an outer ingress installed one.
-		if reqctx.FromContext(c.Request.Context()) != nil {
+// APIContexter runs after route matching, as a native web.Router middleware.
+// It creates exactly one APIContext for the matched Gin request, while the
+// HTTP middleware chain owns continuation and request-scoped cleanup.
+func APIContexter() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			c := web.GinContextFromRequest(req)
+			if c == nil {
+				panic("context: APIContexter requires a matched route")
+			}
+			if reqctx.FromContext(req.Context()) == nil {
+				scoped, finished := reqctx.NewRequestContext(req.Context())
+				defer finished()
+				req = req.WithContext(scoped)
+			}
+			c.Request = req
 			GetAPIContext(c)
-			c.Next()
-			return
-		}
-		scoped, finished := reqctx.NewRequestContext(c.Request.Context())
-		c.Request = c.Request.WithContext(scoped)
-		defer finished()
-		GetAPIContext(c)
-		c.Next()
+			next.ServeHTTP(w, c.Request)
+		})
 	}
 }
 
-func Wrap(handler APIHandler) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		handler(GetAPIContext(c))
+// PublishVerifiedActor is the only APIContext-to-transport request update.
+// It is called only after the live PostgreSQL session has been verified.
+// The actor lives in the request context and cannot be supplied by the client.
+func (c *APIContext) PublishVerifiedActor(actor auth_model.Actor) {
+	if c == nil || c.Base == nil {
+		panic("context: missing APIContext")
 	}
-}
-
-// GinActions adapts existing Gin protocol handlers into typed API actions at
-// registration time. It is the only compatibility bridge while authentication
-// and OAuth endpoints still use Gin signatures. The request has one Gin source
-// and one APIContext; no alternate middleware engine is introduced.
-func GinActions(handlers ...gin.HandlerFunc) []any {
-	actions := make([]any, len(handlers))
-	for i, handler := range handlers {
-		if handler == nil {
-			panic("context: nil Gin HTTP handler")
-		}
-		h := handler
-		actions[i] = func(ctx *APIContext) {
-			if ctx == nil || ctx.Base == nil {
-				panic("context: missing APIContext for Gin handler")
-			}
-			source, ok := ctx.Base.source.(ginRequestSource)
-			if !ok {
-				panic("context: Gin handler used outside Gin request")
-			}
-			h(source.ctx)
-		}
+	source, ok := c.Base.source.(ginRequestSource)
+	if !ok {
+		panic("context: missing matched transport context")
 	}
-	return actions
+	req := source.ctx.Request
+	source.ctx.Request = req.WithContext(auth_model.WithActor(req.Context(), actor))
+	publishAPIContext(source.ctx, c)
+	c.IsSigned = true
 }

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
@@ -96,12 +97,14 @@ func TestUnexpectedErrorDoesNotLeakIntoClientOrLog(t *testing.T) {
 	var logs bytes.Buffer
 	logger := zerolog.New(&logs)
 	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	ctx.Request = request.WithContext(logger.WithContext(request.Context()))
-
+	router := web.NewRouter()
+	router.AfterRouting(APIContexter())
 	const secret = "secret-credential-that-must-not-appear"
-	Error(ctx, errors.New(secret))
+	router.Get("/", func(ctx *APIContext) {
+		ctx.APIErrorAuto(errors.New(secret))
+	})
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	router.ServeHTTP(recorder, request.WithContext(logger.WithContext(request.Context())))
 
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatalf("status=%d", recorder.Code)

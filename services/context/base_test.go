@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 )
 
@@ -122,4 +123,55 @@ func TestBaseJSONUsesRelaxedCodecAndNeverExposesMarshalErrors(t *testing.T) {
 	if err := json.Unmarshal(source.body, &public); err != nil || source.status != http.StatusInternalServerError || source.code != "internal_error" || public.Code != "internal_error" || public.Error != "internal server error" {
 		t.Fatalf("invalid JSON escaped response contract: status=%d code=%q body=%s err=%v", source.status, source.code, source.body, err)
 	}
+}
+
+func TestBaseCancellationUsesImmutableRequestLifetime(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	source := &testRequestSource{
+		req: httptest.NewRequest(http.MethodGet, "/scope", nil).WithContext(ctx),
+	}
+	base := NewBaseContext(source)
+	originalDone := base.Done()
+	if originalDone == nil {
+		t.Fatal("cancellable request had no Done channel")
+	}
+	// Gin's nested middleware swaps the request pointer as a normal part of
+	// applying scoped values; it must not change the cancellation authority.
+	source.req = source.req.WithContext(context.Background())
+	if base.Done() != originalDone {
+		t.Fatal("request lifetime switched to a middleware-scoped request")
+	}
+	cancel()
+	select {
+	case <-base.Done():
+	default:
+		t.Fatal("request cancellation did not propagate")
+	}
+	if base.Err() != context.Canceled {
+		t.Fatalf("request error=%v, want context.Canceled", base.Err())
+	}
+}
+
+func TestBaseNestedCancellationDoesNotReadMutableHTTPPointer(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	source := &testRequestSource{
+		req: httptest.NewRequest(http.MethodGet, "/scope", nil).WithContext(parent),
+	}
+	base := NewBaseContext(source)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			child, stop := context.WithCancel(base)
+			stop()
+			<-child.Done()
+		}
+	}()
+	for i := 0; i < 100; i++ {
+		source.req = source.req.WithContext(context.WithValue(parent, baseRequestKey{}, i))
+	}
+	wg.Wait()
 }

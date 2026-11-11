@@ -7,13 +7,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 type emailVerificationStore struct {
+	db.Store
 	account db.Account
 	err     error
 }
@@ -42,14 +46,20 @@ func TestVerifiedEmailGuardsBusinessRoutes(t *testing.T) {
 		{"store unavailable", false, errors.New("connection unavailable"), http.StatusServiceUnavailable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			r := gin.New()
-			r.GET("/business", func(c *gin.Context) {
-				c.Set(AuthorizationPayloadKey, &authcrypto.Payload{AccountID: 3})
+			r := web.NewRouter()
+			r.AfterRouting(APIContexter())
+			r.GinEngine().Use(func(c *gin.Context) {
+				c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), emailVerificationStore{
+					account: db.Account{ID: 3, IsEmailVerified: tc.verified},
+					err:     tc.storeError,
+				}))
 				c.Next()
-			}, VerifiedEmail(emailVerificationStore{
-				account: db.Account{ID: 3, IsEmailVerified: tc.verified},
-				err:     tc.storeError,
-			}), func(c *gin.Context) { c.Status(http.StatusOK) })
+			})
+			r.Get("/business", func(c *APIContext) {
+				sessionID := uuid.New()
+				c.Doer = &authcrypto.Payload{AccountID: 3, SessionID: sessionID}
+				c.PublishVerifiedActor(auth_model.Actor{AccountID: 3, SessionID: sessionID})
+			}, VerifiedEmail(), func(c *APIContext) { c.Status(http.StatusOK) })
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/business", nil))
 			if w.Code != tc.want {

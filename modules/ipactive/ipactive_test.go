@@ -1,13 +1,10 @@
 package ipactive
 
 import (
+	"context"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 func TestDefaultPolicyParityAndValidation(t *testing.T) {
@@ -51,36 +48,23 @@ func TestInvalidPolicies(t *testing.T) {
 	}
 }
 
-func TestGinMiddlewareFailsClosedWithoutLimiter(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	called := false
-	router := gin.New()
-	router.POST("/login", NewMiddleware(nil, func(c *gin.Context, ev Event, err error) {
-		if ev.Action != Login || !errors.Is(err, ErrUnavailable) {
-			t.Errorf("incorrect unavailable event: %+v %v", ev, err)
-		}
-		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"code": "rate_limit_unavailable"})
-	}).For(Login), func(c *gin.Context) {
-		called = true
-		c.Status(http.StatusNoContent)
-	})
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/login", nil))
-	if called || recorder.Code != http.StatusServiceUnavailable {
-		t.Fatalf("admission bypass: downstream=%v status=%d", called, recorder.Code)
+func TestAdmissionMechanismFailsClosedWithoutLimiter(t *testing.T) {
+	event, err := NewMiddleware(nil).Check(context.Background(), Login, "203.0.113.10")
+	if event.Action != Login || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("missing limiter was not rejected: event=%+v err=%v", event, err)
 	}
 }
 
-func TestGinMiddlewareRequiresErrorWriter(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	called := false
-	router := gin.New()
-	router.POST("/login", NewMiddleware(nil, nil).For(Login), func(c *gin.Context) {
-		called = true
-	})
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/login", nil))
-	if called || recorder.Code != http.StatusServiceUnavailable {
-		t.Fatalf("misconfigured middleware bypass: downstream=%v status=%d", called, recorder.Code)
+func TestRequestLocalAdmissionOwner(t *testing.T) {
+	m := NewMiddleware(nil)
+	ctx := WithMiddleware(context.Background(), m)
+	if got := FromContext(ctx); got != m {
+		t.Fatal("request did not retain its own IPActive admission capability")
 	}
+	defer func() {
+		if recover() == nil {
+			t.Fatal("missing middleware capability should fail closed")
+		}
+	}()
+	_ = FromContext(context.Background())
 }

@@ -12,10 +12,13 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	api_oauth "github.com/datvtph41107/bdspro/routers/api/v1/oauth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
+	"github.com/datvtph41107/bdspro/services/security"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -91,21 +94,35 @@ func TestBrowserPostgresLoginAndLogoutRevokeSession(t *testing.T) {
 		ID: uuid.New(), Name: "Database session client", RedirectUri: "https://client.example.test/callback",
 	}}
 	oauthSvc := oauth_service.NewService(oauthStore)
-	browser, err := NewHandler(Config{
-		Store: store, OAuth: oauthSvc,
-		API: api_oauth.NewHandler(oauthSvc, store, proofs), Proofs: proofs,
-		Maker: maker, Codec: codec, Login: auth.Login,
-		PublicOrigin: browserTestOrigin,
-	})
+	browser, err := NewBrowser(Config{Codec: codec, PublicOrigin: browserTestOrigin})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Login admission is fail-closed on Redis. Do not bypass the real
+	// throttle in the SQL-backed login/logout integration test.
+	redisClient := redis.NewClient(&redis.Options{Addr: "127.0.0.1:6379"})
+	t.Cleanup(func() { _ = redisClient.Close() })
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		t.Skip("Redis required for browser login admission")
+	}
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.GET("/oauth/login", browser.LoginPage)
-	router.POST("/oauth/login", browser.Login)
-	router.GET("/oauth/authorize", browser.Authenticate, browser.AuthorizePreview)
-	router.POST("/oauth/logout", browser.RequireBrowserSession, browser.Logout)
+	router := web.NewRouter()
+	router.AfterRouting(appctx.APIContexter())
+	router.GinEngine().Use(func(c *gin.Context) {
+		reqCtx := c.Request.Context()
+		reqCtx = db.WithStore(reqCtx, store)
+		reqCtx = authcrypto.WithMaker(reqCtx, maker)
+		reqCtx = auth_service.WithService(reqCtx, auth)
+		reqCtx = oauth_service.WithService(reqCtx, oauthSvc, proofs)
+		reqCtx = security.WithThrottle(reqCtx, security.NewAuthThrottle(redisClient))
+		reqCtx = WithBrowser(reqCtx, browser)
+		c.Request = c.Request.WithContext(reqCtx)
+		c.Next()
+	})
+	router.Get("/oauth/login", LoginPage)
+	router.Post("/oauth/login", Login)
+	router.Get("/oauth/authorize", Authenticate, AuthorizePreview)
+	router.Post("/oauth/logout", RequireBrowserSession, Logout)
 
 	next := "/oauth/authorize?" + oauthForm(oauthStore).Encode()
 	loginPage := req(t, router, http.MethodGet, "/oauth/login?next="+url.QueryEscape(next), nil)

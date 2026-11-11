@@ -1,9 +1,10 @@
-package context
+package common
 
 import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/modules/log"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,7 +22,7 @@ func AccessLogger() gin.HandlerFunc {
 			path = "<unmatched>"
 		}
 		event := log.Ctx(ctx.Request.Context()).Info()
-		if code := ctx.GetString(ErrorCodeKey); code != "" {
+		if code := ctx.GetString(appctx.ErrorCodeKey); code != "" {
 			event = event.Str("error_code", code)
 		}
 		event.Str("method", ctx.Request.Method).

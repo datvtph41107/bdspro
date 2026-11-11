@@ -121,7 +121,7 @@ func TestRevokeAllCannotEscapeConcurrentActingSessionRevoke(t *testing.T) {
 
 	result := make(chan error, 1)
 	go func() {
-		result <- RevokeAllSessions(ctx, sessionRevokeOnConn{SessionStore: store, conn: writer}, accountID, actingID)
+		result <- RevokeAllSessions(db.WithStore(ctx, sessionRevokeOnConn{SessionStore: store, conn: writer}), accountID, actingID)
 	}()
 
 	// A real pg_blocking_pids edge proves the candidate's authority check
@@ -167,8 +167,8 @@ func TestConcurrentRevokeAllSerializesWithoutDeadlock(t *testing.T) {
 	ctx, _, store := g12cStore(t)
 	accountID, first, second := g12cSessions(t, ctx, store)
 	done := make(chan error, 2)
-	go func() { done <- RevokeAllSessions(ctx, store, accountID, first) }()
-	go func() { done <- RevokeAllSessions(ctx, store, accountID, second) }()
+	go func() { done <- RevokeAllSessions(db.WithStore(ctx, store), accountID, first) }()
+	go func() { done <- RevokeAllSessions(db.WithStore(ctx, store), accountID, second) }()
 	var succeeded, rejected int
 	for i := 0; i < 2; i++ {
 		select {
@@ -224,7 +224,7 @@ func TestRevokeAllAccountLockPermitsForeignKeyKeyShare(t *testing.T) {
 	}
 	result := make(chan error, 1)
 	go func() {
-		result <- RevokeAllSessions(ctx, sessionRevokeOnConn{SessionStore: store, conn: writer}, accountID, actingID)
+		result <- RevokeAllSessions(db.WithStore(ctx, sessionRevokeOnConn{SessionStore: store, conn: writer}), accountID, actingID)
 	}()
 	// Confirm revoke-all acquired the account lock and is blocked on the
 	// consent session row, then test FK's KEY SHARE without a lock cycle.

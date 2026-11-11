@@ -12,33 +12,30 @@ import (
 	"github.com/google/uuid"
 )
 
-// CreateInvite binds the immutable signing dependency at route registration.
-// The resulting endpoint is a Gitea-style typed package action; no handler
-// instance, global secret or transport-specific service wrapper is required.
-func CreateInvite(signingKey string) func(*context.APIContext) {
-	return func(ctx *context.APIContext) {
-		teamID, err := ctx.PositivePathID("team_id")
-		if err != nil {
-			ctx.APIInvalid(err)
-			return
-		}
-		form := web.GetForm[*api.CreateTeamInviteOption](ctx)
-		created, err := org_service.CreateTeamInvite(
-			ctx, teamID, form.Email, 7*24*time.Hour, signingKey,
-		)
-		if err != nil {
-			ctx.APIErrorAuto(err)
-			return
-		}
-		// The raw proof is never returned to the HTTP client. The durable
-		// outbox is written in the same transaction as invitation state.
-		ctx.JSON(http.StatusAccepted, api.IssuedTeamInvite{
-			ID:           created.Invite.ID,
-			TeamID:       created.Invite.TeamID,
-			InvitedEmail: created.Invite.InvitedEmail,
-			ExpiresAt:    created.Invite.ExpiresAt,
-		})
+// CreateInvite parses HTTP input and delegates transaction authority and
+// invitation proof signing to services/org; this action never reads a secret.
+func CreateInvite(ctx *context.APIContext) {
+	teamID, err := ctx.PositivePathID("team_id")
+	if err != nil {
+		ctx.APIInvalid(err)
+		return
 	}
+	form := web.GetForm[*api.CreateTeamInviteOption](ctx)
+	created, err := org_service.CreateTeamInvite(
+		ctx, teamID, form.Email, 7*24*time.Hour,
+	)
+	if err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
+	// The raw proof is never returned to the HTTP client. The durable
+	// outbox is written in the same transaction as invitation state.
+	ctx.JSON(http.StatusAccepted, api.IssuedTeamInvite{
+		ID:           created.Invite.ID,
+		TeamID:       created.Invite.TeamID,
+		InvitedEmail: created.Invite.InvitedEmail,
+		ExpiresAt:    created.Invite.ExpiresAt,
+	})
 }
 
 // AcceptInvite uses the form bound at the route boundary. The org service

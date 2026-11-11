@@ -12,7 +12,11 @@ import (
 
 // CreateTeamInvite uses one request-scoped transaction for authorization,
 // invite persistence and durable outbox. Mail delivery stays outside the commit.
-func CreateTeamInvite(ctx context.Context, teamID int64, email string, ttl time.Duration, signingKey string) (org_model.CreatedTeamInvite, error) {
+func CreateTeamInvite(ctx context.Context, teamID int64, email string, ttl time.Duration) (org_model.CreatedTeamInvite, error) {
+	signingKey, err := inviteSigningKeyFromContext(ctx)
+	if err != nil {
+		return org_model.CreatedTeamInvite{}, err
+	}
 	actor, err := actingOrganization(ctx)
 	if err != nil {
 		return org_model.CreatedTeamInvite{}, err

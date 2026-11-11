@@ -31,9 +31,9 @@ func init() {
 
 func TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
 	var steps []string
-	r := NewRouter(engine)
+	r := NewRouter()
+	engine := r.GinEngine()
 	r.AfterRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			ctx := &typedHTTPContext{writer: w}
@@ -66,9 +66,9 @@ func TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods(t *testing.T
 
 func TestRegisteredRouterAfterRoutingPreMiddlewareRunsBeforeNormalScopes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
 	var calls []string
-	m := NewRouter(engine)
+	m := NewRouter()
+	engine := m.GinEngine()
 	trace := func(name string) func(http.Handler) http.Handler {
 		return func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -110,7 +110,7 @@ func TestRegisteredRouterAfterRoutingPreMiddlewareRunsBeforeNormalScopes(t *test
 
 func TestAfterRoutingRegisteredTypedHandlerRejectsBadSignatureEarly(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	m := NewRouter(gin.New())
+	m := NewRouter()
 	defer func() {
 		if recover() == nil {
 			t.Fatal("invalid typed handler accepted at AfterRouting registration")
@@ -172,8 +172,7 @@ func TestRegisteredTypedRouterRejectsNilSecurityGuardsAtRegistration(t *testing.
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			engine := gin.New()
-			r := NewRouter(engine)
+			r := NewRouter()
 			defer func() {
 				if recover() == nil {
 					t.Fatal("nil security guard was silently omitted during route registration")
@@ -186,8 +185,8 @@ func TestRegisteredTypedRouterRejectsNilSecurityGuardsAtRegistration(t *testing.
 
 func TestRegisteredTypedRouterRejectsDuplicateHTTPContinuation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	r := NewRouter(engine)
+	r := NewRouter()
+	engine := r.GinEngine()
 	r.AfterRouting(
 		func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -217,8 +216,8 @@ type ingressTraceKey struct{}
 
 func TestRegisteredHTTPMiddlewareProviderCompiledOnceForRepeatedRequests(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	r := NewRouter(engine)
+	r := NewRouter()
+	engine := r.GinEngine()
 	factoryCalls, requests, completed := 0, 0, 0
 	r.AfterRouting(
 		func(next http.Handler) http.Handler {
@@ -260,8 +259,8 @@ func TestRegisteredHTTPMiddlewareProviderCompiledOnceForRepeatedRequests(t *test
 
 func TestRegisteredTypedRouteRejectsContinuationAfterCompletion(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	r := NewRouter(engine)
+	r := NewRouter()
+	engine := r.GinEngine()
 	var resume func()
 	reached := false
 	r.AfterRouting(
@@ -295,8 +294,8 @@ func TestRegisteredTypedRouteRejectsContinuationAfterCompletion(t *testing.T) {
 
 func TestMatchedRouteCompiledProvidersRemainRequestLocalUnderConcurrency(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	r := NewRouter(engine)
+	r := NewRouter()
+	engine := r.GinEngine()
 	var factoryCount, middlewareCalls, endpointCalls atomic.Int32
 	type traceKey struct{}
 	r.AfterRouting(
@@ -358,9 +357,9 @@ func TestMatchedRouteCompiledProvidersRemainRequestLocalUnderConcurrency(t *test
 
 func TestBeforeRoutingRunsBeforeMatchingAndHandles404And405(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
+	r := NewRouter()
+	engine := r.GinEngine()
 	engine.HandleMethodNotAllowed = true
-	r := NewRouter(engine)
 	var order []string
 	r.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -395,8 +394,8 @@ func TestBeforeRoutingRunsBeforeMatchingAndHandles404And405(t *testing.T) {
 
 func TestMethodsRejectInvalidMethodBatchBeforeRegistration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	r := NewRouter(engine)
+	r := NewRouter()
+	engine := r.GinEngine()
 	func() {
 		defer func() {
 			if recover() == nil {
@@ -414,8 +413,7 @@ func TestMethodsRejectInvalidMethodBatchBeforeRegistration(t *testing.T) {
 
 func TestBeforeRoutingRejectsLateContinuation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	r := NewRouter(engine)
+	r := NewRouter()
 	var resume func()
 	reached := false
 	r.BeforeRouting(func(next http.Handler) http.Handler {
@@ -445,8 +443,8 @@ func TestBeforeRoutingRejectsLateContinuation(t *testing.T) {
 
 func TestAfterRoutingRejectsRegistrationAfterCompiledRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	r := NewRouter(engine)
+	r := NewRouter()
+	engine := r.GinEngine()
 	r.AfterRouting(func(next http.Handler) http.Handler { return next })
 	r.Get("/before", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)

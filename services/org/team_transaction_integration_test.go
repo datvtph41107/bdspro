@@ -280,7 +280,7 @@ func TestTeamMembershipCommitPrecedesRevocation(t *testing.T) {
 			waitTeamBlocking(t, ctx, pool, blocker, writer, writeDone)
 			revokeDone := make(chan error, 1)
 			go func() {
-				revokeDone <- auth_model.RevokeOwnedSession(ctx, teamPinnedStore{Store: store, conn: revoker}, data.accountID, data.sessionID, data.sessionID)
+				revokeDone <- auth_model.RevokeOwnedSession(db.WithStore(ctx, teamPinnedStore{Store: store, conn: revoker}), data.accountID, data.sessionID, data.sessionID)
 			}()
 			waitTeamBlocking(t, ctx, pool, writer, revoker, revokeDone)
 			if err := tx.Commit(ctx); err != nil {

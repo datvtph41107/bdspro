@@ -58,20 +58,26 @@ func TestOAuthConsentProofBindsHTTPPreviewAndApproval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := NewHandler(oauth_service.NewService(store), nil, signer)
-	r := gin.New()
 	maker, err := authcrypto.NewJWTMaker(strings.Repeat("s", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	grp := r.Group("", appctx.Authenticate(maker))
-	grp.GET("/oauth/authorize", handler.AuthorizePreview)
-	grp.POST("/oauth/authorize", handler.Authorize)
-	bearer, _, err := maker.CreateSessionAccessToken(42, time.Minute, uuid.New())
+	sessionID := uuid.New()
+	wrongSessionID := uuid.New()
+	sessionStore := oauthSessionTestStore{
+		accounts: map[uuid.UUID]int64{
+			sessionID:      42,
+			wrongSessionID: 43,
+		},
+	}
+	r := oauthTestRouter(oauth_service.NewService(store), sessionStore, signer, maker)
+	r.Get("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), AuthorizePreview)
+	r.Post("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), Authorize)
+	bearer, _, err := maker.CreateSessionAccessToken(42, time.Minute, sessionID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrongBearer, _, err := maker.CreateSessionAccessToken(43, time.Minute, uuid.New())
+	wrongBearer, _, err := maker.CreateSessionAccessToken(43, time.Minute, wrongSessionID)
 	if err != nil {
 		t.Fatal(err)
 	}

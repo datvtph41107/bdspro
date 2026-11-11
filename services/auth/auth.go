@@ -32,14 +32,19 @@ import (
 // access renewal and session revocation. No Gin or HTTP response types enter
 // these operations.
 type AuthService struct {
-	store  db.Store
-	maker  authcrypto.Maker
-	config setting.Config
-	sender notification.PhoneCodeSender
+	store       db.Store
+	maker       authcrypto.Maker
+	config      setting.Config
+	sender      notification.PhoneCodeSender
+	emailSender mail.EmailSender
 }
 
-func NewAuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config, sender notification.PhoneCodeSender) *AuthService {
-	return &AuthService{store: store, maker: maker, config: cfg, sender: sender}
+func NewAuthService(store db.Store, maker authcrypto.Maker, cfg setting.Config, sender notification.PhoneCodeSender, emailSender ...mail.EmailSender) *AuthService {
+	s := &AuthService{store: store, maker: maker, config: cfg, sender: sender}
+	if len(emailSender) > 0 {
+		s.emailSender = emailSender[0]
+	}
+	return s
 }
 
 // HasPhone indicates that the HTTP phone channel is configured.
@@ -247,8 +252,8 @@ func (s *AuthService) ResetPassword(ctx context.Context, secret, password string
 	return err
 }
 
-func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email, phoneCode string, sender mail.EmailSender) error {
-	if sender == nil {
+func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email, phoneCode string) error {
+	if s.emailSender == nil {
 		return fmt.Errorf("email link mailer unavailable")
 	}
 	email, valid := validation.EmailAddress(email)
@@ -290,7 +295,7 @@ func (s *AuthService) StartEmailLink(ctx context.Context, accountID int64, email
 		return err
 	}
 	content := fmt.Sprintf("To link this email to your BDSPro account, sign in and submit this one-time token to POST /users/me/email/verify within 15 minutes: <code>%s</code>", html.EscapeString(secret))
-	return sender.SendEmail("Verify your BDSPro email link", content, []string{email}, nil, nil, nil)
+	return s.emailSender.SendEmail("Verify your BDSPro email link", content, []string{email}, nil, nil, nil)
 }
 
 func (s *AuthService) ConfirmEmailLink(ctx context.Context, accountID int64, secret string) error {

@@ -216,29 +216,28 @@ func TestMeUsesVerifiedAccountAndDoesNotLeakDriverErrors(t *testing.T) {
 		Locale: "vi", Timezone: "Asia/Ho_Chi_Minh", Currency: "VND",
 		HasPassword: true, HasPhone: true, HasOauth2: false,
 	}}
-	r := gin.New()
-	// Production injects db.Store at ingress. This fake uses the same request
-	// capability, never a handler-owned or process-global Store.
+	m := web.NewRouter()
+	r := m.GinEngine()
+	// Production injects DB and maker capabilities at ingress.
 	r.Use(func(c *gin.Context) {
-		c.Request = c.Request.WithContext(db.WithStore(c.Request.Context(), store))
-		c.Next()
-	}, appctx.APIContexter())
-	// Model a request that *already passed* RequireSession. This deliberately
-	// admits a stale token as well, to verify the write transaction checks the
-	// acting session again after admission instead of trusting that snapshot.
-	r.Use(appctx.Authenticate(maker), func(c *gin.Context) {
-		payload, ok := appctx.AuthorizationPayload(c)
-		if !ok {
-			appctx.AuthenticationRequired(c)
-			return
-		}
-		c.Request = c.Request.WithContext(auth_model.WithActor(c.Request.Context(), auth_model.Actor{
-			AccountID: payload.AccountID, SessionID: payload.SessionID,
-		}))
-		appctx.GetAPIContext(c).IsSigned = true
+		ctx := db.WithStore(c.Request.Context(), store)
+		ctx = authcrypto.WithMaker(ctx, maker)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	})
-	m := web.NewRouter(r)
+	m.AfterRouting(appctx.APIContexter())
+	// Mimic the already-verified identity boundary, including a stale actor
+	// whose subsequent write must still pass transactional session checks.
+	m.AfterRouting(appctx.Authenticate(), func(ctx *appctx.APIContext) {
+		payload, ok := ctx.SignedPrincipal()
+		if !ok {
+			ctx.AuthenticationRequired()
+			return
+		}
+		ctx.PublishVerifiedActor(auth_model.Actor{
+			AccountID: payload.AccountID, SessionID: payload.SessionID,
+		})
+	})
 	bindProfile := func(ctx *appctx.APIContext) {
 		form, err := middleware.BindJSON[api.ProfileUpdateRequest](ctx)
 		if err != nil {

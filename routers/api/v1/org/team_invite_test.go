@@ -23,17 +23,17 @@ func TestTeamInvitePackageActionsRejectMalformedRequests(t *testing.T) {
 		{
 			name: "missing email", method: http.MethodPost,
 			path: "/teams/1/invites", pattern: "/teams/:team_id/invites", body: "{}",
-			bind: bindTestForm[api.CreateTeamInviteOption], action: CreateInvite(""),
+			bind: bindTestForm[api.CreateTeamInviteOption], action: CreateInvite,
 		},
 		{
 			name: "invalid email", method: http.MethodPost,
 			path: "/teams/1/invites", pattern: "/teams/:team_id/invites", body: `{"email":"bad"}`,
-			bind: bindTestForm[api.CreateTeamInviteOption], action: CreateInvite(""),
+			bind: bindTestForm[api.CreateTeamInviteOption], action: CreateInvite,
 		},
 		{
 			name: "invalid team", method: http.MethodPost,
 			path: "/teams/invalid/invites", pattern: "/teams/:team_id/invites", body: `{"email":"member@example.test"}`,
-			bind: bindTestForm[api.CreateTeamInviteOption], action: CreateInvite(""),
+			bind: bindTestForm[api.CreateTeamInviteOption], action: CreateInvite,
 		},
 		{
 			name: "missing token", method: http.MethodPost,
@@ -52,9 +52,9 @@ func TestTeamInvitePackageActionsRejectMalformedRequests(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			router := gin.New()
-			router.Use(appctx.APIContexter())
-			m := web.NewRouter(router)
+			m := web.NewRouter()
+			m.AfterRouting(appctx.APIContexter())
+			router := m.GinEngine()
 			if tc.bind != nil {
 				m.Methods(tc.method, tc.pattern, tc.bind, tc.action)
 			} else {

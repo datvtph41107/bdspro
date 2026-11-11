@@ -1,9 +1,10 @@
-package oauth
+package oauth_test
 
 import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"math/big"
@@ -19,9 +20,11 @@ import (
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	api_oauth "github.com/datvtph41107/bdspro/routers/api/v1/oauth"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
+	weboauth "github.com/datvtph41107/bdspro/routers/web/oauth"
 	auth_service "github.com/datvtph41107/bdspro/services/auth"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -29,6 +32,56 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+const oidcBrowserTestOrigin = "https://auth.example.test"
+
+type oidcBrowserOAuthStore struct {
+	db.OAuthServerStore
+	client db.OauthClient
+}
+
+func (s *oidcBrowserOAuthStore) GetOAuthClient(_ context.Context, id uuid.UUID) (db.OauthClient, error) {
+	if id != s.client.ID {
+		return db.OauthClient{}, db.ErrOAuthClientMissing
+	}
+	return s.client, nil
+}
+func (s *oidcBrowserOAuthStore) GetOAuthConsentVersion(_ context.Context, _ int64, _ uuid.UUID) (int64, error) {
+	return 0, nil
+}
+func oidcOAuthForm(s *oidcBrowserOAuthStore) url.Values {
+	challenge := sha256.Sum256([]byte(strings.Repeat("x", 43)))
+	return url.Values{
+		"client_id":             {s.client.ID.String()},
+		"redirect_uri":          {s.client.RedirectUri},
+		"response_type":         {"code"},
+		"scope":                 {"profile:read"},
+		"state":                 {"0123456789abcdef"},
+		"code_challenge":        {base64.RawURLEncoding.EncodeToString(challenge[:])},
+		"code_challenge_method": {"S256"},
+	}
+}
+func oidcRequest(t *testing.T, handler http.Handler, method, path string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, oidcBrowserTestOrigin+path, nil)
+	req.Header.Set("Accept", "text/html")
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+func oidcCookieNamed(t *testing.T, rec *httptest.ResponseRecorder, name string) *http.Cookie {
+	t.Helper()
+	for _, cookie := range rec.Result().Cookies() {
+		if cookie.Name == name {
+			return cookie
+		}
+	}
+	t.Fatalf("missing %s cookie from %v", name, rec.Result().Cookies())
+	return nil
+}
 
 func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 	raw := os.Getenv("BDS_TEST_DB_URL")
@@ -88,7 +141,7 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 			}
 			if r.Form.Get("grant_type") != "authorization_code" ||
 				r.Form.Get("code") != "test-code" || r.Form.Get("code_verifier") == "" ||
-				r.Form.Get("redirect_uri") != browserTestOrigin+"/users/oauth2/callback" {
+				r.Form.Get("redirect_uri") != oidcBrowserTestOrigin+"/users/oauth2/callback" {
 				t.Error("provider exchange did not use the configured callback and PKCE")
 			}
 			tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
@@ -115,7 +168,7 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 		Issuer: issuer, AuthorizationURL: providerHTTP.URL + "/authorize",
 		TokenURL: providerHTTP.URL + "/token", JWKSURL: providerHTTP.URL + "/keys",
 		ClientID: "oidc-browser-test", ClientSecret: "test-secret",
-		RedirectURI: browserTestOrigin + "/users/oauth2/callback",
+		RedirectURI: oidcBrowserTestOrigin + "/users/oauth2/callback",
 	}
 	flow, err := auth_service.NewOAuth2Client(provider, redisClient, providerHTTP.Client())
 	if err != nil {
@@ -139,32 +192,40 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 		OIDC: provider, TokenSymmetricKey: secret, AuditKey: strings.Repeat("a", 32),
 		AccessTokenDuration: 15 * time.Minute, RefreshTokenDuration: 24 * time.Hour,
 	}, nil)
-	clientStore := &browserOAuthStore{client: db.OauthClient{
+	clientStore := &oidcBrowserOAuthStore{client: db.OauthClient{
 		ID: uuid.New(), Name: "OIDC browser client", RedirectUri: "https://client.example.test/callback",
 	}}
 	oauthSvc := oauth_service.NewService(clientStore)
-	browser, err := NewHandler(Config{
-		Store: store, OAuth: oauthSvc,
-		API: api_oauth.NewHandler(oauthSvc, store, proofs), Proofs: proofs,
-		Login: authService.Login, Maker: maker, Codec: codec,
-		PublicOrigin: browserTestOrigin, OIDCEnabled: true,
+	browser, err := weboauth.NewBrowser(weboauth.Config{
+		Codec: codec, PublicOrigin: oidcBrowserTestOrigin, OIDCEnabled: true,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	oidc := user.NewOAuth2Handler(authService, flow, true, browser)
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.GET("/oauth/login/oidc/start", oidc.StartBrowserLogin)
-	router.GET("/users/oauth2/callback", oidc.Callback)
-	router.GET("/oauth/authorize", browser.Authenticate, browser.AuthorizePreview)
+	router := web.NewRouter()
+	router.AfterRouting(appctx.APIContexter())
+	router.GinEngine().Use(func(c *gin.Context) {
+		requestCtx := c.Request.Context()
+		requestCtx = db.WithStore(requestCtx, store)
+		requestCtx = authcrypto.WithMaker(requestCtx, maker)
+		requestCtx = auth_service.WithService(requestCtx, authService)
+		requestCtx = auth_service.WithOAuth2(requestCtx, flow, true)
+		requestCtx = oauth_service.WithService(requestCtx, oauthSvc, proofs)
+		requestCtx = weboauth.WithBrowser(requestCtx, browser)
+		c.Request = c.Request.WithContext(requestCtx)
+		c.Next()
+	})
+	router.Get("/oauth/login/oidc/start", user.StartBrowserLogin)
+	router.Get("/users/oauth2/callback", user.Callback)
+	router.Get("/oauth/authorize", weboauth.Authenticate, weboauth.AuthorizePreview)
 
-	next := "/oauth/authorize?" + oauthForm(clientStore).Encode()
-	start := req(t, router, http.MethodGet, "/oauth/login/oidc/start?next="+url.QueryEscape(next), nil)
+	next := "/oauth/authorize?" + oidcOAuthForm(clientStore).Encode()
+	start := oidcRequest(t, router, http.MethodGet, "/oauth/login/oidc/start?next="+url.QueryEscape(next))
 	if start.Code != http.StatusFound {
 		t.Fatalf("OIDC browser start failed: %d %s", start.Code, start.Body.String())
 	}
-	stateCookie := cookieNamed(t, start, "bdspro_oidc_state")
+	stateCookie := oidcCookieNamed(t, start, "bdspro_oidc_state")
 	if !stateCookie.HttpOnly || !stateCookie.Secure || stateCookie.Path != "/users/oauth2/callback" {
 		t.Fatalf("unsafe OIDC state cookie: %+v", stateCookie)
 	}
@@ -183,14 +244,14 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 	}
 
 	callbackPath := "/users/oauth2/callback?state=" + url.QueryEscape(state) + "&code=test-code"
-	callback := req(t, router, http.MethodGet, callbackPath, nil, stateCookie)
+	callback := oidcRequest(t, router, http.MethodGet, callbackPath, stateCookie)
 	if callback.Code != http.StatusSeeOther || callback.Header().Get("Location") != next {
 		t.Fatalf("OIDC browser callback failed: %d %s", callback.Code, callback.Body.String())
 	}
 	if strings.Contains(callback.Body.String(), "access_token") || strings.Contains(callback.Body.String(), "refresh_token") {
 		t.Fatal("OIDC callback disclosed internal JWT credentials")
 	}
-	browserCookie := cookieNamed(t, callback, "__Host-bdspro-browser")
+	browserCookie := oidcCookieNamed(t, callback, "__Host-bdspro-browser")
 	idText, err := codec.ReadCookie(browserCookie.Value, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -203,11 +264,11 @@ func TestOIDCBrowserLoginCallbackAndConsentEndToEnd(t *testing.T) {
 	if err != nil || session.AccountID <= 0 || session.IsBlocked {
 		t.Fatalf("OIDC callback did not create live DB session: %+v %v", session, err)
 	}
-	preview := req(t, router, http.MethodGet, next, nil, browserCookie)
+	preview := oidcRequest(t, router, http.MethodGet, next, browserCookie)
 	if preview.Code != http.StatusOK || !strings.Contains(preview.Body.String(), "OIDC browser client") {
 		t.Fatalf("fresh browser OIDC session cannot review consent: %d %s", preview.Code, preview.Body.String())
 	}
-	replay := req(t, router, http.MethodGet, callbackPath, nil, stateCookie)
+	replay := oidcRequest(t, router, http.MethodGet, callbackPath, stateCookie)
 	if replay.Code != http.StatusBadRequest {
 		t.Fatalf("replayed OIDC state accepted: %d", replay.Code)
 	}

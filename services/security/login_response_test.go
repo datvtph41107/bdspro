@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
@@ -18,9 +19,10 @@ func TestLogLoginResponseDoesNotDuplicateServerError(t *testing.T) {
 	var output bytes.Buffer
 	logger := zerolog.New(&output).With().Str("request_id", "req-login-1").Logger()
 
-	router := gin.New()
-	router.POST("/users/login", LogLoginResponse(), func(c *gin.Context) {
-		appctx.RateLimitUnavailable(c)
+	router := web.NewRouter()
+	router.AfterRouting(appctx.APIContexter())
+	router.Post("/users/login", LogLoginResponse(), func(c *appctx.APIContext) {
+		c.APIError(http.StatusServiceUnavailable, "rate_limit_unavailable", "authentication temporarily unavailable")
 	})
 
 	request := httptest.NewRequest(http.MethodPost, "/users/login?password=private-query-secret", strings.NewReader("private-body"))

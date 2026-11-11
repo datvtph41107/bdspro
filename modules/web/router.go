@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
@@ -115,7 +116,6 @@ type routeDefinition struct {
 
 type Router struct {
 	engine           *gin.Engine
-	group            *gin.RouterGroup
 	beforeRouting    []middlewareProvider
 	ingressBound     bool
 	routesRegistered bool
@@ -123,26 +123,16 @@ type Router struct {
 	curGroupPrefix   string
 	curMiddlewares   []any
 	routes           []routeDefinition
+	serveOnce        sync.Once
+	serveHandler     http.Handler
 }
 
-// NewRouter owns its Gin engine, matching Gitea's construction boundary.
-// The optional existing engine is a temporary compatibility path for legacy
-// registrations; new routing code must call NewRouter() without arguments.
-func NewRouter(legacyEngine ...*gin.Engine) *Router {
-	if len(legacyEngine) > 1 {
-		panic("web: NewRouter accepts at most one legacy engine")
-	}
-	var engine *gin.Engine
-	if len(legacyEngine) == 1 {
-		engine = legacyEngine[0]
-		if engine == nil {
-			panic("web: nil Gin engine")
-		}
-	} else {
-		engine = gin.New()
-		_ = engine.SetTrustedProxies(nil)
-	}
-	return &Router{engine: engine, group: engine.Group("")}
+// NewRouter constructs and owns its Gin matcher. There is no legacy-engine
+// registration path; Mount always installs routes onto the parent matcher.
+func NewRouter() *Router {
+	engine := gin.New()
+	_ = engine.SetTrustedProxies(nil)
+	return &Router{engine: engine}
 }
 
 // GinEngine exposes the one transport matcher to composition and bootstrap.
@@ -214,10 +204,19 @@ func (r *Router) Mount(pattern string, sub *Router) {
 		providers := make([]middlewareProvider, 0, len(parentMiddleware)+len(entry.providers))
 		providers = append(providers, parentMiddleware...)
 		providers = append(providers, entry.providers...)
-		r.group.Handle(entry.method, path, ginMatchedHandler(providers, entry.endpoint))
+		r.engine.Handle(entry.method, path, ginMatchedHandler(providers, entry.endpoint))
 		r.routes = append(r.routes, routeDefinition{method: entry.method, path: path, providers: providers, endpoint: entry.endpoint})
 	}
 	r.routesRegistered = true
+}
+
+// ServeHTTP executes the single parent Gin matcher through its pre-routing
+// ingress, as in Gitea's web.Router ServeHTTP contract.
+func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.serveOnce.Do(func() {
+		r.serveHandler = r.WrapIngress()
+	})
+	r.serveHandler.ServeHTTP(w, req)
 }
 
 // BeforeRouting installs HTTP-native middleware ahead of Gin's route matcher.
@@ -384,7 +383,7 @@ func (r *Router) Methods(method, path string, actions ...any) {
 	// effective in source while actually being absent from ingress.
 	r.routesRegistered = true
 	for _, candidate := range candidates {
-		r.group.Handle(candidate, pattern, handlers...)
+		r.engine.Handle(candidate, pattern, handlers...)
 		r.routes = append(r.routes, routeDefinition{
 			method: candidate, path: pattern, providers: middlewares, endpoint: endpoint,
 		})

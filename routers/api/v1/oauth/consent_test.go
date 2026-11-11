@@ -9,15 +9,24 @@ import (
 	"time"
 
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+	appctx "github.com/datvtph41107/bdspro/services/context"
+	oauth_service "github.com/datvtph41107/bdspro/services/oauth"
+	"github.com/google/uuid"
 )
 
 func TestOAuthApproveRequiresConsentVersion(t *testing.T) {
-	router := oauthHTTPTestRouter(t)
 	maker, err := authcrypto.NewJWTMaker(strings.Repeat("s", 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	jwt, _, err := maker.CreateToken(42, time.Minute, authcrypto.TokenTypeAccess)
+	sessionID := uuid.New()
+	router := oauthTestRouter(
+		oauth_service.NewService(&noGrantStore{}),
+		oauthSessionTestStore{accounts: map[uuid.UUID]int64{sessionID: 42}},
+		nil, maker,
+	)
+	router.Post("/oauth/authorize", appctx.Authenticate(), appctx.RequireSession(), Authorize)
+	jwt, _, err := maker.CreateSessionAccessToken(42, time.Minute, sessionID)
 	if err != nil {
 		t.Fatal(err)
 	}

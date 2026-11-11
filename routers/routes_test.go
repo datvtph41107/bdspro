@@ -10,10 +10,6 @@ import (
 
 	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
-	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/routers/api/v1/oauth"
-	"github.com/datvtph41107/bdspro/routers/api/v1/user"
-	auth_service "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -51,25 +47,19 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 	}
 
 	sid := uuid.New()
-	newServer := func(oauth2, phone bool) *Server {
-		store := routeAccountStore{sessionID: sid}
-		s := &Server{
-			tokenMaker:           maker,
-			store:                store,
-			authHandler:          user.NewAuthHandler(auth_service.NewAuthService(store, nil, setting.Config{}, nil), nil, nil),
-			authorizationHandler: oauth.NewHandler(nil, nil),
-		}
-		if oauth2 {
-			s.oauth2Handler = user.NewOAuth2Handler(nil, nil, false)
-		}
-		if phone {
-			s.phoneEnabled = true
-		}
-		s.router = NormalRoutes(s)
-		return s
+	store := routeAccountStore{sessionID: sid}
+	routes := NormalRoutes()
+	base := &Server{
+		tokenMaker: maker, store: store, router: routes.GinEngine(),
 	}
+	// Bind the same package-owned request capabilities as NewServer without
+	// constructing external Redis, SMTP or OIDC infrastructure.
+	base.httpHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := authcrypto.WithMaker(req.Context(), maker)
+		ctx = db.WithStore(ctx, store)
+		routes.ServeHTTP(w, req.WithContext(ctx))
+	})
 
-	base := newServer(false, false)
 	want := []string{
 		"GET /oauth/authorize", "POST /oauth/authorize",
 		"POST /oauth/token", "POST /oauth/revoke", "GET /oauth/userinfo",
@@ -93,6 +83,24 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		"GET /teams/:team_id/members", "POST /teams/:team_id/invites",
 		"DELETE /teams/:team_id/invites/:invite_id", "POST /teams/invites/accept",
 	}
+	// Optional features have stable route registration. Their package guards
+	// decide availability per request, not per process-wide router state.
+	want = append(want,
+		"POST /users/me/oauth2/start",
+		"GET /users/oauth2/login/start",
+		"GET /users/oauth2/callback",
+		"POST /users/me/phone/oauth2/start",
+		"POST /users/me/phone/start",
+		"POST /users/me/phone/verify",
+		"POST /users/phone/register/start",
+		"POST /users/phone/register/verify",
+		"POST /users/phone/login/start",
+		"POST /users/phone/login/verify",
+		"GET /oauth/login",
+		"POST /oauth/login",
+		"POST /oauth/logout",
+		"GET /oauth/login/oidc/start",
+	)
 	got := make(map[string]bool)
 	for _, route := range base.router.Routes() {
 		got[route.Method+" "+route.Path] = true
@@ -109,31 +117,21 @@ func TestRouteRegistrationAndAuthentication(t *testing.T) {
 		}
 	}
 
-	withOptional := newServer(true, true)
-	if n := len(withOptional.router.Routes()); n != 61 {
-		t.Errorf("enabled route count = %d, want 61", n)
+	// A second, independently constructed router has the same route inventory.
+	// This proves route declaration no longer depends on InitRuntime flags.
+	again := NormalRoutes().GinEngine()
+	if len(again.Routes()) != len(base.router.Routes()) {
+		t.Fatalf("route inventory depends on process-level initialization: first=%d second=%d",
+			len(base.router.Routes()), len(again.Routes()))
 	}
-	for _, route := range []string{
-		"POST /users/me/oauth2/start", "GET /users/oauth2/login/start",
-		"GET /users/oauth2/callback", "POST /users/me/phone/oauth2/start",
-		"POST /users/me/phone/start",
-		"POST /users/me/phone/verify",
-		"POST /users/phone/register/start", "POST /users/phone/register/verify",
-		"POST /users/phone/login/start", "POST /users/phone/login/verify",
-	} {
-		found := false
-		for _, current := range withOptional.router.Routes() {
-			if current.Method+" "+current.Path == route {
-				found = true
-			}
-		}
-		if !found {
-			t.Errorf("missing optional route %s", route)
+	for _, current := range again.Routes() {
+		if !got[current.Method+" "+current.Path] {
+			t.Errorf("route missing in first registration: %s %s", current.Method, current.Path)
 		}
 	}
 
 	for _, removed := range []string{"POST /users/phone/password/login"} {
-		for _, current := range withOptional.router.Routes() {
+		for _, current := range base.router.Routes() {
 			if current.Method+" "+current.Path == removed {
 				t.Errorf("unsupported phone/password route exposed: %s", removed)
 			}

@@ -1,8 +1,9 @@
-package context
+package common
 
 import (
 	"net/http"
 
+	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,7 +13,7 @@ const maxRequestBodyBytes int64 = 1 << 20
 func RequestIngress() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if ctx.Request.ContentLength > maxRequestBodyBytes {
-			Reject(ctx, http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
+			appctx.GetAPIContext(ctx).APIError(http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
 			return
 		}
 		ctx.Request.Body = http.MaxBytesReader(ctx.Writer, ctx.Request.Body, maxRequestBodyBytes)

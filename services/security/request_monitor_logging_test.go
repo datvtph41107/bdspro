@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
@@ -17,10 +18,11 @@ func TestRequestMonitorDoesNotWarnOnSingleMalformedRequest(t *testing.T) {
 	var output bytes.Buffer
 	logger := zerolog.New(&output).Level(zerolog.InfoLevel)
 
-	router := gin.New()
-	router.Use(RequestMonitor(nil))
-	router.GET("/test", func(c *gin.Context) {
-		appctx.Reject(c, http.StatusBadRequest, "invalid_request", "invalid request")
+	router := web.NewRouter()
+	router.AfterRouting(appctx.APIContexter())
+	router.GinEngine().Use(RequestMonitor())
+	router.Get("/test", func(c *appctx.APIContext) {
+		c.APIError(http.StatusBadRequest, "invalid_request", "invalid request")
 	})
 	request := httptest.NewRequest(http.MethodGet, "/test", nil)
 	recorder := httptest.NewRecorder()
@@ -39,10 +41,11 @@ func TestRequestMonitorWarnsOnDeniedAuthentication(t *testing.T) {
 	var output bytes.Buffer
 	logger := zerolog.New(&output).Level(zerolog.InfoLevel)
 
-	router := gin.New()
-	router.Use(RequestMonitor(nil))
-	router.GET("/me", func(c *gin.Context) {
-		appctx.BearerRequired(c)
+	router := web.NewRouter()
+	router.AfterRouting(appctx.APIContexter())
+	router.GinEngine().Use(RequestMonitor())
+	router.Get("/me", func(c *appctx.APIContext) {
+		c.AuthenticationRequired()
 	})
 	request := httptest.NewRequest(http.MethodGet, "/me", nil)
 	recorder := httptest.NewRecorder()

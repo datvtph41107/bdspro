@@ -39,8 +39,9 @@ func TestReqTokenRequiresVerifiedSession(t *testing.T) {
 		{"corrupt-signed-context", true, 0, 42, false, http.StatusUnauthorized},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			r := gin.New()
-			r.Use(appctx.APIContexter())
+			m := web.NewRouter()
+			m.AfterRouting(appctx.APIContexter())
+			r := m.GinEngine()
 			r.Use(func(c *gin.Context) {
 				ctx := appctx.GetAPIContext(c)
 				ctx.IsSigned = tc.signed
@@ -61,7 +62,6 @@ func TestReqTokenRequiresVerifiedSession(t *testing.T) {
 				c.Next()
 			})
 			reached := false
-			m := web.NewRouter(r)
 			m.Get("/guard", reqToken(), func(ctx *appctx.APIContext) {
 				reached = true
 				ctx.Status(http.StatusNoContent)
@@ -91,8 +91,9 @@ func TestReqTokenRequiresVerifiedSession(t *testing.T) {
 
 func TestOrgAssignmentRejectsMismatchedAuthorityBeforeDatabase(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.Use(appctx.APIContexter())
+	m := web.NewRouter()
+	m.AfterRouting(appctx.APIContexter())
+	r := m.GinEngine()
 	r.Use(func(c *gin.Context) {
 		api := appctx.GetAPIContext(c)
 		api.IsSigned = true
@@ -103,7 +104,6 @@ func TestOrgAssignmentRejectsMismatchedAuthorityBeforeDatabase(t *testing.T) {
 		c.Next()
 	})
 	reached := false
-	m := web.NewRouter(r)
 	m.Group("/orgs/:id", func() {
 		m.Get("", func(*appctx.APIContext) { reached = true })
 	}, orgAssignment(nil))
@@ -116,8 +116,9 @@ func TestOrgAssignmentRejectsMismatchedAuthorityBeforeDatabase(t *testing.T) {
 
 func TestOrgAssignmentRejectsInvalidIDForTeamListBeforeDatabase(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.Use(appctx.APIContexter())
+	m := web.NewRouter()
+	m.AfterRouting(appctx.APIContexter())
+	r := m.GinEngine()
 	r.Use(func(c *gin.Context) {
 		api := appctx.GetAPIContext(c)
 		sessionID := uuid.MustParse("e27803ce-3e4f-42d5-94d6-7693d30b825d")
@@ -129,7 +130,6 @@ func TestOrgAssignmentRejectsInvalidIDForTeamListBeforeDatabase(t *testing.T) {
 		c.Next()
 	})
 	reached := false
-	m := web.NewRouter(r)
 	m.Group("/orgs/:id", func() {
 		m.Get("/teams", func(*appctx.APIContext) { reached = true })
 	}, orgAssignment(nil))
@@ -145,9 +145,9 @@ type providerIngressKey struct{}
 
 func TestAfterRoutingHTTPPreAndTypedAPIContextShareRequestLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	engine := gin.New()
-	engine.Use(appctx.APIContexter())
-	m := web.NewRouter(engine)
+	m := web.NewRouter()
+	m.AfterRouting(appctx.APIContexter())
+	engine := m.GinEngine()
 	m.AfterRouting(
 		func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
