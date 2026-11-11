@@ -7,8 +7,7 @@ import (
 	"testing"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/models/db"
-	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
+		authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 )
@@ -33,7 +32,6 @@ func TestG12SessionAuthorityRealPostgresReadCost(t *testing.T) {
 	// only differ in whether live session verification reads PostgreSQL.
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := authcrypto.WithMaker(req.Context(), server.tokenMaker)
-		ctx = db.WithStore(ctx, server.store)
 		r.ServeHTTP(w, req.WithContext(ctx))
 	})
 	type measured struct {
