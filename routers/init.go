@@ -79,9 +79,10 @@ func InitWebInstalled(ctx context.Context) (*Server, error) {
 // NormalRoutes is the single route-registration owner.
 func NormalRoutes() *web.Router {
 	r := web.NewRouter()
+	r.BeforeRouting(common.ProtocolMiddlewares()...)
 	router := r.GinEngine()
-	router.Use(common.ProtocolMiddlewares()...)
-	router.Use(security.RequestMonitor(), common.RequestIngress())
+	router.Use(common.AccessLogger(), common.Recovery(nil),
+		security.RequestMonitor(), common.RequestIngress())
 	r.Mount("/", apiv1.Routes())
 	return r
 }
