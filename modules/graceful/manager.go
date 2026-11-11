@@ -55,8 +55,11 @@ func (g *Manager) RunAtShutdown(ctx context.Context, fn func()) {
 func (g *Manager) RunAtTerminate(fn func()) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
-	if g.state != stateRunning {
-		panic("graceful: termination callback registered after shutdown")
+	// Registration during drain is valid: subsystem initialization may
+	// complete after shutdown was requested, while the Web activity is
+	// still registered. Terminate hooks are snapshotted only after drain.
+	if g.state == stateTerminate {
+		panic("graceful: termination callback registered after termination")
 	}
 	g.terminateHooks = append(g.terminateHooks, fn)
 }

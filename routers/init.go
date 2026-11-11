@@ -7,6 +7,7 @@ import (
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/conn"
+	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/web"
@@ -22,11 +23,13 @@ func InitWebInstalled(ctx context.Context) (*Server, error) {
 	if err := setting.LoadSettings(); err != nil {
 		return nil, err
 	}
+	lifecycle := graceful.GetManager()
 
 	store, err := db.InitStore(ctx, setting.Database.DBSource)
 	if err != nil {
 		return nil, err
 	}
+	lifecycle.RunAtTerminate(store.Close)
 	log.Info("PostgreSQL connected")
 
 	// Development migrations remain opt-in by environment as before.
@@ -46,6 +49,11 @@ func InitWebInstalled(ctx context.Context) (*Server, error) {
 	}
 
 	redisManager := conn.NewRedisManager()
+	lifecycle.RunAtTerminate(func() {
+		if err := redisManager.Close(); err != nil {
+			log.Error("Close Redis: %v", err)
+		}
+	})
 	redisClient, err := redisManager.Client(ctx, setting.Redis.Address)
 	if err != nil {
 		_ = redisManager.Close()
@@ -67,12 +75,6 @@ func InitWebInstalled(ctx context.Context) (*Server, error) {
 		return nil, err
 	}
 
-	server.runtimeClose = func() {
-		if err := redisManager.Close(); err != nil {
-			log.Error("Close Redis: %v", err)
-		}
-		store.Close()
-	}
 	return server, nil
 }
 

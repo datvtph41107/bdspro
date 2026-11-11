@@ -42,7 +42,6 @@ type Server struct {
 	authRateRedis *redis.Client
 	authThrottle  *security.AuthThrottle
 	ipActive      *ipactive.Middleware
-	runtimeClose  func()
 }
 
 // NewServer constructs dependencies and registers every HTTP route exactly once.
@@ -163,13 +162,4 @@ func (server *Server) Handler() http.Handler {
 		panic("routers: HTTP ingress was not composed")
 	}
 	return common.CORS(server.httpHandler, server.config.AllowedOrigins)
-}
-
-// Close releases only resources owned by InitWebInstalled, never resources
-// borrowed by NewServer in tests or embedding applications.
-func (server *Server) Close() {
-	if server != nil && server.runtimeClose != nil {
-		server.runtimeClose()
-		server.runtimeClose = nil
-	}
 }

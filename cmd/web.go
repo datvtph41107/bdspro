@@ -44,8 +44,7 @@ func runWeb(ctx context.Context, _ *cli.Command) error {
 		<-manager.Done()
 		return err
 	}
-	// Resource cleanup follows HTTP drain, not the initial cancellation.
-	defer server.Close()
+	// DB and Redis terminate hooks run after the HTTP activity is drained.
 
 	serveErr := func() error {
 		defer manager.ServerDone()
