@@ -49,7 +49,7 @@ func serveHTTP(ctx context.Context, handler http.Handler, address string, onList
 		}
 		return fmt.Errorf("serve HTTP: %w", err)
 	case <-ctx.Done():
-		shutdownErr := shutdownHTTPServer(httpServer, setting.Common.Graceful.HTTPShutdownTimeout)
+		shutdownErr := shutdownHTTPServer(httpServer, setting.HTTPShutdownTimeout())
 		serveErr := <-errorsCh
 		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
 			return errors.Join(shutdownErr, fmt.Errorf("serve HTTP: %w", serveErr))
