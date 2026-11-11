@@ -37,8 +37,8 @@ func TestUserServiceRequiresVerifiedActorAndRequestStore(t *testing.T) {
 				AccountID: 1,
 				SessionID: uuid.New(),
 			})
-			if err := action.run(verified); !errors.Is(err, db.ErrStoreMissing) {
-				t.Fatalf("missing request store: got %v, want Store missing", err)
+			if err := action.run(verified); !errors.Is(err, db.ErrEngineNotInitialized) {
+				t.Fatalf("uninitialized database engine: got %v, want engine not initialized", err)
 			}
 		})
 	}
