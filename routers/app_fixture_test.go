@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	db "github.com/datvtph41107/bdspro/models/db"
 	authcrypto "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -38,7 +37,6 @@ type serverFixture struct {
 	oauthProofs   *oauth_service.ConsentProofs
 	browser       *weboauth.Browser
 	config        setting.Config
-	store         db.Store
 	tokenMaker    authcrypto.Maker
 	router        *gin.Engine
 	httpHandler   http.Handler
@@ -48,7 +46,7 @@ type serverFixture struct {
 }
 
 // newServerFixture constructs dependencies and registers every HTTP route exactly once.
-func newServerFixture(cfg setting.Config, store db.Store, redisClient *redis.Client, resetMailers ...mail.EmailSender) (*serverFixture, error) {
+func newServerFixture(cfg setting.Config, redisClient *redis.Client, resetMailers ...mail.EmailSender) (*serverFixture, error) {
 	if redisClient == nil {
 		return nil, errors.New("authentication requires Redis")
 	}
@@ -61,7 +59,6 @@ func newServerFixture(cfg setting.Config, store db.Store, redisClient *redis.Cli
 	}
 	server := &serverFixture{
 		config:        cfg,
-		store:         store,
 		tokenMaker:    maker,
 		authRateRedis: redisClient,
 		authThrottle:  security.NewAuthThrottle(redisClient),
@@ -84,19 +81,19 @@ func newServerFixture(cfg setting.Config, store db.Store, redisClient *redis.Cli
 	if len(resetMailers) > 0 {
 		resetSender = resetMailers[0]
 	}
-	authService := auth_service.NewAuthService(store, maker, cfg, phoneSender, resetSender)
+	authService := auth_service.NewAuthService(maker, cfg, phoneSender, resetSender)
 	server.authService = authService
 	// Provider callback and browser origin must coincide before offering the
 	// browser OIDC option. Mismatched deployments retain their existing API OIDC
 	// callback and password-based browser consent without a misleading link.
 	browserOIDC := cfg.OIDC.Enabled() && cfg.BrowserPublicOrigin != "" &&
 		cfg.OIDC.RedirectURI == cfg.BrowserPublicOrigin+"/users/oauth2/callback"
-	if oauthStore, ok := store.(db.OAuthServerStore); ok {
+	{
 		proofs, err := oauth_service.NewConsentProofs(cfg.Authentication().JWTSecret)
 		if err != nil {
 			return nil, fmt.Errorf("configure OAuth consent proof: %w", err)
 		}
-		oauthService := oauth_service.NewService(oauthStore)
+		oauthService := oauth_service.NewService()
 		server.oauthService = oauthService
 		server.oauthProofs = proofs
 		if cfg.BrowserPublicOrigin != "" {
@@ -149,9 +146,6 @@ func newServerFixture(cfg setting.Config, store db.Store, redisClient *redis.Cli
 		ctx = authcrypto.WithMaker(ctx, server.tokenMaker)
 		ctx = ipactive.WithMiddleware(ctx, server.ipActive)
 		ctx = org_service.WithInviteSigningKey(ctx, server.config.TokenSymmetricKey)
-		if server.store != nil {
-			ctx = db.WithStore(ctx, server.store)
-		}
 		ingress.ServeHTTP(w, req.WithContext(ctx))
 	})
 	return server, nil
