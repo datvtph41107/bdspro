@@ -19,4 +19,3 @@ var (
 	ErrEngineNotInitialized     = errors.New("db: engine not initialized")
 	ErrEngineClosed             = errors.New("db: engine closed")
 )
-
