@@ -79,7 +79,16 @@ func (b *Base) CurrentRequestContext() context.Context {
 func (b *Base) Deadline() (time.Time, bool) { return b.lifetime.Deadline() }
 func (b *Base) Done() <-chan struct{}       { return b.lifetime.Done() }
 func (b *Base) Err() error                  { return b.lifetime.Err() }
-func (b *Base) Value(key any) any           { return b.CurrentRequestContext().Value(key) }
+// Stable ingress values (including stdlib context cancellation state) must
+// never be re-read through Gin's mutable c.Request during asynchronous work.
+// New request-local values, such as the verified actor, remain available after
+// middleware publishes them to the current request.
+func (b *Base) Value(key any) any {
+	if value := b.lifetime.Value(key); value != nil {
+		return value
+	}
+	return b.CurrentRequestContext().Value(key)
+}
 
 // These helpers are implemented by exactly one HTTP adapter. No extra Gin
 // middleware executor, HTTP response writer or request parser is introduced.

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"sync"
 )
 
 type baseRequestKey struct{}
@@ -150,4 +151,27 @@ func TestBaseCancellationUsesImmutableRequestLifetime(t *testing.T) {
 	if base.Err() != context.Canceled {
 		t.Fatalf("request error=%v, want context.Canceled", base.Err())
 	}
+}
+
+func TestBaseNestedCancellationDoesNotReadMutableHTTPPointer(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	source := &testRequestSource{
+		req: httptest.NewRequest(http.MethodGet, "/scope", nil).WithContext(parent),
+	}
+	base := NewBaseContext(source)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			child, stop := context.WithCancel(base)
+			stop()
+			<-child.Done()
+		}
+	}()
+	for i := 0; i < 100; i++ {
+		source.req = source.req.WithContext(context.WithValue(parent, baseRequestKey{}, i))
+	}
+	wg.Wait()
 }
