@@ -80,6 +80,7 @@ func (b *Base) CurrentRequestContext() context.Context {
 func (b *Base) Deadline() (time.Time, bool) { return b.lifetime.Deadline() }
 func (b *Base) Done() <-chan struct{}       { return b.lifetime.Done() }
 func (b *Base) Err() error                  { return b.lifetime.Err() }
+
 // Stable ingress values (including stdlib context cancellation state) must
 // never be re-read through Gin's mutable c.Request during asynchronous work.
 // New request-local values, such as the verified actor, remain available after
