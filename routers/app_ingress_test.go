@@ -67,10 +67,11 @@ func TestServerHandlerBeforeRoutingCoversGin404405AndHEAD(t *testing.T) {
 	}
 	routes.Get("/alive", handler)
 	routes.Head("/alive", handler)
+	// Compile ingress before serving, as the production NewServer does.
 	server := &Server{
 		config:      setting.Config{AllowedOrigins: []string{"https://client.example"}},
 		router:      engine,
-		httpHandler: routes,
+		httpHandler: routes.WrapIngress(),
 	}
 	for _, tc := range []struct {
 		method string
