@@ -29,6 +29,9 @@ func runWeb(ctx context.Context, _ *cli.Command) error {
 
 	graceful.InitManagerWithTimeout(ctx, setting.Common.Graceful.HammerTimeout)
 	manager := graceful.GetManager()
+	// Register before subsystem startup; SIGTERM during initialization
+	// must not race a late registration against the shutdown transition.
+	manager.RegisterServer()
 	webCtx, _, finished := process.GetManager().AddTypedContext(
 		manager.HammerContext(), "Web: HTTP API", process.SystemProcessType, true,
 	)
@@ -36,6 +39,7 @@ func runWeb(ctx context.Context, _ *cli.Command) error {
 
 	server, err := routers.InitWebInstalled(webCtx)
 	if err != nil {
+		manager.ServerDone()
 		manager.DoGracefulShutdown()
 		<-manager.Done()
 		return err
@@ -43,7 +47,6 @@ func runWeb(ctx context.Context, _ *cli.Command) error {
 	// Resource cleanup follows HTTP drain, not the initial cancellation.
 	defer server.Close()
 
-	manager.RegisterServer()
 	serveErr := func() error {
 		defer manager.ServerDone()
 		return serveHTTP(manager.ShutdownContext(), server.Handler(), setting.Server.HTTPServerAddress, func(_ net.Addr) {
