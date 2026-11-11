@@ -23,4 +23,3 @@ func Connect(ctx context.Context, source string) (*pgxpool.Pool, error) {
 	}
 	return pool, nil
 }
-

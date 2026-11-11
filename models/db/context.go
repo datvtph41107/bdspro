@@ -303,4 +303,3 @@ func (s *SQLStore) ExecTxRaw(ctx context.Context, fn func(pgx.Tx) error) error {
 	}
 	return tx.Commit(ctx)
 }
-

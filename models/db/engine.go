@@ -164,4 +164,3 @@ func (s *SQLStore) queryExecutor(ctx context.Context) (DBTX, error) {
 	}
 	return tx, nil
 }
-
