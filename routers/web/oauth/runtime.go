@@ -28,9 +28,9 @@ func Init() error {
 			return err
 		}
 		browser, err = NewBrowser(Config{
-			Codec: codec,
+			Codec:        codec,
 			PublicOrigin: cfg.BrowserPublicOrigin,
-			OIDCEnabled: cfg.OIDC.Enabled() && cfg.OIDC.RedirectURI == cfg.BrowserPublicOrigin+"/users/oauth2/callback",
+			OIDCEnabled:  cfg.OIDC.Enabled() && cfg.OIDC.RedirectURI == cfg.BrowserPublicOrigin+"/users/oauth2/callback",
 		})
 		if err != nil {
 			return err
