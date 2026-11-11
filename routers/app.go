@@ -166,8 +166,8 @@ func (server *Server) Handler() http.Handler {
 // Close releases only resources owned by InitWebInstalled, never resources
 // borrowed by NewServer in tests or embedding applications.
 func (server *Server) Close() {
-    if server != nil && server.runtimeClose != nil {
-        server.runtimeClose()
-        server.runtimeClose = nil
-    }
+	if server != nil && server.runtimeClose != nil {
+		server.runtimeClose()
+		server.runtimeClose = nil
+	}
 }
