@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	account_model "github.com/datvtph41107/bdspro/models/account"
 	db "github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/jackc/pgx/v5"
@@ -20,14 +21,14 @@ func VerifiedEmail() func(*APIContext) {
 			ctx.AuthenticationRequired()
 			return
 		}
-		store, err := db.StoreFromContext(ctx)
+		_, err := db.GetQueries(ctx)
 		if err != nil {
 			identityStoreUnavailable(ctx, err)
 			return
 		}
-		account, err := store.GetAccountByID(ctx, actor.AccountID)
+		account, err := account_model.ReadByID(ctx, actor.AccountID)
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
+		case errors.Is(err, account_model.ErrAccountUnavailable):
 			ctx.AuthenticationRequired()
 			return
 		case err != nil:
@@ -48,13 +49,13 @@ func VerifiedContact() func(*APIContext) {
 			ctx.AuthenticationRequired()
 			return
 		}
-		store, err := db.StoreFromContext(ctx)
+		_, err := db.GetQueries(ctx)
 		if err != nil {
 			identityStoreUnavailable(ctx, err)
 			return
 		}
-		account, err := store.GetAccountByID(ctx, actor.AccountID)
-		if errors.Is(err, pgx.ErrNoRows) {
+		account, err := account_model.ReadByID(ctx, actor.AccountID)
+		if errors.Is(err, account_model.ErrAccountUnavailable) {
 			ctx.AuthenticationRequired()
 			return
 		}
@@ -65,7 +66,12 @@ func VerifiedContact() func(*APIContext) {
 		if account.IsEmailVerified {
 			return
 		}
-		_, err = store.GetPhoneForAccount(ctx, account.ID)
+		q, getErr := db.GetQueries(ctx)
+		if getErr != nil {
+			identityStoreUnavailable(ctx, getErr)
+			return
+		}
+		_, err = q.GetPhoneForAccount(ctx, account.ID)
 		if err == nil {
 			return
 		}

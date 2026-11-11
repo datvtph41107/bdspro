@@ -20,13 +20,13 @@ func RequireSession() func(*APIContext) {
 			ctx.AuthenticationRequired()
 			return
 		}
-		store, err := db.StoreFromContext(ctx)
+		_, err := db.GetQueries(ctx)
 		if err != nil {
 			log.Ctx(ctx).Error().Str("dependency", "postgres").Msg("auth.identity_store_unavailable")
 			ctx.APIError(http.StatusServiceUnavailable, "identity_store_unavailable", "identity store unavailable")
 			return
 		}
-		err = auth_model.RequireActiveSession(ctx, store,
+		err = auth_model.RequireActiveSession(ctx,
 			payload.AccountID, payload.SessionID, time.Now())
 		switch {
 		case errors.Is(err, auth_model.ErrSessionUnavailable):
