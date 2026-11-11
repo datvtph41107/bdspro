@@ -7,7 +7,6 @@ import (
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/conn"
-	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/web"
@@ -23,20 +22,16 @@ func InitWebInstalled(ctx context.Context) (*Server, error) {
 	if err := setting.LoadSettings(); err != nil {
 		return nil, err
 	}
-	lifecycle := graceful.GetManager()
-
-	store, err := db.InitStore(ctx, setting.Database.DBSource)
+	store, err := db.InitEngine(ctx)
 	if err != nil {
 		return nil, err
 	}
-	lifecycle.RunAtTerminate(store.Close)
 	log.Info("PostgreSQL connected")
 
 	// Development migrations remain opt-in by environment as before.
 	if setting.Common.RunMode == "development" {
 		changed, err := db.MigrateUp(setting.Database.MigrationURL, setting.Database.DBSource, 0)
 		if err != nil {
-			store.Close()
 			return nil, err
 		}
 		if changed {
@@ -48,16 +43,8 @@ func InitWebInstalled(ctx context.Context) (*Server, error) {
 		log.Info("Database migrations are managed externally")
 	}
 
-	redisManager := conn.NewRedisManager()
-	lifecycle.RunAtTerminate(func() {
-		if err := redisManager.Close(); err != nil {
-			log.Error("Close Redis: %v", err)
-		}
-	})
-	redisClient, err := redisManager.Client(ctx, setting.Redis.Address)
+	redisClient, err := conn.InitRedis(ctx)
 	if err != nil {
-		_ = redisManager.Close()
-		store.Close()
 		return nil, err
 	}
 	log.Info("Redis connected")
@@ -70,8 +57,6 @@ func InitWebInstalled(ctx context.Context) (*Server, error) {
 		cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
 	server, err := NewServer(cfg, store, redisClient, sender)
 	if err != nil {
-		_ = redisManager.Close()
-		store.Close()
 		return nil, err
 	}
 
