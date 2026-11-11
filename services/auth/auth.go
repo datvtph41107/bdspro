@@ -25,7 +25,6 @@ import (
 	"github.com/datvtph41107/bdspro/modules/validation"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/notification"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -559,22 +558,6 @@ func (s *AuthService) AuthorizePhoneProof(ctx context.Context, accountID int64, 
 		return auth_model.ErrOTPInvalid
 	}
 	return err
-}
-
-func (s *AuthService) ListSessions(ctx context.Context, accountID int64) ([]db.ListActiveSessionsRow, error) {
-	return auth_model.ListSessions(ctx, s.store, accountID)
-}
-
-// RevokeOwnSession delegates the atomic acting-session check, targeted
-// revocation and audit to the auth model. Both IDs are signed server context.
-func (s *AuthService) RevokeOwnSession(ctx context.Context, accountID int64, actingSessionID, targetSessionID uuid.UUID) error {
-	return auth_model.RevokeOwnedSession(ctx, s.store, accountID, actingSessionID, targetSessionID)
-}
-
-// RevokeAllSessions serializes the acting session's authority with the
-// account-wide revoke transaction, after the HTTP live-session gate.
-func (s *AuthService) RevokeAllSessions(ctx context.Context, accountID int64, actingSessionID uuid.UUID) error {
-	return auth_model.RevokeAllSessions(ctx, s.store, accountID, actingSessionID)
 }
 
 // CurrentAccount reads persisted identity instead of echoing a JWT claim.
