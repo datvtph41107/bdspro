@@ -79,33 +79,21 @@ func TestCoreClosedScopeCannotBeReused(t *testing.T) {
 	}
 }
 
-func TestCoreExecutorRejectsParentContext(t *testing.T) {
-	scope := &transactionScope{queries: New(nil)}
-	txCtx := context.WithValue(context.Background(), transactionContextKey{}, scope)
-	executor := transactionDBTX{scope: scope}
-
-	if _, err := executor.executor(context.Background()); !errors.Is(err, ErrTransactionContext) {
-		t.Fatalf("transaction executor accepted parent context: %v", err)
-	}
-	if err := scope.failure(); !errors.Is(err, ErrTransactionContext) {
-		t.Fatalf("wrong context failed to poison transaction: %v", err)
-	}
-	if _, err := GetQueries(txCtx); !errors.Is(err, ErrTransactionContext) {
-		t.Fatalf("poisoned transaction remained usable: %v", err)
-	}
+// Native pgx executors do not validate per-query transaction context identity.
+func TestCoreGetEngineRejectsClosedTransaction(t *testing.T) {
+    scope := &transactionScope{queries: New(nil)}
+    ctx := context.WithValue(context.Background(), transactionContextKey{}, scope)
+    scope.close()
+    if _, err := GetEngine(ctx); !errors.Is(err, ErrTransactionClosed) {
+        t.Fatalf("closed scope exposed native executor: %v", err)
+    }
 }
 
-func TestCorePoolExecutorRejectsTransactionContext(t *testing.T) {
-	scope := &transactionScope{queries: New(nil)}
-	txCtx := context.WithValue(context.Background(), transactionContextKey{}, scope)
-	executor := poolDBTX{}
-
-	if _, err := executor.executor(txCtx); !errors.Is(err, ErrTransactionContext) {
-		t.Fatalf("pool executor escaped active transaction: %v", err)
-	}
-	if err := scope.failure(); !errors.Is(err, ErrTransactionContext) {
-		t.Fatalf("pool escape did not poison transaction: %v", err)
-	}
+func TestCoreGetEngineRejectsMalformedTransaction(t *testing.T) {
+    ctx := context.WithValue(context.Background(), transactionContextKey{}, struct{}{})
+    if _, err := GetEngine(ctx); !errors.Is(err, ErrTransactionContext) {
+        t.Fatalf("malformed transaction selected process pool: %v", err)
+    }
 }
 
 func TestCoreWithTx2PropagatesFailureAndZerosResult(t *testing.T) {
