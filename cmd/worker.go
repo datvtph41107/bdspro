@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/conn"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/queue"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/mail"
 	"github.com/datvtph41107/bdspro/services/worker"
 	"github.com/hibiken/asynq"
@@ -16,65 +16,77 @@ import (
 
 func newWorkerCommand() *cli.Command {
 	return &cli.Command{
-		Name: "worker", Usage: "Process Asynq tasks, dispatch outbox records and expire login/audit history",
-		Before: PrepareConsoleLoggerLevel(log.INFO), Action: runWorker,
+		Name: "worker", Usage: "Process Asynq tasks, outbox, and retention jobs",
+		Before: rejectArguments("worker"), Action: runWorker,
 	}
 }
 
-func runWorker(ctx context.Context, command *cli.Command) error {
-	if command.Args().Len() != 0 {
-		return fmt.Errorf("unexpected worker argument %q", command.Args().First())
-	}
-	cfg, err := loadWorkerSettings(command)
-	if err != nil {
+func runWorker(ctx context.Context, _ *cli.Command) error {
+	setting.LoadDBSetting()
+	setting.LoadRedisSetting()
+	if err := setting.LoadTokenSigningKey(); err != nil {
 		return err
 	}
-	store, err := db.InitStore(ctx, cfg.DBSource)
+	if err := setting.LoadAuditRetentionDays(); err != nil {
+		return err
+	}
+	if err := setting.LoadQueueSetting(); err != nil {
+		return err
+	}
+	if err := setting.LoadMailerSetting(); err != nil {
+		return err
+	}
+
+	store, err := db.InitStore(ctx, setting.Database.DBSource)
 	if err != nil {
 		return err
 	}
 	defer store.Close()
+
 	redisManager := conn.NewRedisManager()
-	defer redisManager.Close() // manager retains every client it creates
-	_, err = redisManager.Client(ctx, cfg.RedisAddress)
-	if err != nil {
+	defer redisManager.Close()
+	if _, err = redisManager.Client(ctx, setting.Redis.Address); err != nil {
 		return err
 	}
 
-	options := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
+	options := asynq.RedisClientOpt{Addr: setting.Redis.Address}
 	enqueuer := queue.NewRedisEnqueuer(options)
 	defer enqueuer.Close()
-	mailer := mail.NewSMTPSender(cfg.EmailSenderName, cfg.EmailSenderAddress,
-		cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
+
+	mailer := mail.NewSMTPSender(setting.Mailer.EmailSenderName, setting.Mailer.EmailSenderAddress,
+		setting.Mailer.EmailSenderPassword, setting.Mailer.SMTPAddress, setting.Mailer.SMTPAuth)
 	processor, err := queue.NewRedisTaskProcessorWithConfig(options, queue.Config{
 		Queues: map[string]int{
-			queue.QueueCritical: cfg.Queue.CriticalWeight,
-			queue.QueueDefault:  cfg.Queue.DefaultWeight,
+			queue.QueueCritical: setting.Queue.CriticalWeight,
+			queue.QueueDefault:  setting.Queue.DefaultWeight,
 		},
-		Concurrency: cfg.Queue.Concurrency,
+		Concurrency: setting.Queue.Concurrency,
 	})
 	if err != nil {
-		return fmt.Errorf("configure Asynq worker: %w", err)
+		return err
 	}
-	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, cfg.VerifyEmailURL))
-	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(store, mailer, cfg.VerifyEmailURL))
-	processor.Handle(worker.TaskSendTeamInvite, worker.NewTeamInviteHandler(store, mailer, cfg.TokenSymmetricKey))
-	if err := processor.Start(); err != nil {
-		return fmt.Errorf("start worker: %w", err)
+	processor.Handle(worker.TaskSendVerifyEmail, worker.NewVerifyEmailHandler(store, mailer, setting.Mailer.VerifyEmailURL))
+	processor.Handle(worker.TaskSendPasswordReset, worker.NewPasswordResetHandler(store, mailer, setting.Mailer.VerifyEmailURL))
+	processor.Handle(worker.TaskSendTeamInvite, worker.NewTeamInviteHandler(store, mailer, setting.Security.TokenSymmetricKey))
+	if err = processor.Start(); err != nil {
+		return err
 	}
-	queueManager := queue.NewManager()
-	if err := queueManager.Register("tasks", processor); err != nil {
+
+	manager := queue.NewManager()
+	if err = manager.Register("tasks", processor); err != nil {
 		processor.Shutdown()
 		return err
 	}
-	defer queueManager.Shutdown()
+	defer manager.Shutdown()
+
 	dispatchCtx, stopDispatch := context.WithCancel(ctx)
 	dispatcher := worker.NewOutboxDispatcher(store, enqueuer)
 	dispatcher.Start(dispatchCtx)
-	retention := worker.NewLoginRetention(store, cfg.AuditRetentionDays)
+	retention := worker.NewLoginRetention(store, setting.Audit.RetentionDays)
 	retention.Start(dispatchCtx)
 	defer func() { stopDispatch(); retention.Wait(); dispatcher.Wait() }()
-	log.Info("Asynq worker, outbox dispatcher and login and audit retention started")
+
+	log.Info("Asynq worker, outbox dispatcher and retention started")
 	<-ctx.Done()
 	log.Info("Worker shutdown requested")
 	return nil

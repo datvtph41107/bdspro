@@ -3,42 +3,42 @@ package cmd
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/urfave/cli/v3"
 )
 
 func newMigrateCommand() *cli.Command {
 	return &cli.Command{
-		Name:  "migrate",
-		Usage: "Apply versioned SQL migrations using the same database config as web",
+		Name: "migrate", Usage: "Apply versioned SQL migrations",
 		Flags: []cli.Flag{
-			&cli.IntFlag{Name: "steps", Usage: "Number of migration versions (0 means all)"},
-			&cli.BoolFlag{Name: "down", Usage: "Roll back schema (development only)"},
+			&cli.IntFlag{Name: "steps", Usage: "Number of versions (0 means all)"},
+			&cli.BoolFlag{Name: "down", Usage: "Rollback migrations (development only)"},
+		},
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
+			next, err := rejectArguments("migrate")(ctx, c)
+			if err != nil {
+				return next, err
+			}
+			if c.Int("steps") < 0 {
+				return ctx, errors.New("--steps cannot be negative")
+			}
+			return ctx, nil
 		},
 		Action: runMigrate,
 	}
 }
 
-func runMigrate(ctx context.Context, command *cli.Command) error {
-	if command.Args().Len() != 0 {
-		return fmt.Errorf("unexpected migrate argument: %s", command.Args().First())
-	}
-	cfg, err := loadMigrationSettings(command)
-	if err != nil {
-		return err
-	}
+func runMigrate(_ context.Context, command *cli.Command) error {
+	setting.LoadDBSetting()
 	steps := command.Int("steps")
-	if steps < 0 {
-		return errors.New("--steps cannot be negative")
-	}
 	if command.Bool("down") {
-		if cfg.Environment != "development" {
+		if setting.Common.RunMode != "development" {
 			return errors.New("schema rollback is restricted to development")
 		}
-		changed, err := db.MigrateDown(cfg.MigrationURL, cfg.DBSource, steps)
+		changed, err := db.MigrateDown(setting.Database.MigrationURL, setting.Database.DBSource, steps)
 		if err != nil {
 			return err
 		}
@@ -49,7 +49,7 @@ func runMigrate(ctx context.Context, command *cli.Command) error {
 		}
 		return nil
 	}
-	changed, err := db.MigrateUp(cfg.MigrationURL, cfg.DBSource, steps)
+	changed, err := db.MigrateUp(setting.Database.MigrationURL, setting.Database.DBSource, steps)
 	if err != nil {
 		return err
 	}

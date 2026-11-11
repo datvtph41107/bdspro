@@ -7,40 +7,34 @@ import (
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/worker"
 	"github.com/urfave/cli/v3"
 )
 
-// cleanup is a one-shot PostgreSQL maintenance command. Unlike the long-running
-// queue worker, it has no Redis or Asynq startup dependency.
 func newCleanupCommand() *cli.Command {
 	return &cli.Command{
-		Name:   "cleanup",
-		Usage:  "Expire login, audit and OAuth records using PostgreSQL only",
-		Before: PrepareConsoleLoggerLevel(log.INFO),
-		Action: runCleanup,
+		Name: "cleanup", Usage: "Remove expired login, audit and OAuth records",
+		Before: rejectArguments("cleanup"), Action: runCleanup,
 	}
 }
 
-func runCleanup(ctx context.Context, command *cli.Command) error {
-	if command.Args().Len() != 0 {
-		return fmt.Errorf("unexpected cleanup argument %q", command.Args().First())
-	}
-	cfg, err := loadCleanupSettings(command)
-	if err != nil {
+func runCleanup(ctx context.Context, _ *cli.Command) error {
+	setting.LoadDBSetting()
+	if err := setting.LoadAuditRetentionDays(); err != nil {
 		return err
 	}
+
 	cleanupCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-
-	store, err := db.InitStore(cleanupCtx, cfg.DBSource)
+	store, err := db.InitStore(cleanupCtx, setting.Database.DBSource)
 	if err != nil {
-		return fmt.Errorf("open cleanup database: %w", err)
+		return err
 	}
 	defer store.Close()
 
 	now := time.Now()
-	deleted, err := worker.NewLoginRetention(store, cfg.AuditRetentionDays).Sweep(cleanupCtx, now)
+	deleted, err := worker.NewLoginRetention(store, setting.Audit.RetentionDays).Sweep(cleanupCtx, now)
 	if err != nil {
 		return fmt.Errorf("cleanup login/audit history after %d deletions: %w", deleted, err)
 	}
@@ -48,7 +42,7 @@ func runCleanup(ctx context.Context, command *cli.Command) error {
 
 	oauthCounts, err := store.CleanupExpiredOAuth(cleanupCtx, now)
 	if err != nil {
-		return fmt.Errorf("cleanup OAuth records: %w", err)
+		return err
 	}
 	log.Info("OAuth cleanup completed, auth_codes=%d refresh_tokens=%d access_tokens=%d",
 		oauthCounts.AuthCodes, oauthCounts.RefreshTokens, oauthCounts.AccessTokens)

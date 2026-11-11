@@ -1,30 +1,17 @@
 package setting
 
-import "fmt"
-
-// DatabaseSettings limits migration initialization to its actual dependencies.
-type DatabaseSettings struct {
-	DatabaseCommandSettings
-	Environment  string
+// Database is the one database configuration used by Web and CLI commands.
+var Database struct {
+	DBSource     string
 	MigrationURL string
 }
 
-func LoadDatabaseSettings(filename string) (DatabaseSettings, error) {
-	p, err := InitCfgProvider(filename)
-	if err != nil {
-		return DatabaseSettings{}, err
-	}
-	base, err := databaseCommandSettings(p)
-	if err != nil {
-		return DatabaseSettings{}, err
-	}
-	c := DatabaseSettings{
-		DatabaseCommandSettings: base,
-		Environment:             p.String("", "RUN_MODE"),
-		MigrationURL:            p.String("database", "MIGRATION_URL"),
-	}
-	if c.MigrationURL == "" {
-		return c, fmt.Errorf("database.MIGRATION_URL is required")
-	}
-	return c, nil
+func LoadDBSetting() {
+	loadDBSetting(CfgProvider)
+}
+
+func loadDBSetting(rootCfg ConfigProvider) {
+	sec := rootCfg.Section("database")
+	Database.DBSource = sec.Key("DB_SOURCE").String()
+	Database.MigrationURL = sec.Key("MIGRATION_URL").String()
 }

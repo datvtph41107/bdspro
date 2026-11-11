@@ -6,9 +6,7 @@ import (
 	"strings"
 )
 
-// OAuth2Provider configures one trusted OpenID Connect provider.
-// Authentication uses OAuth2 Authorization Code + PKCE and OIDC ID tokens.
-// Providers are identified by their issuer, never by email or display name.
+// OAuth2Provider configures one trusted OIDC provider for account login.
 type OAuth2Provider struct {
 	Issuer           string
 	AuthorizationURL string
@@ -19,15 +17,39 @@ type OAuth2Provider struct {
 	RedirectURI      string
 }
 
-// Enabled is true when any provider field has been configured; incomplete
-// configuration is then rejected rather than silently disabling authentication.
+var OAuth2 OAuth2Provider
+
+func loadOAuth2From(rootCfg ConfigProvider) error {
+	sec := rootCfg.Section("oauth2")
+	cfg := OAuth2Provider{
+		Issuer:           sec.Key("ISSUER").String(),
+		AuthorizationURL: sec.Key("AUTHORIZATION_URL").String(),
+		TokenURL:         sec.Key("TOKEN_URL").String(),
+		JWKSURL:          sec.Key("JWKS_URL").String(),
+		ClientID:         sec.Key("CLIENT_ID").String(),
+		ClientSecret:     sec.Key("CLIENT_SECRET").String(),
+		RedirectURI:      sec.Key("REDIRECT_URI").String(),
+	}
+	legacy := rootCfg.Section("oauth")
+	if legacy.Key("GOOGLE_CLIENT_ID").String() != "" ||
+		legacy.Key("GOOGLE_CLIENT_SECRET").String() != "" ||
+		legacy.Key("GOOGLE_REDIRECT_URI").String() != "" {
+		return fmt.Errorf("legacy OAuth provider settings are unsupported; configure [oauth2]")
+	}
+	if cfg.Enabled() {
+		if err := cfg.Validate(); err != nil {
+			return err
+		}
+	}
+	OAuth2 = cfg
+	return nil
+}
+
 func (p OAuth2Provider) Enabled() bool {
 	return p.Issuer != "" || p.AuthorizationURL != "" || p.TokenURL != "" ||
 		p.JWKSURL != "" || p.ClientID != "" || p.ClientSecret != "" || p.RedirectURI != ""
 }
 
-// Validate rejects incomplete or untrusted remote endpoint configuration.
-// Redirects may use localhost HTTP only for local development.
 func (p OAuth2Provider) Validate() error {
 	check := func(field, value string, localhost bool) error {
 		u, err := url.Parse(value)
@@ -45,8 +67,9 @@ func (p OAuth2Provider) Validate() error {
 		return fmt.Errorf("oauth2 client credentials are required")
 	}
 	for _, item := range []struct {
-		name, value string
-		local       bool
+		name  string
+		value string
+		local bool
 	}{
 		{"issuer", p.Issuer, false},
 		{"authorization URL", p.AuthorizationURL, false},
