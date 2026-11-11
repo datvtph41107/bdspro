@@ -103,10 +103,6 @@ func NormalHandler() (http.Handler, error) {
 	browser := weboauth.ProcessBrowser()
 	redisClient, throttle, limiter := security.ProcessCapabilities()
 	maker := authcrypto.ProcessMaker()
-	store, err := db.ProcessStore()
-	if err != nil {
-		return nil, fmt.Errorf("build HTTP ingress: %w", err)
-	}
 	signingKey := setting.Security.TokenSymmetricKey
 	origins := append([]string(nil), setting.Server.AllowedOrigins...)
 	return common.CORS(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -120,7 +116,6 @@ func NormalHandler() (http.Handler, error) {
 		ctx = authcrypto.WithMaker(ctx, maker)
 		ctx = ipactive.WithMiddleware(ctx, limiter)
 		ctx = org_service.WithInviteSigningKey(ctx, signingKey)
-		ctx = db.WithStore(ctx, store)
 		ingress.ServeHTTP(w, req.WithContext(ctx))
 	}), origins), nil
 }

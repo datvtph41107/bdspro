@@ -107,11 +107,24 @@ func StoreFromContext(ctx context.Context) (Store, error) {
 		// an independent transaction when the context is lost.
 		return &SQLStore{Queries: q}, nil
 	}
-	store, ok := ctx.Value(storeContextKey{}).(Store)
-	if !ok || store == nil {
+	if bound := ctx.Value(storeContextKey{}); bound != nil {
+		store, ok := bound.(Store)
+		if !ok || store == nil {
+			return nil, ErrStoreMissing
+		}
+		return store, nil
+	}
+	// When no request/test Store is bound, reuse the process-owned engine.
+	// Do not make HTTP ingress inject a second database authority.
+	defaultEngine.mu.RLock()
+	defer defaultEngine.mu.RUnlock()
+	if defaultEngine.closed {
+		return nil, ErrEngineClosed
+	}
+	if defaultEngine.store == nil {
 		return nil, ErrStoreMissing
 	}
-	return store, nil
+	return defaultEngine.store, nil
 }
 
 // hasTransactionMetadata detects partial transaction contexts as well as

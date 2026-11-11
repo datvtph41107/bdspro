@@ -135,3 +135,18 @@ func TestGetQueriesRejectsTransactionViewWithoutScope(t *testing.T) {
 		t.Fatalf("transaction-only store cannot be reused without scope: %v", err)
 	}
 }
+
+// A malformed explicit binding must never silently fall through to the
+// process engine. Request isolation takes priority over convenience.
+func TestStoreFromContextRejectsMalformedBoundCapability(t *testing.T) {
+	ctx := context.WithValue(context.Background(), storeContextKey{}, struct{}{})
+	if _, err := StoreFromContext(ctx); !errors.Is(err, ErrStoreMissing) {
+		t.Fatalf("malformed bound Store should fail closed: %v", err)
+	}
+	if err := WithTx(ctx, func(context.Context) error {
+		t.Fatal("malformed binding must not run transaction callback")
+		return nil
+	}); !errors.Is(err, ErrStoreMissing) {
+		t.Fatalf("malformed bound transaction owner should fail closed: %v", err)
+	}
+}
