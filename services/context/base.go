@@ -74,6 +74,7 @@ func (b *Base) CurrentRequest() *http.Request { return b.source.CurrentRequest()
 func (b *Base) CurrentRequestContext() context.Context {
 	return b.source.CurrentRequest().Context()
 }
+
 // Cancellation and deadlines are anchored to the ingress request. Values may
 // be enriched synchronously by authentication/transaction middleware.
 func (b *Base) Deadline() (time.Time, bool) { return b.lifetime.Deadline() }
