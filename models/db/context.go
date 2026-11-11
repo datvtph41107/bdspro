@@ -152,6 +152,11 @@ func GetQueries(ctx context.Context) (*Queries, error) {
 func TxQueries(ctx context.Context) (*Queries, error) {
 	q, ok := ctx.Value(queriesContextKey{}).(*Queries)
 	if !ok || q == nil {
+		// A damaged transaction context must poison the owner, not just
+		// return an error that an intermediate caller could swallow.
+		if state, ok := ctx.Value(txStateContextKey{}).(*transactionState); ok && state != nil {
+			state.fail(ErrTransactionRequired)
+		}
 		return nil, ErrTransactionRequired
 	}
 	state, ok := ctx.Value(txStateContextKey{}).(*transactionState)
