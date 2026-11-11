@@ -83,6 +83,9 @@ jobs:
           go build ./models/account ./models/auth ./models/oauth
           go build ./services/oauth
 
+      - name: Verify production packages compile without legacy Store
+        run: go build ./...
+
       - name: Verify OpenAPI contract
         run: go test ./routers -run TestOpenAPICoverage -count=1
 
