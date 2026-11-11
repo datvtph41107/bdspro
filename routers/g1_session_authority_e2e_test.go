@@ -105,8 +105,8 @@ func TestG12PasswordRecoveryRevokesBothRefreshAndIssuedAccessHTTP(t *testing.T) 
 	ctx, pool, server, _ := authAcceptanceServer(t)
 	email, login := g12RegisterAndLogin(t, server)
 	accountID := int64(login["user"].(map[string]any)["account_id"].(float64))
-	store := db.NewStore(pool)
-	if _, err := store.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{ID: accountID, Email: email}); err != nil {
+	queries := db.New(pool)
+	if _, err := queries.MarkEmailVerified(ctx, db.MarkEmailVerifiedParams{ID: accountID, Email: email}); err != nil {
 		t.Fatal(err)
 	}
 	access := login["access_token"].(string)
@@ -115,7 +115,7 @@ func TestG12PasswordRecoveryRevokesBothRefreshAndIssuedAccessHTTP(t *testing.T) 
 	// message or external identifier is involved.
 	proof := base64.RawURLEncoding.EncodeToString([]byte(strings.Repeat("p", 32)))
 	digest := sha256.Sum256([]byte(proof))
-	if err := store.CreatePasswordResetToken(ctx, db.CreatePasswordResetTokenParams{
+	if err := queries.CreatePasswordResetToken(ctx, db.CreatePasswordResetTokenParams{
 		AccountID: accountID, TokenHash: digest[:],
 	}); err != nil {
 		t.Fatal(err)
