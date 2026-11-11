@@ -133,7 +133,8 @@ func TestOrganizationOwnerCandidateVerificationAndRollback(t *testing.T) {
 			var zero int64
 			return zero, getQueriesErr
 		}
-		return db.CreatePersonWithParty(txCtx, q) })
+		return db.CreatePersonWithParty(txCtx, q)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
