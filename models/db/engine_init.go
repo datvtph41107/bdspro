@@ -4,16 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/setting"
 )
-
-type engine struct {
-	pool    *pgxpool.Pool
-	queries *Queries
-}
 
 var defaultEngine struct {
 	mu     sync.RWMutex

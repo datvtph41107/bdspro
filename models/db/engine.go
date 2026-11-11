@@ -9,6 +9,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type engine struct {
+	pool    *pgxpool.Pool
+	queries *Queries
+}
+
 // New preserves the generated SQLC constructor in the models/db package.
 func New(conn DBTX) *Queries { return sqlc.New(conn) }
 
@@ -99,28 +104,16 @@ func (d transactionDBTX) Query(ctx context.Context, query string, args ...any) (
 	return rows, err
 }
 
-type transactionRow struct {
-	row   pgx.Row
-	scope *transactionScope
-}
-
-func (r transactionRow) Scan(dest ...any) error {
-	err := r.row.Scan(dest...)
-	r.scope.fail(err)
-	return err
-}
-
 func (d transactionDBTX) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
 	tx, err := d.executor(ctx)
 	if err != nil {
 		return errorRow{err: err}
 	}
-	return transactionRow{row: tx.QueryRow(ctx, query, args...), scope: d.scope}
+	return tx.QueryRow(ctx, query, args...)
 }
 
 var (
 	_ DBTX = poolDBTX{}
 	_ DBTX = transactionDBTX{}
 	_ pgx.Row = errorRow{}
-	_ pgx.Row = transactionRow{}
 )
