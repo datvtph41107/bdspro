@@ -148,9 +148,11 @@ func (s *SQLStore) queryExecutor(ctx context.Context) (DBTX, error) {
 	if s.pool != nil {
 		return (contextDBTX{pool: s.pool}).executor(ctx)
 	}
-	if ctx.Value(queriesContextKey{}) == nil {
+	if !hasTransactionMetadata(ctx) {
 		return nil, ErrTransactionClosed
 	}
+	// A transaction-only view must also fail closed on partial metadata.
+	// Do not allow a stale receiver to acquire another query authority.
 	q, err := TxQueries(ctx)
 	if err != nil {
 		return nil, err
