@@ -86,6 +86,16 @@ jobs:
       - name: Verify production packages compile without legacy Store
         run: go build ./...
 
+      - name: Verify Go formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            gofmt -d .
+            exit 1
+          fi
+
+
       - name: Verify OpenAPI contract
         run: go test ./routers -run TestOpenAPICoverage -count=1
 
@@ -101,15 +111,6 @@ jobs:
           PGPASSWORD: secret
           BDS_TEST_MODE: disposable
         run: bash tests/integration/migrations/canonical-schema.sh
-
-      - name: Verify Go formatting
-        run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "$unformatted"
-            gofmt -d .
-            exit 1
-          fi
 
       - name: Verify embedded OpenAPI contract and UI
         run: |
