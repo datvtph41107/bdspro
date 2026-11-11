@@ -7,8 +7,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Connect owns PostgreSQL connection setup, readiness and failure cleanup.
-// Queries and transactions are managed through SQLStore.
+// Connect opens a PostgreSQL connection pool, verifies it, and closes on
+// startup failure. No transaction or domain behavior belongs in this file.
 func Connect(ctx context.Context, source string) (*pgxpool.Pool, error) {
 	if source == "" {
 		return nil, fmt.Errorf("PostgreSQL source is required")

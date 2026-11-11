@@ -4,93 +4,68 @@ import (
 	"context"
 	"sync"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/setting"
 )
 
-// InitStore is retained for callers that own an independent database pool,
-// such as migrations, cleanup commands, and isolated test fixtures.
-func InitStore(ctx context.Context, source string) (*SQLStore, error) {
-	pool, err := Connect(ctx, source)
-	if err != nil {
-		return nil, err
-	}
-	return NewStore(pool), nil
+type engine struct {
+	pool    *pgxpool.Pool
+	queries *Queries
 }
 
 var defaultEngine struct {
 	mu     sync.RWMutex
-	store  *SQLStore
+	value  *engine
 	closed bool
 }
 
-// InitEngine initializes the process-owned SQLC store exactly once.
-// Subsystems may borrow the initialized Store through ProcessStore during
-// the legacy migration, but they must not close the process-owned pool.
-// The graceful manager closes it after serving activities have drained.
+// InitEngine publishes exactly one process-owned PostgreSQL engine.
+// It must be called after settings and graceful manager initialization.
 func InitEngine(ctx context.Context) error {
 	defaultEngine.mu.Lock()
 	defer defaultEngine.mu.Unlock()
-
 	if defaultEngine.closed {
 		return ErrEngineClosed
 	}
-	if defaultEngine.store != nil {
+	if defaultEngine.value != nil {
 		return ErrEngineAlreadyInitialized
 	}
-
-	store, err := InitStore(ctx, setting.Database.DBSource)
+	pool, err := Connect(ctx, setting.Database.DBSource)
 	if err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
-		store.Close()
+		pool.Close()
 		return err
 	}
-
-	// Cleanup registration is part of initialization success, not a
-	// responsibility returned to routers/init.go or routers.Server.
 	graceful.GetManager().RunAtTerminate(CloseEngine)
-	defaultEngine.store = store
+	defaultEngine.value = &engine{pool: pool, queries: New(poolDBTX{pool: pool})}
 	return nil
 }
 
-// ProcessStore exposes the borrowed legacy Store to existing Auth/OAuth
-// subsystem constructors. New domain operations use GetQueries/WithTx and
-// never close the process-owned engine.
-// getDefaultStore is the only reader of process-owned database state.
-// Returning the borrowed handle does not confer ownership of pool.Close.
-func getDefaultStore() (*SQLStore, error) {
+func getDefaultEngine() (*engine, error) {
 	defaultEngine.mu.RLock()
 	defer defaultEngine.mu.RUnlock()
 	if defaultEngine.closed {
 		return nil, ErrEngineClosed
 	}
-	if defaultEngine.store == nil {
+	if defaultEngine.value == nil {
 		return nil, ErrEngineNotInitialized
 	}
-	return defaultEngine.store, nil
+	return defaultEngine.value, nil
 }
 
-func ProcessStore() (Store, error) {
-	store, err := getDefaultStore()
-	if err != nil {
-		return nil, err
-	}
-	return store, nil
-}
-
-// CloseEngine is terminal and idempotent for this process.
-// The graceful terminate phase, after active operations have drained,
-// is the only production caller.
+// CloseEngine is a terminal process shutdown operation. Call only after
+// serving activities have drained.
 func CloseEngine() {
 	defaultEngine.mu.Lock()
-	store := defaultEngine.store
-	defaultEngine.store = nil
+	current := defaultEngine.value
+	defaultEngine.value = nil
 	defaultEngine.closed = true
 	defaultEngine.mu.Unlock()
-
-	if store != nil {
-		store.Close()
+	if current != nil {
+		current.pool.Close()
 	}
 }
