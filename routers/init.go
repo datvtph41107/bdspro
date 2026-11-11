@@ -95,25 +95,32 @@ func NormalHandler() (http.Handler, error) {
 		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
 	}
 	ingress := routes.WrapIngress()
+	// Resolve process-owned capabilities once during startup, not on
+	// every request. Runtime state is immutable after publication.
+	authService := auth_service.ProcessService()
+	oauthService, proofs := oauth_service.ProcessService()
+	oidc, secure := auth_service.ProcessOAuth2()
+	browser := weboauth.ProcessBrowser()
+	redisClient, throttle, limiter := security.ProcessCapabilities()
+	maker := authcrypto.ProcessMaker()
+	store, err := db.ProcessStore()
+	if err != nil {
+		return nil, fmt.Errorf("build HTTP ingress: %w", err)
+	}
+	signingKey := setting.Security.TokenSymmetricKey
+	origins := append([]string(nil), setting.Server.AllowedOrigins...)
 	return common.CORS(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
-		ctx = auth_service.WithService(ctx, auth_service.ProcessService())
-		service, proofs := oauth_service.ProcessService()
-		ctx = oauth_service.WithService(ctx, service, proofs)
-		oidc, secure := auth_service.ProcessOAuth2()
+		ctx = auth_service.WithService(ctx, authService)
+		ctx = oauth_service.WithService(ctx, oauthService, proofs)
 		ctx = auth_service.WithOAuth2(ctx, oidc, secure)
-		ctx = weboauth.WithBrowser(ctx, weboauth.ProcessBrowser())
-		redisClient, throttle, limiter := security.ProcessCapabilities()
+		ctx = weboauth.WithBrowser(ctx, browser)
 		ctx = security.WithThrottle(ctx, throttle)
 		ctx = security.WithMonitorRedis(ctx, redisClient)
-		ctx = authcrypto.WithMaker(ctx, authcrypto.ProcessMaker())
+		ctx = authcrypto.WithMaker(ctx, maker)
 		ctx = ipactive.WithMiddleware(ctx, limiter)
-		ctx = org_service.WithInviteSigningKey(ctx, setting.Security.TokenSymmetricKey)
-		store, err := db.ProcessStore()
-		if err != nil {
-			panic("routers: database not initialized")
-		}
+		ctx = org_service.WithInviteSigningKey(ctx, signingKey)
 		ctx = db.WithStore(ctx, store)
 		ingress.ServeHTTP(w, req.WithContext(ctx))
-	}), setting.Server.AllowedOrigins), nil
+	}), origins), nil
 }
