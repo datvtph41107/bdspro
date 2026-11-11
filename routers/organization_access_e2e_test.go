@@ -52,7 +52,7 @@ func organizationTestVerifiedAccount(t *testing.T, ctx context.Context, pool *pg
 	return account.ID, access
 }
 
-func organizationGetJSON(t *testing.T, server *Server, path, bearer string) (int, any) {
+func organizationGetJSON(t *testing.T, server *serverFixture, path, bearer string) (int, any) {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	if bearer != "" {

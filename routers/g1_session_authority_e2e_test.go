@@ -14,7 +14,7 @@ import (
 
 const g12Password = "InitialG12Password123"
 
-func g12RegisterAndLogin(t *testing.T, server *Server) (string, map[string]any) {
+func g12RegisterAndLogin(t *testing.T, server *serverFixture) (string, map[string]any) {
 	t.Helper()
 	email := uuid.NewString() + "@example.test"
 	status, created := authAcceptanceCall(t, server, "/users", http.MethodPost,
@@ -30,7 +30,7 @@ func g12RegisterAndLogin(t *testing.T, server *Server) (string, map[string]any) 
 	return email, login
 }
 
-func g12RequireHTTPStatus(t *testing.T, server *Server, path, method string, request any, bearer string, want int) map[string]any {
+func g12RequireHTTPStatus(t *testing.T, server *serverFixture, path, method string, request any, bearer string, want int) map[string]any {
 	t.Helper()
 	status, body := authAcceptanceCall(t, server, path, method, request, bearer)
 	if status != want {
