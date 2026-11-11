@@ -7,32 +7,25 @@ import (
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/services/worker"
 	"github.com/urfave/cli/v3"
 )
 
-// cleanup is a one-shot PostgreSQL maintenance command. Unlike the long-running
-// queue worker, it has no Redis or Asynq startup dependency.
 func newCleanupCommand() *cli.Command {
 	return &cli.Command{
-		Name:   "cleanup",
-		Usage:  "Expire login, audit and OAuth records using PostgreSQL only",
-		Before: PrepareConsoleLoggerLevel(log.INFO),
-		Action: runCleanup,
+		Name: "cleanup", Usage: "Remove expired login, audit and OAuth records",
+		Before: rejectArguments("cleanup"), Action: runCleanup,
 	}
 }
 
-func runCleanup(ctx context.Context, command *cli.Command) error {
-	if command.Args().Len() != 0 {
-		return fmt.Errorf("unexpected cleanup argument %q", command.Args().First())
-	}
-	cfg, err := loadCleanupSettings(command)
+func runCleanup(ctx context.Context, _ *cli.Command) error {
+	cfg, err := setting.LoadCleanupSettings()
 	if err != nil {
-		return err
+		return fmt.Errorf("load cleanup settings: %w", err)
 	}
 	cleanupCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-
 	store, err := db.InitStore(cleanupCtx, cfg.DBSource)
 	if err != nil {
 		return fmt.Errorf("open cleanup database: %w", err)

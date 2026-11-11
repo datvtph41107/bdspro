@@ -8,34 +8,33 @@ import (
 	"github.com/datvtph41107/bdspro/models/db"
 	organization_model "github.com/datvtph41107/bdspro/models/organization"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/urfave/cli/v3"
 )
 
-// doctor is deliberately read-only. Gitea has a richer services/doctor
-// registry; a single BDSPro check does not justify copying that framework.
 func newDoctorCommand() *cli.Command {
 	return &cli.Command{
-		Name:   "doctor",
-		Usage:  "Detect organizations without any active owner (PostgreSQL only)",
-		Before: PrepareConsoleLoggerLevel(log.INFO),
+		Name: "doctor", Usage: "Check organizations without an active owner",
 		Flags: []cli.Flag{
-			&cli.Int64Flag{Name: "after-id", Usage: "Inspect only organizations after this party ID (default: 0)"},
+			&cli.Int64Flag{Name: "after-id", Usage: "Inspect organizations after this party ID"},
+		},
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
+			if next, err := rejectArguments("doctor")(ctx, c); err != nil {
+				return next, err
+			}
+			if c.Int64("after-id") < 0 {
+				return ctx, fmt.Errorf("--after-id cannot be negative")
+			}
+			return ctx, nil
 		},
 		Action: runDoctor,
 	}
 }
 
 func runDoctor(ctx context.Context, command *cli.Command) error {
-	if command.Args().Len() != 0 {
-		return fmt.Errorf("unexpected doctor argument %q", command.Args().First())
-	}
-	afterID := command.Int64("after-id")
-	if afterID < 0 {
-		return fmt.Errorf("--after-id cannot be negative")
-	}
-	cfg, err := loadDatabaseCommandSettings(command)
+	cfg, err := setting.LoadDoctorSettings()
 	if err != nil {
-		return err
+		return fmt.Errorf("load doctor settings: %w", err)
 	}
 	checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -45,6 +44,7 @@ func runDoctor(ctx context.Context, command *cli.Command) error {
 	}
 	defer store.Close()
 
+	afterID := command.Int64("after-id")
 	report, err := organization_model.CheckOwnerCoverage(checkCtx, store, afterID)
 	if err != nil {
 		return fmt.Errorf("check organization owner coverage: %w", err)
