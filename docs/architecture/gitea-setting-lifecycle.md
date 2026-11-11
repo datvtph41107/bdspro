@@ -6,7 +6,7 @@ BDSPro học cơ chế tổ chức source của Gitea, không sao chép nghiệp
 
 `cmd/main.go` khai báo command và global flags. `cmd/config.go` chuẩn bị đường dẫn, đọc `app.ini`, áp dụng `BDS__SECTION__KEY` và khởi tạo logger. Các domain loader thuộc `modules/setting` cùng đọc một `CfgProvider`, không tự mở INI lần nữa.
 
-`routers.InitWebInstalled(ctx)` điều phối Web startup: nạp settings → PostgreSQL → migration ở môi trường development → Redis → auth/OAuth/HTTP services. `routers.NormalRoutes()` là owner đăng ký routes; `cmd/http.go` sở hữu listener, readiness và graceful shutdown. `Server.Close()` giải phóng tài nguyên sau khi HTTP đã drain.
+`routers.InitWebInstalled(ctx)` điều phối Web startup: nạp settings → PostgreSQL → migration ở môi trường development → Redis → auth/OAuth/HTTP services. `routers.NormalRoutes()` là owner đăng ký routes. `NewServer()` hoàn thiện HTTP ingress qua `WrapIngress()` trước khi công bố readiness, thay vì đợi request đầu tiên; `cmd/http.go` sở hữu listener và graceful shutdown. `Server.Close()` giải phóng tài nguyên sau khi HTTP đã drain.
 
 `migrate` và `doctor` chỉ cần database; `cleanup` cần thêm audit retention. `worker` dùng database, Redis, queue, signing key, mailer, audit retention, không khởi tạo HTTP/OIDC.
 
