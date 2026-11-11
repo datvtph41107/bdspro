@@ -21,7 +21,7 @@ import (
 func organizationTestVerifiedAccount(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (int64, string) {
 	t.Helper()
 	email := uuid.NewString() + "@example.test"
-	account, err := account_model.CreateOAuth2Account(ctx, db.NewStore(pool), auth_model.OIDCClaims{
+	account, err := account_model.CreateOAuth2Account(ctx, auth_model.OIDCClaims{
 		Issuer: "https://issuer.example.test", Subject: uuid.NewString(),
 		Email: email, EmailVerified: true,
 	})
@@ -36,7 +36,7 @@ func organizationTestVerifiedAccount(t *testing.T, ctx context.Context, pool *pg
 		t.Fatal(err)
 	}
 	sessionID := uuid.New()
-	_, err = db.NewStore(pool).CreateSession(ctx, db.CreateSessionParams{
+	_, err = db.New(pool).CreateSession(ctx, db.CreateSessionParams{
 		ID: sessionID, AccountID: account.ID,
 		RefreshToken: "org-acceptance-" + uuid.NewString(),
 		UserAgent:    "organization-acceptance", ClientIp: "198.19.0.1",
@@ -93,7 +93,7 @@ func TestOrganizationAccountMembershipRoleAndAuthorizationHTTP(t *testing.T) {
 		t.Fatalf("second organization creation %d %v", status, second)
 	}
 
-	memberAccount, err := db.NewStore(pool).GetAccountByID(ctx, memberID)
+	memberAccount, err := account_model.ReadByID(ctx, memberID)
 	if err != nil {
 		t.Fatal(err)
 	}
