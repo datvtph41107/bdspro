@@ -40,9 +40,7 @@ type LoginRejected struct {
 
 // RecordLoginRejected owns the audit persistence invariant. Callers decide
 // whether an audit write failure should fail their business operation.
-func RecordLoginRejected(ctx context.Context, store interface {
-	InsertAuditEvent(context.Context, db.InsertAuditEventParams) error
-}, key string, event LoginRejected) error {
+func RecordLoginRejected(ctx context.Context, key string, event LoginRejected) error {
 	if len(key) < 32 {
 		return ErrMissingKey
 	}
@@ -69,7 +67,9 @@ func RecordLoginRejected(ctx context.Context, store interface {
 	if parsed := net.ParseIP(strings.TrimSpace(event.IP)); parsed != nil {
 		ip = parsed.String()
 	}
-	return store.InsertAuditEvent(ctx, db.InsertAuditEventParams{
+	q, err := db.GetQueries(ctx)
+	if err != nil { return err }
+	return q.InsertAuditEvent(ctx, db.InsertAuditEventParams{
 		AccountID:  accountID,
 		Method:     pgtype.Text{String: event.Method, Valid: true},
 		Reason:     pgtype.Text{String: event.Reason, Valid: true},
