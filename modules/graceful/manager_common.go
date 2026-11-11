@@ -38,10 +38,11 @@ type Manager struct {
 
 func newManager(parent context.Context, hammerAfter time.Duration) *Manager {
 	g := &Manager{state: stateRunning, hammerAfter: hammerAfter}
-	g.shutdownCtx, g.shutdownCancel = context.WithCancel(parent)
-	g.hammerCtx, g.hammerCancel = context.WithCancel(parent)
-	g.terminateCtx, g.terminateCancel = context.WithCancel(parent)
-	g.managerCtx, g.managerCancel = context.WithCancel(parent)
+	phaseParent := context.WithoutCancel(parent)
+	g.shutdownCtx, g.shutdownCancel = context.WithCancel(phaseParent)
+	g.hammerCtx, g.hammerCancel = context.WithCancel(phaseParent)
+	g.terminateCtx, g.terminateCancel = context.WithCancel(phaseParent)
+	g.managerCtx, g.managerCancel = context.WithCancel(phaseParent)
 	go func() {
 		select {
 		case <-parent.Done():
