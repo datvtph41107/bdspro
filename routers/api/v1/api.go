@@ -32,12 +32,12 @@ func orgAssignment(denied error) func(*appctx.APIContext) {
 			ctx.APIErrorAuto(organization_model.ErrInvalidOrganization)
 			return
 		}
-		store, err := db.StoreFromContext(ctx)
+		q, err := db.GetQueries(ctx)
 		if err != nil {
 			ctx.APIErrorAuto(err)
 			return
 		}
-		access, err := organization_model.GetForAccount(ctx, store, actor.AccountID, id)
+		access, err := organization_model.GetForAccount(ctx, q, actor.AccountID, id)
 		if errors.Is(err, organization_model.ErrOrganizationNotFound) {
 			if denied != nil {
 				// Preserve the owner write endpoint's existing public error.
@@ -72,17 +72,17 @@ func teamAssignment() func(*appctx.APIContext) {
 			ctx.APIInvalid(err)
 			return
 		}
-		store, err := db.StoreFromContext(ctx)
+		q, err := db.GetQueries(ctx)
 		if err != nil {
 			ctx.APIErrorAuto(err)
 			return
 		}
-		team, err := organization_model.GetTeam(ctx, store, actor.AccountID, id)
+		team, err := organization_model.GetTeam(ctx, q, actor.AccountID, id)
 		if err != nil {
 			ctx.APIErrorAuto(err)
 			return
 		}
-		access, err := organization_model.GetForAccount(ctx, store, actor.AccountID, team.OrgID)
+		access, err := organization_model.GetForAccount(ctx, q, actor.AccountID, team.OrgID)
 		if err != nil {
 			ctx.APIErrorAuto(err)
 			return
