@@ -33,7 +33,7 @@ func UpdateProfile(ctx context.Context, patch ProfilePatch) (*account_model.Prof
 		return nil, err
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (*account_model.Profile, error) {
-		q, err := db.TxQueries(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return nil, err
 		}
