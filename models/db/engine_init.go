@@ -58,7 +58,9 @@ func InitEngine(ctx context.Context) error {
 // ProcessStore exposes the borrowed legacy Store to existing Auth/OAuth
 // subsystem constructors. New domain operations use GetQueries/WithTx and
 // never close the process-owned engine.
-func ProcessStore() (Store, error) {
+// getDefaultStore is the only reader of process-owned database state.
+// Returning the borrowed handle does not confer ownership of pool.Close.
+func getDefaultStore() (*SQLStore, error) {
 	defaultEngine.mu.RLock()
 	defer defaultEngine.mu.RUnlock()
 	if defaultEngine.closed {
@@ -68,6 +70,14 @@ func ProcessStore() (Store, error) {
 		return nil, ErrEngineNotInitialized
 	}
 	return defaultEngine.store, nil
+}
+
+func ProcessStore() (Store, error) {
+	store, err := getDefaultStore()
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
 }
 
 // CloseEngine is terminal and idempotent for this process.

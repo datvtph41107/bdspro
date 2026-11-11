@@ -129,17 +129,12 @@ func StoreFromContext(ctx context.Context) (Store, error) {
 		}
 		return store, nil
 	}
-	// When no request/test Store is bound, reuse the process-owned engine.
-	// Do not make HTTP ingress inject a second database authority.
-	defaultEngine.mu.RLock()
-	defer defaultEngine.mu.RUnlock()
-	if defaultEngine.closed {
-		return nil, ErrEngineClosed
-	}
-	if defaultEngine.store == nil {
+	// No request binding: resolve exactly the same default owner as GetQueries.
+	store, err := getDefaultStore()
+	if err == ErrEngineNotInitialized {
 		return nil, ErrStoreMissing
 	}
-	return defaultEngine.store, nil
+	return store, err
 }
 
 // hasTransactionMetadata detects partial transaction contexts as well as
@@ -177,15 +172,11 @@ func GetQueries(ctx context.Context) (*Queries, error) {
 		}
 		return store.Queries, nil
 	}
-	defaultEngine.mu.RLock()
-	defer defaultEngine.mu.RUnlock()
-	if defaultEngine.closed {
-		return nil, ErrEngineClosed
+	store, err := getDefaultStore()
+	if err != nil {
+		return nil, err
 	}
-	if defaultEngine.store == nil {
-		return nil, ErrEngineNotInitialized
-	}
-	return defaultEngine.store.Queries, nil
+	return store.Queries, nil
 }
 
 // TxQueries retrieves the single SQLC executor belonging to the transaction.
@@ -284,17 +275,14 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 			return ErrStoreMissing
 		}
 	} else {
-		defaultEngine.mu.RLock()
-		if defaultEngine.closed {
-			defaultEngine.mu.RUnlock()
-			return ErrEngineClosed
-		}
-		if defaultEngine.store == nil {
-			defaultEngine.mu.RUnlock()
+		defaultStore, err := getDefaultStore()
+		if err == ErrEngineNotInitialized {
 			return ErrStoreMissing
 		}
-		store = defaultEngine.store
-		defaultEngine.mu.RUnlock()
+		if err != nil {
+			return err
+		}
+		store = defaultStore
 		ctx = WithStore(ctx, store)
 	}
 	state := &transactionState{}
