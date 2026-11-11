@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestGetQueriesRejectsIncompleteTransaction(t *testing.T) {
@@ -108,5 +109,29 @@ func TestTxQueriesPoisonsOwnerWhenQueriesMetadataIsMissing(t *testing.T) {
 	}
 	if err := state.failure(); !errors.Is(err, ErrTransactionRequired) {
 		t.Fatalf("owner was not marked rollback-only: %v", err)
+	}
+}
+
+func TestGetQueriesPrefersRequestBoundExecutor(t *testing.T) {
+	pool := new(pgxpool.Pool) // identity only: no SQL is executed
+	store := NewStore(pool)
+	ctx := WithStore(context.Background(), store)
+	got, err := GetQueries(ctx)
+	if err != nil || got != store.Queries {
+		t.Fatalf("request-bound queries ignored: got=%p err=%v", got, err)
+	}
+}
+
+func TestGetQueriesRejectsMalformedRequestBoundExecutor(t *testing.T) {
+	ctx := WithStore(context.Background(), &contextTestStore{})
+	if _, err := GetQueries(ctx); !errors.Is(err, ErrStoreMissing) {
+		t.Fatalf("malformed scoped engine must not fall back to process global: %v", err)
+	}
+}
+
+func TestGetQueriesRejectsTransactionViewWithoutScope(t *testing.T) {
+	ctx := WithStore(context.Background(), &SQLStore{Queries: new(Queries)})
+	if _, err := GetQueries(ctx); !errors.Is(err, ErrTransactionClosed) {
+		t.Fatalf("transaction-only store cannot be reused without scope: %v", err)
 	}
 }
