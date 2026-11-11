@@ -17,7 +17,7 @@ func actingUser(ctx context.Context) (auth_model.Actor, error) {
 	if !ok {
 		return auth_model.Actor{}, auth_model.ErrSessionUnavailable
 	}
-	if _, err := db.GetQueries(ctx); err != nil {
+	if _, err := db.StoreFromContext(ctx); err != nil {
 		return auth_model.Actor{}, err
 	}
 	return actor, nil
@@ -33,5 +33,5 @@ func GetAuthenticatedUser(ctx context.Context) (*account_model.Profile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return account_model.GetProfile(ctx, q, actor.AccountID)
+	return account_model.GetProfile(ctx, store, actor.AccountID)
 }
