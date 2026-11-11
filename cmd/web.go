@@ -7,6 +7,7 @@ import (
 
 	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/process"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers"
 	"github.com/urfave/cli/v3"
@@ -28,8 +29,12 @@ func runWeb(ctx context.Context, _ *cli.Command) error {
 
 	graceful.InitManagerWithTimeout(ctx, setting.Common.Graceful.HammerTimeout)
 	manager := graceful.GetManager()
+	webCtx, _, finished := process.GetManager().AddTypedContext(
+		manager.HammerContext(), "Web: HTTP API", process.SystemProcessType, true,
+	)
+	defer finished()
 
-	server, err := routers.InitWebInstalled(manager.HammerContext())
+	server, err := routers.InitWebInstalled(webCtx)
 	if err != nil {
 		manager.DoGracefulShutdown()
 		<-manager.Done()
