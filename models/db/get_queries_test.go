@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func TestGetQueriesRejectsIncompleteTransaction(t *testing.T) {
@@ -57,5 +59,53 @@ func TestIncompleteTransactionCannotReachPoolOrStartAnotherTransaction(t *testin
 	}
 	if _, err := StoreFromContext(ctx); !errors.Is(err, ErrTxStoreUnavailable) {
 		t.Fatalf("StoreFromContext escaped incomplete transaction: %v", err)
+	}
+}
+
+func TestLegacyTransactionAPIsRejectPartialContext(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(context.Context, *SQLStore) error
+	}{
+		{
+			name: "ExecTx",
+			run: func(ctx context.Context, store *SQLStore) error {
+				return store.ExecTx(ctx, func(*Queries) error {
+					t.Fatal("partial context opened an independent SQLC transaction")
+					return nil
+				})
+			},
+		},
+		{
+			name: "ExecTxRaw",
+			run: func(ctx context.Context, store *SQLStore) error {
+				return store.ExecTxRaw(ctx, func(pgx.Tx) error {
+					t.Fatal("partial context opened an independent raw transaction")
+					return nil
+				})
+			},
+		},
+		{
+			name: "WithTxResult",
+			run: func(ctx context.Context, store *SQLStore) error {
+				_, err := WithTxResult(ctx, store, func(*Queries) (int, error) {
+					t.Fatal("partial context opened an independent result transaction")
+					return 1, nil
+				})
+				return err
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := &transactionState{}
+			ctx := context.WithValue(context.Background(), txStateContextKey{}, state)
+			if err := test.run(ctx, &SQLStore{}); !errors.Is(err, ErrNestedTransaction) {
+				t.Fatalf("partial transaction must fail closed: %v", err)
+			}
+			if err := state.failure(); !errors.Is(err, ErrNestedTransaction) {
+				t.Fatalf("partial transaction did not poison owner: %v", err)
+			}
+		})
 	}
 }
