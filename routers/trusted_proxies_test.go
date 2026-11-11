@@ -31,7 +31,7 @@ func TestTrustedIngressPeersDetermineClientIP(t *testing.T) {
 				Environment:       "production",
 				TokenSymmetricKey: strings.Repeat("x", 32),
 				TrustedProxies:    tc.peers,
-			}, nil, client)
+			}, client)
 			if err != nil {
 				t.Fatal(err)
 			}
