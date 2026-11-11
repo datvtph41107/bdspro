@@ -50,13 +50,23 @@ func (s *transactionState) close() {
 	s.mu.Unlock()
 }
 
+// isNilStorePointer rejects the Go interface typed-nil trap for supported
+// Store implementations. A typed nil must not become a usable DB authority.
+func isNilStorePointer(store Transactioner) bool {
+	switch v := store.(type) {
+	case *SQLStore:
+		return v == nil
+	}
+	return false
+}
+
 // WithStore installs the transaction capability in the request context. The
 // ingress normally supplies a full Store; model operations which only require
 // transactions may supply their existing narrow Transactioner. Reads that need
 // a full Store continue through StoreFromContext and cannot use a tx-only fake.
 // No process-global mutable database dependency is introduced.
 func WithStore(ctx context.Context, store Transactioner) context.Context {
-	if store == nil {
+	if store == nil || isNilStorePointer(store) {
 		panic("db: nil store")
 	}
 	return context.WithValue(ctx, storeContextKey{}, store)
@@ -109,7 +119,7 @@ func StoreFromContext(ctx context.Context) (Store, error) {
 	}
 	if bound := ctx.Value(storeContextKey{}); bound != nil {
 		store, ok := bound.(Store)
-		if !ok || store == nil {
+		if !ok || store == nil || isNilStorePointer(store) {
 			return nil, ErrStoreMissing
 		}
 		return store, nil
@@ -265,7 +275,7 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 	if bound := ctx.Value(storeContextKey{}); bound != nil {
 		var ok bool
 		store, ok = bound.(Transactioner)
-		if !ok || store == nil {
+		if !ok || store == nil || isNilStorePointer(store) {
 			return ErrStoreMissing
 		}
 	} else {

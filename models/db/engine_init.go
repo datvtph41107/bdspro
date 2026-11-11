@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/datvtph41107/bdspro/modules/graceful"
@@ -18,12 +17,6 @@ func InitStore(ctx context.Context, source string) (*SQLStore, error) {
 	}
 	return NewStore(pool), nil
 }
-
-var (
-	ErrEngineAlreadyInitialized = errors.New("db: engine already initialized")
-	ErrEngineNotInitialized     = errors.New("db: engine not initialized")
-	ErrEngineClosed             = errors.New("db: engine closed")
-)
 
 var defaultEngine struct {
 	mu     sync.RWMutex

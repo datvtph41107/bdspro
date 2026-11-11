@@ -150,3 +150,17 @@ func TestStoreFromContextRejectsMalformedBoundCapability(t *testing.T) {
 		t.Fatalf("malformed bound transaction owner should fail closed: %v", err)
 	}
 }
+
+func TestStoreFromContextRejectsTypedNilSQLStore(t *testing.T) {
+	var missing *SQLStore
+	ctx := context.WithValue(context.Background(), storeContextKey{}, missing)
+	if _, err := StoreFromContext(ctx); !errors.Is(err, ErrStoreMissing) {
+		t.Fatalf("typed nil Store must fail closed: %v", err)
+	}
+	if err := WithTx(ctx, func(context.Context) error {
+		t.Fatal("typed nil transaction store must not execute callback")
+		return nil
+	}); !errors.Is(err, ErrStoreMissing) {
+		t.Fatalf("typed nil transaction store must fail closed: %v", err)
+	}
+}

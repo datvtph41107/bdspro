@@ -13,3 +13,10 @@ var (
 	ErrNestedTransaction    = errors.New("db: nested transaction context has no owner")
 	ErrRawTransactionInSQLC = errors.New("db: raw transaction cannot nest inside SQLC transaction")
 )
+
+var (
+	ErrEngineAlreadyInitialized = errors.New("db: engine already initialized")
+	ErrEngineNotInitialized     = errors.New("db: engine not initialized")
+	ErrEngineClosed             = errors.New("db: engine closed")
+)
+
