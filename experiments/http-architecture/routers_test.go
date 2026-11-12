@@ -56,13 +56,18 @@ func TestCommonHTTPContract(t *testing.T) {
 						t.Fatal("missing protocol security header")
 					}
 					if tc.code != "" {
-						var body struct { Code string `json:"code"` }
+						var body struct {
+							Code string `json:"code"`
+						}
 						if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || body.Code != tc.code {
 							t.Fatalf("code=%q want=%q err=%v", body.Code, tc.code, err)
 						}
 					}
 					if tc.name == "created" {
-						var body struct { Org string `json:"org"`; Name string `json:"name"` }
+						var body struct {
+							Org  string `json:"org"`
+							Name string `json:"name"`
+						}
 						if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || body.Org != "acme" || body.Name != "Backend" {
 							t.Fatalf("team=%+v err=%v", body, err)
 						}
