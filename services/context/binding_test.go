@@ -35,7 +35,7 @@ func TestTypedJSONBindingStopsOnMalformedInput(t *testing.T) {
 		{body: `{"name":"Backend"}`, status: http.StatusOK, key: "name", value: "Backend", reached: 1},
 		{body: `{"name":"A"} {"name":"B"}`, status: http.StatusBadRequest, key: "code", value: "invalid_request", reached: 1},
 		{body: `{"name":`, status: http.StatusBadRequest, key: "code", value: "invalid_request", reached: 1},
-		{body: strings.Repeat("x", int(maxJSONBodyBytes)+1), status: http.StatusRequestEntityTooLarge, key: "code", value: "request_too_large", reached: 1},
+		{body: `{"name":"` + strings.Repeat("x", int(maxJSONBodyBytes)) + `"}`, status: http.StatusRequestEntityTooLarge, key: "code", value: "request_too_large", reached: 1},
 	}
 	for _, tt := range tests {
 		w := httptest.NewRecorder()
