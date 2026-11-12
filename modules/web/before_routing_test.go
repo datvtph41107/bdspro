@@ -47,13 +47,17 @@ func TestBeforeRoutingPreservesRequestContext(t *testing.T) {
 	})
 	out := httptest.NewRecorder()
 	router.ServeHTTP(out, httptest.NewRequest(http.MethodGet, "/test", nil))
-	if out.Code != http.StatusNoContent { t.Fatalf("status=%d", out.Code) }
+	if out.Code != http.StatusNoContent {
+		t.Fatalf("status=%d", out.Code)
+	}
 }
 
 func TestBeforeRoutingRejectsTypedAction(t *testing.T) {
 	router := NewRouter()
 	defer func() {
-		if recover() == nil { t.Fatal("typed API middleware cannot execute before route match") }
+		if recover() == nil {
+			t.Fatal("typed API middleware cannot execute before route match")
+		}
 	}()
 	router.BeforeRouting(func(api *testAPI) {})
 }

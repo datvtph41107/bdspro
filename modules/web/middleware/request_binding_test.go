@@ -8,7 +8,9 @@ import (
 )
 
 func TestRequestJSONBinder(t *testing.T) {
-	type option struct { Name string `json:"name"` }
+	type option struct {
+		Name string `json:"name"`
+	}
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"Backend"}`))
 	form, err := BindJSON[option](RequestJSONBinder{Request: req})
 	if err != nil || form.Name != "Backend" {
@@ -17,7 +19,9 @@ func TestRequestJSONBinder(t *testing.T) {
 }
 
 func TestRequestJSONBinderRejectsTrailingDocument(t *testing.T) {
-	type option struct { Name string `json:"name"` }
+	type option struct {
+		Name string `json:"name"`
+	}
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"A"} {"name":"B"}`))
 	_, err := BindJSON[option](RequestJSONBinder{Request: req})
 	if err == nil {
