@@ -1,7 +1,7 @@
 DB_NAME ?= bdspro
 POSTGRES_CONTAINER ?= postgres
 
-.PHONY: config-local worker postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration sqlc test server swagger
+.PHONY: config-local postgres redis createdb migrateup migrateup1 migratedown migratedown1 new_migration sqlc test server swagger
 
 postgres:
 	docker start $(POSTGRES_CONTAINER)
@@ -57,21 +57,13 @@ config-local:
 server: config-local
 	go run . --config "$(CONFIG)" web
 
-worker: config-local
-	go run . --config "$(CONFIG)" worker
-
-# One-shot PostgreSQL retention; can run even when Redis/Asynq is unavailable.
-.PHONY: cleanup
-cleanup: config-local
-	go run . --config "$(CONFIG)" cleanup
-
 # Reviewed OpenAPI 3 contract is served from templates/swagger/openapi.json.
 # The previous swag init output was not consumed by runtime, and Statik was unused.
 .PHONY: swagger swagger-check
 swagger: swagger-check
 
 swagger-check:
-	go test ./routers -run '^TestOpenAPICoverage$$|^TestSwaggerAssetsDevelopmentOnly$$' -count=1
+	go test ./routers/api -run '^TestInfrastructureOpenAPI$|^TestSwaggerDevelopmentOnly$' -count=1
 
 # Same application binary as Docker, but written to a local, ignored build directory.
 .PHONY: build watch race vet
@@ -87,8 +79,3 @@ race:
 
 vet:
 	go vet ./...
-
-# Read-only organization owner continuity check. Non-zero exit on ownerless data.
-.PHONY: doctor
-doctor: config-local
-	go run . --config "$(CONFIG)" doctor
