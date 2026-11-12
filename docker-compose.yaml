@@ -23,11 +23,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
-  mailpit:
-    image: axllent/mailpit:latest
-    ports:
-      - "127.0.0.1:8025:8025"
-      - "127.0.0.1:1025:1025"
   api:
     image: bdspro:local
     build: {context: ., dockerfile: Dockerfile}
@@ -35,23 +30,9 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
-      mailpit: {condition: service_started}
     restart: on-failure
     volumes: [bdspro-volume:/data]
     command: ["/app/main", "--config", "/data/bdspro/conf/app.ini", "web"]
-    logging:
-      driver: json-file
-      options: {max-size: "10m", max-file: "3"}
-  worker:
-    image: bdspro:local
-    build: {context: ., dockerfile: Dockerfile}
-    depends_on:
-      postgres: {condition: service_healthy}
-      redis: {condition: service_healthy}
-      mailpit: {condition: service_started}
-    restart: on-failure
-    volumes: [bdspro-volume:/data]
-    command: ["/app/main", "--config", "/data/bdspro/conf/app.ini", "worker"]
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}

@@ -1,8 +1,10 @@
-// Package routers initializes Web dependencies and composes HTTP routes.
+// Package routers composes the HTTP infrastructure without domain services.
 package routers
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/datvtph41107/bdspro/models/db"
@@ -10,31 +12,25 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/web"
+	api "github.com/datvtph41107/bdspro/routers/api"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
-	"github.com/datvtph41107/bdspro/routers/common"
-	"github.com/datvtph41107/bdspro/services/mail"
-	security "github.com/datvtph41107/bdspro/services/security"
 	"github.com/gin-gonic/gin"
 )
 
-// InitWebInstalled owns the order of initialization for one Web process.
-func InitWebInstalled(ctx context.Context) (*Server, error) {
+// InitWebInstalled initializes only infrastructure owned by this process.
+// Database and Redis register their cleanup with the graceful manager.
+func InitWebInstalled(ctx context.Context) error {
 	if err := setting.LoadSettings(); err != nil {
-		return nil, err
+		return err
 	}
-
-	store, err := db.InitStore(ctx, setting.Database.DBSource)
-	if err != nil {
-		return nil, err
+	if err := db.InitEngine(ctx); err != nil {
+		return fmt.Errorf("initialize PostgreSQL: %w", err)
 	}
 	log.Info("PostgreSQL connected")
-
-	// Development migrations remain opt-in by environment as before.
 	if setting.Common.RunMode == "development" {
 		changed, err := db.MigrateUp(setting.Database.MigrationURL, setting.Database.DBSource, 0)
 		if err != nil {
-			store.Close()
-			return nil, err
+			return err
 		}
 		if changed {
 			log.Info("Migration status: applied")
@@ -44,45 +40,29 @@ func InitWebInstalled(ctx context.Context) (*Server, error) {
 	} else {
 		log.Info("Database migrations are managed externally")
 	}
-
-	redisManager := conn.NewRedisManager()
-	redisClient, err := redisManager.Client(ctx, setting.Redis.Address)
-	if err != nil {
-		_ = redisManager.Close()
-		store.Close()
-		return nil, err
+	if _, err := conn.InitRedis(ctx); err != nil {
+		return fmt.Errorf("initialize Redis: %w", err)
 	}
 	log.Info("Redis connected")
+	return nil
+}
 
+// NormalRoutes registers the one API route tree. No domain routes are installed.
+func NormalRoutes() *web.Router {
+	r := web.NewRouter()
+	r.Mount("/api/v1", apiv1.Routes())
+	return r
+}
+
+func NormalHandler() (http.Handler, error) {
 	if os.Getenv(gin.EnvGinMode) == "" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	cfg := setting.WebConfig()
-	sender := mail.NewSMTPSender(cfg.EmailSenderName, cfg.EmailSenderAddress,
-		cfg.EmailSenderPassword, cfg.SMTPAddress, cfg.SMTPAuth)
-	server, err := NewServer(cfg, store, redisClient, sender)
-	if err != nil {
-		_ = redisManager.Close()
-		store.Close()
-		return nil, err
+	routes := NormalRoutes()
+	router := routes.GinEngine()
+	api.RegisterSwagger(router, setting.Common.RunMode)
+	if err := router.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
 	}
-
-	server.runtimeClose = func() {
-		if err := redisManager.Close(); err != nil {
-			log.Error("Close Redis: %v", err)
-		}
-		store.Close()
-	}
-	return server, nil
-}
-
-// NormalRoutes is the single route-registration owner.
-func NormalRoutes() *web.Router {
-	r := web.NewRouter()
-	r.BeforeRouting(common.ProtocolMiddlewares()...)
-	router := r.GinEngine()
-	router.Use(common.AccessLogger(), common.Recovery(nil),
-		security.RequestMonitor(), common.RequestIngress())
-	r.Mount("/", apiv1.Routes())
-	return r
+	return routes.WrapIngress(), nil
 }

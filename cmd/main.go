@@ -26,7 +26,7 @@ func NewMainApp(appVer AppVersion) *cli.Command {
 	app := &cli.Command{
 		Name:                  "bdspro",
 		Usage:                 "BDSPro backend services",
-		Description:           "HTTP API, background workers and maintenance commands",
+		Description:           "HTTP API and database maintenance commands",
 		Version:               appVer.Version + appVer.Extra,
 		EnableShellCompletion: true,
 	}
@@ -56,10 +56,7 @@ func NewMainApp(appVer AppVersion) *cli.Command {
 
 	commands := []*cli.Command{
 		webCmd,
-		newWorkerCommand(),
 		newMigrateCommand(),
-		newCleanupCommand(),
-		newDoctorCommand(),
 	}
 
 	// Preserve each command's original Before hook,

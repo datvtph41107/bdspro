@@ -11,8 +11,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hibiken/asynq v0.23.0
 	github.com/jackc/pgx/v5 v5.11.0
-	github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible
-	github.com/rs/cors v1.11.1
 	github.com/rs/zerolog v1.34.0
 	github.com/urfave/cli/v3 v3.14.0
 	golang.org/x/crypto v0.58.0

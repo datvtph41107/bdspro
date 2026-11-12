@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/modules/reqctx"
 	"github.com/datvtph41107/bdspro/modules/web"
 
@@ -62,7 +61,7 @@ func GetAPIContext(c *gin.Context) *APIContext {
 		}
 		panic("context: APIContext type mismatch")
 	}
-	api := &APIContext{Base: NewBaseContext(ginRequestSource{ctx: c}), Org: &APIOrganization{}}
+	api := &APIContext{Base: NewBaseContext(ginRequestSource{ctx: c})}
 	c.Set(apiContextKey, api)
 	publishAPIContext(c, api)
 	return api
@@ -88,21 +87,4 @@ func APIContexter() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, c.Request)
 		})
 	}
-}
-
-// PublishVerifiedActor is the only APIContext-to-transport request update.
-// It is called only after the live PostgreSQL session has been verified.
-// The actor lives in the request context and cannot be supplied by the client.
-func (c *APIContext) PublishVerifiedActor(actor auth_model.Actor) {
-	if c == nil || c.Base == nil {
-		panic("context: missing APIContext")
-	}
-	source, ok := c.Base.source.(ginRequestSource)
-	if !ok {
-		panic("context: missing matched transport context")
-	}
-	req := source.ctx.Request
-	source.ctx.Request = req.WithContext(auth_model.WithActor(req.Context(), actor))
-	publishAPIContext(source.ctx, c)
-	c.IsSigned = true
 }
