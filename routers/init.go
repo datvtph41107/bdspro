@@ -12,9 +12,9 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/web"
+	webmiddleware "github.com/datvtph41107/bdspro/modules/web/middleware"
 	api "github.com/datvtph41107/bdspro/routers/api"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
-	webmiddleware "github.com/datvtph41107/bdspro/modules/web/middleware"
 	"github.com/gin-gonic/gin"
 )
 

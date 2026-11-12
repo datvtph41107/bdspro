@@ -11,7 +11,9 @@ import (
 )
 
 func TestTypedJSONBindingUsesSameRequestContext(t *testing.T) {
-	type createOption struct { Name string `json:"name"` }
+	type createOption struct {
+		Name string `json:"name"`
+	}
 	router := web.NewRouter()
 	router.AfterRouting(APIContexter())
 	router.Post("/items",
@@ -25,7 +27,11 @@ func TestTypedJSONBindingUsesSameRequestContext(t *testing.T) {
 			ctx.JSON(http.StatusOK, map[string]string{"name": form.Name})
 		},
 	)
-	for _, tc := range []struct{ body string; status int; key, value string }{
+	for _, tc := range []struct {
+		body       string
+		status     int
+		key, value string
+	}{
 		{body: `{"name":"Backend"}`, status: http.StatusOK, key: "name", value: "Backend"},
 		{body: `{"name":"A"} {"name":"B"}`, status: http.StatusBadRequest, key: "code", value: "invalid_request"},
 	} {
