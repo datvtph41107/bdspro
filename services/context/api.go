@@ -40,7 +40,7 @@ const ErrorCodeKey = "public_error_code"
 
 type APIErrorResponse struct {
 	Error string `json:"error"`
-	Code string `json:"code"`
+	Code  string `json:"code"`
 }
 
 func (c *APIContext) APIError(status int, code, message string) {
