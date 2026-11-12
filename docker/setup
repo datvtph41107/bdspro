@@ -4,7 +4,7 @@ conf_dir=/data/bdspro/conf
 log_dir=/data/bdspro/log
 conf_file="$conf_dir/app.ini"
 mkdir -p "$conf_dir" "$log_dir"
-# Atomic first-time creation even when web and worker start together.
+# Atomic first-time creation of application configuration.
 if [ ! -f "$conf_file" ]; then
     tmp_file="$(mktemp "$conf_dir/.app.ini.XXXXXX")"
     cp /etc/templates/app.ini "$tmp_file"

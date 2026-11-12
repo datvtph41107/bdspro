@@ -82,6 +82,11 @@ jobs:
           psql -h 127.0.0.1 -U root -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE bdspro_test'
           make migrateup
 
+      - name: Verify Docker deployment matches infrastructure CLI
+        run: |
+          docker compose config --quiet
+          docker compose build api
+
       - name: HTTP runtime smoke test
         run: |
           go build -o /tmp/bdspro-smoke .
