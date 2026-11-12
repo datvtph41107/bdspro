@@ -1,18 +1,45 @@
-// Package middleware owns form decoding and binder-level invariants for the
-// typed HTTP router. It does not publish the form or write an HTTP response.
+// Package middleware owns request decoding independently of Gin.
 package middleware
 
-import "reflect"
+import (
+	"errors"
+	"io"
+	"net/http"
+	"reflect"
 
-// JSONBinder is implemented by the existing Gin-backed API request context.
-// Keeping the binding capability minimal avoids a second JSON decoder.
+	appjson "github.com/datvtph41107/bdspro/modules/json"
+)
+
+// JSONBinder is the transport-agnostic binding capability.
 type JSONBinder interface {
 	BindJSON(value any) error
 }
 
-// BindJSON decodes a JSON object using the supplied request binder.
-// Like Gitea's BindFormAny, the template must be a struct: binding an
-// arbitrary scalar silently would violate the API form contract.
+// RequestJSONBinder decodes one JSON document using the application codec.
+// The caller owns the HTTP error response and request body size policy.
+type RequestJSONBinder struct {
+	Request *http.Request
+}
+
+func (b RequestJSONBinder) BindJSON(value any) error {
+	if b.Request == nil || b.Request.Body == nil {
+		return errors.New("web/middleware: missing request body")
+	}
+	decoder := appjson.NewDecoder(b.Request.Body)
+	if err := decoder.Decode(value); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return errors.New("web/middleware: multiple JSON values")
+		}
+		return err
+	}
+	return nil
+}
+
+// BindJSON creates a typed form and delegates the decoding to the binder.
 func BindJSON[T any](binder JSONBinder) (*T, error) {
 	if reflect.TypeFor[T]().Kind() != reflect.Struct {
 		panic("web/middleware: BindJSON template must be a struct")

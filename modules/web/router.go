@@ -26,6 +26,8 @@ type mountDef struct {
 // Router owns route declarations; Gin exclusively owns route matching.
 type Router struct {
 	engine         *gin.Engine
+	beforeRouting  []middlewareProvider
+	beforeHandler  http.Handler
 	afterRouting   []any
 	curGroupPrefix string
 	curMiddlewares []any
@@ -44,6 +46,24 @@ func NewRouter() *Router {
 func (r *Router) ensureMutable() {
 	if r.compiled {
 		panic("web: route registration after compilation")
+	}
+}
+
+// BeforeRouting installs middleware outside Gin's route matching.
+// It is reserved for net/http middleware that operates without route parameters
+// or typed APIContext. This matches Gitea's pre-routing responsibility.
+func (r *Router) BeforeRouting(middlewares ...any) {
+	r.ensureMutable()
+	for _, item := range middlewares {
+		if isNilOrFuncNil(item) {
+			continue
+		}
+		switch item.(type) {
+		case func(http.Handler) http.Handler, func(http.Handler) http.HandlerFunc:
+			r.beforeRouting = append(r.beforeRouting, toHandlerProvider(item))
+		default:
+			panic(fmt.Sprintf("web: BeforeRouting only accepts HTTP middleware providers: %T", item))
+		}
 	}
 }
 
@@ -193,6 +213,7 @@ func (r *Router) installInto(engine *gin.Engine, prefix string, parent []middlew
 func (r *Router) Compile() {
 	r.compileOnce.Do(func() {
 		r.installInto(r.engine, "", nil, map[*Router]bool{})
+		r.beforeHandler = composeHandler(r.beforeRouting, r.engine)
 	})
 }
 
@@ -203,10 +224,10 @@ func (r *Router) SetTrustedProxies(proxies []string) error {
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.Compile()
 	if reqctx.FromContext(req.Context()) != nil {
-		r.engine.ServeHTTP(w, req)
+		r.beforeHandler.ServeHTTP(w, req)
 		return
 	}
 	scoped, finished := reqctx.NewRequestContext(req.Context())
 	defer finished()
-	r.engine.ServeHTTP(w, req.WithContext(scoped))
+	r.beforeHandler.ServeHTTP(w, req.WithContext(scoped))
 }

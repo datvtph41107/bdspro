@@ -61,6 +61,11 @@ func (r *Response) WriteHeader(status int) {
 		return
 	}
 	r.runBefore()
+	// A Before callback may have committed a response itself. In that case
+	// the nested response wins and the outer WriteHeader must not overwrite it.
+	if r.status != 0 {
+		return
+	}
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
 }
