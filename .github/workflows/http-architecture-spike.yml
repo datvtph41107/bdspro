@@ -1,0 +1,39 @@
+name: HTTP architecture spike
+
+on:
+  push:
+    branches: ['research/http-architecture-spike-*']
+  pull_request:
+    paths:
+      - 'experiments/http-architecture/**'
+      - 'docs/architecture/ADR-001-http-foundation.md'
+      - '.github/workflows/http-architecture-spike.yml'
+  workflow_dispatch:
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: experiments/http-architecture
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - name: Resolve isolated experiment module
+        run: go mod tidy
+      - name: Verify experiment format
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            gofmt -d .
+            exit 1
+          fi
+      - name: Run shared contract tests and race detector
+        run: go test -race -count=1 ./...
+      - name: Check static analysis
+        run: go vet ./...
+      - name: Run microbenchmarks (informational, not acceptance)
+        run: go test -run '^$' -bench BenchmarkHealth -benchmem -benchtime=100x -count=1 .
