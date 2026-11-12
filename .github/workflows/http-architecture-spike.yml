@@ -36,4 +36,4 @@ jobs:
       - name: Check static analysis
         run: go vet ./...
       - name: Run microbenchmarks (informational, not acceptance)
-        run: go test -run '^$' -bench BenchmarkHealth -benchmem -benchtime=100x -count=1 .
+        run: go test -run '^$' -bench BenchmarkHealth -benchmem -benchtime=300ms -count=5 .

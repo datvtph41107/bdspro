@@ -23,6 +23,8 @@ func Chi() http.Handler {
 }
 
 func Gin() http.Handler {
+	// Benchmark the production-appropriate Gin router mode, not debug logging.
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.HandleMethodNotAllowed = true
 	r.Use(gin.Recovery())
