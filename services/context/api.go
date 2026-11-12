@@ -46,12 +46,40 @@ func APIContexter() func(http.Handler) http.Handler {
 	}
 }
 
+// APIError preserves BDSPro's public wire format while retaining Gitea's
+// APIContext-owned HTTP error handling.
 type APIError struct {
-	Message string `json:"message"`
+	Error string `json:"error"`
+	Code  string `json:"code"`
+}
+
+func apiErrorCode(status int) string {
+	switch status {
+	case http.StatusBadRequest:
+		return "invalid_request"
+	case http.StatusUnauthorized:
+		return "unauthenticated"
+	case http.StatusForbidden:
+		return "forbidden"
+	case http.StatusNotFound:
+		return "not_found"
+	case http.StatusConflict:
+		return "conflict"
+	case http.StatusTooManyRequests:
+		return "rate_limited"
+	case http.StatusInternalServerError:
+		return "internal_error"
+	default:
+		return "http_error"
+	}
+}
+
+func (c *APIContext) apiError(status int, code, message string) {
+	c.JSON(status, APIError{Error: message, Code: code})
 }
 
 func (c *APIContext) APIError(status int, message string) {
-	c.JSON(status, APIError{Message: message})
+	c.apiError(status, apiErrorCode(status), message)
 }
 
 func (c *APIContext) APIErrorNotFound(messages ...string) {
@@ -59,30 +87,30 @@ func (c *APIContext) APIErrorNotFound(messages ...string) {
 	if len(messages) > 0 {
 		message = messages[0]
 	}
-	c.APIError(http.StatusNotFound, message)
+	c.apiError(http.StatusNotFound, code, message)
 }
 
 func (c *APIContext) APIErrorAuto(err error) {
-	category, _, message, ok := util.ErrorForClient(err)
+	category, code, message, ok := util.ErrorForClient(err)
 	if ok {
 		switch {
 		case errors.Is(category, util.ErrInvalidArgument):
-			c.APIError(http.StatusBadRequest, message)
+			c.apiError(http.StatusBadRequest, code, message)
 			return
 		case errors.Is(category, util.ErrUnauthenticated):
-			c.APIError(http.StatusUnauthorized, message)
+			c.apiError(http.StatusUnauthorized, code, message)
 			return
 		case errors.Is(category, util.ErrPermissionDenied):
-			c.APIError(http.StatusForbidden, message)
+			c.apiError(http.StatusForbidden, code, message)
 			return
 		case errors.Is(category, util.ErrNotExist):
 			c.APIError(http.StatusNotFound, message)
 			return
 		case errors.Is(category, util.ErrAlreadyExist):
-			c.APIError(http.StatusConflict, message)
+			c.apiError(http.StatusConflict, code, message)
 			return
 		case errors.Is(category, util.ErrRateLimited):
-			c.APIError(http.StatusTooManyRequests, message)
+			c.apiError(http.StatusTooManyRequests, code, message)
 			return
 		}
 	}

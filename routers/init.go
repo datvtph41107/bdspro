@@ -14,6 +14,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/web"
 	api "github.com/datvtph41107/bdspro/routers/api"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
+	"github.com/datvtph41107/bdspro/routers/common"
 	"github.com/gin-gonic/gin"
 )
 
@@ -47,6 +48,7 @@ func InitWebInstalled(ctx context.Context) error {
 
 func NormalRoutes() *web.Router {
 	r := web.NewRouter()
+	r.BeforeRouting(common.ProtocolMiddlewares()...)
 	r.Mount("/api/v1", apiv1.Routes())
 	return r
 }

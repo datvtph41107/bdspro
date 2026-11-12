@@ -213,7 +213,7 @@ func (r *Router) installInto(engine *gin.Engine, prefix string, parent []middlew
 func (r *Router) Compile() {
 	r.compileOnce.Do(func() {
 		r.installInto(r.engine, "", nil, map[*Router]bool{})
-		r.beforeHandler = composeHandler(r.beforeRouting, r.engine)
+		r.beforeHandler = composeHandler(r.beforeRouting, http.HandlerFunc(r.engine.ServeHTTP))
 	})
 }
 
