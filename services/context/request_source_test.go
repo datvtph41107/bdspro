@@ -18,7 +18,7 @@ type testRequestSource struct {
 }
 
 func (s *testRequestSource) CurrentRequest() *http.Request { return s.req }
-func (s *testRequestSource) PathParam(name string) string { return s.params[name] }
+func (s *testRequestSource) PathParam(name string) string  { return s.params[name] }
 func (s *testRequestSource) BindJSON(value any) error {
 	if s.req.Body == nil {
 		return errors.New("empty body")
@@ -35,7 +35,7 @@ func (s *testRequestSource) WriteJSON(status int, encoded []byte) {
 	s.status, s.body = status, append([]byte(nil), encoded...)
 }
 func (s *testRequestSource) WriteStatus(status int) { s.status = status }
-func (s *testRequestSource) Abort() { s.aborted = true }
+func (s *testRequestSource) Abort()                 { s.aborted = true }
 func (s *testRequestSource) SetHeader(name, value string) {
 	if s.headers == nil {
 		s.headers = make(http.Header)
@@ -43,5 +43,5 @@ func (s *testRequestSource) SetHeader(name, value string) {
 	s.headers.Set(name, value)
 }
 func (s *testRequestSource) SetErrorCode(code string) { s.code = code }
-func (s *testRequestSource) IsAborted() bool { return s.aborted }
-func (s *testRequestSource) WrittenStatus() int { return s.status }
+func (s *testRequestSource) IsAborted() bool          { return s.aborted }
+func (s *testRequestSource) WrittenStatus() int       { return s.status }
