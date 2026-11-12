@@ -3,7 +3,6 @@ package middleware
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"reflect"
 
@@ -25,18 +24,10 @@ func (b RequestJSONBinder) BindJSON(value any) error {
 	if b.Request == nil || b.Request.Body == nil {
 		return errors.New("web/middleware: missing request body")
 	}
-	decoder := appjson.NewDecoder(b.Request.Body)
-	if err := decoder.Decode(value); err != nil {
-		return err
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		if err == nil {
-			return errors.New("web/middleware: multiple JSON values")
-		}
-		return err
-	}
-	return nil
+	// The application JSON/v2 decoder consumes and validates the complete
+	// document. A second Decode would see an empty reader and report
+	// jsontext: unexpected EOF even for valid single-document input.
+	return appjson.NewDecoder(b.Request.Body).Decode(value)
 }
 
 // BindJSON creates a typed form and delegates the decoding to the binder.
