@@ -12,13 +12,12 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/web"
+	webmiddleware "github.com/datvtph41107/bdspro/modules/web/middleware"
 	api "github.com/datvtph41107/bdspro/routers/api"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/gin-gonic/gin"
 )
 
-// InitWebInstalled initializes only infrastructure owned by this process.
-// Database and Redis register their cleanup with the graceful manager.
 func InitWebInstalled(ctx context.Context) error {
 	if err := setting.LoadSettings(); err != nil {
 		return err
@@ -47,9 +46,9 @@ func InitWebInstalled(ctx context.Context) error {
 	return nil
 }
 
-// NormalRoutes registers the one API route tree. No domain routes are installed.
 func NormalRoutes() *web.Router {
 	r := web.NewRouter()
+	r.BeforeRouting(webmiddleware.ProtocolMiddlewares()...)
 	r.Mount("/api/v1", apiv1.Routes())
 	return r
 }
@@ -59,10 +58,11 @@ func NormalHandler() (http.Handler, error) {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	routes := NormalRoutes()
-	router := routes.GinEngine()
-	api.RegisterSwagger(router, setting.Common.RunMode)
-	if err := router.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
-		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
+	api.RegisterSwagger(routes, setting.Common.RunMode)
+	if err := routes.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("configure trusted proxies: %w", err)
 	}
-	return routes.WrapIngress(), nil
+	// Registration errors must fail startup, never the first live request.
+	routes.Compile()
+	return routes, nil
 }

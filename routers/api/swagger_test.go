@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/templates"
-	"github.com/gin-gonic/gin"
 )
 
 func TestInfrastructureOpenAPI(t *testing.T) {
@@ -23,17 +23,16 @@ func TestInfrastructureOpenAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	if spec.OpenAPI != "3.0.3" || len(spec.Paths) != 1 {
-		t.Fatalf("unexpected API contract: version=%q paths=%d", spec.OpenAPI, len(spec.Paths))
+		t.Fatal("unexpected OpenAPI contract")
 	}
 	if _, ok := spec.Paths["/api/v1/health"]; !ok {
-		t.Fatal("infrastructure health route missing from OpenAPI")
+		t.Fatal("health path missing")
 	}
 }
 
 func TestSwaggerDevelopmentOnly(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	for _, mode := range []string{"development", "production"} {
-		r := gin.New()
+		r := web.NewRouter()
 		RegisterSwagger(r, mode)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/swagger/openapi.json", nil))

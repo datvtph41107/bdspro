@@ -1,212 +1,187 @@
 package web
 
 import (
-	"bufio"
 	"fmt"
-	"net"
 	"net/http"
 	"reflect"
-	"slices"
+	"sync"
 
-	web_types "github.com/datvtph41107/bdspro/modules/web/types"
+	"github.com/datvtph41107/bdspro/modules/web/types"
 )
 
-// Registrations happen at package initialization, before serving requests.
-// The request-scoped provider is resolved only when the handler executes.
-var responseStatusProviders = map[reflect.Type]func(*http.Request) web_types.ResponseStatusProvider{}
+type middlewareProvider = func(http.Handler) http.Handler
 
-func RegisterResponseStatusProvider[T any](provider func(*http.Request) web_types.ResponseStatusProvider) {
-	if provider == nil {
+var (
+	responseProvidersMu     sync.RWMutex
+	responseStatusProviders = map[reflect.Type]func(*http.Request) types.ResponseStatusProvider{}
+)
+
+func RegisterResponseStatusProvider[T any](fn func(*http.Request) types.ResponseStatusProvider) {
+	if fn == nil {
 		panic("web: nil response status provider")
 	}
-	typ := reflect.TypeFor[T]()
-	if _, exists := responseStatusProviders[typ]; exists {
-		panic(fmt.Sprintf("web: duplicate response status provider for %s", typ))
-	}
-	responseStatusProviders[typ] = provider
-}
-
-func isRegisteredTypedHandler(handler any) bool {
-	typ := reflect.TypeOf(handler)
-	if typ == nil || typ.Kind() != reflect.Func {
-		return false
-	}
-	for i := 0; i < typ.NumIn(); i++ {
-		if _, ok := responseStatusProviders[typ.In(i)]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-// responseWriter observes actual HTTP commitment, not merely a selected status.
-type responseWriter struct {
-	http.ResponseWriter
-	status int
-}
-
-var _ web_types.ResponseStatusProvider = (*responseWriter)(nil)
-
-func (w *responseWriter) WrittenStatus() int { return w.status }
-
-func (w *responseWriter) WriteHeader(status int) {
-	if w.status != 0 {
-		return
-	}
-	w.status = status
-	w.ResponseWriter.WriteHeader(status)
-}
-
-func (w *responseWriter) Write(body []byte) (int, error) {
-	if w.status == 0 {
-		w.WriteHeader(http.StatusOK)
-	}
-	return w.ResponseWriter.Write(body)
-}
-
-func (w *responseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
-
-// Hijack follows Gitea's responseWriter contract so HTTP handlers that
-// explicitly require a websocket/connection upgrade can retain that
-// capability when the underlying writer supports it.
-func (w *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if hijacker, ok := w.ResponseWriter.(http.Hijacker); ok {
-		return hijacker.Hijack()
-	}
-	return nil, nil, http.ErrNotSupported
+	responseProvidersMu.Lock()
+	defer responseProvidersMu.Unlock()
+	responseStatusProviders[reflect.TypeFor[T]()] = fn
 }
 
 var (
-	httpReqType    = reflect.TypeFor[*http.Request]()
-	respWriterType = reflect.TypeFor[http.ResponseWriter]()
+	requestType = reflect.TypeFor[*http.Request]()
+	writerType  = reflect.TypeFor[http.ResponseWriter]()
+	statusType  = reflect.TypeFor[types.ResponseStatusProvider]()
 )
 
-// preCheckHandler rejects unsupported signatures during route registration.
-// Both the HTTP writer and registered typed contexts supply response status.
-func preCheckHandler(typ reflect.Type) {
-	if typ.NumOut() != 0 {
-		panic(fmt.Sprintf("web: handler must not return values: %s", typ))
+func isNilOrFuncNil(value any) bool {
+	if value == nil {
+		return true
 	}
-	hasStatusProvider := false
-	for i := 0; i < typ.NumIn(); i++ {
-		arg := typ.In(i)
-		switch arg {
-		case httpReqType:
-		case respWriterType:
-			hasStatusProvider = true
-		default:
-			if _, ok := responseStatusProviders[arg]; !ok {
-				panic(fmt.Sprintf("web: unsupported handler argument %s", arg))
-			}
-			hasStatusProvider = true
-		}
-	}
-	if !hasStatusProvider {
-		panic(fmt.Sprintf("web: handler must receive a ResponseStatusProvider: %s", typ))
-	}
+	v := reflect.ValueOf(value)
+	return v.Kind() == reflect.Func && v.IsNil()
 }
 
-// prepareHandleArgsIn is the only reflection-based argument resolution path.
-func prepareHandleArgsIn(resp http.ResponseWriter, req *http.Request, typ reflect.Type) []reflect.Value {
-	args := make([]reflect.Value, typ.NumIn())
+func prepareHandleArgsIn(w http.ResponseWriter, req *http.Request, fn reflect.Value) []reflect.Value {
+	args := make([]reflect.Value, fn.Type().NumIn())
 	for i := range args {
-		arg := typ.In(i)
-		switch arg {
-		case respWriterType:
-			args[i] = reflect.ValueOf(resp)
-		case httpReqType:
+		t := fn.Type().In(i)
+		switch t {
+		case requestType:
 			args[i] = reflect.ValueOf(req)
+		case writerType:
+			args[i] = reflect.ValueOf(w)
 		default:
-			provider := responseStatusProviders[arg](req)
+			responseProvidersMu.RLock()
+			provider := responseStatusProviders[t]
+			responseProvidersMu.RUnlock()
 			if provider == nil {
-				panic(fmt.Sprintf("web: nil response status provider for %s", arg))
+				panic(fmt.Sprintf("web: unsupported handler argument %s", t))
 			}
-			value := reflect.ValueOf(provider)
-			if !value.Type().AssignableTo(arg) {
-				panic(fmt.Sprintf("web: provider %s is incompatible with %s", value.Type(), arg))
+			value := provider(req)
+			if value == nil {
+				panic(fmt.Sprintf("web: provider for %s returned nil", t))
 			}
-			args[i] = value
+			v := reflect.ValueOf(value)
+			if !v.Type().AssignableTo(t) {
+				panic(fmt.Sprintf("web: provider returned %s, expected %s", v.Type(), t))
+			}
+			args[i] = v
 		}
 	}
 	return args
 }
 
-func hasResponseBeenWritten(args []reflect.Value) bool {
-	for _, arg := range args {
-		if status, ok := arg.Interface().(web_types.ResponseStatusProvider); ok && status.WrittenStatus() != 0 {
-			return true
-		}
+func preCheckHandler(fn reflect.Value) {
+	t := fn.Type()
+	if t.NumOut() != 0 {
+		panic(fmt.Sprintf("web: handler must not return values: %s", t))
 	}
-	return false
+	hasStatus := false
+	for i := 0; i < t.NumIn(); i++ {
+		arg := t.In(i)
+		if arg == writerType {
+			hasStatus = true
+			continue
+		}
+		if arg == requestType {
+			continue
+		}
+		responseProvidersMu.RLock()
+		provider := responseStatusProviders[arg]
+		responseProvidersMu.RUnlock()
+		if provider == nil {
+			panic(fmt.Sprintf("web: unsupported handler argument %s", arg))
+		}
+		if !arg.Implements(statusType) {
+			panic(fmt.Sprintf("web: argument %s must report response status", arg))
+		}
+		hasStatus = true
+	}
+	if !hasStatus {
+		panic(fmt.Sprintf("web: handler needs response status provider: %s", t))
+	}
 }
 
-// shouldStopContinuation preserves Gin's Abort semantics at the single
-// typed-handler bridge. Gitea's HTTP actions stop after response commitment;
-// Gin can also deliberately abort without writing a response. Both conditions
-// must stop downstream actions, or a denied route may continue by accident.
-func shouldStopContinuation(args []reflect.Value) bool {
-	if hasResponseBeenWritten(args) {
+func hasResponseBeenWritten(w http.ResponseWriter, args []reflect.Value) bool {
+	if status, ok := w.(types.ResponseStatusProvider); ok && status.WrittenStatus() != 0 {
 		return true
 	}
-	for _, arg := range args {
-		if state, ok := arg.Interface().(interface{ IsAborted() bool }); ok && state.IsAborted() {
+	for _, value := range args {
+		if provider, ok := value.Interface().(types.ResponseStatusProvider); ok && provider.WrittenStatus() != 0 {
 			return true
 		}
 	}
 	return false
 }
 
-type middlewareProvider = func(next http.Handler) http.Handler
-
-// compileMiddlewaresHandler owns the one middleware composition algorithm.
-// It runs at route registration for Gin's matched HTTP bridge, as Chi/Gitea
-// compiles route middleware into the registered handler chain.
-func compileMiddlewaresHandler(middlewares []middlewareProvider, endpoint http.HandlerFunc) http.Handler {
-	handler := http.Handler(endpoint)
-	for _, middleware := range slices.Backward(middlewares) {
-		handler = middleware(handler)
-		if handler == nil {
-			panic("web: middleware provider returned nil handler")
-		}
-	}
-	return handler
-}
-
-// executeMiddlewaresHandler supports direct HTTP handler execution with the
-// same compiler. Route registration must reuse the compiled result instead of
-// calling this function for every request.
-func executeMiddlewaresHandler(w http.ResponseWriter, req *http.Request, middlewares []middlewareProvider, endpoint http.HandlerFunc) {
-	compileMiddlewaresHandler(middlewares, endpoint).ServeHTTP(w, req)
-}
-
-// toHandlerProvider is framework-independent. Gin integration belongs to
-// modules/web/router.go, while action invocation follows Gitea's one path.
+// toHandlerProvider converts HTTP providers and typed actions to the
+// same net/http continuation contract used by Gitea.
 func toHandlerProvider(handler any) middlewareProvider {
+	if isNilOrFuncNil(handler) {
+		panic("web: nil handler")
+	}
+	switch h := handler.(type) {
+	case types.PreMiddlewareProvider:
+		return middlewareProvider(h)
+	case func(http.Handler) http.Handler:
+		return h
+	case func(http.Handler) http.HandlerFunc:
+		return func(next http.Handler) http.Handler { return h(next) }
+	}
 	fn := reflect.ValueOf(handler)
-	if !fn.IsValid() || fn.Kind() != reflect.Func || fn.IsNil() {
-		panic(fmt.Sprintf("web: handler must be a non-nil function, got %T", handler))
+	if fn.Kind() != reflect.Func {
+		panic(fmt.Sprintf("web: handler must be a function: %T", handler))
 	}
-	if middleware, ok := handler.(middlewareProvider); ok {
-		return middleware
-	}
-	if middleware, ok := handler.(func(http.Handler) http.HandlerFunc); ok {
-		return func(next http.Handler) http.Handler { return middleware(next) }
-	}
-
-	typ := fn.Type()
-	preCheckHandler(typ)
-
+	preCheckHandler(fn)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			resp := w
-			if _, ok := resp.(web_types.ResponseStatusProvider); !ok {
-				resp = &responseWriter{ResponseWriter: resp}
-			}
-			args := prepareHandleArgsIn(resp, req, typ)
+			args := prepareHandleArgsIn(w, req, fn)
 			fn.Call(args)
-			if next != nil && !shouldStopContinuation(args) {
-				next.ServeHTTP(resp, req)
+			if next != nil && !hasResponseBeenWritten(w, args) {
+				next.ServeHTTP(w, req)
 			}
 		})
 	}
+}
+
+func appendPre(providers []middlewareProvider, actions []any) []middlewareProvider {
+	for _, action := range actions {
+		if pre, ok := action.(types.PreMiddlewareProvider); ok && pre != nil {
+			providers = append(providers, toHandlerProvider(pre))
+		}
+	}
+	return providers
+}
+
+func appendNormal(providers []middlewareProvider, actions []any) []middlewareProvider {
+	for _, action := range actions {
+		if _, ok := action.(types.PreMiddlewareProvider); !ok && !isNilOrFuncNil(action) {
+			providers = append(providers, toHandlerProvider(action))
+		}
+	}
+	return providers
+}
+
+func wrapMiddlewareAndHandler(global, group, actions []any) ([]middlewareProvider, http.HandlerFunc) {
+	if len(actions) == 0 || isNilOrFuncNil(actions[len(actions)-1]) {
+		panic("web: route endpoint is required")
+	}
+	if _, ok := actions[len(actions)-1].(types.PreMiddlewareProvider); ok {
+		panic("web: final endpoint cannot be pre-middleware")
+	}
+	providers := make([]middlewareProvider, 0, len(global)+len(group)+len(actions))
+	providers = appendPre(providers, global)
+	providers = appendPre(providers, group)
+	providers = appendPre(providers, actions)
+	providers = appendNormal(providers, global)
+	providers = appendNormal(providers, group)
+	providers = appendNormal(providers, actions)
+	last := providers[len(providers)-1]
+	return providers[:len(providers)-1], last(nil).ServeHTTP
+}
+
+func composeHandler(middlewares []middlewareProvider, endpoint http.HandlerFunc) http.Handler {
+	var handler http.Handler = endpoint
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		handler = middlewares[i](handler)
+	}
+	return handler
 }

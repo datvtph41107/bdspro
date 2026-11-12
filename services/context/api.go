@@ -2,82 +2,129 @@
 package context
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/reqctx"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/datvtph41107/bdspro/modules/web"
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 )
-
-type apiContextRequestKey struct{}
-
-func GetAPIContextFromRequest(req *http.Request) *APIContext {
-	api, ok := req.Context().Value(apiContextRequestKey{}).(*APIContext)
-	if !ok || api == nil {
-		panic("context: APIContext missing from HTTP request")
-	}
-	return api
-}
-
-// Register the existing request-scoped APIContext as a typed web handler argument.
-func init() {
-	web.RegisterResponseStatusProvider[*APIContext](func(req *http.Request) web_types.ResponseStatusProvider {
-		return GetAPIContextFromRequest(req)
-	})
-}
 
 type APIContext struct {
 	*Base
 }
 
-var _ context.Context = (*APIContext)(nil)
-var _ web_types.ResponseStatusProvider = (*APIContext)(nil)
+type apiContextKeyType struct{}
 
-const ErrorCodeKey = "public_error_code"
+var apiContextKey = apiContextKeyType{}
 
-type APIErrorResponse struct {
+func init() {
+	web.RegisterResponseStatusProvider[*APIContext](func(req *http.Request) web_types.ResponseStatusProvider {
+		return GetAPIContext(req)
+	})
+}
+
+func GetAPIContext(req *http.Request) *APIContext {
+	if req == nil {
+		panic("context: nil API request")
+	}
+	return reqctx.MustContextValue[*APIContext](req.Context(), apiContextKey)
+}
+
+// APIContexter creates one APIContext after a matched route and passes
+// the same Response and Request to every subsequent typed action.
+func APIContexter() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			base := NewBaseContext(w, req)
+			ctx := &APIContext{Base: base}
+			ctx.SetContextValue(apiContextKey, ctx)
+			next.ServeHTTP(ctx.Resp, ctx.Req)
+		})
+	}
+}
+
+// APIError preserves BDSPro's public wire format while retaining Gitea's
+// APIContext-owned HTTP error handling.
+type APIError struct {
 	Error string `json:"error"`
 	Code  string `json:"code"`
 }
 
-func (c *APIContext) APIError(status int, code, message string) {
-	c.writeError(status, code, APIErrorResponse{Error: message, Code: code})
+func apiErrorCode(status int) string {
+	switch status {
+	case http.StatusBadRequest:
+		return "invalid_request"
+	case http.StatusRequestEntityTooLarge:
+		return "request_too_large"
+	case http.StatusUnauthorized:
+		return "unauthenticated"
+	case http.StatusForbidden:
+		return "forbidden"
+	case http.StatusNotFound:
+		return "not_found"
+	case http.StatusConflict:
+		return "conflict"
+	case http.StatusTooManyRequests:
+		return "rate_limited"
+	case http.StatusInternalServerError:
+		return "internal_error"
+	default:
+		return "http_error"
+	}
+}
+
+func (c *APIContext) apiError(status int, code, message string) {
+	if code == "" {
+		code = apiErrorCode(status)
+	}
+	c.JSON(status, APIError{Error: message, Code: code})
+}
+
+func (c *APIContext) APIError(status int, message string) {
+	c.apiError(status, apiErrorCode(status), message)
+}
+
+func (c *APIContext) APIErrorNotFound(messages ...string) {
+	message := "not found"
+	if len(messages) > 0 {
+		message = messages[0]
+	}
+	c.APIError(http.StatusNotFound, message)
 }
 
 func (c *APIContext) APIErrorAuto(err error) {
-	if status, code, message, ok := PublicError(err); ok {
-		c.APIError(status, code, message)
-		return
+	category, code, message, ok := util.ErrorForClient(err)
+	if ok {
+		switch {
+		case errors.Is(category, util.ErrInvalidArgument):
+			c.apiError(http.StatusBadRequest, code, message)
+			return
+		case errors.Is(category, util.ErrUnauthenticated):
+			c.apiError(http.StatusUnauthorized, code, message)
+			return
+		case errors.Is(category, util.ErrPermissionDenied):
+			c.apiError(http.StatusForbidden, code, message)
+			return
+		case errors.Is(category, util.ErrNotExist):
+			c.apiError(http.StatusNotFound, code, message)
+			return
+		case errors.Is(category, util.ErrAlreadyExist):
+			c.apiError(http.StatusConflict, code, message)
+			return
+		case errors.Is(category, util.ErrRateLimited):
+			c.apiError(http.StatusTooManyRequests, code, message)
+			return
+		}
 	}
-	log.Ctx(c).Error().Str("error_type", fmt.Sprintf("%T", err)).Msg("http.application_error")
-	c.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
-}
-
-func (c *APIContext) APIInvalid(err error) {
-	var size *http.MaxBytesError
-	if errors.As(err, &size) {
-		c.APIError(http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
-		return
-	}
-	c.APIError(http.StatusBadRequest, "invalid_request", "invalid request")
-}
-
-func (c *APIContext) APIErrorNotFound() {
-	c.APIError(http.StatusNotFound, "not_found", "not found")
+	c.APIErrorInternal(err)
 }
 
 func (c *APIContext) APIErrorInternal(err error) {
-	if err == nil {
-		err = errors.New("internal API failure")
+	if err != nil {
+		log.Error("API internal error: %v", err)
 	}
-	log.Ctx(c).Error().Str("error_type", fmt.Sprintf("%T", err)).Msg("http.api_internal_error")
-	c.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
-}
-
-func (c *APIContext) AuthenticationRequired() {
-	c.Header("WWW-Authenticate", "Bearer")
-	c.APIError(http.StatusUnauthorized, "unauthenticated", "authentication required")
+	c.APIError(http.StatusInternalServerError, "internal server error")
 }
