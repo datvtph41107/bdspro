@@ -12,7 +12,7 @@ import (
 type middlewareProvider = func(http.Handler) http.Handler
 
 var (
-	responseProvidersMu sync.RWMutex
+	responseProvidersMu     sync.RWMutex
 	responseStatusProviders = map[reflect.Type]func(*http.Request) types.ResponseStatusProvider{}
 )
 
@@ -27,8 +27,8 @@ func RegisterResponseStatusProvider[T any](fn func(*http.Request) types.Response
 
 var (
 	requestType = reflect.TypeFor[*http.Request]()
-	writerType = reflect.TypeFor[http.ResponseWriter]()
-	statusType = reflect.TypeFor[types.ResponseStatusProvider]()
+	writerType  = reflect.TypeFor[http.ResponseWriter]()
+	statusType  = reflect.TypeFor[types.ResponseStatusProvider]()
 )
 
 func isNilOrFuncNil(value any) bool {
@@ -180,7 +180,7 @@ func wrapMiddlewareAndHandler(global, group, actions []any) ([]middlewareProvide
 
 func composeHandler(middlewares []middlewareProvider, endpoint http.HandlerFunc) http.Handler {
 	var handler http.Handler = endpoint
-	for i := len(middlewares)-1; i >= 0; i-- {
+	for i := len(middlewares) - 1; i >= 0; i-- {
 		handler = middlewares[i](handler)
 	}
 	return handler

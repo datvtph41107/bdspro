@@ -35,10 +35,10 @@ type dataStoreKey struct{}
 type requestDataStore struct {
 	data ContextData
 
-	mu sync.RWMutex
-	values map[any]any
+	mu       sync.RWMutex
+	values   map[any]any
 	cleanups []func()
-	closed bool
+	closed   bool
 }
 
 func (s *requestDataStore) GetData() ContextData {
@@ -140,7 +140,7 @@ func NewRequestContext(parent context.Context) (context.Context, func()) {
 		panic("reqctx: request context already initialized")
 	}
 	store := &requestDataStore{
-		data: make(ContextData),
+		data:   make(ContextData),
 		values: make(map[any]any),
 	}
 	return &requestContext{Context: parent, RequestDataStore: store}, store.finish

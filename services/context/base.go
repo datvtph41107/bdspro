@@ -11,13 +11,14 @@ import (
 )
 
 type BaseContextKeyType struct{}
+
 var BaseContextKey = BaseContextKeyType{}
 
 // Base is created by HTTP middleware, never by domain services.
 type Base struct {
 	reqctx.RequestContext
 	Resp ResponseWriter
-	Req *http.Request
+	Req  *http.Request
 	Data reqctx.ContextData
 }
 
@@ -37,21 +38,21 @@ func NewBaseContext(resp http.ResponseWriter, req *http.Request) *Base {
 	}
 	b := &Base{
 		RequestContext: reqCtx,
-		Resp: WrapResponseWriter(resp),
-		Req: req.WithContext(reqCtx),
-		Data: reqCtx.GetData(),
+		Resp:           WrapResponseWriter(resp),
+		Req:            req.WithContext(reqCtx),
+		Data:           reqCtx.GetData(),
 	}
 	reqCtx.SetContextValue(BaseContextKey, b)
 	return b
 }
 
-func (b *Base) Written() bool { return b.WrittenStatus() != 0 }
-func (b *Base) WrittenStatus() int { return b.Resp.WrittenStatus() }
-func (b *Base) Status(status int) { b.Resp.WriteHeader(status) }
+func (b *Base) Written() bool                  { return b.WrittenStatus() != 0 }
+func (b *Base) WrittenStatus() int             { return b.Resp.WrittenStatus() }
+func (b *Base) Status(status int)              { b.Resp.WriteHeader(status) }
 func (b *Base) Write(data []byte) (int, error) { return b.Resp.Write(data) }
-func (b *Base) RespHeader() http.Header { return b.Resp.Header() }
-func (b *Base) Header(name, value string) { b.Resp.Header().Set(name, value) }
-func (b *Base) CurrentRequest() *http.Request { return b.Req }
+func (b *Base) RespHeader() http.Header        { return b.Resp.Header() }
+func (b *Base) Header(name, value string)      { b.Resp.Header().Set(name, value) }
+func (b *Base) CurrentRequest() *http.Request  { return b.Req }
 
 func (b *Base) JSON(status int, value any) {
 	// Encode before committing headers: serialization errors are not partial 2xx responses.

@@ -11,28 +11,28 @@ import (
 )
 
 type routeDef struct {
-	method string
-	path string
+	method      string
+	path        string
 	middlewares []middlewareProvider
-	endpoint http.HandlerFunc
+	endpoint    http.HandlerFunc
 }
 
 type mountDef struct {
-	prefix string
-	router *Router
+	prefix      string
+	router      *Router
 	middlewares []middlewareProvider
 }
 
 // Router owns route declarations; Gin exclusively owns route matching.
 type Router struct {
-	engine *gin.Engine
-	afterRouting []any
+	engine         *gin.Engine
+	afterRouting   []any
 	curGroupPrefix string
 	curMiddlewares []any
-	routes []routeDef
-	mounts []mountDef
-	compileOnce sync.Once
-	compiled bool
+	routes         []routeDef
+	mounts         []mountDef
+	compileOnce    sync.Once
+	compiled       bool
 }
 
 func NewRouter() *Router {
@@ -93,7 +93,7 @@ func ginPattern(pattern string) string {
 				panic(fmt.Sprintf("web: unclosed route parameter: %q", pattern))
 			}
 			name := pattern[i+1 : i+end]
-			next := i+end+1
+			next := i + end + 1
 			if name == "" || strings.ContainsAny(name, ":/{}") || (next < len(pattern) && pattern[next] != '/') {
 				panic(fmt.Sprintf("web: unsupported Chi route pattern %q", pattern))
 			}
@@ -120,20 +120,20 @@ func (r *Router) Methods(methods, pattern string, h ...any) {
 			panic("web: empty HTTP method")
 		}
 		r.routes = append(r.routes, routeDef{
-			method: method,
-			path: fullPattern,
+			method:      method,
+			path:        fullPattern,
 			middlewares: middlewares,
-			endpoint: endpoint,
+			endpoint:    endpoint,
 		})
 	}
 }
 
-func (r *Router) Get(path string, h ...any) { r.Methods(http.MethodGet, path, h...) }
-func (r *Router) Post(path string, h ...any) { r.Methods(http.MethodPost, path, h...) }
-func (r *Router) Put(path string, h ...any) { r.Methods(http.MethodPut, path, h...) }
-func (r *Router) Patch(path string, h ...any) { r.Methods(http.MethodPatch, path, h...) }
+func (r *Router) Get(path string, h ...any)    { r.Methods(http.MethodGet, path, h...) }
+func (r *Router) Post(path string, h ...any)   { r.Methods(http.MethodPost, path, h...) }
+func (r *Router) Put(path string, h ...any)    { r.Methods(http.MethodPut, path, h...) }
+func (r *Router) Patch(path string, h ...any)  { r.Methods(http.MethodPatch, path, h...) }
 func (r *Router) Delete(path string, h ...any) { r.Methods(http.MethodDelete, path, h...) }
-func (r *Router) Head(path string, h ...any) { r.Methods(http.MethodHead, path, h...) }
+func (r *Router) Head(path string, h ...any)   { r.Methods(http.MethodHead, path, h...) }
 
 // Mount captures middleware from the current parent declaration scope.
 // Routes are flattened once at startup; there is no second route matcher.
@@ -148,8 +148,8 @@ func (r *Router) Mount(pattern string, sub *Router) {
 	providers = appendNormal(providers, r.afterRouting)
 	providers = appendNormal(providers, r.curMiddlewares)
 	r.mounts = append(r.mounts, mountDef{
-		prefix: r.getPattern(pattern),
-		router: sub,
+		prefix:      r.getPattern(pattern),
+		router:      sub,
 		middlewares: providers,
 	})
 }

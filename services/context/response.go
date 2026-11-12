@@ -18,9 +18,9 @@ type ResponseWriter interface {
 
 type Response struct {
 	http.ResponseWriter
-	status int
-	written int
-	before []func(ResponseWriter)
+	status         int
+	written        int
+	before         []func(ResponseWriter)
 	beforeExecuted bool
 }
 
@@ -75,7 +75,7 @@ func (r *Response) Write(data []byte) (int, error) {
 }
 
 func (r *Response) WrittenStatus() int { return r.status }
-func (r *Response) WrittenSize() int { return r.written }
+func (r *Response) WrittenSize() int   { return r.written }
 
 func (r *Response) Flush() {
 	if r.status == 0 {

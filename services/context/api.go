@@ -17,6 +17,7 @@ type APIContext struct {
 }
 
 type apiContextKeyType struct{}
+
 var apiContextKey = apiContextKeyType{}
 
 func init() {
