@@ -75,6 +75,9 @@ func apiErrorCode(status int) string {
 }
 
 func (c *APIContext) apiError(status int, code, message string) {
+	if code == "" {
+		code = apiErrorCode(status)
+	}
 	c.JSON(status, APIError{Error: message, Code: code})
 }
 
@@ -87,7 +90,7 @@ func (c *APIContext) APIErrorNotFound(messages ...string) {
 	if len(messages) > 0 {
 		message = messages[0]
 	}
-	c.apiError(http.StatusNotFound, code, message)
+	c.APIError(http.StatusNotFound, message)
 }
 
 func (c *APIContext) APIErrorAuto(err error) {
@@ -104,7 +107,7 @@ func (c *APIContext) APIErrorAuto(err error) {
 			c.apiError(http.StatusForbidden, code, message)
 			return
 		case errors.Is(category, util.ErrNotExist):
-			c.APIError(http.StatusNotFound, message)
+			c.apiError(http.StatusNotFound, code, message)
 			return
 		case errors.Is(category, util.ErrAlreadyExist):
 			c.apiError(http.StatusConflict, code, message)
