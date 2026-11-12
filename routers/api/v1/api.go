@@ -1,20 +1,20 @@
 package apiv1
 
 import (
-    "net/http"
+	"net/http"
 
-    "github.com/datvtph41107/bdspro/modules/web"
-    appctx "github.com/datvtph41107/bdspro/services/context"
+	"github.com/datvtph41107/bdspro/modules/web"
+	appctx "github.com/datvtph41107/bdspro/services/context"
 )
 
 // Routes exposes only the infrastructure probe during the domain reset.
 func Routes() *web.Router {
-    m := web.NewRouter()
-    m.AfterRouting(appctx.APIContexter())
-    m.Get("/health", Health)
-    return m
+	m := web.NewRouter()
+	m.AfterRouting(appctx.APIContexter())
+	m.Get("/health", Health)
+	return m
 }
 
 func Health(ctx *appctx.APIContext) {
-    ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	ctx.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
