@@ -55,6 +55,11 @@ func (b *Base) Header(name, value string)      { b.Resp.Header().Set(name, value
 func (b *Base) CurrentRequest() *http.Request  { return b.Req }
 
 func (b *Base) JSON(status int, value any) {
+	// JSON is a terminal response. Never append a second JSON document after
+	// a middleware or another handler has already committed the response.
+	if b.Written() {
+		return
+	}
 	// Encode before committing headers: serialization errors are not partial 2xx responses.
 	var body bytes.Buffer
 	if err := appjson.MarshalWriteRelaxed(&body, value); err != nil {
