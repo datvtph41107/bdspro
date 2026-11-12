@@ -190,6 +190,9 @@ func (r *Router) installInto(engine *gin.Engine, prefix string, parent []middlew
 	}
 	seen[r] = true
 	defer delete(seen, r)
+	if len(prefix) > 0 && len(r.beforeRouting) > 0 {
+		panic("web: BeforeRouting is only supported on the root router; mounted router would silently skip it")
+	}
 	r.compiled = true
 	for _, route := range r.routes {
 		full := ginPattern(joinRoute(prefix, route.path))

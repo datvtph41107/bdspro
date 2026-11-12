@@ -57,6 +57,8 @@ func apiErrorCode(status int) string {
 	switch status {
 	case http.StatusBadRequest:
 		return "invalid_request"
+	case http.StatusRequestEntityTooLarge:
+		return "request_too_large"
 	case http.StatusUnauthorized:
 		return "unauthenticated"
 	case http.StatusForbidden:
