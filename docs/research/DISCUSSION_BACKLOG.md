@@ -30,4 +30,4 @@
 
 Program 01 builds a **method and evidence graph**. The future **3 tiers × 3 columns** growth/operations learning framework and curated **five Go monolith case studies** must be informed by that graph. Do not pick them in advance based on stars, directory layout or affiliation.
 
-**Handoff for a new chat:** read `AGENTS.md` + the three research files, pick a Q-ID, refresh URLs/versions and begin by identifying what prior sources actually establish versus what remains hypothesized.
+**Handoff for a new chat:** read `AGENTS.md` and all five `docs/research/` program files, pick a Q-ID, refresh URLs/versions and begin by identifying what prior sources actually establish versus what remains hypothesized.
