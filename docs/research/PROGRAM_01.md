@@ -23,6 +23,14 @@ Scope spans computer science, backend engineering, programming and code organiza
 
 The goal is **learning how evidence is produced and put to work**, not accumulating links or endorsements.
 
+## Practical reasoning and visible technical evidence
+
+The research method also starts from first-hand **problem discovery**, not just reading papers: ask why a mechanism exists, who it helps, what it costs to change, and what failure teaches. Combine **first-principles analysis** of protocols/source/state with **contextual systems thinking** about users, domains, team and long-term operations. For recurring inquiries use **Surface → Root → Mechanism → Impact → Options/Solution → Operation** and preserve the strongest dissenting hypothesis.
+
+Read [PRACTICAL_REASONING.md](./PRACTICAL_REASONING.md) for reasoning based on realistic scenarios, falsifiable arguments, and a smallest-action loop. Read [VISUAL_EVIDENCE.md](./VISUAL_EVIDENCE.md) to distinguish explanatory diagrams from observed images, profiles, traces, measured charts and cross-disciplinary photographs. Every visual that supports a claim needs traceable provenance, context, units and limitations. Illustrative numbers in working notes must not be upgraded to actual project evidence.
+
+The four user-provided working texts that informed these lenses are not republished to this public repository; these two pages provide a privacy-conscious synthesized handoff.
+
 ## Core research dimensions
 
 - **Inquiry and research method:** empirical software engineering, field observations, qualitative interviews, surveys, controlled experiments, benchmarks, systematic reviews, reproducibility, evaluation bias.
