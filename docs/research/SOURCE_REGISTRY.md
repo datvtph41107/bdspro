@@ -1,6 +1,6 @@
 # Program 01 — Initial Source Registry
 
-**Seed status (2026-11-13):** publisher/landing pages checked; this is a **discovery bibliography**, not a claim that full papers, datasets or downstream source code have been independently audited. Links are original publishers, first-party authors or repository hosts wherever possible. Add contrary sources before treating conclusions as established.
+**Seed status (2026-11-13):** 17 initial candidate sources; primary publisher/landing pages checked; this is a **discovery bibliography**, not a claim that full papers, datasets or downstream source code have been independently audited. Links are original publishers, first-party authors or repository hosts wherever possible. Add contrary sources before treating conclusions as established.
 
 | ID | Source / direct link | Evidence type | Primary research use | Critical reading / limit |
 |---|---|---|---|---|
