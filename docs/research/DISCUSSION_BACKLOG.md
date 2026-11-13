@@ -12,6 +12,11 @@
 | Q06 | Which problems do Go developers actually report, and how does the Go community evaluate possible solutions? | S06, S05 | Survey question/method + a specific proposal and reviewer discussion; compare with real repo adoption | Proposed |
 | Q07 | How do research results survive changes in product requirements, business rules and long-lived codebases? | S01, S04, S08 | Longitudinal code changes and real business constraints, not architecture diagrams alone | Proposed |
 
+| Q08 | How can a diagram, flamegraph, trace, query plan or photograph contribute to a **falsifiable technical argument**, rather than just tell a convincing story? | S14, S15, S16, S17 | Compare designed call path with sampled execution and raw artifacts; audit missing spans/links | Proposed |
+| Q09 | How do engineers **discover the real problem** before selecting code, database, framework or architecture? | S01, S03, S04 + practical reasoning guide | Compare user observation, a rejected hypothesis, bounded experiment and subsequent outcome | Proposed |
+| Q10 | How should failures, unknowns, reduction/removal of code and smaller experiments change project decisions? | S03, S04, S09 + practical reasoning guide | Trace an actual incident or change history and costs of decisions that were deferred/reversed | Proposed |
+| Q11 | When do cross-disciplinary metaphors or photographs help engineers find mechanisms, and when do they introduce a false causal analogy? | S14 + visual evidence guide | First-party technical report, measured physical constraints, software counterexample | Proposed |
+
 ## Working a discussion thread
 
 1. Select one ID, define its concrete claim and a competing hypothesis.
