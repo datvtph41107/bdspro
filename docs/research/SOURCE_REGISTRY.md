@@ -18,6 +18,13 @@
 | S12 | [GitHub Octoverse 2025](https://github.blog/news-insights/octoverse/octoverse-a-new-developer-joins-github-every-second-as-ai-leads-typescript-to-1/) | Platform activity report | Changes in developer ecosystem, languages and AI adoption | GitHub platform activity != complete global developer population |
 | S13 | [Simon Peyton Jones, How to write a great research paper](https://www.microsoft.com/en-us/research/academic-program/write-great-research-paper/) | Research communication talk | How researchers make claims, organize evidence and communicate problems | Advice on presentation, not direct proof of engineering outcomes |
 
+| S14 | [C4 model — Simon Brown](https://c4model.com/) | First-party architecture visualization method | Explain software context, containers, components and code-level structure | The diagram expresses a model; check against source and deployment evidence |
+| S15 | [Go diagnostics — official Go documentation](https://go.dev/doc/diagnostics) | Official tooling/documentation | Observe CPU, memory, execution traces and runtime conditions | Instrumentation may affect measured results |
+| S16 | [OpenTelemetry traces](https://opentelemetry.io/docs/concepts/signals/traces/) | Technical specification and instrumentation guidance | Relate request timing to spans and context propagation | Observability coverage and sampling may omit executions |
+| S17 | [PostgreSQL 18 — Using EXPLAIN](https://www.postgresql.org/docs/18/using-explain.html) | Official database documentation | Compare estimated and observed query behavior | Plan varies with data, statistics, configuration and workload |
+
+**Visual evidence:** see [VISUAL_EVIDENCE.md](./VISUAL_EVIDENCE.md) for figure provenance, observational scope, safe publication and limitations. See [PRACTICAL_REASONING.md](./PRACTICAL_REASONING.md) for the distinction between hypothetical teaching examples and real-world engineering findings.
+
 ## A linked-reading route, not a reading order imposed on everyone
 
 1. **Producing and evaluating knowledge:** S01 → S13 → S08; compare empirical validation with scenario/tradeoff evaluation.
