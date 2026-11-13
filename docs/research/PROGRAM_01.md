@@ -63,10 +63,10 @@ For engineering experiments additionally record repository/ref/SHA, commands, ob
 
 ## Cross-chat and repository continuity
 
-- This repository's reviewed files are the **durable source of truth** for the program: this charter, [SOURCE_REGISTRY.md](./SOURCE_REGISTRY.md) and [DISCUSSION_BACKLOG.md](./DISCUSSION_BACKLOG.md), plus individual notes added when research actually occurs.
+- This repository's reviewed files are the **durable source of truth** for the program: this charter, [PRACTICAL_REASONING.md](./PRACTICAL_REASONING.md), [VISUAL_EVIDENCE.md](./VISUAL_EVIDENCE.md), [SOURCE_REGISTRY.md](./SOURCE_REGISTRY.md) and [DISCUSSION_BACKLOG.md](./DISCUSSION_BACKLOG.md), plus individual research notes added when investigations actually occur.
 - `AGENTS.md` links agents to this program. An agent entering a new chat should fetch current `dev`, read the program and current note/question, and report evidence gaps before suggesting actions.
 - ChatGPT account Memory can help recall the *orientation*, but it is not a complete or guaranteed cross-chat record. Do not claim this file has been automatically saved to account Memory.
-- **Suggested new-chat starter:** “Trong repo https://github.com/datvtph41107/bdspro, đọc AGENTS.md và docs/research/PROGRAM_01.md, SOURCE_REGISTRY.md, DISCUSSION_BACKLOG.md từ dev mới nhất. Tiếp tục nghiên cứu câu hỏi [ID], phân biệt bằng chứng với giả thuyết, truy nguyên nguồn gốc và phản biện, không sửa code hoặc merge khi chưa có scope.”
+- **Suggested new-chat starter:** “Trong repo https://github.com/datvtph41107/bdspro, đọc AGENTS.md và docs/research/{PROGRAM_01,PRACTICAL_REASONING,VISUAL_EVIDENCE,SOURCE_REGISTRY,DISCUSSION_BACKLOG}.md từ dev mới nhất. Tiếp tục nghiên cứu câu hỏi [ID], phân biệt bằng chứng với giả thuyết, truy nguyên nguồn gốc và phản biện, không sửa code hoặc merge khi chưa có scope.”
 - Repository code edits still follow the separate `docs/architecture/parallel-work/` ownership, branch, lease, tests and approval policy. This program does not supersede those rules.
 
 ## First milestone and definition of done
