@@ -4,7 +4,7 @@ This file is the **entrypoint for coding agents and new ChatGPT work sessions** 
 
 ## Program 01 — Research and engineering inquiry
 
-For research requests about how engineers, communities and companies investigate software development across programming, backend, AI, architecture, product, team practice and operations, first read [Program 01 charter](docs/research/PROGRAM_01.md), [source registry](docs/research/SOURCE_REGISTRY.md) and [discussion backlog](docs/research/DISCUSSION_BACKLOG.md).
+For research requests about how engineers, communities and companies investigate software development across programming, backend, AI, architecture, product, team practice and operations, first read [Program 01 charter](docs/research/PROGRAM_01.md), [practical reasoning guide](docs/research/PRACTICAL_REASONING.md), [visual evidence guide](docs/research/VISUAL_EVIDENCE.md), [source registry](docs/research/SOURCE_REGISTRY.md) and [discussion backlog](docs/research/DISCUSSION_BACKLOG.md).
 
 **Research discipline:** begin with the practical problem and falsifiable question; locate original sources, contrasting arguments, methods and limitations; trace claims to source code, design discussions, experiments or operational outcomes as applicable. Separate hypothesis, observed evidence, recommendation and verified result. Do not prematurely pick Go projects, frameworks, architecture styles or a prescribed solution. Record the next question and a reproducible, appropriately scoped validation step.
 
