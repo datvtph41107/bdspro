@@ -2,6 +2,14 @@
 
 This file is the **entrypoint for coding agents and new ChatGPT work sessions** in this repository. It describes work policy; it does not grant autonomous permissions or replace GitHub branch protections.
 
+## Program 01 — Research and engineering inquiry
+
+For research requests about how engineers, communities and companies investigate software development across programming, backend, AI, architecture, product, team practice and operations, first read [Program 01 charter](docs/research/PROGRAM_01.md), [source registry](docs/research/SOURCE_REGISTRY.md) and [discussion backlog](docs/research/DISCUSSION_BACKLOG.md).
+
+**Research discipline:** begin with the practical problem and falsifiable question; locate original sources, contrasting arguments, methods and limitations; trace claims to source code, design discussions, experiments or operational outcomes as applicable. Separate hypothesis, observed evidence, recommendation and verified result. Do not prematurely pick Go projects, frameworks, architecture styles or a prescribed solution. Record the next question and a reproducible, appropriately scoped validation step.
+
+**Scope and authority:** Program 01 is a *research process*, not permission to change production code. Continue to follow the ownership/lease/PR/CI rules below for implementation; never treat outdated branch/PR snapshots or chat Memory as authoritative. The research files are a durable handoff for new chats; ChatGPT Memory is helpful but does not guarantee complete cross-chat recall.
+
 ## Before changing code
 
 1. Read [Parallel workstream README](docs/architecture/parallel-work/README.md), [current coordination board](docs/architecture/parallel-work/TASK_BOARD.md), [source mapping](docs/architecture/parallel-work/SOURCE_MAP.md), [ownership and contracts](docs/architecture/parallel-work/OWNERSHIP_AND_CONTRACTS.md), [trust and verification](docs/architecture/parallel-work/TRUST_AND_VERIFICATION.md), [integration protocol](docs/architecture/parallel-work/INTEGRATION_PROTOCOL.md), and [skill](docs/architecture/parallel-work/SKILL.md).
