@@ -10,6 +10,10 @@ For research requests about how engineers, communities and companies investigate
 
 **Scope and authority:** Program 01 is a *research process*, not permission to change production code. Continue to follow the ownership/lease/PR/CI rules below for implementation; never treat outdated branch/PR snapshots or chat Memory as authoritative. The research files are a durable handoff for new chats; ChatGPT Memory is helpful but does not guarantee complete cross-chat recall.
 
+## Task-specific agent skills (proposed)
+
+For a source-level investigation, a scoped backend change, a DB/SQLC migration, or independent PR verification, first read the corresponding workflow in [AI-assisted Engineering System](docs/engineering/AI_AGENT_SYSTEM.md) and `.agents/skills/` (`bdspro-source-investigation`, `bdspro-backend-change`, `bdspro-database-migration`, `bdspro-pr-verification`). Select **only relevant skills**. Skills do not confer tool permissions, update account Memory automatically, replace live source/CI checks or bypass lane ownership and explicit user approvals. Before reading these new skills in an agent workflow, verify that the branch containing them has been reviewed and is intentionally selected; on `dev` these links become canonical only after the stacked PR is merged.
+
 ## Before changing code
 
 1. Read [Parallel workstream README](docs/architecture/parallel-work/README.md), [current coordination board](docs/architecture/parallel-work/TASK_BOARD.md), [source mapping](docs/architecture/parallel-work/SOURCE_MAP.md), [ownership and contracts](docs/architecture/parallel-work/OWNERSHIP_AND_CONTRACTS.md), [trust and verification](docs/architecture/parallel-work/TRUST_AND_VERIFICATION.md), [integration protocol](docs/architecture/parallel-work/INTEGRATION_PROTOCOL.md), and [skill](docs/architecture/parallel-work/SKILL.md).
