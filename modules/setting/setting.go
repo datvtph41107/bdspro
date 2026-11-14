@@ -12,7 +12,6 @@ var (
 	AppBuiltWith string
 	AppStartTime time.Time
 	AppWorkPath  string
-	CustomPath   string
 	CustomConf   string
 	CfgProvider  ConfigProvider
 	Common       CommonSettings
@@ -79,7 +78,7 @@ func InitWorkPathAndCommonConfig(options PathOptions, envs []string) error {
 		return err
 	}
 
-	AppWorkPath, CustomPath, CustomConf = paths.WorkPath, paths.CustomPath, paths.ConfigFile
+	AppWorkPath, CustomConf = paths.WorkPath, paths.ConfigFile
 	CfgProvider, Common = provider, common
 	return nil
 }

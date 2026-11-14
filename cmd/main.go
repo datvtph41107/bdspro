@@ -33,18 +33,9 @@ func NewMainApp(appVer AppVersion) *cli.Command {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:    "work-path",
-			Aliases: []string{"w"},
-			Usage:   "Absolute application working directory",
-		},
-		&cli.StringFlag{
-			Name:  "custom-path",
-			Usage: "Custom configuration and resource directory",
-		},
-		&cli.StringFlag{
 			Name:    "config",
 			Aliases: []string{"c"},
-			Usage:   "Application configuration file (default: {custom-path}/conf/app.ini)",
+			Usage:   "Application configuration file (default: ./custom/conf/app.ini)",
 		},
 	}
 
@@ -123,7 +114,7 @@ func PrepareSubcommandWithGlobalFlags(
 			}
 		}
 
-		if err := prepareWorkPathAndCustomConf(
+		if err := prepareConfig(
 			current,
 		); err != nil {
 			return ctx, err
@@ -142,20 +133,18 @@ func PrepareSubcommandWithGlobalFlags(
 	}
 }
 
-// prepareWorkPathAndCustomConf resolves the
+// prepareConfig resolves the
 // application's selected configuration.
 //
 // It delegates all path and provider ownership
 // to modules/setting.
-func prepareWorkPathAndCustomConf(
+func prepareConfig(
 	command *cli.Command,
 ) error {
 	root := command.Root()
 
 	options := setting.PathOptions{
-		WorkPath:   root.String("work-path"),
-		CustomPath: root.String("custom-path"),
-		Config:     root.String("config"),
+		Config: root.String("config"),
 	}
 
 	return setting.InitWorkPathAndCommonConfig(options, os.Environ())

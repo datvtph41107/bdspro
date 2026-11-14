@@ -6,98 +6,47 @@ import (
 )
 
 func TestResolvePaths(t *testing.T) {
-	cwd := filepath.Join(
-		string(filepath.Separator),
-		"project",
-		"bdspro",
-	)
-	envWork := filepath.Join(
-		string(filepath.Separator),
-		"srv",
-		"bdspro",
-	)
+	cwd := filepath.Join(string(filepath.Separator), "project", "bdspro")
 
-	getenv := func(key string) string {
-		if key == "BDS_WORK_DIR" {
-			return envWork
-		}
-		return ""
-	}
-
-	t.Run("environment work path", func(t *testing.T) {
-		paths, err := resolvePaths(
-			cwd, getenv, PathOptions{},
-		)
+	t.Run("default config follows working directory", func(t *testing.T) {
+		paths, err := resolvePaths(cwd, PathOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		want := filepath.Join(
-			envWork, "custom", "conf", "app.ini",
-		)
-		if paths.ConfigFile != want {
-			t.Fatalf(
-				"ConfigFile = %q, want %q",
-				paths.ConfigFile, want,
-			)
-		}
-	})
-
-	t.Run("CLI overrides environment", func(t *testing.T) {
-		paths, err := resolvePaths(
-			cwd,
-			getenv,
-			PathOptions{WorkPath: cwd},
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		if paths.WorkPath != cwd {
-			t.Fatalf(
-				"WorkPath = %q, want %q",
-				paths.WorkPath, cwd,
-			)
+			t.Fatalf("WorkPath = %q, want %q", paths.WorkPath, cwd)
+		}
+		want := filepath.Join(cwd, "custom", "conf", "app.ini")
+		if paths.ConfigFile != want {
+			t.Fatalf("ConfigFile = %q, want %q", paths.ConfigFile, want)
 		}
 	})
 
-	t.Run("relative config follows cwd", func(t *testing.T) {
-		paths, err := resolvePaths(
-			cwd,
-			getenv,
-			PathOptions{Config: "test/app.ini"},
-		)
+	t.Run("relative config follows working directory", func(t *testing.T) {
+		paths, err := resolvePaths(cwd, PathOptions{Config: "test/app.ini"})
 		if err != nil {
 			t.Fatal(err)
 		}
-
 		want := filepath.Join(cwd, "test", "app.ini")
 		if paths.ConfigFile != want {
-			t.Fatalf(
-				"ConfigFile = %q, want %q",
-				paths.ConfigFile, want,
-			)
+			t.Fatalf("ConfigFile = %q, want %q", paths.ConfigFile, want)
 		}
 	})
 
-	t.Run("custom path follows work path", func(t *testing.T) {
-		paths, err := resolvePaths(
-			cwd,
-			getenv,
-			PathOptions{CustomPath: "instance"},
-		)
+	t.Run("absolute config is independent from working directory", func(t *testing.T) {
+		configFile := filepath.Join(string(filepath.Separator), "etc", "bdspro", "app.ini")
+		paths, err := resolvePaths(cwd, PathOptions{Config: configFile})
 		if err != nil {
 			t.Fatal(err)
 		}
+		if paths.ConfigFile != configFile {
+			t.Fatalf("ConfigFile = %q, want %q", paths.ConfigFile, configFile)
+		}
+	})
 
-		want := filepath.Join(
-			envWork, "instance", "conf", "app.ini",
-		)
-		if paths.ConfigFile != want {
-			t.Fatalf(
-				"ConfigFile = %q, want %q",
-				paths.ConfigFile, want,
-			)
+	t.Run("reject relative working directory", func(t *testing.T) {
+		if _, err := resolvePaths("relative/path", PathOptions{}); err == nil {
+			t.Fatal("expected error for relative working directory")
 		}
 	})
 }
