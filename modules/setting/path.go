@@ -7,9 +7,10 @@ import (
 )
 
 // PathOptions contains explicit CLI overrides.
-// An empty Config means that no override was supplied.
+// Empty fields mean no override was supplied.
 type PathOptions struct {
-	Config string
+	WorkPath string
+	Config   string
 }
 
 // Paths contains the resolved application paths.
@@ -18,8 +19,8 @@ type Paths struct {
 	ConfigFile string
 }
 
-// ResolvePaths resolves application paths from the current
-// working directory and an optional config file override.
+// ResolvePaths uses the current directory as the default instance root.
+// CLI --work-path may override that root without changing process CWD.
 func ResolvePaths(options PathOptions) (Paths, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -36,14 +37,22 @@ func resolvePaths(cwd string, options PathOptions) (Paths, error) {
 		return Paths{}, fmt.Errorf("current working directory must be absolute")
 	}
 
-	workPath := filepath.Clean(cwd)
+	workPath := cwd
+	if options.WorkPath != "" {
+		workPath = options.WorkPath
+	}
+	if !filepath.IsAbs(workPath) {
+		return Paths{}, fmt.Errorf("application work path must be absolute: %q", workPath)
+	}
+	workPath = filepath.Clean(workPath)
+
 	configFile := filepath.Join(workPath, "custom", "conf", "app.ini")
 
 	if options.Config != "" {
 		configFile = options.Config
-		// Explicit relative --config follows the shell working directory.
+		// Explicit relative --config follows the shell CWD, not --work-path.
 		if !filepath.IsAbs(configFile) {
-			configFile = filepath.Join(workPath, configFile)
+			configFile = filepath.Join(cwd, configFile)
 		}
 	}
 

@@ -22,6 +22,39 @@ func TestResolvePaths(t *testing.T) {
 		}
 	})
 
+	t.Run("work path overrides cwd for default config", func(t *testing.T) {
+		instance := filepath.Join(string(filepath.Separator), "srv", "bdspro")
+		paths, err := resolvePaths(cwd, PathOptions{WorkPath: instance})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if paths.WorkPath != instance {
+			t.Fatalf("WorkPath = %q, want %q", paths.WorkPath, instance)
+		}
+		want := filepath.Join(instance, "custom", "conf", "app.ini")
+		if paths.ConfigFile != want {
+			t.Fatalf("ConfigFile = %q, want %q", paths.ConfigFile, want)
+		}
+	})
+
+	t.Run("relative config is independent from work path", func(t *testing.T) {
+		instance := filepath.Join(string(filepath.Separator), "srv", "bdspro")
+		paths, err := resolvePaths(cwd, PathOptions{WorkPath: instance, Config: "conf/app.ini"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := filepath.Join(cwd, "conf", "app.ini")
+		if paths.ConfigFile != want {
+			t.Fatalf("ConfigFile = %q, want %q", paths.ConfigFile, want)
+		}
+	})
+
+	t.Run("reject relative work path", func(t *testing.T) {
+		if _, err := resolvePaths(cwd, PathOptions{WorkPath: "relative/path"}); err == nil {
+			t.Fatal("expected error for relative work path")
+		}
+	})
+
 	t.Run("relative config follows working directory", func(t *testing.T) {
 		paths, err := resolvePaths(cwd, PathOptions{Config: "test/app.ini"})
 		if err != nil {

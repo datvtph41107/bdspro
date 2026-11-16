@@ -23,9 +23,10 @@ path in every environment.
 
 ## Effective config precedence
 
-- The application working directory is the shell current working directory
-  (`os.Getwd()`); there is no `--work-path` or `--custom-path` override.
-- Default INI: `<cwd>/custom/conf/app.ini`.
+- The instance work path defaults to the shell current working directory
+  (`os.Getwd()`). An absolute `--work-path` overrides this value without
+  changing process CWD. There is no `--custom-path` or `BDS_CUSTOM`.
+- Default INI: `<work-path>/custom/conf/app.ini`.
 - Explicit `--config` always selects its own file. Relative paths are
   resolved against the **shell current working directory**.
 - `BDS__SECTION__KEY` overrides an INI value **in memory**. Default
@@ -39,7 +40,7 @@ Examples:
 ```sh
 make config-local
 make server CONFIG=/absolute/path/to/app.ini
-./bin/bdspro --config /absolute/instance/conf/app.ini web
+./bin/bdspro --work-path /absolute/instance --config /etc/bdspro/app.ini web
 BDS__DATABASE__DB_SOURCE='postgresql://...' make migrateup
 ```
 
@@ -81,7 +82,7 @@ DEFAULT_WEIGHT = 5
 
 BDSPro bounds concurrency at 256, each queue weight at 100 and total queue weight at 1000; these are application operational safeguards, not Asynq/Gitea library restrictions. Queue names `critical` and `default` must match durable outbox task producers. The deployed worker uses Asynq + PostgreSQL outbox, not an in-process channel queue.
 
-The configured `[log] ROOT_PATH` is resolved relative to the process working directory when not absolute. Only selecting a file logger creates the directory (mode 0700) and file (0600); an unusable output fails startup rather than silently falling back to console. `main` closes the process log sink.
+The configured `[log] ROOT_PATH` is resolved relative to the resolved instance work path (CWD by default, or absolute `--work-path`) when not absolute. Only selecting a file logger creates the directory (mode 0700) and file (0600); an unusable output fails startup rather than silently falling back to console. `main` closes the process log sink.
 
 **Removed configuration:** P06 removed the unused `modules/cache/**`, `modules/setting/cache.go` and channel task queue backends. Do not set a `[cache]` stanza in current templates or rely on old `LoadCacheSettings`/Memcached constructors. Redis remains mandatory for web authentication throttling and Asynq worker preflight, independent of generic caching. Existing persisted Docker `app.ini` is **not** overwritten by updating the image template; operators should inspect it for deprecated keys before rollout.
 
