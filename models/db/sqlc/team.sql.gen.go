@@ -99,9 +99,9 @@ type CountTeamsForAccountParams struct {
 
 func (q *Queries) CountTeamsForAccount(ctx context.Context, arg CountTeamsForAccountParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countTeamsForAccount, arg.OrganizationID, arg.ActorAccountID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const createTeamForOwner = `-- name: CreateTeamForOwner :one
