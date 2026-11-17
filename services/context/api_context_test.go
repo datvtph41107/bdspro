@@ -7,13 +7,11 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/modules/web"
-	"github.com/gin-gonic/gin"
 )
 
 func TestAPIContextIsSharedWithinRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	r := web.NewGinRouter()
-	r.AfterRouting(APIContexter())
+	r := web.NewRouter()
+	r.AfterRouting(APIContexterHTTP())
 	var first *APIContext
 	r.Get("/one", func(api *APIContext) {
 		first = api
@@ -33,22 +31,26 @@ func TestAPIContextIsSharedWithinRequest(t *testing.T) {
 
 type dynamicRequestKey struct{}
 
-func TestGinAdapterCarriesPathAndUpdatedContext(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := web.NewGinRouter()
-	router.AfterRouting(APIContexter())
-	router.Get("/orgs/:id", func(api *APIContext) {
-		c := api.Base.source.(ginRequestSource).ctx
+func TestHTTPAdapterCarriesPathAndUpdatedContext(t *testing.T) {
+	router := web.NewRouter()
+	router.AfterRouting(APIContexterHTTP())
+	// Auth-like middleware enriches the current request after APIContexter.
+	router.AfterRouting(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			req = req.WithContext(context.WithValue(req.Context(), dynamicRequestKey{}, "live"))
+			next.ServeHTTP(w, req)
+		})
+	})
+	router.Get("/orgs/{id}", func(api *APIContext) {
 		id, err := api.PositivePathID("id")
 		if err != nil || id != 42 {
 			t.Fatalf("path ID=%d err=%v", id, err)
 		}
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), dynamicRequestKey{}, "live"))
 		if got := api.Value(dynamicRequestKey{}); got != "live" {
 			t.Fatalf("APIContext kept a stale request: got=%v", got)
 		}
-		if GetAPIContext(c) != api {
-			t.Fatal("Gin adapter did not reuse the same request APIContext")
+		if GetAPIContextFromRequest(api.CurrentRequest()) != api {
+			t.Fatal("HTTP adapter did not reuse the same request APIContext")
 		}
 		api.Status(http.StatusNoContent)
 	})
@@ -60,12 +62,11 @@ func TestGinAdapterCarriesPathAndUpdatedContext(t *testing.T) {
 }
 
 func TestAPIContextRegisteredOnHTTPRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := web.NewGinRouter()
-	router.AfterRouting(APIContexter())
+	router := web.NewRouter()
+	router.AfterRouting(APIContexterHTTP())
 	router.Get("/provider", func(api *APIContext) {
 		if fromHTTP := GetAPIContextFromRequest(api.CurrentRequest()); fromHTTP != api {
-			t.Fatal("net/http and Gin did not resolve the same APIContext")
+			t.Fatal("HTTP handler did not resolve the same APIContext")
 		}
 		api.Status(http.StatusNoContent)
 	})

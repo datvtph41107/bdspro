@@ -6,15 +6,13 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/modules/web"
-	"github.com/gin-gonic/gin"
 )
 
-// The public response contract is committed HTTP status, not Gin's default
+// The public response contract is committed HTTP status, not the router's default
 // status or a chosen-but-unwritten status.
-func TestBaseWrittenStatusMatchesGinResponse(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := web.NewGinRouter()
-	router.AfterRouting(APIContexter())
+func TestBaseWrittenStatusMatchesHTTPResponse(t *testing.T) {
+	router := web.NewRouter()
+	router.AfterRouting(APIContexterHTTP())
 	router.Get("/status", func(api *APIContext) {
 		if api.Written() || api.WrittenStatus() != 0 {
 			t.Fatalf("new response reported as committed: %d", api.WrittenStatus())
@@ -38,17 +36,15 @@ func TestBaseWrittenStatusMatchesGinResponse(t *testing.T) {
 // End-to-end typed action execution must consult APIContext.WrittenStatus,
 // while retaining the selected-but-unwritten status semantics.
 func TestTypedAPIContextResponseStatusControlsActionChain(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	m := web.NewGinRouter()
-	m.AfterRouting(APIContexter())
-	router := m.GinEngine()
+	m := web.NewRouter()
+	m.AfterRouting(APIContexterHTTP())
 
 	reachedAfterWritten := false
 	m.Get("/written", func(c *APIContext) {
 		c.JSON(http.StatusAccepted, map[string]bool{"ok": true})
 	}, func(*APIContext) { reachedAfterWritten = true })
 	w := httptest.NewRecorder()
-	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/written", nil))
+	m.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/written", nil))
 	if reachedAfterWritten || w.Code != http.StatusAccepted {
 		t.Fatalf("committed response did not stop action chain: reached=%v status=%d", reachedAfterWritten, w.Code)
 	}
@@ -61,7 +57,7 @@ func TestTypedAPIContextResponseStatusControlsActionChain(t *testing.T) {
 		c.JSON(http.StatusOK, map[string]bool{"ok": true})
 	})
 	w = httptest.NewRecorder()
-	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/status-only", nil))
+	m.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/status-only", nil))
 	if !reachedAfterStatusOnly || w.Code != http.StatusOK {
 		t.Fatalf("status-only prematurely aborted: reached=%v status=%d", reachedAfterStatusOnly, w.Code)
 	}
