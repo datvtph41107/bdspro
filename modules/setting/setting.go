@@ -113,6 +113,9 @@ func LoadSettings() error {
 	if err := loadServerFrom(CfgProvider); err != nil {
 		return err
 	}
+	if err := loadAPIFrom(CfgProvider); err != nil {
+		return err
+	}
 	loadRedisFrom(CfgProvider)
 	if err := loadSecurityFrom(CfgProvider); err != nil {
 		return err

@@ -76,7 +76,8 @@ func NormalRoutes() *web.Router {
 
 func NormalHandler() (http.Handler, error) {
 	routes := NormalRoutes()
-	if swagger := api.SwaggerHandler(setting.Common.RunMode); swagger != nil {
+	if setting.API.EnableSwagger {
+		swagger := api.SwaggerHandler(setting.Common.RunMode)
 		routes.Get("/swagger/*", swagger.ServeHTTP)
 	}
 	if err := routes.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {

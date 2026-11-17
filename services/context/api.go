@@ -8,6 +8,8 @@ import (
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/log"
+	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/datvtph41107/bdspro/modules/web"
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 )
@@ -50,10 +52,11 @@ const ErrorCodeKey = "public_error_code"
 type APIErrorResponse struct {
 	Error string `json:"error"`
 	Code  string `json:"code"`
+	URL   string `json:"url,omitempty"`
 }
 
 func (c *APIContext) APIError(status int, code, message string) {
-	c.writeError(status, code, APIErrorResponse{Error: message, Code: code})
+	c.writeError(status, code, APIErrorResponse{Error: message, Code: code, URL: setting.API.SwaggerURL})
 }
 
 func (c *APIContext) APIErrorAuto(err error) {
@@ -74,8 +77,8 @@ func (c *APIContext) APIInvalid(err error) {
 	c.APIError(http.StatusBadRequest, "invalid_request", "invalid request")
 }
 
-func (c *APIContext) APIErrorNotFound() {
-	c.APIError(http.StatusNotFound, "not_found", "not found")
+func (c *APIContext) APIErrorNotFound(msg ...string) {
+	c.APIError(http.StatusNotFound, "not_found", util.OptionalArg(msg, "not found"))
 }
 
 func (c *APIContext) APIErrorInternal(err error) {
