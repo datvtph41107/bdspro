@@ -129,6 +129,11 @@ status="$(call_api -X POST -H "Authorization: Bearer $owner_token" \
 assert_status "$status" 409
 echo "Duplicate team name: 409"
 
+status="$(call_api -X POST -H "Authorization: Bearer $owner_token" \
+  -H 'Content-Type: application/json' -d '{"name":"Blocked-by-IP-Admission"}' "$url")"
+assert_status "$status" 429
+echo "Third Team create request denied by IPActive: 429"
+
 status="$(call_api "$url")"
 assert_status "$status" 401
 echo "Missing Bearer token: 401"

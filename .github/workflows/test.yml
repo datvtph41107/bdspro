@@ -98,6 +98,7 @@ jobs:
           BDS_TEST_MODE: disposable
           BDS_TEST_DB_URL: postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable
           BDS_TEST_TOKEN_KEY: '01234567890123456789012345678901'
+          BDS__IPACTIVE__TEAM_CREATE_LIMIT: '2'
           BDS__DATABASE__DB_SOURCE: postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable
         run: |
           go build -o /tmp/bdspro-smoke .

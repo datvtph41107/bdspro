@@ -22,3 +22,13 @@ func FromContext(ctx context.Context) *Middleware {
 	}
 	return middleware
 }
+
+// LookupMiddleware permits a typed route guard to reject a missing admission
+// dependency with HTTP 503 rather than panicking or silently bypassing limits.
+func LookupMiddleware(ctx context.Context) (*Middleware, bool) {
+	if ctx == nil {
+		return nil, false
+	}
+	middleware, ok := ctx.Value(middlewareKey{}).(*Middleware)
+	return middleware, ok && middleware != nil
+}

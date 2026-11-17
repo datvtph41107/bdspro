@@ -1,4 +1,4 @@
-// Package ipactive owns source-IP admission, policies and Gin integration.
+// Package ipactive owns source-IP admission and Redis policies independent of HTTP routers.
 package ipactive
 
 import (
@@ -32,6 +32,8 @@ const (
 	StartOAuth2PhoneBind    Action = "phone_oauth2_bind_start"
 	AcceptTeamInvite        Action = "team_invite_accept"
 	CreateTeamInvite        Action = "team_invite_issue"
+	CreateTeam              Action = "team_create"
+	RenameTeam              Action = "team_rename"
 	StartPhoneBind          Action = "phone_bind_start"
 	VerifyPhoneBind         Action = "phone_bind_verify"
 )
@@ -104,6 +106,8 @@ func DefaultPolicies() map[Action]Policy {
 		StartOAuth2PhoneBind:    count(10, time.Hour),
 		AcceptTeamInvite:        count(40, 10*time.Minute),
 		CreateTeamInvite:        count(10, time.Hour),
+		CreateTeam:              count(30, time.Hour),
+		RenameTeam:              count(120, time.Hour),
 		StartPhoneBind:          count(10, time.Hour),
 		VerifyPhoneBind:         count(40, 10*time.Minute),
 	}

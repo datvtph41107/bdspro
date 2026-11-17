@@ -9,6 +9,7 @@ import (
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/conn"
+	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/web"
@@ -75,6 +76,17 @@ func NormalRoutes() *web.Router {
 }
 
 func NormalHandler() (http.Handler, error) {
+	// Borrow the process-owned Redis client. Security admission shares its
+	// lifecycle and fails startup if the configured limiter cannot be built.
+	client, err := conn.ProcessRedis()
+	if err != nil {
+		return nil, fmt.Errorf("IP admission Redis unavailable: %w", err)
+	}
+	limiter, err := ipactive.NewRedis(client, setting.IPActive.Policies)
+	if err != nil {
+		return nil, fmt.Errorf("configure IP admission: %w", err)
+	}
+	admission := ipactive.NewMiddleware(limiter)
 	routes := NormalRoutes()
 	if setting.API.EnableSwagger {
 		swagger := api.SwaggerHandler(setting.Common.RunMode)
@@ -83,5 +95,9 @@ func NormalHandler() (http.Handler, error) {
 	if err := routes.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("configure HTTP trusted proxies: %w", err)
 	}
-	return routes.WrapIngress(), nil
+	handler := routes.WrapIngress()
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		req = req.WithContext(ipactive.WithMiddleware(req.Context(), admission))
+		handler.ServeHTTP(w, req)
+	}), nil
 }

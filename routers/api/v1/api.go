@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/modules/web/middleware"
 	org "github.com/datvtph41107/bdspro/routers/api/v1/org"
@@ -19,10 +20,10 @@ func Routes() *web.Router {
 	m.Group("/orgs/{org}", func() {
 		m.Combo("/teams").
 			Get(org.ListTeams).
-			Post(reqOrgOwner(), bind(structs.CreateTeamOption{}), org.CreateTeam)
+			Post(reqOrgOwner(), reqIPAdmission(ipactive.CreateTeam), bind(structs.CreateTeamOption{}), org.CreateTeam)
 		m.Combo("/teams/{team}").
 			Get(org.GetTeam).
-			Patch(reqOrgOwner(), bind(structs.RenameTeamOption{}), org.RenameTeam)
+			Patch(reqOrgOwner(), reqIPAdmission(ipactive.RenameTeam), bind(structs.RenameTeamOption{}), org.RenameTeam)
 	}, common.APIAuth, orgAssignment)
 	return m
 }
