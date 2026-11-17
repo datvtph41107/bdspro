@@ -38,6 +38,8 @@ func init() {
 
 type APIContext struct {
 	*Base
+	Actor *Actor
+	Org   *OrganizationResource
 }
 
 var _ context.Context = (*APIContext)(nil)

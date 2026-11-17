@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/conn"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -56,6 +57,12 @@ func InitWebInstalled(ctx context.Context) (err error) {
 	}
 
 	redisReady = true
+
+	// The process JWT verifier is built from validated security settings.
+	// Access tokens are never accepted without an active DB session.
+	if err := auth.Init(); err != nil {
+		return fmt.Errorf("initialize access token verifier: %w", err)
+	}
 
 	return ctx.Err()
 }

@@ -8,11 +8,12 @@ import (
 	appctx "github.com/datvtph41107/bdspro/services/context"
 )
 
-// Routes exposes only the infrastructure probe during the domain reset.
+// Routes composes the health probe and Organization/Team domain API.
 func Routes() *web.Router {
 	m := web.NewRouter()
 	m.AfterRouting(appctx.APIContexter())
 	m.Get("/health", Health)
+	TeamRoutes(m)
 	return m
 }
 
