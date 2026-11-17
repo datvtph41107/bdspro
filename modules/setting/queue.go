@@ -3,6 +3,7 @@ package setting
 import (
 	"fmt"
 	"strconv"
+	"time"
 )
 
 const (
@@ -12,9 +13,10 @@ const (
 )
 
 type QueueSettings struct {
-	Concurrency    int
-	CriticalWeight int
-	DefaultWeight  int
+	Concurrency     int
+	CriticalWeight  int
+	DefaultWeight   int
+	ShutdownTimeout time.Duration
 }
 
 var Queue QueueSettings
@@ -22,9 +24,10 @@ var Queue QueueSettings
 // DefaultQueueSettings is shared with modules/queue, not duplicated there.
 func DefaultQueueSettings() QueueSettings {
 	return QueueSettings{
-		Concurrency:    10,
-		CriticalWeight: 10,
-		DefaultWeight:  5,
+		Concurrency:     10,
+		CriticalWeight:  10,
+		DefaultWeight:   5,
+		ShutdownTimeout: 8 * time.Second,
 	}
 }
 
@@ -49,6 +52,22 @@ func loadQueueFrom(rootCfg ConfigProvider) error {
 		}
 		*option.target = n
 	}
+
+	timeoutKey := sec.Key("SHUTDOWN_TIMEOUT")
+
+	if timeoutKey.IsSet() {
+		timeout, err := time.ParseDuration(
+			timeoutKey.String(),
+		)
+		if err != nil || timeout <= 0 {
+			return fmt.Errorf(
+				"queue.SHUTDOWN_TIMEOUT must be a positive duration",
+			)
+		}
+
+		cfg.ShutdownTimeout = timeout
+	}
+
 	if cfg.Concurrency > MaxQueueConcurrency {
 		return fmt.Errorf("queue.CONCURRENCY must not exceed %d", MaxQueueConcurrency)
 	}

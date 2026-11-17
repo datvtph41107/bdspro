@@ -52,6 +52,7 @@ func NewMainApp(appVer AppVersion) *cli.Command {
 
 	commands := []*cli.Command{
 		webCmd,
+		newWorkerCommand(),
 		newMigrateCommand(),
 	}
 

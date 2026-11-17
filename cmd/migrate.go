@@ -31,7 +31,10 @@ func newMigrateCommand() *cli.Command {
 	}
 }
 
-func runMigrate(_ context.Context, command *cli.Command) error {
+func runMigrate(
+	ctx context.Context,
+	command *cli.Command,
+) error {
 	setting.LoadDBSetting()
 	steps := command.Int("steps")
 	if command.Bool("down") {
@@ -49,7 +52,12 @@ func runMigrate(_ context.Context, command *cli.Command) error {
 		}
 		return nil
 	}
-	changed, err := db.MigrateUp(setting.Database.MigrationURL, setting.Database.DBSource, steps)
+	changed, err := db.MigrateUp(
+		ctx,
+		setting.Database.MigrationURL,
+		setting.Database.DBSource,
+		steps,
+	)
 	if err != nil {
 		return err
 	}

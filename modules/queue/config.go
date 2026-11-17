@@ -3,6 +3,7 @@ package queue
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/datvtph41107/bdspro/modules/setting"
 )
@@ -15,18 +16,23 @@ const (
 // Config controls one worker process. Queue weights and concurrency are
 // independent of the Redis address supplied to the Asynq client.
 type Config struct {
-	Queues      map[string]int
-	Concurrency int
+	Queues          map[string]int
+	Concurrency     int
+	ShutdownTimeout time.Duration
 }
+
+const DefaultShutdownTimeout = 8 * time.Second
 
 func DefaultConfig() Config {
 	defaults := setting.DefaultQueueSettings()
+
 	return Config{
 		Queues: map[string]int{
 			QueueCritical: defaults.CriticalWeight,
 			QueueDefault:  defaults.DefaultWeight,
 		},
-		Concurrency: defaults.Concurrency,
+		Concurrency:     defaults.Concurrency,
+		ShutdownTimeout: DefaultShutdownTimeout,
 	}
 }
 

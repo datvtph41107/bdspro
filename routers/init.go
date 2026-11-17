@@ -14,37 +14,52 @@ import (
 	"github.com/datvtph41107/bdspro/modules/web"
 	api "github.com/datvtph41107/bdspro/routers/api"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
+	"github.com/datvtph41107/bdspro/routers/common"
 	"github.com/gin-gonic/gin"
 )
 
-// InitWebInstalled initializes only infrastructure owned by this process.
-// Database and Redis register their cleanup with the graceful manager.
-func InitWebInstalled(ctx context.Context) error {
+func InitWebInstalled(ctx context.Context) (err error) {
 	if err := setting.LoadSettings(); err != nil {
+		return fmt.Errorf("load Web settings: %w", err)
+	}
+
+	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := db.InitEngine(ctx); err != nil {
-		return fmt.Errorf("initialize PostgreSQL: %w", err)
+
+	// Database startup policy belongs to routers/common.
+	if err := common.InitDBEngine(ctx); err != nil {
+		return err
 	}
-	log.Info("PostgreSQL connected")
-	if setting.Common.RunMode == "development" {
-		changed, err := db.MigrateUp(setting.Database.MigrationURL, setting.Database.DBSource, 0)
+
+	redisReady := false
+
+	// At this point PostgreSQL has been initialized.
+	// Roll back completed resources if a later step fails.
+	defer func() {
 		if err != nil {
-			return err
+			if redisReady {
+				conn.CloseRedis()
+			}
+			db.CloseEngine()
 		}
-		if changed {
-			log.Info("Migration status: applied")
-		} else {
-			log.Info("Migration status: no_change")
-		}
-	} else {
-		log.Info("Database migrations are managed externally")
+	}()
+
+	log.Info("PostgreSQL ready")
+
+	if err := ctx.Err(); err != nil {
+		return err
 	}
+
+	// Redis owns its client and termination callback.
 	if _, err := conn.InitRedis(ctx); err != nil {
 		return fmt.Errorf("initialize Redis: %w", err)
 	}
-	log.Info("Redis connected")
-	return nil
+
+	redisReady = true
+	log.Info("Redis ready")
+
+	return ctx.Err()
 }
 
 // NormalRoutes registers the one API route tree. No domain routes are installed.

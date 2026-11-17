@@ -11,6 +11,7 @@ func WithMiddleware(ctx context.Context, middleware *Middleware) context.Context
 	}
 	return context.WithValue(ctx, middlewareKey{}, middleware)
 }
+
 func FromContext(ctx context.Context) *Middleware {
 	if ctx == nil {
 		panic("ipactive: nil request context")

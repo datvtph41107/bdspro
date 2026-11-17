@@ -16,21 +16,18 @@ var (
 	initOnce sync.Once
 )
 
-var ErrShuttingDown = errors.New("graceful: shutdown already started")
+var ErrShuttingDown = errors.New(
+	"graceful: shutdown already started",
+)
 
 // GetManager returns the initialized process manager.
-// The application must finish InitManager before starting its consumers.
+// Initialization is owned by the application entrypoint.
 func GetManager() *Manager {
 	return manager
 }
 
-// InitManager initializes the process manager once, as in Gitea.
-// Common settings are prepared by the CLI Before hook before this call.
+// InitManager initializes the manager once per process.
 func InitManager(ctx context.Context) {
-	initManager(ctx)
-}
-
-func initManager(ctx context.Context) {
 	initOnce.Do(func() {
 		manager = newGracefulManager(
 			ctx,
@@ -44,25 +41,22 @@ type RunCanceler interface {
 	Cancel()
 }
 
-// runHook isolates a panic from another resource owner's callback, but
-// deliberately does not claim that the cleanup itself succeeded.
+// runHook prevents a panic in one callback from
+// crashing the lifecycle coordinator.
 func runHook(name string, fn func()) {
 	defer func() {
 		if p := recover(); p != nil {
 			log.Printf(
 				"graceful: panic in %s: %v\n%s",
-				name,
-				p,
-				debug.Stack(),
+				name, p, debug.Stack(),
 			)
 		}
 	}()
-
 	fn()
 }
 
-// RunAtShutdown registers a bounded stop-request callback during running.
-// BDSPro waits for these callbacks before entering termination.
+// RunAtShutdown registers a stop callback.
+// Registration is allowed only while running.
 func (g *Manager) RunAtShutdown(
 	ctx context.Context,
 	fn func(),
@@ -75,7 +69,9 @@ func (g *Manager) RunAtShutdown(
 	defer g.lock.Unlock()
 
 	if g.state != stateRunning {
-		panic("graceful: shutdown callback registered after shutdown")
+		panic(
+			"graceful: shutdown registration after shutdown",
+		)
 	}
 
 	g.toRunAtShutdown = append(
@@ -88,12 +84,11 @@ func (g *Manager) RunAtShutdown(
 	)
 }
 
-// RunAtTerminate allows late cleanup registration until the draining phase
-// completes. In particular, PostgreSQL/Redis may finish initializing during
-// an in-progress shutdown while startup remains registered as an activity.
+// RunAtTerminate registers resource cleanup.
+// Registration is permitted until termination begins.
 func (g *Manager) RunAtTerminate(fn func()) {
 	if fn == nil {
-		panic("graceful: nil terminate callback")
+		panic("graceful: nil termination callback")
 	}
 
 	g.lock.Lock()
@@ -101,7 +96,7 @@ func (g *Manager) RunAtTerminate(fn func()) {
 
 	if g.state == stateTerminate {
 		panic(
-			"graceful: termination callback registered after termination",
+			"graceful: termination already started",
 		)
 	}
 
@@ -113,30 +108,36 @@ func (g *Manager) RunAtTerminate(fn func()) {
 	)
 }
 
-// RunWithShutdownContext registers an activity and only releases registration
-// after run returns; cancellation is not proof of completion.
+// RunWithShutdownContext runs an activity that
+// cooperatively stops when shutdown is requested.
 func (g *Manager) RunWithShutdownContext(
 	run func(context.Context),
 ) error {
 	if run == nil {
-		return errors.New("graceful: nil managed activity")
+		return errors.New(
+			"graceful: nil managed activity",
+		)
 	}
 
 	if err := g.RegisterServer(); err != nil {
 		return err
 	}
-
 	defer g.ServerDone()
 
 	run(g.ShutdownContext())
 	return nil
 }
 
-// RunWithCancel atomically registers a custom stop request and its activity.
-// Cancel must tolerate being called before Run actually starts.
-func (g *Manager) RunWithCancel(rc RunCanceler) error {
+// RunWithCancel manages a Run/Cancel subsystem.
+// Its cancellation callback and activity admission
+// are registered under the same lock.
+func (g *Manager) RunWithCancel(
+	rc RunCanceler,
+) error {
 	if rc == nil {
-		return errors.New("graceful: nil RunCanceler")
+		return errors.New(
+			"graceful: nil RunCanceler",
+		)
 	}
 
 	g.lock.Lock()
@@ -147,7 +148,6 @@ func (g *Manager) RunWithCancel(rc RunCanceler) error {
 	}
 
 	g.runningServerWaitGroup.Add(1)
-
 	g.toRunAtShutdown = append(
 		g.toRunAtShutdown,
 		func() {
@@ -158,13 +158,13 @@ func (g *Manager) RunWithCancel(rc RunCanceler) error {
 	g.lock.Unlock()
 
 	defer g.runningServerWaitGroup.Done()
-
 	rc.Run()
+
 	return nil
 }
 
-// RegisterServer admits exactly one activity. Successful callers must pair
-// with exactly one ServerDone, including on all error exits.
+// RegisterServer admits one managed activity.
+// Every successful call requires one ServerDone.
 func (g *Manager) RegisterServer() error {
 	g.lock.Lock()
 	defer g.lock.Unlock()
@@ -199,7 +199,8 @@ func (g *Manager) setStateTransition(
 	return true
 }
 
-// doShutdown is the one-time running -> shutting-down transition.
+// doShutdown transitions the process into shutdown,
+// dispatches stop callbacks, and begins the hammer timer.
 func (g *Manager) doShutdown() {
 	g.lock.Lock()
 
@@ -209,6 +210,7 @@ func (g *Manager) doShutdown() {
 	}
 
 	g.state = stateShuttingDown
+	g.shutdownCtxCancel()
 
 	hooks := append(
 		[]func(){},
@@ -216,7 +218,6 @@ func (g *Manager) doShutdown() {
 	)
 
 	g.shutdownCallbackWaitGroup.Add(len(hooks))
-	g.shutdownCtxCancel()
 	g.lock.Unlock()
 
 	for _, hook := range hooks {
@@ -234,38 +235,36 @@ func (g *Manager) doShutdown() {
 		g.shutdownCallbackWaitGroup.Wait()
 		g.runningServerWaitGroup.Wait()
 
-		close(g.drainDone)
+		// Release hammer waiters after draining.
+		g.DoImmediateHammer()
+
 		g.doTerminate()
 	}()
 }
 
-// doHammerTime only escalates if server/worker draining is still in progress.
+// doHammerTime requests escalation when the graceful
+// deadline expires before process termination.
 func (g *Manager) doHammerTime(delay time.Duration) {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 
 	select {
-	case <-g.drainDone:
+	case <-g.Done():
 		return
 
 	case <-timer.C:
 		g.lock.Lock()
-
-		if g.state == stateShuttingDown {
-			select {
-			case <-g.drainDone:
-				// All registered activities finished.
-			default:
-				g.hammerCtxCancel()
-			}
-		}
-
+		shuttingDown := g.state == stateShuttingDown
 		g.lock.Unlock()
+
+		if shuttingDown {
+			g.DoImmediateHammer()
+		}
 	}
 }
 
-// doTerminate is the only transition into resource cleanup. It snapshots
-// hooks under the same lock used by RunAtTerminate registration.
+// doTerminate begins cleanup and waits for callbacks
+// before signalling process completion.
 func (g *Manager) doTerminate() {
 	g.lock.Lock()
 
@@ -275,6 +274,7 @@ func (g *Manager) doTerminate() {
 	}
 
 	g.state = stateTerminate
+	g.terminateCtxCancel()
 
 	hooks := append(
 		[]func(){},
@@ -282,7 +282,6 @@ func (g *Manager) doTerminate() {
 	)
 
 	g.terminateWaitGroup.Add(len(hooks))
-	g.terminateCtxCancel()
 	g.lock.Unlock()
 
 	for _, hook := range hooks {

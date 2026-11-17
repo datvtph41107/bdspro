@@ -15,7 +15,8 @@ const (
 	stateTerminate
 )
 
-// Manager coordinates application lifetime. It never owns DB or HTTP resources.
+// Manager coordinates the lifecycle of the process.
+// Each subsystem remains responsible for its resources.
 type Manager struct {
 	ctx context.Context
 
@@ -39,47 +40,63 @@ type Manager struct {
 	toRunAtShutdown  []func()
 	toRunAtTerminate []func()
 
-	// drainDone closes after callbacks and registered activities finish. A
-	// hammer deadline is meaningful only until that point, not during DB cleanup.
-	drainDone   chan struct{}
 	hammerAfter time.Duration
 }
 
-// newGracefulManager separates construction, preparation, and OS-specific start.
-func newGracefulManager(ctx context.Context, hammerAfter time.Duration) *Manager {
+// newGracefulManager constructs and starts
+// the process lifecycle manager.
+func newGracefulManager(
+	ctx context.Context,
+	hammerAfter time.Duration,
+) *Manager {
+	if ctx == nil {
+		panic("graceful: nil context")
+	}
+
 	g := &Manager{
 		ctx:         ctx,
 		hammerAfter: hammerAfter,
 	}
+
 	g.prepare(ctx)
 	g.start()
+
 	return g
 }
 
-// prepare has no goroutine, OS signal, network or resource side effects.
+// prepare creates independent lifecycle phase contexts.
+// Cancelling the CLI context requests shutdown, but does
+// not automatically cancel all phases at once.
 func (g *Manager) prepare(ctx context.Context) {
-	// A CLI context cancellation is a request to enter shutdown, not a
-	// command to cancel all lifecycle phases simultaneously.
-	phaseParent := context.WithoutCancel(ctx)
+	parent := context.WithoutCancel(ctx)
 
-	g.shutdownCtx, g.shutdownCtxCancel = context.WithCancel(phaseParent)
-	g.hammerCtx, g.hammerCtxCancel = context.WithCancel(phaseParent)
-	g.terminateCtx, g.terminateCtxCancel = context.WithCancel(phaseParent)
-	g.managerCtx, g.managerCtxCancel = context.WithCancel(phaseParent)
-	g.drainDone = make(chan struct{})
+	g.shutdownCtx, g.shutdownCtxCancel =
+		context.WithCancel(parent)
 
-	if !g.setStateTransition(stateInit, stateRunning) {
-		panic("graceful: invalid transition init -> running")
+	g.hammerCtx, g.hammerCtxCancel =
+		context.WithCancel(parent)
+
+	g.terminateCtx, g.terminateCtxCancel =
+		context.WithCancel(parent)
+
+	g.managerCtx, g.managerCtxCancel =
+		context.WithCancel(parent)
+
+	if !g.setStateTransition(
+		stateInit,
+		stateRunning,
+	) {
+		panic("graceful: invalid manager state")
 	}
 }
 
-// DoGracefulShutdown accepts one request to stop; the sequence is in manager.go.
+// DoGracefulShutdown requests the shutdown phase.
 func (g *Manager) DoGracefulShutdown() {
 	g.doShutdown()
 }
 
-// DoImmediateHammer signals escalation to interested consumers.
-// It is not SIGKILL; goroutines must respond cooperatively.
+// DoImmediateHammer requests escalation.
+// It does not kill arbitrary goroutines.
 func (g *Manager) DoImmediateHammer() {
 	g.hammerCtxCancel()
 }

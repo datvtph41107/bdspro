@@ -30,17 +30,29 @@ func NewRedisTaskProcessorWithConfig(options asynq.RedisClientOpt, config Config
 	return newRedisTaskProcessor(options, config), nil
 }
 
-func newRedisTaskProcessor(options asynq.RedisClientOpt, config Config) *RedisTaskProcessor {
+func newRedisTaskProcessor(
+	options asynq.RedisClientOpt,
+	config Config,
+) *RedisTaskProcessor {
 	logger := NewLogger()
 	redis.SetLogger(logger)
-	server := asynq.NewServer(options, asynq.Config{
-		Queues:       config.weights(),
-		Concurrency:  config.Concurrency,
-		Logger:       logger,
-		LogLevel:     asynq.WarnLevel,
-		ErrorHandler: asynq.ErrorHandlerFunc(logTaskFailure),
-	})
-	return &RedisTaskProcessor{server: server, mux: asynq.NewServeMux()}
+
+	server := asynq.NewServer(
+		options,
+		asynq.Config{
+			Queues:          config.weights(),
+			Concurrency:     config.Concurrency,
+			ShutdownTimeout: config.ShutdownTimeout,
+			Logger:          logger,
+			LogLevel:        asynq.WarnLevel,
+			ErrorHandler:    asynq.ErrorHandlerFunc(logTaskFailure),
+		},
+	)
+
+	return &RedisTaskProcessor{
+		server: server,
+		mux:    asynq.NewServeMux(),
+	}
 }
 
 func (p *RedisTaskProcessor) Handle(taskType string, handler asynq.Handler) {
@@ -49,6 +61,10 @@ func (p *RedisTaskProcessor) Handle(taskType string, handler asynq.Handler) {
 
 func (p *RedisTaskProcessor) Start() error {
 	return p.server.Start(p.mux)
+}
+
+func (p *RedisTaskProcessor) Stop() {
+	p.server.Stop()
 }
 
 func (p *RedisTaskProcessor) Shutdown() {

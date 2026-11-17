@@ -17,10 +17,14 @@ import (
 // version 28 adds the password-reset generation column; version 29 extends membership audit, version 30 adds owner-role audit actions; version 31 links active owners to accounts.
 // In the previous ledger, a version could create, rename or drop many tables;
 // a previously applied version 1..21 is therefore NOT automatically compatible.
-func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
+func validateCanonicalVersion(
+	ctx context.Context,
+	m *migrate.Migrate,
+	databaseURL string,
+) error {
 	version, dirty, err := m.Version()
 	if errors.Is(err, migrate.ErrNilVersion) {
-		return validateUnversionedDatabase(databaseURL)
+		return validateUnversionedDatabase(ctx, databaseURL)
 	}
 	if err != nil {
 		return fmt.Errorf("read database migration version: %w", err)
@@ -31,9 +35,15 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 	if version == 0 || version > 31 {
 		return fmt.Errorf("unknown migration ledger version %d; provision a fresh canonical database and migrate data explicitly", version)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+	// queryCtx
+	queryCtx, cancel := context.WithTimeout(
+		ctx,
+		5*time.Second,
+	)
 	defer cancel()
-	conn, err := pgx.Connect(ctx, databaseURL)
+
+	conn, err := pgx.Connect(queryCtx, databaseURL)
 	if err != nil {
 		return fmt.Errorf("inspect database schema: %w", err)
 	}
@@ -41,7 +51,7 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 
 	var tables int
 	var parties, credentials, clients, deprecated, resetGeneration bool
-	err = conn.QueryRow(ctx, `SELECT
+	err = conn.QueryRow(queryCtx, `SELECT
 		(SELECT count(*)::integer FROM information_schema.tables
 		 WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
 		   AND table_name <> 'schema_migrations'),
@@ -77,10 +87,17 @@ func validateCanonicalVersion(m *migrate.Migrate, databaseURL string) error {
 // a pre-existing schema with the canonical ledger, even if schema_migrations
 // has no rows. The migration driver may create that bookkeeping table first.
 // No migration SQL runs until this check succeeds.
-func validateUnversionedDatabase(databaseURL string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func validateUnversionedDatabase(
+	ctx context.Context,
+	databaseURL string,
+) error {
+	queryCtx, cancel := context.WithTimeout(
+		ctx,
+		5*time.Second,
+	)
 	defer cancel()
-	conn, err := pgx.Connect(ctx, databaseURL)
+
+	conn, err := pgx.Connect(queryCtx, databaseURL)
 	if err != nil {
 		return fmt.Errorf("inspect unversioned database schema: %w", err)
 	}
@@ -89,7 +106,7 @@ func validateUnversionedDatabase(databaseURL string) error {
 	// Include views and sequences as well as tables: a fresh canonical
 	// installation must not adopt any existing public application objects.
 	var existing int
-	err = conn.QueryRow(ctx, `SELECT count(*) FROM pg_catalog.pg_class c
+	err = conn.QueryRow(queryCtx, `SELECT count(*) FROM pg_catalog.pg_class c
 		JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 		WHERE n.nspname = 'public'
 		  AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
@@ -104,29 +121,54 @@ func validateUnversionedDatabase(databaseURL string) error {
 }
 
 // MigrateUp applies canonical versioned SQL migrations. steps=0 means all pending.
-func MigrateUp(sourceURL, databaseURL string, steps int) (bool, error) {
+
+// MigrateUp applies canonical SQL migrations.
+// steps=0 applies all pending versions.
+func MigrateUp(
+	ctx context.Context,
+	sourceURL, databaseURL string,
+	steps int,
+) (bool, error) {
 	if steps < 0 {
-		return false, fmt.Errorf("migration steps must not be negative")
+		return false, fmt.Errorf(
+			"migration steps must not be negative",
+		)
 	}
-	m, err := migrate.New(sourceURL, databaseURL)
-	if err != nil {
-		return false, fmt.Errorf("open migrations: %w", err)
-	}
-	defer m.Close()
-	if err := validateCanonicalVersion(m, databaseURL); err != nil {
+
+	if err := ctx.Err(); err != nil {
 		return false, err
 	}
-	if steps == 0 {
-		err = m.Up()
-	} else {
-		err = m.Steps(steps)
+
+	m, err := migrate.New(sourceURL, databaseURL)
+	if err != nil {
+		return false, fmt.Errorf(
+			"open migrations: %w", err,
+		)
 	}
+	defer m.Close()
+
+	if err := validateCanonicalVersion(
+		ctx, m, databaseURL,
+	); err != nil {
+		return false, err
+	}
+
+	err = runMigration(ctx, m, func() error {
+		if steps == 0 {
+			return m.Up()
+		}
+		return m.Steps(steps)
+	})
+
 	if errors.Is(err, migrate.ErrNoChange) {
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("apply migrations: %w", err)
+		return false, fmt.Errorf(
+			"apply migrations: %w", err,
+		)
 	}
+
 	return true, nil
 }
 
@@ -140,7 +182,9 @@ func MigrateDown(sourceURL, databaseURL string, steps int) (bool, error) {
 		return false, fmt.Errorf("open migrations: %w", err)
 	}
 	defer m.Close()
-	if err := validateCanonicalVersion(m, databaseURL); err != nil {
+	if err := validateCanonicalVersion(
+		context.Background(), m, databaseURL,
+	); err != nil {
 		return false, err
 	}
 	if steps == 0 {
@@ -155,4 +199,39 @@ func MigrateDown(sourceURL, databaseURL string, steps int) (bool, error) {
 		return false, fmt.Errorf("rollback migrations: %w", err)
 	}
 	return true, nil
+}
+
+func runMigration(
+	ctx context.Context,
+	m *migrate.Migrate,
+	run func() error,
+) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+
+	// Request a stop at the next safe migration boundary.
+	go func() {
+		select {
+		case <-ctx.Done():
+			select {
+			case m.GracefulStop <- true:
+			default:
+			}
+		case <-done:
+		}
+	}()
+
+	err := run()
+
+	// golang-migrate can return nil after a graceful
+	// stop between migration versions.
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	return err
 }
