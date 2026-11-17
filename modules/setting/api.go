@@ -9,10 +9,10 @@ import (
 // API configures the HTTP API and its documentation. Swagger is development
 // only, matching routers/api.SwaggerHandler's environment restriction.
 var API struct {
-	EnableSwagger    bool
-	SwaggerURL       string
-	MaxResponseItems int
-	DefaultPagingNum int
+	EnableSwagger       bool
+	SwaggerURL          string
+	MaxResponseItems    int
+	DefaultPagingNum    int
 	MaxRequestBodyBytes int64
 }
 
