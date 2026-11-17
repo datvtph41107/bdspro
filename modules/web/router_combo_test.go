@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
-
 )
 
 func TestGiteaComboSharedActionsAndInheritedGroupMiddleware(t *testing.T) {
