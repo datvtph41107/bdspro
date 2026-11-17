@@ -12,8 +12,8 @@ import (
 func TestGiteaParameterGroupAndMountedRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	parent := NewRouter()
-	child := NewRouter()
+	parent := NewGinRouter()
+	child := NewGinRouter()
 
 	var order []string
 	guard := func(name string) func(http.Handler) http.Handler {
@@ -52,7 +52,7 @@ func TestGiteaParameterGroupAndMountedRoute(t *testing.T) {
 
 func TestGiteaParameterDirectRouteAndLegacyGinSyntax(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := NewRouter()
+	r := NewGinRouter()
 	r.Group("/organizations/{org}", func() {
 		r.Get("/teams/{team}", func(w http.ResponseWriter, req *http.Request) {
 			c := GinContextFromRequest(req)

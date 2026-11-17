@@ -62,7 +62,7 @@ func InitWebInstalled(ctx context.Context) (err error) {
 
 // NormalRoutes registers the one API route tree. No domain routes are installed.
 func NormalRoutes() *web.Router {
-	r := web.NewChiRouter()
+	r := web.NewRouter()
 	r.Mount("/api/v1", apiv1.Routes())
 	return r
 }

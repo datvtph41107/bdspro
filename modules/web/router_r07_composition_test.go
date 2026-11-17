@@ -12,7 +12,7 @@ import (
 // R07 guards must inherit from parent groups and must not leak to sibling routes.
 func TestR07NestedGroupMountScopesAndSiblingIsolation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	root, child := NewRouter(), NewRouter()
+	root, child := NewGinRouter(), NewGinRouter()
 	var trace []string
 
 	guard := func(name string) func(http.Handler) http.Handler {
@@ -65,7 +65,7 @@ func TestR07NestedGroupMountScopesAndSiblingIsolation(t *testing.T) {
 // that parent requests will never reach.
 func TestR07MountedChildRejectsLateRouteAndMiddlewareMutations(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	parent, child := NewRouter(), NewRouter()
+	parent, child := NewGinRouter(), NewGinRouter()
 	child.Get("/existing", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -83,7 +83,7 @@ func TestR07MountedChildRejectsLateRouteAndMiddlewareMutations(t *testing.T) {
 		{"BeforeRouting", func() { child.BeforeRouting(noop) }},
 		{"AfterRouting", func() { child.AfterRouting(noop) }},
 		{"Mount", func() {
-			grandchild := NewRouter()
+			grandchild := NewGinRouter()
 			grandchild.Get("/child", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 			child.Mount("/late", grandchild)
 		}},
@@ -109,7 +109,7 @@ func TestR07MountedChildRejectsLateRouteAndMiddlewareMutations(t *testing.T) {
 // route descriptors identical; neither mount permits late child mutation.
 func TestR07FrozenChildCanMountTwice(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	root, child := NewRouter(), NewRouter()
+	root, child := NewGinRouter(), NewGinRouter()
 	child.Get("/ping", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	root.Mount("/one", child)
 	root.Mount("/two", child)

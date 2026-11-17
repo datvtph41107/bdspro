@@ -32,7 +32,7 @@ func init() {
 func TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	var steps []string
-	r := NewRouter()
+	r := NewGinRouter()
 	engine := r.GinEngine()
 	r.AfterRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -67,7 +67,7 @@ func TestRegisteredTypedRouterAcceptsPreMiddlewareInGroupAndMethods(t *testing.T
 func TestRegisteredRouterAfterRoutingPreMiddlewareRunsBeforeNormalScopes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	var calls []string
-	m := NewRouter()
+	m := NewGinRouter()
 	engine := m.GinEngine()
 	trace := func(name string) func(http.Handler) http.Handler {
 		return func(next http.Handler) http.Handler {
@@ -110,7 +110,7 @@ func TestRegisteredRouterAfterRoutingPreMiddlewareRunsBeforeNormalScopes(t *test
 
 func TestAfterRoutingRegisteredTypedHandlerRejectsBadSignatureEarly(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	m := NewRouter()
+	m := NewGinRouter()
 	defer func() {
 		if recover() == nil {
 			t.Fatal("invalid typed handler accepted at AfterRouting registration")
@@ -172,7 +172,7 @@ func TestRegisteredTypedRouterRejectsNilSecurityGuardsAtRegistration(t *testing.
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := NewRouter()
+			r := NewGinRouter()
 			defer func() {
 				if recover() == nil {
 					t.Fatal("nil security guard was silently omitted during route registration")
@@ -185,7 +185,7 @@ func TestRegisteredTypedRouterRejectsNilSecurityGuardsAtRegistration(t *testing.
 
 func TestRegisteredTypedRouterRejectsDuplicateHTTPContinuation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := NewRouter()
+	r := NewGinRouter()
 	engine := r.GinEngine()
 	r.AfterRouting(
 		func(next http.Handler) http.Handler {
@@ -216,7 +216,7 @@ type ingressTraceKey struct{}
 
 func TestRegisteredHTTPMiddlewareProviderCompiledOnceForRepeatedRequests(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := NewRouter()
+	r := NewGinRouter()
 	engine := r.GinEngine()
 	factoryCalls, requests, completed := 0, 0, 0
 	r.AfterRouting(
@@ -259,7 +259,7 @@ func TestRegisteredHTTPMiddlewareProviderCompiledOnceForRepeatedRequests(t *test
 
 func TestRegisteredTypedRouteRejectsContinuationAfterCompletion(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := NewRouter()
+	r := NewGinRouter()
 	engine := r.GinEngine()
 	var resume func()
 	reached := false
@@ -294,7 +294,7 @@ func TestRegisteredTypedRouteRejectsContinuationAfterCompletion(t *testing.T) {
 
 func TestMatchedRouteCompiledProvidersRemainRequestLocalUnderConcurrency(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := NewRouter()
+	r := NewGinRouter()
 	engine := r.GinEngine()
 	var factoryCount, middlewareCalls, endpointCalls atomic.Int32
 	type traceKey struct{}
@@ -357,7 +357,7 @@ func TestMatchedRouteCompiledProvidersRemainRequestLocalUnderConcurrency(t *test
 
 func TestBeforeRoutingRunsBeforeMatchingAndHandles404And405(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := NewRouter()
+	r := NewGinRouter()
 	engine := r.GinEngine()
 	engine.HandleMethodNotAllowed = true
 	var order []string
@@ -394,7 +394,7 @@ func TestBeforeRoutingRunsBeforeMatchingAndHandles404And405(t *testing.T) {
 
 func TestMethodsRejectInvalidMethodBatchBeforeRegistration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := NewRouter()
+	r := NewGinRouter()
 	engine := r.GinEngine()
 	func() {
 		defer func() {
@@ -413,7 +413,7 @@ func TestMethodsRejectInvalidMethodBatchBeforeRegistration(t *testing.T) {
 
 func TestBeforeRoutingRejectsLateContinuation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := NewRouter()
+	r := NewGinRouter()
 	var resume func()
 	reached := false
 	r.BeforeRouting(func(next http.Handler) http.Handler {
@@ -443,7 +443,7 @@ func TestBeforeRoutingRejectsLateContinuation(t *testing.T) {
 
 func TestAfterRoutingRejectsRegistrationAfterCompiledRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := NewRouter()
+	r := NewGinRouter()
 	engine := r.GinEngine()
 	r.AfterRouting(func(next http.Handler) http.Handler { return next })
 	r.Get("/before", func(w http.ResponseWriter, _ *http.Request) {

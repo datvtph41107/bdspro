@@ -11,7 +11,7 @@ import (
 
 func TestGiteaComboSharedActionsAndInheritedGroupMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	m := NewRouter()
+	m := NewGinRouter()
 	trace := []string{}
 	guard := func(label string) func(http.Handler) http.Handler {
 		return func(next http.Handler) http.Handler {
@@ -55,7 +55,7 @@ func TestGiteaComboSharedActionsAndInheritedGroupMiddleware(t *testing.T) {
 
 func TestGiteaComboRejectsLateMethodsOnMountedChild(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	parent, child := NewRouter(), NewRouter()
+	parent, child := NewGinRouter(), NewGinRouter()
 	child.Get("/ready", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})

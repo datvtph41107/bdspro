@@ -143,7 +143,14 @@ func ConfigureDefaultMode() {
 	}
 }
 
+// NewRouter is the application-default Chi-backed router, as in Gitea.
 func NewRouter() *Router {
+	return NewChiRouter()
+}
+
+// NewGinRouter is a temporary compatibility constructor for the existing
+// Gin middleware/adapter regression suite. Production must use NewRouter.
+func NewGinRouter() *Router {
 	engine := gin.New()
 	_ = engine.SetTrustedProxies(nil)
 	return &Router{engine: engine}
