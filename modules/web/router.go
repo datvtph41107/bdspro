@@ -185,6 +185,7 @@ type Router struct {
 	beforeRouting    []middlewareProvider
 	ingressBound     bool
 	routesRegistered bool
+	mounted          bool // mounted child route descriptors cannot be changed
 	afterRouting     []any
 	curGroupPrefix   string
 	curMiddlewares   []any
@@ -213,6 +214,9 @@ func (r *Router) GinEngine() *gin.Engine {
 // Mounted route middleware runs: parent AfterRouting/group, then child
 // AfterRouting/group, then endpoint actions.
 func (r *Router) Mount(pattern string, sub *Router) {
+	if r.mounted {
+		panic("web: cannot register routes on a router already mounted as a child")
+	}
 	if sub == nil || sub == r {
 		panic("web: nil or self-mounted router")
 	}
@@ -274,6 +278,10 @@ func (r *Router) Mount(pattern string, sub *Router) {
 		r.routes = append(r.routes, routeDefinition{method: entry.method, path: path, providers: providers, endpoint: entry.endpoint})
 	}
 	r.routesRegistered = true
+	// Mount copies the child's compiled route descriptors to the parent Gin
+	// matcher. Mutating the child afterward would silently omit new routes
+	// or guards from the already mounted parent.
+	sub.mounted = true
 }
 
 // ServeHTTP executes the single parent Gin matcher through its pre-routing
@@ -291,6 +299,9 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // Only HTTP-native handlers are permitted: APIContext and Gin route parameters
 // do not exist until the engine selects the route.
 func (r *Router) BeforeRouting(middlewares ...any) {
+	if r.mounted {
+		panic("web: cannot change BeforeRouting after mounting child router")
+	}
 	if r.ingressBound {
 		panic("web: cannot register BeforeRouting after ingress composition")
 	}
@@ -365,6 +376,9 @@ func (r *Router) WrapIngress() http.Handler {
 // AfterRouting validates HTTP actions after Gin path matching. It does
 // not create a second Gin-only middleware dispatch path.
 func (r *Router) AfterRouting(middlewares ...any) {
+	if r.mounted {
+		panic("web: cannot change AfterRouting after mounting child router")
+	}
 	// Route handlers are compiled by Methods at registration time. A late
 	// AfterRouting declaration would silently affect only subsequent routes.
 	if r.routesRegistered {
@@ -387,6 +401,9 @@ func (r *Router) AfterRouting(middlewares ...any) {
 // Gin receives the compiled chain at Methods; it never owns a second scope
 // that would reorder group guards ahead of AfterRouting.
 func (r *Router) Group(path string, register func(), guards ...any) {
+	if r.mounted {
+		panic("web: cannot register Group after mounting child router")
+	}
 	previousPrefix := r.curGroupPrefix
 	previousMiddlewares := r.curMiddlewares
 	r.curGroupPrefix += path
@@ -413,6 +430,9 @@ func (r *Router) getPattern(path string) string {
 // Routing order: AfterRouting -> group guards -> endpoint actions.
 // Gin is still the only route matcher and executor.
 func (r *Router) Methods(method, path string, actions ...any) {
+	if r.mounted {
+		panic("web: cannot register Methods after mounting child router")
+	}
 	if len(actions) == 0 {
 		panic("web: route requires an action")
 	}
