@@ -45,8 +45,7 @@ func (w *trackedHTTPWriter) Write(body []byte) (int, error) {
 
 func (w *trackedHTTPWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
-// Match the application's existing Gin binding tags without keeping the
-// Gin binder as an HTTP-native dependency.
+// Validate JSON binding tags independently of any router framework.
 var httpBinderValidator = func() *validator.Validate {
 	v := validator.New()
 	v.SetTagName("binding")
@@ -116,10 +115,9 @@ func (s *httpRequestSource) finish() {
 	}
 }
 
-// APIContexterHTTP is the native HTTP sibling of the legacy Gin-backed
-// APIContexter. It will become the canonical APIContexter when the router
-// matcher is migrated. Request data cleanup always runs, including on panic.
-func APIContexterHTTP() func(http.Handler) http.Handler {
+// APIContexter creates one request-scoped HTTP APIContext; cleanup runs
+// after normal completion and during panic propagation.
+func APIContexter() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			if existing, ok := req.Context().Value(apiContextRequestKey{}).(*APIContext); ok && existing != nil {

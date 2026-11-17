@@ -31,6 +31,10 @@ make sqlc-check
 
 ## Verification
 
+All tracked Go `*_test.go` files were removed by explicit request.
+The commands below now check compilation, vet and runtime smoke, not
+functional or regression correctness.
+
 ```sh
 go test -race ./...
 go vet ./...

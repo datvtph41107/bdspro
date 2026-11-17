@@ -8,23 +8,7 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 )
-
-// chiPattern accepts Chi's native {name} and * wildcard patterns.
-// Existing Gin-style :name and *filepath are translated at this isolated
-// compatibility boundary; route declarations should use Chi syntax.
-func chiPattern(pattern string) string {
-	parts := strings.Split(pattern, "/")
-	for i, part := range parts {
-		if len(part) > 1 && part[0] == ':' {
-			parts[i] = "{" + part[1:] + "}"
-		} else if len(part) > 1 && part[0] == '*' {
-			parts[i] = "*"
-		}
-	}
-	return strings.Join(parts, "/")
-}
 
 func (r *Router) wrapChiIngress() http.Handler {
 	// Chi owns BeforeRouting, matching and child router middleware.
@@ -118,5 +102,3 @@ func (r *Router) chiIsTrusted(ip netip.Addr) bool {
 	return false
 }
 
-// chi compile-time interface check: source's public surface is net/http.
-var _ http.Handler = (*chi.Mux)(nil)

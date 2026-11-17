@@ -149,9 +149,9 @@ func hasResponseBeenWritten(args []reflect.Value) bool {
 	return false
 }
 
-// shouldStopContinuation preserves Gin's Abort semantics at the single
-// typed-handler bridge. Gitea's HTTP actions stop after response commitment;
-// Gin can also deliberately abort without writing a response. Both conditions
+// shouldStopContinuation preserves explicit APIContext.Abort semantics.
+// An HTTP action may stop after commitment or abort without writing;
+// both conditions
 // must stop downstream actions, or a denied route may continue by accident.
 func shouldStopContinuation(args []reflect.Value) bool {
 	if hasResponseBeenWritten(args) {
@@ -168,8 +168,7 @@ func shouldStopContinuation(args []reflect.Value) bool {
 type middlewareProvider = func(next http.Handler) http.Handler
 
 // compileMiddlewaresHandler owns the one middleware composition algorithm.
-// It runs at route registration for Gin's matched HTTP bridge, as Chi/Gitea
-// compiles route middleware into the registered handler chain.
+// It runs at route registration as in Gitea, without a second matcher.
 func compileMiddlewaresHandler(middlewares []middlewareProvider, endpoint http.HandlerFunc) http.Handler {
 	handler := http.Handler(endpoint)
 	for _, middleware := range slices.Backward(middlewares) {
@@ -188,8 +187,7 @@ func executeMiddlewaresHandler(w http.ResponseWriter, req *http.Request, middlew
 	compileMiddlewaresHandler(middlewares, endpoint).ServeHTTP(w, req)
 }
 
-// toHandlerProvider is framework-independent. Gin integration belongs to
-// modules/web/router.go, while action invocation follows Gitea's one path.
+// toHandlerProvider is independent of routing; Chi is isolated in Router.
 func toHandlerProvider(handler any) middlewareProvider {
 	fn := reflect.ValueOf(handler)
 	if !fn.IsValid() || fn.Kind() != reflect.Func || fn.IsNil() {

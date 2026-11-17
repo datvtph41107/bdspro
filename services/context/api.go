@@ -20,7 +20,7 @@ func GetAPIContextFromRequest(req *http.Request) *APIContext {
 		panic("context: APIContext missing from HTTP request")
 	}
 	// Typed actions may receive a request enriched by middleware after
-	// APIContexterHTTP (auth, timeouts, tracing). Keep the native source
+	// APIContexter (auth, timeouts, tracing). Keep the native source
 	// pointed at that request; the cancellation lifetime stays anchored
 	// to the original ingress request.
 	if source, ok := api.Base.source.(*httpRequestSource); ok {

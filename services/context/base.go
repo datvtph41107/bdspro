@@ -48,9 +48,7 @@ func NewBaseContext(source RequestSource) *Base {
 	}
 	// In production APIContexter installs the datastore before creating Base.
 	// Direct HTTP unit tests without middleware receive isolated local data.
-	// The cancellation lifetime is immutable. Gin may temporarily replace
-	// c.Request while executing nested HTTP providers; an async cancel
-	// callback must never read that mutable pointer.
+	// The cancellation lifetime is immutable even if middleware enriches its request.
 	lifetime := source.CurrentRequest().Context()
 	data := make(reqctx.ContextData)
 	if store := reqctx.FromContext(lifetime); store != nil {
@@ -81,8 +79,7 @@ func (b *Base) Deadline() (time.Time, bool) { return b.lifetime.Deadline() }
 func (b *Base) Done() <-chan struct{}       { return b.lifetime.Done() }
 func (b *Base) Err() error                  { return b.lifetime.Err() }
 
-// Stable ingress values (including stdlib context cancellation state) must
-// never be re-read through Gin's mutable c.Request during asynchronous work.
+// Stable ingress values and cancellation do not depend on the mutable request.
 // New request-local values, such as the verified actor, remain available after
 // middleware publishes them to the current request.
 func (b *Base) Value(key any) any {
@@ -92,11 +89,9 @@ func (b *Base) Value(key any) any {
 	return b.CurrentRequestContext().Value(key)
 }
 
-// These helpers are implemented by exactly one HTTP adapter. No extra Gin
-// middleware executor, HTTP response writer or request parser is introduced.
+// These helpers use the single HTTP-native request source.
 // JSON is the canonical JSON response writer, matching Gitea's Base.JSON
-// -> modules/json.MarshalWriteRelaxed boundary. The Gin adapter emits bytes
-// only; it must never choose another JSON codec.
+// -> modules/json.MarshalWriteRelaxed boundary; the adapter only emits bytes.
 func (b *Base) JSON(status int, value any) {
 	// Once HTTP headers/body are committed, the response can no longer
 	// be replaced. Never append a second JSON document to the first.
