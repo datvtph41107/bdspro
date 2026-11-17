@@ -3,9 +3,12 @@ package context
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/go-playground/validator/v10"
 )
@@ -68,7 +71,17 @@ func (s *httpRequestSource) QueryDefault(name, fallback string) string {
 }
 
 func (s *httpRequestSource) BindJSON(value any) error {
-	if err := json.NewDecoder(s.request.Body).Decode(value); err != nil {
+	decoder := json.NewDecoder(s.request.Body)
+	if err := decoder.Decode(value); err != nil {
+		return err
+	}
+	// Exactly one JSON document is accepted; silently trailing JSON can
+	// otherwise let clients and intermediaries disagree on the payload.
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return errors.New("multiple JSON documents")
+		}
 		return err
 	}
 	return httpBinderValidator.Struct(value)
@@ -129,6 +142,9 @@ func APIContexter() func(http.Handler) http.Handler {
 				scoped, finished := reqctx.NewRequestContext(req.Context())
 				defer finished()
 				req = req.WithContext(scoped)
+			}
+			if req.Body != nil && setting.API.MaxRequestBodyBytes > 0 {
+				req.Body = http.MaxBytesReader(w, req.Body, setting.API.MaxRequestBodyBytes)
 			}
 			source := &httpRequestSource{request: req}
 			tracked := &trackedHTTPWriter{ResponseWriter: w, source: source}
