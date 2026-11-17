@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/datvtph41107/bdspro/templates"
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/templates"
 )
 
 func TestInfrastructureOpenAPI(t *testing.T) {
