@@ -3,10 +3,10 @@ package context
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
+	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -76,12 +76,7 @@ func (s *httpRequestSource) BindJSON(value any) error {
 }
 
 func (s *httpRequestSource) ClientIP() string {
-	host, _, err := net.SplitHostPort(s.request.RemoteAddr)
-	if err != nil {
-		return s.request.RemoteAddr
-	}
-	// Never trust X-Forwarded-For without an explicit trusted-proxy policy.
-	return host
+	return web.ClientIPFromRequest(s.request)
 }
 
 func (s *httpRequestSource) WriteJSON(status int, encoded []byte) {

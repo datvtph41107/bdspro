@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"os"
 	"reflect"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/reqctx"
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 )
 
 // ingressContinuationState belongs to one HTTP request, not to a compiled
@@ -117,6 +119,8 @@ type routeDefinition struct {
 
 type Router struct {
 	engine           *gin.Engine
+	chiRouter        *chi.Mux
+	chiTrustedProxies []netip.Prefix
 	beforeRouting    []middlewareProvider
 	ingressBound     bool
 	routesRegistered bool
@@ -145,15 +149,27 @@ func NewRouter() *Router {
 	return &Router{engine: engine}
 }
 
+// NewChiRouter selects the same HTTP-native router execution model as
+// Gitea. NewRouter remains Gin-backed temporarily for legacy contract tests.
+func NewChiRouter() *Router {
+	return &Router{chiRouter: chi.NewRouter()}
+}
+
 // SetTrustedProxies configures transport-level client IP trust on the
 // application's router, without leaking the transport engine to bootstrap.
 func (r *Router) SetTrustedProxies(proxies []string) error {
+	if r.chiRouter != nil {
+		return r.setChiTrustedProxies(proxies)
+	}
 	return r.engine.SetTrustedProxies(proxies)
 }
 
 // GinEngine exposes the one transport matcher to composition and bootstrap.
 // Domain routers must not access it or install routes outside web.Router.
 func (r *Router) GinEngine() *gin.Engine {
+	if r.chiRouter != nil {
+		panic("web: GinEngine is unavailable for a Chi-backed router")
+	}
 	return r.engine
 }
 
@@ -172,7 +188,14 @@ func (r *Router) Mount(pattern string, sub *Router) {
 	if r.ingressBound || sub.ingressBound {
 		panic("web: cannot mount a router after ingress composition")
 	}
-	if r.engine == sub.engine {
+	if r.chiRouter != nil {
+		if sub.chiRouter == nil {
+			panic("web: cannot mount a Gin-backed router under Chi")
+		}
+		if r.chiRouter == sub.chiRouter {
+			panic("web: cannot mount a router onto itself")
+		}
+	} else if r.engine == sub.engine {
 		panic("web: mounted router must own an independent registration engine")
 	}
 	if len(sub.routes) == 0 {
@@ -184,6 +207,15 @@ func (r *Router) Mount(pattern string, sub *Router) {
 	parentMiddleware = wrapMiddlewareAppendPre(parentMiddleware, r.curMiddlewares)
 	parentMiddleware = wrapMiddlewareAppendNormal(parentMiddleware, r.afterRouting)
 	parentMiddleware = wrapMiddlewareAppendNormal(parentMiddleware, r.curMiddlewares)
+
+	if r.chiRouter != nil {
+		// Gitea-style structural Mount: the child remains its own Chi mux.
+		// Child BeforeRouting middleware is scoped naturally to its mux.
+		r.chiRouter.With(parentMiddleware...).Mount(chiPattern(prefix), sub.chiRouter)
+		r.routesRegistered = true
+		sub.mounted = true
+		return
+	}
 
 	// A subrouter's BeforeRouting handlers are scoped to its mount point.
 	// They run before the parent Gin matcher, not as matched-route middleware.
@@ -277,6 +309,9 @@ func (r *Router) BeforeRouting(middlewares ...any) {
 		}
 	}
 	r.beforeRouting = append(r.beforeRouting, compiled...)
+	if r.chiRouter != nil {
+		r.chiRouter.Use(compiled...)
+	}
 }
 
 // WrapIngress composes BeforeRouting middleware around the SAME Gin engine
@@ -285,11 +320,14 @@ func (r *Router) BeforeRouting(middlewares ...any) {
 // invoking BeforeRouting without wrapping the engine does not activate it.
 // Unlike AfterRouting, this outer chain also executes for Gin 404/405 routes.
 func (r *Router) WrapIngress() http.Handler {
-	engine := http.Handler(r.engine)
 	if r.ingressBound {
 		panic("web: ingress has already been composed")
 	}
 	r.ingressBound = true
+	if r.chiRouter != nil {
+		return r.wrapChiIngress()
+	}
+	engine := http.Handler(r.engine)
 	// Compile providers once, as in Gitea. Continuation guards use a
 	// request-local state so stateful providers are never reconstructed on
 	// every request (which would reset rate limiters or other state).
@@ -409,8 +447,18 @@ func (r *Router) Methods(method, path string, actions ...any) {
 	}
 	// A single registered HTTP provider chain owns all typed actions.
 	middlewares, endpoint, _ := wrapMiddlewareAndHandler(r.afterRouting, r.curMiddlewares, actions)
-	handlers := []gin.HandlerFunc{ginMatchedHandler(middlewares, endpoint)}
 	pattern := r.getPattern(path)
+	if r.chiRouter != nil {
+		r.routesRegistered = true
+		for _, candidate := range candidates {
+			r.chiRouter.With(middlewares...).Method(candidate, chiPattern(pattern), endpoint)
+			r.routes = append(r.routes, routeDefinition{
+				method: candidate, path: pattern, providers: middlewares, endpoint: endpoint,
+			})
+		}
+		return
+	}
+	handlers := []gin.HandlerFunc{ginMatchedHandler(middlewares, endpoint)}
 	// Gitea permits comma-separated method registration at the canonical
 	// Methods boundary. Compile the handler chain once for every method.
 	// As in Chi, lock the BeforeRouting phase before Gin's first

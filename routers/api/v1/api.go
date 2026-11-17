@@ -10,7 +10,7 @@ import (
 
 // Routes exposes only the infrastructure probe during the domain reset.
 func Routes() *web.Router {
-	m := web.NewRouter()
+	m := web.NewChiRouter()
 	m.AfterRouting(appctx.APIContexterHTTP())
 	m.Get("/health", Health)
 	return m

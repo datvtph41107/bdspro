@@ -62,7 +62,7 @@ func InitWebInstalled(ctx context.Context) (err error) {
 
 // NormalRoutes registers the one API route tree. No domain routes are installed.
 func NormalRoutes() *web.Router {
-	r := web.NewRouter()
+	r := web.NewChiRouter()
 	r.Mount("/api/v1", apiv1.Routes())
 	return r
 }
@@ -71,7 +71,7 @@ func NormalHandler() (http.Handler, error) {
 	web.ConfigureDefaultMode()
 	routes := NormalRoutes()
 	if swagger := api.SwaggerHandler(setting.Common.RunMode); swagger != nil {
-		routes.Get("/swagger/*filepath", swagger.ServeHTTP)
+		routes.Get("/swagger/*", swagger.ServeHTTP)
 	}
 	if err := routes.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("configure HTTP trusted proxies: %w", err)
