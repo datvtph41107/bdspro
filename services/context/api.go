@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -40,8 +41,10 @@ func init() {
 
 type APIContext struct {
 	*Base
-	Actor *Actor
-	Org   *OrganizationResource
+
+	Doer     *auth_model.Actor // identity established by trusted API auth action
+	IsSigned bool
+	Org      *APIOrganization // resource established by orgAssignment
 }
 
 var _ context.Context = (*APIContext)(nil)

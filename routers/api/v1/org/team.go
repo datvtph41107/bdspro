@@ -1,34 +1,15 @@
-package apiv1
+package org
 
 import (
 	"net/http"
 	"strconv"
 
+	"github.com/datvtph41107/bdspro/modules/structs"
+
 	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 	orgservice "github.com/datvtph41107/bdspro/services/org"
 )
-
-type CreateTeamOption struct {
-	Name        string `json:"name" binding:"required,min=1,max=100"`
-	Description string `json:"description" binding:"max=2000"`
-}
-
-type RenameTeamOption struct {
-	Name string `json:"name" binding:"required,min=1,max=100"`
-}
-
-// TeamRoutes is mounted under /api/v1 and registers Gitea-style scopes.
-// Before any action, auth verifies the JWT and its backing DB session,
-// then org assignment verifies active membership.
-func TeamRoutes(r *web.Router) {
-	r.Group("/orgs/{org}", func() {
-		r.Get("/teams", ListTeams)
-		r.Post("/teams", bind(CreateTeamOption{}), CreateTeam)
-		r.Get("/teams/{team}", GetTeam)
-		r.Patch("/teams/{team}", bind(RenameTeamOption{}), RenameTeam)
-	}, appctx.AuthenticateAccessToken, appctx.AssignOrganization)
-}
 
 func ListTeams(ctx *appctx.APIContext) {
 	offset, limit := int32(0), int32(20)
@@ -48,7 +29,7 @@ func ListTeams(ctx *appctx.APIContext) {
 		}
 		limit = int32(value)
 	}
-	items, err := orgservice.ListTeams(ctx, ctx.Actor.AccountID, ctx.Org.ID, offset, limit)
+	items, err := orgservice.ListTeams(ctx, ctx.Doer.AccountID, ctx.Org.Organization.ID, offset, limit)
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return
@@ -62,7 +43,7 @@ func GetTeam(ctx *appctx.APIContext) {
 		ctx.APIInvalid(err)
 		return
 	}
-	team, err := orgservice.GetTeam(ctx, ctx.Actor.AccountID, ctx.Org.ID, teamID)
+	team, err := orgservice.GetTeam(ctx, ctx.Doer.AccountID, ctx.Org.Organization.ID, teamID)
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return
@@ -71,8 +52,8 @@ func GetTeam(ctx *appctx.APIContext) {
 }
 
 func CreateTeam(ctx *appctx.APIContext) {
-	form := web.GetForm[*CreateTeamOption](ctx)
-	team, err := orgservice.CreateTeam(ctx, ctx.Actor.AccountID, ctx.Org.ID, form.Name, form.Description)
+	form := web.GetForm[*structs.CreateTeamOption](ctx)
+	team, err := orgservice.CreateTeam(ctx, ctx.Doer.AccountID, ctx.Org.Organization.ID, form.Name, form.Description)
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return
@@ -81,13 +62,13 @@ func CreateTeam(ctx *appctx.APIContext) {
 }
 
 func RenameTeam(ctx *appctx.APIContext) {
-	form := web.GetForm[*RenameTeamOption](ctx)
+	form := web.GetForm[*structs.RenameTeamOption](ctx)
 	teamID, err := ctx.PositivePathID("team")
 	if err != nil {
 		ctx.APIInvalid(err)
 		return
 	}
-	team, err := orgservice.RenameTeam(ctx, ctx.Actor.AccountID, ctx.Org.ID, teamID, form.Name)
+	team, err := orgservice.RenameTeam(ctx, ctx.Doer.AccountID, ctx.Org.Organization.ID, teamID, form.Name)
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return

@@ -4,6 +4,9 @@ import (
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/web"
+	"github.com/datvtph41107/bdspro/modules/structs"
+	org "github.com/datvtph41107/bdspro/routers/api/v1/org"
+	"github.com/datvtph41107/bdspro/routers/common"
 	"github.com/datvtph41107/bdspro/modules/web/middleware"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 )
@@ -13,7 +16,14 @@ func Routes() *web.Router {
 	m := web.NewRouter()
 	m.AfterRouting(appctx.APIContexter())
 	m.Get("/health", Health)
-	TeamRoutes(m)
+	m.Group("/orgs/{org}", func() {
+		m.Combo("/teams").
+			Get(org.ListTeams).
+			Post(reqOrgOwner(), bind(structs.CreateTeamOption{}), org.CreateTeam)
+		m.Combo("/teams/{team}").
+			Get(org.GetTeam).
+			Patch(reqOrgOwner(), bind(structs.RenameTeamOption{}), org.RenameTeam)
+	}, common.APIAuth, orgAssignment)
 	return m
 }
 
