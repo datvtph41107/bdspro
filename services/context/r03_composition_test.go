@@ -8,17 +8,15 @@ import (
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
 	"github.com/datvtph41107/bdspro/modules/web"
-	"github.com/gin-gonic/gin"
 )
 
-// A mounted router may accidentally repeat APIContexter. The Gin adapter
-// must keep one request-owned context/data store and invoke cleanup once.
+// A mounted router may repeat APIContexterHTTP; request context and
+// cleanup must still be owned by one request scope.
 func TestR03NestedAPIContexterSharesContextAndCleanup(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	parent := web.NewGinRouter()
-	child := web.NewGinRouter()
-	parent.AfterRouting(APIContexter())
-	child.AfterRouting(APIContexter())
+	parent := web.NewRouter()
+	child := web.NewRouter()
+	parent.AfterRouting(APIContexterHTTP())
+	child.AfterRouting(APIContexterHTTP())
 
 	var previous *APIContext
 	cleanups := 0
@@ -56,9 +54,8 @@ func TestR03NestedAPIContexterSharesContextAndCleanup(t *testing.T) {
 }
 
 func TestR03APIContextPropagatesEnrichedRequestToTypedAction(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := web.NewGinRouter()
-	router.AfterRouting(APIContexter())
+	router := web.NewRouter()
+	router.AfterRouting(APIContexterHTTP())
 
 	type actorKey struct{}
 	router.AfterRouting(func(next http.Handler) http.Handler {

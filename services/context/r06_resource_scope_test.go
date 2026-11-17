@@ -6,16 +6,14 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/modules/web"
-	"github.com/gin-gonic/gin"
 )
 
 // This synthetic resource fixture is ONLY for testing middleware composition.
 // BDSPro does not yet have a production organization resource/context contract.
 func TestR06MountedResourceAssignmentAndPermissionPreconditions(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	parent := web.NewGinRouter()
-	child := web.NewGinRouter()
-	parent.AfterRouting(APIContexter())
+	parent := web.NewRouter()
+	child := web.NewRouter()
+	parent.AfterRouting(APIContexterHTTP())
 
 	ingressCalls, lookupCalls, endpointCalls := 0, 0, 0
 	child.BeforeRouting(func(next http.Handler) http.Handler {

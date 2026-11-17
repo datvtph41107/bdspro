@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/modules/web"
-	"github.com/gin-gonic/gin"
 )
 
 type r04ActorKey struct{}
@@ -16,9 +15,8 @@ type r04ActorKey struct{}
 // Authentication in this test is a synthetic guard: it tests Router ordering
 // and denial mechanics, NOT an implementation of production authentication.
 func TestR04BeforeRoutingAndScopedAuthenticationOrder(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	parent := web.NewGinRouter()
-	child := web.NewGinRouter()
+	parent := web.NewRouter()
+	child := web.NewRouter()
 
 	var trace []string
 	parent.BeforeRouting(func(next http.Handler) http.Handler {
@@ -31,7 +29,7 @@ func TestR04BeforeRoutingAndScopedAuthenticationOrder(t *testing.T) {
 			next.ServeHTTP(w, r)
 		})
 	})
-	parent.AfterRouting(APIContexter())
+	parent.AfterRouting(APIContexterHTTP())
 	parent.AfterRouting(func(api *APIContext) {
 		trace = append(trace, "parent")
 	})
@@ -100,9 +98,8 @@ func TestR04BeforeRoutingAndScopedAuthenticationOrder(t *testing.T) {
 }
 
 func TestR04TypedGuardAbortWithoutResponse(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	m := web.NewGinRouter()
-	m.AfterRouting(APIContexter())
+	m := web.NewRouter()
+	m.AfterRouting(APIContexterHTTP())
 	reached := false
 	m.Group("/restricted", func() {
 		m.Get("", func(api *APIContext) {

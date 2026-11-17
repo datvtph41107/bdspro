@@ -9,7 +9,6 @@ import (
 
 	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
-	"github.com/gin-gonic/gin"
 )
 
 type r05Form struct {
@@ -18,14 +17,13 @@ type r05Form struct {
 }
 
 func newR05Router(endpoint func(*appctx.APIContext)) *web.Router {
-	r := web.NewGinRouter()
-	r.AfterRouting(appctx.APIContexter())
+	r := web.NewRouter()
+	r.AfterRouting(appctx.APIContexterHTTP())
 	r.Post("/form", bind(r05Form{}), endpoint)
 	return r
 }
 
 func TestR05APIBindPublishesTypedFormBeforeEndpoint(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	calls := 0
 	r := newR05Router(func(ctx *appctx.APIContext) {
 		calls++
@@ -47,7 +45,6 @@ func TestR05APIBindPublishesTypedFormBeforeEndpoint(t *testing.T) {
 }
 
 func TestR05APIBindFailuresPreventEndpointExecution(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	for _, tc := range []struct {
 		name, body, code string
 	}{

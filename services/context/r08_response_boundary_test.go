@@ -9,13 +9,11 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/modules/web"
-	"github.com/gin-gonic/gin"
 )
 
 func TestR08JSONCommitIsSingleResponse(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := web.NewGinRouter()
-	router.AfterRouting(APIContexter())
+	router := web.NewRouter()
+	router.AfterRouting(APIContexterHTTP())
 	router.Get("/one", func(api *APIContext) {
 		api.JSON(http.StatusCreated, map[string]string{"value": "first"})
 		if !api.Written() {
@@ -39,9 +37,8 @@ func TestR08JSONCommitIsSingleResponse(t *testing.T) {
 }
 
 func TestR08ErrorAfterCommittedResponseAbortsWithoutOverwriting(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := web.NewGinRouter()
-	router.AfterRouting(APIContexter())
+	router := web.NewRouter()
+	router.AfterRouting(APIContexterHTTP())
 	reached := false
 	router.Get("/one", func(api *APIContext) {
 		api.JSON(http.StatusOK, map[string]string{"status": "done"})
@@ -67,9 +64,8 @@ func TestR08ErrorAfterCommittedResponseAbortsWithoutOverwriting(t *testing.T) {
 }
 
 func TestR08JSONEncodingErrorReturnsSafe500AndStopsChain(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := web.NewGinRouter()
-	router.AfterRouting(APIContexter())
+	router := web.NewRouter()
+	router.AfterRouting(APIContexterHTTP())
 	reached := false
 	router.Get("/fail-encode", func(api *APIContext) {
 		api.JSON(http.StatusOK, struct {

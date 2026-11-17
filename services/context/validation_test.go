@@ -9,11 +9,9 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/modules/web"
-	"github.com/gin-gonic/gin"
 )
 
 func TestValidationContract(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	type input struct {
 		FullName string `json:"full_name" binding:"required"`
 		PersonID int64  `json:"person_id" binding:"required,min=1"`
@@ -34,8 +32,8 @@ func TestValidationContract(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := web.NewGinRouter()
-			router.AfterRouting(APIContexter())
+			router := web.NewRouter()
+			router.AfterRouting(APIContexterHTTP())
 			router.Post("/", func(ctx *APIContext) {
 				var req input
 				if err := ctx.BindJSON(&req); err != nil {
@@ -73,9 +71,8 @@ func TestValidationContract(t *testing.T) {
 }
 
 func TestValidationDoesNotExposeBindingError(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := web.NewGinRouter()
-	router.AfterRouting(APIContexter())
+	router := web.NewRouter()
+	router.AfterRouting(APIContexterHTTP())
 	router.Post("/", func(ctx *APIContext) {
 		ctx.Validation(errors.New("private provider password"), struct{}{})
 	})
@@ -87,9 +84,8 @@ func TestValidationDoesNotExposeBindingError(t *testing.T) {
 }
 
 func TestFieldErrorContract(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := web.NewGinRouter()
-	router.AfterRouting(APIContexter())
+	router := web.NewRouter()
+	router.AfterRouting(APIContexterHTTP())
 	router.Patch("/", func(ctx *APIContext) {
 		ctx.FieldError("name", "required", "name is required")
 	})
