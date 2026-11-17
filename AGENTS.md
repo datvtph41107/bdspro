@@ -1,31 +1,47 @@
-# BDSPro Engineering Agent Guide
+# BDSPro — Engineering & AI Agent Entry Point
 
-This file is the **entrypoint for coding agents and new ChatGPT work sessions** in this repository. It describes work policy; it does not grant autonomous permissions or replace GitHub branch protections.
+> Canonical working policy for architecture research and subsequent code changes. This document is a **research and decision protocol**, not a claim that today's BDSPro architecture is correct. Read it before changing code.
+>
+> Updated 2026-11-17. This documentation-only update is explicitly requested for remote `dev`; it is not acceptance of implementation or a blanket change to branch/merge protection policies.
 
-## Before changing code
+## Start here (in this order)
 
-1. Read [Parallel workstream README](docs/architecture/parallel-work/README.md), [current coordination board](docs/architecture/parallel-work/TASK_BOARD.md), [source mapping](docs/architecture/parallel-work/SOURCE_MAP.md), [ownership and contracts](docs/architecture/parallel-work/OWNERSHIP_AND_CONTRACTS.md), [trust and verification](docs/architecture/parallel-work/TRUST_AND_VERIFICATION.md), [integration protocol](docs/architecture/parallel-work/INTEGRATION_PROTOCOL.md), and [skill](docs/architecture/parallel-work/SKILL.md).
-2. Determine your lane **A, B, C, D or 0**, then read **only** its specialist task file in `docs/architecture/parallel-work/tasks/`.
-3. Fetch the *actual* latest GitHub `dev`, assigned branch, PR diff and final HEAD CI. Do not assume a prior chat's completion claim is fresh.
-4. Read real Gitea source for the corresponding file, its imports and its callers. Compare intent, function design, error propagation and runtime behavior with BDSPro before editing.
+1. [Engineering charter](docs/architecture/engineering-charter.md): goal, source hierarchy and non-negotiable engineering standards.
+2. [Evidence-driven investigation protocol](docs/architecture/research-protocol.md): how to establish the problem **before** proposing an abstraction.
+3. [Source evidence map](docs/architecture/source-evidence-map.md): pinned Gitea, BDSPro legacy CRM v4, BDSPro `dev` anchors, with scope/limitations.
+4. [G02 research agenda](docs/architecture/g02-runtime-agenda.md): open questions about application composition, startup, dependency and lifecycle.
+5. [Decision register and ADR template](docs/architecture/decisions/README.md): proposed vs accepted decisions and their evidence gates.
+6. [AI research skill](.agents/skills/architecture-research/SKILL.md): repeatable task workflow, evidence and handoff output.
 
-## Required architecture
+## Ground rules for all agents
 
-Keep **Go 1.27.3, Gin, SQLC/pgx, PostgreSQL 18, Redis/Asynq and REST**. Match Gitea's code organization and execution principles without replacing Gin by Chi or SQLC by an ORM. No copy-only unused packages, no duplicate HTTP/DB engines, no unwarranted removal of tests.
+- **Do not treat existing BDSPro code, historical documents, comments, tests or previously accepted PRs as architectural authority.** They are observations and candidates for critique. A passing test establishes tested behavior, not architectural validity.
+- **Do not treat Gitea as infallible or copy its syntax.** Study exact code, dependencies, caller/callee, runtime semantics, historical trade-offs and relevant upstream documentation. State where evidence stops.
+- Begin with the technical problem, invariant or design force (runtime correctness, package ownership, evolution/operational cost). Show alternatives and counterexamples **before** `NÊN/KHÔNG NÊN/CHƯA NÊN`.
+- Separate **observed code facts**, **reasoned mechanisms**, **hypotheses** and **unverified production claims**. Never invent benchmarks, incident reports, outputs, SHAs, links or line numbers.
+- Keep responsibility, compile-time imports, runtime dependency, resource ownership, activity lifetime, errors and observability distinct. Do not invent managers, registries, layers, interfaces or generic frameworks merely for symmetry.
+- If the current architecture is inconsistent with a justified target, report the inconsistency; do not preserve it just because it exists. Conversely, do not rewrite code before architecture questions are answered.
+- For implementation work: determine the current branch/HEAD; record affected call graph, contracts, migration and compatibility constraints; inspect and preserve real user-visible behavior unless a change is approved; review tests and CI at **final** HEAD.
+- Never use `log.Fatal`, retry, rollback, DI, global state, graceful shutdown, etc. as self-justifying pattern names. Explain their failure boundary, effect, owner and cost.
+- Source of truth for implementation is the actual source at the commit being reviewed, not this documentation. Historical descriptions may be stale.
+- No secret leakage, unsafe destructive migrations, silent credential logging or unapproved changes to business/security semantics.
 
-## Write ownership
-- **Lane A:** `modules/web/**` and `services/context/**`; P01/P02; existing PR #218 branch.
-- **Lane B:** `models/**` in wave 1; `services/user/**` frozen until Chat 0 reconciles PR #218's current edits and grants a lease; P04/scoped P05; own branch from dev.
-- **Lane C:** `cmd/**` and assigned `modules/setting/log/cache/queue/graceful/**`; P06; own independent branch from dev.
-- **Lane D:** read-only P03 audit until HTTP/DB gate; afterwards approved API/Auth/OAuth paths on independent branch.
-- **Lane 0:** shared contracts, `routers/init.go` wiring, CI/merge and P07 acceptance.
+## Explicitly distinguish three work states
 
-Do not edit code owned by another lane; submit a written cross-owner RFC with exact paths and signatures. Existing P01 PR #218 has historical cross-scope edits that require coordinator reconciliation, not a silent exemption.
+- **Research / OPEN:** competing models and open questions; no implementation authorization.
+- **Decision / ACCEPTED:** evidence-backed ADR with trade-offs, owner and approval/acceptance recorded.
+- **Implementation / VERIFIED:** code at pinned SHA, passing appropriate tests/CI and documented limitations.
 
-## Trust from evidence
-Each patch needs commit/PR links, exact Gitea and BDSPro before/after references, focused tests, final HEAD CI conclusion, a failure-case check, boundary audit and a handoff. An in-progress CI or passing earlier commit is not acceptance. Run the advisory `bash tools/parallel/check-owned-paths.sh <lane> origin/dev` after the script is available. It is not itself full semantic verification.
+An ADR's existence does not make it accepted. A test pass does not prove a design choice was necessary.
 
-**Do not merge directly into dev**; coordinator verifies and serializes integration. Chats do not coordinate or run in the background automatically; GitHub is the handoff mechanism.
+## Existing material and coordination
 
-## Starting a new session
-Copy the `START NEW CHAT` prompt at the bottom of the selected [specialist task](docs/architecture/parallel-work/README.md). If these files are not yet merged into dev, read them on branch `docs/gitea-parallel-harness-20261110`.
+- Existing [Gitea-alignment playbook](docs/architecture/gitea-alignment/README.md), [G02 historical implementation note](docs/architecture/g02-application-bootstrap.md), [parallel-work coordination](docs/architecture/parallel-work/README.md), and other architecture notes are **historical evidence / workstream records**, not substitutes for fresh verification. Do not silently destroy them.
+- Earlier lane rules and PR procedures may remain relevant to an active task; check latest GitHub state and explicit user instructions. Do not infer permission to edit code or merge from this file.
+- Preferred working branch for currently requested BDSPro work: `dev` unless the user changes it. Before code writes, respect current repository protections and ask for approval only if a required decision/permission is truly missing.
+
+## Required answer for an architecture task
+
+`Problem → system forces → source evidence (Gitea + other sound sources) → actual mechanism/call graph → alternatives + costs → counterexample → BDSPro gap (not presumed correct) → open/decision status → implementation and verification gates`.
+
+The point is **durable technical judgment**, not alignment theater or premature refactoring.
