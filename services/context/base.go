@@ -98,6 +98,12 @@ func (b *Base) Value(key any) any {
 // -> modules/json.MarshalWriteRelaxed boundary. The Gin adapter emits bytes
 // only; it must never choose another JSON codec.
 func (b *Base) JSON(status int, value any) {
+	// Once HTTP headers/body are committed, the response can no longer
+	// be replaced. Never append a second JSON document to the first.
+	// Status selection without a write is still allowed to change.
+	if b.Written() {
+		return
+	}
 	var encoded bytes.Buffer
 	if err := appjson.MarshalWriteRelaxed(&encoded, value); err != nil {
 		// Never leak provider or driver data through a failed response renderer.
@@ -108,7 +114,12 @@ func (b *Base) JSON(status int, value any) {
 	}
 	b.source.WriteJSON(status, encoded.Bytes())
 }
-func (b *Base) Status(status int)        { b.source.WriteStatus(status) }
+func (b *Base) Status(status int) {
+	if b.Written() {
+		return
+	}
+	b.source.WriteStatus(status)
+}
 func (b *Base) BindJSON(value any) error { return b.source.BindJSON(value) }
 func (b *Base) DefaultQuery(name, fallback string) string {
 	return b.source.QueryDefault(name, fallback)
@@ -127,6 +138,13 @@ func (b *Base) Written() bool      { return b.WrittenStatus() != 0 }
 func (b *Base) WrittenStatus() int { return b.source.WrittenStatus() }
 
 func (b *Base) writeError(status int, code string, body any) {
+	// A late error cannot replace an already committed response.
+	// Abort the remaining action chain, but do not mutate error metadata
+	// or append a second JSON document.
+	if b.Written() {
+		b.source.Abort()
+		return
+	}
 	b.source.SetErrorCode(code)
 	b.JSON(status, body)
 	b.source.Abort()
