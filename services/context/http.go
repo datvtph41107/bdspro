@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/modules/reqctx"
+	"github.com/go-playground/validator/v10"
 )
 
 // httpRequestSource owns request/response state for an HTTP-native
@@ -44,6 +45,14 @@ func (w *trackedHTTPWriter) Write(body []byte) (int, error) {
 
 func (w *trackedHTTPWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
+// Match the application's existing Gin binding tags without keeping the
+// Gin binder as an HTTP-native dependency.
+var httpBinderValidator = func() *validator.Validate {
+	v := validator.New()
+	v.SetTagName("binding")
+	return v
+}()
+
 var _ RequestSource = (*httpRequestSource)(nil)
 
 func (s *httpRequestSource) CurrentRequest() *http.Request { return s.request }
@@ -60,7 +69,10 @@ func (s *httpRequestSource) QueryDefault(name, fallback string) string {
 }
 
 func (s *httpRequestSource) BindJSON(value any) error {
-	return json.NewDecoder(s.request.Body).Decode(value)
+	if err := json.NewDecoder(s.request.Body).Decode(value); err != nil {
+		return err
+	}
+	return httpBinderValidator.Struct(value)
 }
 
 func (s *httpRequestSource) ClientIP() string {

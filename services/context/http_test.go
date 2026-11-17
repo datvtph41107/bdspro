@@ -148,3 +148,23 @@ func TestHTTPNativeContextFollowsEnrichedRequest(t *testing.T) {
 		t.Fatalf("status=%d", rec.Code)
 	}
 }
+
+func TestHTTPNativeBindingValidationMatchesBindingTags(t *testing.T) {
+	type input struct {
+		Name string `json:"name" binding:"required"`
+	}
+	handler := APIContexterHTTP()(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		api := GetAPIContextFromRequest(req)
+		var body input
+		if err := api.BindJSON(&body); err != nil {
+			api.Validation(err, &body)
+			return
+		}
+		api.Status(http.StatusNoContent)
+	}))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{}`)))
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "validation_failed") {
+		t.Fatalf("status=%d body=%q", rec.Code, rec.Body.String())
+	}
+}
