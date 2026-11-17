@@ -25,6 +25,7 @@ type RequestSource interface {
 	WriteStatus(status int)
 	Abort()
 	SetHeader(name, value string)
+	ResponseHeader() http.Header
 	SetErrorCode(code string)
 	IsAborted() bool
 	// WrittenStatus is 0 until the HTTP response is committed.
