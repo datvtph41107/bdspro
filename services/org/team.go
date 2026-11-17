@@ -70,7 +70,7 @@ func CreateTeam(ctx context.Context, actorID, orgID int64, name, description str
 		return organization.Team{}, err
 	}
 	if len(description) > 2000 {
-		return organization.Team{}, organization.ErrInvalidTeamName
+		return organization.Team{}, organization.ErrTeamDescription
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (organization.Team, error) {
 		q, err := db.GetQueries(txCtx)

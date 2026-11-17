@@ -24,6 +24,7 @@ var (
 	ErrTeamNotFound    = util.WithPublic(util.ErrNotExist, "team not found or inaccessible", "team_not_found", "team not found")
 	ErrTeamForbidden   = util.WithPublic(util.ErrPermissionDenied, "organization owner required", "team_permission_denied", "organization owner permission required")
 	ErrTeamExists      = util.WithPublic(util.ErrAlreadyExist, "team name already exists", "team_exists", "team name already exists in the organization")
+	ErrTeamDescription = util.WithPublic(util.ErrInvalidArgument, "team description too long", "invalid_team_description", "team description must be at most 2000 bytes")
 )
 
 func NormalizeTeamName(raw string) (string, error) {
