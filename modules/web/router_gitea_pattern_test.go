@@ -5,11 +5,9 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
-
 )
 
 func TestGiteaParameterGroupAndMountedRoute(t *testing.T) {
-
 	parent := NewRouter()
 	child := NewRouter()
 
