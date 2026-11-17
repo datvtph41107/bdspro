@@ -70,7 +70,7 @@ func (s *httpRequestSource) WriteStatus(status int) {
 		s.selected = status
 	}
 }
-func (s *httpRequestSource) Abort()               { s.aborted = true }
+func (s *httpRequestSource) Abort()                { s.aborted = true }
 func (s *httpRequestSource) IsAborted() bool       { return s.aborted }
 func (s *httpRequestSource) WrittenStatus() int    { return s.committed }
 func (s *httpRequestSource) SetHeader(k, v string) { s.writer.Header().Set(k, v) }

@@ -34,7 +34,9 @@ func TestHTTPNativeAPIContexterRequestAndCleanup(t *testing.T) {
 			t.Fatal("request datastore missing")
 		}
 		store.AddCleanup(func() { cleanups++ })
-		var form struct { Name string `json:"name"` }
+		var form struct {
+			Name string `json:"name"`
+		}
 		if err := api.BindJSON(&form); err != nil || form.Name != "backend" {
 			t.Fatalf("BindJSON form=%+v err=%v", form, err)
 		}
