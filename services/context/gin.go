@@ -73,6 +73,9 @@ func GetAPIContext(c *gin.Context) *APIContext {
 func APIContexter() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			// The API context is request-scoped, never process-scoped.
+			// A nested APIContexter reuses the existing instance and
+			// its request data; only the creator of the store owns cleanup.
 			c := web.GinContextFromRequest(req)
 			if c == nil {
 				panic("context: APIContexter requires a matched route")
