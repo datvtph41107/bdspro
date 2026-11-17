@@ -13,8 +13,8 @@ import (
 // Rollback runs only after Init succeeds and must tolerate a later graceful
 // termination hook calling the same resource owner's Close function again.
 type Step struct {
-	Name string
-	Init func(context.Context) error
+	Name     string
+	Init     func(context.Context) error
 	Rollback func()
 }
 

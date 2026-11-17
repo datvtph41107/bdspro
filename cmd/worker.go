@@ -68,8 +68,8 @@ func serveWorker() error {
 				},
 			},
 			startup.Step{
-				Name: "PostgreSQL",
-				Init: db.InitEngine,
+				Name:     "PostgreSQL",
+				Init:     db.InitEngine,
 				Rollback: db.CloseEngine,
 			},
 			startup.Step{

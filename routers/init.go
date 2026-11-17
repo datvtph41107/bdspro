@@ -40,8 +40,8 @@ func InitWebInstalled(ctx context.Context) error {
 			Rollback: db.CloseEngine,
 		},
 		startup.Step{
-			Name: "Redis",
-			Init: common.InitRedis,
+			Name:     "Redis",
+			Init:     common.InitRedis,
 			Rollback: conn.CloseRedis,
 		},
 		startup.Step{
