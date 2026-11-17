@@ -80,7 +80,6 @@ func (q *Queries) ConsumeTeamInvite(ctx context.Context, arg ConsumeTeamInvitePa
 	return team_id, err
 }
 
-
 const countTeamsForAccount = `-- name: CountTeamsForAccount :one
 SELECT count(*)::bigint
 FROM teams t
