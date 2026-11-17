@@ -20,6 +20,30 @@ type httpRequestSource struct {
 	aborted   bool
 }
 
+// trackedHTTPWriter observes real response commitment, including writes
+// made by plain net/http handlers instead of Base.JSON.
+type trackedHTTPWriter struct {
+	http.ResponseWriter
+	source *httpRequestSource
+}
+
+func (w *trackedHTTPWriter) WriteHeader(status int) {
+	if w.source.committed != 0 {
+		return
+	}
+	w.source.committed = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *trackedHTTPWriter) Write(body []byte) (int, error) {
+	if w.source.committed == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+func (w *trackedHTTPWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
 var _ RequestSource = (*httpRequestSource)(nil)
 
 func (s *httpRequestSource) CurrentRequest() *http.Request { return s.request }
@@ -61,7 +85,6 @@ func (s *httpRequestSource) writeHeader(status int) {
 	if s.committed != 0 {
 		return
 	}
-	s.committed = status
 	s.writer.WriteHeader(status)
 }
 
@@ -101,12 +124,14 @@ func APIContexterHTTP() func(http.Handler) http.Handler {
 				defer finished()
 				req = req.WithContext(scoped)
 			}
-			source := &httpRequestSource{request: req, writer: w}
+			source := &httpRequestSource{request: req}
+			tracked := &trackedHTTPWriter{ResponseWriter: w, source: source}
+			source.writer = tracked
 			api := &APIContext{Base: NewBaseContext(source)}
 			req = req.WithContext(context.WithValue(req.Context(), apiContextRequestKey{}, api))
 			source.request = req
 			defer source.finish()
-			next.ServeHTTP(w, req)
+			next.ServeHTTP(tracked, req)
 		})
 	}
 }

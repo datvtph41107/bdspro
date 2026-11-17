@@ -99,3 +99,52 @@ func TestHTTPNativeAPIContexterPublicError(t *testing.T) {
 		t.Errorf("status=%d authenticate=%q", rec.Code, rec.Header().Get("WWW-Authenticate"))
 	}
 }
+
+func TestHTTPNativeResponseWriterDetectsDirectWrites(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		write  func(http.ResponseWriter)
+		status int
+	}{
+		{"header", func(w http.ResponseWriter) { w.WriteHeader(http.StatusAccepted) }, http.StatusAccepted},
+		{"body", func(w http.ResponseWriter) { _, _ = w.Write([]byte("ok")) }, http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := APIContexterHTTP()(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				api := GetAPIContextFromRequest(req)
+				api.Status(http.StatusNoContent)
+				tc.write(w)
+				if api.WrittenStatus() != tc.status {
+					t.Errorf("WrittenStatus=%d want=%d", api.WrittenStatus(), tc.status)
+				}
+			}))
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+			if rec.Code != tc.status {
+				t.Errorf("actual status=%d want=%d", rec.Code, tc.status)
+			}
+		})
+	}
+}
+
+func TestHTTPNativeContextFollowsEnrichedRequest(t *testing.T) {
+	type verifiedKey struct{}
+	enrich := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			req = req.WithContext(context.WithValue(req.Context(), verifiedKey{}, 42))
+			next.ServeHTTP(w, req)
+		})
+	}
+	handler := APIContexterHTTP()(enrich(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		api := GetAPIContextFromRequest(req)
+		if api.Value(verifiedKey{}) != 42 || api.CurrentRequest() != req {
+			t.Error("APIContext did not follow middleware-enriched HTTP request")
+		}
+		api.Status(http.StatusNoContent)
+	})))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status=%d", rec.Code)
+	}
+}
