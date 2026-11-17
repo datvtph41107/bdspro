@@ -6,14 +6,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 )
 
 func TestGiteaParameterGroupAndMountedRoute(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
-	parent := NewGinRouter()
-	child := NewGinRouter()
+	parent := NewRouter()
+	child := NewRouter()
 
 	var order []string
 	guard := func(name string) func(http.Handler) http.Handler {
@@ -29,8 +27,7 @@ func TestGiteaParameterGroupAndMountedRoute(t *testing.T) {
 	child.Group("/teams", func() {
 		child.Get("/{team_id}", func(w http.ResponseWriter, req *http.Request) {
 			order = append(order, "endpoint")
-			c := GinContextFromRequest(req)
-			if c == nil || c.Param("org") != "example" || c.Param("team_id") != "42" {
+			if req.PathValue("org") != "example" || req.PathValue("team_id") != "42" {
 				t.Errorf("route parameters not available through matched request")
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -51,20 +48,18 @@ func TestGiteaParameterGroupAndMountedRoute(t *testing.T) {
 }
 
 func TestGiteaParameterDirectRouteAndLegacyGinSyntax(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	r := NewGinRouter()
+	r := NewRouter()
 	r.Group("/organizations/{org}", func() {
 		r.Get("/teams/{team}", func(w http.ResponseWriter, req *http.Request) {
-			c := GinContextFromRequest(req)
-			if c.Param("org") != "acme" || c.Param("team") != "backend" {
-				t.Errorf("wrong parameter values: org=%q team=%q", c.Param("org"), c.Param("team"))
+			if req.PathValue("org") != "acme" || req.PathValue("team") != "backend" {
+				t.Errorf("wrong parameter values: org=%q team=%q", req.PathValue("org"), req.PathValue("team"))
 			}
 			w.WriteHeader(http.StatusNoContent)
 		})
 	})
 	r.Get("/legacy/:id", func(w http.ResponseWriter, req *http.Request) {
-		if c := GinContextFromRequest(req); c.Param("id") != "7" {
-			t.Errorf("legacy Gin param=%q", c.Param("id"))
+		if req.PathValue("id") != "7" {
+			t.Errorf("legacy param=%q", req.PathValue("id"))
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -78,18 +73,18 @@ func TestGiteaParameterDirectRouteAndLegacyGinSyntax(t *testing.T) {
 	}
 }
 
-func TestGiteaParameterRejectsUnsupportedChiPatterns(t *testing.T) {
-	for _, pattern := range []string{
-		"/{id:[0-9]+}", "/{name}.json", "/{bad-name}",
-		"/{id", "/id}", "/{}", "/{9id}", "/{x}/{y:one|two}",
+func TestChiPatternPreservesGiteaSyntax(t *testing.T) {
+	for _, tc := range []struct {
+		path string
+		want string
+	}{
+		{"/orgs/{org}", "/orgs/{org}"},
+		{"/orgs/{org:[a-z]+}", "/orgs/{org:[a-z]+}"},
+		{"/legacy/:id", "/legacy/{id}"},
+		{"/swagger/*filepath", "/swagger/*"},
 	} {
-		t.Run(pattern, func(t *testing.T) {
-			defer func() {
-				if recover() == nil {
-					t.Errorf("unsupported pattern %q was accepted", pattern)
-				}
-			}()
-			ginPattern(pattern)
-		})
+		if got := chiPattern(tc.path); got != tc.want {
+			t.Errorf("chiPattern(%q)=%q want=%q", tc.path, got, tc.want)
+		}
 	}
 }
