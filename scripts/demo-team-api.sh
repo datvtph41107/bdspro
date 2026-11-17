@@ -119,6 +119,21 @@ assert_status "$status" 200
 python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["name"] == "Platform"' "$response"
 echo "Rename team (owner): 200; name=Platform"
 
+status="$(call_api -X PATCH -H "Authorization: Bearer $owner_token" \
+  -H 'Content-Type: application/json' -d '{}' "$url/$team_id")"
+assert_status "$status" 400
+echo "Omitted PATCH name field rejected: 400"
+
+status="$(call_api -X PATCH -H "Authorization: Bearer $owner_token" \
+  -H 'Content-Type: application/json' -d '{"name":""}' "$url/$team_id")"
+assert_status "$status" 400
+echo "Present but empty PATCH name rejected: 400"
+
+status="$(call_api -X PATCH -H "Authorization: Bearer $owner_token" \
+  -H 'Content-Type: application/json' -d '{"name":null}' "$url/$team_id")"
+assert_status "$status" 400
+echo "Null PATCH name rejected: 400"
+
 status="$(call_api -X PATCH -H "Authorization: Bearer $member_token" \
   -H 'Content-Type: application/json' -d '{"name":"Unauthorized"}' "$url/$team_id")"
 assert_status "$status" 403

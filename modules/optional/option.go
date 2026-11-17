@@ -1,6 +1,12 @@
 // Package optional distinguishes an omitted value from an explicit zero.
 package optional
 
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+)
+
 type Option[T any] []T
 
 func None[T any]() Option[T]        { return nil }
@@ -25,4 +31,26 @@ func (o Option[T]) ValueOrDefault(fallback T) T {
 		return o[0]
 	}
 	return fallback
+}
+
+// UnmarshalJSON makes optional.Option usable by the canonical net/http JSON
+// binder: omitted field means None, explicit value (including "") means Some.
+// Null is rejected rather than silently becoming a missing update.
+func (o *Option[T]) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
+		return errors.New("null is not a valid optional field value")
+	}
+	var value T
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*o = Some(value)
+	return nil
+}
+
+func (o Option[T]) MarshalJSON() ([]byte, error) {
+	if !o.Has() {
+		return []byte("null"), nil
+	}
+	return json.Marshal(o.Value())
 }

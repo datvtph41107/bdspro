@@ -62,12 +62,16 @@ func CreateTeam(ctx *appctx.APIContext) {
 
 func RenameTeam(ctx *appctx.APIContext) {
 	form := web.GetForm[*structs.RenameTeamOption](ctx)
+	if !form.Name.Has() {
+		ctx.FieldError("name", "required", "name is required")
+		return
+	}
 	teamID, err := ctx.PositivePathID("team")
 	if err != nil {
 		ctx.APIInvalid(err)
 		return
 	}
-	team, err := orgservice.RenameTeam(ctx, ctx.Doer.AccountID, ctx.Org.Organization.ID, teamID, form.Name)
+	team, err := orgservice.RenameTeam(ctx, ctx.Doer.AccountID, ctx.Org.Organization.ID, teamID, form.Name.Value())
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return
