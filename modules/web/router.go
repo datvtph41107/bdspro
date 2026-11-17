@@ -118,19 +118,19 @@ type routeDefinition struct {
 }
 
 type Router struct {
-	engine           *gin.Engine
-	chiRouter        *chi.Mux
-	chiTrustedProxies []netip.Prefix
-	beforeRouting    []middlewareProvider
-	ingressBound     bool
-	routesRegistered bool
-	mounted          bool // mounted child route descriptors cannot be changed
-	afterRouting     []any
-	curGroupPrefix   string
-	curMiddlewares   []any
-	routes           []routeDefinition
-	serveOnce        sync.Once
-	serveHandler     http.Handler
+	engine             *gin.Engine
+	chiRouter          *chi.Mux
+	chiTrustedProxies  []netip.Prefix
+	beforeRouting      []middlewareProvider
+	ingressBound       bool
+	routesRegistered   bool
+	mounted            bool // mounted child route descriptors cannot be changed
+	afterRouting       []any
+	curGroupPrefix     string
+	curMiddlewares     []any
+	routes             []routeDefinition
+	serveOnce          sync.Once
+	serveHandler       http.Handler
 }
 
 // NewRouter constructs and owns its Gin matcher. There is no legacy-engine
