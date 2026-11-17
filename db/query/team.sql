@@ -223,3 +223,14 @@ WHERE ti.id = sqlc.arg(invite_id)::uuid
       AND m.organization_id = t.organization_id AND m.ended_at IS NULL
       AND ti.created_at >= m.joined_at
   );
+
+-- name: CountTeamsForAccount :one
+SELECT count(*)::bigint
+FROM teams t
+WHERE t.organization_id = sqlc.arg(organization_id)
+  AND EXISTS (
+    SELECT 1 FROM accounts a
+    JOIN organization_members m ON m.person_id = a.person_id
+    WHERE a.id = sqlc.arg(actor_account_id)
+      AND m.organization_id = t.organization_id AND m.ended_at IS NULL
+  );

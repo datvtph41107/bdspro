@@ -25,6 +25,7 @@ type Querier interface {
 	ConsumeTeamInvite(ctx context.Context, arg ConsumeTeamInviteParams) (int64, error)
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
 	CountActiveOrganizationOwners(ctx context.Context, organizationID int64) (int64, error)
+	CountTeamsForAccount(ctx context.Context, arg CountTeamsForAccountParams) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateAccountConnectionHistory(ctx context.Context, arg CreateAccountConnectionHistoryParams) error
 	CreateAccountSettings(ctx context.Context, accountID int64) error

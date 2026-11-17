@@ -22,23 +22,39 @@ func toTeam(row db.Team) organization.Team {
 
 // ListTeams is membership-scoped inside SQL. The caller may not supply
 // an arbitrary actor: the API guard must have verified the session.
-func ListTeams(ctx context.Context, actorID, orgID int64, offset, limit int32) ([]organization.Team, error) {
+// TeamPage separates authorization-scoped data from total count metadata.
+type TeamPage struct {
+	Items []organization.Team
+	Total int64
+}
+
+func ListTeams(ctx context.Context, actorID, orgID int64, opts db.ListOptions) (TeamPage, error) {
+	offset, limit, ok := opts.GetSkipTake32()
+	if !ok {
+		return TeamPage{}, errors.New("invalid pagination contract")
+	}
 	q, err := db.GetQueries(ctx)
 	if err != nil {
-		return nil, err
+		return TeamPage{}, err
+	}
+	count, err := q.CountTeamsForAccount(ctx, db.CountTeamsForAccountParams{
+		OrganizationID: orgID, ActorAccountID: actorID,
+	})
+	if err != nil {
+		return TeamPage{}, err
 	}
 	items, err := q.ListTeamsForAccount(ctx, db.ListTeamsForAccountParams{
 		ActorAccountID: actorID, OrganizationID: orgID,
 		Skip: offset, Take: limit,
 	})
 	if err != nil {
-		return nil, err
+		return TeamPage{}, err
 	}
-	out := make([]organization.Team, 0, len(items))
+	result := TeamPage{Items: make([]organization.Team, 0, len(items)), Total: count}
 	for _, item := range items {
-		out = append(out, toTeam(item))
+		result.Items = append(result.Items, toTeam(item))
 	}
-	return out, nil
+	return result, nil
 }
 
 func GetTeam(ctx context.Context, actorID, orgID, teamID int64) (organization.Team, error) {

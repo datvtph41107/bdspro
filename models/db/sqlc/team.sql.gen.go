@@ -80,6 +80,31 @@ func (q *Queries) ConsumeTeamInvite(ctx context.Context, arg ConsumeTeamInvitePa
 	return team_id, err
 }
 
+
+const countTeamsForAccount = `-- name: CountTeamsForAccount :one
+SELECT count(*)::bigint
+FROM teams t
+WHERE t.organization_id = $1
+  AND EXISTS (
+    SELECT 1 FROM accounts a
+    JOIN organization_members m ON m.person_id = a.person_id
+    WHERE a.id = $2
+      AND m.organization_id = t.organization_id AND m.ended_at IS NULL
+  )
+`
+
+type CountTeamsForAccountParams struct {
+	OrganizationID int64 `json:"organization_id"`
+	ActorAccountID int64 `json:"actor_account_id"`
+}
+
+func (q *Queries) CountTeamsForAccount(ctx context.Context, arg CountTeamsForAccountParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTeamsForAccount, arg.OrganizationID, arg.ActorAccountID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createTeamForOwner = `-- name: CreateTeamForOwner :one
 INSERT INTO teams (organization_id, name, description)
 SELECT $1::bigint, btrim($2::text), $3::text

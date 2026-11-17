@@ -2,9 +2,10 @@ package org
 
 import (
 	"net/http"
-	"strconv"
+	"errors"
 
 	"github.com/datvtph41107/bdspro/modules/structs"
+	"github.com/datvtph41107/bdspro/routers/api/v1/utils"
 
 	"github.com/datvtph41107/bdspro/modules/web"
 	appctx "github.com/datvtph41107/bdspro/services/context"
@@ -12,29 +13,27 @@ import (
 )
 
 func ListTeams(ctx *appctx.APIContext) {
-	offset, limit := int32(0), int32(20)
-	if raw := ctx.DefaultQuery("offset", "0"); raw != "" {
-		value, err := strconv.ParseInt(raw, 10, 32)
-		if err != nil || value < 0 {
-			ctx.FieldError("offset", "invalid_range", "offset must be a non-negative integer")
+	opts, err := utils.GetListOptions(ctx)
+	if err != nil {
+		var fieldErr *utils.ListOptionsError
+		if errors.As(err, &fieldErr) {
+			ctx.FieldError(fieldErr.Field, "invalid_range", fieldErr.Message)
 			return
 		}
-		offset = int32(value)
+		ctx.APIErrorInternal(err)
+		return
 	}
-	if raw := ctx.DefaultQuery("limit", "20"); raw != "" {
-		value, err := strconv.ParseInt(raw, 10, 32)
-		if err != nil || value < 1 || value > 50 {
-			ctx.FieldError("limit", "invalid_range", "limit must be between 1 and 50")
-			return
-		}
-		limit = int32(value)
-	}
-	items, err := orgservice.ListTeams(ctx, ctx.Doer.AccountID, ctx.Org.Organization.ID, offset, limit)
+	result, err := orgservice.ListTeams(ctx, ctx.Doer.AccountID, ctx.Org.Organization.ID, opts)
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return
 	}
-	ctx.JSON(http.StatusOK, map[string]any{"items": items, "limit": limit, "offset": offset})
+	ctx.SetLinkHeader(result.Total, opts.PageSize)
+	ctx.SetTotalCountHeader(result.Total)
+	ctx.JSON(http.StatusOK, map[string]any{
+		"items": result.Items, "page": opts.Page,
+		"limit": opts.PageSize, "total": result.Total,
+	})
 }
 
 func GetTeam(ctx *appctx.APIContext) {

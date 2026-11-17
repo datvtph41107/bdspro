@@ -60,15 +60,6 @@
             "description": "Verified Organization ID"
           },
           {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0
-            }
-          },
-          {
             "name": "limit",
             "in": "query",
             "schema": {
@@ -76,6 +67,15 @@
               "minimum": 1,
               "maximum": 50,
               "default": 20
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
             }
           }
         ],
@@ -88,8 +88,9 @@
                   "type": "object",
                   "required": [
                     "items",
-                    "offset",
-                    "limit"
+                    "page",
+                    "limit",
+                    "total"
                   ],
                   "properties": {
                     "items": {
@@ -98,11 +99,17 @@
                         "$ref": "#/components/schemas/Team"
                       }
                     },
-                    "offset": {
-                      "type": "integer"
-                    },
                     "limit": {
                       "type": "integer"
+                    },
+                    "page": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "total": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 0
                     }
                   }
                 }

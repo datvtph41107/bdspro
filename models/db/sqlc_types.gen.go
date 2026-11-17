@@ -16,6 +16,7 @@ type BlockSessionParams = sqlc.BlockSessionParams
 type ConsumeEmailLinkChallengeParams = sqlc.ConsumeEmailLinkChallengeParams
 type ConsumeTeamInviteParams = sqlc.ConsumeTeamInviteParams
 type ConsumeVerifyEmailParams = sqlc.ConsumeVerifyEmailParams
+type CountTeamsForAccountParams = sqlc.CountTeamsForAccountParams
 type CreateAccountConnectionHistoryParams = sqlc.CreateAccountConnectionHistoryParams
 type CreateAccountParams = sqlc.CreateAccountParams
 type CreateOrganizationMemberParams = sqlc.CreateOrganizationMemberParams
