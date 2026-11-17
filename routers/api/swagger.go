@@ -8,8 +8,7 @@ import (
 )
 
 // SwaggerHandler returns the development-only Swagger HTTP handler.
-// It has no dependency on the application's route matcher and can be
-// mounted by Gin today or Chi when the Web router migration is complete.
+// It has no dependency on the application's Chi route matcher.
 // A nil handler means documentation is disabled in this environment.
 func SwaggerHandler(environment string) http.Handler {
 	if environment != "development" {

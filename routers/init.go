@@ -67,7 +67,7 @@ func InitWebInstalled(ctx context.Context) (err error) {
 	return ctx.Err()
 }
 
-// NormalRoutes registers the one API route tree. No domain routes are installed.
+// NormalRoutes registers the versioned API tree, including Organization/Team.
 func NormalRoutes() *web.Router {
 	r := web.NewRouter()
 	r.Mount("/api/v1", apiv1.Routes())

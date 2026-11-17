@@ -4,7 +4,7 @@ package middleware
 
 import "reflect"
 
-// JSONBinder is implemented by the existing Gin-backed API request context.
+// JSONBinder is implemented by the HTTP-native APIContext.
 // Keeping the binding capability minimal avoids a second JSON decoder.
 type JSONBinder interface {
 	BindJSON(value any) error
