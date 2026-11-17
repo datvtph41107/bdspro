@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/netip"
 	"strings"
-
 )
 
 func (r *Router) wrapChiIngress() http.Handler {
@@ -101,4 +100,3 @@ func (r *Router) chiIsTrusted(ip netip.Addr) bool {
 	}
 	return false
 }
-
