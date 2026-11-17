@@ -104,6 +104,41 @@ func GetForm[T any](store FormStore) T {
 	return form
 }
 
+// ginPattern converts simple Gitea/Chi-style {name} path parameters into
+// Gin's :name syntax at the matcher boundary. Keep route declarations and
+// routeDefinition paths in Gitea form; only the Gin adapter sees :name.
+//
+// Regex parameters, mixed literal/parameter segments, and wildcard syntax
+// are intentionally not translated: do not silently change their semantics.
+func ginPattern(pattern string) string {
+	if !strings.ContainsAny(pattern, "{}") {
+		return pattern // Existing Gin :name declarations remain compatible.
+	}
+
+	segments := strings.Split(pattern, "/")
+	for i, segment := range segments {
+		if !strings.ContainsAny(segment, "{}") {
+			continue
+		}
+
+		if len(segment) < 3 || segment[0] != '{' || segment[len(segment)-1] != '}' {
+			panic(fmt.Sprintf("web: unsupported route parameter segment %q", segment))
+		}
+
+		name := segment[1 : len(segment)-1]
+		for j, char := range name {
+			if !((char >= 'a' && char <= 'z') ||
+				(char >= 'A' && char <= 'Z') ||
+				(char == '_' || (j > 0 && char >= '0' && char <= '9'))) {
+				panic(fmt.Sprintf("web: unsupported route parameter segment %q", segment))
+			}
+		}
+
+		segments[i] = ":" + name
+	}
+	return strings.Join(segments, "/")
+}
+
 // Router owns one Gin matcher and one Gitea-style HTTP handler compiler.
 // routeDefinition describes an HTTP action compiled once at registration.
 // Mount rebinds the already compiled chain onto its parent's Gin matcher.
@@ -204,7 +239,7 @@ func (r *Router) Mount(pattern string, sub *Router) {
 		providers := make([]middlewareProvider, 0, len(parentMiddleware)+len(entry.providers))
 		providers = append(providers, parentMiddleware...)
 		providers = append(providers, entry.providers...)
-		r.engine.Handle(entry.method, path, ginMatchedHandler(providers, entry.endpoint))
+		r.engine.Handle(entry.method, ginPattern(path), ginMatchedHandler(providers, entry.endpoint))
 		r.routes = append(r.routes, routeDefinition{method: entry.method, path: path, providers: providers, endpoint: entry.endpoint})
 	}
 	r.routesRegistered = true
@@ -383,7 +418,7 @@ func (r *Router) Methods(method, path string, actions ...any) {
 	// effective in source while actually being absent from ingress.
 	r.routesRegistered = true
 	for _, candidate := range candidates {
-		r.engine.Handle(candidate, pattern, handlers...)
+		r.engine.Handle(candidate, ginPattern(pattern), handlers...)
 		r.routes = append(r.routes, routeDefinition{
 			method: candidate, path: pattern, providers: middlewares, endpoint: endpoint,
 		})
