@@ -51,13 +51,13 @@ func InitWebInstalled(ctx context.Context) (err error) {
 		return err
 	}
 
-	// Redis owns its client and termination callback.
-	if _, err := conn.InitRedis(ctx); err != nil {
-		return fmt.Errorf("initialize Redis: %w", err)
+	// Redis startup policy is kept alongside database startup policy.
+	// The Redis module still owns its client and graceful cleanup registration.
+	if err := common.InitRedis(ctx); err != nil {
+		return err
 	}
 
 	redisReady = true
-	log.Info("Redis ready")
 
 	return ctx.Err()
 }
