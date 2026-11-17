@@ -94,4 +94,3 @@ func AssignOrganization(ctx *APIContext) {
 	}
 	ctx.Org = &OrganizationResource{ID: org.PartyID, Name: org.Name, Role: org.Role}
 }
-

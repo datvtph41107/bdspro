@@ -49,31 +49,48 @@ func ListTeams(ctx *appctx.APIContext) {
 		limit = int32(value)
 	}
 	items, err := orgservice.ListTeams(ctx, ctx.Actor.AccountID, ctx.Org.ID, offset, limit)
-	if err != nil { ctx.APIErrorAuto(err); return }
+	if err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
 	ctx.JSON(http.StatusOK, map[string]any{"items": items, "limit": limit, "offset": offset})
 }
 
 func GetTeam(ctx *appctx.APIContext) {
 	teamID, err := ctx.PositivePathID("team")
-	if err != nil { ctx.APIInvalid(err); return }
+	if err != nil {
+		ctx.APIInvalid(err)
+		return
+	}
 	team, err := orgservice.GetTeam(ctx, ctx.Actor.AccountID, ctx.Org.ID, teamID)
-	if err != nil { ctx.APIErrorAuto(err); return }
+	if err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
 	ctx.JSON(http.StatusOK, team)
 }
 
 func CreateTeam(ctx *appctx.APIContext) {
 	form := web.GetForm[*CreateTeamOption](ctx)
 	team, err := orgservice.CreateTeam(ctx, ctx.Actor.AccountID, ctx.Org.ID, form.Name, form.Description)
-	if err != nil { ctx.APIErrorAuto(err); return }
+	if err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
 	ctx.JSON(http.StatusCreated, team)
 }
 
 func RenameTeam(ctx *appctx.APIContext) {
 	form := web.GetForm[*RenameTeamOption](ctx)
 	teamID, err := ctx.PositivePathID("team")
-	if err != nil { ctx.APIInvalid(err); return }
+	if err != nil {
+		ctx.APIInvalid(err)
+		return
+	}
 	team, err := orgservice.RenameTeam(ctx, ctx.Actor.AccountID, ctx.Org.ID, teamID, form.Name)
-	if err != nil { ctx.APIErrorAuto(err); return }
+	if err != nil {
+		ctx.APIErrorAuto(err)
+		return
+	}
 	ctx.JSON(http.StatusOK, team)
 }
-
