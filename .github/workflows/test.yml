@@ -91,6 +91,11 @@ jobs:
           docker compose build api
 
       - name: HTTP runtime smoke test
+        env:
+          BDS_TEST_MODE: disposable
+          BDS_TEST_DB_URL: postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable
+          BDS_TEST_TOKEN_KEY: 01234567890123456789012345678901
+          BDS__DATABASE__DB_SOURCE: postgres://root:secret@127.0.0.1:5432/bdspro_test?sslmode=disable
         run: |
           go build -o /tmp/bdspro-smoke .
           /tmp/bdspro-smoke --config custom/conf/app.example.ini web > /tmp/bdspro-smoke.log 2>&1 &
@@ -114,3 +119,4 @@ jobs:
           done
           status="$(curl -sS -o /tmp/bdspro-team-unauthorized.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"name":"probe"}' http://127.0.0.1:8080/api/v1/orgs/1/teams)"
           test "$status" = 401
+          bash scripts/demo-team-api.sh
