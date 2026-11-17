@@ -34,7 +34,7 @@ func TestRequiredRuntimeStructure(t *testing.T) {
 // The check covers any new domain packages without maintaining a list.
 func TestDomainDoesNotImportHTTPFramework(t *testing.T) {
 	root := filepath.Join("..", "..")
-	for _, top := range []string{"models", "services"} {
+	for _, top := range []string{"models", "services", "routers"} {
 		base := filepath.Join(root, top)
 		err := filepath.WalkDir(base, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
@@ -58,6 +58,16 @@ func TestDomainDoesNotImportHTTPFramework(t *testing.T) {
 				importPath, err := strconv.Unquote(spec.Path.Value)
 				if err != nil {
 					t.Errorf("invalid import in %s: %v", path, err)
+					continue
+				}
+				// Router packages compose HTTP actions but must not
+				// import framework-specific types. Only modules/web
+				// owns the matcher and its transport configuration.
+				if top == "routers" {
+					if importPath == "github.com/gin-gonic/gin" ||
+						importPath == "github.com/go-chi/chi/v5" {
+						t.Errorf("%s imports route matcher %s", path, importPath)
+					}
 					continue
 				}
 				switch {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/conn"
@@ -15,7 +14,6 @@ import (
 	api "github.com/datvtph41107/bdspro/routers/api"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/common"
-	"github.com/gin-gonic/gin"
 )
 
 func InitWebInstalled(ctx context.Context) (err error) {
@@ -70,20 +68,13 @@ func NormalRoutes() *web.Router {
 }
 
 func NormalHandler() (http.Handler, error) {
-	if os.Getenv(gin.EnvGinMode) == "" {
-		gin.SetMode(gin.ReleaseMode)
-	}
+	web.ConfigureDefaultMode()
 	routes := NormalRoutes()
-	router := routes.GinEngine()
-	// Swagger serves net/http directly; this is a temporary Gin route
-	// registration boundary until the parent matcher migrates to Chi.
 	if swagger := api.SwaggerHandler(setting.Common.RunMode); swagger != nil {
-		router.GET("/swagger/*filepath", func(c *gin.Context) {
-			swagger.ServeHTTP(c.Writer, c.Request)
-		})
+		routes.Get("/swagger/*filepath", swagger.ServeHTTP)
 	}
-	if err := router.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
-		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
+	if err := routes.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("configure HTTP trusted proxies: %w", err)
 	}
 	return routes.WrapIngress(), nil
 }

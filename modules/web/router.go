@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -130,10 +131,24 @@ type Router struct {
 
 // NewRouter constructs and owns its Gin matcher. There is no legacy-engine
 // registration path; Mount always installs routes onto the parent matcher.
+// ConfigureDefaultMode preserves the application's production default
+// without exposing Gin to routers/init.go. An explicit GIN_MODE wins.
+func ConfigureDefaultMode() {
+	if os.Getenv(gin.EnvGinMode) == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+}
+
 func NewRouter() *Router {
 	engine := gin.New()
 	_ = engine.SetTrustedProxies(nil)
 	return &Router{engine: engine}
+}
+
+// SetTrustedProxies configures transport-level client IP trust on the
+// application's router, without leaking the transport engine to bootstrap.
+func (r *Router) SetTrustedProxies(proxies []string) error {
+	return r.engine.SetTrustedProxies(proxies)
 }
 
 // GinEngine exposes the one transport matcher to composition and bootstrap.

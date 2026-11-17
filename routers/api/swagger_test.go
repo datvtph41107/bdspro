@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/templates"
+	"github.com/datvtph41107/bdspro/modules/web"
 )
 
 func TestInfrastructureOpenAPI(t *testing.T) {
@@ -60,6 +61,26 @@ func TestSwaggerIndexAndMissingAsset(t *testing.T) {
 		swagger.ServeHTTP(w, httptest.NewRequest(http.MethodGet, tc.path, nil))
 		if w.Code != tc.status {
 			t.Errorf("path=%s status=%d want=%d", tc.path, w.Code, tc.status)
+		}
+	}
+}
+
+func TestSwaggerRoutedThroughApplicationRouter(t *testing.T) {
+	router := web.NewRouter()
+	router.Get("/swagger/*filepath", SwaggerHandler("development").ServeHTTP)
+
+	for _, tc := range []struct {
+		path   string
+		status int
+	}{
+		{"/swagger/index.html", http.StatusOK},
+		{"/swagger/openapi.json", http.StatusOK},
+		{"/swagger/missing.json", http.StatusNotFound},
+	} {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
+		if rec.Code != tc.status {
+			t.Errorf("GET %s: status=%d want=%d", tc.path, rec.Code, tc.status)
 		}
 	}
 }
