@@ -3,7 +3,7 @@ package optional
 
 type Option[T any] []T
 
-func None[T any]() Option[T] { return nil }
+func None[T any]() Option[T]        { return nil }
 func Some[T any](value T) Option[T] { return Option[T]{value} }
 
 func FromPtr[T any](ptr *T) Option[T] {

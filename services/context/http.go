@@ -99,10 +99,10 @@ func (s *httpRequestSource) WriteStatus(status int) {
 		s.selected = status
 	}
 }
-func (s *httpRequestSource) Abort()                { s.aborted = true }
-func (s *httpRequestSource) IsAborted() bool       { return s.aborted }
-func (s *httpRequestSource) WrittenStatus() int    { return s.committed }
-func (s *httpRequestSource) SetHeader(k, v string) { s.writer.Header().Set(k, v) }
+func (s *httpRequestSource) Abort()                      { s.aborted = true }
+func (s *httpRequestSource) IsAborted() bool             { return s.aborted }
+func (s *httpRequestSource) WrittenStatus() int          { return s.committed }
+func (s *httpRequestSource) SetHeader(k, v string)       { s.writer.Header().Set(k, v) }
 func (s *httpRequestSource) ResponseHeader() http.Header { return s.writer.Header() }
 func (s *httpRequestSource) SetErrorCode(code string) {
 	if store := reqctx.FromContext(s.request.Context()); store != nil {
