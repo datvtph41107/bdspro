@@ -139,6 +139,37 @@ func ginPattern(pattern string) string {
 	return strings.Join(segments, "/")
 }
 
+// matchesMountScope applies child BeforeRouting to the same path scope
+// used by Gin for a mounted route. The check happens BEFORE route matching,
+// so it cannot rely on Gin's path parameters. Parameters match one nonempty
+// segment; static segments must match exactly.
+func matchesMountScope(pattern, path string) bool {
+	if pattern == "/" {
+		return strings.HasPrefix(path, "/")
+	}
+	if !strings.HasPrefix(path, "/") {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(pattern, "/"), "/")
+	actual := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	if len(actual) < len(parts) {
+		return false
+	}
+	for i, part := range parts {
+		if part == "" || actual[i] == "" {
+			return false
+		}
+		if (strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}")) ||
+			(strings.HasPrefix(part, ":") && len(part) > 1) {
+			continue
+		}
+		if part != actual[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // Router owns one Gin matcher and one Gitea-style HTTP handler compiler.
 // routeDefinition describes an HTTP action compiled once at registration.
 // Mount rebinds the already compiled chain onto its parent's Gin matcher.
@@ -218,7 +249,7 @@ func (r *Router) Mount(pattern string, sub *Router) {
 				}
 			}
 			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				if mountPrefix == "/" || req.URL.Path == mountPrefix || strings.HasPrefix(req.URL.Path, mountPrefix+"/") {
+				if matchesMountScope(mountPrefix, req.URL.Path) {
 					handler.ServeHTTP(w, req)
 					return
 				}
