@@ -13,24 +13,28 @@ import (
 
 type partySQLStub struct {
 	statements []string
-	failAt int
-	failure error
+	failAt     int
+	failure    error
 }
 
 type partyIDRow struct {
-	id int64
+	id  int64
 	err error
 }
 
 func (r partyIDRow) Scan(dest ...any) error {
-	if r.err != nil { return r.err }
+	if r.err != nil {
+		return r.err
+	}
 	*dest[0].(*int64) = r.id
 	return nil
 }
 
 func (s *partySQLStub) QueryRow(_ context.Context, sql string, _ ...interface{}) pgx.Row {
 	s.statements = append(s.statements, sql)
-	if s.failAt == 1 { return partyIDRow{err: s.failure} }
+	if s.failAt == 1 {
+		return partyIDRow{err: s.failure}
+	}
 	return partyIDRow{id: 42}
 }
 

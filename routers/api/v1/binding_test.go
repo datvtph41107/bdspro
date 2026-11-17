@@ -69,7 +69,9 @@ func TestR05APIBindFailuresPreventEndpointExecution(t *testing.T) {
 			if rec.Code != http.StatusBadRequest || calls != 0 {
 				t.Fatalf("status=%d calls=%d body=%s", rec.Code, calls, rec.Body.String())
 			}
-			var payload struct{ Code string `json:"code"` }
+			var payload struct {
+				Code string `json:"code"`
+			}
 			if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 				t.Fatalf("invalid error JSON: %v body=%s", err, rec.Body.String())
 			}

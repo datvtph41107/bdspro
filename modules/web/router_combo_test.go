@@ -37,7 +37,7 @@ func TestGiteaComboSharedActionsAndInheritedGroupMiddleware(t *testing.T) {
 	m.Get("/public", endpoint("public"))
 	for _, tc := range []struct {
 		method, path string
-		want []string
+		want         []string
 	}{
 		{http.MethodGet, "/orgs/acme/teams/42", []string{"after", "group", "shared", "get"}},
 		{http.MethodPost, "/orgs/acme/teams/42", []string{"after", "group", "shared", "post"}},

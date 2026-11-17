@@ -5,7 +5,7 @@ import "testing"
 func TestMountedBeforeRoutingDynamicScopeMatch(t *testing.T) {
 	cases := []struct {
 		pattern, path string
-		want bool
+		want          bool
 	}{
 		{"/orgs/{org}", "/orgs/acme", true},
 		{"/orgs/{org}", "/orgs/acme/teams/42", true},

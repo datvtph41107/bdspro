@@ -50,7 +50,7 @@ func TestSwaggerDevelopmentOnly(t *testing.T) {
 func TestSwaggerIndexAndMissingAsset(t *testing.T) {
 	swagger := SwaggerHandler("development")
 	for _, tc := range []struct {
-		path string
+		path   string
 		status int
 	}{
 		{"/swagger/index.html", http.StatusOK},

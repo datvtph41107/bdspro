@@ -42,13 +42,13 @@ func TestR07NestedGroupMountScopesAndSiblingIsolation(t *testing.T) {
 	}, guard("org"))
 	root.Get("/public", endpoint("public-endpoint"))
 
-	cases := []struct{
+	cases := []struct {
 		path string
 		want []string
 	}{
-		{"/orgs/acme/teams/42/view", []string{"root","org","child","team","team-endpoint"}},
-		{"/orgs/acme/profile", []string{"root","org","org-endpoint"}},
-		{"/public", []string{"root","public-endpoint"}},
+		{"/orgs/acme/teams/42/view", []string{"root", "org", "child", "team", "team-endpoint"}},
+		{"/orgs/acme/profile", []string{"root", "org", "org-endpoint"}},
+		{"/public", []string{"root", "public-endpoint"}},
 	}
 	for _, tc := range cases {
 		trace = nil
@@ -72,44 +72,52 @@ func TestR07MountedChildRejectsLateRouteAndMiddlewareMutations(t *testing.T) {
 	parent.Mount("/api", child)
 
 	noop := func(next http.Handler) http.Handler { return next }
-	mutations := []struct{
+	mutations := []struct {
 		name string
-		run func()
+		run  func()
 	}{
-		{"Methods",func(){ child.Get("/late", func(w http.ResponseWriter, _ *http.Request){ w.WriteHeader(http.StatusNoContent) }) }},
-		{"Group",func(){ child.Group("/late",func(){}) }},
-		{"BeforeRouting",func(){ child.BeforeRouting(noop) }},
-		{"AfterRouting",func(){ child.AfterRouting(noop) }},
-		{"Mount",func(){
-			grandchild:=NewRouter()
-			grandchild.Get("/child",func(w http.ResponseWriter,_ *http.Request){ w.WriteHeader(http.StatusNoContent) })
-			child.Mount("/late",grandchild)
+		{"Methods", func() {
+			child.Get("/late", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+		}},
+		{"Group", func() { child.Group("/late", func() {}) }},
+		{"BeforeRouting", func() { child.BeforeRouting(noop) }},
+		{"AfterRouting", func() { child.AfterRouting(noop) }},
+		{"Mount", func() {
+			grandchild := NewRouter()
+			grandchild.Get("/child", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+			child.Mount("/late", grandchild)
 		}},
 	}
 	for _, tc := range mutations {
-		t.Run(tc.name,func(t *testing.T){
-			defer func(){
-				if recover()==nil { t.Fatal("mounted router accepted late mutation") }
+		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Fatal("mounted router accepted late mutation")
+				}
 			}()
 			tc.run()
 		})
 	}
-	rec:=httptest.NewRecorder()
-	parent.ServeHTTP(rec,httptest.NewRequest(http.MethodGet,"/api/existing",nil))
-	if rec.Code!=http.StatusNoContent { t.Fatalf("mounted route status=%d",rec.Code) }
+	rec := httptest.NewRecorder()
+	parent.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/existing", nil))
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("mounted route status=%d", rec.Code)
+	}
 }
 
 // Reusing one frozen child at two mount points is safe and keeps the
 // route descriptors identical; neither mount permits late child mutation.
 func TestR07FrozenChildCanMountTwice(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	root,child:=NewRouter(),NewRouter()
-	child.Get("/ping",func(w http.ResponseWriter,_ *http.Request){w.WriteHeader(http.StatusNoContent)})
-	root.Mount("/one",child)
-	root.Mount("/two",child)
-	for _,path:=range []string{"/one/ping","/two/ping"} {
-		rec:=httptest.NewRecorder()
-		root.ServeHTTP(rec,httptest.NewRequest(http.MethodGet,path,nil))
-		if rec.Code!=http.StatusNoContent { t.Fatalf("%s status=%d",path,rec.Code) }
+	root, child := NewRouter(), NewRouter()
+	child.Get("/ping", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	root.Mount("/one", child)
+	root.Mount("/two", child)
+	for _, path := range []string{"/one/ping", "/two/ping"} {
+		rec := httptest.NewRecorder()
+		root.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("%s status=%d", path, rec.Code)
+		}
 	}
 }

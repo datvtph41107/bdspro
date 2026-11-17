@@ -72,7 +72,7 @@ func TestR08JSONEncodingErrorReturnsSafe500AndStopsChain(t *testing.T) {
 	router.AfterRouting(APIContexter())
 	reached := false
 	router.Get("/fail-encode", func(api *APIContext) {
-		api.JSON(http.StatusOK, struct{
+		api.JSON(http.StatusOK, struct {
 			Unsupported chan int `json:"unsupported"`
 		}{Unsupported: make(chan int)})
 	}, func(*APIContext) {
@@ -84,7 +84,7 @@ func TestR08JSONEncodingErrorReturnsSafe500AndStopsChain(t *testing.T) {
 		t.Fatalf("continued=%t status=%d", reached, rec.Code)
 	}
 	var data struct {
-		Code string `json:"code"`
+		Code  string `json:"code"`
 		Error string `json:"error"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &data); err != nil || data.Code != "internal_error" || data.Error != "internal server error" {

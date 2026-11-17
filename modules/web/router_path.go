@@ -72,4 +72,3 @@ func matchesMountScope(pattern, path string) bool {
 	}
 	return true
 }
-
