@@ -18,7 +18,7 @@ type r05Form struct {
 }
 
 func newR05Router(endpoint func(*appctx.APIContext)) *web.Router {
-	r := web.NewRouter()
+	r := web.NewGinRouter()
 	r.AfterRouting(appctx.APIContexter())
 	r.Post("/form", bind(r05Form{}), endpoint)
 	return r

@@ -8,7 +8,7 @@ import (
 )
 
 func TestChiRouterMatchMiddlewareMount(t *testing.T) {
-	parent, child := NewChiRouter(), NewChiRouter()
+	parent, child := NewRouter(), NewRouter()
 	var calls []string
 	parent.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -47,7 +47,7 @@ func TestChiRouterMatchMiddlewareMount(t *testing.T) {
 }
 
 func TestChiRouterTrustedClientIP(t *testing.T) {
-	r := NewChiRouter()
+	r := NewRouter()
 	if err := r.SetTrustedProxies([]string{"127.0.0.1/32"}); err != nil {
 		t.Fatal(err)
 	}

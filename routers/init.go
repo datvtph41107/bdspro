@@ -68,7 +68,6 @@ func NormalRoutes() *web.Router {
 }
 
 func NormalHandler() (http.Handler, error) {
-	web.ConfigureDefaultMode()
 	routes := NormalRoutes()
 	if swagger := api.SwaggerHandler(setting.Common.RunMode); swagger != nil {
 		routes.Get("/swagger/*", swagger.ServeHTTP)

@@ -20,7 +20,7 @@ func TestH01ProductionRoutesUseNativeHTTPContext(t *testing.T) {
 	}
 }
 
-func TestH01GinMatcherPublishesNativeHTTPPathValues(t *testing.T) {
+func TestH01DefaultChiRouterPublishesNativeHTTPPathValues(t *testing.T) {
 	r := web.NewRouter()
 	r.AfterRouting(appctx.APIContexterHTTP())
 	r.Get("/orgs/{org}/teams/{id}", func(api *appctx.APIContext) {

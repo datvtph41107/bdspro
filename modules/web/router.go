@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
-	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -133,16 +132,6 @@ type Router struct {
 	serveHandler      http.Handler
 }
 
-// NewRouter constructs and owns its Gin matcher. There is no legacy-engine
-// registration path; Mount always installs routes onto the parent matcher.
-// ConfigureDefaultMode preserves the application's production default
-// without exposing Gin to routers/init.go. An explicit GIN_MODE wins.
-func ConfigureDefaultMode() {
-	if os.Getenv(gin.EnvGinMode) == "" {
-		gin.SetMode(gin.ReleaseMode)
-	}
-}
-
 // NewRouter is the application-default Chi-backed router, as in Gitea.
 func NewRouter() *Router {
 	return NewChiRouter()
@@ -157,7 +146,7 @@ func NewGinRouter() *Router {
 }
 
 // NewChiRouter selects the same HTTP-native router execution model as
-// Gitea. NewRouter remains Gin-backed temporarily for legacy contract tests.
+// Gitea. NewRouter is an alias for this constructor.
 func NewChiRouter() *Router {
 	return &Router{chiRouter: chi.NewRouter()}
 }
