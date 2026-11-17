@@ -9,7 +9,8 @@ This document describes **existing** BDSPro behavior and the implementation boun
 | `db/migration/` | PostgreSQL constraints and durable storage shape | Public API errors |
 | `db/query/` | Atomic SQL predicates, authorization conditions and transaction queries | HTTP response shape |
 | `models/db/sqlc/` | Generated query implementations (read-only generated output) | Handwritten business decisions |
-| `models/db/` | pgx pool lifecycle, one `Transactioner` contract, SQLC store, bounded SQL pagination, reusable Party/Person persistence primitive | HTTP, provider/OAuth verification |
+| `models/db/` | pgx pool lifecycle, transaction scope, SQLC query access and bounded SQL pagination | HTTP and domain-specific persistence composition |
+| `models/party/` | Party/Person/Profile persistence composition, using caller-owned queries | HTTP and transaction lifecycle |
 | `models/account/` | Account creation, verified email linking and single-use email proof state transitions | Public response serialization |
 | `models/auth/` | Persistent credential, session, OTP, password-reset and external identity binding invariants | Token verification by external provider, HTTP codes |
 | `models/organization/` | Organization, team, member, invitation and role behavior; exact database-constraint interpretation | HTTP protocol and JSON projection |
@@ -19,7 +20,7 @@ This document describes **existing** BDSPro behavior and the implementation boun
 ### Add or change a model operation
 
 1. Specify the durable invariant and its authoritative SQL predicate, then update `db/query/` and migration if needed. Never edit `models/db/sqlc/*.gen.go` directly.
-2. Implement the state transition in the corresponding `models/<area>/<operation>.go`. Create a transaction at the owner boundary, not in an HTTP handler. Account registration via password, phone or OIDC must all create the same Party+Person pair through `db.CreatePersonWithParty` **inside their transactions**.
+2. Implement the state transition in the corresponding `models/<area>/<operation>.go`. Create a transaction at the owner boundary, not in an HTTP handler. Account registration via password, phone or OIDC must all create the same Party+Person pair through `party.CreatePersonWithParty` **inside their transactions**.
 3. Expose a domain-specific error from the package's `error.go` when a known SQL constraint or missing row matches the operation's invariant. Use `util.WithCause` to retain the driver cause without printing it in `Error()`. Unknown SQL errors remain unknown and must become safe HTTP 500 responses. Never classify by SQLSTATE alone.
 4. The service coordinates credentials, external verification, queue and notifications. It must not duplicate SQL authorization, turn a failed proof into a success, or return a partially created entity after a rolled-back transaction.
 5. The router validates request format and invokes `response.Error`, which alone maps known model errors to the existing HTTP status/code/message contract. Do not import `net/http`, Gin or response packages from models.
@@ -48,7 +49,7 @@ Explicit domain failures use `util.WithPublic(category, modelMessage, clientCode
 
 Gitea uses `models/db.WithTx2[T]` to make transaction-scoped work return a result. BDSPro's SQLC equivalent is `db.WithTxResult[T](ctx, transactioner, func(q *db.Queries) (T, error))`; `SQLStore.ExecTx` remains the sole owner of begin, commit and rollback.
 
-- The callback must use the provided transaction-bound `q` for **all** participating SQL writes. Helpers such as `db.CreatePersonWithParty(ctx, q)` are reusable transaction-scoped operations.
+- The callback must use the provided transaction-bound `q` for **all** participating SQL writes. Helpers such as `party.CreatePersonWithParty(ctx, q)` are reusable transaction-scoped operations.
 - Do **not** call `store.ExecTx` or ordinary pool-backed `store.Queries` from inside the callback. That would start a second, independently committed transaction and invalidate the outer atomicity guarantee. We intentionally do **not** simulate Gitea's XORM context engine or implicit nested transactions.
 - `WithTxResult` returns zero `T` on callback failure **and** failure during commit. Its returned value is not a success signal until the commit succeeds.
 - Use bare `ExecTx` for operations without a result, and for security flows that **deliberately commit failure counters** before returning an OTP error. These must not be refactored into rollback-on-error flows.
