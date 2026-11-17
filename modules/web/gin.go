@@ -208,7 +208,14 @@ func ginMatchedHandler(providers []middlewareProvider, endpoint http.HandlerFunc
 			called:   make([]atomic.Bool, len(providers)),
 		}
 		defer scope.finished.Store(true)
+		// Gin owns route matching during migration, but downstream typed
+		// contexts read parameters through Go's HTTP Request.PathValue.
+		// This is the last matcher-specific parameter translation; no
+		// business handler or APIContext needs a *gin.Context.
 		request := c.Request.WithContext(context.WithValue(c.Request.Context(), matchedRouteKey{}, scope))
+		for _, param := range c.Params {
+			request.SetPathValue(param.Key, param.Value)
+		}
 		c.Request = request
 		chain.ServeHTTP(c.Writer, request)
 	}
