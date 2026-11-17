@@ -75,7 +75,13 @@ func NormalHandler() (http.Handler, error) {
 	}
 	routes := NormalRoutes()
 	router := routes.GinEngine()
-	api.RegisterSwagger(router, setting.Common.RunMode)
+	// Swagger serves net/http directly; this is a temporary Gin route
+	// registration boundary until the parent matcher migrates to Chi.
+	if swagger := api.SwaggerHandler(setting.Common.RunMode); swagger != nil {
+		router.GET("/swagger/*filepath", func(c *gin.Context) {
+			swagger.ServeHTTP(c.Writer, c.Request)
+		})
+	}
 	if err := router.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("configure Gin trusted proxies: %w", err)
 	}

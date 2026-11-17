@@ -5,32 +5,35 @@ import (
 	"net/http"
 
 	"github.com/datvtph41107/bdspro/templates"
-	"github.com/gin-gonic/gin"
 )
 
-// Swagger is local documentation; public runtime routes are owned by Gin.
-func RegisterSwagger(router *gin.Engine, environment string) {
+// SwaggerHandler returns the development-only Swagger HTTP handler.
+// It has no dependency on the application's route matcher and can be
+// mounted by Gin today or Chi when the Web router migration is complete.
+// A nil handler means documentation is disabled in this environment.
+func SwaggerHandler(environment string) http.Handler {
 	if environment != "development" {
-		return
+		return nil
 	}
 	swaggerFS, err := fs.Sub(templates.Swagger, "swagger")
 	if err != nil {
 		panic(err)
 	}
-	// net/http FileServer redirects explicit index.html to the directory.
-	// Keep the reviewed URL /swagger/index.html directly usable while retaining
-	// Go's safe file handling for every other static asset.
 	fileServer := http.StripPrefix("/swagger/", http.FileServer(http.FS(swaggerFS)))
-	router.GET("/swagger/*filepath", func(c *gin.Context) {
-		if c.Param("filepath") == "/index.html" {
-			index, readErr := fs.ReadFile(swaggerFS, "index.html")
-			if readErr != nil {
-				c.AbortWithStatus(http.StatusInternalServerError)
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// FileServer redirects explicit index.html to its directory. Keep
+		// the reviewed documentation URL working during matcher migration.
+		if req.URL.Path == "/swagger/index.html" {
+			index, err := fs.ReadFile(swaggerFS, "index.html")
+			if err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
-			c.Data(http.StatusOK, "text/html; charset=utf-8", index)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(index)
 			return
 		}
-		fileServer.ServeHTTP(c.Writer, c.Request)
+		fileServer.ServeHTTP(w, req)
 	})
 }

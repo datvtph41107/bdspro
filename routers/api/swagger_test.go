@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/datvtph41107/bdspro/templates"
-	"github.com/gin-gonic/gin"
 )
 
 func TestInfrastructureOpenAPI(t *testing.T) {
@@ -31,18 +30,36 @@ func TestInfrastructureOpenAPI(t *testing.T) {
 }
 
 func TestSwaggerDevelopmentOnly(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	for _, mode := range []string{"development", "production"} {
-		r := gin.New()
-		RegisterSwagger(r, mode)
+		mux := http.NewServeMux()
+		if swagger := SwaggerHandler(mode); swagger != nil {
+			mux.Handle("/swagger/", swagger)
+		}
 		w := httptest.NewRecorder()
-		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/swagger/openapi.json", nil))
+		mux.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/swagger/openapi.json", nil))
 		want := http.StatusNotFound
 		if mode == "development" {
 			want = http.StatusOK
 		}
 		if w.Code != want {
 			t.Errorf("mode=%s status=%d want=%d", mode, w.Code, want)
+		}
+	}
+}
+
+func TestSwaggerIndexAndMissingAsset(t *testing.T) {
+	swagger := SwaggerHandler("development")
+	for _, tc := range []struct {
+		path string
+		status int
+	}{
+		{"/swagger/index.html", http.StatusOK},
+		{"/swagger/missing.json", http.StatusNotFound},
+	} {
+		w := httptest.NewRecorder()
+		swagger.ServeHTTP(w, httptest.NewRequest(http.MethodGet, tc.path, nil))
+		if w.Code != tc.status {
+			t.Errorf("path=%s status=%d want=%d", tc.path, w.Code, tc.status)
 		}
 	}
 }
