@@ -13,7 +13,7 @@ import (
 
 func TestWrapPreservesGinAbortAndPublicError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := web.NewRouter()
+	r := web.NewGinRouter()
 	r.AfterRouting(APIContexter())
 	reached := false
 	r.Get("/test", func(ctx *APIContext) {

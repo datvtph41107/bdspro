@@ -34,7 +34,7 @@ func TestValidationContract(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := web.NewRouter()
+			router := web.NewGinRouter()
 			router.AfterRouting(APIContexter())
 			router.Post("/", func(ctx *APIContext) {
 				var req input
@@ -74,7 +74,7 @@ func TestValidationContract(t *testing.T) {
 
 func TestValidationDoesNotExposeBindingError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	router.Post("/", func(ctx *APIContext) {
 		ctx.Validation(errors.New("private provider password"), struct{}{})
@@ -88,7 +88,7 @@ func TestValidationDoesNotExposeBindingError(t *testing.T) {
 
 func TestFieldErrorContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	router.Patch("/", func(ctx *APIContext) {
 		ctx.FieldError("name", "required", "name is required")

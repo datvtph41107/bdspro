@@ -17,8 +17,8 @@ type r04ActorKey struct{}
 // and denial mechanics, NOT an implementation of production authentication.
 func TestR04BeforeRoutingAndScopedAuthenticationOrder(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	parent := web.NewRouter()
-	child := web.NewRouter()
+	parent := web.NewGinRouter()
+	child := web.NewGinRouter()
 
 	var trace []string
 	parent.BeforeRouting(func(next http.Handler) http.Handler {
@@ -101,7 +101,7 @@ func TestR04BeforeRoutingAndScopedAuthenticationOrder(t *testing.T) {
 
 func TestR04TypedGuardAbortWithoutResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	m := web.NewRouter()
+	m := web.NewGinRouter()
 	m.AfterRouting(APIContexter())
 	reached := false
 	m.Group("/restricted", func() {

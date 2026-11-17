@@ -14,7 +14,7 @@ import (
 
 func TestR08JSONCommitIsSingleResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	router.Get("/one", func(api *APIContext) {
 		api.JSON(http.StatusCreated, map[string]string{"value": "first"})
@@ -40,7 +40,7 @@ func TestR08JSONCommitIsSingleResponse(t *testing.T) {
 
 func TestR08ErrorAfterCommittedResponseAbortsWithoutOverwriting(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	reached := false
 	router.Get("/one", func(api *APIContext) {
@@ -68,7 +68,7 @@ func TestR08ErrorAfterCommittedResponseAbortsWithoutOverwriting(t *testing.T) {
 
 func TestR08JSONEncodingErrorReturnsSafe500AndStopsChain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	reached := false
 	router.Get("/fail-encode", func(api *APIContext) {

@@ -15,8 +15,8 @@ import (
 // must keep one request-owned context/data store and invoke cleanup once.
 func TestR03NestedAPIContexterSharesContextAndCleanup(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	parent := web.NewRouter()
-	child := web.NewRouter()
+	parent := web.NewGinRouter()
+	child := web.NewGinRouter()
 	parent.AfterRouting(APIContexter())
 	child.AfterRouting(APIContexter())
 
@@ -57,7 +57,7 @@ func TestR03NestedAPIContexterSharesContextAndCleanup(t *testing.T) {
 
 func TestR03APIContextPropagatesEnrichedRequestToTypedAction(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 
 	type actorKey struct{}

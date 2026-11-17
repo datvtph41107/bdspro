@@ -12,7 +12,7 @@ import (
 
 func TestAPIContextIsSharedWithinRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := web.NewRouter()
+	r := web.NewGinRouter()
 	r.AfterRouting(APIContexter())
 	var first *APIContext
 	r.Get("/one", func(api *APIContext) {
@@ -35,7 +35,7 @@ type dynamicRequestKey struct{}
 
 func TestGinAdapterCarriesPathAndUpdatedContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	router.Get("/orgs/:id", func(api *APIContext) {
 		c := api.Base.source.(ginRequestSource).ctx
@@ -61,7 +61,7 @@ func TestGinAdapterCarriesPathAndUpdatedContext(t *testing.T) {
 
 func TestAPIContextRegisteredOnHTTPRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	router.Get("/provider", func(api *APIContext) {
 		if fromHTTP := GetAPIContextFromRequest(api.CurrentRequest()); fromHTTP != api {

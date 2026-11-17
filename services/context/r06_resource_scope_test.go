@@ -13,8 +13,8 @@ import (
 // BDSPro does not yet have a production organization resource/context contract.
 func TestR06MountedResourceAssignmentAndPermissionPreconditions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	parent := web.NewRouter()
-	child := web.NewRouter()
+	parent := web.NewGinRouter()
+	child := web.NewGinRouter()
 	parent.AfterRouting(APIContexter())
 
 	ingressCalls, lookupCalls, endpointCalls := 0, 0, 0

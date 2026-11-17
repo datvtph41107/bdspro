@@ -15,7 +15,7 @@ type requestStoreTraceKey struct{}
 
 func TestAPIContexterUsesModulesRequestDataAndCleanup(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -60,7 +60,7 @@ func (w *typedIngressWriter) WriteHeader(status int) {
 
 func TestTypedAPIContextPreservesHTTPIngressScope(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	engine := router.GinEngine()
 	cleanupCount := 0
@@ -110,7 +110,7 @@ func TestTypedAPIContextPreservesHTTPIngressScope(t *testing.T) {
 
 func TestTypedHTTPChainPropagatesGinContextMutation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	engine := router.GinEngine()
 
@@ -133,7 +133,7 @@ func TestTypedHTTPChainPropagatesGinContextMutation(t *testing.T) {
 
 func TestTypedAPIContextCancellationPropagatesAndCleansScope(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	engine := router.GinEngine()
 
@@ -176,7 +176,7 @@ func TestTypedAPIContextCancellationPropagatesAndCleansScope(t *testing.T) {
 
 func TestTypedGinAbortWithoutResponseStopsNextAction(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	engine := router.GinEngine()
 
@@ -202,7 +202,7 @@ func TestTypedGinAbortWithoutResponseStopsNextAction(t *testing.T) {
 
 func TestTypedStatusSelectionWithoutAbortContinues(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	engine := router.GinEngine()
 
@@ -225,7 +225,7 @@ func TestTypedStatusSelectionWithoutAbortContinues(t *testing.T) {
 
 func TestBeforeRoutingAndTypedAPIContextShareOneCurrentRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	router.BeforeRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -267,7 +267,7 @@ func TestBeforeRoutingAndTypedAPIContextShareOneCurrentRequest(t *testing.T) {
 // context. The same APIContexter owns scope finalization on success and panic.
 func TestAPIContexterCleanupAfterGinRecovery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	engine := router.GinEngine()
 	engine.Use(gin.Recovery())

@@ -13,7 +13,7 @@ import (
 // status or a chosen-but-unwritten status.
 func TestBaseWrittenStatusMatchesGinResponse(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := web.NewRouter()
+	router := web.NewGinRouter()
 	router.AfterRouting(APIContexter())
 	router.Get("/status", func(api *APIContext) {
 		if api.Written() || api.WrittenStatus() != 0 {
@@ -39,7 +39,7 @@ func TestBaseWrittenStatusMatchesGinResponse(t *testing.T) {
 // while retaining the selected-but-unwritten status semantics.
 func TestTypedAPIContextResponseStatusControlsActionChain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	m := web.NewRouter()
+	m := web.NewGinRouter()
 	m.AfterRouting(APIContexter())
 	router := m.GinEngine()
 
