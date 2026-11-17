@@ -26,7 +26,7 @@ func TestH01HTTPBoundaryContract(t *testing.T) {
 			next.ServeHTTP(w, req)
 		})
 	})
-	parent.AfterRouting(APIContexter())
+	parent.AfterRouting(APIContexterHTTP())
 	parent.AfterRouting(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			calls = append(calls, "parent")
@@ -86,7 +86,7 @@ func TestH01HTTPBoundaryUnmatchedRouteDoesNotCreateAPIContext(t *testing.T) {
 			next.ServeHTTP(w, req)
 		})
 	})
-	router.AfterRouting(APIContexter())
+	router.AfterRouting(APIContexterHTTP())
 	router.Get("/health", func(api *APIContext) {
 		api.Status(http.StatusNoContent)
 	})
