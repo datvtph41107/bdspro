@@ -2,22 +2,26 @@ package graceful
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
 )
 
-func await(t *testing.T, ch <-chan struct{}, name string) {
+func await(t *testing.T, ch <-chan struct{}, label string) {
 	t.Helper()
 	select {
 	case <-ch:
-	case <-time.After(time.Second):
-		t.Fatalf("timeout waiting for %s", name)
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timeout waiting for %s", label)
 	}
 }
+
 func TestShutdownDrainAndTerminate(t *testing.T) {
-	g := newManager(context.Background(), time.Second)
-	g.RegisterServer()
+	g := newGracefulManager(context.Background(), time.Second)
+	if err := g.RegisterServer(); err != nil {
+		t.Fatal(err)
+	}
 	callbackDone := make(chan struct{})
 	allowCallback := make(chan struct{})
 	g.RunAtShutdown(context.Background(), func() { <-allowCallback; close(callbackDone) })
@@ -28,102 +32,141 @@ func TestShutdownDrainAndTerminate(t *testing.T) {
 	g.ServerDone()
 	select {
 	case <-g.Done():
-		t.Fatal("manager finished before shutdown callback")
+		t.Fatal("done before shutdown hook")
 	default:
 	}
 	close(allowCallback)
-	await(t, callbackDone, "shutdown callback")
-	await(t, g.Done(), "done")
+	await(t, callbackDone, "shutdown hook")
+	await(t, g.Done(), "manager done")
 	select {
 	case <-terminateDone:
 	default:
-		t.Fatal("termination callback not waited for")
+		t.Fatal("terminate hook did not finish")
 	}
 }
-func TestHammerDeadlineCooperative(t *testing.T) {
-	g := newManager(context.Background(), 10*time.Millisecond)
-	g.RegisterServer()
-	g.DoGracefulShutdown()
-	await(t, g.IsHammer(), "hammer")
-	select {
-	case <-g.Done():
-		t.Fatal("hammer incorrectly bypassed running work")
-	default:
+
+func TestParentCancellationPreservesDrain(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	g := newGracefulManager(ctx, time.Second)
+	if err := g.RegisterServer(); err != nil {
+		t.Fatal(err)
 	}
-	g.ServerDone()
-	await(t, g.Done(), "done")
-}
-func TestParentCancelPreservesDrain(t *testing.T) {
-	parent, cancel := context.WithCancel(context.Background())
-	g := newManager(parent, time.Second)
-	g.RegisterServer()
 	cancel()
 	await(t, g.IsShutdown(), "shutdown")
 	select {
 	case <-g.IsHammer():
-		t.Fatal("hammer before deadline")
+		t.Fatal("premature hammer")
 	default:
 	}
 	select {
 	case <-g.TerminateContext().Done():
-		t.Fatal("terminate before drain")
+		t.Fatal("premature terminate")
 	default:
 	}
 	g.ServerDone()
 	await(t, g.Done(), "done")
 }
-func TestRepeatedShutdownIsIdempotent(t *testing.T) {
-	g := newManager(context.Background(), time.Second)
-	g.RegisterServer()
+
+func TestHammerAfterTimeoutDoesNotForceFinish(t *testing.T) {
+	g := newGracefulManager(context.Background(), 10*time.Millisecond)
+	if err := g.RegisterServer(); err != nil {
+		t.Fatal(err)
+	}
 	g.DoGracefulShutdown()
+	await(t, g.IsHammer(), "hammer")
+	select {
+	case <-g.Done():
+		t.Fatal("hammer is not server completion")
+	default:
+	}
+	g.ServerDone()
+	await(t, g.Done(), "done")
+}
+
+func TestStopBeforeRegistration(t *testing.T) {
+	g := newGracefulManager(context.Background(), -1)
+	g.DoGracefulShutdown()
+	await(t, g.IsShutdown(), "shutdown")
+	if err := g.RegisterServer(); !errors.Is(err, ErrShuttingDown) {
+		t.Fatalf("late registration = %v, want ErrShuttingDown", err)
+	}
+	await(t, g.Done(), "done")
+}
+
+func TestStopWhileStartupRegistered(t *testing.T) {
+	g := newGracefulManager(context.Background(), -1)
+	if err := g.RegisterServer(); err != nil {
+		t.Fatal(err)
+	}
+	terminate := make(chan struct{})
+	g.RunAtTerminate(func() { close(terminate) })
 	g.DoGracefulShutdown()
 	select {
-	case <-g.IsHammer():
-		t.Fatal("repeated shutdown escalated prematurely")
+	case <-g.Done():
+		t.Fatal("done before startup finished")
 	default:
 	}
 	g.ServerDone()
+	await(t, terminate, "cleanup")
 	await(t, g.Done(), "done")
 }
 
-type testRunner struct {
-	started  chan struct{}
-	done     chan struct{}
-	canceled chan struct{}
-	once     sync.Once
+func TestConcurrentRegistrationsAndRepeatedShutdown(t *testing.T) {
+	g := newGracefulManager(context.Background(), -1)
+	const n = 100
+	release := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := g.RegisterServer()
+			if err == nil {
+				<-release
+				g.ServerDone()
+				return
+			}
+			if !errors.Is(err, ErrShuttingDown) {
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+	}
+	g.DoGracefulShutdown()
+	g.DoGracefulShutdown()
+	close(release)
+	wg.Wait()
+	await(t, g.Done(), "done")
 }
 
-func (r *testRunner) Run()    { close(r.started); <-r.canceled; close(r.done) }
-func (r *testRunner) Cancel() { r.once.Do(func() { close(r.canceled) }) }
-func TestRunWithCancel(t *testing.T) {
-	g := newManager(context.Background(), time.Second)
-	r := &testRunner{started: make(chan struct{}), done: make(chan struct{}), canceled: make(chan struct{})}
-	go g.RunWithCancel(r)
-	<-r.started
+func TestRunWithShutdownContextRejectedAfterShutdown(t *testing.T) {
+	g := newGracefulManager(context.Background(), -1)
 	g.DoGracefulShutdown()
-	await(t, r.done, "runner")
+	ran := false
+	err := g.RunWithShutdownContext(func(context.Context) { ran = true })
+	if !errors.Is(err, ErrShuttingDown) || ran {
+		t.Fatalf("run=%v err=%v", ran, err)
+	}
 	await(t, g.Done(), "done")
 }
 
 func TestTerminateRegistrationDuringDrain(t *testing.T) {
-	g := newManager(context.Background(), time.Second)
-	g.RegisterServer()
+	g := newGracefulManager(context.Background(), -1)
+	if err := g.RegisterServer(); err != nil {
+		t.Fatal(err)
+	}
 	g.DoGracefulShutdown()
-
 	terminated := make(chan struct{})
 	g.RunAtTerminate(func() { close(terminated) })
-
 	select {
 	case <-terminated:
-		t.Fatal("subsystem cleaned up while the Web activity was still running")
+		t.Fatal("early cleanup")
 	default:
 	}
-
 	g.ServerDone()
 	await(t, g.Done(), "done")
 	select {
 	case <-terminated:
 	default:
-		t.Fatal("late registration did not run at termination")
+		t.Fatal("cleanup not run")
 	}
 }

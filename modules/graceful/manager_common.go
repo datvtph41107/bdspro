@@ -15,95 +15,71 @@ const (
 	stateTerminate
 )
 
-// Manager coordinates shutdown phases; subsystem owners remain responsible for resource cleanup.
+// Manager coordinates application lifetime. It never owns DB or HTTP resources.
 type Manager struct {
-	lock              sync.Mutex
-	state             state
-	shutdownCtx       context.Context
-	shutdownCancel    context.CancelFunc
-	hammerCtx         context.Context
-	hammerCancel      context.CancelFunc
-	terminateCtx      context.Context
-	terminateCancel   context.CancelFunc
-	managerCtx        context.Context
-	managerCancel     context.CancelFunc
-	running           sync.WaitGroup
-	shutdownCallbacks sync.WaitGroup
-	terminating       sync.WaitGroup
-	shutdownHooks     []func()
-	terminateHooks    []func()
-	hammerAfter       time.Duration
+	ctx context.Context
+
+	lock  sync.Mutex
+	state state
+
+	shutdownCtx  context.Context
+	hammerCtx    context.Context
+	terminateCtx context.Context
+	managerCtx   context.Context
+
+	shutdownCtxCancel  context.CancelFunc
+	hammerCtxCancel    context.CancelFunc
+	terminateCtxCancel context.CancelFunc
+	managerCtxCancel   context.CancelFunc
+
+	runningServerWaitGroup    sync.WaitGroup
+	shutdownCallbackWaitGroup sync.WaitGroup
+	terminateWaitGroup        sync.WaitGroup
+
+	toRunAtShutdown  []func()
+	toRunAtTerminate []func()
+
+	// drainDone closes after callbacks and registered activities finish. A
+	// hammer deadline is meaningful only until that point, not during DB cleanup.
+	drainDone   chan struct{}
+	hammerAfter time.Duration
 }
 
-func newManager(parent context.Context, hammerAfter time.Duration) *Manager {
-	phaseParent := context.WithoutCancel(parent)
-	g := &Manager{state: stateRunning, hammerAfter: hammerAfter}
-	g.shutdownCtx, g.shutdownCancel = context.WithCancel(phaseParent)
-	g.hammerCtx, g.hammerCancel = context.WithCancel(phaseParent)
-	g.terminateCtx, g.terminateCancel = context.WithCancel(phaseParent)
-	g.managerCtx, g.managerCancel = context.WithCancel(phaseParent)
-	go func() {
-		select {
-		case <-parent.Done():
-			g.DoGracefulShutdown()
-		case <-g.Done():
-		}
-	}()
+// newGracefulManager separates construction, preparation, and OS-specific start.
+func newGracefulManager(ctx context.Context, hammerAfter time.Duration) *Manager {
+	g := &Manager{
+		ctx:         ctx,
+		hammerAfter: hammerAfter,
+	}
+	g.prepare(ctx)
+	g.start()
 	return g
 }
 
-// DoGracefulShutdown is idempotent. Hammer is a separate timeout/escalation phase.
+// prepare has no goroutine, OS signal, network or resource side effects.
+func (g *Manager) prepare(ctx context.Context) {
+	// A CLI context cancellation is a request to enter shutdown, not a
+	// command to cancel all lifecycle phases simultaneously.
+	phaseParent := context.WithoutCancel(ctx)
+
+	g.shutdownCtx, g.shutdownCtxCancel = context.WithCancel(phaseParent)
+	g.hammerCtx, g.hammerCtxCancel = context.WithCancel(phaseParent)
+	g.terminateCtx, g.terminateCtxCancel = context.WithCancel(phaseParent)
+	g.managerCtx, g.managerCtxCancel = context.WithCancel(phaseParent)
+	g.drainDone = make(chan struct{})
+
+	if !g.setStateTransition(stateInit, stateRunning) {
+		panic("graceful: invalid transition init -> running")
+	}
+}
+
+// DoGracefulShutdown accepts one request to stop; the sequence is in manager.go.
 func (g *Manager) DoGracefulShutdown() {
-	g.lock.Lock()
-	if g.state != stateRunning {
-		g.lock.Unlock()
-		return
-	}
-	g.state = stateShuttingDown
-	g.shutdownCancel()
-	hooks := append([]func(){}, g.shutdownHooks...)
-	g.shutdownCallbacks.Add(len(hooks))
-	g.lock.Unlock()
-	for _, hook := range hooks {
-		go func(fn func()) {
-			defer g.shutdownCallbacks.Done()
-			fn()
-		}(hook)
-	}
-	go g.finishShutdown()
+	g.doShutdown()
 }
 
-func (g *Manager) finishShutdown() {
-	hammerDone := make(chan struct{})
-	if g.hammerAfter >= 0 {
-		go func() {
-			timer := time.NewTimer(g.hammerAfter)
-			defer timer.Stop()
-			select {
-			case <-timer.C:
-				g.DoImmediateHammer()
-			case <-hammerDone:
-			}
-		}()
-	}
-	g.shutdownCallbacks.Wait()
-	g.running.Wait()
-	close(hammerDone)
-	g.lock.Lock()
-	g.state = stateTerminate
-	hooks := append([]func(){}, g.terminateHooks...)
-	g.terminating.Add(len(hooks))
-	g.terminateCancel()
-	g.lock.Unlock()
-	for _, hook := range hooks {
-		go func(fn func()) {
-			defer g.terminating.Done()
-			fn()
-		}(hook)
-	}
-	g.terminating.Wait()
-	g.managerCancel()
+// DoImmediateHammer signals escalation to interested consumers.
+// It is not SIGKILL; goroutines must respond cooperatively.
+func (g *Manager) DoImmediateHammer() {
+	g.hammerCtxCancel()
 }
-
-// DoImmediateHammer cancels the hammer context; it cannot forcibly kill goroutines.
-func (g *Manager) DoImmediateHammer() { g.hammerCancel() }
