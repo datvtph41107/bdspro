@@ -6,13 +6,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 )
 
 // R07 guards must inherit from parent groups and must not leak to sibling routes.
 func TestR07NestedGroupMountScopesAndSiblingIsolation(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	root, child := NewGinRouter(), NewGinRouter()
+	root, child := NewRouter(), NewRouter()
 	var trace []string
 
 	guard := func(name string) func(http.Handler) http.Handler {
@@ -60,12 +58,11 @@ func TestR07NestedGroupMountScopesAndSiblingIsolation(t *testing.T) {
 	}
 }
 
-// A mounted child's Gin route table has been flattened into its parent.
+// A mounted child's Chi subrouter has been mounted structurally under its parent.
 // Any later route registration must fail loudly rather than claim a route
 // that parent requests will never reach.
 func TestR07MountedChildRejectsLateRouteAndMiddlewareMutations(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	parent, child := NewGinRouter(), NewGinRouter()
+	parent, child := NewRouter(), NewRouter()
 	child.Get("/existing", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -83,7 +80,7 @@ func TestR07MountedChildRejectsLateRouteAndMiddlewareMutations(t *testing.T) {
 		{"BeforeRouting", func() { child.BeforeRouting(noop) }},
 		{"AfterRouting", func() { child.AfterRouting(noop) }},
 		{"Mount", func() {
-			grandchild := NewGinRouter()
+			grandchild := NewRouter()
 			grandchild.Get("/child", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 			child.Mount("/late", grandchild)
 		}},
@@ -108,8 +105,7 @@ func TestR07MountedChildRejectsLateRouteAndMiddlewareMutations(t *testing.T) {
 // Reusing one frozen child at two mount points is safe and keeps the
 // route descriptors identical; neither mount permits late child mutation.
 func TestR07FrozenChildCanMountTwice(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	root, child := NewGinRouter(), NewGinRouter()
+	root, child := NewRouter(), NewRouter()
 	child.Get("/ping", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	root.Mount("/one", child)
 	root.Mount("/two", child)

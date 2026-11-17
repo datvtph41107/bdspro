@@ -6,12 +6,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 )
 
 func TestGiteaComboSharedActionsAndInheritedGroupMiddleware(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	m := NewGinRouter()
+	m := NewRouter()
 	trace := []string{}
 	guard := func(label string) func(http.Handler) http.Handler {
 		return func(next http.Handler) http.Handler {
@@ -54,8 +52,7 @@ func TestGiteaComboSharedActionsAndInheritedGroupMiddleware(t *testing.T) {
 }
 
 func TestGiteaComboRejectsLateMethodsOnMountedChild(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	parent, child := NewGinRouter(), NewGinRouter()
+	parent, child := NewRouter(), NewRouter()
 	child.Get("/ready", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
