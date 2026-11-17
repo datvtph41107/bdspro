@@ -12,60 +12,43 @@ import (
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/modules/startup"
 	"github.com/datvtph41107/bdspro/modules/web"
 	api "github.com/datvtph41107/bdspro/routers/api"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/common"
 )
 
-func InitWebInstalled(ctx context.Context) (err error) {
-	if err := setting.LoadSettings(); err != nil {
-		return fmt.Errorf("load Web settings: %w", err)
-	}
-
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	// Database startup policy belongs to routers/common.
-	if err := common.InitDBEngine(ctx); err != nil {
-		return err
-	}
-
-	redisReady := false
-
-	// At this point PostgreSQL has been initialized.
-	// Roll back completed resources if a later step fails.
-	defer func() {
-		if err != nil {
-			if redisReady {
-				conn.CloseRedis()
-			}
-			db.CloseEngine()
-		}
-	}()
-
-	log.Info("PostgreSQL ready")
-
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	// Redis startup policy is kept alongside database startup policy.
-	// The Redis module still owns its client and graceful cleanup registration.
-	if err := common.InitRedis(ctx); err != nil {
-		return err
-	}
-
-	redisReady = true
-
-	// The process JWT verifier is built from validated security settings.
-	// Access tokens are never accepted without an active DB session.
-	if err := auth.Init(); err != nil {
-		return fmt.Errorf("initialize access token verifier: %w", err)
-	}
-
-	return ctx.Err()
+// InitWebInstalled initializes required Web dependencies in order. Resources
+// retain their own graceful termination hooks; failed startup rolls back
+// completed stages through idempotent resource-owner close functions.
+func InitWebInstalled(ctx context.Context) error {
+	return startup.Run(ctx,
+		startup.Step{
+			Name: "web settings",
+			Init: func(context.Context) error { return setting.LoadSettings() },
+		},
+		startup.Step{
+			Name: "PostgreSQL",
+			Init: func(ctx context.Context) error {
+				if err := common.InitDBEngine(ctx); err != nil {
+					return err
+				}
+				log.Info("PostgreSQL ready")
+				return nil
+			},
+			Rollback: db.CloseEngine,
+		},
+		startup.Step{
+			Name: "Redis",
+			Init: common.InitRedis,
+			Rollback: conn.CloseRedis,
+		},
+		startup.Step{
+			Name: "access token verifier",
+			Init: func(context.Context) error { return auth.Init() },
+		},
+	)
 }
 
 // NormalRoutes registers the versioned API tree, including Organization/Team.

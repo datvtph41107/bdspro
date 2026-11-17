@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/conn"
@@ -11,6 +10,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/queue"
 	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/datvtph41107/bdspro/modules/startup"
 	worker_service "github.com/datvtph41107/bdspro/services/worker"
 	"github.com/hibiken/asynq"
 	"github.com/urfave/cli/v3"
@@ -57,30 +57,31 @@ func serveWorker() error {
 			return err
 		}
 
-		setting.LoadDBSetting()
-		setting.LoadRedisSetting()
-
-		if err := setting.LoadQueueSetting(); err != nil {
-			return fmt.Errorf(
-				"load worker queue settings: %w", err,
-			)
-		}
-
-		// Dependencies are initialized by their owners.
-		if err := db.InitEngine(
-			manager.HammerContext(),
+		// Config is validated before opening DB/Redis; a failed stage
+		// releases all previously initialized resources in reverse order.
+		// ShutdownContext cancels an in-flight worker bootstrap promptly.
+		if err := startup.Run(manager.ShutdownContext(),
+			startup.Step{
+				Name: "worker settings",
+				Init: func(context.Context) error {
+					return setting.LoadWorkerSettings()
+				},
+			},
+			startup.Step{
+				Name: "PostgreSQL",
+				Init: db.InitEngine,
+				Rollback: db.CloseEngine,
+			},
+			startup.Step{
+				Name: "Redis",
+				Init: func(ctx context.Context) error {
+					_, err := conn.InitRedis(ctx)
+					return err
+				},
+				Rollback: conn.CloseRedis,
+			},
 		); err != nil {
-			return fmt.Errorf(
-				"initialize worker PostgreSQL: %w", err,
-			)
-		}
-
-		if _, err := conn.InitRedis(
-			manager.HammerContext(),
-		); err != nil {
-			return fmt.Errorf(
-				"initialize worker Redis: %w", err,
-			)
+			return err
 		}
 
 		if err := manager.ShutdownContext().Err(); err != nil {
