@@ -72,7 +72,7 @@ func NewRedis(client *redis.Client, policies map[Action]Policy) (*Limiter, error
 	return &Limiter{client: client, policies: copied}, nil
 }
 
-// Check records admission atomically. sourceIP must be Gin's trusted ClientIP,
+// Check records admission atomically. sourceIP must be the HTTP ingress's trusted ClientIP,
 // not an unverified forwarded header. Any error must be rejected by the caller.
 func (l *Limiter) Check(ctx context.Context, action Action, sourceIP string) (Event, error) {
 	if l == nil || l.client == nil {

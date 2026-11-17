@@ -52,7 +52,9 @@ fi
 
 token_source="$(mktemp /tmp/bdspro-team-token-XXXXXXXX.go)"
 response="$(mktemp /tmp/bdspro-team-response-XXXXXXXX.json)"
-trap 'rm -f "$token_source" "$response"' EXIT
+headers="$(mktemp /tmp/bdspro-team-headers-XXXXXXXX.txt)"
+oversized="$(mktemp /tmp/bdspro-team-oversized-XXXXXXXX.json)"
+trap 'rm -f "$token_source" "$response" "$headers" "$oversized"' EXIT
 
 cat > "$token_source" <<'GO'
 package main
@@ -109,6 +111,21 @@ assert_status "$status" 201
 team_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$response")"
 echo "Create team (owner): 201; id=$team_id"
 
+status="$(curl -sS -D "$headers" -o "$response" -w '%{http_code}' \
+  -H "Authorization: Bearer $owner_token" "$url?page=2&limit=1")"
+assert_status "$status" 200
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["page"]==2 and d["limit"]==1 and d["total"]==1 and len(d["items"])==0' "$response"
+grep -qi '^X-Total-Count: 1' "$headers"
+grep -q 'rel="prev"' "$headers"
+grep -qi '^Access-Control-Expose-Headers:.*X-Total-Count' "$headers"
+echo "Team pagination SQL count and Link/X-Total-Count headers: 200"
+
+status="$(call_api -H "Authorization: Bearer $owner_token" "$url?page=0")"
+assert_status "$status" 400
+status="$(call_api -H "Authorization: Bearer $owner_token" "$url?limit=999")"
+assert_status "$status" 400
+echo "Invalid pagination rejected: 400"
+
 status="$(call_api -H "Authorization: Bearer $member_token" "$url/$team_id")"
 assert_status "$status" 200
 echo "Read team (member): 200"
@@ -134,6 +151,17 @@ status="$(call_api -X PATCH -H "Authorization: Bearer $owner_token" \
 assert_status "$status" 400
 echo "Null PATCH name rejected: 400"
 
+status="$(call_api -X PATCH -H "Authorization: Bearer $owner_token" \
+  -H 'Content-Type: application/json' -d '{"name":"Alpha"}{"name":"Beta"}' "$url/$team_id")"
+assert_status "$status" 400
+echo "Multiple JSON documents rejected: 400"
+
+python3 -c 'import sys; open(sys.argv[1],"wb").write(b"{\"name\":\"" + b"x"*1048576 + b"\"}")' "$oversized"
+status="$(call_api -X PATCH -H "Authorization: Bearer $owner_token" \
+  -H 'Content-Type: application/json' --data-binary "@$oversized" "$url/$team_id")"
+assert_status "$status" 413
+echo "Oversized JSON body rejected: 413"
+
 status="$(call_api -X PATCH -H "Authorization: Bearer $member_token" \
   -H 'Content-Type: application/json' -d '{"name":"Unauthorized"}' "$url/$team_id")"
 assert_status "$status" 403
@@ -144,10 +172,12 @@ status="$(call_api -X POST -H "Authorization: Bearer $owner_token" \
 assert_status "$status" 409
 echo "Duplicate team name: 409"
 
-status="$(call_api -X POST -H "Authorization: Bearer $owner_token" \
-  -H 'Content-Type: application/json' -d '{"name":"Blocked-by-IP-Admission"}' "$url")"
+status="$(curl -sS -D "$headers" -o "$response" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $owner_token" -H 'Content-Type: application/json' \
+  -d '{"name":"Blocked-by-IP-Admission"}' "$url")"
 assert_status "$status" 429
-echo "Third Team create request denied by IPActive: 429"
+grep -qi "^Retry-After: [1-9]" "$headers"
+echo "Third Team create request denied by IPActive: 429 with Retry-After"
 
 status="$(call_api "$url")"
 assert_status "$status" 401

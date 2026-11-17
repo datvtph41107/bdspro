@@ -8,10 +8,11 @@ BDSPro contains the HTTP/runtime infrastructure and an initial session-authentic
 - `modules/` — reusable technical subsystems (settings, logging, routing, graceful lifecycle, PostgreSQL/Redis connections, queue infrastructure).
 - `models/db/` — context-bound SQLC execution, PostgreSQL engine, transactions and generated SQLC bindings.
 - `db/migration/` and `db/query/` — retained SQL schema history and SQLC query definitions. This reset does not delete or rewrite database data.
-- `services/context/` — HTTP request context, JWT session authentication, verified Organization assignment and responses.
-- `models/organization/` and `services/org/` — Team domain values and context-first SQLC transaction orchestration.
-- `routers/init.go` and `routers/api/` — HTTP composition and the minimal infrastructure API.
-- `templates/swagger/` — Swagger UI and infrastructure-only OpenAPI contract.
+- `services/context/` — HTTP Base, APIContext, error/response and pagination contracts (no JWT or DB queries).
+- `services/auth/` and `models/auth/` — verified session-backed actors; cryptographic JWT code remains in `modules/auth/`.
+- `models/organization/` and `services/org/` — Organization membership, owner rules and Team SQLC transaction orchestration.
+- `routers/init.go`, `routers/common/auth.go` and `routers/api/v1/org/` — HTTP composition, authentication/permission actions and domain handlers.
+- `templates/swagger/` — development Swagger UI and the reviewed Team OpenAPI contract.
 
 ## Run
 
@@ -42,4 +43,4 @@ go vet ./...
 make swagger-check
 ```
 
-**Scope:** This is an infrastructure source reset, not a database reset. Team business APIs and their JWT/session authorization are installed. Full login/token issuance and unrelated domain APIs are not reinstalled. The repo has no Go regression tests after the explicit removal request; CI exercises an isolated Team lifecycle on PostgreSQL plus infrastructure smoke checks. See [Team API vertical slice](docs/architecture/team-api-vertical-slice.md).
+**Scope:** This is an infrastructure source reset, not a database reset. Team business APIs and their JWT/session authorization are installed. Full login/token issuance and unrelated domain APIs are not reinstalled. The repo has no Go regression tests after the explicit removal request; CI exercises an isolated Team lifecycle on PostgreSQL plus infrastructure smoke checks. See [Team API vertical slice](docs/architecture/team-api-vertical-slice.md) and [G01 Application Core](docs/architecture/g01-application-core.md).
