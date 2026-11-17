@@ -122,6 +122,15 @@ func prepareHandleArgsIn(resp http.ResponseWriter, req *http.Request, typ reflec
 				panic(fmt.Sprintf("web: nil response status provider for %s", arg))
 			}
 			value := reflect.ValueOf(provider)
+			// A typed nil pointer becomes a non-nil interface. Reject it before
+			// reflect.Call can pass a missing request context to a route action.
+			switch value.Kind() {
+			case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
+				reflect.Pointer, reflect.Slice:
+				if value.IsNil() {
+					panic(fmt.Sprintf("web: typed nil response status provider for %s", arg))
+				}
+			}
 			if !value.Type().AssignableTo(arg) {
 				panic(fmt.Sprintf("web: provider %s is incompatible with %s", value.Type(), arg))
 			}
