@@ -57,6 +57,9 @@ jobs:
             echo 'Gin adapter remains in application source'; exit 1
           fi
 
+      - name: Validate OpenAPI contract
+        run: make swagger-check
+
       - name: Verify SQLC generated output
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0

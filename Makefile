@@ -63,7 +63,8 @@ server: config-local
 swagger: swagger-check
 
 swagger-check:
-	go test ./routers/api -run '^TestInfrastructureOpenAPI$|^TestSwaggerDevelopmentOnly$' -count=1
+	python3 -m json.tool templates/swagger/openapi.json > /dev/null
+	python3 -c 'import json; d=json.load(open("templates/swagger/openapi.json")); p=d["paths"]; assert "/api/v1/health" in p; assert all(k in p["/api/v1/orgs/{org}/teams"] for k in ("get","post")); assert all(k in p["/api/v1/orgs/{org}/teams/{team}"] for k in ("get","patch")); assert "sessionBearer" in d["components"]["securitySchemes"]'
 
 # Same application binary as Docker, but written to a local, ignored build directory.
 .PHONY: build watch race vet
