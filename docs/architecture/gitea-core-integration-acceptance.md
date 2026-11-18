@@ -18,6 +18,9 @@ This document is an honest implementation inventory, **not** a declaration that 
 - `services/audit/retention_test.go`: partial batch, hard limit, database failure, invalid configuration.
 - `services/auth/password_proof.go`: credential verification using existing SQLC account/hash queries, generic failure for unknown/wrong/passwordless credentials and dummy bcrypt comparison on absent records. It intentionally does **not** issue tokens.
 - `services/auth/password_proof_test.go`: fake SQLC reader tests for valid/wrong/absent credentials and database failure.
+- `services/auth/password_login.go`, `routers/api/v1/auth/password.go`, `modules/structs/auth.go`: rate-limited POST `/api/v1/users/login` using VerifyPasswordProof and IssueSession. The route rejects requests when Redis-backed admission is unavailable and sends `Cache-Control: no-store` on success.
+- `models/audit/session_issue.go`: required `auth.session.issued` record in the transaction creating session and login history. Audit insert failure prevents commit and token return.
+- `routers/api/v1/api_login_test.go`: validates public login fails closed when admission is missing.
 - `services/auth/session_actor.go` and tests: live DB session authority for server-verified session references; revoked, expired, unknown or mismatched sessions are rejected.
 - `services/auth/access.go`: access JWT verification now reuses the same session authority and checks account-ID agreement.
 - `.github/workflows/test.yml`: SQLC generator pinned to v1.31.1 matching committed generated output.
@@ -32,7 +35,7 @@ This document is an honest implementation inventory, **not** a declaration that 
 | Area | Required behavior before acceptance | Status |
 | --- | --- | --- |
 | Email/password registration | account + credential + verification job commit atomically; idempotent retries; duplicate races | NOT IMPLEMENTED |
-| Password login | verified proof -> session record/history/required audit -> access/refresh tokens | NOT IMPLEMENTED |
+| Password login | verified proof -> session record/history/required audit -> access/refresh tokens | HTTP ROUTE + CORE IMPLEMENTED; DB E2E / FAILURE / BRUTE-FORCE SECURITY REVIEW PENDING |
 | Refresh/logout | atomic refresh rotation, revoke/session concurrency and authenticated endpoints | SERVICE CORE + SELF-LOGOUT ROUTE; REFRESH HTTP AND INTEGRATION PENDING |
 | Phone signup/login | E.164, persisted OTP challenge MAC, limits, single-use, anti-enumeration, provider send | SQLC ONLY |
 | Google OIDC login | state/PKCE/nonce, issuer/audience/signature, callback, issuer+sub link, sessions | CONFIG/SQLC ONLY |
