@@ -84,17 +84,9 @@ func (s *Stream) Serve(
 	)
 	defer cancel()
 
-	// A failed subscription is signalled
-	// by a closed channel.
-	select {
-	case _, ok := <-ch:
-		if !ok {
-			return ErrSubscriptionClosed
-		}
-		// A buffered event may have arrived already.
-		// The authoritative snapshot below supersedes it.
-	default:
-	}
+	// Never read the subscription before the event loop: doing so
+	// discards an event that arrives immediately after Subscribe.
+	// A closed subscription is detected by the loop below.
 
 	initial, err := s.snapshot(ctx, accountID)
 	if err != nil {
