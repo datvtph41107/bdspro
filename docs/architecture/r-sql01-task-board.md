@@ -11,8 +11,8 @@ The user asked for a dedicated PR with discrete commits and *implementation of a
 | ID | Work | Gate / evidence | Current status |
 | --- | --- | --- | --- |
 | RSQL-00 | Record architecture alternatives, citations, risks, invariants | Pinned BDSPro + Gitea + SimpleBank + Coder + River code links, explicit PROPOSED status | IMPLEMENTED (documentation; review pending) |
-| RSQL-01 | Protect nested rollback-only, closed scope, canceled context and result behavior | Unit tests exercising current `models/db/context.go` policy; `go test -race ./models/db` on final HEAD | IMPLEMENTED (tests added; CI pending) |
-| RSQL-02 | Test wrong-context pool escape against disposable Postgres | Two distinguishable writes via pool vs tx; rollback; verify committed data from independent connection | OPEN (source-level counterexample only) |
+| RSQL-01 | Protect nested rollback-only, closed scope, canceled context and result behavior | Unit tests exercising current `models/db/context.go` policy; `go test -race ./models/db` on final HEAD | VERIFIED on CI for commit `55f44e2` (rerun required at final HEAD) |
+| RSQL-02 | Test wrong-context pool escape against disposable Postgres | Two distinguishable writes via pool vs tx; rollback; verify committed data from independent connection; nested sticky rollback | IMPLEMENTED (`context_postgres_test.go` added at `dc53e17`; waiting final-HEAD CI) |
 | RSQL-03 | Compare explicit `*Queries` callback vs `TxScope` vs current `WithTx` | Same failure tests, nested semantics, call-site change-count, benchmark under identical workload | OPEN — no runtime API swap authorized |
 | RSQL-04 | Inventory all `GetEngine` / `GetQueries` / `New` / `WithTx` / `WithTx2` call sites | File:line caller/callee matrix and native SQL exception rationale | OPEN |
 | RSQL-05 | Audit SQLC `emit_interface`, aliases and generated ownership | Usage count, compile-time API delta, any required compatibility bridges | OPEN |
@@ -30,10 +30,38 @@ The user asked for a dedicated PR with discrete commits and *implementation of a
 - `models/db/sqlc/` and `models/db/sqlc_types.gen.go` are generator-owned. Never hand-edit them as a refactor shortcut.
 - `docs/architecture/f40-*.md` govern a different workstream. No event/queue migration belongs in R-SQL01.
 
+## Evidence from CI
+
+- GitHub Actions run [44262702418](https://github.com/datvtph41107/bdspro/actions/runs/44262702418) for PR #243 head `55f44e2` **passed**: SQLC drift, Go race/vet, disposable PostgreSQL migrations, Docker build, HTTP smoke.
+- New PostgreSQL regression test in `models/db/context_postgres_test.go` was added at `dc53e17` **after** that run. No pass is claimed until CI on the new final HEAD completes.
+- PostgreSQL test uses `BDS_TEST_MODE=disposable` and `BDS_TEST_DB_URL`, creates a uniquely named scratch table and drops it; it does not touch application schema or migrations.
+- This test is an **intentional counterexample**: it reproduces the present context-selection risk, but does not authorize changing production semantics.
+
 ## Local / CI validation
 
 ~~~sh
 go test ./models/db -run '^TestTransactionScope' -count=1
+BDS_TEST_MODE=disposable BDS_TEST_DB_URL='postgres://.../disposable_test_db?sslmode=disable' go test -race ./models/db -run '^TestTransactionPostgresExecutorEscapego test ./...
+go vet ./...
+make sqlc-check  # requires sqlc v1.30.0, changes generated files before diff check
+~~~
+
+For PostgreSQL-backed tests use disposable `BDS_TEST_MODE=disposable` and `BDS_TEST_DB_URL`; never point failure-injection or migration rollback tests at production. The local toolchain/environment must match `go.mod` and the CI image before interpreting build failures.
+
+## Review checklist
+
+- [ ] Evidence links and design statuses accurate
+- [ ] Unit tests confirmed passing at final PR HEAD
+- [ ] SQLC drift checks confirmed passing at final PR HEAD
+- [ ] No changes to user-visible HTTP/security/domain behavior
+- [ ] No schema migration, data reset, or outbox/F40 changes
+- [ ] CI checks and open test gaps documented in PR
+- [ ] Architectural acceptance decision explicitly recorded by maintainer
+
+## Follow-up decision rule
+
+Select the smallest implementation that satisfies executor ownership and rollback-only invariants. Do not claim explicit transaction APIs are better on performance without controlled measurements. Defer Store/driver frameworks and package moves without demonstrated cost-benefit.
+ -count=1
 go test -race ./models/db
 go test ./...
 go vet ./...
