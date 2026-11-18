@@ -26,9 +26,11 @@ type Querier interface {
 	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
 	CountActiveOrganizationOwners(ctx context.Context, organizationID int64) (int64, error)
 	CountTeamsForAccount(ctx context.Context, arg CountTeamsForAccountParams) (int64, error)
+	CountUnreadNotifications(ctx context.Context, accountID int64) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateAccountConnectionHistory(ctx context.Context, arg CreateAccountConnectionHistoryParams) error
 	CreateAccountSettings(ctx context.Context, accountID int64) error
+	CreateNotification(ctx context.Context, arg CreateNotificationParams) (int64, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	CreateOrganizationMember(ctx context.Context, arg CreateOrganizationMemberParams) (OrganizationMember, error)
 	CreateParty(ctx context.Context) (int64, error)
@@ -45,6 +47,7 @@ type Querier interface {
 	CreateTeamInviteForOwner(ctx context.Context, arg CreateTeamInviteForOwnerParams) (TeamInvite, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	DeleteExpiredAccountConnectionHistories(ctx context.Context, arg DeleteExpiredAccountConnectionHistoriesParams) (int64, error)
+	DeleteNotification(ctx context.Context, arg DeleteNotificationParams) (int64, error)
 	DeleteOldAuditEvents(ctx context.Context, arg DeleteOldAuditEventsParams) (int64, error)
 	DeleteOrgMemberTeamLinks(ctx context.Context, arg DeleteOrgMemberTeamLinksParams) (int64, error)
 	DeletePasswordResetTokensForAccount(ctx context.Context, accountID int64) error
@@ -74,6 +77,7 @@ type Querier interface {
 	IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, arg IssuePasswordResetTokenIfCurrentVersionParams) (int64, error)
 	LinkOAuth2Credential(ctx context.Context, arg LinkOAuth2CredentialParams) (int64, error)
 	ListAccountConnectionHistories(ctx context.Context, accountID int64) ([]ListAccountConnectionHistoriesRow, error)
+	ListAccountNotifications(ctx context.Context, arg ListAccountNotificationsParams) ([]Notification, error)
 	ListActiveSessions(ctx context.Context, accountID int64) ([]ListActiveSessionsRow, error)
 	ListAuditEvents(ctx context.Context, arg ListAuditEventsParams) ([]AuditEvent, error)
 	ListOAuth2CredentialsForAccount(ctx context.Context, accountID int64) ([]Oauth2Credential, error)
@@ -105,7 +109,9 @@ type Querier interface {
 	// stays compatible with FK KEY SHARE during login and OAuth consent.
 	LockSessionRevocationAccount(ctx context.Context, accountID int64) (int64, error)
 	LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error)
+	MarkAllNotificationsRead(ctx context.Context, accountID int64) (int64, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (Account, error)
+	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (int64, error)
 	// This query is called only inside the role-service transaction after
 	// LockOrganizationRoleChanges and LockActingOrganizationOwner.
 	// A new owner must be an actual account with a verified contact, not an
