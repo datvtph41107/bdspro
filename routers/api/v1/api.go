@@ -21,6 +21,7 @@ func Routes() *web.Router {
 	m.Post("/users/login", reqIPAdmission(ipactive.Login), bind(structs.LoginPasswordOption{}), authroutes.LoginPassword)
 	m.Post("/users/refresh", reqIPAdmission(ipactive.RenewAccess), bind(structs.RefreshSessionOption{}), authroutes.Refresh)
 	m.Group("/users/me", func() {
+		m.Get("/sessions", authroutes.ListSessions)
 		m.Post("/logout", authroutes.Logout)
 	}, common.APIAuth)
 	m.Group("/orgs/{org}", func() {
