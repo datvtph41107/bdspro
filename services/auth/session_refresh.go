@@ -103,11 +103,11 @@ func RefreshSession(
 		}
 
 		return SessionTokens{
-			AccountID: current.AccountID,
-			SessionID: newID,
-			AccessToken: access,
-			RefreshToken: plain,
-			AccessExpiry: claims.ExpiredAt,
+			AccountID:     current.AccountID,
+			SessionID:     newID,
+			AccessToken:   access,
+			RefreshToken:  plain,
+			AccessExpiry:  claims.ExpiredAt,
 			RefreshExpiry: refreshExpiry,
 		}, nil
 	})
