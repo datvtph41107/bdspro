@@ -19,9 +19,11 @@ import (
 	"github.com/datvtph41107/bdspro/routers/common"
 )
 
-// InitWebInstalled initializes required Web dependencies in order. Resources
-// retain their own graceful termination hooks; failed startup rolls back
-// completed stages through idempotent resource-owner close functions.
+// InitWebInstalled initializes required Web dependencies in order. Web
+// composition registers process termination hooks after successful resource
+// initialization; startup.Run rolls back completed stages on failure.
+// Resource owners implement idempotent Close functions but do not own
+// process-wide graceful registration.
 func InitWebInstalled(ctx context.Context) error {
 	return startup.Run(ctx,
 		startup.Step{
