@@ -61,7 +61,7 @@ func RevokeSession(
 		}
 
 		changed, err := q.RevokeOwnedSession(txCtx, db.RevokeOwnedSessionParams{
-			ID: targetSessionID,
+			ID:        targetSessionID,
 			AccountID: doer.AccountID,
 		})
 		if err != nil {
