@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"io"
 	"net"
 	"strings"
 	"testing"
@@ -160,4 +159,3 @@ func TestSMTPHonorsCanceledContext(t *testing.T) {
 	}
 }
 
-var _ = io.EOF
