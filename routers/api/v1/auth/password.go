@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
+	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
-	token "github.com/datvtph41107/bdspro/modules/auth"
 	authservice "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
 )
