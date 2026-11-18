@@ -62,7 +62,7 @@ jobs:
 
       - name: Verify SQLC generated output
         run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
           export PATH="$(go env GOPATH)/bin:$PATH"
           make sqlc-check
 
