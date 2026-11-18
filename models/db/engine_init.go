@@ -4,8 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/datvtph41107/bdspro/modules/graceful"
-	"github.com/datvtph41107/bdspro/modules/setting"
 )
 
 var defaultEngine struct {
@@ -17,9 +15,9 @@ var defaultEngine struct {
 // InitEngine creates and publishes the process-owned
 // PostgreSQL engine.
 //
-// It is called once during application startup,
-// after Common settings and the graceful Manager exist.
-func InitEngine(ctx context.Context) error {
+// The process composition root supplies the connection string and registers
+// CloseEngine at termination. This package does not control process lifecycle.
+func InitEngine(ctx context.Context, dsn string) error {
 	defaultEngine.mu.Lock()
 	defer defaultEngine.mu.Unlock()
 
@@ -31,10 +29,7 @@ func InitEngine(ctx context.Context) error {
 		return ErrEngineAlreadyInitialized
 	}
 
-	pool, err := Connect(
-		ctx,
-		setting.Database.DBSource,
-	)
+	pool, err := Connect(ctx, dsn)
 	if err != nil {
 		return err
 	}
@@ -46,13 +41,8 @@ func InitEngine(ctx context.Context) error {
 		return err
 	}
 
-	// Publication occurs only after the resource
-	// has been verified and cleanup is registered.
-	//
-	// The startup activity registration in cmd
-	// prevents termination before initialization ends.
-	graceful.GetManager().RunAtTerminate(CloseEngine)
-
+	// The caller owns lifecycle registration before making the application
+	// available to consumers; this package only publishes the verified pool.
 	defaultEngine.value = &engine{
 		pool:    pool,
 		queries: New(pool),
