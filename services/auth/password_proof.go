@@ -15,7 +15,7 @@ var ErrInvalidPasswordProof = errors.New("auth: invalid credentials")
 // This constant is a fixed, unused bcrypt hash. It is not an account password.
 // Unknown usernames still perform a bcrypt comparison, reducing username
 // enumeration through coarse timing differences. Rate limiting is still required.
-const dummyPasswordHash = "$2y$10$okz.yzFWtvrBOT7Cb2elve7ihPHJMFnf5kn51J6879owXVPQ/S1bi"
+const dummyPasswordHash = "$2y$10$.RObcmSkvpHamOSP0lvt1uXTnLf9a831K3I5oSsIeT90HcasaxvD2"
 
 type passwordReader interface {
 	ReadAccountByEmail(context.Context, string) (db.ReadAccountByEmailRow, error)
