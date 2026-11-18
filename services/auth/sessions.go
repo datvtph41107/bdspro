@@ -7,6 +7,7 @@ import (
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/google/uuid"
 )
 
 // ListSessions returns only sessions of the caller's verified account.
@@ -19,7 +20,7 @@ func ListSessions(ctx context.Context, doer *authmodel.Actor) ([]db.ListActiveSe
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if doer == nil || doer.AccountID <= 0 || doer.SessionID == ([16]byte{}) {
+	if doer == nil || doer.AccountID <= 0 || doer.SessionID == uuid.Nil {
 		return nil, util.ErrUnauthenticated
 	}
 	q, err := db.GetQueries(ctx)
