@@ -68,7 +68,7 @@ func serveWorker() error {
 				},
 			},
 			startup.Step{
-				Name:     "PostgreSQL",
+				Name: "PostgreSQL",
 				Init: func(ctx context.Context) error {
 					if err := db.InitEngine(ctx, setting.Database.DBSource); err != nil {
 						return err
