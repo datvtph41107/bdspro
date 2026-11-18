@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	auditmodel "github.com/datvtph41107/bdspro/models/audit"
 	"github.com/datvtph41107/bdspro/models/db"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/google/uuid"
@@ -97,7 +98,7 @@ func IssueSession(
 		}); err != nil {
 			return fmt.Errorf("auth: persist login history: %w", err)
 		}
-		return nil
+		return auditmodel.RecordSessionIssued(txCtx, accountID, sessionID)
 	})
 	if err != nil {
 		// No credentials are returned on DB/commit failure.
