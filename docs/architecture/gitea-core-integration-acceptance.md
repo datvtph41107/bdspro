@@ -18,6 +18,9 @@ This document is an honest implementation inventory, **not** a declaration that 
 - `services/audit/retention_test.go`: partial batch, hard limit, database failure, invalid configuration.
 - `services/auth/password_proof.go`: credential verification using existing SQLC account/hash queries, generic failure for unknown/wrong/passwordless credentials and dummy bcrypt comparison on absent records. It intentionally does **not** issue tokens.
 - `services/auth/password_proof_test.go`: fake SQLC reader tests for valid/wrong/absent credentials and database failure.
+- `services/auth/session_actor.go` and tests: live DB session authority for server-verified session references; revoked, expired, unknown or mismatched sessions are rejected.
+- `services/auth/access.go`: access JWT verification now reuses the same session authority and checks account-ID agreement.
+- `.github/workflows/test.yml`: SQLC generator pinned to v1.31.1 matching committed generated output.
 
 ## Missing — blockers to marking the broad requested scope as complete
 
