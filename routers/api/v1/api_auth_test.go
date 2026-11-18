@@ -22,3 +22,13 @@ func TestLogoutRequiresVerifiedActor(t *testing.T) {
 		})
 	}
 }
+
+func TestSessionListingRequiresVerifiedActor(t *testing.T) {
+	handler := Routes()
+	req := httptest.NewRequest(http.MethodGet, "/users/me/sessions", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated session listing: status=%d body=%q", rr.Code, rr.Body.String())
+	}
+}
