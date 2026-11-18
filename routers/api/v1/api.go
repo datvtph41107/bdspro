@@ -7,6 +7,7 @@ import (
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/modules/web/middleware"
+	authroutes "github.com/datvtph41107/bdspro/routers/api/v1/auth"
 	org "github.com/datvtph41107/bdspro/routers/api/v1/org"
 	"github.com/datvtph41107/bdspro/routers/common"
 	appctx "github.com/datvtph41107/bdspro/services/context"
@@ -17,6 +18,9 @@ func Routes() *web.Router {
 	m := web.NewRouter()
 	m.AfterRouting(appctx.APIContexter())
 	m.Get("/health", Health)
+	m.Group("/users/me", func() {
+		m.Post("/logout", authroutes.Logout)
+	}, common.APIAuth)
 	m.Group("/orgs/{org}", func() {
 		m.Combo("/teams").
 			Get(org.ListTeams).
