@@ -45,3 +45,10 @@ An ADR's existence does not make it accepted. A test pass does not prove a desig
 `Problem → system forces → source evidence (Gitea + other sound sources) → actual mechanism/call graph → alternatives + costs → counterexample → BDSPro gap (not presumed correct) → open/decision status → implementation and verification gates`.
 
 The point is **durable technical judgment**, not alignment theater or premature refactoring.
+
+## Active migration program F40 — Event, Queue, Realtime, Audit (2026-11-18)
+
+- **Requested target:** replace Asynq and PostgreSQL `job_outbox` with a Gitea-inspired queue/worker architecture; align typed notify, pub/sub, websocket, message, subscriber and audit with evidenced Gitea patterns. This is an **implementation direction**, not an assertion the replacement has been implemented or migration approved.
+- **Read first:** [F40 foundation and Gitea source evidence](docs/architecture/f40-gitea-subsystem-foundation.md) and [F40 sequential task board](docs/architecture/f40-task-board.md). Follow the gates, one task at a time; mark VERIFIED only with actual source/test evidence and final HEAD.
+- **Critical:** no drop of `job_outbox` while producers/consumers or queued rows remain. Preserve security email recovery, existing audit transaction invariants, user authorization and domain semantics. Do not replace Asynq with Redis Pub/Sub, or confuse notifications with queue jobs.
+- Current `cache-queue.md`, `runtime.md`, old ADRs and migration files are pre-cutover baseline evidence until source and tests show actual replacement; don't silently rewrite history.
