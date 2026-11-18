@@ -10,6 +10,8 @@ import (
 	"github.com/datvtph41107/bdspro/modules/process"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/routers"
+	auditservice "github.com/datvtph41107/bdspro/services/audit"
+	"github.com/datvtph41107/bdspro/services/cron"
 	"github.com/urfave/cli/v3"
 )
 
@@ -78,6 +80,10 @@ func serveInstalled() error {
 			return nil
 		}
 
+		if err := startAuditRetention(g); err != nil {
+			return err
+		}
+
 		return listen(handler)
 	}()
 
@@ -123,4 +129,24 @@ func listen(handler http.Handler) error {
 	log.Info("HTTP listener closed: %s", address)
 
 	return err
+}
+
+// startAuditRetention is the Web entrypoint's explicit cron composition.
+// Registration occurs only after settings and PostgreSQL are initialized.
+// RunWithCancel registers the activity and shutdown hook under one lock,
+// ensuring the database is not terminated while audit pruning is running.
+func startAuditRetention(g *graceful.Manager) error {
+	scheduler := cron.New(g.ShutdownContext())
+	if err := auditservice.RegisterRetention(scheduler, setting.Audit.RetentionDays); err != nil {
+		return err
+	}
+
+	go func() {
+		if err := g.RunWithCancel(scheduler); err != nil &&
+			!errors.Is(err, graceful.ErrShuttingDown) {
+			log.Error("Audit retention scheduler stopped unexpectedly: %v", err)
+		}
+	}()
+
+	return nil
 }
