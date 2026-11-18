@@ -21,6 +21,11 @@ This document is an honest implementation inventory, **not** a declaration that 
 - `services/auth/session_actor.go` and tests: live DB session authority for server-verified session references; revoked, expired, unknown or mismatched sessions are rejected.
 - `services/auth/access.go`: access JWT verification now reuses the same session authority and checks account-ID agreement.
 - `.github/workflows/test.yml`: SQLC generator pinned to v1.31.1 matching committed generated output.
+- `services/auth/session_issue.go`: trusted successful-credential callers issue access JWT plus opaque refresh credentials, persisting the refresh digest and login history atomically.
+- `services/auth/session_refresh.go`: single-use refresh credential rotates under PostgreSQL transaction; old refresh session is blocked, replacement is created before commit. No refresh HTTP endpoint yet.
+- `services/auth/session_revoke.go` and `models/audit/session.go`: transaction-bound owned-session revocation with required typed audit record.
+- `routers/api/v1/auth/session.go`: authenticated bearer self-logout handler, routed at `POST /api/v1/users/me/logout`.
+- Unit tests cover invalid session/revoke/refresh proofs and opaque refresh randomness; SQL integration and security concurrency tests remain mandatory.
 
 ## Missing — blockers to marking the broad requested scope as complete
 
@@ -28,7 +33,7 @@ This document is an honest implementation inventory, **not** a declaration that 
 | --- | --- | --- |
 | Email/password registration | account + credential + verification job commit atomically; idempotent retries; duplicate races | NOT IMPLEMENTED |
 | Password login | verified proof -> session record/history/required audit -> access/refresh tokens | NOT IMPLEMENTED |
-| Refresh/logout | atomic refresh rotation and revoke/session concurrency | NOT INTEGRATED |
+| Refresh/logout | atomic refresh rotation, revoke/session concurrency and authenticated endpoints | SERVICE CORE + SELF-LOGOUT ROUTE; REFRESH HTTP AND INTEGRATION PENDING |
 | Phone signup/login | E.164, persisted OTP challenge MAC, limits, single-use, anti-enumeration, provider send | SQLC ONLY |
 | Google OIDC login | state/PKCE/nonce, issuer/audience/signature, callback, issuer+sub link, sessions | CONFIG/SQLC ONLY |
 | Authenticated user context | endpoint coverage, session authority and error contract | PARTIAL |
