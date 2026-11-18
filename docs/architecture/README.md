@@ -46,3 +46,10 @@ Their code is not interchangeable just because they are siblings.
 
 No generic repository registry, routing facade, plugin loader, or empty
 `routers/web` is assumed by this architecture.
+
+## Active target migration: F40 (requested 2026-11-18)
+
+- [F40 — Gitea-aligned Event, Queue, Realtime and Audit Foundation](f40-gitea-subsystem-foundation.md): pinned mechanisms, replacement of Asynq/outbox, database decisions, lifecycle/error/retry and safety gates.
+- [F40 sequential task board](f40-task-board.md): F40-00 through F40-14, per-task closure record, verified status and migration blockers.
+
+**Status:** documentation-only implementation plan. The execution paths above describe the existing pre-cutover source; they must not be interpreted as the F40 target already running. Never drop job_outbox until verified task cutover, backlog reconciliation, and an approved forward migration.
