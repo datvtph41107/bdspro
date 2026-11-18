@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/datvtph41107/bdspro/services/cron"
 )
 
 func TestSweepStopsWhenBatchIsPartial(t *testing.T) {
@@ -64,5 +66,27 @@ func TestSweepRejectsInvalidConfiguration(t *testing.T) {
 	_, err = Sweep(ctx, 90, func(context.Context, time.Time, int32) (int64, error) { t.Fatal("must not query"); return 0, nil }, time.Now())
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestRegisterRetentionIsExplicitAndValidatesConfig(t *testing.T) {
+	s := cron.New(context.Background())
+	if s.HasJobs() {
+		t.Fatal("new scheduler started with registered work")
+	}
+	if err := RegisterRetention(s, 90); err != nil {
+		t.Fatalf("register retention: %v", err)
+	}
+	if !s.HasJobs() {
+		t.Fatal("retention task not registered")
+	}
+	if err := RegisterRetention(s, 90); err == nil {
+		t.Fatal("duplicate retention task accepted")
+	}
+	if err := RegisterRetention(nil, 90); err == nil {
+		t.Fatal("nil scheduler accepted")
+	}
+	if err := RegisterRetention(cron.New(context.Background()), 0); err == nil {
+		t.Fatal("invalid retention period accepted")
 	}
 }
