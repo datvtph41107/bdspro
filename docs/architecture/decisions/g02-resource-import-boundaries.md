@@ -87,7 +87,7 @@ go test ./...
 go test -race ./modules/graceful/... ./models/db/... ./modules/conn/... ./routers/common/...
 ```
 
-The isolated checker unit tests were executed locally under Go 1.23.2 with `GO111MODULE=off go test -v` and passed (8 test/subtest outcomes across three top-level tests). The complete BDSPro suite could not be executed in that environment because the repository declares Go 1.27.3 and the full checkout/toolchain was unavailable. CI status at final PR head must be inspected before approval.
+The isolated checker unit tests were executed locally under Go 1.23.2 with `GO111MODULE=off go test -v` and passed (three top-level tests, including six subtests). The complete BDSPro suite could not be executed in that environment because the repository declares Go 1.27.3 and the full checkout/toolchain was unavailable. CI status at final PR head must be inspected before approval.
 
 ## Alternatives considered
 
