@@ -69,14 +69,23 @@ func serveWorker() error {
 			},
 			startup.Step{
 				Name:     "PostgreSQL",
-				Init:     db.InitEngine,
+				Init: func(ctx context.Context) error {
+					if err := db.InitEngine(ctx, setting.Database.DBSource); err != nil {
+						return err
+					}
+					manager.RunAtTerminate(db.CloseEngine)
+					return nil
+				},
 				Rollback: db.CloseEngine,
 			},
 			startup.Step{
 				Name: "Redis",
 				Init: func(ctx context.Context) error {
-					_, err := conn.InitRedis(ctx)
-					return err
+					if _, err := conn.InitRedis(ctx, setting.Redis.Address); err != nil {
+						return err
+					}
+					manager.RunAtTerminate(conn.CloseRedis)
+					return nil
 				},
 				Rollback: conn.CloseRedis,
 			},
