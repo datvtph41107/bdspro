@@ -20,11 +20,11 @@ import (
 // SessionTokens is returned only after the session and its login history
 // have committed. Neither credential should ever be written to logs.
 type SessionTokens struct {
-	AccountID    int64     `json:"account_id"`
-	SessionID    uuid.UUID `json:"session_id"`
-	AccessToken  string    `json:"access_token"`
-	RefreshToken string    `json:"refresh_token"`
-	AccessExpiry time.Time `json:"access_expires_at"`
+	AccountID     int64     `json:"account_id"`
+	SessionID     uuid.UUID `json:"session_id"`
+	AccessToken   string    `json:"access_token"`
+	RefreshToken  string    `json:"refresh_token"`
+	AccessExpiry  time.Time `json:"access_expires_at"`
 	RefreshExpiry time.Time `json:"refresh_expires_at"`
 }
 
