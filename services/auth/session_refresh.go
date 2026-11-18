@@ -67,6 +67,16 @@ func RefreshSession(
 			return SessionTokens{}, util.ErrUnauthenticated
 		}
 
+		// Serialize refresh rotation with account-wide session revocation.
+		// This lock is also acquired by RevokeAllAccountSessions workflows.
+		_, err = q.LockSessionRevocationAccount(txCtx, current.AccountID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SessionTokens{}, util.ErrUnauthenticated
+		}
+		if err != nil {
+			return SessionTokens{}, fmt.Errorf("auth: lock refresh account: %w", err)
+		}
+
 		_, err = q.BlockSession(txCtx, db.BlockSessionParams{
 			ID: sessionID, AccountID: current.AccountID, RefreshToken: digest,
 		})
