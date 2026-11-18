@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -111,24 +110,13 @@ func (n *Notifier) NotificationCountEvent(
 		)
 	}
 
-	event, err := json.Marshal(struct {
-		EventType string `json:"eventType"`
-		EventData struct {
-			Count int64 `json:"count"`
-		} `json:"eventData"`
-	}{
-		EventType: EventNotificationCount,
-		EventData: struct {
+	return EncodeEvent(
+		EventNotificationCount,
+		"", // Broadcast đến mọi session thuộc account topic.
+		struct {
 			Count int64 `json:"count"`
 		}{
 			Count: count,
 		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf(
-			"encode notification count: %w", err,
-		)
-	}
-
-	return append([]byte{'\n'}, event...), nil
+	)
 }
