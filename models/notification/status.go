@@ -6,18 +6,20 @@ import (
 	"github.com/datvtph41107/bdspro/models/db"
 )
 
-// MarkRead changes an unread notification to read.
-// It returns whether a row was actually changed.
-func MarkRead(
+// Store provides notification status persistence.
+// It owns no realtime side effects.
+type Store struct{}
+
+func (Store) MarkRead(
 	ctx context.Context,
 	accountID, notificationID int64,
 ) (bool, error) {
-	queries, err := db.GetQueries(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	affected, err := queries.MarkNotificationRead(
+	n, err := q.MarkNotificationRead(
 		ctx,
 		db.MarkNotificationReadParams{
 			AccountID:      accountID,
@@ -28,38 +30,29 @@ func MarkRead(
 		return false, err
 	}
 
-	return affected > 0, nil
+	return n > 0, nil
 }
 
-// MarkAllRead marks all unread notifications of an account.
-// A zero count is a valid, idempotent result.
-func MarkAllRead(
+func (Store) MarkAllRead(
 	ctx context.Context,
 	accountID int64,
 ) (int64, error) {
-	queries, err := db.GetQueries(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	return queries.MarkAllNotificationsRead(
-		ctx,
-		accountID,
-	)
+	return q.MarkAllNotificationsRead(ctx, accountID)
 }
 
-// CountUnread reads the authoritative unread count.
-func CountUnread(
+func (Store) CountUnread(
 	ctx context.Context,
 	accountID int64,
 ) (int64, error) {
-	queries, err := db.GetQueries(ctx)
+	q, err := db.GetQueries(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	return queries.CountUnreadNotifications(
-		ctx,
-		accountID,
-	)
+	return q.CountUnreadNotifications(ctx, accountID)
 }

@@ -4,55 +4,111 @@ import (
 	"context"
 	"errors"
 	"testing"
-
-	"github.com/datvtph41107/bdspro/services/notify"
 )
 
-func TestNewRequiresDispatcher(t *testing.T) {
-	_, err := New(nil)
-	if !errors.Is(err, ErrNoDispatcher) {
-		t.Fatalf("expected ErrNoDispatcher, got %v", err)
+type fakeStore struct {
+	changed bool
+	count   int64
+	err     error
+}
+
+func (f *fakeStore) MarkRead(
+	context.Context, int64, int64,
+) (bool, error) {
+	return f.changed, f.err
+}
+
+func (f *fakeStore) MarkAllRead(
+	context.Context, int64,
+) (int64, error) {
+	return f.count, f.err
+}
+
+type spyNotifier struct {
+	calls []int64
+}
+
+func (s *spyNotifier) NotificationCountChange(
+	_ context.Context,
+	accountID int64,
+) {
+	s.calls = append(s.calls, accountID)
+}
+
+func TestMarkRead(t *testing.T) {
+	tests := []struct {
+		name      string
+		changed   bool
+		storeErr  error
+		wantCalls int
+	}{
+		{"changed", true, nil, 1},
+		{"unchanged", false, nil, 0},
+		{"db failure", false, errors.New("db down"), 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			notifier := &spyNotifier{}
+			service, err := New(
+				&fakeStore{
+					changed: tt.changed,
+					err:     tt.storeErr,
+				},
+				notifier,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			changed, err := service.MarkRead(
+				context.Background(), 42, 99,
+			)
+
+			if (err != nil) != (tt.storeErr != nil) {
+				t.Fatalf("error = %v", err)
+			}
+			if tt.storeErr == nil && changed != tt.changed {
+				t.Fatalf("changed = %v", changed)
+			}
+			if len(notifier.calls) != tt.wantCalls {
+				t.Fatalf("notifications = %v", notifier.calls)
+			}
+		})
 	}
 }
 
-func TestMarkReadRejectsInvalidIDs(t *testing.T) {
-	dispatcher, err := notify.NewDispatcher()
+func TestMarkAllReadNotifiesOnce(t *testing.T) {
+	notifier := &spyNotifier{}
+	service, err := New(
+		&fakeStore{count: 100},
+		notifier,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	service, err := New(dispatcher)
+	n, err := service.MarkAllRead(context.Background(), 42)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	_, err = service.MarkRead(context.Background(), 0, 10)
-	if !errors.Is(err, ErrInvalidAccountID) {
-		t.Fatalf("invalid account: %v", err)
-	}
-
-	_, err = service.MarkRead(context.Background(), 42, 0)
-	if !errors.Is(err, ErrInvalidNotificationID) {
-		t.Fatalf("invalid notification: %v", err)
+	if n != 100 || len(notifier.calls) != 1 {
+		t.Fatalf("rows=%d notifications=%v", n, notifier.calls)
 	}
 }
 
-func TestMarkAllReadRejectsCancelledContext(t *testing.T) {
-	dispatcher, err := notify.NewDispatcher()
+func TestInvalidAccountDoesNotNotify(t *testing.T) {
+	notifier := &spyNotifier{}
+	service, err := New(&fakeStore{changed: true}, notifier)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	service, err := New(dispatcher)
-	if err != nil {
-		t.Fatal(err)
+	_, err = service.MarkRead(context.Background(), 0, 99)
+	if !errors.Is(err, ErrInvalidAccount) {
+		t.Fatalf("error = %v", err)
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	_, err = service.MarkAllRead(ctx, 42)
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("expected canceled context, got %v", err)
+	if len(notifier.calls) != 0 {
+		t.Fatalf("unexpected notify: %v", notifier.calls)
 	}
 }
