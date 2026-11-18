@@ -123,4 +123,5 @@ jobs:
           done
           status="$(curl -sS -o /tmp/bdspro-team-unauthorized.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"name":"probe"}' http://127.0.0.1:8080/api/v1/orgs/1/teams)"
           test "$status" = 401
+          bash scripts/demo-auth-api.sh
           bash scripts/demo-team-api.sh
