@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 )
@@ -18,11 +19,15 @@ func InitDBEngine(ctx context.Context) (err error) {
 
 	log.Info("Beginning PostgreSQL initialization")
 
-	if err := db.InitEngine(ctx); err != nil {
+	if err := db.InitEngine(ctx, setting.Database.DBSource); err != nil {
 		return fmt.Errorf(
 			"initialize PostgreSQL engine: %w", err,
 		)
 	}
+
+	// Web composition owns termination registration; db only owns the pool.
+	// The startup activity keeps the manager alive during initialization.
+	graceful.GetManager().RunAtTerminate(db.CloseEngine)
 
 	// Once the engine is initialized, every subsequent
 	// startup failure must release it.
