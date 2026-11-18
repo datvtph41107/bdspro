@@ -18,6 +18,7 @@ func Routes() *web.Router {
 	m := web.NewRouter()
 	m.AfterRouting(appctx.APIContexter())
 	m.Get("/health", Health)
+	m.Post("/users/login", reqIPAdmission(ipactive.Login), bind(structs.LoginPasswordOption{}), authroutes.LoginPassword)
 	m.Group("/users/me", func() {
 		m.Post("/logout", authroutes.Logout)
 	}, common.APIAuth)
