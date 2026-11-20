@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -10,18 +11,13 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// AppVersion contains the application version and
-// optional build information provided by main.go.
+// AppVersion được main.go truyền vào root CLI.
 type AppVersion struct {
 	Version string
 	Extra   string
 }
 
-// NewMainApp constructs the BDSPro CLI application.
-//
-// This function only registers commands, flags and
-// lifecycle hooks. It must not read configuration,
-// initialize subsystems or open network connections.
+// NewMainApp chỉ đăng ký CLI; không mở network hay đọc app.ini.
 func NewMainApp(appVer AppVersion) *cli.Command {
 	app := &cli.Command{
 		Name:                  "bdspro",
@@ -30,136 +26,109 @@ func NewMainApp(appVer AppVersion) *cli.Command {
 		Version:               appVer.Version + appVer.Extra,
 		EnableShellCompletion: true,
 	}
-
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Name:    "work-path",
-			Aliases: []string{"w"},
-			Usage:   "Absolute instance working directory (default: current directory)",
+			Name: "work-path", Aliases: []string{"w"},
+			Usage: "Absolute instance working directory (default: current directory)",
 		},
 		&cli.StringFlag{
-			Name:    "config",
-			Aliases: []string{"c"},
-			Usage:   "Application configuration file (default: ./custom/conf/app.ini)",
+			Name: "config", Aliases: []string{"c"},
+			Usage: "Application configuration file (default: ./custom/conf/app.ini)",
 		},
 	}
 
-	// A minimal console logger is available before
-	// the selected application's config is loaded.
-	app.Before = PrepareConsoleLoggerLevel(log.INFO)
-
 	webCmd := newWebCommand()
-
-	commands := []*cli.Command{
+	subCmdWithConfig := []*cli.Command{
 		webCmd,
-		newWorkerCommand(),
 		newMigrateCommand(),
 	}
-
-	// Preserve each command's original Before hook,
-	// then prepare the canonical configuration provider.
-	//
-	// This follows Gitea's
-	// PrepareSubcommandWithGlobalFlags pattern.
-	for _, command := range commands {
-		PrepareSubcommandWithGlobalFlags(command)
+	for _, cmd := range subCmdWithConfig {
+		PrepareSubcommandWithGlobalFlags(cmd)
 	}
-
 	app.DefaultCommand = webCmd.Name
-	app.Commands = commands
-
+	app.Commands = append(app.Commands, subCmdWithConfig...)
+	app.Before = PrepareConsoleLoggerLevel(log.INFO)
 	return app
 }
 
-// RunMainApp executes the CLI and manages process
-// cancellation on SIGINT or SIGTERM.
-//
-// Application initialization belongs to command
-// actions, not this function.
+// usageErr đánh dấu usage error đã in, tránh in lại từ RunMainApp.
+type usageErr struct{ err error }
+
+func (e usageErr) Error() string { return e.err.Error() }
+func (e usageErr) Unwrap() error { return e.err }
+
+// cliOnUsageError chặn cli/v3 tự dump toàn bộ help khi sai cú pháp.
+func cliOnUsageError(_ context.Context, cmd *cli.Command, err error, _ bool) error {
+	if writer := cmd.Root().ErrWriter; writer != nil {
+		_, _ = fmt.Fprintf(writer, "Incorrect Usage: %s\n", err)
+	}
+	return usageErr{err}
+}
+
+func setCLIOnUsageError(cmd *cli.Command) {
+	_ = cmd.Walk(func(c *cli.Command) error {
+		c.OnUsageError = cliOnUsageError
+		return nil
+	})
+}
+
+// RunMainApp cài signal, thực thi CLI và giữ một nơi in process errors.
 func RunMainApp(app *cli.Command, args ...string) error {
 	ctx, cancel := installSignals()
 	defer cancel()
+	setCLIOnUsageError(app)
+	app.ConfigureShellCompletionCommand = setCLIOnUsageError
 
 	err := app.Run(ctx, args)
-	if err != nil {
-		if app.ErrWriter != nil {
-			_, _ = fmt.Fprintf(
-				app.ErrWriter,
-				"Command error: %v\n",
-				err,
-			)
-		}
-
-		cli.OsExiter(1)
+	if err == nil {
+		return nil
 	}
-
+	var alreadyReported usageErr
+	if errors.As(err, &alreadyReported) {
+		cli.OsExiter(1)
+		return err
+	}
+	if app.ErrWriter != nil {
+		_, _ = fmt.Fprintf(app.ErrWriter, "Command error: %v\n", err)
+	}
+	cli.OsExiter(1)
 	return err
 }
 
-// PrepareSubcommandWithGlobalFlags prepares a
-// command to use the application's global flags.
-//
-// The command's existing Before hook is preserved.
-// Configuration is initialized once before Action.
-func PrepareSubcommandWithGlobalFlags(
-	command *cli.Command,
-) {
-	previousBefore := command.Before
-
-	command.Before = func(
-		ctx context.Context,
-		current *cli.Command,
-	) (context.Context, error) {
-		// Preserve command-specific preparation.
-		if previousBefore != nil {
-			var err error
-
-			ctx, err = previousBefore(ctx, current)
+// PrepareSubcommandWithGlobalFlags giữ Before gốc rồi nạp settings + logger.
+func PrepareSubcommandWithGlobalFlags(originCmd *cli.Command) {
+	originBefore := originCmd.Before
+	originCmd.Before = func(ctxOrig context.Context, cmd *cli.Command) (ctx context.Context, err error) {
+		ctx = ctxOrig
+		if originBefore != nil {
+			ctx, err = originBefore(ctx, cmd)
 			if err != nil {
 				return ctx, err
 			}
 		}
-
-		if err := prepareConfig(
-			current,
-		); err != nil {
+		if err = prepareConfig(cmd); err != nil {
 			return ctx, err
 		}
-
-		if err := prepareCommandLoggers(); err != nil {
+		if err = prepareCommandLoggers(); err != nil {
 			return ctx, err
 		}
-
-		log.Info(
-			"Using configuration file: %s",
-			setting.CustomConf,
-		)
-
+		log.Info("Using configuration file: %s", setting.CustomConf)
 		return ctx, nil
 	}
 }
 
-// prepareConfig resolves the instance root and selected configuration.
-//
-// It delegates all path and provider ownership
-// to modules/setting.
-func prepareConfig(
-	command *cli.Command,
-) error {
-	root := command.Root()
-
-	options := setting.PathOptions{
-		WorkPath: root.String("work-path"),
-		Config:   root.String("config"),
+func prepareConfig(cmd *cli.Command) error {
+	root := cmd.Root()
+	var args setting.PathOptions
+	if root.IsSet("work-path") {
+		args.WorkPath = root.String("work-path")
 	}
-
-	return setting.InitWorkPathAndCommonConfig(options, os.Environ())
+	if root.IsSet("config") {
+		args.Config = root.String("config")
+	}
+	return setting.InitWorkPathAndCommonConfig(args, os.Environ())
 }
 
-// prepareCommandLoggers activates the logger
-// using already validated common settings.
-//
-// It must not read app.ini or environment keys.
 func prepareCommandLoggers() error {
 	return setting.InitLoggers(setting.Common.Log)
 }

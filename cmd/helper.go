@@ -12,7 +12,11 @@ import (
 )
 
 func installSignals() (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	return signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
 }
 
 func PrepareConsoleLoggerLevel(level log.Level) func(context.Context, *cli.Command) (context.Context, error) {
@@ -24,12 +28,10 @@ func PrepareConsoleLoggerLevel(level log.Level) func(context.Context, *cli.Comma
 	}
 }
 
-// No file loading, provider creation, or command-specific setting parsing
-// belongs in cmd/helper.go.
 func rejectArguments(name string) func(context.Context, *cli.Command) (context.Context, error) {
 	return func(ctx context.Context, command *cli.Command) (context.Context, error) {
 		if command.Args().Len() != 0 {
-			if name == "web" { // Preserve the existing unknown-command error for default web.
+			if name == "web" {
 				return ctx, fmt.Errorf("unknown command: %s", command.Args().First())
 			}
 			return ctx, fmt.Errorf("unexpected %s argument %q", name, command.Args().First())

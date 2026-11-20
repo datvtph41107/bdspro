@@ -1,89 +1,88 @@
-# Configuration: developer, Docker and deployment
+# BDSPro configuration — trạng thái Web + migrate
 
-## What `custom/conf` means
+Source: `modules/setting` (bootstrap, parser, loaders), `modules/util` (filesystem helper),
+`cmd/main.go` (CLI flags và error reporting). Đơn vị được phép khởi tạo DB/Redis là
+`routers/init.go` và các resource owners, **không phải** `modules/setting`.
 
-Gitea itself retains `custom/conf/app.example.ini` and resolves a
-`custom/conf/app.ini` instance file by default. BDSPro therefore keeps
-this convention for **local** development; it is not a mandatory runtime
-path in every environment.
+## Đường dẫn và thứ tự ưu tiên
 
-| Location | Owner | Meaning |
+- BDSPro dùng `os.Getwd()` làm work path mặc định, thay vì binary directory của Gitea.
+- CLI `--work-path` bắt buộc tuyệt đối. `--config` tương đối được tính theo shell CWD.
+- Config mặc định: `<work-path>/custom/conf/app.ini`.
+- Sau khi đọc INI và env, default-section `WORK_PATH` (nếu có) thành effective `AppWorkPath`.
+- CLI `--work-path` và INI/env `WORK_PATH` trỏ đến hai thư mục khác nhau ⇒ từ chối bootstrap.
+  Hai đường dẫn trỏ cùng một directory qua symlink được xem là khớp nếu cả hai tồn tại.
+- `CustomPath` được **tính bằng** `<effective-work-path>/custom`, không có cờ `--custom-path`.
+  Nó là thư mục instance tùy chỉnh, KHÔNG phải tên file config.
+- `CustomConf` **không được resolve lại** sau khi đọc `WORK_PATH`; phải biết đường dẫn
+  config trước khi đọc được chính cấu hình ấy.
+- `MIGRATION_URL = file://db/migration` được quy đổi sang `file://<AppWorkPath>/db/migration`.
+  Nếu SQL migrations nằm ngoài instance root, truyền absolute path, ví dụ
+  `MIGRATION_URL = file:///app/db/migration` trong Docker. Bản Dockerfile hiện
+  COPY migrations tới `/app/db/migration` nhưng WORK_PATH là `/data/bdspro`.
+- Không gọi `os.Chdir()`. Không ghi đè/apply INI vào file vật lý.
+
+**Docker lưu ý:** `docker/setup` chỉ tạo `/data/bdspro/conf/app.ini` nếu chưa có.
+Sửa Docker template không sửa config đã được persist trong Docker volume. Trên volume cũ,
+chỉnh `MIGRATION_URL = file:///app/db/migration` ở file đã tồn tại trước khi dùng CLI migrate.
+
+## Environment (in-memory overrides)
+
+Ví dụ:
+
+```sh
+BDS____RUN_MODE=development go run . web
+BDS____WORK_PATH=/srv/bdspro go run . --config /etc/bdspro/app.ini web
+BDS__LOG__LEVEL=debug go run . web
+BDS__LOG_0X2E_FILE__FILE_NAME=server.log go run . web
+BDS__SECURITY__TOKEN_SYMMETRIC_KEY__FILE=/run/secrets/jwt_key go run . web
+```
+
+`BDS__SECTION__KEY` được apply trong RAM sau INI, trước validation.
+`BDS____KEY` áp dụng default INI section. `__FILE` đọc secret từ filesystem và
+bỏ đúng một newline cuối. Không ghi hoặc in nội dung secret. Duplicate override,
+malformed names, secret file đọc lỗi đều dừng startup.
+
+Đừng nhầm với Gitea Docker `environment-to-ini` có thể viết file cấu hình bền vững.
+
+## Giá trị config có consumer runtime
+
+| Section | Fields | Consumer |
 | --- | --- | --- |
-| `custom/conf/app.example.ini` | Git | committed local sample only |
-| `custom/conf/app.ini` | developer | ignored instance settings |
-| `docker/root/etc/templates/app.ini` | image build | immutable first-boot template |
-| `/data/bdspro/conf/app.ini` | container volume | persisted runtime settings |
-| `modules/setting/path.go` | application | resolve selected config path |
-| `modules/setting/provider.go` | application | read INI plus explicit env overrides |
-| `modules/setting/config.go` | application | typed settings and validation |
+| default | `RUN_MODE`, `WORK_PATH` | startup, graceful/log path |
+| `[log]`, `[log.file]` | `MODE`, `FORMAT`, `LEVEL`, `ROOT_PATH`, `FILE_NAME` | `modules/log` |
+| `[server]` | listener, public origin, trusted proxies, shutdown | `cmd/web`, `routers`, `modules/graceful` |
+| `[api]` | response/page/body limits | `services/context`, API |
+| `[database]` | `DB_SOURCE`, `MIGRATION_URL` | `models/db`, CLI migrate |
+| `[redis]` | `ADDR` | `modules/conn` |
+| `[security]` | signing key, access/refresh TTL | `modules/auth` |
+| `[ipactive]` | override chính sách IP | `routers.NormalHandler()` |
+| `[cors]` | `ALLOWED_ORIGINS` | `setting.Server` |
 
-`make config-local` creates the ignored local INI only when missing.
-`make server`, `make worker` and `make migrateup` pass the same
-`CONFIG` argument. No service URL belongs inside the Makefile.
+Đã bỏ các loader/file không còn consumer setting hiện tại: `oauth2`, `worker`,
+`queue`, `phone`, `mailer`, `audit`, `auth` projection. Không giữ placeholder global.
+Worker CLI cùng queue/service worker modules được loại bỏ ở gói này để `go test ./...`
+không còn phụ thuộc vào `setting.Queue` đã bị xóa.
 
-## Effective config precedence
+## CLI và lỗi
 
-- The instance work path defaults to the shell current working directory
-  (`os.Getwd()`). An absolute `--work-path` overrides this value without
-  changing process CWD. There is no `--custom-path` or `BDS_CUSTOM`.
-- Default INI: `<work-path>/custom/conf/app.ini`.
-- Explicit `--config` always selects its own file. Relative paths are
-  resolved against the **shell current working directory**.
-- `BDS__SECTION__KEY` overrides an INI value **in memory**. Default
-  section has `BDS__RUN_MODE`.
-- These in-memory overrides do *not* persist. Gitea Docker
-  `environment-to-ini` instead writes into persisted config; do not
-  describe these as the same mechanism.
+- `errors.New` khi lỗi cố định, không tham số động.
+- `fmt.Errorf("giai đoạn: %w", err)` khi có underlying error phải được giữ qua `errors.Is`.
+- `fmt.Errorf("...%q", input)` khi lỗi cần tên file/flag nhưng không có cause.
+- Loader **return error**, không `log.Fatal`, không `os.Exit`.
+- `RunMainApp` báo một lần và exit code `1` cho lỗi command, phân biệt usage error.
+- `main.go` đang sở hữu `cli.OsExiter` để đóng logger trước `os.Exit`.
 
-Examples:
+## Lệnh vận hành
 
 ```sh
 make config-local
-make server CONFIG=/absolute/path/to/app.ini
-./bin/bdspro --work-path /absolute/instance --config /etc/bdspro/app.ini web
-BDS__DATABASE__DB_SOURCE='postgresql://...' make migrateup
+go run . --config "$PWD/custom/conf/app.ini" web
+# Migrate: dùng config hiện hành, cần PostgreSQL thật.
+go run . --config "$PWD/custom/conf/app.ini" migrate
+# Linux production: truyền rõ đường dẫn config.
+./bin/bdspro --config /data/bdspro/conf/app.ini web
 ```
 
-`--help` and `--version` must succeed without config or database.
-When debugging, log the resolved file path but never database passwords,
-client secrets, JWT signing keys, authorization headers or OTPs.
-
-**Security:** examples contain development-only credentials and signing
-keys. Do not deploy examples unchanged. The Docker Compose file is a
-development environment, not production hardening.
-
-## OAuth2 config parity across local and Docker instances
-
-Both committed example INI files use the current `[oauth2]` settings:
-`ISSUER`, `AUTHORIZATION_URL`, `TOKEN_URL`, `JWKS_URL`,
-`CLIENT_ID`, `CLIENT_SECRET`, and `REDIRECT_URI`.
-The previous Docker-only `[oauth] GOOGLE_*` example is obsolete.
-`modules/setting` continues to reject **non-empty** legacy OAuth provider
-keys rather than silently guessing their meaning.
-
-The Docker entrypoint copies the image template into
-`/data/bdspro/conf/app.ini` **only if it does not already exist**. Updating
-the image does not rewrite a persisted instance configuration. Operators
-must migrate any populated legacy keys to `[oauth2]` in the existing
-volume, preserving actual credentials securely; do not delete the app.ini
-volume or overwrite it with example secrets.
-
-## Worker queue and log configuration (post-P06)
-
-The **optional worker-only** `[queue]` section controls Asynq concurrency and priority weights. Missing keys use the existing defaults 10/10/5; explicit empty, invalid or zero values **fail worker initialization before opening PostgreSQL or Redis**. `web`, `migrate`, `help` do not require the worker queue section.
-
-```ini
-; Optional worker-specific queue configuration
-[queue]
-CONCURRENCY = 10
-CRITICAL_WEIGHT = 10
-DEFAULT_WEIGHT = 5
-```
-
-BDSPro bounds concurrency at 256, each queue weight at 100 and total queue weight at 1000; these are application operational safeguards, not Asynq/Gitea library restrictions. Queue names `critical` and `default` must match durable outbox task producers. The deployed worker uses Asynq + PostgreSQL outbox, not an in-process channel queue.
-
-The configured `[log] ROOT_PATH` is resolved relative to the resolved instance work path (CWD by default, or absolute `--work-path`) when not absolute. Only selecting a file logger creates the directory (mode 0700) and file (0600); an unusable output fails startup rather than silently falling back to console. `main` closes the process log sink.
-
-**Removed configuration:** P06 removed the unused `modules/cache/**`, `modules/setting/cache.go` and channel task queue backends. Do not set a `[cache]` stanza in current templates or rely on old `LoadCacheSettings`/Memcached constructors. Redis remains mandatory for web authentication throttling and Asynq worker preflight, independent of generic caching. Existing persisted Docker `app.ini` is **not** overwritten by updating the image template; operators should inspect it for deprecated keys before rollout.
-
-See [current queue/Redis ownership](../architecture/cache-queue.md) and the [Chat C P06 handoff](https://github.com/datvtph41107/bdspro/pull/220#issuecomment-6764418034). Final behavior is verified only on the P07 combined HEAD and PostgreSQL18/Redis/HTTP runtime tests.
+`--help`/`--version` không cần config, DB, Redis. Khi Web chạy thật, Postgres và
+Redis vẫn phải sẵn sàng; settings package không giả lập resource readiness.

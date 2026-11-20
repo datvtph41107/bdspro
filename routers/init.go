@@ -79,6 +79,7 @@ func NormalHandler() (http.Handler, error) {
 		return nil, fmt.Errorf("configure HTTP trusted proxies: %w", err)
 	}
 	handler := routes.WrapIngress()
+
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		req = req.WithContext(ipactive.WithMiddleware(req.Context(), admission))
 		handler.ServeHTTP(w, req)

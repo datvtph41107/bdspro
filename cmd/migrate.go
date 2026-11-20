@@ -12,7 +12,8 @@ import (
 
 func newMigrateCommand() *cli.Command {
 	return &cli.Command{
-		Name: "migrate", Usage: "Apply versioned SQL migrations",
+		Name:  "migrate",
+		Usage: "Apply versioned SQL migrations",
 		Flags: []cli.Flag{
 			&cli.IntFlag{Name: "steps", Usage: "Number of versions (0 means all)"},
 			&cli.BoolFlag{Name: "down", Usage: "Rollback migrations (development only)"},
@@ -31,11 +32,12 @@ func newMigrateCommand() *cli.Command {
 	}
 }
 
-func runMigrate(
-	ctx context.Context,
-	command *cli.Command,
-) error {
-	setting.LoadDBSetting()
+// runMigrate nhận DB source và migration URL từ canonical setting.
+func runMigrate(ctx context.Context, command *cli.Command) error {
+	if err := setting.LoadDBSetting(); err != nil {
+		return err
+	}
+
 	steps := command.Int("steps")
 	if command.Bool("down") {
 		if setting.Common.RunMode != "development" {
@@ -52,12 +54,8 @@ func runMigrate(
 		}
 		return nil
 	}
-	changed, err := db.MigrateUp(
-		ctx,
-		setting.Database.MigrationURL,
-		setting.Database.DBSource,
-		steps,
-	)
+
+	changed, err := db.MigrateUp(ctx, setting.Database.MigrationURL, setting.Database.DBSource, steps)
 	if err != nil {
 		return err
 	}

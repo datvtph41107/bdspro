@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// GracefulSettings defines process shutdown policy, not HTTP routing policy.
+// GracefulSettings là deadline của process shutdown.
 type GracefulSettings struct {
 	HTTPShutdownTimeout time.Duration
 	HammerTimeout       time.Duration
@@ -13,8 +13,7 @@ type GracefulSettings struct {
 
 const defaultHTTPShutdownTimeout = 10 * time.Second
 
-// HTTPShutdownTimeout returns the configured HTTP drain deadline.
-// The default also applies to standalone HTTP integration tests.
+// HTTPShutdownTimeout trả về deadline HTTP drain, kể cả khi chạy test riêng.
 func HTTPShutdownTimeout() time.Duration {
 	if Common.Graceful.HTTPShutdownTimeout > 0 {
 		return Common.Graceful.HTTPShutdownTimeout
@@ -24,10 +23,7 @@ func HTTPShutdownTimeout() time.Duration {
 
 func loadGracefulSettingsFrom(cfg ConfigProvider) (GracefulSettings, error) {
 	sec := cfg.Section("server")
-	result := GracefulSettings{
-		HTTPShutdownTimeout: defaultHTTPShutdownTimeout,
-		HammerTimeout:       15 * time.Second,
-	}
+	result := GracefulSettings{HTTPShutdownTimeout: defaultHTTPShutdownTimeout, HammerTimeout: 15 * time.Second}
 	if key := sec.Key("HTTP_SHUTDOWN_TIMEOUT"); key.IsSet() {
 		value, err := time.ParseDuration(key.String())
 		if err != nil {

@@ -32,10 +32,17 @@ func main() {
 		log.GetManager().Close()
 		os.Exit(code)
 	}
-	app := cmd.NewMainApp(cmd.AppVersion{Version: Version, Extra: formatBuiltWith()})
+
+	app := cmd.NewMainApp(cmd.AppVersion{
+		Version: Version,
+		Extra:   formatBuiltWith(),
+	})
+
 	_ = cmd.RunMainApp(app, os.Args...)
+
 	log.GetManager().Close()
 }
+
 func formatBuiltWith() string {
 	version := runtime.Version()
 	if len(Tags) == 0 {

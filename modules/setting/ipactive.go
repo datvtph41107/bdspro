@@ -9,26 +9,29 @@ import (
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 )
 
-var IPActive struct {
+// IPActiveSettings là policy input của ingress Redis limiter.
+type IPActiveSettings struct {
 	Policies map[ipactive.Action]ipactive.Policy
 }
 
-func loadIPActiveFrom(rootCfg ConfigProvider) error {
+var IPActive IPActiveSettings
+
+func loadIPActiveFrom(cfg ConfigProvider) (IPActiveSettings, error) {
 	policies := ipactive.DefaultPolicies()
-	sec := rootCfg.Section("ipactive")
+	sec := cfg.Section("ipactive")
 	for action, policy := range policies {
 		prefix := strings.ToUpper(string(action))
 		if raw := sec.Key(prefix + "_LIMIT").String(); raw != "" {
 			limit, err := strconv.ParseInt(raw, 10, 64)
 			if err != nil {
-				return fmt.Errorf("IPActive %s limit: %w", action, err)
+				return IPActiveSettings{}, fmt.Errorf("ipactive.%s_LIMIT: %w", prefix, err)
 			}
 			policy.Limit = limit
 		}
 		if raw := sec.Key(prefix + "_WINDOW").String(); raw != "" {
 			window, err := time.ParseDuration(raw)
 			if err != nil {
-				return fmt.Errorf("IPActive %s window: %w", action, err)
+				return IPActiveSettings{}, fmt.Errorf("ipactive.%s_WINDOW: %w", prefix, err)
 			}
 			policy.Window = window
 		}
@@ -36,10 +39,9 @@ func loadIPActiveFrom(rootCfg ConfigProvider) error {
 			policy.Mode = ipactive.Mode(strings.ToLower(raw))
 		}
 		if err := policy.Validate(); err != nil {
-			return fmt.Errorf("IPActive %s: %w", action, err)
+			return IPActiveSettings{}, fmt.Errorf("ipactive.%s: %w", prefix, err)
 		}
 		policies[action] = policy
 	}
-	IPActive.Policies = policies
-	return nil
+	return IPActiveSettings{Policies: policies}, nil
 }

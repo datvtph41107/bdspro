@@ -1,47 +1,45 @@
 package setting
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
-	"gopkg.in/ini.v1"
+	"github.com/datvtph41107/bdspro/modules/util"
+	"gopkg.in/ini.v1" // nolint:depguard // Chỉ adapter này làm việc trực tiếp với INI.
 )
 
-// ConfigKey represents a single configuration value.
-// It distinguishes a missing key from an explicitly
-// configured empty value.
+// ConfigKey cho đọc giá trị; IsSet phân biệt key thiếu với key rỗng.
 type ConfigKey interface {
+	Name() string
 	String() string
 	IsSet() bool
 }
 
-// ConfigSection provides access to keys belonging
-// to a configuration section.
+// ConfigSection chỉ cấp quyền đọc key thuộc đúng section.
 type ConfigSection interface {
+	Name() string
 	Key(name string) ConfigKey
+	Keys() []ConfigKey
 }
 
-// ConfigProvider is the read-only configuration
-// contract consumed by domain setting loaders.
+// ConfigProvider là hợp đồng đọc của các loader, không lộ *ini.File.
 type ConfigProvider interface {
 	Section(name string) ConfigSection
 }
 
-// iniConfigProvider owns the underlying INI file.
-// Domain loaders never access ini.File directly.
 type iniConfigProvider struct {
-	file *ini.File
+	file string
+	ini  *ini.File
 }
 
-// iniConfigSection wraps one INI section.
-// A nil section represents a missing section.
 type iniConfigSection struct {
-	section *ini.Section
+	sec *ini.Section
 }
 
-// iniConfigKey contains a snapshot of a key.
-// Domain loaders cannot mutate the INI parser.
 type iniConfigKey struct {
+	name   string
 	value  string
 	exists bool
 }
@@ -52,155 +50,121 @@ var (
 	_ ConfigKey      = (*iniConfigKey)(nil)
 )
 
-// String returns the key's value.
-// A missing key returns an empty string.
-func (k *iniConfigKey) String() string {
-	return k.value
-}
+func (k *iniConfigKey) Name() string   { return k.name }
+func (k *iniConfigKey) String() string { return k.value }
+func (k *iniConfigKey) IsSet() bool    { return k.exists }
 
-// IsSet reports whether the key was explicitly
-// present, including when its value was empty.
-func (k *iniConfigKey) IsSet() bool {
-	return k.exists
-}
-
-// Section returns a section accessor.
-// A missing section returns an empty accessor,
-// so callers can safely read optional settings.
-func (p *iniConfigProvider) Section(
-	name string,
-) ConfigSection {
+func (p *iniConfigProvider) Section(name string) ConfigSection {
 	if name == "" {
 		name = ini.DefaultSection
 	}
-
-	section, err := p.file.GetSection(name)
+	sec, err := p.ini.GetSection(name)
 	if err != nil {
 		return &iniConfigSection{}
 	}
-
-	return &iniConfigSection{
-		section: section,
-	}
+	return &iniConfigSection{sec: sec}
 }
 
-// Key searches only keys belonging to this section.
-// It deliberately avoids inherited parent-section
-// values returned by some ini.Section.Key calls.
-func (s *iniConfigSection) Key(
-	name string,
-) ConfigKey {
-	if s.section == nil {
-		return &iniConfigKey{}
+func (s *iniConfigSection) Name() string {
+	if s.sec == nil {
+		return ""
 	}
+	return s.sec.Name()
+}
 
-	for _, key := range s.section.Keys() {
+// Keys quét key trực tiếp để tránh kế thừa [parent] của gopkg.in/ini.v1.
+func (s *iniConfigSection) Keys() (keys []ConfigKey) {
+	if s.sec == nil {
+		return nil
+	}
+	for _, k := range s.sec.Keys() {
+		keys = append(keys, &iniConfigKey{name: k.Name(), value: k.String(), exists: true})
+	}
+	return keys
+}
+
+func (s *iniConfigSection) Key(name string) ConfigKey {
+	if s.sec == nil {
+		return &iniConfigKey{name: name}
+	}
+	// Gitea: duyệt Keys() trực tiếp, không lấy key từ section cha.
+	for _, key := range s.sec.Keys() {
 		if strings.EqualFold(key.Name(), name) {
-			return &iniConfigKey{
-				value:  key.String(),
-				exists: true,
-			}
+			return &iniConfigKey{name: key.Name(), value: key.String(), exists: true}
 		}
 	}
-
-	return &iniConfigKey{}
+	return &iniConfigKey{name: name}
 }
 
-// configProviderLoadOptions keeps INI parsing
-// behavior centralized.
+// ConfigSectionKeyString tương ứng Gitea; không tạo key khi đọc giá trị mặc định.
+func ConfigSectionKeyString(sec ConfigSection, key string, def ...string) string {
+	if sec != nil {
+		k := sec.Key(key)
+		if k.IsSet() && k.String() != "" {
+			return k.String()
+		}
+	}
+	if len(def) > 0 {
+		return def[0]
+	}
+	return ""
+}
+
 func configProviderLoadOptions() ini.LoadOptions {
 	return ini.LoadOptions{
-		IgnoreContinuation: true,
+		KeyValueDelimiterOnWrite: " = ",
+		IgnoreContinuation:       true,
 	}
 }
 
-// NewConfigProviderFromFile loads an installed
-// application's configuration.
-//
-// BDSPro currently requires an existing app.ini.
-// Unlike Gitea's installer flow, a missing file
-// is an error.
-func NewConfigProviderFromFile(
-	filename string,
-) (ConfigProvider, error) {
-	if filename == "" {
-		return nil, fmt.Errorf(
-			"configuration filename is empty",
-		)
-	}
-
-	file, err := ini.LoadSources(
-		configProviderLoadOptions(),
-		filename,
-	)
+// NewConfigProviderFromData tạo provider trong RAM; dùng cùng loader options với file.
+func NewConfigProviderFromData(configContent string) (ConfigProvider, error) {
+	cfg, err := ini.LoadSources(configProviderLoadOptions(), strings.NewReader(configContent))
 	if err != nil {
-		return nil, fmt.Errorf(
-			"load config %q: %w",
-			filename, err,
-		)
+		return nil, fmt.Errorf("parse INI configuration: %w", err)
 	}
-
-	return &iniConfigProvider{
-		file: file,
-	}, nil
+	cfg.NameMapper = ini.SnackCase
+	return &iniConfigProvider{ini: cfg}, nil
 }
 
-// NewConfigProviderFromData creates a provider
-// from INI content, primarily for unit tests.
-func NewConfigProviderFromData(
-	content string,
-) (ConfigProvider, error) {
-	file, err := ini.LoadSources(
-		configProviderLoadOptions(),
-		strings.NewReader(content),
-	)
+// NewConfigProviderFromFile yêu cầu app.ini có sẵn; không tự ghi file hay log.
+func NewConfigProviderFromFile(file string) (ConfigProvider, error) {
+	if file == "" {
+		return nil, errors.New("configuration filename is empty")
+	}
+
+	cfg := ini.Empty(configProviderLoadOptions())
+	isExist, err := util.IsExist(file)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"parse INI configuration: %w", err,
-		)
+		return nil, fmt.Errorf("unable to check if %q exists: %w", file, err)
 	}
-
-	return &iniConfigProvider{
-		file: file,
-	}, nil
+	if !isExist {
+		return nil, fmt.Errorf("config file %q: %w", file, os.ErrNotExist)
+	}
+	if err = cfg.Append(file); err != nil {
+		return nil, fmt.Errorf("failed to load config file %q: %w", file, err)
+	}
+	cfg.NameMapper = ini.SnackCase
+	return &iniConfigProvider{file: file, ini: cfg}, nil
 }
 
-// set updates the effective configuration
-// during initialization only.
-//
-// It is intentionally NOT part of ConfigProvider.
-// Domain loaders receive a read-only interface.
-func (p *iniConfigProvider) set(
-	sectionName, keyName, value string,
-) error {
+// set chỉ dùng khi bootstrap env; provider chưa được công bố.
+func (p *iniConfigProvider) set(sectionName, keyName, value string) error {
 	if sectionName == "" {
 		sectionName = ini.DefaultSection
 	}
-
 	if keyName == "" {
-		return fmt.Errorf(
-			"configuration key name is empty",
-		)
+		return errors.New("configuration key name is empty")
 	}
-
-	section := p.file.Section(sectionName)
-
-	// Avoid inherited-key updates.
-	for _, key := range section.Keys() {
+	sec := p.ini.Section(sectionName)
+	for _, key := range sec.Keys() {
 		if strings.EqualFold(key.Name(), keyName) {
 			key.SetValue(value)
 			return nil
 		}
 	}
-
-	if _, err := section.NewKey(
-		keyName, value,
-	); err != nil {
-		return fmt.Errorf(
-			"set %s.%s: %w",
-			sectionName, keyName, err,
-		)
+	if _, err := sec.NewKey(keyName, value); err != nil {
+		return fmt.Errorf("set %s.%s: %w", sectionName, keyName, err)
 	}
-
 	return nil
 }

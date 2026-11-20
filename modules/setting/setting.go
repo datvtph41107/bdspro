@@ -1,97 +1,80 @@
 package setting
 
 import (
+	"errors"
 	"fmt"
+	"path/filepath"
 	"time"
-
-	"github.com/datvtph41107/bdspro/modules/ipactive"
 )
 
+// Runtime metadata do main.go khởi tạo; config globals chỉ publish sau validate.
 var (
 	AppVer       string
 	AppBuiltWith string
 	AppStartTime time.Time
-	AppWorkPath  string
-	CustomConf   string
-	CfgProvider  ConfigProvider
-	Common       CommonSettings
+
+	CfgProvider ConfigProvider
+	Common      CommonSettings
 )
 
+// CommonSettings là dữ liệu đã validate dùng bởi mọi command.
 type CommonSettings struct {
 	RunMode  string
 	Log      LogGlobalConfig
 	Graceful GracefulSettings
 }
 
-// Config is the immutable Web subsystem input consumed by existing services.
-// Domain setting variables below remain the source of truth during startup.
-type Config struct {
-	IPActivePolicies     map[ipactive.Action]ipactive.Policy
-	Environment          string
-	LogFormat            string
-	LogLevel             string
-	LogMode              string
-	LogRootPath          string
-	LogFileName          string
-	OIDC                 OAuth2Provider
-	PhoneDelivery        string
-	SMSGatewayURL        string
-	SMSGatewayToken      string
-	ZaloAccessToken      string
-	ZaloTemplateID       string
-	ZaloCodeField        string
-	AllowedOrigins       []string
-	TrustedProxies       []string
-	DBSource             string
-	MigrationURL         string
-	RedisAddress         string
-	HTTPServerAddress    string
-	BrowserPublicOrigin  string
-	TokenSymmetricKey    string
-	AuditKey             string
-	AuditRetentionDays   int
-	AccessTokenDuration  time.Duration
-	RefreshTokenDuration time.Duration
-	EmailSenderName      string
-	EmailSenderAddress   string
-	EmailSenderPassword  string
-	SMTPAddress          string
-	SMTPAuth             bool
-	VerifyEmailURL       string
-}
-
-// InitWorkPathAndCommonConfig prepares one provider before publishing it.
-func InitWorkPathAndCommonConfig(options PathOptions, envs []string) error {
-	paths, err := ResolvePaths(options)
+// InitWorkPathAndCommonConfig là một bootstrap boundary.
+// Không thay globals nếu resolve, parse, env hoặc common validation lỗi.
+func InitWorkPathAndCommonConfig(args PathOptions, envs []string) error {
+	paths, err := ResolvePaths(args)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolve application paths: %w", err)
 	}
 	provider, err := NewConfigProviderFromFile(paths.ConfigFile)
 	if err != nil {
 		return err
 	}
-	if err = applyEnvironmentOverrides(provider, envs); err != nil {
-		return err
-	}
-	common, err := loadCommonSettingsFrom(provider, paths.WorkPath)
-	if err != nil {
-		return err
+	if err := applyEnvironmentOverrides(provider, envs); err != nil {
+		return fmt.Errorf("apply environment overrides: %w", err)
 	}
 
-	AppWorkPath, CustomConf = paths.WorkPath, paths.ConfigFile
-	CfgProvider, Common = provider, common
+	// Gitea: WORK_PATH từ INI có thể đổi effective work path.
+	workPath := paths.WorkPath
+	configWorkPath := ConfigSectionKeyString(provider.Section(""), "WORK_PATH")
+	if configWorkPath != "" {
+		if !filepath.IsAbs(configWorkPath) {
+			return fmt.Errorf("WORK_PATH in %q must be absolute path: %q", paths.ConfigFile, configWorkPath)
+		}
+		configWorkPath = filepath.Clean(configWorkPath)
+		if args.WorkPath != "" && !samePath(paths.WorkPath, configWorkPath) {
+			return fmt.Errorf("WORK_PATH %q conflicts with --work-path %q", configWorkPath, paths.WorkPath)
+		}
+		workPath = configWorkPath
+	}
+	customPath := filepath.Join(workPath, "custom")
+
+	common, err := loadCommonSettingsFrom(provider, workPath)
+	if err != nil {
+		return fmt.Errorf("load common settings: %w", err)
+	}
+
+	// Publish sau cùng; không sửa process CWD và không ghi app.ini.
+	AppWorkPath = workPath
+	CustomPath = customPath
+	CustomConf = paths.ConfigFile
+	CfgProvider = provider
+	Common = common
 	return nil
 }
 
 func loadCommonSettingsFrom(cfg ConfigProvider, workPath string) (CommonSettings, error) {
 	if cfg == nil {
-		return CommonSettings{}, fmt.Errorf("configuration provider is not initialized")
+		return CommonSettings{}, errors.New("configuration provider is not initialized")
 	}
-	runMode := stringOrDefault(cfg.Section("").Key("RUN_MODE"), "development")
-	switch runMode {
-	case "development", "production", "test":
-	default:
-		return CommonSettings{}, fmt.Errorf("invalid RUN_MODE %q", runMode)
+	runMode, err := loadRunModeFrom(cfg)
+	if err != nil {
+		return CommonSettings{}, err
 	}
 	logCfg, err := loadLogGlobalFrom(cfg, workPath)
 	if err != nil {
@@ -104,68 +87,57 @@ func loadCommonSettingsFrom(cfg ConfigProvider, workPath string) (CommonSettings
 	return CommonSettings{RunMode: runMode, Log: logCfg, Graceful: gracefulCfg}, nil
 }
 
-// LoadSettings reads Web settings; connection ownership belongs to routers/init.go.
+// LoadSettings đọc cấu hình Web; không mở DB, Redis hay listener.
+// Mọi domain global chỉ publish nếu toàn bộ loaders trả về thành công.
 func LoadSettings() error {
 	if CfgProvider == nil {
-		return fmt.Errorf("configuration provider is not initialized")
+		return errors.New("configuration provider is not initialized")
 	}
-	loadDBSetting(CfgProvider)
-	if err := loadServerFrom(CfgProvider); err != nil {
-		return err
+	server, err := loadServerFrom(CfgProvider, Common.RunMode)
+	if err != nil {
+		return fmt.Errorf("load server settings: %w", err)
 	}
-	if err := loadAPIFrom(CfgProvider); err != nil {
-		return err
+	api, err := loadAPIFrom(CfgProvider, Common.RunMode, server)
+	if err != nil {
+		return fmt.Errorf("load API settings: %w", err)
 	}
-	loadRedisFrom(CfgProvider)
-	if err := loadSecurityFrom(CfgProvider); err != nil {
-		return err
+	security, err := loadSecurityFrom(CfgProvider, Common.RunMode)
+	if err != nil {
+		return fmt.Errorf("load security settings: %w", err)
 	}
-	if err := loadAuditFrom(CfgProvider); err != nil {
-		return err
+	ipPolicies, err := loadIPActiveFrom(CfgProvider)
+	if err != nil {
+		return fmt.Errorf("load IP admission settings: %w", err)
 	}
-	if err := loadOAuth2From(CfgProvider); err != nil {
-		return err
+	database, err := loadDBSetting(CfgProvider, AppWorkPath)
+	if err != nil {
+		return fmt.Errorf("load database settings: %w", err)
 	}
-	loadPhoneFrom(CfgProvider)
-	if err := loadMailerFrom(CfgProvider); err != nil {
-		return err
-	}
-	if err := loadIPActiveFrom(CfgProvider); err != nil {
-		return err
-	}
+	redis := loadRedisFrom(CfgProvider)
+
+	Server = server
+	API = api
+	Security = security
+	IPActive = ipPolicies
+	Database = database
+	Redis = redis
 	return nil
 }
 
-// WebConfig projects loaded domain settings for existing HTTP services.
-// It does not reload config or own mutable configuration state.
-func WebConfig() Config {
-	return Config{
-		IPActivePolicies: IPActive.Policies,
-		Environment:      Common.RunMode,
-		LogFormat:        Common.Log.Format, LogLevel: Common.Log.Level,
-		LogMode: Common.Log.Mode, LogRootPath: Common.Log.RootPath,
-		LogFileName:   Common.Log.FileName,
-		OIDC:          OAuth2,
-		PhoneDelivery: Phone.Delivery, SMSGatewayURL: Phone.SMSGatewayURL,
-		SMSGatewayToken: Phone.SMSGatewayToken, ZaloAccessToken: Phone.ZaloAccessToken,
-		ZaloTemplateID: Phone.ZaloTemplateID, ZaloCodeField: Phone.ZaloCodeField,
-		AllowedOrigins: Server.AllowedOrigins, TrustedProxies: Server.TrustedProxies,
-		DBSource: Database.DBSource, MigrationURL: Database.MigrationURL,
-		RedisAddress: Redis.Address, HTTPServerAddress: Server.HTTPServerAddress,
-		BrowserPublicOrigin: Server.BrowserPublicOrigin,
-		TokenSymmetricKey:   Security.TokenSymmetricKey,
-		AuditKey:            Audit.HMACKey, AuditRetentionDays: Audit.RetentionDays,
-		AccessTokenDuration:  Security.AccessTokenDuration,
-		RefreshTokenDuration: Security.RefreshTokenDuration,
-		EmailSenderName:      Mailer.EmailSenderName, EmailSenderAddress: Mailer.EmailSenderAddress,
-		EmailSenderPassword: Mailer.EmailSenderPassword, SMTPAddress: Mailer.SMTPAddress,
-		SMTPAuth: Mailer.SMTPAuth, VerifyEmailURL: Mailer.VerifyEmailURL,
-	}
-}
-
 func stringOrDefault(key ConfigKey, fallback string) string {
-	if !key.IsSet() {
+	if key == nil || !key.IsSet() {
 		return fallback
 	}
 	return key.String()
+}
+
+// loadRunModeFrom kiểm tra runtime mode trước khi nạp subsystem khác.
+func loadRunModeFrom(cfg ConfigProvider) (string, error) {
+	mode := stringOrDefault(cfg.Section("").Key("RUN_MODE"), "development")
+	switch mode {
+	case "development", "production", "test":
+		return mode, nil
+	default:
+		return "", fmt.Errorf("invalid RUN_MODE %q", mode)
+	}
 }
