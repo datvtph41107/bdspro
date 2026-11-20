@@ -49,3 +49,9 @@ Decision status and remaining research:
 
 ## Completion gate
 A research task is done when another engineer can reproduce the source trace, identify assumptions, critique alternatives and understand costs. An implementation task is done only with actual code and verification at final HEAD. These are **different** completion states.
+
+## Current one-phase research gate (2026-11-20)
+
+Read [research governance](../../../docs/architecture/research-governance/README.md), [CURRENT_PHASE](../../../docs/architecture/research-governance/CURRENT_PHASE.md), [evidence method](../../../docs/architecture/research-governance/REQUIREMENTS_AND_EVIDENCE.md), [ledger](../../../docs/architecture/research-governance/EVIDENCE_LEDGER.md), and [handoff](../../../docs/architecture/research-governance/SESSION_HANDOFF.md). Use the explicit current phase instead of autonomously continuing historical G02/F40/P01 work. Do not change production code in RG-00. The template for one future focused technical question is [DESIGN_CASE_TEMPLATE](../../../docs/architecture/research-governance/DESIGN_CASE_TEMPLATE.md).
+
+Required strengthened research gate: derive and test system-level architecture requirements *before* proposing package structure; examine multiple real caller/consumer paths, imports, security/trust state, operational/lifecycle dependencies and change costs across subsystems. Compare pinned Gitea **and Laravel DRX** where meaningful, with Go/HTTP contracts as semantic baseline. Missing proof means OPEN, not ACCEPTED. Mark source facts vs author intent vs design hypothesis vs test evidence, and never claim synthetic demo output represents repository integration tests. One active phase, one named question, one reproducible handoff.

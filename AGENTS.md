@@ -4,6 +4,17 @@
 >
 > Updated 2026-11-17. This documentation-only update is explicitly requested for remote `dev`; it is not acceptance of implementation or a blanket change to branch/merge protection policies.
 
+
+## Current user-directed research focus — RG-00 (2026-11-20)
+
+**Read [Research Governance](docs/architecture/research-governance/README.md) and [Current Phase](docs/architecture/research-governance/CURRENT_PHASE.md) before treating any older task as active.** This is the CURRENT one-phase architecture/context-governance assignment on `dev`; it does not cancel historical F40/P01 plans, but they cannot be resumed without renewed explicit scope. The currently requested changes are **documentation and agent policy only, NOT HTTP or business implementation**.
+
+- A target folder tree, abstraction, naming convention, security "best practice" or recommendation must not become a conclusion until source-based requirement discovery and an end-to-end producer/consumer and cross-subsystem impact trace support it. See [requirements and evidence standard](docs/architecture/research-governance/REQUIREMENTS_AND_EVIDENCE.md).
+- Compare actual pinned BDSPro, **Gitea and Laravel DRX** mechanisms where relevant; use Go/net/http/Chi/HTTP and security standards to define invariants. Never infer Go architecture directly from Laravel framework APIs.
+- All research claims need an evidence class, reproducible SHA/path/line/call graph and limitations. Missing evidence stays OPEN; an illustration/standalone demo cannot claim actual BDSPro integration success.
+- Use [evidence ledger](docs/architecture/research-governance/EVIDENCE_LEDGER.md), [case template](docs/architecture/research-governance/DESIGN_CASE_TEMPLATE.md) and [session handoff](docs/architecture/research-governance/SESSION_HANDOFF.md) so a new chat can resume without importing stale assumptions.
+- Historical documents referencing Gin, P01/PR #218, parallel lanes or F40 may be useful but conflict with the verified current `dev` Chi source or the one-phase directive. Check reality before adopting them. No automatic new phase, PR, production edit or security change.
+
 ## Start here (in this order)
 
 1. [Engineering charter](docs/architecture/engineering-charter.md): goal, source hierarchy and non-negotiable engineering standards.

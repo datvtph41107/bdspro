@@ -59,3 +59,14 @@ For Go-specific correctness use official Go and package docs as a baseline; for 
 ## Deliverable and handoff
 
 Write the research question, evidence table, options/costs, provisional conclusion or explicit OPEN status, acceptance threshold, next owner/action. When implementation eventually occurs, link exact before/after commits and final-HEAD CI. Avoid claiming work happened asynchronously.
+
+## Current context and evidence extension (2026-11-20)
+
+The single-phase, cross-chat implementation of this protocol is [research-governance/README.md](research-governance/README.md), with [CURRENT_PHASE](research-governance/CURRENT_PHASE.md), [REQUIREMENTS_AND_EVIDENCE](research-governance/REQUIREMENTS_AND_EVIDENCE.md), [EVIDENCE_LEDGER](research-governance/EVIDENCE_LEDGER.md) and [SESSION_HANDOFF](research-governance/SESSION_HANDOFF.md).
+
+Additional mandatory checks for new architecture target discussions:
+
+1. No folder/tree, package, interface, control or code pattern is a target decision without actual consumer/import graph and impact analysis across Web, CLI, workers, DB, Redis, Auth/security, deployment and observability; mark unavailable facts NOT INSPECTED rather than generalizing from one route.
+2. Where appropriate, compare **Gitea and Laravel DRX** at pinned revisions and explain Go vs Laravel framework semantics; establish governing constraints first from Go/net/http and relevant official standards.
+3. Analyze the mechanism: exact code, construction vs execution time, caller → callee → consumer, trust boundary, state/concurrency, errors/response and cleanup; separate verified facts, inferred rationale, synthetic model and actual tests.
+4. Keep exactly one user-selected phase active. Historical docs/PRs/previous chat narratives never authorize work in another phase. Architecture recommendation remains PROPOSED until explicit acceptance; no production code edits during the current RG-00 governance-only phase.

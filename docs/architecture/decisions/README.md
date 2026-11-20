@@ -49,3 +49,7 @@ Date / owner / reviewed commit(s):
 ## Acceptance gate
 
 No design verdict without evidence, alternative, ownership and cost. No implementation approval until it is clear what behavior changes, which interfaces/imports are affected, how to retain user-visible behavior/security, and what needs tests. Avoid universal numerical claims unsupported by measurements.
+
+## Current research-first acceptance extension (2026-11-20)
+
+Before writing an ADR proposal, complete the [system requirements and evidence gate](../research-governance/REQUIREMENTS_AND_EVIDENCE.md) and a [single design case](../research-governance/DESIGN_CASE_TEMPLATE.md) for the [one active phase](../research-governance/CURRENT_PHASE.md). Full producer/consumer/call graph, cross-subsystem import and operational impact, a minimal baseline, Gitea/Laravel DRX comparison when relevant, failure/security tests, counterexample and measurable costs are mandatory. A package tree, earlier assistant recommendation, draft code demo or passing test is never an accepted architecture. The user must explicitly accept a proposed ADR before implementation authorization.

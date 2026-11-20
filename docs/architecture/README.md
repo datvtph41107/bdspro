@@ -1,5 +1,10 @@
 # BDSPro runtime architecture — R01
 
+
+## Current architecture research entry point (2026-11-20)
+
+Read [Research Governance](research-governance/README.md), [Current Phase](research-governance/CURRENT_PHASE.md), and [Session Handoff](research-governance/SESSION_HANDOFF.md) first. The older Gin-focused execution paths and F40 implementation notes on this page are historical snapshots; they must not be used as today's runtime description or to authorize unrelated implementation. Live BDSPro `dev` source and explicit current scope win when these notes conflict. The research policy requires evidence before accepting any target package tree or design decision.
+
 **Current** source: `main.go`, `cmd/`, `modules/`, `routers/`,
 `services/`, `models/db/`, `db/`, `templates/`.
 Former `internal/` references live in [historical records](../archive/README.md).
