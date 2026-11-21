@@ -5,7 +5,28 @@
 > Updated 2026-11-17. This documentation-only update is explicitly requested for remote `dev`; it is not acceptance of implementation or a blanket change to branch/merge protection policies.
 
 
-## Current implementation focus — FLC-01 (2026-11-21)
+## Current implementation focus — Source Ownership & File Placement (2026-11-21)
+
+**Read [Source Ownership Audit](docs/architecture/source-ownership-audit.md) first.**
+The user authorized a narrow code-organization refactor on `dev` based on
+specific source/code-path evidence, not a new architectural framework.
+BDSPro follows a Gitea-like distinction between `cmd.runWeb` (process
+entrypoint), `cmd.serveInstalled` (resource/HTTP coordination),
+`modules/setting` (configuration decoding plus explicit settings-driven
+logger activation), `modules/log` (writer ownership),
+`modules/graceful` (shutdown) and `routers` (HTTP composition).
+
+File placement is determined by **single owner, caller/consumer, effect,
+invariant and package import boundary**, not by file length or a desire to
+make every file short. Avoid generic `helper.go`, `runtime_config.go`,
+one-line forwarding wrappers or `modules/util` files without a real shared
+contract. The CLI `config check` command stays in `cmd/config_check.go`;
+the actual INI parser stays in `modules/setting`.
+Retain the pure `LoadWebConfig` for `config check`, and never conflate
+config validation with opening runtime resources. Verify final CI before
+marking the new placement VERIFIED.
+
+## Previous implementation focus — FLC-01 (2026-11-21)
 
 The user has explicitly authorized a narrow implementation to improve startup
 failure boundaries and long-term code readability. Current code is on `dev`;

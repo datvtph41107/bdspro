@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -97,4 +100,33 @@ func configPathOptions(cmd *cli.Command) setting.PathOptions {
 		args.Config = root.String("config")
 	}
 	return args
+}
+
+// installSignals belongs to the CLI process entrypoint. It must not be hidden
+// in a generic "helper" package, or called by a resource owner.
+func installSignals() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+}
+
+// PrepareConsoleLoggerLevel is a CLI Before adapter; modules/log owns the sink.
+func PrepareConsoleLoggerLevel(level log.Level) func(context.Context, *cli.Command) (context.Context, error) {
+	return func(ctx context.Context, _ *cli.Command) (context.Context, error) {
+		if err := log.SetupStderrLogger(level); err != nil {
+			return ctx, err
+		}
+		return ctx, nil
+	}
+}
+
+// rejectArguments is shared by CLI subcommands, not a generic module helper.
+func rejectArguments(name string) func(context.Context, *cli.Command) (context.Context, error) {
+	return func(ctx context.Context, command *cli.Command) (context.Context, error) {
+		if command.Args().Len() != 0 {
+			if name == "web" {
+				return ctx, fmt.Errorf("unknown command: %s", command.Args().First())
+			}
+			return ctx, fmt.Errorf("unexpected %s argument %q", name, command.Args().First())
+		}
+		return ctx, nil
+	}
 }

@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/datvtph41107/bdspro/modules/util"
 	"gopkg.in/ini.v1" // nolint:depguard // Chỉ adapter này làm việc trực tiếp với INI.
 )
 
@@ -145,14 +144,15 @@ func NewConfigProviderFromFile(file string) (ConfigProvider, error) {
 	}
 
 	cfg := ini.Empty(configProviderLoadOptions())
-	isExist, err := util.IsExist(file)
-	if err != nil {
-		return nil, fmt.Errorf("unable to check if %q exists: %w", file, err)
+	// This adapter owns opening the config file; a one-use modules/util
+	// wrapper around os.Stat only hid the actual filesystem dependency.
+	if _, err := os.Stat(file); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("config file %q: %w", file, os.ErrNotExist)
+		}
+		return nil, fmt.Errorf("unable to check config file %q: %w", file, err)
 	}
-	if !isExist {
-		return nil, fmt.Errorf("config file %q: %w", file, os.ErrNotExist)
-	}
-	if err = cfg.Append(file); err != nil {
+	if err := cfg.Append(file); err != nil {
 		return nil, fmt.Errorf("failed to load config file %q: %w", file, err)
 	}
 	cfg.NameMapper = ini.SnackCase

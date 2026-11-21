@@ -9,7 +9,8 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// Config preflight does not inherit Web/Migrate startup or logger Before hooks.
+// config check is a CLI command; parsing and validation stay in modules/setting.
+// It deliberately does not activate logging or publish process settings.
 func newConfigCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "config",

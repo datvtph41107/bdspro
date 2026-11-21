@@ -38,9 +38,10 @@ New call graph:
 
 ```text
 cmd.runWeb
-  -> setting.LoadWebConfig(args, envs)
-  -> configureCommandLogger(cfg.Common.Log)
-  -> routers.PrepareWebRoutes(cfg)
+  -> cmd.prepareWeb
+       -> setting.LoadWebConfig(args, envs)
+       -> setting.InitLoggers(cfg.Common.Log)
+       -> routers.PrepareWebRoutes(cfg)
        -> routers.NormalRoutes()
             -> apiv1.Routes() / web.Router.Methods()  // program error can panic
        -> api.SwaggerHandler(cfg.Common.RunMode)       // only if enabled
@@ -149,3 +150,8 @@ FLC-01 source integration VERIFIED.
 
 **Decision discipline:** These remain hypotheses until a reproducible test
 shows a violated invariant and a narrower mechanism cannot solve it.
+
+Update (2026-11-21): `cmd.runWeb` now delegates settings/logging/route
+preflight to private `cmd.prepareWeb` in `cmd/web.go`. This is a source
+ownership cleanup after FLC-01, not a change to rollback or shutdown logic.
+See [Source Ownership Audit](source-ownership-audit.md).

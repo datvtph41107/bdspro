@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/datvtph41107/bdspro/modules/graceful"
@@ -26,30 +25,40 @@ func newWebCommand() *cli.Command {
 	}
 }
 
+// runWeb owns the process lifecycle, not individual configuration mechanisms.
+// Prepare returns a validated snapshot and compiled routes before resources open.
 func runWeb(ctx context.Context, command *cli.Command) error {
-	// A single validated snapshot is handed off to all resource constructors.
-	cfg, err := setting.LoadWebConfig(configPathOptions(command), os.Environ())
+	cfg, routes, err := prepareWeb(command)
 	if err != nil {
 		return err
 	}
-	if err := configureCommandLogger(cfg.Common.Log); err != nil {
-		return err
-	}
-	// Compile the route contract first. A programmer error must not leave DB or
-	// Redis open; neither resource nor the graceful manager exists yet.
-	routes, err := routers.PrepareWebRoutes(cfg)
-	if err != nil {
-		return fmt.Errorf("prepare HTTP routes: %w", err)
-	}
-	// Only HTTP consumers still use these legacy globals; publish before serving.
-	setting.PublishLegacyWeb(cfg)
-	log.Info("Using configuration file: %s", cfg.Paths.ConfigFile)
 
 	managerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	graceful.InitManager(managerCtx, cfg.Common.Graceful.HammerTimeout)
 
 	return serveInstalled(cfg, routes)
+}
+
+// prepareWeb is the Web command's composition boundary. It has one caller and
+// intentionally stays beside runWeb, rather than becoming a generic cmd helper.
+func prepareWeb(command *cli.Command) (setting.WebConfig, http.Handler, error) {
+	cfg, err := setting.LoadWebConfig(configPathOptions(command), os.Environ())
+	if err != nil {
+		return setting.WebConfig{}, nil, err
+	}
+	if err := setting.InitLoggers(cfg.Common.Log); err != nil {
+		return setting.WebConfig{}, nil, err
+	}
+	// Register routes before opening PostgreSQL or Redis. A route programmer
+	// error must not create external resources or publish legacy HTTP globals.
+	routes, err := routers.PrepareWebRoutes(cfg)
+	if err != nil {
+		return setting.WebConfig{}, nil, fmt.Errorf("prepare HTTP routes: %w", err)
+	}
+	setting.PublishLegacyWeb(cfg) // temporary bridge for existing HTTP consumers
+	log.Info("Using configuration file: %s", cfg.Paths.ConfigFile)
+	return cfg, routes, nil
 }
 
 // serveInstalled composes the Web application and
@@ -132,7 +141,7 @@ func listen(handler http.Handler, address string, shutdownTimeout time.Duration)
 
 	log.Info("Listen: http://%s", address)
 
-	err := runHTTP(
+	err := graceful.HTTPListenAndServe(
 		"tcp",
 		address,
 		"BDSPro Web",

@@ -12,10 +12,11 @@ Historical G02 notes are evidence, not the live implementation contract.
 ```text
 cmd.NewMainApp       // register CLI only, no config or resource creation
   -> cmd.runWeb
-       -> setting.LoadWebConfig(CLI Paths, process ENV)  // parse once, validate
-       -> cmd.configureCommandLogger(cfg.Common.Log)
-       -> routers.PrepareWebRoutes(cfg)                  // route registration before resources
-       -> setting.PublishLegacyWeb(cfg)                  // temporary HTTP bridge
+       -> cmd.prepareWeb
+            -> setting.LoadWebConfig(CLI Paths, process ENV)  // parse once, validate
+            -> setting.InitLoggers(cfg.Common.Log)             // activates modules/log output
+            -> routers.PrepareWebRoutes(cfg)                   // route registration before resources
+            -> setting.PublishLegacyWeb(cfg)                   // temporary HTTP bridge
        -> graceful.InitManager(ctx, cfg.Common.Graceful.HammerTimeout)
        -> cmd.serveInstalled(cfg, preparedRoutes)
             -> routers.InitWebInstalled(g.ShutdownContext(), cfg)
@@ -25,7 +26,8 @@ cmd.NewMainApp       // register CLI only, no config or resource creation
                  -> graceful.HTTPListenAndServe -> net.Listen
 ```
 
-`cmd.runMigrate` calls `setting.LoadMigrateConfig`, not Web settings; it
+`cmd.runMigrate` calls `setting.LoadMigrateConfig` and explicitly
+`setting.InitLoggers(cfg.Common.Log)`, not Web settings; it
 does not construct the HTTP handler, Redis client, JWT maker or graceful manager.
 `cmd.config check` calls `setting.CheckWebConfig`, which calls the same typed
 Web loader without publishing global settings or opening runtime resources.
@@ -33,9 +35,14 @@ Web loader without publishing global settings or opening runtime resources.
 ## Package owner / lifecycle contracts
 
 - `modules/setting`: INI/ENV/secret reading, paths, defaults, validation,
-  typed `WebConfig`/`MigrateConfig`. It must not open runtime connections.
-- `cmd`: CLI composition, console/logger setup, process signal handling,
+  typed `WebConfig`/`MigrateConfig`, and **explicit** `InitLoggers`
+  handoff after validation. It must not own a log writer or open DB/Redis.
+- `modules/log`: owns logger writers/file descriptors; only this package
+  manages their lifecycle.
+- `cmd`: CLI composition, early stderr setup, process signal handling,
   validated config handoff, graceful manager, HTTP listener invocation.
+  `prepareWeb` stays in `cmd/web.go`, as Gitea-like command composition,
+  instead of becoming `cmd/runtime_config.go` shared utility.
 - `routers`: deterministic route registration and trusted-proxy checking
   occur during `PrepareWebRoutes`, before DB/Redis startup. Runtime
   `NormalHandler` only attaches borrowed Redis admission to that route tree.
@@ -76,7 +83,7 @@ process after their Close functions set the closed flag. A failed deployment
 must restart the process, not retry bootstrap in-process.
 
 **HTTP drain:** `server.HTTP_SHUTDOWN_TIMEOUT` now flows from the typed
-Web snapshot through `cmd.listen` and `cmd.runHTTP` to the HTTP adapter.
+Web snapshot through `cmd.listen` directly to `graceful.HTTPListenAndServe`.
 On shutdown, `http.Server.Shutdown(context.WithTimeout(...))` stops new
 accepts and waits for active net/http requests; when its deadline expires,
 `http.Server.Close()` force-closes net/http connections. The existing wrapped
@@ -120,3 +127,30 @@ References:
 - PocketBase constructor: https://github.com/pocketbase/pocketbase/blob/7f2773ec234b62d0b80ca47c508397cb3d0da3ea/core/base.go#L215-L245
 - Go net/http Server.Shutdown/Close: https://pkg.go.dev/net/http#Server.Shutdown
 - Docker stop_grace_period: https://docs.docker.com/reference/compose-file/services/#stop_grace_period
+
+## Source placement decision (2026-11-21)
+
+Read [File and Package Ownership Audit](source-ownership-audit.md).
+
+- `cmd/runtime_config.go` had one command-specific adapter calling
+  `modules/log` with fields read from `modules/setting`: no independent
+  ownership. The explicit log activation is now in `setting/log.go`, where
+  Gitea also locates settings-driven logger initialization. The writer itself
+  remains in `modules/log`.
+- `cmd/web_graceful.go` forwarded one call with no state, contract or error
+  transformation; `cmd.listen` now calls `graceful.HTTPListenAndServe`
+  directly. Graceful remains the HTTP protocol lifecycle owner.
+- `cmd/config.go` was **not** a misplaced configuration parser:
+  it implements the `config check` CLI command. It was renamed
+  `cmd/config_check.go` to avoid a misleading, broad filename; it keeps
+  calling pure `setting.CheckWebConfig`.
+- `cmd/helper.go` mixed CLI argument checks, signals and console bootstrap
+  in a catch-all. These entrypoint functions now reside in `cmd/main.go`
+  with their only process-level owner; no `modules/util` migration.
+- `modules/util/path.go` contained an `IsExist` abstraction used only by
+  the INI adapter. `modules/setting/config_provider.go` now uses `os.Stat`
+  and `errors.Is(err, os.ErrNotExist)` directly, with existing config
+  provider file/missing-file tests.
+- Only the file placement and explicit log activation adapter were
+  modified. The singleton resource manager, rollback, run mode migration,
+  and HTTP request contracts remain as they were.

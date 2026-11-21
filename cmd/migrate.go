@@ -39,7 +39,7 @@ func runMigrate(ctx context.Context, command *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	if err := configureCommandLogger(cfg.Common.Log); err != nil {
+	if err := setting.InitLoggers(cfg.Common.Log); err != nil {
 		return err
 	}
 	log.Info("Using configuration file: %s", cfg.Paths.ConfigFile)

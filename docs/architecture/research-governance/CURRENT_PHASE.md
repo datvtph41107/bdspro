@@ -3,9 +3,13 @@
 **Status:** DOCUMENTED / HISTORICAL. **Date:** 2026-11-20.
 
 **2026-11-21 current implementation note:** The user has since authorized
-startup and graceful refactors followed by FLC-01 failure-boundary hardening.
-See [FLC-01](../flc01-startup-failure-boundary.md) for the newly active,
-narrow scope; its verification requires final commit CI. The RG-00 restrictions
+startup and graceful refactors followed by FLC-01 failure-boundary hardening
+and a subsequent source ownership/file placement refactor. See
+[Source Ownership Audit](../source-ownership-audit.md) for the latest narrow
+scope and its final-commit CI gate.
+See [FLC-01](../flc01-startup-failure-boundary.md) for the previous
+failure-boundary phase. Verification of the current file placement refactor
+requires CI at its own final commit. The RG-00 restrictions
 below describe their original docs-only phase, not a current blanket ban.
 Other research topics remain OPEN pending their own decision gates.
 **Target repository:** https://github.com/datvtph41107/bdspro

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 // LogGlobalConfig là config; modules/log quản lý writer thực tế.
@@ -66,6 +68,19 @@ func (cfg LogGlobalConfig) Validate() error {
 	}
 	if cfg.FileName == "" || cfg.FileName == "." || cfg.FileName == ".." || filepath.Base(cfg.FileName) != cfg.FileName {
 		return errors.New("log.file.FILE_NAME must be a filename")
+	}
+	return nil
+}
+
+// InitLoggers activates the already-validated command logging configuration.
+// The setting package owns the value-to-runtime handoff (as in Gitea), while
+// modules/log alone owns writers, file handles and termination cleanup.
+// Call only after LoadWebConfig or LoadMigrateConfig succeeds.
+func InitLoggers(cfg LogGlobalConfig) error {
+	if err := log.GetManager().ConfigureOutputs(
+		cfg.Mode, cfg.Format, strings.ToLower(cfg.Level), cfg.RootPath, cfg.FileName,
+	); err != nil {
+		return fmt.Errorf("configure logging outputs: %w", err)
 	}
 	return nil
 }
