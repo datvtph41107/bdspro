@@ -1,6 +1,7 @@
 package setting
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -26,34 +27,33 @@ func TestResolveMigrationURL(t *testing.T) {
 	}
 }
 
-func TestLoadDBSettingUsesAppWorkPath(t *testing.T) {
+func TestMigrateSettingsUsesResolvedWorkPath(t *testing.T) {
 	saveGlobals(t)
-	provider, err := NewConfigProviderFromData("[database]\nDB_SOURCE = example\nMIGRATION_URL = file://db/migration\n")
-	if err != nil {
+	work := t.TempDir()
+	file := filepath.Join(work, "app.ini")
+	content := "RUN_MODE = development\nWORK_PATH = " + work + "\n" +
+		"[database]\nDB_SOURCE = example\nMIGRATION_URL = file://db/migration\n"
+	if err := os.WriteFile(file, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
-	AppWorkPath = t.TempDir()
-	CfgProvider = provider
-	if err := LoadDBSetting(); err != nil {
+	if err := LoadMigrateSettings(PathOptions{Config: file}, nil); err != nil {
 		t.Fatal(err)
 	}
-	want := "file://" + filepath.ToSlash(filepath.Join(AppWorkPath, "db", "migration"))
+	want := "file://" + filepath.ToSlash(filepath.Join(work, "db", "migration"))
 	if Database.MigrationURL != want {
 		t.Fatalf("migration path = %q, want %q", Database.MigrationURL, want)
 	}
 }
 
-func TestLoadDBSettingRejectsInvalidWorkPathWithoutPublication(t *testing.T) {
+func TestMigrateLoaderRejectsInvalidWorkPathWithoutPublication(t *testing.T) {
 	saveGlobals(t)
 	provider, err := NewConfigProviderFromData("[database]\nMIGRATION_URL = file://db/migration\n")
 	if err != nil {
 		t.Fatal(err)
 	}
-	CfgProvider = provider
-	AppWorkPath = ""
 	Database = DatabaseSettings{MigrationURL: "previous"}
-	if err := LoadDBSetting(); err == nil {
-		t.Fatalf("expected work path error, got %v", err)
+	if _, err := loadDBSetting(provider, ""); err == nil {
+		t.Fatal("expected work path error")
 	}
 	if Database.MigrationURL != "previous" {
 		t.Fatal("migration settings published on error")

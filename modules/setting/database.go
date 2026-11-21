@@ -73,15 +73,15 @@ func LoadMigrateConfig(args PathOptions, envs []string) (MigrateConfig, error) {
 	}, nil
 }
 
-// LoadDBSetting là CLI entrypoint; chỉ công bố khi validate thành công.
-func LoadDBSetting() error {
-	if CfgProvider == nil {
-		return errors.New("configuration provider is not initialized")
-	}
-	database, err := loadDBSetting(CfgProvider, AppWorkPath)
+// LoadMigrateSettings publishes only the common and DB settings needed
+// by a migration command; Web/Redis/Auth are not initialized.
+func LoadMigrateSettings(args PathOptions, envs []string) error {
+	cfg, err := LoadMigrateConfig(args, envs)
 	if err != nil {
 		return err
 	}
-	Database = database
-	return nil
+	return publishSettings(func() {
+		publishCommonSettings(cfg.Paths, cfg.Common)
+		Database = cfg.Database
+	})
 }

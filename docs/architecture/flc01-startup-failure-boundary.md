@@ -1,3 +1,9 @@
+> **Historical FLC-01 implementation evidence:** the typed `cfg` arguments
+> shown in the earlier call graph were superseded by the user-approved
+> [canonical process settings](canonical-settings-and-ownership.md).
+> Route registration still runs before DB/Redis initialization, but
+> validated settings are published once before route preparation.
+
 # FLC-01 — Startup failure boundaries, route preflight and cancellation
 
 Status: IMPLEMENTATION TARGET for `dev`, reviewed against

@@ -23,12 +23,12 @@ import (
 // InitWebInstalled initializes required Web dependencies in order. Resources
 // retain their own graceful termination hooks; failed startup rolls back
 // completed stages through idempotent resource-owner close functions.
-func InitWebInstalled(ctx context.Context, cfg setting.WebConfig) error {
+func InitWebInstalled(ctx context.Context) error {
 	return startup.Run(ctx,
 		startup.Step{
 			Name: "PostgreSQL",
 			Init: func(ctx context.Context) error {
-				if err := common.InitDBEngine(ctx, cfg.Common.RunMode, cfg.Database); err != nil {
+				if err := common.InitDBEngine(ctx); err != nil {
 					return err
 				}
 				log.Info("PostgreSQL ready")
@@ -37,15 +37,13 @@ func InitWebInstalled(ctx context.Context, cfg setting.WebConfig) error {
 			Rollback: db.CloseEngine,
 		},
 		startup.Step{
-			Name: "Redis",
-			Init: func(ctx context.Context) error {
-				return common.InitRedis(ctx, cfg.Redis.Address)
-			},
+			Name:     "Redis",
+			Init:     common.InitRedis,
 			Rollback: conn.CloseRedis,
 		},
 		startup.Step{
 			Name: "access token verifier",
-			Init: func(context.Context) error { return auth.Init(cfg.Security.TokenSymmetricKey) },
+			Init: func(context.Context) error { return auth.Init() },
 		},
 	)
 }
@@ -59,16 +57,16 @@ func NormalRoutes() *web.Router {
 
 // PrepareWebRoutes compiles the HTTP route tree before opening DB/Redis.
 // Panics during route registration are programmer errors, not runtime outages.
-func PrepareWebRoutes(cfg setting.WebConfig) (http.Handler, error) {
+func PrepareWebRoutes() (http.Handler, error) {
 	routes := NormalRoutes()
-	if cfg.API.EnableSwagger {
-		swagger := api.SwaggerHandler(cfg.Common.RunMode)
+	if setting.API.EnableSwagger {
+		swagger := api.SwaggerHandler(setting.Common.RunMode)
 		if swagger == nil {
-			return nil, fmt.Errorf("Swagger enabled in unsupported run mode %q", cfg.Common.RunMode)
+			return nil, fmt.Errorf("Swagger enabled in unsupported run mode %q", setting.Common.RunMode)
 		}
 		routes.Get("/swagger/*", swagger.ServeHTTP)
 	}
-	if err := routes.SetTrustedProxies(cfg.Server.TrustedProxies); err != nil {
+	if err := routes.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("configure HTTP trusted proxies: %w", err)
 	}
 	return routes.WrapIngress(), nil
@@ -76,7 +74,7 @@ func PrepareWebRoutes(cfg setting.WebConfig) (http.Handler, error) {
 
 // NormalHandler attaches runtime admission to the prepared HTTP tree.
 // Redis remains owned by modules/conn; the middleware only borrows its client.
-func NormalHandler(routes http.Handler, policies map[ipactive.Action]ipactive.Policy) (http.Handler, error) {
+func NormalHandler(routes http.Handler) (http.Handler, error) {
 	if routes == nil {
 		return nil, errors.New("HTTP routes must be prepared before resource startup")
 	}
@@ -84,7 +82,7 @@ func NormalHandler(routes http.Handler, policies map[ipactive.Action]ipactive.Po
 	if err != nil {
 		return nil, fmt.Errorf("IP admission Redis unavailable: %w", err)
 	}
-	limiter, err := ipactive.NewRedis(client, policies)
+	limiter, err := ipactive.NewRedis(client, setting.IPActive.Policies)
 	if err != nil {
 		return nil, fmt.Errorf("configure IP admission: %w", err)
 	}

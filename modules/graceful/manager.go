@@ -7,6 +7,8 @@ import (
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/datvtph41107/bdspro/modules/setting"
 )
 
 var (
@@ -25,9 +27,9 @@ func GetManager() *Manager {
 }
 
 // InitManager initializes the manager once per process.
-func InitManager(ctx context.Context, hammerTimeout time.Duration) {
+func InitManager(ctx context.Context) {
 	initOnce.Do(func() {
-		manager = newGracefulManager(ctx, hammerTimeout)
+		manager = newGracefulManager(ctx, setting.Common.Graceful.HammerTimeout)
 	})
 }
 

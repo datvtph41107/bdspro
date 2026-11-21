@@ -66,10 +66,18 @@ jobs:
           export PATH="$(go env GOPATH)/bin:$PATH"
           make sqlc-check
 
-      - name: Verify resource packages do not import setting
+      - name: Verify canonical configuration ownership
         run: |
-          if grep -Rn --include='*.go' 'github.com/datvtph41107/bdspro/modules/setting' models/db modules/conn modules/auth modules/graceful; then
-            echo 'Runtime resource package must receive typed values from bootstrap, not global setting'; exit 1
+          # Resource packages may READ the process settings (Gitea-style),
+          # but may not parse files or create an independent config authority.
+          if grep -Rn --include='*.go' -E 'NewConfigProviderFromFile|LoadWebConfig|LoadMigrateConfig' models/db modules/conn modules/auth modules/graceful routers; then
+            echo 'Only modules/setting may load or parse configuration'; exit 1
+          fi
+          if grep -Rn --include='*.go' -E 'github.com/datvtph41107/bdspro/(models|routers|services)' modules/setting; then
+            echo 'modules/setting must not import application owners'; exit 1
+          fi
+          if grep -Rn --include='*.go' -E 'PublishLegacyWeb|CfgProvider' cmd routers models/db modules/conn modules/auth; then
+            echo 'Legacy configuration publication path remains'; exit 1
           fi
 
       - name: Build all packages

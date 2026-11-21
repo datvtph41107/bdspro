@@ -1,3 +1,8 @@
+> **HISTORICAL:** Nội dung dưới đây mô tả một thiết kế cũ và có thể nhắc
+> Gin, worker, `CfgProvider` hoặc các CLI hooks không còn tồn tại.
+> Xem [canonical settings/ownership](canonical-settings-and-ownership.md)
+> để đọc contract hiện hành tại `dev`.
+
 # Vòng đời cấu hình và khởi tạo BDSPro
 
 BDSPro học cơ chế tổ chức source của Gitea, không sao chép nghiệp vụ Git. Mục tiêu là mỗi cấu hình có một owner, mỗi subsystem được khởi tạo đúng thời điểm và mỗi tài nguyên được đóng ở đúng runtime.

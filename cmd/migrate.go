@@ -35,20 +35,19 @@ func newMigrateCommand() *cli.Command {
 
 // runMigrate nhận DB source và migration URL từ canonical setting.
 func runMigrate(ctx context.Context, command *cli.Command) error {
-	cfg, err := setting.LoadMigrateConfig(configPathOptions(command), os.Environ())
-	if err != nil {
+	if err := setting.LoadMigrateSettings(configPathOptions(command), os.Environ()); err != nil {
 		return err
 	}
-	if err := setting.InitLoggers(cfg.Common.Log); err != nil {
+	if err := setting.InitLoggers(); err != nil {
 		return err
 	}
-	log.Info("Using configuration file: %s", cfg.Paths.ConfigFile)
+	log.Info("Using configuration file: %s", setting.CustomConf)
 	steps := command.Int("steps")
 	if command.Bool("down") {
-		if cfg.Common.RunMode != "development" {
+		if setting.Common.RunMode != "development" {
 			return errors.New("schema rollback is restricted to development")
 		}
-		changed, err := db.MigrateDown(cfg.Database.MigrationURL, cfg.Database.DBSource, steps)
+		changed, err := db.MigrateDown(setting.Database.MigrationURL, setting.Database.DBSource, steps)
 		if err != nil {
 			return err
 		}
@@ -60,7 +59,7 @@ func runMigrate(ctx context.Context, command *cli.Command) error {
 		return nil
 	}
 
-	changed, err := db.MigrateUp(ctx, cfg.Database.MigrationURL, cfg.Database.DBSource, steps)
+	changed, err := db.MigrateUp(ctx, setting.Database.MigrationURL, setting.Database.DBSource, steps)
 	if err != nil {
 		return err
 	}

@@ -6,62 +6,75 @@ preflight and startup cancellation; read
 [its traced failure-boundary case](flc01-startup-failure-boundary.md)
 for precise source, invariants, operational risks and verification gates.
 Historical G02 notes are evidence, not the live implementation contract.
+**Canonical current settings contract:** [Canonical Process Settings & Source Ownership](canonical-settings-and-ownership.md)
+and [ADR-G02-02](decisions/ADR-G02-02-canonical-process-settings.md).
+The earlier typed bootstrap was deliberately superseded at user request;
+pure validation remains, but runtime resources read one published setting.
 
 ## Configuration boundary and caller
 
 ```text
-cmd.NewMainApp       // register CLI only, no config or resource creation
+cmd.NewMainApp                 // register CLI only
   -> cmd.runWeb
        -> cmd.prepareWeb
-            -> setting.LoadWebConfig(CLI Paths, process ENV)  // parse once, validate
-            -> setting.InitLoggers(cfg.Common.Log)             // activates modules/log output
-            -> routers.PrepareWebRoutes(cfg)                   // route registration before resources
-            -> setting.PublishLegacyWeb(cfg)                   // temporary HTTP bridge
-       -> graceful.InitManager(ctx, cfg.Common.Graceful.HammerTimeout)
-       -> cmd.serveInstalled(cfg, preparedRoutes)
-            -> routers.InitWebInstalled(g.ShutdownContext(), cfg)
-                 -> startup.Run [PostgreSQL, Redis, JWT]
-            -> routers.NormalHandler(preparedRoutes, cfg.IPActive.Policies)
-            -> cmd.listen(handler, cfg.Server.HTTPServerAddress, HTTPShutdownTimeout)
+            -> setting.LoadWebSettings(args, envs)
+                 -> LoadWebConfig                 // one parse, validate, transient typed data
+                 -> publishSettings once        // canonical setting package globals
+            -> setting.InitLoggers()             // modules/log writer owner
+            -> routers.PrepareWebRoutes()        // static route contract; no DB/Redis
+       -> graceful.InitManager(ctx)              // reads setting.Common.Graceful
+       -> cmd.serveInstalled(preparedRoutes)
+            -> routers.InitWebInstalled(g.ShutdownContext())
+                 -> startup.Run [PostgreSQL → Redis → Auth]
+                     -> common.InitDBEngine(ctx) -> db.InitEngine(ctx)
+                          -> db.Connect(ctx, setting.Database.DBSource)
+                     -> common.InitRedis(ctx) -> conn.InitRedis(ctx)
+                          -> RedisManager.Client(ctx, setting.Redis.Address)
+                     -> auth.Init() -> NewJWTMaker(setting.Security.TokenSymmetricKey)
+            -> routers.NormalHandler(preparedRoutes) // reads setting.IPActive
+            -> cmd.listen(handler)                    // reads setting.Server
                  -> graceful.HTTPListenAndServe -> net.Listen
 ```
 
-`cmd.runMigrate` calls `setting.LoadMigrateConfig` and explicitly
-`setting.InitLoggers(cfg.Common.Log)`, not Web settings; it
-does not construct the HTTP handler, Redis client, JWT maker or graceful manager.
-`cmd.config check` calls `setting.CheckWebConfig`, which calls the same typed
-Web loader without publishing global settings or opening runtime resources.
+`cmd.runMigrate` calls `setting.LoadMigrateSettings` and `InitLoggers()`;
+it publishes only Paths/Common/Database. No HTTP listener, Redis client,
+JWT maker or graceful manager is created.
+`cmd.runConfigCheck` calls `setting.CheckWebConfig`; it uses the **same pure
+loader** but never publishes globals, opens resources or activates a log
+writer. Each command loads INI independently in its own process; no subsystem
+re-parses the file. This is Gitea-style **runtime global settings**, not an
+instance-based DI container.
 
 ## Package owner / lifecycle contracts
 
-- `modules/setting`: INI/ENV/secret reading, paths, defaults, validation,
-  typed `WebConfig`/`MigrateConfig`, and **explicit** `InitLoggers`
-  handoff after validation. It must not own a log writer or open DB/Redis.
-- `modules/log`: owns logger writers/file descriptors; only this package
-  manages their lifecycle.
-- `cmd`: CLI composition, early stderr setup, process signal handling,
-  validated config handoff, graceful manager, HTTP listener invocation.
-  `prepareWeb` stays in `cmd/web.go`, as Gitea-like command composition,
-  instead of becoming `cmd/runtime_config.go` shared utility.
-- `routers`: deterministic route registration and trusted-proxy checking
-  occur during `PrepareWebRoutes`, before DB/Redis startup. Runtime
-  `NormalHandler` only attaches borrowed Redis admission to that route tree.
-  `routers/common` still owns the **existing** development migration policy.
-- `models/db`: owns one process PostgreSQL pool and its idempotent
-  `CloseEngine`; `InitEngine(ctx, source)` does not read configuration globals.
-- `modules/conn`: owns one process Redis manager/client; `InitRedis(ctx, address)`
-  does not read setting globals. Consumers borrow, they do not close Redis.
-- `modules/auth`: `Init(secretKey)` creates a process JWT maker. The maker is
-  in-memory state, not a network resource; no generic `Close` interface is added.
-- `modules/startup.Run`: validates ordered steps, unwinds **successful**
-  stages in reverse on error or cancellation. A failing Init owns its partial cleanup.
-- `modules/graceful`: coordinates signal-driven drain and termination.
-  DB/Redis register idempotent termination callbacks after successful init.
+- `modules/setting` owns **all config discovery, INI/ENV/secret parsing,
+  validation and one-time publication**. It does not own DB/Redis resources.
+  `WebConfig` is a transient validated value, never a parallel runtime store.
+- `cmd` owns CLI args, sequence of process operations and exit.
+  `runWeb` stays short because `prepareWeb`, `serveInstalled`, `listen`
+  are distinct command lifecycle stages, all kept in `cmd/web.go`.
+- `routers` owns static route preflight, startup step composition and HTTP
+  middleware admission. It **reads** canonical settings, does not parse them.
+- `models/db` owns PostgreSQL pool, `CloseEngine`, and the explicit
+  `Connect(ctx, source)` primitive; process `InitEngine(ctx)` reads
+  `setting.Database`.
+- `modules/conn` owns Redis, its idempotent Close and the reusable
+  `RedisManager.Client(ctx, address)` primitive; process `InitRedis(ctx)`
+  reads `setting.Redis`.
+- `modules/auth` owns JWT maker; process `Init()` reads
+  `setting.Security`, but `NewJWTMaker(secret)` stays explicit and testable.
+- `modules/log` owns logger writers/file descriptors. `setting.InitLoggers`
+  activates it from canonical log settings.
+- `modules/graceful` coordinates signal-driven shutdown/drain/termination;
+  `InitManager(ctx)` reads the validated hammer deadline.
+- `modules/startup.Run` executes init steps, rolls back **successful**
+  stages in reverse on error/cancellation. A failing Init cleans up its own
+  partially created resource.
+- `models/<domain>`, `services/<domain>`, `routers/api` keep domain
+  data, transactions/business operations and HTTP mapping distinct.
 
-`setting.PublishLegacyWeb` is a one-time compatibility bridge for HTTP request
-middleware and service code still using `setting.API/Server/Security/IPActive`.
-It is not a hot-reload API and should be removed only after the HTTP consumers
-are migrated. Its mutable map/slices are copied when publishing.
+Only the **configuration access path** changed, not the startup Run/Close,
+migration policy, public API, resource singletons or database schema.
 
 ## Failure matrix
 
@@ -72,7 +85,7 @@ are migrated. Its mutable map/slices are copied when publishing.
 | DB initializes, migration fails | `routers/common` closes DB; later termination hook is idempotent |
 | Redis initialization fails | Redis owner closes partial manager; `startup.Run` rolls back DB |
 | Auth initialization fails | `startup.Run` rolls back Redis then DB |
-| Route registration / trusted-proxy preflight fails | No DB/Redis/Auth resource is opened |
+| Route registration / trusted-proxy preflight fails | Settings may have been published and logger activated, but no DB/Redis/Auth resource is opened |
 | Runtime admission composition fails after DB/Redis | `serveInstalled` invokes graceful termination hooks |
 | SIGTERM while serving | HTTP Shutdown drains active requests up to HTTP timeout; then Close forces net/http conns closed; hammer remains fallback |
 | Multiple Close calls | Process-owned DB/Redis closers remain idempotent |
@@ -82,8 +95,9 @@ The process-owned DB and Redis cannot be initialized again in the **same**
 process after their Close functions set the closed flag. A failed deployment
 must restart the process, not retry bootstrap in-process.
 
-**HTTP drain:** `server.HTTP_SHUTDOWN_TIMEOUT` now flows from the typed
-Web snapshot through `cmd.listen` directly to `graceful.HTTPListenAndServe`.
+**HTTP drain:** `server.HTTP_SHUTDOWN_TIMEOUT` is read from canonical
+`setting.Common.Graceful` by `cmd.listen`, which passes the duration to
+`graceful.HTTPListenAndServe`.
 On shutdown, `http.Server.Shutdown(context.WithTimeout(...))` stops new
 accepts and waits for active net/http requests; when its deadline expires,
 `http.Server.Close()` force-closes net/http connections. The existing wrapped

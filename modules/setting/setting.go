@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -13,8 +14,7 @@ var (
 	AppBuiltWith string
 	AppStartTime time.Time
 
-	CfgProvider ConfigProvider
-	Common      CommonSettings
+	Common CommonSettings
 )
 
 // CommonSettings là dữ liệu đã validate dùng bởi mọi command.
@@ -66,20 +66,6 @@ func prepareCommonConfig(args PathOptions, envs []string) (preparedCommonConfig,
 		return preparedCommonConfig{}, fmt.Errorf("load common settings: %w", err)
 	}
 	return preparedCommonConfig{paths: paths, provider: provider, common: common}, nil
-}
-
-// InitWorkPathAndCommonConfig preserves the existing process-wide publication contract.
-func InitWorkPathAndCommonConfig(args PathOptions, envs []string) error {
-	prepared, err := prepareCommonConfig(args, envs)
-	if err != nil {
-		return err
-	}
-	AppWorkPath = prepared.paths.WorkPath
-	CustomPath = prepared.paths.CustomPath
-	CustomConf = prepared.paths.ConfigFile
-	CfgProvider = prepared.provider
-	Common = prepared.common
-	return nil
 }
 
 func loadCommonSettingsFrom(cfg ConfigProvider, workPath string) (CommonSettings, error) {
@@ -169,23 +155,57 @@ func LoadWebConfig(args PathOptions, envs []string) (WebConfig, error) {
 	}, nil
 }
 
-// PublishLegacyWeb is a one-time startup compatibility bridge for HTTP handlers
-// that still consume global settings. Do not call it after the listener starts.
-// The provider itself is not published: runtime must use the validated snapshot.
-func PublishLegacyWeb(cfg WebConfig) {
-	AppWorkPath = cfg.Paths.WorkPath
-	CustomPath = cfg.Paths.CustomPath
-	CustomConf = cfg.Paths.ConfigFile
-	CfgProvider = nil
-	Common = cfg.Common
-	Server = cfg.Server
-	Server.TrustedProxies = append([]string(nil), cfg.Server.TrustedProxies...)
-	Server.AllowedOrigins = append([]string(nil), cfg.Server.AllowedOrigins...)
-	API = cfg.API
-	Security = cfg.Security
-	IPActive = cfg.IPActive.clone()
-	Database = cfg.Database
-	Redis = cfg.Redis
+// LoadWebSettings is the only Web process publication entrypoint.
+// LoadWebConfig remains side-effect-free for config check and tests.
+func LoadWebSettings(args PathOptions, envs []string) error {
+	cfg, err := LoadWebConfig(args, envs)
+	if err != nil {
+		return err
+	}
+	return publishWebConfig(cfg)
+}
+
+// publishWebConfig commits a fully validated Web snapshot exactly once.
+// The published package values are the canonical runtime configuration.
+func publishWebConfig(cfg WebConfig) error {
+	return publishSettings(func() {
+		publishCommonSettings(cfg.Paths, cfg.Common)
+		Server = cfg.Server
+		Server.TrustedProxies = append([]string(nil), cfg.Server.TrustedProxies...)
+		Server.AllowedOrigins = append([]string(nil), cfg.Server.AllowedOrigins...)
+		API = cfg.API
+		Security = cfg.Security
+		IPActive = cfg.IPActive.clone()
+		Database = cfg.Database
+		Redis = cfg.Redis
+	})
+}
+
+// A process publishes runtime settings once, before opening resources or
+// serving requests. No hot reload or runtime mutation is supported.
+var publication struct {
+	sync.Mutex
+	done bool
+}
+
+// publishSettings is shared by the mutually exclusive Web and migrate
+// commands; it enforces a single publication owner and prevents reinit.
+func publishSettings(set func()) error {
+	publication.Lock()
+	defer publication.Unlock()
+	if publication.done {
+		return errors.New("setting: process configuration already initialized")
+	}
+	set()
+	publication.done = true
+	return nil
+}
+
+func publishCommonSettings(paths Paths, common CommonSettings) {
+	AppWorkPath = paths.WorkPath
+	CustomPath = paths.CustomPath
+	CustomConf = paths.ConfigFile
+	Common = common
 }
 
 // CheckWebConfig checks static Web settings without logging, opening DB/Redis,
@@ -193,24 +213,6 @@ func PublishLegacyWeb(cfg WebConfig) {
 func CheckWebConfig(args PathOptions, envs []string) error {
 	_, err := LoadWebConfig(args, envs)
 	return err
-}
-
-// LoadSettings is the legacy Web publication point; all loaders must succeed first.
-func LoadSettings() error {
-	if CfgProvider == nil {
-		return errors.New("configuration provider is not initialized")
-	}
-	loaded, err := loadWebSettingsFrom(CfgProvider, Common, AppWorkPath)
-	if err != nil {
-		return err
-	}
-	Server = loaded.server
-	API = loaded.api
-	Security = loaded.security
-	IPActive = loaded.ip
-	Database = loaded.database
-	Redis = loaded.redis
-	return nil
 }
 
 func stringOrDefault(key ConfigKey, fallback string) string {

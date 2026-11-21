@@ -1,5 +1,12 @@
 # BDSPro source ownership audit — command, package, file and function
 
+**Historical source-placement audit:** the earlier `WebConfig` handoff
+and `PublishLegacyWeb` described below were superseded by
+[Canonical Process Settings & Source Ownership](canonical-settings-and-ownership.md)
+and [ADR-G02-02](decisions/ADR-G02-02-canonical-process-settings.md).
+Keep this report as the evidence ledger for the file cleanup; do not treat
+its configuration call graph as the current implementation.
+
 **Status:** refactor implementation scope / compatibility-limited. Pinned
 baseline: `dev@f809de461ba1b9bfec8c8867eb8442a99bcd2905` (2026-11-21).
 Read this report with the final implementation commit, not as a claim that

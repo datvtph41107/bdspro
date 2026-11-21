@@ -12,7 +12,16 @@
 
 Do not silently convert a historical note or passing test into an accepted ADR. Never edit previous decisions to erase their context; supersede.
 
-## Research register (all OPEN as of 2026-11-17)
+## Accepted decisions after 2026-11-17
+
+- [ADR-G02-02 — Canonical process settings and directory owners](ADR-G02-02-canonical-process-settings.md):
+  ACCEPTED at user request 2026-11-21. Single-process Gitea-like package
+  settings, pure preflight, one-time publication, resource-owner Close,
+  and explicit primitive constructors. Implementation must still pass CI
+  at the final refactor SHA; acceptance of the architecture does not
+  imply production verification of every failure mode.
+
+## Historical research register (all OPEN as of 2026-11-17)
 
 | ID | Question | Required comparison |
 | --- | --- | --- |

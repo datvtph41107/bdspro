@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
@@ -29,42 +28,40 @@ func newWebCommand() *cli.Command {
 // runWeb owns the process lifecycle, not individual configuration mechanisms.
 // Prepare returns a validated snapshot and compiled routes before resources open.
 func runWeb(ctx context.Context, command *cli.Command) error {
-	cfg, routes, err := prepareWeb(command)
+	routes, err := prepareWeb(command)
 	if err != nil {
 		return err
 	}
 
 	managerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	graceful.InitManager(managerCtx, cfg.Common.Graceful.HammerTimeout)
+	graceful.InitManager(managerCtx)
 
-	return serveInstalled(cfg, routes)
+	return serveInstalled(routes)
 }
 
-// prepareWeb is the Web command's composition boundary. It has one caller and
-// intentionally stays beside runWeb, rather than becoming a generic cmd helper.
-func prepareWeb(command *cli.Command) (setting.WebConfig, http.Handler, error) {
-	cfg, err := setting.LoadWebConfig(configPathOptions(command), os.Environ())
+// prepareWeb performs command-specific initialization, not config parsing.
+// Settings are published once; routers and process-owned resources read that
+// same canonical setting package, as in Gitea's installed-app startup.
+func prepareWeb(command *cli.Command) (http.Handler, error) {
+	if err := setting.LoadWebSettings(configPathOptions(command), os.Environ()); err != nil {
+		return nil, err
+	}
+	if err := setting.InitLoggers(); err != nil {
+		return nil, err
+	}
+	// Registration errors still occur before PostgreSQL/Redis are opened.
+	routes, err := routers.PrepareWebRoutes()
 	if err != nil {
-		return setting.WebConfig{}, nil, err
+		return nil, fmt.Errorf("prepare HTTP routes: %w", err)
 	}
-	if err := setting.InitLoggers(cfg.Common.Log); err != nil {
-		return setting.WebConfig{}, nil, err
-	}
-	// Register routes before opening PostgreSQL or Redis. A route programmer
-	// error must not create external resources or publish legacy HTTP globals.
-	routes, err := routers.PrepareWebRoutes(cfg)
-	if err != nil {
-		return setting.WebConfig{}, nil, fmt.Errorf("prepare HTTP routes: %w", err)
-	}
-	setting.PublishLegacyWeb(cfg) // temporary bridge for existing HTTP consumers
-	log.Info("Using configuration file: %s", cfg.Paths.ConfigFile)
-	return cfg, routes, nil
+	log.Info("Using configuration file: %s", setting.CustomConf)
+	return routes, nil
 }
 
 // serveInstalled composes the Web application and
 // waits for the process lifecycle to finish.
-func serveInstalled(cfg setting.WebConfig, routes http.Handler) error {
+func serveInstalled(routes http.Handler) error {
 	g := graceful.GetManager()
 
 	log.Info(
@@ -92,9 +89,7 @@ func serveInstalled(cfg setting.WebConfig, routes http.Handler) error {
 
 		// Startup is not serving requests: cancel immediately on shutdown,
 		// rather than waiting for the hammer phase used for HTTP draining.
-		if err := routers.InitWebInstalled(
-			g.ShutdownContext(), cfg,
-		); err != nil {
+		if err := routers.InitWebInstalled(g.ShutdownContext()); err != nil {
 			if g.ShutdownContext().Err() != nil && errors.Is(err, context.Canceled) {
 				return nil
 			}
@@ -105,7 +100,7 @@ func serveInstalled(cfg setting.WebConfig, routes http.Handler) error {
 			return nil
 		}
 
-		handler, err := routers.NormalHandler(routes, cfg.IPActive.Policies)
+		handler, err := routers.NormalHandler(routes)
 		if err != nil {
 			return err
 		}
@@ -114,7 +109,7 @@ func serveInstalled(cfg setting.WebConfig, routes http.Handler) error {
 			return nil
 		}
 
-		return listen(handler, cfg.Server.HTTPServerAddress, cfg.Common.Graceful.HTTPShutdownTimeout)
+		return listen(handler)
 	}()
 
 	g.DoGracefulShutdown()
@@ -127,10 +122,11 @@ func serveInstalled(cfg setting.WebConfig, routes http.Handler) error {
 	return runErr
 }
 
-// listen prepares process tracking and delegates
-// the actual HTTP lifecycle to runHTTP.
-func listen(handler http.Handler, address string, shutdownTimeout time.Duration) error {
+// listen owns command-level listener tracking; modules/graceful owns HTTP
+// shutdown and connection draining.
+func listen(handler http.Handler) error {
 	g := graceful.GetManager()
+	address := setting.Server.HTTPServerAddress
 
 	_, _, finished := process.GetManager().AddTypedContext(
 		g.HammerContext(),
@@ -147,7 +143,7 @@ func listen(handler http.Handler, address string, shutdownTimeout time.Duration)
 		address,
 		"BDSPro Web",
 		handler,
-		shutdownTimeout,
+		setting.HTTPShutdownTimeout(),
 	)
 
 	if err != nil &&

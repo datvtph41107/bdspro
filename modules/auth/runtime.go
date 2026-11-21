@@ -3,6 +3,8 @@ package auth
 import (
 	"errors"
 	"sync"
+
+	"github.com/datvtph41107/bdspro/modules/setting"
 )
 
 var processMaker struct {
@@ -11,8 +13,8 @@ var processMaker struct {
 }
 
 // Init initializes the process token maker from already-loaded settings.
-func Init(secretKey string) error {
-	maker, err := NewJWTMaker(secretKey)
+func Init() error {
+	maker, err := NewJWTMaker(setting.Security.TokenSymmetricKey)
 	if err != nil {
 		return err
 	}

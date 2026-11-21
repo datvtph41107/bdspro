@@ -36,7 +36,6 @@ func TestCheckWebConfigDoesNotPublishGlobals(t *testing.T) {
 	AppWorkPath = "old-work"
 	Server = ServerSettings{HTTPServerAddress: "old-server"}
 	Common = CommonSettings{RunMode: "test"}
-	CfgProvider = nil
 	content := "RUN_MODE = development\n[server]\nHTTP_SERVER_ADDRESS = 127.0.0.1:8080\n" +
 		"[security]\nTOKEN_SYMMETRIC_KEY = 01234567890123456789012345678901\n" +
 		"ACCESS_TOKEN_DURATION = 15m\nREFRESH_TOKEN_DURATION = 24h\n" +
@@ -49,7 +48,7 @@ func TestCheckWebConfigDoesNotPublishGlobals(t *testing.T) {
 		t.Fatalf("valid config rejected: %v", err)
 	}
 	if AppWorkPath != "old-work" || Server.HTTPServerAddress != "old-server" ||
-		Common.RunMode != "test" || CfgProvider != nil {
+		Common.RunMode != "test" {
 		t.Fatal("config check mutated process globals")
 	}
 	if err := CheckWebConfig(PathOptions{Config: file}, []string{"BDS__SERVRE__HTTP_SERVER_ADDRESS=:9090"}); err == nil {

@@ -12,10 +12,10 @@ import (
 
 // Route compilation must not require PostgreSQL, Redis, JWT or the Manager.
 func TestPrepareWebRoutesWithoutRuntimeResources(t *testing.T) {
-	cfg := setting.WebConfig{
-		Common: setting.CommonSettings{RunMode: "test"},
-	}
-	routes, err := PrepareWebRoutes(cfg)
+	before := setting.Common
+	t.Cleanup(func() { setting.Common = before })
+	setting.Common.RunMode = "test"
+	routes, err := PrepareWebRoutes()
 	if err != nil {
 		t.Fatalf("prepare HTTP routes: %v", err)
 	}
@@ -27,11 +27,13 @@ func TestPrepareWebRoutesWithoutRuntimeResources(t *testing.T) {
 }
 
 func TestPrepareWebRoutesRejectsInvalidTrustedProxyBeforeResources(t *testing.T) {
-	cfg := setting.WebConfig{
-		Common: setting.CommonSettings{RunMode: "test"},
-		Server: setting.ServerSettings{TrustedProxies: []string{"not-a-proxy"}},
-	}
-	_, err := PrepareWebRoutes(cfg)
+	beforeCommon, beforeServer := setting.Common, setting.Server
+	t.Cleanup(func() {
+		setting.Common, setting.Server = beforeCommon, beforeServer
+	})
+	setting.Common.RunMode = "test"
+	setting.Server.TrustedProxies = []string{"not-a-proxy"}
+	_, err := PrepareWebRoutes()
 	if err == nil || !strings.Contains(err.Error(), "trusted proxy") {
 		t.Fatalf("expected a route preflight error, got %v", err)
 	}
@@ -48,7 +50,7 @@ func TestRouterRejectsProgrammingErrorDuringRegistration(t *testing.T) {
 }
 
 func TestNormalHandlerRejectsMissingPreparedRoutes(t *testing.T) {
-	if _, err := NormalHandler(nil, nil); err == nil {
+	if _, err := NormalHandler(nil); err == nil {
 		t.Fatal("missing static HTTP routes accepted")
 	}
 }

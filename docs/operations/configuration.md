@@ -1,6 +1,6 @@
 # BDSPro configuration — trạng thái Web + migrate
 
-Source: `modules/setting` (bootstrap, parser, loaders), `modules/util` (filesystem helper),
+Source: `modules/setting` (bootstrap, parser, loaders, canonical publisher),
 `cmd/main.go` (CLI flags và error reporting). Đơn vị được phép khởi tạo DB/Redis là
 `routers/init.go` và các resource owners, **không phải** `modules/setting`.
 
@@ -73,31 +73,38 @@ không còn phụ thuộc vào `setting.Queue` đã bị xóa.
 - `RunMainApp` báo một lần và exit code `1` cho lỗi command, phân biệt usage error.
 - `main.go` đang sở hữu `cli.OsExiter` để đóng logger trước `os.Exit`.
 
-## Typed startup và migration
+## Canonical process startup và migration
 
-Web nạp **một lần** với `setting.LoadWebConfig`, sau đó đưa typed
-`WebConfig` tới resource bootstrap. `migrate` sử dụng riêng
-`setting.LoadMigrateConfig`; không cần JWT key, Redis hay HTTP settings.
-`config check` sử dụng cùng Web loader nhưng không publish globals hoặc
-mở resource. ENV, file INI và file secret không bị ghi ngược vào đĩa.
+BDSPro dùng một nguồn cấu hình hiệu lực cho mỗi process, theo tinh thần
+Gitea. `setting.LoadWebSettings(args,envs)` gọi **một lần**
+`LoadWebConfig` để parse/validate, rồi publish chính các
+`setting.Common/Server/API/Security/Database/Redis/IPActive` globals.
+`routers`, `models/db`, `modules/conn/auth/graceful` đọc từ những giá trị
+đã publish, không tự đọc file và không còn truyền `WebConfig` qua nhiều tầng.
+`db.Connect(ctx, source)` và `RedisManager.Client(ctx,address)` vẫn là
+primitive nhận tham số có thể dùng độc lập.
 
-`setting.PublishLegacyWeb` chỉ tồn tại ở startup để hỗ trợ các HTTP consumers
-cũ còn sử dụng package globals; không dùng để hot reload. Không bao giờ
-in cả `WebConfig` vào log vì chứa DB source và JWT signing key.
+`setting.LoadMigrateSettings` dùng chung parser và publish **chỉ**
+Paths/Common/Database; không cần Redis, JWT hoặc Web handler.
+`config check` dùng `LoadWebConfig` thuần, không publish globals, không mở
+resource hoặc log writer. INI, ENV và file secret không bị ghi ngược ra đĩa.
 
-**Lifecycle:** DB/Redis owners nhận thông số trực tiếp từ bootstrap và đăng ký
-termination cleanup một lần sau khi khởi tạo thành công; startup rollback
-có thể gọi cùng Close function nhưng Close phải idempotent.
-Các bước init lỗi phải tự đóng resource mới mở một phần.
+`WebConfig`/`MigrateConfig` chỉ tồn tại như kết quả typed ngắn hạn trong
+hàm loader. Không có hai global runtime authorities; publication chỉ được
+phép một lần trong process. Những globals đã công bố không được mutate trong
+request handling/hot reload. Không in DB source/JWT key ra log.
+
+**Lifecycle:** DB/Redis vẫn tự quản lý connection và idempotent Close. Startup
+rollback và Graceful termination có thể cùng gọi Close; không thay đổi
+thuật toán shutdown chỉ vì thay đổi cách đọc cấu hình.
 
 Docker Compose đặt `stop_grace_period: 30s` cho hammer mặc định 15s. Nếu
 cấu hình hammer lớn hơn, phải tăng Docker stop deadline tương ứng.
-`HTTP_SHUTDOWN_TIMEOUT` điều khiển thời hạn `http.Server.Shutdown`: trong
-thời gian này server ngừng nhận kết nối mới và chờ request; khi hết hạn,
-`http.Server.Close` đóng các kết nối net/http còn lại. Không thể bảo đảm
-goroutine handler thiếu hợp tác hoặc kết nối hijacked/WebSocket đã kết thúc.
-Ứng dụng chỉ coi request hoàn thành khi handler tự thực sự trả về.
-Xem `docs/architecture/bootstrap.md` để biết các giới hạn này.
+`HTTP_SHUTDOWN_TIMEOUT` giới hạn `http.Server.Shutdown`; khi hết hạn
+`http.Server.Close` đóng connections, không bảo đảm mọi handler không
+hợp tác đã kết thúc. Xem
+[Canonical ownership](../architecture/canonical-settings-and-ownership.md)
+và [Bootstrap lifecycle](../architecture/bootstrap.md).
 
 ## Preflight không mở tài nguyên
 

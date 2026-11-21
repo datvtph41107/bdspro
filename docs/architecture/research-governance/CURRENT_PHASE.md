@@ -1,5 +1,11 @@
 # Historical phase — RG-00: Evidence/Context Governance
 
+**Latest accepted runtime architecture (2026-11-21):**
+[ADR-G02-02](../decisions/ADR-G02-02-canonical-process-settings.md)
+and [Canonical Process Settings & Source Ownership](../canonical-settings-and-ownership.md).
+This page is kept as historical RG-00 research context, not the current
+bootstrap call graph.
+
 **Status:** DOCUMENTED / HISTORICAL. **Date:** 2026-11-20.
 
 **2026-11-21 current implementation note:** The user has since authorized

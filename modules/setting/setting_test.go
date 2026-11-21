@@ -10,11 +10,17 @@ import (
 // saveGlobals ngăn tests làm bẩn state lẫn nhau; tests không chạy parallel.
 func saveGlobals(t *testing.T) {
 	t.Helper()
-	oldWork, oldCustom, oldConf, oldProvider, oldCommon := AppWorkPath, CustomPath, CustomConf, CfgProvider, Common
+	oldWork, oldCustom, oldConf, oldCommon := AppWorkPath, CustomPath, CustomConf, Common
+	publication.Lock()
+	wasPublished := publication.done
+	publication.Unlock()
 	oldServer, oldAPI, oldSecurity, oldIP := Server, API, Security, IPActive
 	oldDB, oldRedis := Database, Redis
 	t.Cleanup(func() {
-		AppWorkPath, CustomPath, CustomConf, CfgProvider, Common = oldWork, oldCustom, oldConf, oldProvider, oldCommon
+		publication.Lock()
+		defer publication.Unlock()
+		AppWorkPath, CustomPath, CustomConf, Common = oldWork, oldCustom, oldConf, oldCommon
+		publication.done = wasPublished
 		Server, API, Security, IPActive = oldServer, oldAPI, oldSecurity, oldIP
 		Database, Redis = oldDB, oldRedis
 	})
@@ -33,7 +39,7 @@ func TestWorkPathFromINIAndPublication(t *testing.T) {
 	saveGlobals(t)
 	work := t.TempDir()
 	file := writeConfig(t, "RUN_MODE = development\nWORK_PATH = "+work+"\n[log]\nROOT_PATH = data/log\n")
-	if err := InitWorkPathAndCommonConfig(PathOptions{Config: file}, nil); err != nil {
+	if err := LoadMigrateSettings(PathOptions{Config: file}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if AppWorkPath != work || CustomPath != filepath.Join(work, "custom") || CustomConf != file {
@@ -50,7 +56,7 @@ func TestWorkPathConflictDoesNotPublish(t *testing.T) {
 	work := t.TempDir()
 	file := writeConfig(t, "WORK_PATH = "+work+"\n")
 	different := t.TempDir()
-	err := InitWorkPathAndCommonConfig(PathOptions{WorkPath: different, Config: file}, nil)
+	err := LoadMigrateSettings(PathOptions{WorkPath: different, Config: file}, nil)
 	if err == nil || !strings.Contains(err.Error(), "conflicts") {
 		t.Fatalf("want conflict, got %v", err)
 	}
@@ -63,14 +69,14 @@ func TestEnvironmentWorkPathAndInvalidConfig(t *testing.T) {
 	saveGlobals(t)
 	work := t.TempDir()
 	file := writeConfig(t, "RUN_MODE = development\n")
-	if err := InitWorkPathAndCommonConfig(PathOptions{Config: file}, []string{"BDS____WORK_PATH=" + work}); err != nil {
+	if err := LoadMigrateSettings(PathOptions{Config: file}, []string{"BDS____WORK_PATH=" + work}); err != nil {
 		t.Fatal(err)
 	}
 	if AppWorkPath != work {
 		t.Fatalf("environment WORK_PATH=%q", AppWorkPath)
 	}
 	prev := AppWorkPath
-	if err := InitWorkPathAndCommonConfig(PathOptions{Config: file}, []string{"BDS____RUN_MODE=invalid"}); err == nil {
+	if err := LoadMigrateSettings(PathOptions{Config: file}, []string{"BDS____RUN_MODE=invalid"}); err == nil {
 		t.Fatal("invalid run mode accepted")
 	}
 	if AppWorkPath != prev {
@@ -78,23 +84,19 @@ func TestEnvironmentWorkPathAndInvalidConfig(t *testing.T) {
 	}
 }
 
-func TestLoadSettingsNoPartialPublication(t *testing.T) {
+func TestLoadWebSettingsNoPartialPublication(t *testing.T) {
 	saveGlobals(t)
 	Server = ServerSettings{HTTPServerAddress: "old"}
-	provider, err := NewConfigProviderFromData("RUN_MODE = development\n[server]\nHTTP_SERVER_ADDRESS = 127.0.0.1:8080\n[api]\nMAX_RESPONSE_ITEMS = 1\nDEFAULT_PAGING_NUM = 2\n")
-	if err != nil {
-		t.Fatal(err)
-	}
-	CfgProvider, Common = provider, CommonSettings{RunMode: "development"}
-	if err := LoadSettings(); err == nil {
+	file := writeConfig(t, "RUN_MODE = development\n[server]\nHTTP_SERVER_ADDRESS = 127.0.0.1:8080\n[api]\nMAX_RESPONSE_ITEMS = 1\nDEFAULT_PAGING_NUM = 2\n")
+	if err := LoadWebSettings(PathOptions{Config: file}, nil); err == nil {
 		t.Fatal("invalid API configuration accepted")
 	}
-	if Server.HTTPServerAddress != "old" {
-		t.Fatal("Server was published before API validation")
+	if Server.HTTPServerAddress != "old" || publication.done {
+		t.Fatal("Web runtime settings published before full validation")
 	}
 }
 
-func TestLoadSettingsSuccess(t *testing.T) {
+func TestLoadWebSettingsSuccess(t *testing.T) {
 	saveGlobals(t)
 	const cfg = `RUN_MODE = development
 [server]
@@ -108,12 +110,8 @@ DB_SOURCE = postgres://localhost/db
 [redis]
 ADDR = 127.0.0.1:6379
 `
-	p, err := NewConfigProviderFromData(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	CfgProvider, Common = p, CommonSettings{RunMode: "development"}
-	if err := LoadSettings(); err != nil {
+	file := writeConfig(t, cfg)
+	if err := LoadWebSettings(PathOptions{Config: file}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if Server.HTTPServerAddress != "127.0.0.1:8080" || Database.DBSource != "postgres://localhost/db" || Redis.Address != "127.0.0.1:6379" {

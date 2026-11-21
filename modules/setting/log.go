@@ -72,11 +72,12 @@ func (cfg LogGlobalConfig) Validate() error {
 	return nil
 }
 
-// InitLoggers activates the already-validated command logging configuration.
+// InitLoggers activates logging from canonical process settings.
 // The setting package owns the value-to-runtime handoff (as in Gitea), while
 // modules/log alone owns writers, file handles and termination cleanup.
-// Call only after LoadWebConfig or LoadMigrateConfig succeeds.
-func InitLoggers(cfg LogGlobalConfig) error {
+// Call only after LoadWebSettings or LoadMigrateSettings succeeds.
+func InitLoggers() error {
+	cfg := Common.Log
 	if err := log.GetManager().ConfigureOutputs(
 		cfg.Mode, cfg.Format, strings.ToLower(cfg.Level), cfg.RootPath, cfg.FileName,
 	); err != nil {

@@ -5,7 +5,33 @@
 > Updated 2026-11-17. This documentation-only update is explicitly requested for remote `dev`; it is not acceptance of implementation or a blanket change to branch/merge protection policies.
 
 
-## Current implementation focus — Source Ownership & File Placement (2026-11-21)
+## Current implementation focus — Canonical Process Settings & Ownership (2026-11-21)
+
+**Current accepted decision:** [ADR-G02-02](docs/architecture/decisions/ADR-G02-02-canonical-process-settings.md).
+**Canonical execution and package ownership:** [Canonical Process Settings & Source Ownership](docs/architecture/canonical-settings-and-ownership.md).
+
+BDSPro has one process configuration authority in `modules/setting`:
+`LoadWebConfig`/`LoadMigrateConfig` are pure and serve static verification;
+`LoadWebSettings`/`LoadMigrateSettings` publish once. Process-owned
+DB/Redis/Auth/Graceful initializers read `setting` globals directly
+(Gitea pattern). `db.Connect(ctx, source)`, `RedisManager.Client(ctx, address)`
+and `NewJWTMaker(secret)` stay explicit reusable primitives.
+
+Keep `cmd.runWeb/prepareWeb/serveInstalled/listen` responsible for CLI
+and process orchestration; `routers` owns route composition/startup steps;
+resource packages own their Close; `services/<domain>` owns business
+transactions; models own entity invariants. No separate config loaders
+in DB/Redis/Auth and no multi-hop runtime `WebConfig` handoff.
+The former CI ban on resource imports of `modules/setting` was superseded
+by a check that **only** `modules/setting` may parse configuration.
+`config check` must never publish, create log files or open resources.
+
+The earlier file placement and FLC-01 notes below remain historical;
+do not confuse previous decisions with the current canonical contract.
+Verify compile, race tests, migrations, Docker and HTTP smoke at the
+final implementation SHA before calling the code VERIFIED.
+
+## Previous implementation focus — Source Ownership & File Placement (2026-11-21)
 
 **Read [Source Ownership Audit](docs/architecture/source-ownership-audit.md) first.**
 The user authorized a narrow code-organization refactor on `dev` based on
@@ -36,9 +62,10 @@ on this explicitly approved work. Read
 and [runtime bootstrap contract](docs/architecture/bootstrap.md) before
 modifying shutdown or resource startup again.
 
-FLC-01 keeps existing `startup.Run`, graceful ownership, DB/Redis closers,
-migration policy and public HTTP contract. Avoid importing `setting` in
-resource packages or creating generic framework/util helpers.
+FLC-01 kept `startup.Run`, graceful ownership, DB/Redis closers,
+migration policy and public HTTP contract. Its historical guidance to avoid
+importing `setting` in resource packages was **superseded** by ADR-G02-02;
+continue avoiding generic framework/util helpers without an owner.
 Route registration happens before resource startup; cooperative startup work
 must observe shutdown cancellation rather than waiting until hammer.
 The separate readiness/retry/observability proposals remain OPEN.
