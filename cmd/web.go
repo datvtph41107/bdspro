@@ -25,8 +25,9 @@ func newWebCommand() *cli.Command {
 	}
 }
 
-// runWeb owns the process lifecycle, not individual configuration mechanisms.
-// Prepare returns a validated snapshot and compiled routes before resources open.
+// runWeb owns the process lifecycle, not configuration parsing.
+// prepareWeb publishes validated settings and returns compiled routes before
+// resource startup; there is no second runtime WebConfig authority.
 func runWeb(ctx context.Context, command *cli.Command) error {
 	routes, err := prepareWeb(command)
 	if err != nil {
