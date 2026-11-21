@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-
 )
 
 // LogGlobalConfig là config; modules/log quản lý writer thực tế.
@@ -70,4 +69,3 @@ func (cfg LogGlobalConfig) Validate() error {
 	}
 	return nil
 }
-

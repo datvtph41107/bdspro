@@ -98,4 +98,3 @@ func configPathOptions(cmd *cli.Command) setting.PathOptions {
 	}
 	return args
 }
-

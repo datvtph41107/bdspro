@@ -60,21 +60,24 @@ are migrated. Its mutable map/slices are copied when publishing.
 | Redis initialization fails | Redis owner closes partial manager; `startup.Run` rolls back DB |
 | Auth initialization fails | `startup.Run` rolls back Redis then DB |
 | Handler composition/bind fails | `serveInstalled` invokes graceful termination hooks |
-| SIGTERM while serving | Listener stops accepting; wait for tracked conns or hammer |
+| SIGTERM while serving | HTTP Shutdown drains active requests up to HTTP timeout; then Close forces net/http conns closed; hammer remains fallback |
 | Multiple Close calls | Process-owned DB/Redis closers remain idempotent |
 
 The process-owned DB and Redis cannot be initialized again in the **same**
 process after their Close functions set the closed flag. A failed deployment
 must restart the process, not retry bootstrap in-process.
 
-**Known limitation:** `server.HTTP_SHUTDOWN_TIMEOUT` is currently loaded and
-validated, but `modules/graceful/server_http.go` does not yet apply that
-timeout. The current implementation closes the listener, tracks accepted
-connections and uses the manager hammer deadline. The hammer unblocks drain
-waiting; it does not prove arbitrary request handlers or hijacked connections
-have terminated. Do not claim HTTP graceful drain is strictly bounded by
-`HTTP_SHUTDOWN_TIMEOUT` until that protocol-level behavior has integration
-tests and a separate reviewed change.
+**HTTP drain:** `server.HTTP_SHUTDOWN_TIMEOUT` now flows from the typed
+Web snapshot through `cmd.listen` and `cmd.runHTTP` to the HTTP adapter.
+On shutdown, `http.Server.Shutdown(context.WithTimeout(...))` stops new
+accepts and waits for active net/http requests; when its deadline expires,
+`http.Server.Close()` force-closes net/http connections. The existing wrapped
+listener and Graceful Manager still track accepted TCP connections, and the
+hammer remains a final escalation deadline. Neither `Shutdown` nor `Close`
+can guarantee that arbitrary uncooperative handler goroutines or hijacked
+(WebSocket) connections have exited. Request handlers must respect their
+context and all new background work must have an explicit drain contract.
+Do not describe a forced deadline as a successful completion of an operation.
 
 The Graceful Manager invokes termination callbacks concurrently, not in a
 guaranteed dependency order. If future background workers depend on DB/Redis
@@ -99,9 +102,9 @@ docker compose config --quiet
 ```
 
 CI also verifies migration on disposable PostgreSQL, Docker build and HTTP smoke.
-Run independent failure-injection tests for partial DB/Redis startup, reverse
-rollback, idempotent cleanup and active-request drain before changing the
-graceful algorithm. No test should touch production DB or secrets.
+The test suite includes partial-startup, reverse rollback, idempotent cleanup
+and active-request drain/deadline tests. Repeat these with real load, Docker
+stop and actual production-like deployment settings before production rollout. No test should touch production DB or secrets.
 
 References:
 - Gitea ordered initialization: https://github.com/go-gitea/gitea/blob/4a9a53d79abc8ab339b18d6c8c59004d7c9d5126/routers/init.go#L114-L150

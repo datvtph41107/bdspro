@@ -36,7 +36,7 @@ func InitWebInstalled(ctx context.Context, cfg setting.WebConfig) error {
 			Rollback: db.CloseEngine,
 		},
 		startup.Step{
-			Name:     "Redis",
+			Name: "Redis",
 			Init: func(ctx context.Context) error {
 				return common.InitRedis(ctx, cfg.Redis.Address)
 			},

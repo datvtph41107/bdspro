@@ -92,8 +92,11 @@ Các bước init lỗi phải tự đóng resource mới mở một phần.
 
 Docker Compose đặt `stop_grace_period: 30s` cho hammer mặc định 15s. Nếu
 cấu hình hammer lớn hơn, phải tăng Docker stop deadline tương ứng.
-`HTTP_SHUTDOWN_TIMEOUT` hiện chỉ được validate, chưa được áp dụng làm deadline
-HTTP drain thực tế; không dựa vào key này để bảo đảm request hoàn tất.
+`HTTP_SHUTDOWN_TIMEOUT` điều khiển thời hạn `http.Server.Shutdown`: trong
+thời gian này server ngừng nhận kết nối mới và chờ request; khi hết hạn,
+`http.Server.Close` đóng các kết nối net/http còn lại. Không thể bảo đảm
+goroutine handler thiếu hợp tác hoặc kết nối hijacked/WebSocket đã kết thúc.
+Ứng dụng chỉ coi request hoàn thành khi handler tự thực sự trả về.
 Xem `docs/architecture/bootstrap.md` để biết các giới hạn này.
 
 ## Preflight không mở tài nguyên

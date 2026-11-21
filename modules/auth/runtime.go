@@ -3,7 +3,6 @@ package auth
 import (
 	"errors"
 	"sync"
-
 )
 
 var processMaker struct {

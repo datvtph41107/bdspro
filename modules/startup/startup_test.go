@@ -15,13 +15,13 @@ func TestRunRollbackReverseOrder(t *testing.T) {
 	appendCall := func(name string) { calls = append(calls, name) }
 	err := Run(context.Background(),
 		Step{
-			Name: "PostgreSQL",
-			Init: func(context.Context) error { appendCall("db.open"); return nil },
+			Name:     "PostgreSQL",
+			Init:     func(context.Context) error { appendCall("db.open"); return nil },
 			Rollback: func() { appendCall("db.close") },
 		},
 		Step{
-			Name: "Redis",
-			Init: func(context.Context) error { appendCall("redis.open"); return nil },
+			Name:     "Redis",
+			Init:     func(context.Context) error { appendCall("redis.open"); return nil },
 			Rollback: func() { appendCall("redis.close") },
 		},
 		Step{
@@ -41,8 +41,8 @@ func TestRunRollbackReverseOrder(t *testing.T) {
 func TestRunFailedStepMustCleanUpOwnPartialState(t *testing.T) {
 	called := false
 	err := Run(context.Background(), Step{
-		Name: "PostgreSQL",
-		Init: func(context.Context) error { return errors.New("ping failed") },
+		Name:     "PostgreSQL",
+		Init:     func(context.Context) error { return errors.New("ping failed") },
 		Rollback: func() { called = true },
 	})
 	if err == nil {

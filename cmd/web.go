@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
@@ -91,7 +92,7 @@ func serveInstalled(cfg setting.WebConfig) error {
 			return nil
 		}
 
-		return listen(handler, cfg.Server.HTTPServerAddress)
+		return listen(handler, cfg.Server.HTTPServerAddress, cfg.Common.Graceful.HTTPShutdownTimeout)
 	}()
 
 	g.DoGracefulShutdown()
@@ -106,7 +107,7 @@ func serveInstalled(cfg setting.WebConfig) error {
 
 // listen prepares process tracking and delegates
 // the actual HTTP lifecycle to runHTTP.
-func listen(handler http.Handler, address string) error {
+func listen(handler http.Handler, address string, shutdownTimeout time.Duration) error {
 	g := graceful.GetManager()
 
 	_, _, finished := process.GetManager().AddTypedContext(
@@ -124,6 +125,7 @@ func listen(handler http.Handler, address string) error {
 		address,
 		"BDSPro Web",
 		handler,
+		shutdownTimeout,
 	)
 
 	if err != nil &&
