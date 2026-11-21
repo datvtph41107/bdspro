@@ -15,12 +15,12 @@ var knownConfigSections = map[string][]string{
 		"HTTP_SHUTDOWN_TIMEOUT", "GRACEFUL_HAMMER_TIMEOUT",
 	},
 	"database": {"DB_SOURCE", "MIGRATION_URL"},
-	"redis": {"ADDR"},
-	"api": {"MAX_RESPONSE_ITEMS", "DEFAULT_PAGING_NUM", "MAX_REQUEST_BODY_BYTES"},
-	"log": {"MODE", "FORMAT", "LEVEL", "ROOT_PATH"},
+	"redis":    {"ADDR"},
+	"api":      {"MAX_RESPONSE_ITEMS", "DEFAULT_PAGING_NUM", "MAX_REQUEST_BODY_BYTES"},
+	"log":      {"MODE", "FORMAT", "LEVEL", "ROOT_PATH"},
 	"log.file": {"FILE_NAME"},
 	"security": {"TOKEN_SYMMETRIC_KEY", "ACCESS_TOKEN_DURATION", "REFRESH_TOKEN_DURATION"},
-	"cors": {"ALLOWED_ORIGINS"},
+	"cors":     {"ALLOWED_ORIGINS"},
 	"ipactive": {},
 }
 
