@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -34,6 +35,12 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 	if err := configureCommandLogger(cfg.Common.Log); err != nil {
 		return err
 	}
+	// Compile the route contract first. A programmer error must not leave DB or
+	// Redis open; neither resource nor the graceful manager exists yet.
+	routes, err := routers.PrepareWebRoutes(cfg)
+	if err != nil {
+		return fmt.Errorf("prepare HTTP routes: %w", err)
+	}
 	// Only HTTP consumers still use these legacy globals; publish before serving.
 	setting.PublishLegacyWeb(cfg)
 	log.Info("Using configuration file: %s", cfg.Paths.ConfigFile)
@@ -42,12 +49,12 @@ func runWeb(ctx context.Context, command *cli.Command) error {
 	defer cancel()
 	graceful.InitManager(managerCtx, cfg.Common.Graceful.HammerTimeout)
 
-	return serveInstalled(cfg)
+	return serveInstalled(cfg, routes)
 }
 
 // serveInstalled composes the Web application and
 // waits for the process lifecycle to finish.
-func serveInstalled(cfg setting.WebConfig) error {
+func serveInstalled(cfg setting.WebConfig, routes http.Handler) error {
 	g := graceful.GetManager()
 
 	log.Info(
@@ -73,9 +80,14 @@ func serveInstalled(cfg setting.WebConfig) error {
 			return nil
 		}
 
+		// Startup is not serving requests: cancel immediately on shutdown,
+		// rather than waiting for the hammer phase used for HTTP draining.
 		if err := routers.InitWebInstalled(
-			g.HammerContext(), cfg,
+			g.ShutdownContext(), cfg,
 		); err != nil {
+			if g.ShutdownContext().Err() != nil && errors.Is(err, context.Canceled) {
+				return nil
+			}
 			return err
 		}
 
@@ -83,7 +95,7 @@ func serveInstalled(cfg setting.WebConfig) error {
 			return nil
 		}
 
-		handler, err := routers.NormalHandler()
+		handler, err := routers.NormalHandler(routes, cfg.IPActive.Policies)
 		if err != nil {
 			return err
 		}

@@ -1,8 +1,11 @@
 # Web bootstrap and resource lifecycle — current contract
 
-Baseline: `dev@96a8146`. This document describes the typed bootstrap refactor
-that supersedes the earlier Web initialization call graph; historical G02 notes
-remain useful evidence but not an active implementation contract.
+Baseline for typed bootstrap: `dev@96a8146`, followed by `31f5fb2` and
+`45c82c2` for explicit constructors and HTTP drain. FLC-01 hardens route
+preflight and startup cancellation; read
+[its traced failure-boundary case](flc01-startup-failure-boundary.md)
+for precise source, invariants, operational risks and verification gates.
+Historical G02 notes are evidence, not the live implementation contract.
 
 ## Configuration boundary and caller
 
@@ -11,13 +14,14 @@ cmd.NewMainApp       // register CLI only, no config or resource creation
   -> cmd.runWeb
        -> setting.LoadWebConfig(CLI Paths, process ENV)  // parse once, validate
        -> cmd.configureCommandLogger(cfg.Common.Log)
+       -> routers.PrepareWebRoutes(cfg)                  // route registration before resources
        -> setting.PublishLegacyWeb(cfg)                  // temporary HTTP bridge
        -> graceful.InitManager(ctx, cfg.Common.Graceful.HammerTimeout)
-       -> cmd.serveInstalled(cfg)
-            -> routers.InitWebInstalled(ctx, cfg)
+       -> cmd.serveInstalled(cfg, preparedRoutes)
+            -> routers.InitWebInstalled(g.ShutdownContext(), cfg)
                  -> startup.Run [PostgreSQL, Redis, JWT]
-            -> routers.NormalHandler()
-            -> cmd.listen(handler, cfg.Server.HTTPServerAddress)
+            -> routers.NormalHandler(preparedRoutes, cfg.IPActive.Policies)
+            -> cmd.listen(handler, cfg.Server.HTTPServerAddress, HTTPShutdownTimeout)
                  -> graceful.HTTPListenAndServe -> net.Listen
 ```
 
@@ -32,8 +36,10 @@ Web loader without publishing global settings or opening runtime resources.
   typed `WebConfig`/`MigrateConfig`. It must not open runtime connections.
 - `cmd`: CLI composition, console/logger setup, process signal handling,
   validated config handoff, graceful manager, HTTP listener invocation.
-- `routers`: explicit Web startup steps, route/middleware composition.
-  `routers/common` owns the **existing** development migration policy.
+- `routers`: deterministic route registration and trusted-proxy checking
+  occur during `PrepareWebRoutes`, before DB/Redis startup. Runtime
+  `NormalHandler` only attaches borrowed Redis admission to that route tree.
+  `routers/common` still owns the **existing** development migration policy.
 - `models/db`: owns one process PostgreSQL pool and its idempotent
   `CloseEngine`; `InitEngine(ctx, source)` does not read configuration globals.
 - `modules/conn`: owns one process Redis manager/client; `InitRedis(ctx, address)`
@@ -59,9 +65,11 @@ are migrated. Its mutable map/slices are copied when publishing.
 | DB initializes, migration fails | `routers/common` closes DB; later termination hook is idempotent |
 | Redis initialization fails | Redis owner closes partial manager; `startup.Run` rolls back DB |
 | Auth initialization fails | `startup.Run` rolls back Redis then DB |
-| Handler composition/bind fails | `serveInstalled` invokes graceful termination hooks |
+| Route registration / trusted-proxy preflight fails | No DB/Redis/Auth resource is opened |
+| Runtime admission composition fails after DB/Redis | `serveInstalled` invokes graceful termination hooks |
 | SIGTERM while serving | HTTP Shutdown drains active requests up to HTTP timeout; then Close forces net/http conns closed; hammer remains fallback |
 | Multiple Close calls | Process-owned DB/Redis closers remain idempotent |
+| SIGTERM during cooperative DB/Redis init | Startup context cancels immediately; completed stages roll back |
 
 The process-owned DB and Redis cannot be initialized again in the **same**
 process after their Close functions set the closed flag. A failed deployment

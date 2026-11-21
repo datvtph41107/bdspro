@@ -1,6 +1,13 @@
-# Current single active phase — RG-00: Evidence/Context Governance
+# Historical phase — RG-00: Evidence/Context Governance
 
-**Status:** DOCUMENTED / AWAITING USER REVIEW. **Date:** 2026-11-20.
+**Status:** DOCUMENTED / HISTORICAL. **Date:** 2026-11-20.
+
+**2026-11-21 current implementation note:** The user has since authorized
+startup and graceful refactors followed by FLC-01 failure-boundary hardening.
+See [FLC-01](../flc01-startup-failure-boundary.md) for the newly active,
+narrow scope; its verification requires final commit CI. The RG-00 restrictions
+below describe their original docs-only phase, not a current blanket ban.
+Other research topics remain OPEN pending their own decision gates.
 **Target repository:** https://github.com/datvtph41107/bdspro
 **Working branch:** `dev` (re-fetch live HEAD on every session).
 **Purpose of this phase:** Establish an auditable, durable research operating system and shared context before any HTTP Core refactor. No new framework/package architecture is authorized by this record.

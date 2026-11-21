@@ -3,6 +3,7 @@ package routers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -56,30 +57,40 @@ func NormalRoutes() *web.Router {
 	return r
 }
 
-func NormalHandler() (http.Handler, error) {
-	// Borrow the process-owned Redis client. Security admission shares its
-	// lifecycle and fails startup if the configured limiter cannot be built.
+// PrepareWebRoutes compiles the HTTP route tree before opening DB/Redis.
+// Panics during route registration are programmer errors, not runtime outages.
+func PrepareWebRoutes(cfg setting.WebConfig) (http.Handler, error) {
+	routes := NormalRoutes()
+	if cfg.API.EnableSwagger {
+		swagger := api.SwaggerHandler(cfg.Common.RunMode)
+		if swagger == nil {
+			return nil, fmt.Errorf("Swagger enabled in unsupported run mode %q", cfg.Common.RunMode)
+		}
+		routes.Get("/swagger/*", swagger.ServeHTTP)
+	}
+	if err := routes.SetTrustedProxies(cfg.Server.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("configure HTTP trusted proxies: %w", err)
+	}
+	return routes.WrapIngress(), nil
+}
+
+// NormalHandler attaches runtime admission to the prepared HTTP tree.
+// Redis remains owned by modules/conn; the middleware only borrows its client.
+func NormalHandler(routes http.Handler, policies map[ipactive.Action]ipactive.Policy) (http.Handler, error) {
+	if routes == nil {
+		return nil, errors.New("HTTP routes must be prepared before resource startup")
+	}
 	client, err := conn.ProcessRedis()
 	if err != nil {
 		return nil, fmt.Errorf("IP admission Redis unavailable: %w", err)
 	}
-	limiter, err := ipactive.NewRedis(client, setting.IPActive.Policies)
+	limiter, err := ipactive.NewRedis(client, policies)
 	if err != nil {
 		return nil, fmt.Errorf("configure IP admission: %w", err)
 	}
 	admission := ipactive.NewMiddleware(limiter)
-	routes := NormalRoutes()
-	if setting.API.EnableSwagger {
-		swagger := api.SwaggerHandler(setting.Common.RunMode)
-		routes.Get("/swagger/*", swagger.ServeHTTP)
-	}
-	if err := routes.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
-		return nil, fmt.Errorf("configure HTTP trusted proxies: %w", err)
-	}
-	handler := routes.WrapIngress()
-
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		req = req.WithContext(ipactive.WithMiddleware(req.Context(), admission))
-		handler.ServeHTTP(w, req)
+		routes.ServeHTTP(w, req)
 	}), nil
 }

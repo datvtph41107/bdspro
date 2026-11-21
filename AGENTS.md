@@ -5,9 +5,26 @@
 > Updated 2026-11-17. This documentation-only update is explicitly requested for remote `dev`; it is not acceptance of implementation or a blanket change to branch/merge protection policies.
 
 
-## Current user-directed research focus — RG-00 (2026-11-20)
+## Current implementation focus — FLC-01 (2026-11-21)
 
-**Read [Research Governance](docs/architecture/research-governance/README.md) and [Current Phase](docs/architecture/research-governance/CURRENT_PHASE.md) before treating any older task as active.** This is the CURRENT one-phase architecture/context-governance assignment on `dev`; it does not cancel historical F40/P01 plans, but they cannot be resumed without renewed explicit scope. The currently requested changes are **documentation and agent policy only, NOT HTTP or business implementation**.
+The user has explicitly authorized a narrow implementation to improve startup
+failure boundaries and long-term code readability. Current code is on `dev`;
+the prior docs-only RG-00 rules below are historical scope, not a prohibition
+on this explicitly approved work. Read
+[the FLC-01 failure case](docs/architecture/flc01-startup-failure-boundary.md)
+and [runtime bootstrap contract](docs/architecture/bootstrap.md) before
+modifying shutdown or resource startup again.
+
+FLC-01 keeps existing `startup.Run`, graceful ownership, DB/Redis closers,
+migration policy and public HTTP contract. Avoid importing `setting` in
+resource packages or creating generic framework/util helpers.
+Route registration happens before resource startup; cooperative startup work
+must observe shutdown cancellation rather than waiting until hammer.
+The separate readiness/retry/observability proposals remain OPEN.
+
+## Historical user-directed research focus — RG-00 (2026-11-20)
+
+**Read [Research Governance](docs/architecture/research-governance/README.md) and [Current Phase](docs/architecture/research-governance/CURRENT_PHASE.md) before treating any older task as active.** This was a documentation-only architecture/context-governance assignment on `dev` before the subsequent explicitly authorized bootstrap and FLC-01 implementations. It did not authorize historical F40/P01 work or blanket changes to HTTP/security policy.
 
 - A target folder tree, abstraction, naming convention, security "best practice" or recommendation must not become a conclusion until source-based requirement discovery and an end-to-end producer/consumer and cross-subsystem impact trace support it. See [requirements and evidence standard](docs/architecture/research-governance/REQUIREMENTS_AND_EVIDENCE.md).
 - Compare actual pinned BDSPro, **Gitea and Laravel DRX** mechanisms where relevant; use Go/net/http/Chi/HTTP and security standards to define invariants. Never infer Go architecture directly from Laravel framework APIs.
