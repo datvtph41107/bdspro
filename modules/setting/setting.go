@@ -24,47 +24,61 @@ type CommonSettings struct {
 	Graceful GracefulSettings
 }
 
-// InitWorkPathAndCommonConfig là một bootstrap boundary.
-// Không thay globals nếu resolve, parse, env hoặc common validation lỗi.
-func InitWorkPathAndCommonConfig(args PathOptions, envs []string) error {
+type preparedCommonConfig struct {
+	paths    Paths
+	provider ConfigProvider
+	common   CommonSettings
+}
+
+// prepareCommonConfig validates without publishing process globals or opening resources.
+func prepareCommonConfig(args PathOptions, envs []string) (preparedCommonConfig, error) {
 	paths, err := ResolvePaths(args)
 	if err != nil {
-		return fmt.Errorf("resolve application paths: %w", err)
+		return preparedCommonConfig{}, fmt.Errorf("resolve application paths: %w", err)
 	}
 	provider, err := NewConfigProviderFromFile(paths.ConfigFile)
 	if err != nil {
-		return err
+		return preparedCommonConfig{}, err
 	}
 	if err := applyEnvironmentOverrides(provider, envs); err != nil {
-		return fmt.Errorf("apply environment overrides: %w", err)
+		return preparedCommonConfig{}, fmt.Errorf("apply environment overrides: %w", err)
 	}
-
-	// Gitea: WORK_PATH từ INI có thể đổi effective work path.
+	if err := validateKnownKeys(provider); err != nil {
+		return preparedCommonConfig{}, fmt.Errorf("validate configuration keys: %w", err)
+	}
+	// Legacy WORK_PATH is resolved after finding the original INI file.
 	workPath := paths.WorkPath
 	configWorkPath := ConfigSectionKeyString(provider.Section(""), "WORK_PATH")
 	if configWorkPath != "" {
 		if !filepath.IsAbs(configWorkPath) {
-			return fmt.Errorf("WORK_PATH in %q must be absolute path: %q", paths.ConfigFile, configWorkPath)
+			return preparedCommonConfig{}, fmt.Errorf("WORK_PATH in %q must be absolute path: %q", paths.ConfigFile, configWorkPath)
 		}
 		configWorkPath = filepath.Clean(configWorkPath)
 		if args.WorkPath != "" && !samePath(paths.WorkPath, configWorkPath) {
-			return fmt.Errorf("WORK_PATH %q conflicts with --work-path %q", configWorkPath, paths.WorkPath)
+			return preparedCommonConfig{}, fmt.Errorf("WORK_PATH %q conflicts with --work-path %q", configWorkPath, paths.WorkPath)
 		}
 		workPath = configWorkPath
 	}
-	customPath := filepath.Join(workPath, "custom")
-
+	paths.WorkPath = workPath
+	paths.CustomPath = filepath.Join(workPath, "custom")
 	common, err := loadCommonSettingsFrom(provider, workPath)
 	if err != nil {
-		return fmt.Errorf("load common settings: %w", err)
+		return preparedCommonConfig{}, fmt.Errorf("load common settings: %w", err)
 	}
+	return preparedCommonConfig{paths: paths, provider: provider, common: common}, nil
+}
 
-	// Publish sau cùng; không sửa process CWD và không ghi app.ini.
-	AppWorkPath = workPath
-	CustomPath = customPath
-	CustomConf = paths.ConfigFile
-	CfgProvider = provider
-	Common = common
+// InitWorkPathAndCommonConfig preserves the existing process-wide publication contract.
+func InitWorkPathAndCommonConfig(args PathOptions, envs []string) error {
+	prepared, err := prepareCommonConfig(args, envs)
+	if err != nil {
+		return err
+	}
+	AppWorkPath = prepared.paths.WorkPath
+	CustomPath = prepared.paths.CustomPath
+	CustomConf = prepared.paths.ConfigFile
+	CfgProvider = prepared.provider
+	Common = prepared.common
 	return nil
 }
 
@@ -87,40 +101,69 @@ func loadCommonSettingsFrom(cfg ConfigProvider, workPath string) (CommonSettings
 	return CommonSettings{RunMode: runMode, Log: logCfg, Graceful: gracefulCfg}, nil
 }
 
-// LoadSettings đọc cấu hình Web; không mở DB, Redis hay listener.
-// Mọi domain global chỉ publish nếu toàn bộ loaders trả về thành công.
+type loadedWebSettings struct {
+	server   ServerSettings
+	api      APISettings
+	security SecuritySettings
+	ip       IPActiveSettings
+	database DatabaseSettings
+	redis    RedisSettings
+}
+
+// loadWebSettingsFrom runs exactly the same loaders for preflight and runtime.
+func loadWebSettingsFrom(cfg ConfigProvider, common CommonSettings, workPath string) (loadedWebSettings, error) {
+	server, err := loadServerFrom(cfg, common.RunMode)
+	if err != nil {
+		return loadedWebSettings{}, fmt.Errorf("load server settings: %w", err)
+	}
+	api, err := loadAPIFrom(cfg, common.RunMode, server)
+	if err != nil {
+		return loadedWebSettings{}, fmt.Errorf("load API settings: %w", err)
+	}
+	security, err := loadSecurityFrom(cfg, common.RunMode)
+	if err != nil {
+		return loadedWebSettings{}, fmt.Errorf("load security settings: %w", err)
+	}
+	ipPolicies, err := loadIPActiveFrom(cfg)
+	if err != nil {
+		return loadedWebSettings{}, fmt.Errorf("load IP admission settings: %w", err)
+	}
+	database, err := loadDBSetting(cfg, workPath)
+	if err != nil {
+		return loadedWebSettings{}, fmt.Errorf("load database settings: %w", err)
+	}
+	return loadedWebSettings{
+		server: server, api: api, security: security, ip: ipPolicies,
+		database: database, redis: loadRedisFrom(cfg),
+	}, nil
+}
+
+// CheckWebConfig checks static Web settings without logging, opening DB/Redis,
+// opening a listener, or changing any package-level setting.
+func CheckWebConfig(args PathOptions, envs []string) error {
+	prepared, err := prepareCommonConfig(args, envs)
+	if err != nil {
+		return err
+	}
+	_, err = loadWebSettingsFrom(prepared.provider, prepared.common, prepared.paths.WorkPath)
+	return err
+}
+
+// LoadSettings is the legacy Web publication point; all loaders must succeed first.
 func LoadSettings() error {
 	if CfgProvider == nil {
 		return errors.New("configuration provider is not initialized")
 	}
-	server, err := loadServerFrom(CfgProvider, Common.RunMode)
+	loaded, err := loadWebSettingsFrom(CfgProvider, Common, AppWorkPath)
 	if err != nil {
-		return fmt.Errorf("load server settings: %w", err)
+		return err
 	}
-	api, err := loadAPIFrom(CfgProvider, Common.RunMode, server)
-	if err != nil {
-		return fmt.Errorf("load API settings: %w", err)
-	}
-	security, err := loadSecurityFrom(CfgProvider, Common.RunMode)
-	if err != nil {
-		return fmt.Errorf("load security settings: %w", err)
-	}
-	ipPolicies, err := loadIPActiveFrom(CfgProvider)
-	if err != nil {
-		return fmt.Errorf("load IP admission settings: %w", err)
-	}
-	database, err := loadDBSetting(CfgProvider, AppWorkPath)
-	if err != nil {
-		return fmt.Errorf("load database settings: %w", err)
-	}
-	redis := loadRedisFrom(CfgProvider)
-
-	Server = server
-	API = api
-	Security = security
-	IPActive = ipPolicies
-	Database = database
-	Redis = redis
+	Server = loaded.server
+	API = loaded.api
+	Security = loaded.security
+	IPActive = loaded.ip
+	Database = loaded.database
+	Redis = loaded.redis
 	return nil
 }
 

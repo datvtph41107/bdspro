@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -71,15 +72,25 @@ func decodeEnvironmentKey(name string) (section, key string, fromFile, ok bool) 
 	return strings.ToLower(section), key, fromFile, true
 }
 
-// readEnvironmentFile đọc secret; bỏ một dấu xuống dòng cuối nếu có.
+// Bound secret reads when the configured __FILE path points to an unexpected file.
+const maxSecretFileBytes int64 = 64 * 1024
+
 func readEnvironmentFile(path string) (string, error) {
 	if path == "" {
 		return "", errors.New("secret file path is empty")
 	}
-	content, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
-		// Không đưa nội dung secret vào lỗi.
+		return "", fmt.Errorf("open secret file: %w", err)
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(io.LimitReader(file, maxSecretFileBytes+1))
+	if err != nil {
 		return "", fmt.Errorf("read secret file: %w", err)
+	}
+	if int64(len(content)) > maxSecretFileBytes {
+		return "", errors.New("secret file exceeds size limit")
 	}
 	switch {
 	case bytes.HasSuffix(content, []byte("\r\n")):
@@ -105,6 +116,9 @@ func collectEnvironmentOverrides(envs []string) ([]configOverride, error) {
 		section, key, fromFile, ok := decodeEnvironmentKey(name)
 		if !ok {
 			return nil, fmt.Errorf("invalid config environment name %q", name)
+		}
+		if !isKnownConfigKey(section, key) {
+			return nil, fmt.Errorf("unknown config environment %q", name)
 		}
 		// Không âm thầm nhận override cho các subsystem đã loại bỏ.
 		switch strings.ToLower(section) {

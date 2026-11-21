@@ -27,6 +27,7 @@ type ConfigSection interface {
 // ConfigProvider là hợp đồng đọc của các loader, không lộ *ini.File.
 type ConfigProvider interface {
 	Section(name string) ConfigSection
+	Sections() []ConfigSection
 }
 
 type iniConfigProvider struct {
@@ -63,6 +64,16 @@ func (p *iniConfigProvider) Section(name string) ConfigSection {
 		return &iniConfigSection{}
 	}
 	return &iniConfigSection{sec: sec}
+}
+
+// Sections exposes all INI sections so validation can detect unknown keys.
+func (p *iniConfigProvider) Sections() []ConfigSection {
+	sections := p.ini.Sections()
+	result := make([]ConfigSection, 0, len(sections))
+	for _, section := range sections {
+		result = append(result, &iniConfigSection{sec: section})
+	}
+	return result
 }
 
 func (s *iniConfigSection) Name() string {

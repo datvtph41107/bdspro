@@ -73,6 +73,20 @@ không còn phụ thuộc vào `setting.Queue` đã bị xóa.
 - `RunMainApp` báo một lần và exit code `1` cho lỗi command, phân biệt usage error.
 - `main.go` đang sở hữu `cli.OsExiter` để đóng logger trước `os.Exit`.
 
+## Preflight không mở tài nguyên
+
+Chạy `bdspro --config /absolute/path/app.ini config check` để kiểm tra cấu hình Web:
+đọc INI, ENV/`__FILE`, xác định work path, kiểm tra known section/key và các Web loaders.
+Không mở DB/Redis/listener, không khởi tạo log manager hay mutate package-level settings.
+Kết quả thành công: `Configuration valid`. Đây là static check, **không xác nhận**
+database/Redis sẵn sàng hay port trống.
+
+Từ thay đổi này, unknown INI section/key và unknown `BDS__...` override đều bị từ chối.
+Rà soát config đang nằm trong Docker volumes trước khi nâng cấp và loại bỏ keys cũ
+không còn consumer. `WORK_PATH` trong INI vẫn tương thích nhưng không giúp định vị
+INI ban đầu. Host ENV không tự truyền vào container: khai báo bằng Compose
+`environment`, `env_file` hoặc secrets đúng nơi. Không in secret trong diagnostics.
+
 ## Lệnh vận hành
 
 ```sh

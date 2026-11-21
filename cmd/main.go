@@ -47,6 +47,7 @@ func NewMainApp(appVer AppVersion) *cli.Command {
 	}
 	app.DefaultCommand = webCmd.Name
 	app.Commands = append(app.Commands, subCmdWithConfig...)
+	app.Commands = append(app.Commands, newConfigCommand())
 	app.Before = PrepareConsoleLoggerLevel(log.INFO)
 	return app
 }
@@ -117,7 +118,7 @@ func PrepareSubcommandWithGlobalFlags(originCmd *cli.Command) {
 	}
 }
 
-func prepareConfig(cmd *cli.Command) error {
+func configPathOptions(cmd *cli.Command) setting.PathOptions {
 	root := cmd.Root()
 	var args setting.PathOptions
 	if root.IsSet("work-path") {
@@ -126,7 +127,11 @@ func prepareConfig(cmd *cli.Command) error {
 	if root.IsSet("config") {
 		args.Config = root.String("config")
 	}
-	return setting.InitWorkPathAndCommonConfig(args, os.Environ())
+	return args
+}
+
+func prepareConfig(cmd *cli.Command) error {
+	return setting.InitWorkPathAndCommonConfig(configPathOptions(cmd), os.Environ())
 }
 
 func prepareCommandLoggers() error {

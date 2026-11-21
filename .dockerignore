@@ -9,3 +9,5 @@ README.md
 /custom/conf/app.ini
 /bin/
 /.air/
+/app.local.env
+/docker/app.local.ini

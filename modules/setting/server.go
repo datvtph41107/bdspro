@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -38,10 +39,26 @@ func loadServerFrom(cfg ConfigProvider, runMode string) (ServerSettings, error) 
 			result.AllowedOrigins = append(result.AllowedOrigins, v)
 		}
 	}
-	if result.HTTPServerAddress == "" {
-		return ServerSettings{}, errors.New("server.HTTP_SERVER_ADDRESS is required")
+	if err := validateListenerAddress(result.HTTPServerAddress); err != nil {
+		return ServerSettings{}, err
 	}
 	return result, nil
+}
+
+// Validate syntax early; only the listener owner may bind the socket.
+func validateListenerAddress(address string) error {
+	if address == "" || strings.TrimSpace(address) != address {
+		return errors.New("server.HTTP_SERVER_ADDRESS is required without surrounding whitespace")
+	}
+	_, portText, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("server.HTTP_SERVER_ADDRESS: %w", err)
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil || port < 1 || port > 65535 {
+		return fmt.Errorf("server.HTTP_SERVER_ADDRESS has invalid port %q", portText)
+	}
+	return nil
 }
 
 // ParseTrustedProxies trả IP/CIDR đã chuẩn hóa; không cho entry rỗng.
