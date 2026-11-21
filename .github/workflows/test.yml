@@ -66,10 +66,16 @@ jobs:
           export PATH="$(go env GOPATH)/bin:$PATH"
           make sqlc-check
 
+      - name: Verify resource packages do not import setting
+        run: |
+          if grep -Rn --include='*.go' 'github.com/datvtph41107/bdspro/modules/setting' models/db modules/conn modules/auth modules/graceful; then
+            echo 'Runtime resource package must receive typed values from bootstrap, not global setting'; exit 1
+          fi
+
       - name: Build all packages
         run: go build ./...
 
-      - name: Compile with race detector and vet (no test files)
+      - name: Run tests with race detector and vet
         env:
           BDS_TEST_MODE: disposable
           BDS_TEST_DB_URL: postgres://root:secret@127.0.0.1:5432/bdspro?sslmode=disable

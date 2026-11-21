@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -38,16 +37,8 @@ func NewMainApp(appVer AppVersion) *cli.Command {
 	}
 
 	webCmd := newWebCommand()
-	subCmdWithConfig := []*cli.Command{
-		webCmd,
-		newMigrateCommand(),
-	}
-	for _, cmd := range subCmdWithConfig {
-		PrepareSubcommandWithGlobalFlags(cmd)
-	}
 	app.DefaultCommand = webCmd.Name
-	app.Commands = append(app.Commands, subCmdWithConfig...)
-	app.Commands = append(app.Commands, newConfigCommand())
+	app.Commands = []*cli.Command{webCmd, newMigrateCommand(), newConfigCommand()}
 	app.Before = PrepareConsoleLoggerLevel(log.INFO)
 	return app
 }
@@ -96,28 +87,6 @@ func RunMainApp(app *cli.Command, args ...string) error {
 	return err
 }
 
-// PrepareSubcommandWithGlobalFlags giữ Before gốc rồi nạp settings + logger.
-func PrepareSubcommandWithGlobalFlags(originCmd *cli.Command) {
-	originBefore := originCmd.Before
-	originCmd.Before = func(ctxOrig context.Context, cmd *cli.Command) (ctx context.Context, err error) {
-		ctx = ctxOrig
-		if originBefore != nil {
-			ctx, err = originBefore(ctx, cmd)
-			if err != nil {
-				return ctx, err
-			}
-		}
-		if err = prepareConfig(cmd); err != nil {
-			return ctx, err
-		}
-		if err = prepareCommandLoggers(); err != nil {
-			return ctx, err
-		}
-		log.Info("Using configuration file: %s", setting.CustomConf)
-		return ctx, nil
-	}
-}
-
 func configPathOptions(cmd *cli.Command) setting.PathOptions {
 	root := cmd.Root()
 	var args setting.PathOptions
@@ -130,10 +99,3 @@ func configPathOptions(cmd *cli.Command) setting.PathOptions {
 	return args
 }
 
-func prepareConfig(cmd *cli.Command) error {
-	return setting.InitWorkPathAndCommonConfig(configPathOptions(cmd), os.Environ())
-}
-
-func prepareCommandLoggers() error {
-	return setting.InitLoggers(setting.Common.Log)
-}

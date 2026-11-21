@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 
 	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/log"
@@ -23,17 +24,29 @@ func newWebCommand() *cli.Command {
 	}
 }
 
-func runWeb(ctx context.Context, _ *cli.Command) error {
-	managerCtx, cancel := context.WithCancel(ctx)
-	graceful.InitManager(managerCtx)
-	defer cancel()
+func runWeb(ctx context.Context, command *cli.Command) error {
+	// A single validated snapshot is handed off to all resource constructors.
+	cfg, err := setting.LoadWebConfig(configPathOptions(command), os.Environ())
+	if err != nil {
+		return err
+	}
+	if err := configureCommandLogger(cfg.Common.Log); err != nil {
+		return err
+	}
+	// Only HTTP consumers still use these legacy globals; publish before serving.
+	setting.PublishLegacyWeb(cfg)
+	log.Info("Using configuration file: %s", cfg.Paths.ConfigFile)
 
-	return serveInstalled()
+	managerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	graceful.InitManager(managerCtx, cfg.Common.Graceful.HammerTimeout)
+
+	return serveInstalled(cfg)
 }
 
 // serveInstalled composes the Web application and
 // waits for the process lifecycle to finish.
-func serveInstalled() error {
+func serveInstalled(cfg setting.WebConfig) error {
 	g := graceful.GetManager()
 
 	log.Info(
@@ -60,7 +73,7 @@ func serveInstalled() error {
 		}
 
 		if err := routers.InitWebInstalled(
-			g.HammerContext(),
+			g.HammerContext(), cfg,
 		); err != nil {
 			return err
 		}
@@ -78,7 +91,7 @@ func serveInstalled() error {
 			return nil
 		}
 
-		return listen(handler)
+		return listen(handler, cfg.Server.HTTPServerAddress)
 	}()
 
 	g.DoGracefulShutdown()
@@ -93,7 +106,7 @@ func serveInstalled() error {
 
 // listen prepares process tracking and delegates
 // the actual HTTP lifecycle to runHTTP.
-func listen(handler http.Handler) error {
+func listen(handler http.Handler, address string) error {
 	g := graceful.GetManager()
 
 	_, _, finished := process.GetManager().AddTypedContext(
@@ -103,8 +116,6 @@ func listen(handler http.Handler) error {
 		true,
 	)
 	defer finished()
-
-	address := setting.Server.HTTPServerAddress
 
 	log.Info("Listen: http://%s", address)
 

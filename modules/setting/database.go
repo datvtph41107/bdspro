@@ -50,6 +50,29 @@ func resolveMigrationURL(raw, workPath string) (string, error) {
 	return (&url.URL{Scheme: "file", Path: filepath.ToSlash(filepath.Clean(path))}).String(), nil
 }
 
+// MigrateConfig contains only the settings needed by the migrate command.
+type MigrateConfig struct {
+	Paths    Paths
+	Common   CommonSettings
+	Database DatabaseSettings
+}
+
+// LoadMigrateConfig validates common and database settings without publishing
+// globals or constructing HTTP/Redis/Auth resources.
+func LoadMigrateConfig(args PathOptions, envs []string) (MigrateConfig, error) {
+	prepared, err := prepareCommonConfig(args, envs)
+	if err != nil {
+		return MigrateConfig{}, err
+	}
+	database, err := loadDBSetting(prepared.provider, prepared.paths.WorkPath)
+	if err != nil {
+		return MigrateConfig{}, err
+	}
+	return MigrateConfig{
+		Paths: prepared.paths, Common: prepared.common, Database: database,
+	}, nil
+}
+
 // LoadDBSetting là CLI entrypoint; chỉ công bố khi validate thành công.
 func LoadDBSetting() error {
 	if CfgProvider == nil {

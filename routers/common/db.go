@@ -11,14 +11,14 @@ import (
 
 // InitDBEngine prepares the database for the installed
 // Web application. Connection ownership belongs to db.
-func InitDBEngine(ctx context.Context) (err error) {
+func InitDBEngine(ctx context.Context, runMode string, cfg setting.DatabaseSettings) (err error) {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
 	log.Info("Beginning PostgreSQL initialization")
 
-	if err := db.InitEngine(ctx); err != nil {
+	if err := db.InitEngine(ctx, cfg.DBSource); err != nil {
 		return fmt.Errorf(
 			"initialize PostgreSQL engine: %w", err,
 		)
@@ -36,15 +36,15 @@ func InitDBEngine(ctx context.Context) (err error) {
 		return err
 	}
 
-	if setting.Common.RunMode != "development" {
+	if runMode != "development" {
 		log.Info("Database migrations are managed externally")
 		return nil
 	}
 
 	changed, err := db.MigrateUp(
 		ctx,
-		setting.Database.MigrationURL,
-		setting.Database.DBSource,
+		cfg.MigrationURL,
+		cfg.DBSource,
 		0,
 	)
 	if err != nil {

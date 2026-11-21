@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 // LogGlobalConfig là config; modules/log quản lý writer thực tế.
@@ -72,15 +71,3 @@ func (cfg LogGlobalConfig) Validate() error {
 	return nil
 }
 
-// InitLoggers kích hoạt outputs sau khi Common.Log được validate.
-func InitLoggers(cfg LogGlobalConfig) error {
-	if err := cfg.Validate(); err != nil {
-		return err
-	}
-	if err := log.GetManager().ConfigureOutputs(
-		cfg.Mode, cfg.Format, strings.ToLower(cfg.Level), cfg.RootPath, cfg.FileName,
-	); err != nil {
-		return fmt.Errorf("initialize logging outputs: %w", err)
-	}
-	return nil
-}

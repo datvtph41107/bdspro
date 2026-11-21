@@ -31,6 +31,8 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     restart: on-failure
+    # Exceeds the default 15s application hammer deadline; leave time for cleanup.
+    stop_grace_period: 30s
     volumes: [bdspro-volume:/data]
     command: ["/app/main", "--config", "/data/bdspro/conf/app.ini", "web"]
     logging:

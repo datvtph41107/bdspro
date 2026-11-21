@@ -138,14 +138,60 @@ func loadWebSettingsFrom(cfg ConfigProvider, common CommonSettings, workPath str
 	}, nil
 }
 
+// WebConfig is one validated snapshot for a Web process bootstrap.
+// It does not own resources and must not be mutated after publication.
+type WebConfig struct {
+	Paths    Paths
+	Common   CommonSettings
+	Server   ServerSettings
+	API      APISettings
+	Security SecuritySettings
+	IPActive IPActiveSettings
+	Database DatabaseSettings
+	Redis    RedisSettings
+}
+
+// LoadWebConfig builds the complete Web snapshot without modifying globals,
+// configuring logging, connecting dependencies or opening a listener.
+func LoadWebConfig(args PathOptions, envs []string) (WebConfig, error) {
+	prepared, err := prepareCommonConfig(args, envs)
+	if err != nil {
+		return WebConfig{}, err
+	}
+	loaded, err := loadWebSettingsFrom(prepared.provider, prepared.common, prepared.paths.WorkPath)
+	if err != nil {
+		return WebConfig{}, err
+	}
+	return WebConfig{
+		Paths: prepared.paths, Common: prepared.common,
+		Server: loaded.server, API: loaded.api, Security: loaded.security,
+		IPActive: loaded.ip, Database: loaded.database, Redis: loaded.redis,
+	}, nil
+}
+
+// PublishLegacyWeb is a one-time startup compatibility bridge for HTTP handlers
+// that still consume global settings. Do not call it after the listener starts.
+// The provider itself is not published: runtime must use the validated snapshot.
+func PublishLegacyWeb(cfg WebConfig) {
+	AppWorkPath = cfg.Paths.WorkPath
+	CustomPath = cfg.Paths.CustomPath
+	CustomConf = cfg.Paths.ConfigFile
+	CfgProvider = nil
+	Common = cfg.Common
+	Server = cfg.Server
+	Server.TrustedProxies = append([]string(nil), cfg.Server.TrustedProxies...)
+	Server.AllowedOrigins = append([]string(nil), cfg.Server.AllowedOrigins...)
+	API = cfg.API
+	Security = cfg.Security
+	IPActive = cfg.IPActive.clone()
+	Database = cfg.Database
+	Redis = cfg.Redis
+}
+
 // CheckWebConfig checks static Web settings without logging, opening DB/Redis,
 // opening a listener, or changing any package-level setting.
 func CheckWebConfig(args PathOptions, envs []string) error {
-	prepared, err := prepareCommonConfig(args, envs)
-	if err != nil {
-		return err
-	}
-	_, err = loadWebSettingsFrom(prepared.provider, prepared.common, prepared.paths.WorkPath)
+	_, err := LoadWebConfig(args, envs)
 	return err
 }
 

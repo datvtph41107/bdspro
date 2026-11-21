@@ -73,6 +73,29 @@ không còn phụ thuộc vào `setting.Queue` đã bị xóa.
 - `RunMainApp` báo một lần và exit code `1` cho lỗi command, phân biệt usage error.
 - `main.go` đang sở hữu `cli.OsExiter` để đóng logger trước `os.Exit`.
 
+## Typed startup và migration
+
+Web nạp **một lần** với `setting.LoadWebConfig`, sau đó đưa typed
+`WebConfig` tới resource bootstrap. `migrate` sử dụng riêng
+`setting.LoadMigrateConfig`; không cần JWT key, Redis hay HTTP settings.
+`config check` sử dụng cùng Web loader nhưng không publish globals hoặc
+mở resource. ENV, file INI và file secret không bị ghi ngược vào đĩa.
+
+`setting.PublishLegacyWeb` chỉ tồn tại ở startup để hỗ trợ các HTTP consumers
+cũ còn sử dụng package globals; không dùng để hot reload. Không bao giờ
+in cả `WebConfig` vào log vì chứa DB source và JWT signing key.
+
+**Lifecycle:** DB/Redis owners nhận thông số trực tiếp từ bootstrap và đăng ký
+termination cleanup một lần sau khi khởi tạo thành công; startup rollback
+có thể gọi cùng Close function nhưng Close phải idempotent.
+Các bước init lỗi phải tự đóng resource mới mở một phần.
+
+Docker Compose đặt `stop_grace_period: 30s` cho hammer mặc định 15s. Nếu
+cấu hình hammer lớn hơn, phải tăng Docker stop deadline tương ứng.
+`HTTP_SHUTDOWN_TIMEOUT` hiện chỉ được validate, chưa được áp dụng làm deadline
+HTTP drain thực tế; không dựa vào key này để bảo đảm request hoàn tất.
+Xem `docs/architecture/bootstrap.md` để biết các giới hạn này.
+
 ## Preflight không mở tài nguyên
 
 Chạy `bdspro --config /absolute/path/app.ini config check` để kiểm tra cấu hình Web:

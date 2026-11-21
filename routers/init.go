@@ -22,16 +22,12 @@ import (
 // InitWebInstalled initializes required Web dependencies in order. Resources
 // retain their own graceful termination hooks; failed startup rolls back
 // completed stages through idempotent resource-owner close functions.
-func InitWebInstalled(ctx context.Context) error {
+func InitWebInstalled(ctx context.Context, cfg setting.WebConfig) error {
 	return startup.Run(ctx,
-		startup.Step{
-			Name: "web settings",
-			Init: func(context.Context) error { return setting.LoadSettings() },
-		},
 		startup.Step{
 			Name: "PostgreSQL",
 			Init: func(ctx context.Context) error {
-				if err := common.InitDBEngine(ctx); err != nil {
+				if err := common.InitDBEngine(ctx, cfg.Common.RunMode, cfg.Database); err != nil {
 					return err
 				}
 				log.Info("PostgreSQL ready")
@@ -41,12 +37,14 @@ func InitWebInstalled(ctx context.Context) error {
 		},
 		startup.Step{
 			Name:     "Redis",
-			Init:     common.InitRedis,
+			Init: func(ctx context.Context) error {
+				return common.InitRedis(ctx, cfg.Redis.Address)
+			},
 			Rollback: conn.CloseRedis,
 		},
 		startup.Step{
 			Name: "access token verifier",
-			Init: func(context.Context) error { return auth.Init() },
+			Init: func(context.Context) error { return auth.Init(cfg.Security.TokenSymmetricKey) },
 		},
 	)
 }

@@ -16,6 +16,15 @@ type IPActiveSettings struct {
 
 var IPActive IPActiveSettings
 
+// clone avoids sharing the mutable policy map with legacy global consumers.
+func (s IPActiveSettings) clone() IPActiveSettings {
+	policies := make(map[ipactive.Action]ipactive.Policy, len(s.Policies))
+	for action, policy := range s.Policies {
+		policies[action] = policy
+	}
+	return IPActiveSettings{Policies: policies}
+}
+
 func loadIPActiveFrom(cfg ConfigProvider) (IPActiveSettings, error) {
 	policies := ipactive.DefaultPolicies()
 	sec := cfg.Section("ipactive")

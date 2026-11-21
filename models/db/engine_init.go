@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/datvtph41107/bdspro/modules/graceful"
-	"github.com/datvtph41107/bdspro/modules/setting"
 )
 
 var defaultEngine struct {
@@ -19,7 +18,7 @@ var defaultEngine struct {
 //
 // It is called once during application startup,
 // after Common settings and the graceful Manager exist.
-func InitEngine(ctx context.Context) error {
+func InitEngine(ctx context.Context, source string) error {
 	defaultEngine.mu.Lock()
 	defer defaultEngine.mu.Unlock()
 
@@ -31,10 +30,7 @@ func InitEngine(ctx context.Context) error {
 		return ErrEngineAlreadyInitialized
 	}
 
-	pool, err := Connect(
-		ctx,
-		setting.Database.DBSource,
-	)
+	pool, err := Connect(ctx, source)
 	if err != nil {
 		return err
 	}

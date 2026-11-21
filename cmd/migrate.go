@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"os"
 
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
@@ -34,16 +35,20 @@ func newMigrateCommand() *cli.Command {
 
 // runMigrate nhận DB source và migration URL từ canonical setting.
 func runMigrate(ctx context.Context, command *cli.Command) error {
-	if err := setting.LoadDBSetting(); err != nil {
+	cfg, err := setting.LoadMigrateConfig(configPathOptions(command), os.Environ())
+	if err != nil {
 		return err
 	}
-
+	if err := configureCommandLogger(cfg.Common.Log); err != nil {
+		return err
+	}
+	log.Info("Using configuration file: %s", cfg.Paths.ConfigFile)
 	steps := command.Int("steps")
 	if command.Bool("down") {
-		if setting.Common.RunMode != "development" {
+		if cfg.Common.RunMode != "development" {
 			return errors.New("schema rollback is restricted to development")
 		}
-		changed, err := db.MigrateDown(setting.Database.MigrationURL, setting.Database.DBSource, steps)
+		changed, err := db.MigrateDown(cfg.Database.MigrationURL, cfg.Database.DBSource, steps)
 		if err != nil {
 			return err
 		}
@@ -55,7 +60,7 @@ func runMigrate(ctx context.Context, command *cli.Command) error {
 		return nil
 	}
 
-	changed, err := db.MigrateUp(ctx, setting.Database.MigrationURL, setting.Database.DBSource, steps)
+	changed, err := db.MigrateUp(ctx, cfg.Database.MigrationURL, cfg.Database.DBSource, steps)
 	if err != nil {
 		return err
 	}

@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/datvtph41107/bdspro/modules/graceful"
-	"github.com/datvtph41107/bdspro/modules/setting"
 	redis "github.com/go-redis/redis/v8"
 )
 
@@ -28,7 +27,7 @@ var processRedis struct {
 
 // InitRedis creates the process-owned Redis client.
 // Callers borrow the client; they do not own its cleanup.
-func InitRedis(ctx context.Context) (*redis.Client, error) {
+func InitRedis(ctx context.Context, address string) (*redis.Client, error) {
 	processRedis.mu.Lock()
 	defer processRedis.mu.Unlock()
 
@@ -42,10 +41,7 @@ func InitRedis(ctx context.Context) (*redis.Client, error) {
 
 	manager := NewRedisManager()
 
-	client, err := manager.Client(
-		ctx,
-		setting.Redis.Address,
-	)
+	client, err := manager.Client(ctx, address)
 	if err != nil {
 		_ = manager.Close()
 		return nil, err
