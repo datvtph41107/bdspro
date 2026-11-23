@@ -17,6 +17,7 @@ func TestValidateKnownConfigKeys(t *testing.T) {
 		{"ip-policy", "[ipactive]\nTEAM_CREATE_LIMIT = 2\n", false},
 		{"unknown-key", "[server]\nHTTP_SERVER_ADRESS = :8080\n", true},
 		{"unknown-section", "[servre]\n", true},
+		{"duplicate-key", "[api]\nMAX_RESPONSE_ITEMS = 10\nmax_response_items = 11\n", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			provider, err := NewConfigProviderFromData(tc.content)
