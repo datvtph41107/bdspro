@@ -21,15 +21,22 @@ type ServerSettings struct {
 var Server ServerSettings
 
 func loadServerFrom(cfg ConfigProvider, runMode string) (ServerSettings, error) {
-	sec := cfg.Section("server")
+	var input struct {
+		HTTPServerAddress string `ini:"HTTP_SERVER_ADDRESS"`
+		PublicOrigin      string `ini:"PUBLIC_ORIGIN"`
+		TrustedProxies    string `ini:"TRUSTED_PROXIES"`
+	}
+	if err := mapSettings(cfg, "server", &input); err != nil {
+		return ServerSettings{}, err
+	}
 	result := ServerSettings{
-		HTTPServerAddress:   sec.Key("HTTP_SERVER_ADDRESS").String(),
-		BrowserPublicOrigin: sec.Key("PUBLIC_ORIGIN").String(),
+		HTTPServerAddress:   input.HTTPServerAddress,
+		BrowserPublicOrigin: input.PublicOrigin,
 	}
 	if err := ValidateBrowserPublicOrigin(result.BrowserPublicOrigin, runMode); err != nil {
 		return ServerSettings{}, err
 	}
-	peers, err := ParseTrustedProxies(sec.Key("TRUSTED_PROXIES").String())
+	peers, err := ParseTrustedProxies(input.TrustedProxies)
 	if err != nil {
 		return ServerSettings{}, err
 	}

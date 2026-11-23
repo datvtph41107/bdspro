@@ -2,7 +2,6 @@ package setting
 
 import (
 	"errors"
-	"fmt"
 	"time"
 )
 
@@ -16,25 +15,17 @@ type SecuritySettings struct {
 var Security SecuritySettings
 
 func loadSecurityFrom(cfg ConfigProvider, runMode string) (SecuritySettings, error) {
-	sec := cfg.Section("security")
-	key := sec.Key("TOKEN_SYMMETRIC_KEY").String()
-	if err := validateTokenSigningKey(runMode, key); err != nil {
+	var result SecuritySettings
+	if err := mapSettings(cfg, "security", &result); err != nil {
 		return SecuritySettings{}, err
 	}
-	accessTTL, err := time.ParseDuration(sec.Key("ACCESS_TOKEN_DURATION").String())
-	if err != nil {
-		return SecuritySettings{}, fmt.Errorf("security.ACCESS_TOKEN_DURATION: %w", err)
+	if err := validateTokenSigningKey(runMode, result.TokenSymmetricKey); err != nil {
+		return SecuritySettings{}, err
 	}
-	refreshTTL, err := time.ParseDuration(sec.Key("REFRESH_TOKEN_DURATION").String())
-	if err != nil {
-		return SecuritySettings{}, fmt.Errorf("security.REFRESH_TOKEN_DURATION: %w", err)
-	}
-	if accessTTL <= 0 || refreshTTL <= 0 {
+	if result.AccessTokenDuration <= 0 || result.RefreshTokenDuration <= 0 {
 		return SecuritySettings{}, errors.New("security token durations must be positive")
 	}
-	return SecuritySettings{
-		TokenSymmetricKey: key, AccessTokenDuration: accessTTL, RefreshTokenDuration: refreshTTL,
-	}, nil
+	return result, nil
 }
 
 func validateTokenSigningKey(runMode, key string) error {
