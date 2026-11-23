@@ -114,9 +114,13 @@ func samePath(a, b string) bool {
 // The config file location was resolved first, so WORK_PATH never silently
 // changes which file is being read.
 func resolveConfiguredWorkPath(paths Paths, args PathOptions, cfg ConfigProvider) (Paths, error) {
-	configured := ConfigSectionKeyString(cfg.Section(""), "WORK_PATH")
-	if configured == "" {
+	key := cfg.Section("").Key("WORK_PATH")
+	if !key.IsSet() {
 		return paths, nil
+	}
+	configured := key.String()
+	if configured == "" {
+		return Paths{}, fmt.Errorf("WORK_PATH in %q must not be empty", paths.ConfigFile)
 	}
 	if !filepath.IsAbs(configured) {
 		return Paths{}, fmt.Errorf("WORK_PATH in %q must be absolute path: %q", paths.ConfigFile, configured)
