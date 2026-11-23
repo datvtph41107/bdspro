@@ -10,17 +10,19 @@ import (
 // saveGlobals ngăn tests làm bẩn state lẫn nhau; tests không chạy parallel.
 func saveGlobals(t *testing.T) {
 	t.Helper()
-	oldWork, oldCustom, oldConf, oldCommon := AppWorkPath, CustomPath, CustomConf, Common
-	publication.Lock()
-	wasPublished := publication.done
-	publication.Unlock()
+	oldWork, oldCustom, oldConf := AppWorkPath, CustomPath, CustomConf
+	oldRunMode, oldLog, oldGraceful := RunMode, Log, Graceful
+	settingsInit.Lock()
+	wasPublished := settingsInit.done
+	settingsInit.Unlock()
 	oldServer, oldAPI, oldSecurity, oldIP := Server, API, Security, IPActive
 	oldDB, oldRedis := Database, Redis
 	t.Cleanup(func() {
-		publication.Lock()
-		defer publication.Unlock()
-		AppWorkPath, CustomPath, CustomConf, Common = oldWork, oldCustom, oldConf, oldCommon
-		publication.done = wasPublished
+		settingsInit.Lock()
+		defer settingsInit.Unlock()
+		AppWorkPath, CustomPath, CustomConf = oldWork, oldCustom, oldConf
+		RunMode, Log, Graceful = oldRunMode, oldLog, oldGraceful
+		settingsInit.done = wasPublished
 		Server, API, Security, IPActive = oldServer, oldAPI, oldSecurity, oldIP
 		Database, Redis = oldDB, oldRedis
 	})
@@ -38,14 +40,14 @@ func writeConfig(t *testing.T, content string) string {
 func TestWorkPathFromINIAndPublication(t *testing.T) {
 	saveGlobals(t)
 	work := t.TempDir()
-	file := writeConfig(t, "RUN_MODE = development\nWORK_PATH = "+work+"\n[log]\nROOT_PATH = data/log\n")
+	file := writeConfig(t, "RUN_MODE = development\nWORK_PATH = "+work+"\n[log]\nROOT_PATH = data/log\n[database]\nDB_SOURCE = example\n")
 	if err := LoadMigrateSettings(PathOptions{Config: file}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if AppWorkPath != work || CustomPath != filepath.Join(work, "custom") || CustomConf != file {
 		t.Fatalf("published paths: work=%q custom=%q conf=%q", AppWorkPath, CustomPath, CustomConf)
 	}
-	if got := Common.Log.RootPath; got != filepath.Join(work, "data/log") {
+	if got := Log.RootPath; got != filepath.Join(work, "data/log") {
 		t.Fatalf("Log.RootPath=%q", got)
 	}
 }
@@ -68,7 +70,7 @@ func TestWorkPathConflictDoesNotPublish(t *testing.T) {
 func TestEnvironmentWorkPathAndInvalidConfig(t *testing.T) {
 	saveGlobals(t)
 	work := t.TempDir()
-	file := writeConfig(t, "RUN_MODE = development\n")
+	file := writeConfig(t, "RUN_MODE = development\n[database]\nDB_SOURCE = example\n")
 	if err := LoadMigrateSettings(PathOptions{Config: file}, []string{"BDS____WORK_PATH=" + work}); err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +93,7 @@ func TestLoadWebSettingsNoPartialPublication(t *testing.T) {
 	if err := LoadWebSettings(PathOptions{Config: file}, nil); err == nil {
 		t.Fatal("invalid API configuration accepted")
 	}
-	if Server.HTTPServerAddress != "old" || publication.done {
+	if Server.HTTPServerAddress != "old" || settingsInit.done {
 		t.Fatal("Web runtime settings published before full validation")
 	}
 }

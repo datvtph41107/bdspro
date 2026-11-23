@@ -12,9 +12,9 @@ import (
 
 // Route compilation must not require PostgreSQL, Redis, JWT or the Manager.
 func TestPrepareWebRoutesWithoutRuntimeResources(t *testing.T) {
-	before := setting.Common
-	t.Cleanup(func() { setting.Common = before })
-	setting.Common.RunMode = "test"
+	before := setting.RunMode
+	t.Cleanup(func() { setting.RunMode = before })
+	setting.RunMode = "test"
 	routes, err := PrepareWebRoutes()
 	if err != nil {
 		t.Fatalf("prepare HTTP routes: %v", err)
@@ -27,11 +27,11 @@ func TestPrepareWebRoutesWithoutRuntimeResources(t *testing.T) {
 }
 
 func TestPrepareWebRoutesRejectsInvalidTrustedProxyBeforeResources(t *testing.T) {
-	beforeCommon, beforeServer := setting.Common, setting.Server
+	beforeRunMode, beforeServer := setting.RunMode, setting.Server
 	t.Cleanup(func() {
-		setting.Common, setting.Server = beforeCommon, beforeServer
+		setting.RunMode, setting.Server = beforeRunMode, beforeServer
 	})
-	setting.Common.RunMode = "test"
+	setting.RunMode = "test"
 	setting.Server.TrustedProxies = []string{"not-a-proxy"}
 	_, err := PrepareWebRoutes()
 	if err == nil || !strings.Contains(err.Error(), "trusted proxy") {
