@@ -30,22 +30,25 @@ func loadIPActiveFrom(cfg ConfigProvider) (IPActiveSettings, error) {
 	sec := cfg.Section("ipactive")
 	for action, policy := range policies {
 		prefix := strings.ToUpper(string(action))
-		if raw := sec.Key(prefix + "_LIMIT").String(); raw != "" {
-			limit, err := strconv.ParseInt(raw, 10, 64)
+		if key := sec.Key(prefix + "_LIMIT"); key.IsSet() {
+			limit, err := strconv.ParseInt(key.String(), 10, 64)
 			if err != nil {
 				return IPActiveSettings{}, fmt.Errorf("ipactive.%s_LIMIT: %w", prefix, err)
 			}
 			policy.Limit = limit
 		}
-		if raw := sec.Key(prefix + "_WINDOW").String(); raw != "" {
-			window, err := time.ParseDuration(raw)
+		if key := sec.Key(prefix + "_WINDOW"); key.IsSet() {
+			window, err := time.ParseDuration(key.String())
 			if err != nil {
 				return IPActiveSettings{}, fmt.Errorf("ipactive.%s_WINDOW: %w", prefix, err)
 			}
 			policy.Window = window
 		}
-		if raw := sec.Key(prefix + "_MODE").String(); raw != "" {
-			policy.Mode = ipactive.Mode(strings.ToLower(raw))
+		if key := sec.Key(prefix + "_MODE"); key.IsSet() {
+			if key.String() == "" {
+				return IPActiveSettings{}, fmt.Errorf("ipactive.%s_MODE: value must not be empty", prefix)
+			}
+			policy.Mode = ipactive.Mode(strings.ToLower(key.String()))
 		}
 		if err := policy.Validate(); err != nil {
 			return IPActiveSettings{}, fmt.Errorf("ipactive.%s: %w", prefix, err)

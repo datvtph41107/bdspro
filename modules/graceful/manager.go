@@ -29,7 +29,7 @@ func GetManager() *Manager {
 // InitManager initializes the manager once per process.
 func InitManager(ctx context.Context) {
 	initOnce.Do(func() {
-		manager = newGracefulManager(ctx, setting.Common.Graceful.HammerTimeout)
+		manager = newGracefulManager(ctx, setting.Graceful.HammerTimeout)
 	})
 }
 

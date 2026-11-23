@@ -47,7 +47,7 @@ func TestMigrateSettingsUsesResolvedWorkPath(t *testing.T) {
 
 func TestMigrateLoaderRejectsInvalidWorkPathWithoutPublication(t *testing.T) {
 	saveGlobals(t)
-	provider, err := NewConfigProviderFromData("[database]\nMIGRATION_URL = file://db/migration\n")
+	provider, err := NewConfigProviderFromData("[database]\nDB_SOURCE = example\nMIGRATION_URL = file://db/migration\n")
 	if err != nil {
 		t.Fatal(err)
 	}

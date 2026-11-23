@@ -60,9 +60,9 @@ func NormalRoutes() *web.Router {
 func PrepareWebRoutes() (http.Handler, error) {
 	routes := NormalRoutes()
 	if setting.API.EnableSwagger {
-		swagger := api.SwaggerHandler(setting.Common.RunMode)
+		swagger := api.SwaggerHandler(setting.RunMode)
 		if swagger == nil {
-			return nil, fmt.Errorf("Swagger enabled in unsupported run mode %q", setting.Common.RunMode)
+			return nil, fmt.Errorf("Swagger enabled in unsupported run mode %q", setting.RunMode)
 		}
 		routes.Get("/swagger/*", swagger.ServeHTTP)
 	}

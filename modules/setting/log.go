@@ -18,19 +18,29 @@ type LogGlobalConfig struct {
 	FileName string
 }
 
+var Log LogGlobalConfig
+
 func loadLogGlobalFrom(rootCfg ConfigProvider, workPath string) (LogGlobalConfig, error) {
 	if rootCfg == nil {
 		return LogGlobalConfig{}, errors.New("log config provider is nil")
 	}
-	sec := rootCfg.Section("log")
-	fileSec := rootCfg.Section("log.file")
 	cfg := LogGlobalConfig{
-		Mode:     stringOrDefault(sec.Key("MODE"), "console"),
-		Format:   stringOrDefault(sec.Key("FORMAT"), "json"),
-		Level:    stringOrDefault(sec.Key("LEVEL"), "info"),
-		RootPath: stringOrDefault(sec.Key("ROOT_PATH"), "data/log"),
-		FileName: stringOrDefault(fileSec.Key("FILE_NAME"), "bdspro.log"),
+		Mode:     "console",
+		Format:   "json",
+		Level:    "info",
+		RootPath: "data/log",
+		FileName: "bdspro.log",
 	}
+	if err := mapSettings(rootCfg, "log", &cfg); err != nil {
+		return LogGlobalConfig{}, err
+	}
+	file := struct {
+		FileName string `ini:"FILE_NAME"`
+	}{FileName: cfg.FileName}
+	if err := mapSettings(rootCfg, "log.file", &file); err != nil {
+		return LogGlobalConfig{}, err
+	}
+	cfg.FileName = file.FileName
 	if workPath == "" || !filepath.IsAbs(workPath) {
 		return LogGlobalConfig{}, errors.New("application work path must be absolute")
 	}
@@ -77,7 +87,7 @@ func (cfg LogGlobalConfig) Validate() error {
 // modules/log alone owns writers, file handles and termination cleanup.
 // Call only after LoadWebSettings or LoadMigrateSettings succeeds.
 func InitLoggers() error {
-	cfg := Common.Log
+	cfg := Log
 	if err := log.GetManager().ConfigureOutputs(
 		cfg.Mode, cfg.Format, strings.ToLower(cfg.Level), cfg.RootPath, cfg.FileName,
 	); err != nil {

@@ -36,7 +36,7 @@ func InitDBEngine(ctx context.Context) (err error) {
 		return err
 	}
 
-	if setting.Common.RunMode != "development" {
+	if setting.RunMode != "development" {
 		log.Info("Database migrations are managed externally")
 		return nil
 	}

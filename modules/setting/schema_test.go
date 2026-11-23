@@ -17,6 +17,7 @@ func TestValidateKnownConfigKeys(t *testing.T) {
 		{"ip-policy", "[ipactive]\nTEAM_CREATE_LIMIT = 2\n", false},
 		{"unknown-key", "[server]\nHTTP_SERVER_ADRESS = :8080\n", true},
 		{"unknown-section", "[servre]\n", true},
+		{"duplicate-key", "[api]\nMAX_RESPONSE_ITEMS = 10\nmax_response_items = 11\n", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			provider, err := NewConfigProviderFromData(tc.content)
@@ -35,7 +36,7 @@ func TestCheckWebConfigDoesNotPublishGlobals(t *testing.T) {
 	saveGlobals(t)
 	AppWorkPath = "old-work"
 	Server = ServerSettings{HTTPServerAddress: "old-server"}
-	Common = CommonSettings{RunMode: "test"}
+	RunMode = "test"
 	content := "RUN_MODE = development\n[server]\nHTTP_SERVER_ADDRESS = 127.0.0.1:8080\n" +
 		"[security]\nTOKEN_SYMMETRIC_KEY = 01234567890123456789012345678901\n" +
 		"ACCESS_TOKEN_DURATION = 15m\nREFRESH_TOKEN_DURATION = 24h\n" +
@@ -48,7 +49,7 @@ func TestCheckWebConfigDoesNotPublishGlobals(t *testing.T) {
 		t.Fatalf("valid config rejected: %v", err)
 	}
 	if AppWorkPath != "old-work" || Server.HTTPServerAddress != "old-server" ||
-		Common.RunMode != "test" {
+		RunMode != "test" {
 		t.Fatal("config check mutated process globals")
 	}
 	if err := CheckWebConfig(PathOptions{Config: file}, []string{"BDS__SERVRE__HTTP_SERVER_ADDRESS=:9090"}); err == nil {

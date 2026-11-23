@@ -44,7 +44,7 @@ func runMigrate(ctx context.Context, command *cli.Command) error {
 	log.Info("Using configuration file: %s", setting.CustomConf)
 	steps := command.Int("steps")
 	if command.Bool("down") {
-		if setting.Common.RunMode != "development" {
+		if setting.RunMode != "development" {
 			return errors.New("schema rollback is restricted to development")
 		}
 		changed, err := db.MigrateDown(setting.Database.MigrationURL, setting.Database.DBSource, steps)
