@@ -62,7 +62,13 @@ func validateKnownKeys(cfg ConfigProvider) error {
 		if _, ok := knownConfigSections[name]; !ok {
 			return fmt.Errorf("unknown configuration section %q", section.Name())
 		}
+		seen := make(map[string]struct{})
 		for _, key := range section.Keys() {
+			canonical := strings.ToUpper(key.Name())
+			if _, exists := seen[canonical]; exists {
+				return fmt.Errorf("duplicate configuration key %q in section %q", key.Name(), section.Name())
+			}
+			seen[canonical] = struct{}{}
 			if !isKnownConfigKey(name, key.Name()) {
 				return fmt.Errorf("unknown configuration key %q in section %q", key.Name(), section.Name())
 			}

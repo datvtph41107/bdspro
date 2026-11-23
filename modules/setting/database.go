@@ -9,8 +9,8 @@ import (
 
 // DatabaseSettings giữ nguồn DB và migrations; không mở connection.
 type DatabaseSettings struct {
-	DBSource     string
-	MigrationURL string
+	DBSource     string `ini:"DB_SOURCE"`
+	MigrationURL string `ini:"MIGRATION_URL"`
 }
 
 var Database DatabaseSettings
@@ -18,15 +18,19 @@ var Database DatabaseSettings
 // loadDBSetting chuẩn hóa migration path theo AppWorkPath, không theo shell CWD.
 // Migrate dùng cùng instance root như logger khi chạy binary ngoài thư mục dự án.
 func loadDBSetting(cfg ConfigProvider, workPath string) (DatabaseSettings, error) {
-	sec := cfg.Section("database")
-	migrationURL, err := resolveMigrationURL(sec.Key("MIGRATION_URL").String(), workPath)
+	var result DatabaseSettings
+	if err := mapSettings(cfg, "database", &result); err != nil {
+		return DatabaseSettings{}, err
+	}
+	if strings.TrimSpace(result.DBSource) == "" {
+		return DatabaseSettings{}, errors.New("database.DB_SOURCE is required")
+	}
+	migrationURL, err := resolveMigrationURL(result.MigrationURL, workPath)
 	if err != nil {
 		return DatabaseSettings{}, err
 	}
-	return DatabaseSettings{
-		DBSource:     sec.Key("DB_SOURCE").String(),
-		MigrationURL: migrationURL,
-	}, nil
+	result.MigrationURL = migrationURL
+	return result, nil
 }
 
 // resolveMigrationURL chỉ xử lý file://; các scheme khác được giữ nguyên.
