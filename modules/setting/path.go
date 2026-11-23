@@ -109,3 +109,23 @@ func samePath(a, b string) bool {
 	fiB, errB := os.Stat(b)
 	return errA == nil && errB == nil && os.SameFile(fiA, fiB)
 }
+
+// resolveConfiguredWorkPath finishes path resolution after config/ENV loading.
+// The config file location was resolved first, so WORK_PATH never silently
+// changes which file is being read.
+func resolveConfiguredWorkPath(paths Paths, args PathOptions, cfg ConfigProvider) (Paths, error) {
+	configured := ConfigSectionKeyString(cfg.Section(""), "WORK_PATH")
+	if configured == "" {
+		return paths, nil
+	}
+	if !filepath.IsAbs(configured) {
+		return Paths{}, fmt.Errorf("WORK_PATH in %q must be absolute path: %q", paths.ConfigFile, configured)
+	}
+	configured = filepath.Clean(configured)
+	if args.WorkPath != "" && !samePath(paths.WorkPath, configured) {
+		return Paths{}, fmt.Errorf("WORK_PATH %q conflicts with --work-path %q", configured, paths.WorkPath)
+	}
+	paths.WorkPath = configured
+	paths.CustomPath = filepath.Join(configured, "custom")
+	return paths, nil
+}

@@ -53,39 +53,3 @@ func resolveMigrationURL(raw, workPath string) (string, error) {
 	}
 	return (&url.URL{Scheme: "file", Path: filepath.ToSlash(filepath.Clean(path))}).String(), nil
 }
-
-// MigrateConfig contains only the settings needed by the migrate command.
-type MigrateConfig struct {
-	Paths    Paths
-	Common   CommonSettings
-	Database DatabaseSettings
-}
-
-// LoadMigrateConfig validates common and database settings without publishing
-// globals or constructing HTTP/Redis/Auth resources.
-func LoadMigrateConfig(args PathOptions, envs []string) (MigrateConfig, error) {
-	prepared, err := prepareCommonConfig(args, envs)
-	if err != nil {
-		return MigrateConfig{}, err
-	}
-	database, err := loadDBSetting(prepared.provider, prepared.paths.WorkPath)
-	if err != nil {
-		return MigrateConfig{}, err
-	}
-	return MigrateConfig{
-		Paths: prepared.paths, Common: prepared.common, Database: database,
-	}, nil
-}
-
-// LoadMigrateSettings publishes only the common and DB settings needed
-// by a migration command; Web/Redis/Auth are not initialized.
-func LoadMigrateSettings(args PathOptions, envs []string) error {
-	cfg, err := LoadMigrateConfig(args, envs)
-	if err != nil {
-		return err
-	}
-	return publishSettings(func() {
-		publishCommonSettings(cfg.Paths, cfg.Common)
-		Database = cfg.Database
-	})
-}

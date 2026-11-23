@@ -3,218 +3,194 @@ package setting
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"sync"
 	"time"
 )
 
-// Runtime metadata do main.go khởi tạo; config globals chỉ publish sau validate.
+// Process metadata is supplied by main, not by config loading.
 var (
 	AppVer       string
 	AppBuiltWith string
 	AppStartTime time.Time
 
-	Common CommonSettings
+	RunMode string
 )
 
-// CommonSettings là dữ liệu đã validate dùng bởi mọi command.
-type CommonSettings struct {
-	RunMode  string
-	Log      LogGlobalConfig
-	Graceful GracefulSettings
-}
-
-type preparedCommonConfig struct {
+// startupSettings is the only private staging value. Runtime consumers access
+// canonical setting package globals, never this temporary value.
+type startupSettings struct {
 	paths    Paths
-	provider ConfigProvider
-	common   CommonSettings
-}
+	runMode  string
+	log      LogGlobalConfig
+	graceful GracefulSettings
 
-// prepareCommonConfig validates without publishing process globals or opening resources.
-func prepareCommonConfig(args PathOptions, envs []string) (preparedCommonConfig, error) {
-	paths, err := ResolvePaths(args)
-	if err != nil {
-		return preparedCommonConfig{}, fmt.Errorf("resolve application paths: %w", err)
-	}
-	provider, err := NewConfigProviderFromFile(paths.ConfigFile)
-	if err != nil {
-		return preparedCommonConfig{}, err
-	}
-	if err := applyEnvironmentOverrides(provider, envs); err != nil {
-		return preparedCommonConfig{}, fmt.Errorf("apply environment overrides: %w", err)
-	}
-	if err := validateKnownKeys(provider); err != nil {
-		return preparedCommonConfig{}, fmt.Errorf("validate configuration keys: %w", err)
-	}
-	// Legacy WORK_PATH is resolved after finding the original INI file.
-	workPath := paths.WorkPath
-	configWorkPath := ConfigSectionKeyString(provider.Section(""), "WORK_PATH")
-	if configWorkPath != "" {
-		if !filepath.IsAbs(configWorkPath) {
-			return preparedCommonConfig{}, fmt.Errorf("WORK_PATH in %q must be absolute path: %q", paths.ConfigFile, configWorkPath)
-		}
-		configWorkPath = filepath.Clean(configWorkPath)
-		if args.WorkPath != "" && !samePath(paths.WorkPath, configWorkPath) {
-			return preparedCommonConfig{}, fmt.Errorf("WORK_PATH %q conflicts with --work-path %q", configWorkPath, paths.WorkPath)
-		}
-		workPath = configWorkPath
-	}
-	paths.WorkPath = workPath
-	paths.CustomPath = filepath.Join(workPath, "custom")
-	common, err := loadCommonSettingsFrom(provider, workPath)
-	if err != nil {
-		return preparedCommonConfig{}, fmt.Errorf("load common settings: %w", err)
-	}
-	return preparedCommonConfig{paths: paths, provider: provider, common: common}, nil
-}
-
-func loadCommonSettingsFrom(cfg ConfigProvider, workPath string) (CommonSettings, error) {
-	if cfg == nil {
-		return CommonSettings{}, errors.New("configuration provider is not initialized")
-	}
-	runMode, err := loadRunModeFrom(cfg)
-	if err != nil {
-		return CommonSettings{}, err
-	}
-	logCfg, err := loadLogGlobalFrom(cfg, workPath)
-	if err != nil {
-		return CommonSettings{}, err
-	}
-	gracefulCfg, err := loadGracefulSettingsFrom(cfg)
-	if err != nil {
-		return CommonSettings{}, err
-	}
-	return CommonSettings{RunMode: runMode, Log: logCfg, Graceful: gracefulCfg}, nil
-}
-
-type loadedWebSettings struct {
 	server   ServerSettings
 	api      APISettings
 	security SecuritySettings
-	ip       IPActiveSettings
+	ipactive IPActiveSettings
 	database DatabaseSettings
 	redis    RedisSettings
 }
 
-// loadWebSettingsFrom runs exactly the same loaders for preflight and runtime.
-func loadWebSettingsFrom(cfg ConfigProvider, common CommonSettings, workPath string) (loadedWebSettings, error) {
-	server, err := loadServerFrom(cfg, common.RunMode)
+// loadConfigAndPaths owns the common input path for web, migrate and config check.
+func loadConfigAndPaths(args PathOptions, envs []string) (ConfigProvider, Paths, error) {
+	paths, err := ResolvePaths(args)
 	if err != nil {
-		return loadedWebSettings{}, fmt.Errorf("load server settings: %w", err)
+		return nil, Paths{}, fmt.Errorf("resolve application paths: %w", err)
 	}
-	api, err := loadAPIFrom(cfg, common.RunMode, server)
+	cfg, err := NewConfigProviderFromFile(paths.ConfigFile)
 	if err != nil {
-		return loadedWebSettings{}, fmt.Errorf("load API settings: %w", err)
+		return nil, Paths{}, err
 	}
-	security, err := loadSecurityFrom(cfg, common.RunMode)
+	if err := applyEnvironmentOverrides(cfg, envs); err != nil {
+		return nil, Paths{}, fmt.Errorf("apply environment overrides: %w", err)
+	}
+	if err := validateKnownKeys(cfg); err != nil {
+		return nil, Paths{}, fmt.Errorf("validate configuration keys: %w", err)
+	}
+	paths, err = resolveConfiguredWorkPath(paths, args, cfg)
 	if err != nil {
-		return loadedWebSettings{}, fmt.Errorf("load security settings: %w", err)
+		return nil, Paths{}, err
 	}
-	ipPolicies, err := loadIPActiveFrom(cfg)
-	if err != nil {
-		return loadedWebSettings{}, fmt.Errorf("load IP admission settings: %w", err)
-	}
-	database, err := loadDBSetting(cfg, workPath)
-	if err != nil {
-		return loadedWebSettings{}, fmt.Errorf("load database settings: %w", err)
-	}
-	return loadedWebSettings{
-		server: server, api: api, security: security, ip: ipPolicies,
-		database: database, redis: loadRedisFrom(cfg),
-	}, nil
+	return cfg, paths, nil
 }
 
-// WebConfig is one validated snapshot for a Web process bootstrap.
-// It does not own resources and must not be mutated after publication.
-type WebConfig struct {
-	Paths    Paths
-	Common   CommonSettings
-	Server   ServerSettings
-	API      APISettings
-	Security SecuritySettings
-	IPActive IPActiveSettings
-	Database DatabaseSettings
-	Redis    RedisSettings
-}
-
-// LoadWebConfig builds the complete Web snapshot without modifying globals,
-// configuring logging, connecting dependencies or opening a listener.
-func LoadWebConfig(args PathOptions, envs []string) (WebConfig, error) {
-	prepared, err := prepareCommonConfig(args, envs)
-	if err != nil {
-		return WebConfig{}, err
-	}
-	loaded, err := loadWebSettingsFrom(prepared.provider, prepared.common, prepared.paths.WorkPath)
-	if err != nil {
-		return WebConfig{}, err
-	}
-	return WebConfig{
-		Paths: prepared.paths, Common: prepared.common,
-		Server: loaded.server, API: loaded.api, Security: loaded.security,
-		IPActive: loaded.ip, Database: loaded.database, Redis: loaded.redis,
-	}, nil
-}
-
-// LoadWebSettings is the only Web process publication entrypoint.
-// LoadWebConfig remains side-effect-free for config check and tests.
-func LoadWebSettings(args PathOptions, envs []string) error {
-	cfg, err := LoadWebConfig(args, envs)
+func loadCommonSettingsFrom(cfg ConfigProvider, state *startupSettings) error {
+	var err error
+	state.runMode, err = loadRunModeFrom(cfg)
 	if err != nil {
 		return err
 	}
-	return publishWebConfig(cfg)
+	state.log, err = loadLogGlobalFrom(cfg, state.paths.WorkPath)
+	if err != nil {
+		return err
+	}
+	state.graceful, err = loadGracefulSettingsFrom(cfg)
+	return err
 }
 
-// publishWebConfig commits a fully validated Web snapshot exactly once.
-// The published package values are the canonical runtime configuration.
-func publishWebConfig(cfg WebConfig) error {
-	return publishSettings(func() {
-		publishCommonSettings(cfg.Paths, cfg.Common)
-		Server = cfg.Server
-		Server.TrustedProxies = append([]string(nil), cfg.Server.TrustedProxies...)
-		Server.AllowedOrigins = append([]string(nil), cfg.Server.AllowedOrigins...)
-		API = cfg.API
-		Security = cfg.Security
-		IPActive = cfg.IPActive.clone()
-		Database = cfg.Database
-		Redis = cfg.Redis
-	})
+// Same-package subsystem loaders are called in dependency order, as in Gitea.
+// They only modify this private startup value until commitSettings succeeds.
+func loadWebSettingsFrom(cfg ConfigProvider, state *startupSettings) error {
+	var err error
+	state.server, err = loadServerFrom(cfg, state.runMode)
+	if err != nil {
+		return fmt.Errorf("load server settings: %w", err)
+	}
+	state.api, err = loadAPIFrom(cfg, state.runMode, state.server)
+	if err != nil {
+		return fmt.Errorf("load API settings: %w", err)
+	}
+	state.security, err = loadSecurityFrom(cfg, state.runMode)
+	if err != nil {
+		return fmt.Errorf("load security settings: %w", err)
+	}
+	state.ipactive, err = loadIPActiveFrom(cfg)
+	if err != nil {
+		return fmt.Errorf("load IP admission settings: %w", err)
+	}
+	state.database, err = loadDBSetting(cfg, state.paths.WorkPath)
+	if err != nil {
+		return fmt.Errorf("load database settings: %w", err)
+	}
+	state.redis, err = loadRedisFrom(cfg)
+	if err != nil {
+		return fmt.Errorf("load Redis settings: %w", err)
+	}
+	return nil
 }
 
-// A process publishes runtime settings once, before opening resources or
-// serving requests. No hot reload or runtime mutation is supported.
-var publication struct {
+func buildWebSettings(args PathOptions, envs []string) (startupSettings, error) {
+	cfg, paths, err := loadConfigAndPaths(args, envs)
+	if err != nil {
+		return startupSettings{}, err
+	}
+	state := startupSettings{paths: paths}
+	if err := loadCommonSettingsFrom(cfg, &state); err != nil {
+		return startupSettings{}, fmt.Errorf("load common settings: %w", err)
+	}
+	if err := loadWebSettingsFrom(cfg, &state); err != nil {
+		return startupSettings{}, err
+	}
+	return state, nil
+}
+
+func buildMigrateSettings(args PathOptions, envs []string) (startupSettings, error) {
+	cfg, paths, err := loadConfigAndPaths(args, envs)
+	if err != nil {
+		return startupSettings{}, err
+	}
+	state := startupSettings{paths: paths}
+	if err := loadCommonSettingsFrom(cfg, &state); err != nil {
+		return startupSettings{}, fmt.Errorf("load common settings: %w", err)
+	}
+	state.database, err = loadDBSetting(cfg, paths.WorkPath)
+	if err != nil {
+		return startupSettings{}, fmt.Errorf("load database settings: %w", err)
+	}
+	return state, nil
+}
+
+var settingsInit struct {
 	sync.Mutex
 	done bool
 }
 
-// publishSettings is shared by the mutually exclusive Web and migrate
-// commands; it enforces a single publication owner and prevents reinit.
-func publishSettings(set func()) error {
-	publication.Lock()
-	defer publication.Unlock()
-	if publication.done {
+// commitSettings is executed before the process starts concurrent consumers.
+// All validation has completed; there is no partial state on loader failure.
+func commitSettings(state startupSettings, web bool) error {
+	settingsInit.Lock()
+	defer settingsInit.Unlock()
+	if settingsInit.done {
 		return errors.New("setting: process configuration already initialized")
 	}
-	set()
-	publication.done = true
+
+	AppWorkPath = state.paths.WorkPath
+	CustomPath = state.paths.CustomPath
+	CustomConf = state.paths.ConfigFile
+	RunMode = state.runMode
+	Log = state.log
+	Graceful = state.graceful
+	Database = state.database
+
+	if web {
+		Server = state.server
+		Server.TrustedProxies = append([]string(nil), state.server.TrustedProxies...)
+		Server.AllowedOrigins = append([]string(nil), state.server.AllowedOrigins...)
+		API = state.api
+		Security = state.security
+		IPActive = state.ipactive.clone()
+		Redis = state.redis
+	}
+	settingsInit.done = true
 	return nil
 }
 
-func publishCommonSettings(paths Paths, common CommonSettings) {
-	AppWorkPath = paths.WorkPath
-	CustomPath = paths.CustomPath
-	CustomConf = paths.ConfigFile
-	Common = common
+// LoadWebSettings is the sole publication entrypoint for the Web command.
+func LoadWebSettings(args PathOptions, envs []string) error {
+	state, err := buildWebSettings(args, envs)
+	if err != nil {
+		return err
+	}
+	return commitSettings(state, true)
 }
 
-// CheckWebConfig checks static Web settings without logging, opening DB/Redis,
-// opening a listener, or changing any package-level setting.
+// LoadMigrateSettings publishes Common and Database only, never Web resources.
+func LoadMigrateSettings(args PathOptions, envs []string) error {
+	state, err := buildMigrateSettings(args, envs)
+	if err != nil {
+		return err
+	}
+	return commitSettings(state, false)
+}
+
+// CheckWebConfig exercises the exact same loaders without any publication.
 func CheckWebConfig(args PathOptions, envs []string) error {
-	_, err := LoadWebConfig(args, envs)
+	_, err := buildWebSettings(args, envs)
 	return err
 }
 
+// stringOrDefault preserves the distinction between missing and explicit empty.
 func stringOrDefault(key ConfigKey, fallback string) string {
 	if key == nil || !key.IsSet() {
 		return fallback
@@ -222,7 +198,6 @@ func stringOrDefault(key ConfigKey, fallback string) string {
 	return key.String()
 }
 
-// loadRunModeFrom kiểm tra runtime mode trước khi nạp subsystem khác.
 func loadRunModeFrom(cfg ConfigProvider) (string, error) {
 	mode := stringOrDefault(cfg.Section("").Key("RUN_MODE"), "development")
 	switch mode {
