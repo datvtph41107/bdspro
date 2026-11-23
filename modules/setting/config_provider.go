@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
+	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/ini.v1" // nolint:depguard // Chỉ adapter này làm việc trực tiếp với INI.
 )
@@ -21,6 +24,7 @@ type ConfigSection interface {
 	Name() string
 	Key(name string) ConfigKey
 	Keys() []ConfigKey
+	MapTo(dst any) error
 }
 
 // ConfigProvider là hợp đồng đọc của các loader, không lộ *ini.File.
@@ -176,6 +180,90 @@ func (p *iniConfigProvider) set(sectionName, keyName, value string) error {
 	}
 	if _, err := sec.NewKey(keyName, value); err != nil {
 		return fmt.Errorf("set %s.%s: %w", sectionName, keyName, err)
+	}
+	return nil
+}
+
+// MapTo only reads keys physically present in this section. The upstream INI
+// mapper can inherit parent values and silently skip invalid conversions,
+// so settings use this strict section-local scalar mapper instead.
+func (s *iniConfigSection) MapTo(dst any) error {
+	v := reflect.ValueOf(dst)
+	if !v.IsValid() || v.Kind() != reflect.Pointer || v.IsNil() || v.Elem().Kind() != reflect.Struct {
+		return errors.New("config mapping requires a non-nil pointer to a struct")
+	}
+	value := v.Elem()
+	typ := value.Type()
+	for i := 0; i < typ.NumField(); i++ {
+		fieldType := typ.Field(i)
+		field := value.Field(i)
+		if !field.CanSet() {
+			continue
+		}
+		name := fieldType.Tag.Get("ini")
+		if name == "-" {
+			continue
+		}
+		if name == "" {
+			name = ini.SnackCase(fieldType.Name)
+		}
+		key := s.Key(name)
+		if !key.IsSet() {
+			continue
+		}
+		if err := setConfigScalar(field, key.String()); err != nil {
+			return fmt.Errorf("invalid configuration [%s].%s: %w", s.Name(), name, err)
+		}
+	}
+	return nil
+}
+
+func setConfigScalar(field reflect.Value, raw string) error {
+	if field.Type() == reflect.TypeOf(time.Duration(0)) {
+		value, err := time.ParseDuration(strings.TrimSpace(raw))
+		if err != nil {
+			return fmt.Errorf("invalid duration: %w", err)
+		}
+		field.SetInt(int64(value))
+		return nil
+	}
+	switch field.Kind() {
+	case reflect.String:
+		field.SetString(raw)
+	case reflect.Bool:
+		value, err := strconv.ParseBool(strings.TrimSpace(raw))
+		if err != nil {
+			return fmt.Errorf("invalid boolean: %w", err)
+		}
+		field.SetBool(value)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		value, err := strconv.ParseInt(strings.TrimSpace(raw), 10, field.Type().Bits())
+		if err != nil {
+			return fmt.Errorf("invalid integer: %w", err)
+		}
+		field.SetInt(value)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		value, err := strconv.ParseUint(strings.TrimSpace(raw), 10, field.Type().Bits())
+		if err != nil {
+			return fmt.Errorf("invalid unsigned integer: %w", err)
+		}
+		field.SetUint(value)
+	case reflect.Float32, reflect.Float64:
+		value, err := strconv.ParseFloat(strings.TrimSpace(raw), field.Type().Bits())
+		if err != nil {
+			return fmt.Errorf("invalid floating point: %w", err)
+		}
+		field.SetFloat(value)
+	default:
+		return fmt.Errorf("unsupported config field type %s", field.Type())
+	}
+	return nil
+}
+
+// mapSettings is the shared mapping primitive for subsystem loaders.
+func mapSettings(cfg ConfigProvider, section string, dst any) error {
+	if err := cfg.Section(section).MapTo(dst); err != nil {
+		return fmt.Errorf("map section [%s]: %w", section, err)
 	}
 	return nil
 }
