@@ -11,12 +11,14 @@ type GracefulSettings struct {
 	HammerTimeout       time.Duration `ini:"GRACEFUL_HAMMER_TIMEOUT"`
 }
 
+var Graceful GracefulSettings
+
 const defaultHTTPShutdownTimeout = 10 * time.Second
 
 // HTTPShutdownTimeout trả về deadline HTTP drain, kể cả khi chạy test riêng.
 func HTTPShutdownTimeout() time.Duration {
-	if Common.Graceful.HTTPShutdownTimeout > 0 {
-		return Common.Graceful.HTTPShutdownTimeout
+	if Graceful.HTTPShutdownTimeout > 0 {
+		return Graceful.HTTPShutdownTimeout
 	}
 	return defaultHTTPShutdownTimeout
 }

@@ -18,6 +18,8 @@ type LogGlobalConfig struct {
 	FileName string
 }
 
+var Log LogGlobalConfig
+
 func loadLogGlobalFrom(rootCfg ConfigProvider, workPath string) (LogGlobalConfig, error) {
 	if rootCfg == nil {
 		return LogGlobalConfig{}, errors.New("log config provider is nil")
@@ -85,7 +87,7 @@ func (cfg LogGlobalConfig) Validate() error {
 // modules/log alone owns writers, file handles and termination cleanup.
 // Call only after LoadWebSettings or LoadMigrateSettings succeeds.
 func InitLoggers() error {
-	cfg := Common.Log
+	cfg := Log
 	if err := log.GetManager().ConfigureOutputs(
 		cfg.Mode, cfg.Format, strings.ToLower(cfg.Level), cfg.RootPath, cfg.FileName,
 	); err != nil {
