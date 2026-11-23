@@ -1,7 +1,6 @@
 package setting
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,57 +8,54 @@ import (
 	"github.com/datvtph41107/bdspro/modules/ipactive"
 )
 
-func TestLoadWebConfigDoesNotPublishProcessState(t *testing.T) {
+const validWebFixture = `RUN_MODE = development
+[server]
+HTTP_SERVER_ADDRESS = :9090
+[security]
+TOKEN_SYMMETRIC_KEY = 01234567890123456789012345678901
+ACCESS_TOKEN_DURATION = 15m
+REFRESH_TOKEN_DURATION = 24h
+[database]
+DB_SOURCE = postgres://localhost/first
+MIGRATION_URL = file://db/migration
+[redis]
+ADDR = localhost:6379
+`
+
+func TestCheckWebConfigDoesNotPublishProcessState(t *testing.T) {
 	saveGlobals(t)
 	AppWorkPath = "before-work"
 	Server = ServerSettings{HTTPServerAddress: "before-listener"}
-	content := "RUN_MODE = development\n[server]\nHTTP_SERVER_ADDRESS = 127.0.0.1:8080\n" +
-		"[security]\nTOKEN_SYMMETRIC_KEY = 01234567890123456789012345678901\n" +
-		"ACCESS_TOKEN_DURATION = 15m\nREFRESH_TOKEN_DURATION = 24h\n" +
-		"[database]\nDB_SOURCE = postgres://localhost/dev\n[redis]\nADDR = localhost:6379\n"
-	file := filepath.Join(t.TempDir(), "app.ini")
-	if err := os.WriteFile(file, []byte(content), 0600); err != nil {
+	file := writeConfig(t, validWebFixture)
+	if err := CheckWebConfig(PathOptions{Config: file}, nil); err != nil {
 		t.Fatal(err)
-	}
-	cfg, err := LoadWebConfig(PathOptions{Config: file}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.Database.DBSource != "postgres://localhost/dev" || cfg.Server.HTTPServerAddress != "127.0.0.1:8080" {
-		t.Fatal("invalid typed Web snapshot")
 	}
 	if AppWorkPath != "before-work" || Server.HTTPServerAddress != "before-listener" {
-		t.Fatal("LoadWebConfig changed process state")
+		t.Fatal("config check changed process globals")
 	}
 }
 
-func TestLoadMigrateConfigDoesNotRequireWebAuthOrRedis(t *testing.T) {
+func TestBuildMigrateSettingsDoesNotRequireWebAuthOrRedis(t *testing.T) {
 	saveGlobals(t)
-	content := "RUN_MODE = development\n[database]\n" +
-		"DB_SOURCE = postgres://localhost/maintenance\n" +
-		"MIGRATION_URL = file://db/migration\n"
-	file := filepath.Join(t.TempDir(), "app.ini")
-	if err := os.WriteFile(file, []byte(content), 0600); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := LoadMigrateConfig(PathOptions{Config: file}, nil)
+	file := writeConfig(t, "RUN_MODE = development\n[database]\nDB_SOURCE = postgres://localhost/maintenance\nMIGRATION_URL = file://db/migration\n")
+	state, err := buildMigrateSettings(PathOptions{Config: file}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "file://" + filepath.ToSlash(filepath.Join(cfg.Paths.WorkPath, "db", "migration"))
-	if cfg.Database.MigrationURL != want || cfg.Database.DBSource != "postgres://localhost/maintenance" {
-		t.Fatalf("wrong migration configuration: %+v", cfg.Database)
+	want := "file://" + filepath.ToSlash(filepath.Join(state.paths.WorkPath, "db", "migration"))
+	if state.database.MigrationURL != want || state.database.DBSource != "postgres://localhost/maintenance" {
+		t.Fatalf("unexpected migration settings: %+v", state.database)
 	}
 	if Database.DBSource != "" {
-		t.Fatal("migration loader published a database global")
+		t.Fatal("builder published a database global")
 	}
 }
 
 func TestCanonicalWebSettingsCopyMutablePolicyMap(t *testing.T) {
 	saveGlobals(t)
 	policies := ipactive.DefaultPolicies()
-	cfg := WebConfig{IPActive: IPActiveSettings{Policies: policies}}
-	if err := publishWebConfig(cfg); err != nil {
+	state := startupSettings{ipactive: IPActiveSettings{Policies: policies}}
+	if err := commitSettings(state, true); err != nil {
 		t.Fatal(err)
 	}
 	if len(policies) == 0 {
@@ -75,32 +71,22 @@ func TestCanonicalWebSettingsCopyMutablePolicyMap(t *testing.T) {
 	}
 }
 
-func TestLoadWebConfigFailurePreservesPublishedSettings(t *testing.T) {
+func TestBuildWebSettingsFailurePreservesPublishedSettings(t *testing.T) {
 	saveGlobals(t)
 	Server = ServerSettings{HTTPServerAddress: "unchanged"}
-	file := filepath.Join(t.TempDir(), "app.ini")
-	if err := os.WriteFile(file, []byte("RUN_MODE = development\n[server]\nHTTP_SERVER_ADDRESS = wrong\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := LoadWebConfig(PathOptions{Config: file}, nil)
+	file := writeConfig(t, "RUN_MODE = development\n[server]\nHTTP_SERVER_ADDRESS = wrong\n")
+	err := CheckWebConfig(PathOptions{Config: file}, nil)
 	if err == nil || !strings.Contains(err.Error(), "HTTP_SERVER_ADDRESS") {
 		t.Fatalf("expected listener validation error, got %v", err)
 	}
 	if Server.HTTPServerAddress != "unchanged" {
-		t.Fatal("failed load mutated published settings")
+		t.Fatal("failed check mutated published settings")
 	}
 }
 
 func TestOnlyOneRuntimeSettingsPublicationPerProcess(t *testing.T) {
 	saveGlobals(t)
-	file := filepath.Join(t.TempDir(), "app.ini")
-	content := "RUN_MODE = development\n[server]\nHTTP_SERVER_ADDRESS = :9090\n" +
-		"[security]\nTOKEN_SYMMETRIC_KEY = 01234567890123456789012345678901\n" +
-		"ACCESS_TOKEN_DURATION = 15m\nREFRESH_TOKEN_DURATION = 24h\n" +
-		"[database]\nDB_SOURCE = postgres://localhost/first\n[redis]\nADDR = localhost:6379\n"
-	if err := os.WriteFile(file, []byte(content), 0600); err != nil {
-		t.Fatal(err)
-	}
+	file := writeConfig(t, validWebFixture)
 	if err := LoadWebSettings(PathOptions{Config: file}, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +98,7 @@ func TestOnlyOneRuntimeSettingsPublicationPerProcess(t *testing.T) {
 		t.Fatal("second publication changed process state")
 	}
 	if err := CheckWebConfig(PathOptions{Config: file}, nil); err != nil {
-		t.Fatalf("pure config check unexpectedly changed its contract: %v", err)
+		t.Fatalf("pure config check should still work: %v", err)
 	}
 }
 
@@ -121,18 +107,31 @@ func TestMigrateSettingsDoesNotPublishWebSubsystems(t *testing.T) {
 	Server = ServerSettings{HTTPServerAddress: "keep-http"}
 	Security = SecuritySettings{TokenSymmetricKey: "keep-auth"}
 	Redis = RedisSettings{Address: "keep-redis"}
-	file := filepath.Join(t.TempDir(), "app.ini")
-	content := "RUN_MODE = development\n[database]\nDB_SOURCE = postgres://localhost/migrate\nMIGRATION_URL = file://db/migration\n"
-	if err := os.WriteFile(file, []byte(content), 0600); err != nil {
-		t.Fatal(err)
-	}
+	file := writeConfig(t, "RUN_MODE = development\n[database]\nDB_SOURCE = postgres://localhost/migrate\nMIGRATION_URL = file://db/migration\n")
 	if err := LoadMigrateSettings(PathOptions{Config: file}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if Database.DBSource != "postgres://localhost/migrate" || Common.RunMode != "development" {
+	if Database.DBSource != "postgres://localhost/migrate" || RunMode != "development" {
 		t.Fatal("migrate did not publish canonical DB settings")
 	}
 	if Server.HTTPServerAddress != "keep-http" || Security.TokenSymmetricKey != "keep-auth" || Redis.Address != "keep-redis" {
 		t.Fatal("migrate unexpectedly mutated Web/Auth/Redis settings")
+	}
+}
+
+func TestCheckWebRejectsMissingResourceConfiguration(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		cfg string
+	}{
+		{"database", strings.Replace(validWebFixture, "DB_SOURCE = postgres://localhost/first", "DB_SOURCE = ", 1)},
+		{"redis", strings.Replace(validWebFixture, "ADDR = localhost:6379", "ADDR = ", 1)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			file := writeConfig(t, tc.cfg)
+			if err := CheckWebConfig(PathOptions{Config: file}, nil); err == nil {
+				t.Fatal("missing required connection configuration was accepted")
+			}
+		})
 	}
 }
