@@ -222,7 +222,7 @@ func setConfigScalar(field reflect.Value, raw string) error {
 	if field.Type() == reflect.TypeOf(time.Duration(0)) {
 		value, err := time.ParseDuration(strings.TrimSpace(raw))
 		if err != nil {
-			return fmt.Errorf("invalid duration: %w", err)
+			return errors.New("invalid duration")
 		}
 		field.SetInt(int64(value))
 		return nil
@@ -233,25 +233,25 @@ func setConfigScalar(field reflect.Value, raw string) error {
 	case reflect.Bool:
 		value, err := strconv.ParseBool(strings.TrimSpace(raw))
 		if err != nil {
-			return fmt.Errorf("invalid boolean: %w", err)
+			return errors.New("invalid boolean")
 		}
 		field.SetBool(value)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		value, err := strconv.ParseInt(strings.TrimSpace(raw), 10, field.Type().Bits())
 		if err != nil {
-			return fmt.Errorf("invalid integer: %w", err)
+			return errors.New("invalid integer")
 		}
 		field.SetInt(value)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		value, err := strconv.ParseUint(strings.TrimSpace(raw), 10, field.Type().Bits())
 		if err != nil {
-			return fmt.Errorf("invalid unsigned integer: %w", err)
+			return errors.New("invalid unsigned integer")
 		}
 		field.SetUint(value)
 	case reflect.Float32, reflect.Float64:
 		value, err := strconv.ParseFloat(strings.TrimSpace(raw), field.Type().Bits())
 		if err != nil {
-			return fmt.Errorf("invalid floating point: %w", err)
+			return errors.New("invalid floating point")
 		}
 		field.SetFloat(value)
 	default:
