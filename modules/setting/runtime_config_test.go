@@ -122,7 +122,7 @@ func TestMigrateSettingsDoesNotPublishWebSubsystems(t *testing.T) {
 func TestCheckWebRejectsMissingResourceConfiguration(t *testing.T) {
 	for _, tc := range []struct {
 		name string
-		cfg string
+		cfg  string
 	}{
 		{"database", strings.Replace(validWebFixture, "DB_SOURCE = postgres://localhost/first", "DB_SOURCE = ", 1)},
 		{"redis", strings.Replace(validWebFixture, "ADDR = localhost:6379", "ADDR = ", 1)},
