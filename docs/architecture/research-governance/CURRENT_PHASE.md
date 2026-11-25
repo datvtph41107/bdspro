@@ -23,3 +23,6 @@ Latest checkpoint supersedes previous topic-01 working preferences: [product obj
 
 ## Active topic RQ-01A.02 — round 1
 [Customer segment checkpoint](../../product/discovery/RQ-01A-02-customer-segments.md) records developer choices and counterexamples. Topic 01 provisionally closed; topic 02 OPEN. No priority segment, payer, access to users, organization policy or property type confirmed. Public browsing with some authenticated actions and three property management cases are proposed, not approved. Resolve bounded actor scenario and access/authority questions in round 2; no topic 03 or runtime work.
+
+## RQ-01A.02 — provisional close (round 2)
+[Customer segments](../../product/discovery/RQ-01A-02-customer-segments.md): developer chose broker managing multiple properties as hypothetical first research persona; seeker complementary. Actual priority segment, payer, personal/company scope, offboarding and verification rules remain UNKNOWN. Topic 02 provisionally closed for discovery only; RQ-01 OPEN. Next eligible topic 03 business problem, not started. No schema/auth/organization redesign or other runtime work authorized. Gitea comparator is optional evidence, not a target.

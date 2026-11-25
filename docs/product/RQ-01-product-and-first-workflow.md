@@ -37,3 +37,6 @@ Owner confirms segment, buyer/user, workflow and acceptance examples (or explici
 
 ## RQ-01A.01 provisional objective checkpoint
 See [topic 01 round 3](discovery/RQ-01A-01-product-objective.md). Current developer-selected hypothesis is property management plus public listing on BDSPro, not H-01 contact-first or planning-first. Prior candidate remains historical; no workflow or detailed release scope accepted. Topic 01 provisionally closed, next eligible topic 02 customer segment; RQ-01 remains OPEN. Validate buyer, user, real job, publication and data ownership policies before technical design.
+
+## RQ-01A.02 provisional customer checkpoint
+[Topic 02](discovery/RQ-01A-02-customer-segments.md) selects broker managing several properties as hypothetical first research persona for property management + native listings. Seeker is complementary. Actual customer/market and business policy not approved; topic 02 provisionally closed, topic 03 next eligible but not started. RQ-01 OPEN; no architecture or release authorization.
