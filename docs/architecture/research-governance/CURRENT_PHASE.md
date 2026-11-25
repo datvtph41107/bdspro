@@ -35,3 +35,6 @@ Latest checkpoint supersedes previous topic-01 working preferences: [product obj
 
 ## Active topic RQ-01A.04 — round 1
 [Scope checkpoint](../../product/discovery/RQ-01A-04-product-scope.md): W-03 hypothetical, release policies unknown. User/Organization comparison is research, not redesign mandate. Round 2: clarify personal/shared workspace and seeker scope. Topic 04 OPEN; no topic 05 or runtime work.
+
+## RQ-01A.04 — provisional discovery close (round 2; scope UNDECIDED)
+[Scope checkpoint](../../product/discovery/RQ-01A-04-product-scope.md): compare individual and enterprise scenarios; actor/scope/resource/authority is research focus. Developer explicitly chose candidate capability map only, no scope approval. Organization representation, collaboration and record-control are distinct hypotheses. Next eligible topic 05 enterprise constraints, not started. RQ-01 OPEN; no implementation, schema or architecture authorization.
