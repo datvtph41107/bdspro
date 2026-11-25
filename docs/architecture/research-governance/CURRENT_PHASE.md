@@ -32,3 +32,6 @@ Latest checkpoint supersedes previous topic-01 working preferences: [product obj
 
 ## RQ-01A.03 — provisional close (round 2)
 [Business problems](../../product/discovery/RQ-01A-03-business-problems.md): W-03 selected hypothetical workflow (inventory intake, management, public listing, search/contact); developer favors bulk/import or external integration research, both separate/combined creation, public permitted contact method. Actual pain, source/rights/volume, integration modality, combined failure and update/withdrawal policy UNKNOWN. Topic 03 provisionally closed; next eligible topic 04 product scope, not started in this checkpoint. RQ-01 OPEN; no runtime/schema/architecture authorization.
+
+## Active topic RQ-01A.04 — round 1
+[Scope checkpoint](../../product/discovery/RQ-01A-04-product-scope.md): W-03 hypothetical, release policies unknown. User/Organization comparison is research, not redesign mandate. Round 2: clarify personal/shared workspace and seeker scope. Topic 04 OPEN; no topic 05 or runtime work.
