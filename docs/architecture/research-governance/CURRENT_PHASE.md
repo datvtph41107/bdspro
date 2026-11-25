@@ -26,3 +26,6 @@ Latest checkpoint supersedes previous topic-01 working preferences: [product obj
 
 ## RQ-01A.02 — provisional close (round 2)
 [Customer segments](../../product/discovery/RQ-01A-02-customer-segments.md): developer chose broker managing multiple properties as hypothetical first research persona; seeker complementary. Actual priority segment, payer, personal/company scope, offboarding and verification rules remain UNKNOWN. Topic 02 provisionally closed for discovery only; RQ-01 OPEN. Next eligible topic 03 business problem, not started. No schema/auth/organization redesign or other runtime work authorized. Gitea comparator is optional evidence, not a target.
+
+## Active topic RQ-01A.03 — round 1
+[Business problem checkpoint](../../product/discovery/RQ-01A-03-business-problems.md) records ten developer choices and legacy/market evidence. No actual pain or first workflow verified. Candidate broker record/retrieve/selectively publish/seeker contact/withdraw, privacy boundary proposed; no import/chat/dedupe/sync mandates. Legacy transaction documentation discrepancy recorded as unverified runtime risk, not fix task. Round 2 only; topic 03 OPEN, no topic 04 or schema/runtime work.
