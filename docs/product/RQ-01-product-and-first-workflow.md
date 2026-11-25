@@ -49,3 +49,6 @@ See [topic 01 round 3](discovery/RQ-01A-01-product-objective.md). Current develo
 
 ## RQ-01A.05 and synthesis checkpoint
 [Enterprise constraints](discovery/RQ-01A-05-enterprise-constraints.md) and [RQ-01A synthesis](discovery/RQ-01A-discovery-summary.md): all five discussion rounds provisionally closed, no accepted product requirement or first-release scope. W-03 remains a hypothetical research workflow. RQ-01 OPEN; next gate is requirement/evidence review of a bounded workflow, not automatic implementation. Practice-led learning is separate from product acceptance; no new schema/architecture authorization.
+
+## Unified development target checkpoint
+[Backend development target](../architecture/research-governance/BACKEND_DEVELOPMENT_TARGET.md) separates product requirements, engineering targets and developer practice. Foundation review and integrated testing may proceed within approved bounded scope while RQ-01 remains OPEN; source behavior is not evidence of product demand. W-03 hypothetical; no business implementation, schema or architecture approval inferred.

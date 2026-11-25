@@ -47,3 +47,6 @@ Latest checkpoint supersedes previous topic-01 working preferences: [product obj
 
 ## Active technical learning checkpoint — developer takeover
 [DEVELOPER_TAKEOVER.md](DEVELOPER_TAKEOVER.md) supersedes prior learning status. AI-authored baseline per developer report; owner is learning existing code from the beginning. WORK-001 build/selected test PASS (reported), WORK-002 deliberate assertion FAIL observed; restoration/retest pending. Next: locate actual CLI output producer and writer path in IDE. No new runtime, architecture, schema or deployment task. RQ-01 remains OPEN.
+
+## Active unified backend development target
+[BACKEND_DEVELOPMENT_TARGET.md](BACKEND_DEVELOPMENT_TARGET.md) defines product, engineering and practical developer objectives and proposed BT-01–07 acceptance targets. AI-authored current baseline per owner report; no assumed prior mastery. First proposed slice BE-01A: review CLI config preflight contract and existing source with integrated testing; restore prior deliberate assertion and trace behavior, then decide no change or a meaningful bounded improvement. WORK-002 restoration still pending. RQ-01 remains OPEN, no business scope/architecture/runtime authorization. Supersedes exercise-first sequence.
