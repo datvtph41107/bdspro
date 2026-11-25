@@ -56,3 +56,6 @@ The developer requests goal formation before selecting requirement/design/code t
 
 ## 2026-11-25 — active daily plan
 [WORK_PLAN.md](WORK_PLAN.md) is the current queue and handoff. RQ-01B.01 goal/evidence review active, one bounded outcome, W-03 hypothetical, RQ-01 OPEN. Next workdays conditional on gates, no deadlines assumed. AI-authored baseline and reported local checks unchanged; deliberate CLI assertion restoration pending. No new architecture/schema/runtime work.
+
+## RQ-02 — active requirement topic
+[Identity/authentication/authorization](../../product/RQ-02-identity-authentication-authorization.md) OPEN, RQ-02A.01 active analysis. User requested this focus; RQ-01B.01 parked without approval. Source facts pinned, requirements proposed, no schema/runtime work. [WORK_PLAN](WORK_PLAN.md) is current task queue.
