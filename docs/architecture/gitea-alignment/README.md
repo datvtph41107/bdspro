@@ -1,3 +1,6 @@
+
+> **2026-11-25 governance reset:** This content is a historical snapshot/reference, not an active mandate or verified current runtime. Recheck live source and requirements. Do not resume Gitea/F40/parallel plans or infer authorization from it. Current policy: https://github.com/datvtph41107/bdspro/blob/dev/AGENTS.md (on the reset branch, use its local root AGENTS.md).
+
 # BDSPro × Gitea — Canonical Architecture & Source Patterns
 
 > Status: **TARGET DESIGN / NOT ACCEPTED** · 2026-11-10 · Integrating PR [#218](https://github.com/datvtph41107/bdspro/pull/218). This document is the architecture contract, not proof that the implementation is finished. Always consult [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md) and the latest GitHub HEAD/CI.

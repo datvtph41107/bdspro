@@ -1,3 +1,11 @@
+# Decision register — current policy
+
+- [ADR-RESET-001](ADR-RESET-001-requirement-led-evolution.md): owner-directed governance reset, 2026-11-25. No runtime decision or rewrite.
+- ADR-G02-02 retains its historical acceptance; re-evaluate only through a scoped case. It is not a universal rule.
+- Use the current [case template](../research-governance/DESIGN_CASE_TEMPLATE.md); old comparison mandates below are historical.
+
+> **2026-11-25 governance reset:** This content is a historical snapshot/reference, not an active mandate or verified current runtime. Recheck live source and requirements. Do not resume Gitea/F40/parallel plans or infer authorization from it. Current policy: https://github.com/datvtph41107/bdspro/blob/dev/AGENTS.md (on the reset branch, use its local root AGENTS.md).
+
 # BDSPro Architecture Decisions — register and template
 
 **Status:** governance for future decisions. This directory does **not** establish that today's BDSPro architecture is accepted.
