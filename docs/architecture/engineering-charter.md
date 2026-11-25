@@ -19,3 +19,6 @@ Keep security and data guarantees independent of architectural style. The owner 
 
 ## Historical boundary
 Past decisions and experiments remain available in Git and existing docs. Do not treat lack of documented rationale as proof the code is bad. Do not invent a historical migration story or retrofit a justification. Mark unknowns; assess the current behavior before proposing removal.
+
+## Dual outcome: product value and professional competence
+The owner intends BDSPro to be the longitudinal record of real Go backend engineering, from requirement discovery and coding to release and production operation. The product is not a disposable tutorial or a technology showcase. Develop competence by working on genuine product needs and credible preventive risks; keep optional experiments outside production scope. A checked-in feature proves implementation, not production experience; deployment and operational claims need dated evidence. Follow [Engineering lifecycle](engineering-lifecycle.md) and preserve decision history, actual feedback and lessons without sensitive customer data.

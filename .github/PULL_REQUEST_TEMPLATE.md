@@ -12,3 +12,9 @@
 - Rollback / remaining risks:
 - Owner review / decision:
 <!-- No fabricated measurements. Smoke/build are not full functional tests. Do not auto-merge. See docs/architecture/research-protocol.md. -->
+
+## Lifecycle follow-through (significant changes only)
+- Go/stack mechanism and owner understanding gap, if any:
+- Release/operation plan and actual stage (not yet deployed unless verified):
+- Signals to observe and reconsideration trigger:
+<!-- Keep credentials and customer data out of Git. Separate local/CI/staging from actual production evidence. -->

@@ -8,3 +8,6 @@ Inspect only the source required to establish the baseline for that workflow and
 
 ## Exit criteria
 Owner confirms a bounded workflow and acceptance examples; relevant baseline SHA and code paths are recorded; missing facts and risk ranked by impact and evidence; next change or explicit no-change decision has a scoped rationale. No runtime modifications from this reset. Previous G02/F40/parallel tasks are parked; PRs are not automatically merged, closed or resumed.
+
+## Professional lifecycle objective (owner clarification, 2026-11-25)
+RQ-01 remains the only active case. No business workflow selected yet. Establish one real workflow and its acceptance criteria, identify baseline code and relevant Go/stack knowledge, then record a bounded implementation and verification plan including a release/operation plan if needed. Keep actual work and optional learning experiments separate. See [Engineering lifecycle](../engineering-lifecycle.md); do not start a DI/package-level migration as a learning exercise.

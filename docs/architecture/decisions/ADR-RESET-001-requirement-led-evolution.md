@@ -13,3 +13,6 @@ Replace the architectural target with an evidence-based, sequential, requirement
 
 ## Consequences and verification
 Do not resume F40, Gitea alignment or parallel plans without new scoped approval. Retain previous docs; mark entry points historical. First active case is baseline and business requirement discovery. No runtime source, dependency, migration, deployment or test changes are authorized here. No claim that cost, reliability or security has improved. Verify documentation paths and PR scope; owner reviews before merge.
+
+## Owner clarification — 2026-11-25
+The engineering process also records the owner's actual professional Go backend experience through development, release and production operation. See [Engineering lifecycle](../engineering-lifecycle.md). This extends the governance decision, not an architecture decision or assertion that production has been deployed. The first case remains RQ-01.

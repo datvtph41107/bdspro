@@ -13,3 +13,6 @@ Read [AGENTS](../../../AGENTS.md), [charter](../../../docs/architecture/engineer
 6. Show actual diff and before/after code, targeted verification at final SHA, limitations and handoff. Distinguish lab, integration, CI, production observation. Owner must be able to understand and operate the result.
 
 Report: requirement → baseline → problem/risk → mechanism → alternatives → costs → decision/status → change/verification → next observation. For small changes keep documentation proportional.
+
+## Lifecycle learning and upstream archaeology
+Read [Engineering lifecycle](../../../docs/architecture/engineering-lifecycle.md). For a named decision, inspect baseline, trigger and before/after changes; find relevant PRs/issues and tests, differentiate actual upstream history from a plausible local experiment. Compare options on the same operation, including code consumption, error paths, maintenance and operational impact. If upstream rationale is unavailable, say so. Record what the owner needs to understand, a small reproducible exercise if helpful, actual delivery/operation evidence and the signal for reconsideration. Never add production technology solely for practice. No claim of deployment, incident response or mastery without actual evidence.

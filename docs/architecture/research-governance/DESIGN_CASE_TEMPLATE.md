@@ -12,3 +12,10 @@
 - Decision, owner approval, excluded work, reconsideration trigger:
 - Implementation PR, before/after SHA, actual checks/CI, remaining risks:
 - Next observation or bounded action:
+
+## Lifecycle evidence (proportional to scope)
+- Owner learning objective / mechanism they can explain and reproduce / remaining gap:
+- Upstream before → trigger → after, evidence of intent, limitations (or N/A):
+- Actual stages: LOCAL / CI / STAGING / RELEASED / PRODUCTION OBSERVED (date, SHA, environment, result/link; NOT RUN or N/A otherwise):
+- Developer/operational feedback (observation vs hypothesis, sanitized evidence):
+- Reconsideration trigger / follow-up / what we learned:

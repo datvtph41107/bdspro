@@ -10,3 +10,6 @@
 9. Update case/ADR when appropriate and handoff; observe actual behavior and reopen only on new evidence or requirements. Avoid documentation ceremonies for trivial changes.
 
 See [case template](research-governance/DESIGN_CASE_TEMPLATE.md), [evidence standard](research-governance/REQUIREMENTS_AND_EVIDENCE.md), [current phase](research-governance/CURRENT_PHASE.md).
+
+## Longitudinal follow-through
+For nontrivial changes use [Engineering lifecycle](engineering-lifecycle.md): record the adopted mechanism, baseline and adoption trigger; track the actual local/CI/staging/release/production stage and observations at each applicable stage. Compare upstream history by finding its own problem, before/after commit, rationale, test and limits; if missing, label unknown. A repo snapshot is not proof of an earlier design or production result. Review real developer friction or runtime signals before proposing the next evolution. Not every fix needs upstream research, an ADR or production release.
