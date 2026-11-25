@@ -40,3 +40,6 @@ See [topic 01 round 3](discovery/RQ-01A-01-product-objective.md). Current develo
 
 ## RQ-01A.02 provisional customer checkpoint
 [Topic 02](discovery/RQ-01A-02-customer-segments.md) selects broker managing several properties as hypothetical first research persona for property management + native listings. Seeker is complementary. Actual customer/market and business policy not approved; topic 02 provisionally closed, topic 03 next eligible but not started. RQ-01 OPEN; no architecture or release authorization.
+
+## RQ-01A.03 provisional workflow checkpoint
+[Topic 03](discovery/RQ-01A-03-business-problems.md): W-03 selected as hypothetical research workflow for broker inventory intake, management, selective native publication, seeker discovery and permitted contact. Import/integration preference is not a confirmed delivery requirement. No primary pain or actual customer workflow verified. Separate/combined creation and publication lifecycle policies remain open. Topic 03 provisionally closed, next eligible topic 04 not started. RQ-01 OPEN; no runtime or architecture authorization.

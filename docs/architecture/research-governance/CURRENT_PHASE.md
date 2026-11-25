@@ -29,3 +29,6 @@ Latest checkpoint supersedes previous topic-01 working preferences: [product obj
 
 ## Active topic RQ-01A.03 — round 1
 [Business problem checkpoint](../../product/discovery/RQ-01A-03-business-problems.md) records ten developer choices and legacy/market evidence. No actual pain or first workflow verified. Candidate broker record/retrieve/selectively publish/seeker contact/withdraw, privacy boundary proposed; no import/chat/dedupe/sync mandates. Legacy transaction documentation discrepancy recorded as unverified runtime risk, not fix task. Round 2 only; topic 03 OPEN, no topic 04 or schema/runtime work.
+
+## RQ-01A.03 — provisional close (round 2)
+[Business problems](../../product/discovery/RQ-01A-03-business-problems.md): W-03 selected hypothetical workflow (inventory intake, management, public listing, search/contact); developer favors bulk/import or external integration research, both separate/combined creation, public permitted contact method. Actual pain, source/rights/volume, integration modality, combined failure and update/withdrawal policy UNKNOWN. Topic 03 provisionally closed; next eligible topic 04 product scope, not started in this checkpoint. RQ-01 OPEN; no runtime/schema/architecture authorization.
