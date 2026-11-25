@@ -22,3 +22,6 @@ Past decisions and experiments remain available in Git and existing docs. Do not
 
 ## Dual outcome: product value and professional competence
 The owner intends BDSPro to be the longitudinal record of real Go backend engineering, from requirement discovery and coding to release and production operation. The product is not a disposable tutorial or a technology showcase. Develop competence by working on genuine product needs and credible preventive risks; keep optional experiments outside production scope. A checked-in feature proves implementation, not production experience; deployment and operational claims need dated evidence. Follow [Engineering lifecycle](engineering-lifecycle.md) and preserve decision history, actual feedback and lessons without sensitive customer data.
+
+## Product authority and relevant anticipation
+[Product discovery](../product/README.md) records segment, buyer, users, data subjects and real workflow. Design for credible risks relevant to that workflow, not all imaginable scale. Product authority confirms needs and policies; backend owner owns technical choices and operation; frontend owner validates actual user interaction. AI and docs challenge claims but are not business acceptance. Keep capacity and evidence explicit; no personal assessments of other developers inferred from source.

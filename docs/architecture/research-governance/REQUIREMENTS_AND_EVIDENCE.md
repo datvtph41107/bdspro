@@ -14,3 +14,6 @@ Record actor/business objective, trigger, preconditions, workflow, success and d
 
 ## Decision quality
 Compare the same requirement under keep/no change and alternatives. Trace only affected paths but include cross-boundary impact where relevant. Consider failure, learning, development and recurring operational costs, reversibility, migration/security and test isolation. Distinguish an actual incident from a risk that can be reproduced or reasoned about. Lack of traffic is not proof of safety; no test result is not a passing test. Do not score or quantify cost without evidence. Optional reference sources must not dictate target syntax. See [protocol](../research-protocol.md).
+
+## Product evidence and challenge
+Use [RQ-01](../../product/RQ-01-product-and-first-workflow.md) and [requirement review](../../product/REQUIREMENT_REVIEW.md). Separate reported business intent, direct user evidence, hypotheses and implementation facts. Record a designated product authority, buyer, end user, data subject, workflow and counterexample. A feature cannot be confirmed by AI, existing code or a schema. Assess anticipated risks by concrete trigger, relevance, impact, cost and revisit signal; protect credible security/data risks proactively.

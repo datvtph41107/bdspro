@@ -18,3 +18,9 @@
 - Release/operation plan and actual stage (not yet deployed unless verified):
 - Signals to observe and reconsideration trigger:
 <!-- Keep credentials and customer data out of Git. Separate local/CI/staging from actual production evidence. -->
+
+## Product evidence (feature or architecture-driving requirement)
+- Confirmed product authority / actor / buyer / workflow / evidence (or N/A):
+- Success, deny and failure acceptance / data owner:
+- Anticipated risk: concrete trigger, impact, minimal mitigation, revisit signal:
+<!-- AI and legacy source do not approve requirements. See docs/product/REQUIREMENT_REVIEW.md. -->
