@@ -14,3 +14,6 @@ RQ-01 remains the only active case. No business workflow selected yet. Establish
 
 ## RQ-01 discovery checkpoint
 [Product case](../../product/RQ-01-product-and-first-workflow.md) and [source evidence](../../product/SOURCE_BASELINE.md) now define the first discovery requirement: identify one segment and real job. Contact intake/follow-up is an unconfirmed candidate, not selected implementation. Resolve buyer, user, data owner, workflow, acceptance and operational risks with product authority and prospective users. [Review gate](../../product/REQUIREMENT_REVIEW.md) is required proportionally. No new code, no auto-activation of architecture work.
+
+## Active discovery topic — RQ-01A.01 round 2
+Read [product objective checkpoint](../../product/discovery/RQ-01A-01-product-objective.md). Developer reports management/listing is the enterprise's first delivery demand, planning is strategic and data exists with unknown provenance/quality. Property/workspace management is the leading provisional objective, not approved business scope. Prior H-01 contact candidate and planning-first preference are parked, not deleted. Resolve management vs listing preparation vs public publication before closing topic 01 provisionally. No topic 02 or runtime changes yet.
