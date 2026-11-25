@@ -34,3 +34,6 @@ H-01: A brokerage staff member records a buyer inquiry and a responsible staff m
 
 ## Exit and handoff
 Owner confirms segment, buyer/user, workflow and acceptance examples (or explicitly rejects and replaces H-01); product decision authority and evidence recorded; risks and minimal technical prerequisites identified; compare current behavior at pinned SHA. Then open only the chosen scoped implementation/design case. No runtime edits, migration or deployment authorized by discovery. See [baseline](SOURCE_BASELINE.md) and [review](REQUIREMENT_REVIEW.md).
+
+## RQ-01A.01 provisional objective checkpoint
+See [topic 01 round 3](discovery/RQ-01A-01-product-objective.md). Current developer-selected hypothesis is property management plus public listing on BDSPro, not H-01 contact-first or planning-first. Prior candidate remains historical; no workflow or detailed release scope accepted. Topic 01 provisionally closed, next eligible topic 02 customer segment; RQ-01 remains OPEN. Validate buyer, user, real job, publication and data ownership policies before technical design.

@@ -17,3 +17,6 @@ RQ-01 remains the only active case. No business workflow selected yet. Establish
 
 ## Active discovery topic — RQ-01A.01 round 2
 Read [product objective checkpoint](../../product/discovery/RQ-01A-01-product-objective.md). Developer reports management/listing is the enterprise's first delivery demand, planning is strategic and data exists with unknown provenance/quality. Property/workspace management is the leading provisional objective, not approved business scope. Prior H-01 contact candidate and planning-first preference are parked, not deleted. Resolve management vs listing preparation vs public publication before closing topic 01 provisionally. No topic 02 or runtime changes yet.
+
+## RQ-01A.01 — provisional close (round 3)
+Latest checkpoint supersedes previous topic-01 working preferences: [product objective](../../product/discovery/RQ-01A-01-product-objective.md). Developer selected management + public listing on BDSPro, explicitly without validated concrete user scenarios. Topic 01 provisionally closed for discovery only; business acceptance and RQ-01 remain OPEN. Next eligible topic is RQ-01A.02 customer segment, not yet started. H-01 contact-first and planning-first are historical alternatives. No runtime work authorized; do not treat the provisional objective as confirmed requirement or release scope.
