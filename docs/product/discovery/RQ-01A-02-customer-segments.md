@@ -1,0 +1,23 @@
+# RQ-01A.02 — Customer segments: round 1
+2026-11-25. OPEN. Topic 01 provisionally closed (property management + native publication); this is the sole active discovery topic. No customer or first release approved.
+
+## Developer selections and evidence
+02.1 E: all proposed segments, no priority; 02.2 E: payer unknown; 02.3 E: organization requirement unknown; 02.4 B: proposed public browsing, account for some actions (save/contact); 02.5 D: proposed own property, authorized third-party property and company-assigned inventory cases; 02.6 F: property segment unknown; 02.7 F: access to real prospective users unknown; 02.8 F+A: no direct evidence, manager identified audience as reported by developer. No new stakeholder interview, workflow observation, pilot or commercial evidence. These are developer choices, not approved requirements.
+
+## Challenge and reference evidence
+- [Meey CRM overview](https://help.meeycrm.com/thong-tin-ve-meey-crm): inventory and customer management for brokers. Vendor offering, not proof of BDSPro demand.
+- [Batdongsan.com.vn business account guidance](https://trogiup.batdongsan.com.vn/docs/huong-dan-su-dung-tk-doanh-nghiep): approval, employee account setup, budget allocation, lock/offboarding and limited customer access. [Employee guidance](https://trogiup.batdongsan.com.vn/docs/huong-dan-su-dung-tk-nhan-vien): personal and employee accounts may share contact credentials; employee can leave. Evidence of policies, not backend schema or BDSPro needs.
+- [User verification policy dated 2024-04-03](https://trogiup.batdongsan.com.vn/docs/ap-dung-chinh-sach-xac-thuc-nguoi-dung-ke-tu-ngay-03-04-2024): contact actions require phone verification; guests may verify without existing account. Provider rationale is identifying prospects; no independent conversion/abuse benefit verified. Authentication, contact verification and legal identity/title verification are distinct.
+- [Listing verification](https://trogiup.batdongsan.com.vn/v1/docs/lam-the-nao-de-xac-thuc-tin-dang): distinguishes owner/broker and handles inaccurate listings. Does not establish BDSPro publication rights or policy.
+- Baseline dev 6fbb2104806d45ed1de8005609694acf0d1c7d1f: [accounts L1–9](https://github.com/datvtph41107/bdspro/blob/6fbb2104806d45ed1de8005609694acf0d1c7d1f/db/migration/000003_accounts.up.sql#L1-L9) has unique person_id; [membership L1–14](https://github.com/datvtph41107/bdspro/blob/6fbb2104806d45ed1de8005609694acf0d1c7d1f/db/migration/000007_organization_members.up.sql#L1-L14) has one open membership per org/person pair, not a global one-org constraint in this migration; [routes L15–29](https://github.com/datvtph41107/bdspro/blob/6fbb2104806d45ed1de8005609694acf0d1c7d1f/routers/api/v1/api.go#L15-L29) health + authenticated team routes. No full schema/authorization audit or runtime test.
+
+Separate market segment from action role (same human may be owner, broker and seeker), real-world title from control of a record and permission to publish, payer from direct user, platform operator from customer organization. Support for three ownership scenarios need not mean all are first release. Do not infer global account role, mandatory organization, multi-org membership, Party abstraction, RBAC, OTP, KYC or billing from this round.
+
+## Round 2 questions (not answered)
+1. Which supply-side actor to model as a bounded hypothetical first workflow: owner, broker managing authorized inventory, company employee, or unknown? Scope for analysis only, not market selection.
+2. Can a person work privately as well as on behalf of a company? Is either a required first workflow or unknown? Example: same broker has personal listing and company inventory; avoid mixing scopes.
+3. When employee leaves or publication authorization ends, who retains records and who can still publish? Distinguish personal/company data and approved authority; legal title not established by record creation. Unknown is valid.
+4. Which seeker actions require account vs contact verification vs neither? Public browsing, saved list, direct contact and platform-mediated request are distinct; account required for some actions is developer proposal. Assess friction, privacy and abuse; no OTP mandate.
+5. Is there one concrete actor/transaction example from manager, UI, direct observation or a reachable pilot? If not, record unavailable and choose a bounded hypothesis only. Payer/property subtype can remain UNKNOWN for now.
+
+Keep topic 02 OPEN pending round 2 review. If evidence unavailable, close provisionally with explicit assumptions rather than repeatedly asking for unknown facts; no business acceptance. Do not start topic 03 in this round. No runtime change, tests, deployment or customer validation.

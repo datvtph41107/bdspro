@@ -20,3 +20,6 @@ Read [product objective checkpoint](../../product/discovery/RQ-01A-01-product-ob
 
 ## RQ-01A.01 — provisional close (round 3)
 Latest checkpoint supersedes previous topic-01 working preferences: [product objective](../../product/discovery/RQ-01A-01-product-objective.md). Developer selected management + public listing on BDSPro, explicitly without validated concrete user scenarios. Topic 01 provisionally closed for discovery only; business acceptance and RQ-01 remain OPEN. Next eligible topic is RQ-01A.02 customer segment, not yet started. H-01 contact-first and planning-first are historical alternatives. No runtime work authorized; do not treat the provisional objective as confirmed requirement or release scope.
+
+## Active topic RQ-01A.02 — round 1
+[Customer segment checkpoint](../../product/discovery/RQ-01A-02-customer-segments.md) records developer choices and counterexamples. Topic 01 provisionally closed; topic 02 OPEN. No priority segment, payer, access to users, organization policy or property type confirmed. Public browsing with some authenticated actions and three property management cases are proposed, not approved. Resolve bounded actor scenario and access/authority questions in round 2; no topic 03 or runtime work.
