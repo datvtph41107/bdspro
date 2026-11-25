@@ -24,3 +24,5 @@ Latest RQ-01A.03 round 2: [provisional conclusion](../../product/discovery/RQ-01
 RQ-01A.04 round 1: [scope checkpoint](../../product/discovery/RQ-01A-04-product-scope.md). Compare personal and organization scenarios, distinguish optional extensions from core W-03. No approved release, schema or runtime changes. Topic 04 OPEN.
 
 Latest RQ-01A.04 round 2: [scope checkpoint](../../product/discovery/RQ-01A-04-product-scope.md). Topic 04 discovery provisionally closed with release scope UNDECIDED. Compare personal and enterprise W-03 variants; no mandatory org/team or approved release. Seeker extras remain options. Topic 05 next eligible, not started. Keep all unknowns and existing security; no runtime work.
+
+RQ-01A.05 round 1: [enterprise constraints](../../product/discovery/RQ-01A-05-enterprise-constraints.md). Legacy user-service group/branch permission RPC and conditional privacy notification RPC illustrate functional coupling; local org lookup and CRM stub/degraded paths are counterexamples. Do not claim global outage, no-value architecture or verified defect. Technical delegation as reported, not business approval. Topic 05 OPEN; no schema/runtime work.

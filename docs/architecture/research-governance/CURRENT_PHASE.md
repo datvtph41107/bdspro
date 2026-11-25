@@ -38,3 +38,6 @@ Latest checkpoint supersedes previous topic-01 working preferences: [product obj
 
 ## RQ-01A.04 — provisional discovery close (round 2; scope UNDECIDED)
 [Scope checkpoint](../../product/discovery/RQ-01A-04-product-scope.md): compare individual and enterprise scenarios; actor/scope/resource/authority is research focus. Developer explicitly chose candidate capability map only, no scope approval. Organization representation, collaboration and record-control are distinct hypotheses. Next eligible topic 05 enterprise constraints, not started. RQ-01 OPEN; no implementation, schema or architecture authorization.
+
+## Active topic RQ-01A.05 — round 1
+[Enterprise constraints](../../product/discovery/RQ-01A-05-enterprise-constraints.md): developer-reported local-first, low-cost, sole backend test/ops responsibility, unclear scope/delegation and recovery/scale evidence. Legacy failure dependencies and counterexamples pinned; no runtime verification or architecture conclusion. Resolve core-first vs incremental approach, evidence gate and responsibility in round 2. Topic 05 and RQ-01 OPEN.
