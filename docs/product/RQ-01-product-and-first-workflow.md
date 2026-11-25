@@ -46,3 +46,6 @@ See [topic 01 round 3](discovery/RQ-01A-01-product-objective.md). Current develo
 
 ## RQ-01A.04 scope checkpoint
 [Topic 04](discovery/RQ-01A-04-product-scope.md) closes this discovery round provisionally with actual scope UNDECIDED, per developer choice. W-03 remains hypothetical; compare individual and enterprise variants without committing either to release. Capability map only. No approved scope or implementation. Topic 05 next eligible, not started; RQ-01 OPEN.
+
+## RQ-01A.05 and synthesis checkpoint
+[Enterprise constraints](discovery/RQ-01A-05-enterprise-constraints.md) and [RQ-01A synthesis](discovery/RQ-01A-discovery-summary.md): all five discussion rounds provisionally closed, no accepted product requirement or first-release scope. W-03 remains a hypothetical research workflow. RQ-01 OPEN; next gate is requirement/evidence review of a bounded workflow, not automatic implementation. Practice-led learning is separate from product acceptance; no new schema/architecture authorization.
