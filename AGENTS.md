@@ -44,3 +44,6 @@ Read [backend development target](docs/architecture/research-governance/BACKEND_
 
 ## Goal-first requirement and design gate
 The latest [backend target](docs/architecture/research-governance/BACKEND_DEVELOPMENT_TARGET.md) supersedes foundation-first prioritization: establish purpose, problem/risk, requirement and acceptance before choosing a code task. For data-bearing workflows derive business rules and conceptual/logical data meaning before physical schema and technical decisions; compare AI-authored baseline as a candidate, not a requirement. Testing and mentoring are integrated. RQ-01 goal/evidence review is current; BE-01A is parked pending justification. No automatic schema, architecture or runtime work.
+
+## Daily working queue (current)
+Read [WORK_PLAN.md](docs/architecture/research-governance/WORK_PLAN.md) first for active task, daily output, claims and continuation prompt; it is the single queue, not an architecture target. One primary task at a time, integrated practical learning and verification, no repeated discovery or excessive notes. RQ-01B.01 goal/evidence review is the active analysis task; no schema/runtime/release authorization.

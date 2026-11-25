@@ -53,3 +53,6 @@ Latest checkpoint supersedes previous topic-01 working preferences: [product obj
 
 ## Goal-first priority correction
 The developer requests goal formation before selecting requirement/design/code tasks. [Backend development target](BACKEND_DEVELOPMENT_TARGET.md) goal-first correction supersedes proposed foundation-first ordering. RQ-01 goal/evidence review is the next decision focus using completed RQ-01A; W-03 remains hypothetical. BE-01A parked candidate pending purpose/priority; prior assertion restore/retest remains unreported. AI-authored baseline, no confirmed product scope, no database/schema/architecture/runtime changes authorized. Integrated testing and practical development continue per approved scope.
+
+## 2026-11-25 — active daily plan
+[WORK_PLAN.md](WORK_PLAN.md) is the current queue and handoff. RQ-01B.01 goal/evidence review active, one bounded outcome, W-03 hypothetical, RQ-01 OPEN. Next workdays conditional on gates, no deadlines assumed. AI-authored baseline and reported local checks unchanged; deliberate CLI assertion restoration pending. No new architecture/schema/runtime work.
