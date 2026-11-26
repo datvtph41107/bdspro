@@ -62,3 +62,6 @@ The developer requests goal formation before selecting requirement/design/code t
 
 ## 2026-11-26 — IND-01 identity research
 S1 scope selection DONE (individual research only). S2 account/domain semantics next; [RQ-02](../../product/RQ-02-identity-authentication-authorization.md) and [WORK_PLAN](WORK_PLAN.md) authoritative for current task. Seven proposed requirements; all acceptance tests NOT RUN, all physical/technical decisions pending. No implementation approval.
+
+## 2026-11-26 — S2.02 active
+DEC-IND-01 accepted for research; PostgreSQL/sqlc/go-migrate fixed; new implementation developer-authored, AI mentoring. S2.02 profile and current-user contract proposal active, S3/S4 before user-led S5. [WORK_PLAN](WORK_PLAN.md) and [RQ-02](../../product/RQ-02-identity-authentication-authorization.md) current. No runtime/schema/test changes or release approval.

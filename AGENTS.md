@@ -47,3 +47,6 @@ The latest [backend target](docs/architecture/research-governance/BACKEND_DEVELO
 
 ## Daily working queue (current)
 Read [WORK_PLAN.md](docs/architecture/research-governance/WORK_PLAN.md) first for active task, daily output, claims and continuation prompt; it is the single queue, not an architecture target. One primary task at a time, integrated practical learning and verification, no repeated discovery or excessive notes. RQ-01B.01 goal/evidence review is the active analysis task; no schema/runtime/release authorization.
+
+## Developer-authored implementation (active refinement)
+The developer accepted account-centric for IND-01 research and retained PostgreSQL, sqlc, go-migrate; do not reopen these stack choices without concrete evidence. The developer wants to personally write new implementation from scratch. In approved implementation tasks, default to requirement/contract, bounded instructions and hints, review and debugging of the developer's actual code and runs; do not automatically create/push runtime code, migrations or branches. Generated sqlc output is normal. Full examples on request are allowed, not evidence of personal authorship. Preserve existing source/data/history until safe transition explicitly approved. Current task S2.02 per WORK_PLAN.
