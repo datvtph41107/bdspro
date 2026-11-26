@@ -1,3 +1,6 @@
+
+> **2026-11-25 governance reset:** This content is a historical snapshot/reference, not an active mandate or verified current runtime. Recheck live source and requirements. Do not resume Gitea/F40/parallel plans or infer authorization from it. Current policy: https://github.com/datvtph41107/bdspro/blob/dev/AGENTS.md (on the reset branch, use its local root AGENTS.md).
+
 # F40 — Gitea-aligned Event, Queue, Realtime and Audit Foundation
 
 Status: **DIRECTION ACCEPTED / IMPLEMENTATION NOT STARTED**. Requested 2026-11-18. This is a documentation-only implementation program: **remove Asynq and PostgreSQL `job_outbox` after a verified replacement**, preserve business/security contracts, and adopt Gitea's subsystem model. Do **not** equate documentation approval with permission to drop production data or lose delivery guarantees.

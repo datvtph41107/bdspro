@@ -1,3 +1,6 @@
+
+> **2026-11-25 governance reset:** This content is a historical snapshot/reference, not an active mandate or verified current runtime. Recheck live source and requirements. Do not resume Gitea/F40/parallel plans or infer authorization from it. Current policy: https://github.com/datvtph41107/bdspro/blob/dev/AGENTS.md (on the reset branch, use its local root AGENTS.md).
+
 # Copy/Paste Prompt — Resume BDSPro × Gitea Refactor
 
 > This is a **self-contained execution prompt for a new ChatGPT conversation**, not an instruction to assume historical chat assertions are always current. Read the listed GitHub files first. Do not mark any phase complete without live source and CI evidence.

@@ -2,6 +2,9 @@
 name: bdspro-gitea-alignment
 description: Source-grounded implementation and acceptance workflow for BDSPro's Gitea-style Go architecture while preserving Gin/SQLC.
 ---
+> **2026-11-25 governance reset:** This content is a historical snapshot/reference, not an active mandate or verified current runtime. Recheck live source and requirements. Do not resume Gitea/F40/parallel plans or infer authorization from it. Current policy: https://github.com/datvtph41107/bdspro/blob/dev/AGENTS.md (on the reset branch, use its local root AGENTS.md).
+
+
 
 # BDSPro × Gitea Source Alignment Skill
 

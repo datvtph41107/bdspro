@@ -1,59 +1,44 @@
-# BDSPro — Resume across ChatGPT sessions
+# BDSPro session handoff — 2026-11-25
+Read root AGENTS, charter and [CURRENT_PHASE](CURRENT_PHASE.md) first. The owner reset the objective: business requirements and team capacity before architecture; one backend developer, not a Gitea clone. Anthdm/Gitea and other references are optional. No old implementation campaign is active. See [RESET-001](../decisions/ADR-RESET-001-requirement-led-evolution.md).
 
-**Purpose:** Durable context, not a substitute for verifying GitHub or a request to execute old plans automatically.
-**Active phase:** [RG-00](CURRENT_PHASE.md) — research governance and evidence/context continuity only.
-**Updated:** 2026-11-20.
+Baseline inspected during documentation reset: dev@6fbb2104806d45ed1de8005609694acf0d1c7d1f. Refresh remote ref before every task. Current workflow and business acceptance criteria are not yet selected or confirmed. Next action: clarify one business workflow, then audit its existing code and constraints. No runtime changes authorized by reset.
 
-## Fast read path for a new conversation
+At end of a session record date, one case, confirmed requirements/unknowns, source SHA/path/lines, actual findings, decision/approval, PR/commits, tests actually run, risks, rollback, next bounded action. Preserve historical documents and actual decision dates; never rewrite them to make the past appear justified.
 
-1. Root [AGENTS.md](../../../AGENTS.md) and [this README](README.md).
-2. [CURRENT_PHASE.md](CURRENT_PHASE.md) — exact ONE active phase, acceptance and non-goals.
-3. [EVIDENCE_LEDGER.md](EVIDENCE_LEDGER.md) — pinned facts and contradiction warnings; recheck SHA.
-4. [REQUIREMENTS_AND_EVIDENCE.md](REQUIREMENTS_AND_EVIDENCE.md) and [research protocol](../research-protocol.md).
-5. Read *only the source files and case study relevant to the active question*, plus [DESIGN_CASE_TEMPLATE.md](DESIGN_CASE_TEMPLATE.md).
-6. Read historical Gitea-alignment or parallel-work material only for a named reason; their old Gin/P01/F40 instructions are NOT current implementation authorization.
+Owner clarification 2026-11-25: BDSPro is also the owner's real longitudinal Go engineering record, including development, release and production operations. Read [Engineering lifecycle](../engineering-lifecycle.md). Study upstream code/history to understand why a mechanism arose and the costs of using it, not to copy targets. Carry forward the actual stage, unverified claims, owner learning gaps and reconsideration triggers. No production operation or incident is established by this documentation update.
 
-## User intent (current)
+RQ-01 product discovery has started: see [product case](../../product/RQ-01-product-and-first-workflow.md), [source baseline](../../product/SOURCE_BASELINE.md) and [review gate](../../product/REQUIREMENT_REVIEW.md). The candidate first workflow is contact inquiry/follow-up only if brokerage segment confirmed. No customer segment, buyer or workflow confirmed yet. Next action: product authority and actual prospective user answer the evidence-based questions. No feature/core rewrite authorized.
 
-- Long-lived Go BDSPro monolith; invest in deeply understandable and testable core mechanisms, package ownership, naming, interface contracts, runtime behavior, security, deployment and maintenance—not superficial pattern reproduction.
-- Study actual architecture/operations of **Gitea** and **Laravel DRX**, with official Go/net/http/Chi/HTTP/security semantics and other implementations when appropriate.
-- Work one phase and one core problem at a time. No verdict, architecture target tree or refactor proposal before tracing its full producers/consumers, import/runtime/operation effects and counterexamples.
-- Preserve existing BDSPro `Group/Combo/Mount/typed actions` declaration contract during research; any later alteration needs separate approval.
-- User may choose to update local code later **after** understanding and explicitly approving a scoped design; do not infer approval for production code changes from documentation work.
-- Prefer specific code citations, SHA/path/line, caller/callee, compile/run examples with exact commands and *real* output, security/failure cases and NÊN/KHÔNG NÊN/CHƯA NÊN only when justified.
+RQ-01A.01 round 2: [latest checkpoint](../../product/discovery/RQ-01A-01-product-objective.md). Reported management/listing delivery priority; developer selects actual property management as first value, planning as strategic capability (dataset readiness unknown). Do not resume contact-first or planning-first by default. Clarify publication boundary and review provisional objective with developer before topic 02. No business acceptance or architecture approval.
 
-## Verified source snapshots (navigation, verify again)
+Latest RQ-01A.01 round 3: [provisional conclusion](../../product/discovery/RQ-01A-01-product-objective.md). Management + native public listings selected by developer as working objective, not customer-validated or manager-approved detailed scope. Preserve planning/eco-system intent as strategic context. Topic 01 closed provisionally; next eligible topic 02 is customer segment (not started). Carry forward explicit unknowns and validate one workflow before design. No runtime work authorized.
 
-BDSPro `dev` `abe04e46269632ef671a92bab00319b52696e8f5`; Gitea `fbf986d1c7ba1b0ad0078105b3adb0a73b769295`; Laravel DRX `main` `767737d3a9530d0ec3ff94876752e40ccb302a15`. Source citations in [EVIDENCE_LEDGER.md](EVIDENCE_LEDGER.md).
+RQ-01A.02 round 1: [customer segment checkpoint](../../product/discovery/RQ-01A-02-customer-segments.md). Distinguish market segment, action role, legal title, record scope, publication authority and payer. Unknowns remain explicit; next action is focused round 2 review, not schema design. Topic 02 OPEN.
 
-Some documents describe an earlier Gin-based implementation or a multi-branch implementation roadmap; current source showed Chi at that snapshot. Never adopt old state or auto-continue an old PR.
+Latest RQ-01A.02 round 2: [provisional conclusion](../../product/discovery/RQ-01A-02-customer-segments.md). Broker managing multiple properties selected as research persona, not validated segment. Public browsing proposed; contact/account verification policy, organization and data ownership remain unknown. No concrete user case supplied. Topic 02 provisionally closed; topic 03 not started. Preserve existing code and reopen assumptions if contradicted.
 
-## Current work / blockers
+RQ-01A.03 round 1: [business problems](../../product/discovery/RQ-01A-03-business-problems.md). No direct user pain evidence. Round 2 refine intake, record/publication and failure boundary, seeker outcome, withdrawal and bounded hypothetical workflow. Legacy source separates property/product/listing; README atomicity not demonstrated by inspected calls. Do not treat source structure as approved requirement or launch refactor. Topic 03 OPEN.
 
-- RG-00: documentation established; **user review pending**. No technical HTTP architecture approved. No code, tests or deployment edits authorized in this phase.
-- Architecture of HTTP ingress, source-IP ownership, body/CORS policy, request/response tracking, global logging/recovery, request-scoped dependencies, security admission and package boundaries remains **OPEN**. Previous suggested directory layouts are hypotheses, not choices.
-- No production traffic/benchmark/CI result supplied for a redesigned HTTP stack. Do not claim one.
-- Existing architecture/governance files may contradict current runtime; preserve them as historical evidence and resolve contradictions with source links before changing docs.
+Latest RQ-01A.03 round 2: [provisional conclusion](../../product/discovery/RQ-01A-03-business-problems.md). W-03 selected for research, not validated workflow. Distinguish migration/bulk import/integration; no actual data source supplied. Separate save and combined publication candidate; failure/update/withdrawal rules open; seeker minimal public permitted contact. Topic 03 provisionally closed; topic 04 not started. Preserve legacy transaction risk as untested observation, no refactor.
 
-## Handoff update rule at the end of a focused session
+RQ-01A.04 round 1: [scope checkpoint](../../product/discovery/RQ-01A-04-product-scope.md). Compare personal and organization scenarios, distinguish optional extensions from core W-03. No approved release, schema or runtime changes. Topic 04 OPEN.
 
-Update only facts actually inspected and scope of current phase:
+Latest RQ-01A.04 round 2: [scope checkpoint](../../product/discovery/RQ-01A-04-product-scope.md). Topic 04 discovery provisionally closed with release scope UNDECIDED. Compare personal and enterprise W-03 variants; no mandatory org/team or approved release. Seeker extras remain options. Topic 05 next eligible, not started. Keep all unknowns and existing security; no runtime work.
 
-```text
-Date + phase + owner:
-Task/question:
-Source branch + before SHA + after SHA (if any):
-Sources inspected (repository @ SHA, file:line, caller/callee):
-Facts OBSERVED / inference / unverified:
-Cross-subsystem graph examined / NOT INSPECTED:
-Decisions: OPEN/PROPOSED/ACCEPTED (+ approver) / REJECTED:
-Files changed (docs/code) and actual test commands/outcomes:
-Conflicts and risk/security/operational unknowns:
-One precise next action in the same phase:
-```
+RQ-01A.05 round 1: [enterprise constraints](../../product/discovery/RQ-01A-05-enterprise-constraints.md). Legacy user-service group/branch permission RPC and conditional privacy notification RPC illustrate functional coupling; local org lookup and CRM stub/degraded paths are counterexamples. Do not claim global outage, no-value architecture or verified defect. Technical delegation as reported, not business approval. Topic 05 OPEN; no schema/runtime work.
 
-Do not append entire old transcripts or overwriting this file with guesses. A new assistant must verify HEAD and reopen exact source before answering. When a phase is approved complete, update CURRENT_PHASE to record closure; promote at most one successor explicitly approved by the user.
+Latest RQ-01A.05 round 2 and [RQ-01A synthesis](../../product/discovery/RQ-01A-discovery-summary.md): discussion complete, no product requirement accepted. Owner wants practice-led mentorship; personal runs and measured evidence, incremental hints, separate labs and product work. Proposed first CLI test reproduction, NOT RUN. Architecture acceptance method still unknown, proposed protocol not tested. Next product gate is requirement/evidence review, not refactor. Keep release scope UNDECIDED, RQ-01 OPEN and all existing controls.
 
-## Self-contained startup prompt
+Latest learning handoff: [DEVELOPER_TAKEOVER.md](DEVELOPER_TAKEOVER.md). Owner explicitly reports current baseline entirely AI-authored, no personal implementation authorship/familiarity yet. Do not confuse AI-generated research/commits with owner experience. WORK-001 verified by owner report; WORK-002 expected assertion failure observed, restoration pending. Next practical task trace CLI output, no new architecture or requirement authorization. Use IDE directly for safe small edits.
 
-"Đang nghiên cứu BDSPro. Hãy đọc `AGENTS.md`, `docs/architecture/research-governance/{CURRENT_PHASE,REQUIREMENTS_AND_EVIDENCE,EVIDENCE_LEDGER,SESSION_HANDOFF}.md`. Xác minh branch/HEAD source thật, phân biệt tài liệu lịch sử và runtime. Chỉ tiếp tục phase đang hoạt động, không refactor hay chốt kiến trúc nếu thiếu requirement + full source/caller-consumer chứng cứ + phản biện + điều kiện nghiệm thu. So sánh Gitea/Laravel DRX khi liên quan; đánh dấu mọi khoảng trống OPEN. Cho biết một bước nghiên cứu có thể tái hiện tiếp theo."
+Latest direction: [unified backend development target](BACKEND_DEVELOPMENT_TARGET.md). AI-written baseline per developer report; take over via actual project tasks (requirement, source, code, testing/debugging, operational evidence), not separate testing course. First proposed BE-01A preflight requirement/source review, WORK-002 restoration pending. RQ-01 OPEN; W-03 hypothetical; no automatic architecture/schema/runtime work. Read takeover and target before continuing.
+
+Latest goal-first refinement: read [backend target](BACKEND_DEVELOPMENT_TARGET.md) and [requirement review](../../product/REQUIREMENT_REVIEW.md). Do not start with CLI or other existing subsystem merely because AI wrote it. Revisit goal and evidence from RQ-01A, derive behavior/rules/data meaning before schema/technical decisions, choose bounded task after justification. BE-01A parked proposal; RQ-01 OPEN, W-03 hypothetical, release scope UNDECIDED. Preserve AI-authored baseline and personal reported test evidence; restoration pending. No runtime changes.
+
+Latest: [WORK_PLAN.md](WORK_PLAN.md) contains the baseline claims, first five conditional workdays, active RQ-01B.01 and exact new-chat prompt. Read it first, avoid process redesign and old core-first plans. One active task, practical source/test/debug evidence only. No runtime or merge approved.
+
+Latest: RQ-02A.01 active ([RQ-02](../../product/RQ-02-identity-authentication-authorization.md)), account/registration method and verification policy first; identity, session, current user and authorization distinct. RQ-01B.01 parked not closed; no runtime changes. Current AI-authored baseline and user test evidence unchanged. Use goal-first analysis, source-backed comparisons, integrated practical testing later.
+
+Latest identity checkpoint: user chose A, individual research scenario IND-01; S1 scope selected, S2 account/person/profile semantics next. Read [RQ-02](../../product/RQ-02-identity-authentication-authorization.md) and [WORK_PLAN](WORK_PLAN.md); current runtime SHA unchanged. Do not re-ask scope or auto-implement. Redis startup dependency and profile INNER JOIN evidence are candidate decision inputs, not findings of production defects.
+
+Latest: S2.01 decision accepted for research, S2.02 Profile & Settings review active. User will personally write new source from scratch; PostgreSQL/sqlc/go-migrate kept. Read WORK_PLAN and RQ-02 latest checkpoint. Do not generate/push runtime code by default, do not re-open chosen model/stack without concrete reason. No destructive reset, migration transition or release approved.

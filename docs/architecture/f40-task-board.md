@@ -1,3 +1,6 @@
+
+> **2026-11-25 governance reset:** This content is a historical snapshot/reference, not an active mandate or verified current runtime. Recheck live source and requirements. Do not resume Gitea/F40/parallel plans or infer authorization from it. Current policy: https://github.com/datvtph41107/bdspro/blob/dev/AGENTS.md (on the reset branch, use its local root AGENTS.md).
+
 # F40 — Task Board: Gitea-based Subsystem Migration
 
 **Program status:** DIRECTION ACCEPTED, **0 implementation tasks verified**. Work sequentially on `dev`. Baseline BDSPro `434df714ae0adde03e1246be3b86665a05d8058a`; Gitea `0c1ebb630ead184a007ddebd02eb8eae6e70352e`. Update evidence SHAs for every task. Architecture: [F40 foundation](f40-gitea-subsystem-foundation.md).

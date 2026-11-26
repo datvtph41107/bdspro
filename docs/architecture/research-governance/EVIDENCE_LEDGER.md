@@ -1,3 +1,6 @@
+
+> **2026-11-25 governance reset:** This content is a historical snapshot/reference, not an active mandate or verified current runtime. Recheck live source and requirements. Do not resume Gitea/F40/parallel plans or infer authorization from it. Current policy: https://github.com/datvtph41107/bdspro/blob/dev/AGENTS.md (on the reset branch, use its local root AGENTS.md).
+
 # Evidence ledger — source anchors, contradictions, and claims
 
 **State:** Seed ledger only. **Verified as snapshot:** 2026-11-20. Refresh HEAD, source lines and consumers before reusing. Source facts below do not approve any architecture.

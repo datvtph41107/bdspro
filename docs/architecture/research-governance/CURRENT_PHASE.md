@@ -1,68 +1,67 @@
-# Historical phase — RG-00: Evidence/Context Governance
+# RESET-001 / RQ-01 — Baseline and business requirement discovery
+Date: 2026-11-25. Status: OPEN for requirement discovery. Governance reset is owner-directed. Baseline dev@6fbb2104806d45ed1de8005609694acf0d1c7d1f (refresh on next session).
 
-**Latest accepted runtime architecture (2026-11-21):**
-[ADR-G02-02](../decisions/ADR-G02-02-canonical-process-settings.md)
-and [Canonical Process Settings & Source Ownership](../canonical-settings-and-ownership.md).
-This page is kept as historical RG-00 research context, not the current
-bootstrap call graph.
+## Active work
+First clarify the next real enterprise workflow with the owner: who acts, why, input, output, success/denial paths, data ownership, business rules and acceptance examples. Identify what exists in the current backend, what is missing, and which constraints are confirmed. Choose one workflow; none is selected yet. Do not infer backlog from the 100+ table schema or legacy endpoints.
 
-**Status:** DOCUMENTED / HISTORICAL. **Date:** 2026-11-20.
+Inspect only the source required to establish the baseline for that workflow and its prerequisite execution path. Record Go/stack understanding, existing evidence and gaps. Existing settings, router, DI, graceful and other core mechanisms are not scheduled for redesign by default. Investigate one of them only when a concrete blocker, risk, or requirement warrants it.
 
-**2026-11-21 current implementation note:** The user has since authorized
-startup and graceful refactors followed by FLC-01 failure-boundary hardening
-and a subsequent source ownership/file placement refactor. See
-[Source Ownership Audit](../source-ownership-audit.md) for the latest narrow
-scope and its final-commit CI gate.
-See [FLC-01](../flc01-startup-failure-boundary.md) for the previous
-failure-boundary phase. Verification of the current file placement refactor
-requires CI at its own final commit. The RG-00 restrictions
-below describe their original docs-only phase, not a current blanket ban.
-Other research topics remain OPEN pending their own decision gates.
-**Target repository:** https://github.com/datvtph41107/bdspro
-**Working branch:** `dev` (re-fetch live HEAD on every session).
-**Purpose of this phase:** Establish an auditable, durable research operating system and shared context before any HTTP Core refactor. No new framework/package architecture is authorized by this record.
+## Exit criteria
+Owner confirms a bounded workflow and acceptance examples; relevant baseline SHA and code paths are recorded; missing facts and risk ranked by impact and evidence; next change or explicit no-change decision has a scoped rationale. No runtime modifications from this reset. Previous G02/F40/parallel tasks are parked; PRs are not automatically merged, closed or resumed.
 
-## Problem to solve now
+## Professional lifecycle objective (owner clarification, 2026-11-25)
+RQ-01 remains the only active case. No business workflow selected yet. Establish one real workflow and its acceptance criteria, identify baseline code and relevant Go/stack knowledge, then record a bounded implementation and verification plan including a release/operation plan if needed. Keep actual work and optional learning experiments separate. See [Engineering lifecycle](../engineering-lifecycle.md); do not start a DI/package-level migration as a learning exercise.
 
-Architecture discussions are spread over many sessions and partial summaries. A fluent source style or a single HTTP ingress example has previously led to overly early folder-tree/decision proposals. Historical architecture docs may describe Gin while the current runtime is Chi. A new assistant must reconstruct current reality without trusting outdated summaries, and must be unable to turn unverified hypotheses into accepted decisions.
+## RQ-01 discovery checkpoint
+[Product case](../../product/RQ-01-product-and-first-workflow.md) and [source evidence](../../product/SOURCE_BASELINE.md) now define the first discovery requirement: identify one segment and real job. Contact intake/follow-up is an unconfirmed candidate, not selected implementation. Resolve buyer, user, data owner, workflow, acceptance and operational risks with product authority and prospective users. [Review gate](../../product/REQUIREMENT_REVIEW.md) is required proportionally. No new code, no auto-activation of architecture work.
 
-## Requirements / non-goals
+## Active discovery topic — RQ-01A.01 round 2
+Read [product objective checkpoint](../../product/discovery/RQ-01A-01-product-objective.md). Developer reports management/listing is the enterprise's first delivery demand, planning is strategic and data exists with unknown provenance/quality. Property/workspace management is the leading provisional objective, not approved business scope. Prior H-01 contact candidate and planning-first preference are parked, not deleted. Resolve management vs listing preparation vs public publication before closing topic 01 provisionally. No topic 02 or runtime changes yet.
 
-- Preserve intent and context across sessions in a short repository-local starting path.
-- Require proof-oriented research: source URLs with SHA + line ranges, caller → callee → consumer, construction vs runtime, security/trust/state/error/lifecycle, alternative designs, real vs model tests and operations.
-- Establish a cross-subsystem impact matrix before naming packages, approving boundaries or writing production code.
-- Compare Gitea and Laravel DRX where relevant; Go/Chi/net/http is the semantic baseline, not one of the competitors.
-- Use one active investigation at a time; store new ideas as OPEN until current gate closes.
-- No AuthN/AuthZ, route contract, middleware, Redis, deployment, data migration, branch or PR changes in RG-00.
-- Do not re-activate historical F40, P01–P07 or parallel lanes because an old doc calls them active; resolve conflicts against the latest explicit task.
+## RQ-01A.01 — provisional close (round 3)
+Latest checkpoint supersedes previous topic-01 working preferences: [product objective](../../product/discovery/RQ-01A-01-product-objective.md). Developer selected management + public listing on BDSPro, explicitly without validated concrete user scenarios. Topic 01 provisionally closed for discovery only; business acceptance and RQ-01 remain OPEN. Next eligible topic is RQ-01A.02 customer segment, not yet started. H-01 contact-first and planning-first are historical alternatives. No runtime work authorized; do not treat the provisional objective as confirmed requirement or release scope.
 
-## Phase artifacts
+## Active topic RQ-01A.02 — round 1
+[Customer segment checkpoint](../../product/discovery/RQ-01A-02-customer-segments.md) records developer choices and counterexamples. Topic 01 provisionally closed; topic 02 OPEN. No priority segment, payer, access to users, organization policy or property type confirmed. Public browsing with some authenticated actions and three property management cases are proposed, not approved. Resolve bounded actor scenario and access/authority questions in round 2; no topic 03 or runtime work.
 
-1. Root AGENTS.md points to this source of truth.
-2. Architecture skill and research protocol enforce evidence and a one-phase rule.
-3. Requirements/evidence method, source ledger, case template and session handoff exist and cross-link.
-4. All new claims are labeled OBSERVED / INFERENCE / HYPOTHESIS / NOT VERIFIED.
-5. Existing stale documents are documented as historical/conflicting; no silent edits erasing history.
+## RQ-01A.02 — provisional close (round 2)
+[Customer segments](../../product/discovery/RQ-01A-02-customer-segments.md): developer chose broker managing multiple properties as hypothetical first research persona; seeker complementary. Actual priority segment, payer, personal/company scope, offboarding and verification rules remain UNKNOWN. Topic 02 provisionally closed for discovery only; RQ-01 OPEN. Next eligible topic 03 business problem, not started. No schema/auth/organization redesign or other runtime work authorized. Gitea comparator is optional evidence, not a target.
 
-## Known baselines (snapshots, not evergreen facts)
+## Active topic RQ-01A.03 — round 1
+[Business problem checkpoint](../../product/discovery/RQ-01A-03-business-problems.md) records ten developer choices and legacy/market evidence. No actual pain or first workflow verified. Candidate broker record/retrieve/selectively publish/seeker contact/withdraw, privacy boundary proposed; no import/chat/dedupe/sync mandates. Legacy transaction documentation discrepancy recorded as unverified runtime risk, not fix task. Round 2 only; topic 03 OPEN, no topic 04 or schema/runtime work.
 
-- BDSPro `dev`: `abe04e46269632ef671a92bab00319b52696e8f5` — confirmed when drafting; `modules/web/router.go` constructs a Chi mux; `routers/init.go` builds HTTP handler.
-- Gitea: `fbf986d1c7ba1b0ad0078105b3adb0a73b769295` — reference mechanism only.
-- Laravel DRX `main`: `767737d3a9530d0ec3ff94876752e40ccb302a15` — its `app/Http/Kernel.php` defines global, group and route middleware.
-- See precise source anchors and limitations in [EVIDENCE_LEDGER.md](EVIDENCE_LEDGER.md). Do not extrapolate to uninspected files or newer commits.
+## RQ-01A.03 — provisional close (round 2)
+[Business problems](../../product/discovery/RQ-01A-03-business-problems.md): W-03 selected hypothetical workflow (inventory intake, management, public listing, search/contact); developer favors bulk/import or external integration research, both separate/combined creation, public permitted contact method. Actual pain, source/rights/volume, integration modality, combined failure and update/withdrawal policy UNKNOWN. Topic 03 provisionally closed; next eligible topic 04 product scope, not started in this checkpoint. RQ-01 OPEN; no runtime/schema/architecture authorization.
 
-## RG-00 exit criteria
+## Active topic RQ-01A.04 — round 1
+[Scope checkpoint](../../product/discovery/RQ-01A-04-product-scope.md): W-03 hypothetical, release policies unknown. User/Organization comparison is research, not redesign mandate. Round 2: clarify personal/shared workspace and seeker scope. Topic 04 OPEN; no topic 05 or runtime work.
 
-- User has reviewed/accepted the research process and phase scope.
-- Any corrections are reflected in AGENTS / evidence method / handoff.
-- A *single* next research question is named with scope, baseline and evidence tasks, without presupposing its solution.
+## RQ-01A.04 — provisional discovery close (round 2; scope UNDECIDED)
+[Scope checkpoint](../../product/discovery/RQ-01A-04-product-scope.md): compare individual and enterprise scenarios; actor/scope/resource/authority is research focus. Developer explicitly chose candidate capability map only, no scope approval. Organization representation, collaboration and record-control are distinct hypotheses. Next eligible topic 05 enterprise constraints, not started. RQ-01 OPEN; no implementation, schema or architecture authorization.
 
-**Candidate next research question (not active/accepted):** HTTP ingress and routing ownership at `routers/init.go → modules/web → services/context`, including trusted client IP, CORS, logging/recovery, HTTP limits, request data and security gates. This is a study subject, **not** an approved `modules/httpmeta`, `routers/ingress` tree or architecture decision.
+## Active topic RQ-01A.05 — round 1
+[Enterprise constraints](../../product/discovery/RQ-01A-05-enterprise-constraints.md): developer-reported local-first, low-cost, sole backend test/ops responsibility, unclear scope/delegation and recovery/scale evidence. Legacy failure dependencies and counterexamples pinned; no runtime verification or architecture conclusion. Resolve core-first vs incremental approach, evidence gate and responsibility in round 2. Topic 05 and RQ-01 OPEN.
 
-## Change/decision ledger
+## RQ-01A.05 — provisional close; RQ-01A synthesis
+[Enterprise constraints](../../product/discovery/RQ-01A-05-enterprise-constraints.md) round 2 records evidence-based technical decisions, bounded foundation, separate hands-on study and local synthetic data. Architecture acceptance method still UNKNOWN; proposed practice/evidence protocol only. [RQ-01A synthesis](../../product/discovery/RQ-01A-discovery-summary.md): 5/5 discovery discussions closed provisionally, release scope UNDECIDED, business validation incomplete, RQ-01 OPEN. Next product gate: review one real or explicitly hypothetical workflow and evidence gaps, obtain scoped approval before implementation. Separate optional first learning exercise: reproduce existing CLI test in local environment; not started. No schema/architecture/runtime or release authorization.
 
-| Date | Event | What it proves | Not approved |
-| --- | --- | --- | --- |
-| 2026-11-20 | Requested durable agent/documentation update and strict source-first research | Intent and phase scope | No HTTP implementation, package migration, ADR or deployment change |
+## Active technical learning checkpoint — developer takeover
+[DEVELOPER_TAKEOVER.md](DEVELOPER_TAKEOVER.md) supersedes prior learning status. AI-authored baseline per developer report; owner is learning existing code from the beginning. WORK-001 build/selected test PASS (reported), WORK-002 deliberate assertion FAIL observed; restoration/retest pending. Next: locate actual CLI output producer and writer path in IDE. No new runtime, architecture, schema or deployment task. RQ-01 remains OPEN.
 
-Next agent action: follow [SESSION_HANDOFF.md](SESSION_HANDOFF.md); verify live HEAD, inspect current source, present one focused question and its research boundary. No automatic phase advancement.
+## Active unified backend development target
+[BACKEND_DEVELOPMENT_TARGET.md](BACKEND_DEVELOPMENT_TARGET.md) defines product, engineering and practical developer objectives and proposed BT-01–07 acceptance targets. AI-authored current baseline per owner report; no assumed prior mastery. First proposed slice BE-01A: review CLI config preflight contract and existing source with integrated testing; restore prior deliberate assertion and trace behavior, then decide no change or a meaningful bounded improvement. WORK-002 restoration still pending. RQ-01 remains OPEN, no business scope/architecture/runtime authorization. Supersedes exercise-first sequence.
+
+## Goal-first priority correction
+The developer requests goal formation before selecting requirement/design/code tasks. [Backend development target](BACKEND_DEVELOPMENT_TARGET.md) goal-first correction supersedes proposed foundation-first ordering. RQ-01 goal/evidence review is the next decision focus using completed RQ-01A; W-03 remains hypothetical. BE-01A parked candidate pending purpose/priority; prior assertion restore/retest remains unreported. AI-authored baseline, no confirmed product scope, no database/schema/architecture/runtime changes authorized. Integrated testing and practical development continue per approved scope.
+
+## 2026-11-25 — active daily plan
+[WORK_PLAN.md](WORK_PLAN.md) is the current queue and handoff. RQ-01B.01 goal/evidence review active, one bounded outcome, W-03 hypothetical, RQ-01 OPEN. Next workdays conditional on gates, no deadlines assumed. AI-authored baseline and reported local checks unchanged; deliberate CLI assertion restoration pending. No new architecture/schema/runtime work.
+
+## RQ-02 — active requirement topic
+[Identity/authentication/authorization](../../product/RQ-02-identity-authentication-authorization.md) OPEN, RQ-02A.01 active analysis. User requested this focus; RQ-01B.01 parked without approval. Source facts pinned, requirements proposed, no schema/runtime work. [WORK_PLAN](WORK_PLAN.md) is current task queue.
+
+## 2026-11-26 — IND-01 identity research
+S1 scope selection DONE (individual research only). S2 account/domain semantics next; [RQ-02](../../product/RQ-02-identity-authentication-authorization.md) and [WORK_PLAN](WORK_PLAN.md) authoritative for current task. Seven proposed requirements; all acceptance tests NOT RUN, all physical/technical decisions pending. No implementation approval.
+
+## 2026-11-26 — S2.02 active
+DEC-IND-01 accepted for research; PostgreSQL/sqlc/go-migrate fixed; new implementation developer-authored, AI mentoring. S2.02 profile and current-user contract proposal active, S3/S4 before user-led S5. [WORK_PLAN](WORK_PLAN.md) and [RQ-02](../../product/RQ-02-identity-authentication-authorization.md) current. No runtime/schema/test changes or release approval.
