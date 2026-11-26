@@ -1,0 +1,43 @@
+name: bdspro
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: bdspro
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [data-volume:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d bdspro"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports: ["127.0.0.1:6379:6379"]
+    volumes: [redis-volume:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  api:
+    image: bdspro:local
+    build: {context: ., dockerfile: Dockerfile}
+    ports: ["8080:8080"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    restart: on-failure
+    stop_grace_period: 30s
+    volumes: [bdspro-volume:/data]
+    command: ["/app/main", "--config", "/data/bdspro/conf/app.ini", "web"]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+volumes:
+  data-volume: {name: bdspro-postgres18-data}
+  redis-volume: {name: bdspro-redis-data}
+  bdspro-volume: {name: bdspro-app-data}

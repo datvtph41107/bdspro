@@ -1,0 +1,3 @@
+CREATE TABLE "parties" (
+  "id" bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+);

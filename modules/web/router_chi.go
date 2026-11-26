@@ -1,0 +1,97 @@
+package web
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"net/netip"
+	"strings"
+)
+
+func (r *Router) wrapChiIngress() http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		r.chiRouter.ServeHTTP(w, r.withTrustedClientIP(req))
+	})
+}
+
+func (r *Router) setChiTrustedProxies(proxies []string) error {
+	parsed := make([]netip.Prefix, 0, len(proxies))
+	for _, raw := range proxies {
+		if raw == "" {
+			return fmt.Errorf("empty trusted proxy")
+		}
+		if prefix, err := netip.ParsePrefix(raw); err == nil {
+			parsed = append(parsed, prefix.Masked())
+			continue
+		}
+		addr, err := netip.ParseAddr(raw)
+		if err != nil {
+			return fmt.Errorf("invalid trusted proxy %q: %w", raw, err)
+		}
+		parsed = append(parsed, netip.PrefixFrom(addr, addr.BitLen()))
+	}
+	r.chiTrustedProxies = parsed
+	return nil
+}
+
+type clientIPKey struct{}
+
+func ClientIPFromRequest(req *http.Request) string {
+	if value, ok := req.Context().Value(clientIPKey{}).(string); ok && value != "" {
+		return value
+	}
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		return req.RemoteAddr
+	}
+	return host
+}
+
+func (r *Router) withTrustedClientIP(req *http.Request) *http.Request {
+	raw, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		raw = req.RemoteAddr
+	}
+	peer, err := netip.ParseAddr(raw)
+	if err != nil {
+		return req
+	}
+	resolved := peer
+	if r.chiIsTrusted(peer) {
+		forwarded := strings.Split(req.Header.Get("X-Forwarded-For"), ",")
+
+		for i := len(forwarded) - 1; i >= 0; i-- {
+			value := strings.TrimSpace(forwarded[i])
+			if value == "" {
+				continue
+			}
+			ip, parseErr := netip.ParseAddr(value)
+			if parseErr != nil {
+				break
+			}
+			resolved = ip
+			if !r.chiIsTrusted(ip) {
+				break
+			}
+		}
+		if resolved == peer {
+			if value := req.Header.Get("X-Real-IP"); value != "" {
+				if ip, parseErr := netip.ParseAddr(value); parseErr == nil {
+					resolved = ip
+				}
+			}
+		}
+	}
+	return req.WithContext(context.WithValue(req.Context(), clientIPKey{}, resolved.String()))
+}
+
+func (r *Router) chiIsTrusted(ip netip.Addr) bool {
+	for _, prefix := range r.chiTrustedProxies {
+		if prefix.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}

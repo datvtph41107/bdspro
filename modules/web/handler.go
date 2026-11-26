@@ -1,0 +1,199 @@
+package web
+
+import (
+	"bufio"
+	"fmt"
+	"net"
+	"net/http"
+	"reflect"
+	"slices"
+
+	web_types "github.com/datvtph41107/bdspro/modules/web/types"
+)
+
+var responseStatusProviders = map[reflect.Type]func(*http.Request) web_types.ResponseStatusProvider{}
+
+func RegisterResponseStatusProvider[T any](provider func(*http.Request) web_types.ResponseStatusProvider) {
+	if provider == nil {
+		panic("web: nil response status provider")
+	}
+	typ := reflect.TypeFor[T]()
+	if _, exists := responseStatusProviders[typ]; exists {
+		panic(fmt.Sprintf("web: duplicate response status provider for %s", typ))
+	}
+	responseStatusProviders[typ] = provider
+}
+
+func isRegisteredTypedHandler(handler any) bool {
+	typ := reflect.TypeOf(handler)
+	if typ == nil || typ.Kind() != reflect.Func {
+		return false
+	}
+	for i := 0; i < typ.NumIn(); i++ {
+		if _, ok := responseStatusProviders[typ.In(i)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+var _ web_types.ResponseStatusProvider = (*responseWriter)(nil)
+
+func (w *responseWriter) WrittenStatus() int { return w.status }
+
+func (w *responseWriter) WriteHeader(status int) {
+	if w.status != 0 {
+		return
+	}
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *responseWriter) Write(body []byte) (int, error) {
+	if w.status == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+func (w *responseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hijacker, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return hijacker.Hijack()
+	}
+	return nil, nil, http.ErrNotSupported
+}
+
+var (
+	httpReqType    = reflect.TypeFor[*http.Request]()
+	respWriterType = reflect.TypeFor[http.ResponseWriter]()
+)
+
+func preCheckHandler(typ reflect.Type) {
+	if typ.NumOut() != 0 {
+		panic(fmt.Sprintf("web: handler must not return values: %s", typ))
+	}
+	hasStatusProvider := false
+	for i := 0; i < typ.NumIn(); i++ {
+		arg := typ.In(i)
+		switch arg {
+		case httpReqType:
+		case respWriterType:
+			hasStatusProvider = true
+		default:
+			if _, ok := responseStatusProviders[arg]; !ok {
+				panic(fmt.Sprintf("web: unsupported handler argument %s", arg))
+			}
+			hasStatusProvider = true
+		}
+	}
+	if !hasStatusProvider {
+		panic(fmt.Sprintf("web: handler must receive a ResponseStatusProvider: %s", typ))
+	}
+}
+
+func prepareHandleArgsIn(resp http.ResponseWriter, req *http.Request, typ reflect.Type) []reflect.Value {
+	args := make([]reflect.Value, typ.NumIn())
+	for i := range args {
+		arg := typ.In(i)
+		switch arg {
+		case respWriterType:
+			args[i] = reflect.ValueOf(resp)
+		case httpReqType:
+			args[i] = reflect.ValueOf(req)
+		default:
+			provider := responseStatusProviders[arg](req)
+			if provider == nil {
+				panic(fmt.Sprintf("web: nil response status provider for %s", arg))
+			}
+			value := reflect.ValueOf(provider)
+
+			switch value.Kind() {
+			case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
+				reflect.Pointer, reflect.Slice:
+				if value.IsNil() {
+					panic(fmt.Sprintf("web: typed nil response status provider for %s", arg))
+				}
+			}
+			if !value.Type().AssignableTo(arg) {
+				panic(fmt.Sprintf("web: provider %s is incompatible with %s", value.Type(), arg))
+			}
+			args[i] = value
+		}
+	}
+	return args
+}
+
+func hasResponseBeenWritten(args []reflect.Value) bool {
+	for _, arg := range args {
+		if status, ok := arg.Interface().(web_types.ResponseStatusProvider); ok && status.WrittenStatus() != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldStopContinuation(args []reflect.Value) bool {
+	if hasResponseBeenWritten(args) {
+		return true
+	}
+	for _, arg := range args {
+		if state, ok := arg.Interface().(interface{ IsAborted() bool }); ok && state.IsAborted() {
+			return true
+		}
+	}
+	return false
+}
+
+type middlewareProvider = func(next http.Handler) http.Handler
+
+func compileMiddlewaresHandler(middlewares []middlewareProvider, endpoint http.HandlerFunc) http.Handler {
+	handler := http.Handler(endpoint)
+	for _, middleware := range slices.Backward(middlewares) {
+		handler = middleware(handler)
+		if handler == nil {
+			panic("web: middleware provider returned nil handler")
+		}
+	}
+	return handler
+}
+
+func executeMiddlewaresHandler(w http.ResponseWriter, req *http.Request, middlewares []middlewareProvider, endpoint http.HandlerFunc) {
+	compileMiddlewaresHandler(middlewares, endpoint).ServeHTTP(w, req)
+}
+
+func toHandlerProvider(handler any) middlewareProvider {
+	fn := reflect.ValueOf(handler)
+	if !fn.IsValid() || fn.Kind() != reflect.Func || fn.IsNil() {
+		panic(fmt.Sprintf("web: handler must be a non-nil function, got %T", handler))
+	}
+	if middleware, ok := handler.(middlewareProvider); ok {
+		return middleware
+	}
+	if middleware, ok := handler.(func(http.Handler) http.HandlerFunc); ok {
+		return func(next http.Handler) http.Handler { return middleware(next) }
+	}
+
+	typ := fn.Type()
+	preCheckHandler(typ)
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			resp := w
+			if _, ok := resp.(web_types.ResponseStatusProvider); !ok {
+				resp = &responseWriter{ResponseWriter: resp}
+			}
+			args := prepareHandleArgsIn(resp, req, typ)
+			fn.Call(args)
+			if next != nil && !shouldStopContinuation(args) {
+				next.ServeHTTP(resp, req)
+			}
+		})
+	}
+}

@@ -1,0 +1,113 @@
+package context
+
+import (
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"reflect"
+	"strings"
+
+	"github.com/go-playground/validator/v10"
+)
+
+type FieldIssue struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func (c *APIContext) FieldErrors(issues map[string][]FieldIssue) {
+	c.writeError(http.StatusBadRequest, "validation_failed", map[string]any{
+		"error":  "validation failed",
+		"code":   "validation_failed",
+		"errors": issues,
+	})
+}
+
+func (c *APIContext) FieldError(field, code, message string) {
+	c.FieldErrors(map[string][]FieldIssue{
+		field: {{Code: code, Message: message}},
+	})
+}
+
+func (c *APIContext) Validation(err error, request any) {
+	var size *http.MaxBytesError
+	if errors.As(err, &size) {
+		c.APIError(http.StatusRequestEntityTooLarge, "request_body_too_large", "request body too large")
+		return
+	}
+
+	var fields validator.ValidationErrors
+	if errors.As(err, &fields) {
+		issues := make(map[string][]FieldIssue, len(fields))
+		for _, failure := range fields {
+			field := jsonFieldName(request, failure.StructField())
+			issues[field] = append(issues[field], FieldIssue{
+				Code:    failure.Tag(),
+				Message: fieldMessage(field, failure),
+			})
+		}
+		c.FieldErrors(issues)
+		return
+	}
+
+	var wrongType *json.UnmarshalTypeError
+	if errors.As(err, &wrongType) {
+		if wrongType.Field != "" {
+			c.FieldError(wrongType.Field, "invalid_type", wrongType.Field+" has an invalid type")
+			return
+		}
+		c.APIError(http.StatusBadRequest, "invalid_json_type", "invalid JSON value type")
+		return
+	}
+
+	var syntax *json.SyntaxError
+	if errors.As(err, &syntax) || errors.Is(err, io.ErrUnexpectedEOF) {
+		c.APIError(http.StatusBadRequest, "malformed_json", "malformed JSON body")
+		return
+	}
+
+	if errors.Is(err, io.EOF) {
+		c.APIError(http.StatusBadRequest, "request_body_required", "request body is required")
+		return
+	}
+
+	c.APIError(http.StatusBadRequest, "invalid_request_body", "request body is invalid")
+}
+
+func jsonFieldName(request any, name string) string {
+	t := reflect.TypeOf(request)
+	if t == nil {
+		return name
+	}
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return name
+	}
+	field, ok := t.FieldByName(name)
+	if !ok {
+		return name
+	}
+	jsonName := strings.Split(field.Tag.Get("json"), ",")[0]
+	if jsonName != "" && jsonName != "-" {
+		return jsonName
+	}
+	return name
+}
+
+func fieldMessage(field string, failure validator.FieldError) string {
+	switch failure.Tag() {
+	case "required":
+		return field + " is required"
+	case "email":
+		return field + " must be a valid email"
+	case "min":
+		return field + " must be at least " + failure.Param()
+	case "max":
+		return field + " must be at most " + failure.Param()
+	default:
+		return field + " is invalid"
+	}
+}

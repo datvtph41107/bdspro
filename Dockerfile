@@ -1,0 +1,17 @@
+FROM golang:1.27.3-alpine3.24 AS builder
+WORKDIR /app
+COPY . .
+RUN go build -o main .
+
+FROM alpine:3.24
+WORKDIR /app
+COPY --from=builder /app/main .
+COPY docker/root/etc/templates/app.ini /etc/templates/app.ini
+COPY docker/setup /app/setup
+COPY db/migration ./db/migration
+
+RUN chmod +x /app/setup
+
+EXPOSE 8080
+CMD ["/app/main", "--config", "/data/bdspro/conf/app.ini", "web"]
+ENTRYPOINT ["/app/setup"]

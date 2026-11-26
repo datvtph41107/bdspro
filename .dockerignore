@@ -1,0 +1,13 @@
+.git
+.github
+*.log
+.env
+.env.local
+docs
+README.md
+/data
+/custom/conf/app.ini
+/bin/
+/.air/
+/app.local.env
+/docker/app.local.ini
