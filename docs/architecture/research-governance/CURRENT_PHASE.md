@@ -59,3 +59,6 @@ The developer requests goal formation before selecting requirement/design/code t
 
 ## RQ-02 — active requirement topic
 [Identity/authentication/authorization](../../product/RQ-02-identity-authentication-authorization.md) OPEN, RQ-02A.01 active analysis. User requested this focus; RQ-01B.01 parked without approval. Source facts pinned, requirements proposed, no schema/runtime work. [WORK_PLAN](WORK_PLAN.md) is current task queue.
+
+## 2026-11-26 — IND-01 identity research
+S1 scope selection DONE (individual research only). S2 account/domain semantics next; [RQ-02](../../product/RQ-02-identity-authentication-authorization.md) and [WORK_PLAN](WORK_PLAN.md) authoritative for current task. Seven proposed requirements; all acceptance tests NOT RUN, all physical/technical decisions pending. No implementation approval.
