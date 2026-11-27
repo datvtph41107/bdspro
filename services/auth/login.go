@@ -136,15 +136,16 @@ func issueSession(ctx context.Context, q *db.Queries, accountID int64, clientIP,
 	if err != nil {
 		return LoginResult{}, err
 	}
-	result, err := sessionResult(ctx, accountID, id, expires, raw, remember)
-	if err != nil {
-		return LoginResult{}, util.WithOperation("auth.session.result", err)
-	}
-	if _, err = q.CreateSession(ctx, db.CreateSessionParams{
+	row, err := q.CreateSession(ctx, db.CreateSessionParams{
 		ID: id, AccountID: accountID, RefreshToken: token.RefreshDigest(raw),
 		UserAgent: userAgent, ClientIp: clientIP, ExpiresAt: expires,
-	}); err != nil {
+	})
+	if err != nil {
 		return LoginResult{}, util.WithOperation("auth.session.create", err)
+	}
+	result, err := sessionResult(ctx, row.AccountID, row.ID, row.ExpiresAt, raw, remember)
+	if err != nil {
+		return LoginResult{}, util.WithOperation("auth.session.result", err)
 	}
 	if err = q.CreateAccountConnectionHistory(ctx, db.CreateAccountConnectionHistoryParams{
 		AccountID: accountID, SessionID: id, IpAddress: clientIP, UserAgent: userAgent,

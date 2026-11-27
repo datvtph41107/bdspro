@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Runtime-only probe against a disposable local BDSPro and Mailpit."""
+import base64
+import datetime
 import hashlib
 import http.cookiejar
 from http.cookies import SimpleCookie
@@ -182,6 +184,35 @@ def check_guard_boundaries():
     print("PASS attempt caps, schema ceiling, resend horizon, retention and destination admission", flush=True)
 
 
+def check_session_deadline(opener, account):
+    # Decode only tokens issued by this disposable test server; never log credentials.
+    payload = account["access_token"].split(".")[1]
+    claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    session_id = str(uuid.UUID(claims["session_id"]))
+    persisted = db_query(f"SELECT expires_at FROM sessions WHERE id='{session_id}'::uuid")
+    deadline = datetime.datetime.fromisoformat(persisted)
+    issued = datetime.datetime.fromisoformat(claims["issued_at"])
+    expires = datetime.datetime.fromisoformat(claims["expired_at"])
+    if expires > deadline or abs(account["expires_in"] - int((expires - issued).total_seconds())) > 1:
+        raise RuntimeError("Issued JWT or response exceeds canonical session lifetime")
+
+    # Shorten only this disposable session so its deadline, not access TTL, is limiting.
+    db_query(f"UPDATE sessions SET expires_at=clock_timestamp()+interval '30 seconds' WHERE id='{session_id}'::uuid")
+    deadline = datetime.datetime.fromisoformat(db_query(f"SELECT expires_at FROM sessions WHERE id='{session_id}'::uuid"))
+    refreshed = post(opener, "refresh", {}, 200)
+    payload = refreshed["access_token"].split(".")[1]
+    claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    if claims["session_id"] != session_id or datetime.datetime.fromisoformat(claims["expired_at"]) != deadline:
+        raise RuntimeError("Refresh JWT did not use persisted session deadline")
+    if not 0 < refreshed["expires_in"] <= 30:
+        raise RuntimeError("Refresh lifetime exceeded shortened session")
+    if datetime.datetime.fromisoformat(db_query(f"SELECT expires_at FROM sessions WHERE id='{session_id}'::uuid")) != deadline:
+        raise RuntimeError("Refresh extended the session")
+    db_query(f"UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE id='{session_id}'::uuid")
+    post(opener, "refresh", {}, 401)
+    print("PASS persisted session deadline, non-sliding refresh and expired session denial", flush=True)
+
+
 def check_recovery_and_reauth(opener, email, registration):
     password = "disposable-probe-password-123"
     account = post(opener, "register/complete", {
@@ -221,7 +252,8 @@ def check_recovery_and_reauth(opener, email, registration):
     if db_query(f"SELECT count(*) FROM password_reset_tokens WHERE token_hash=decode('{digest}','hex')") != "0":
         raise RuntimeError("Consumed password recovery proof still exists")
     post(opener, "login", {"identifier": email, "password": password}, 401)
-    post(opener, "login", {"identifier": email, "password": body["new_password"]}, 200)
+    account = post(opener, "login", {"identifier": email, "password": body["new_password"]}, 200)
+    check_session_deadline(opener, account)
     print("PASS recovery and recent-auth TTL, expired proof rejection, reset/replay and new password", flush=True)
 
 
