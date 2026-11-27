@@ -28,7 +28,7 @@ WHERE account_id = $1 AND is_blocked = FALSE AND expires_at > now();
 -- name: CreateRecentAuthProof :exec
 INSERT INTO auth_proofs(digest,account_id,session_id,action,method,email_snapshot,expires_at)
 VALUES (sqlc.arg(digest)::bytea,sqlc.arg(account_id)::bigint,sqlc.arg(session_id)::uuid,
-    sqlc.arg(action)::text,sqlc.arg(method)::text,sqlc.arg(email_snapshot)::text,clock_timestamp()+interval '10 minutes');
+    sqlc.arg(action)::text,sqlc.arg(method)::text,sqlc.arg(email_snapshot)::text,clock_timestamp()+(sqlc.arg(ttl_minutes)::integer * interval '1 minute'));
 
 -- name: ConsumeRecentAuthProof :one
 DELETE FROM auth_proofs
@@ -50,9 +50,10 @@ UPDATE sessions SET refresh_token=sqlc.arg(next_digest)::text
 WHERE id=sqlc.arg(session_id)::uuid AND account_id=sqlc.arg(account_id)::bigint
 AND refresh_token=sqlc.arg(previous_digest)::text AND NOT is_blocked AND expires_at>clock_timestamp();
 
--- name: CreateGoogleRecentAuthProof :execrows
+-- name: CreateGoogleRecentAuthProof :one
 INSERT INTO auth_proofs(digest,account_id,session_id,action,method,google_subject,expires_at)
 SELECT sqlc.arg(digest)::bytea,sqlc.arg(account_id)::bigint,sqlc.arg(session_id)::uuid,sqlc.arg(action)::text,
-    'google',sqlc.arg(google_subject)::text,LEAST(clock_timestamp()+interval '10 minutes',to_timestamp(sqlc.arg(auth_time)::bigint)+interval '10 minutes')
-WHERE to_timestamp(sqlc.arg(auth_time)::bigint)>clock_timestamp()-interval '5 minutes'
-AND to_timestamp(sqlc.arg(auth_time)::bigint)<=clock_timestamp()+interval '30 seconds';
+    'google',sqlc.arg(google_subject)::text,LEAST(clock_timestamp()+(sqlc.arg(ttl_minutes)::integer * interval '1 minute'),to_timestamp(sqlc.arg(auth_time)::bigint)+(sqlc.arg(ttl_minutes)::integer * interval '1 minute'))
+WHERE to_timestamp(sqlc.arg(auth_time)::bigint)>clock_timestamp()-(sqlc.arg(freshness_seconds)::integer * interval '1 second')
+AND to_timestamp(sqlc.arg(auth_time)::bigint)<=clock_timestamp()+(sqlc.arg(future_skew_seconds)::integer * interval '1 second')
+RETURNING expires_at;

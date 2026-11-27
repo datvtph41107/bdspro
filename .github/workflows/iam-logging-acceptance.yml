@@ -68,6 +68,16 @@ jobs:
         run: |
           files="$(gofmt -l services/auth/registration.go services/auth/phone.go services/auth/contact_link.go routers/api/v1/auth/registration.go)"
           test -z "$files" || { gofmt -d services/auth/registration.go services/auth/phone.go services/auth/contact_link.go routers/api/v1/auth/registration.go; exit 1; }
+      - name: Generate pinned SQLC bindings for REQ-03.3a
+        run: |
+          GOBIN="$RUNNER_TEMP/sqlc-bin" go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          PATH="$RUNNER_TEMP/sqlc-bin:$PATH" make generated
+          while IFS= read -r path; do
+            printf 'SQLC_BEGIN %s\n' "$path"
+            base64 -w 120 "$path"
+            printf 'SQLC_END %s\n' "$path"
+          done < <(git diff --name-only -- models/db/sqlc models/db/sqlc_types.gen.go)
+          git diff --exit-code -- models/db/sqlc models/db/sqlc_types.gen.go
       - name: Build
         run: go build ./...
       - name: Verify canonical pagination contract

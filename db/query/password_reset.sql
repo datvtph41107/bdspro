@@ -1,10 +1,10 @@
 -- name: CreatePasswordResetToken :exec
 INSERT INTO password_reset_tokens (token_hash, account_id, expires_at)
-VALUES (sqlc.arg(token_hash), sqlc.arg(account_id), now() + interval '15 minutes');
+VALUES (sqlc.arg(token_hash), sqlc.arg(account_id), now() + (sqlc.arg(ttl_minutes)::integer * interval '1 minute'));
 
 -- name: IssuePasswordResetTokenIfCurrentVersion :execrows
 INSERT INTO password_reset_tokens (token_hash, account_id, expires_at)
-SELECT sqlc.arg(token_hash)::bytea, id, now() + interval '15 minutes'
+SELECT sqlc.arg(token_hash)::bytea, id, now() + (sqlc.arg(ttl_minutes)::integer * interval '1 minute')
 FROM accounts
 WHERE id = sqlc.arg(account_id)::bigint
   AND password_reset_version = sqlc.arg(reset_version)::bigint
