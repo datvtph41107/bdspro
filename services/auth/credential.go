@@ -7,9 +7,9 @@ import (
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/log"
-	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/services/mailer"
 )
 
 var ErrLastCredential = util.WithPublic(util.ErrPermissionDenied, "last usable login method", "last_credential", "at least one usable sign-in method must remain")
@@ -199,7 +199,7 @@ func notifyCredentialChange(ctx context.Context, email string) {
 		return
 	}
 
-	if err := delivery.SendCredentialNotice(ctx, email); err != nil {
+	if err := mailer.SendCredentialNotice(ctx, email); err != nil {
 		log.Ctx(ctx).Warn().Msg("auth.credential.notice_not_delivered")
 	}
 }

@@ -9,9 +9,9 @@ import (
 
 	"github.com/datvtph41107/bdspro/models/db"
 	token "github.com/datvtph41107/bdspro/modules/auth"
-	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/services/mailer"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -65,7 +65,7 @@ func StartRegistration(ctx context.Context, email string, browser []byte) (Regis
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if err := delivery.SendRegistrationCode(ctx, email, code); err != nil {
+	if err := mailer.SendRegistrationCode(ctx, email, code); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	return challengeResult(id), nil
@@ -114,7 +114,7 @@ func ResendRegistration(ctx context.Context, id uuid.UUID, browser []byte) (Regi
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if err := delivery.SendRegistrationCode(ctx, email, code); err != nil {
+	if err := mailer.SendRegistrationCode(ctx, email, code); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	return challengeResult(id), nil

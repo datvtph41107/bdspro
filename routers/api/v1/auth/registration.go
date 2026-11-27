@@ -6,12 +6,12 @@ import (
 
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
-	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
 	authservice "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
+	"github.com/datvtph41107/bdspro/services/mailer"
 	"github.com/google/uuid"
 )
 
@@ -36,7 +36,7 @@ func registrationBrowser(ctx *appctx.APIContext) ([]byte, error) {
 
 func writeRegistrationError(ctx *appctx.APIContext, err error) {
 	switch {
-	case errors.Is(err, delivery.ErrUnavailable):
+	case errors.Is(err, mailer.ErrUnavailable):
 		if !setting.Mailer.Enabled() {
 			ctx.Data[appctx.ErrorReasonKey] = "mailer_not_configured"
 		} else {
@@ -60,7 +60,7 @@ func RegisterStart(ctx *appctx.APIContext) {
 		return
 	}
 	if !setting.Mailer.Enabled() {
-		writeRegistrationError(ctx, delivery.ErrUnavailable)
+		writeRegistrationError(ctx, mailer.ErrUnavailable)
 		return
 	}
 	if !subjectAdmission(ctx, ipactive.Register, email) {
@@ -104,7 +104,7 @@ func registrationFlow(ctx *appctx.APIContext, rawID string, action ipactive.Acti
 func RegisterResend(ctx *appctx.APIContext) {
 	ctx.Header("Cache-Control", "no-store")
 	if !setting.Mailer.Enabled() {
-		writeRegistrationError(ctx, delivery.ErrUnavailable)
+		writeRegistrationError(ctx, mailer.ErrUnavailable)
 		return
 	}
 	form := web.GetForm[*structs.RegistrationResend](ctx)

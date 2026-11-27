@@ -8,9 +8,9 @@ import (
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
 	token "github.com/datvtph41107/bdspro/modules/auth"
-	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/services/mailer"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -87,7 +87,7 @@ func RequestPasswordSetProof(ctx context.Context, actor authmodel.Actor) error {
 		return ErrReauthRequired
 	}
 	if !setting.Mailer.Enabled() {
-		return delivery.ErrUnavailable
+		return mailer.ErrUnavailable
 	}
 	raw, digest, err := token.NewRecoveryProof()
 	if err != nil {
@@ -119,7 +119,7 @@ func RequestPasswordSetProof(ctx context.Context, actor authmodel.Actor) error {
 	if err != nil {
 		return err
 	}
-	return delivery.SendPasswordSetProof(ctx, email, raw)
+	return mailer.SendPasswordSetProof(ctx, email, raw)
 }
 
 func ConsumeRecentAuthProof(ctx context.Context, q *db.Queries, actor authmodel.Actor, raw, action string) error {

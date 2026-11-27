@@ -43,6 +43,11 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 12
+      mailpit:
+        image: axllent/mailpit:v1.32.0
+        ports:
+          - 1025:1025
+          - 8025:8025
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -69,6 +74,15 @@ jobs:
           make config-local
           sed -i 's/^MODE = console$/MODE = console,file/' custom/conf/app.ini
           sed -i '/^\[log.file\]$/a LEVEL = debug' custom/conf/app.ini
+          # Development inbox only: never send real SMS/email.
+          export BDS__PHONE_DELIVERY__MODE=mailpit
+          export BDS__PHONE_DELIVERY__DEFAULT_CHANNEL=sms
+          export BDS__PHONE_DELIVERY__CHANNELS=sms,zalo,telegram
+          export BDS__MAILER__SMTP_PROTOCOL=smtp
+          export BDS__MAILER__SMTP_ADDRESS=127.0.0.1:1025
+          export BDS__MAILER__FROM=security@bdspro.test
+          export BDS__MAILER__USERNAME=
+          export BDS__MAILER__PASSWORD=
           make build
           bin/bdspro --config custom/conf/app.ini config check
           bin/bdspro --config custom/conf/app.ini migrate
@@ -86,6 +100,7 @@ jobs:
           done
           test "$ready" = 1
           make smoke-logging
+          python3 scripts/probe-delivery.py
           kill -TERM "$pid"
           wait "$pid"
           trap - EXIT

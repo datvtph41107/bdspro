@@ -12,8 +12,8 @@ import (
 	"github.com/datvtph41107/bdspro/models/db"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
-	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/services/mailer"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -113,7 +113,7 @@ func requestPasswordReset(ctx context.Context, email string) error {
 	if err != nil || !issued {
 		return err
 	}
-	return delivery.SendPasswordReset(ctx, email, raw)
+	return mailer.SendPasswordReset(ctx, email, raw)
 }
 
 func ResetPassword(ctx context.Context, raw, password string) error {

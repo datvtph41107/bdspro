@@ -9,9 +9,9 @@ import (
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/models/organization"
 	token "github.com/datvtph41107/bdspro/modules/auth"
-	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	authservice "github.com/datvtph41107/bdspro/services/auth"
+	"github.com/datvtph41107/bdspro/services/mailer"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -39,7 +39,7 @@ func CreateTeamInvitation(ctx context.Context, actor authmodel.Actor, orgID, tea
 			return organization.TeamInvitation{}, err
 		}
 		if !setting.Mailer.Enabled() {
-			return organization.TeamInvitation{}, delivery.ErrUnavailable
+			return organization.TeamInvitation{}, mailer.ErrUnavailable
 		}
 		if err := q.RevokeExpiredTeamInvites(txCtx, db.RevokeExpiredTeamInvitesParams{TeamID: teamID, InvitedEmail: email}); err != nil {
 			return organization.TeamInvitation{}, err
@@ -68,7 +68,7 @@ func CreateTeamInvitation(ctx context.Context, actor authmodel.Actor, orgID, tea
 		_, err = q.GetTeamInviteForDelivery(ctx, id)
 	}
 	if err == nil {
-		err = delivery.SendTeamInvitation(ctx, email, raw, result.ExpiresAt)
+		err = mailer.SendTeamInvitation(ctx, email, raw, result.ExpiresAt)
 	}
 	if err != nil {
 
@@ -86,9 +86,9 @@ func CreateTeamInvitation(ctx context.Context, actor authmodel.Actor, orgID, tea
 			return teamAudit(txCtx, q, actor.AccountID, teamID, "team.invite.revoked", "invite", id.String())
 		})
 		if cancelErr != nil {
-			return organization.TeamInvitation{}, errors.Join(delivery.ErrUnavailable, cancelErr)
+			return organization.TeamInvitation{}, errors.Join(mailer.ErrUnavailable, cancelErr)
 		}
-		return organization.TeamInvitation{}, delivery.ErrUnavailable
+		return organization.TeamInvitation{}, mailer.ErrUnavailable
 	}
 	return result, nil
 }

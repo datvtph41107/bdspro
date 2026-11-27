@@ -1,20 +1,39 @@
+// Package phonedelivery applies channel policy and coordinates OTP delivery.
+// OTP issuance and verification remain in services/auth.
 package phonedelivery
 
 import (
-	"context"
 	"net/http"
 	"slices"
 	"time"
 
-	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	transport "github.com/datvtph41107/bdspro/modules/phonedelivery"
 	"github.com/datvtph41107/bdspro/modules/setting"
 )
 
+const (
+	maxConcurrentSends = 4
+	providerTimeout    = 5 * time.Second
+)
+
+// Service owns an immutable channel configuration and its own concurrency budget.
+type Service struct {
+	mode           string
+	defaultChannel string
+	channels       []string
+	senders        map[Channel]Sender
+	slots          chan struct{}
+}
+
 // New constructs adapters once at startup from validated application settings.
 func New(cfg setting.PhoneDeliverySettings, sms setting.SMSSettings, runMode string) (*Service, error) {
-	s := &Service{mode: cfg.Mode, defaultChannel: cfg.DefaultChannel,
-		channels: append([]string(nil), cfg.Channels...), senders: make(map[Channel]Sender), slots: make(chan struct{}, 4)}
+	s := &Service{
+		mode:           cfg.Mode,
+		defaultChannel: cfg.DefaultChannel,
+		channels:       append([]string(nil), cfg.Channels...),
+		senders:        make(map[Channel]Sender),
+		slots:          make(chan struct{}, maxConcurrentSends),
+	}
 	if cfg.Mode == "" || cfg.Mode == "disabled" {
 		s.channels = nil
 		return s, nil
@@ -26,7 +45,7 @@ func New(cfg setting.PhoneDeliverySettings, sms setting.SMSSettings, runMode str
 		return nil, &Failure{Reason: "development_transport_forbidden"}
 	}
 	client := &http.Client{
-		Timeout:       5 * time.Second,
+		Timeout:       providerTimeout,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	for _, raw := range s.channels {
@@ -54,13 +73,4 @@ func New(cfg setting.PhoneDeliverySettings, sms setting.SMSSettings, runMode str
 		return nil, ErrInvalidChannel
 	}
 	return s, nil
-}
-
-type mailpitSender struct{ channel Channel }
-
-func (s mailpitSender) Send(ctx context.Context, m Message) (Receipt, error) {
-	if err := delivery.SendDevelopmentPhoneCode(ctx, m.Phone, m.Code, string(s.channel)); err != nil {
-		return Receipt{}, &Failure{Reason: "mailpit_unavailable"}
-	}
-	return Receipt{Provider: "mailpit"}, nil
 }

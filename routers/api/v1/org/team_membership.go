@@ -4,11 +4,11 @@ import (
 	"errors"
 	"net/http"
 
-	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
 	"github.com/datvtph41107/bdspro/routers/api/v1/utils"
 	appctx "github.com/datvtph41107/bdspro/services/context"
+	"github.com/datvtph41107/bdspro/services/mailer"
 	orgservice "github.com/datvtph41107/bdspro/services/org"
 	"github.com/google/uuid"
 )
@@ -92,7 +92,7 @@ func CreateTeamInvitation(ctx *appctx.APIContext) {
 	}
 	form := web.GetForm[*structs.CreateTeamInviteOption](ctx)
 	r, err := orgservice.CreateTeamInvitation(ctx, *ctx.Doer, ctx.Org.Organization.ID, id, form.Recipient, form.ExpiresIn)
-	if errors.Is(err, delivery.ErrUnavailable) {
+	if errors.Is(err, mailer.ErrUnavailable) {
 		ctx.APIError(http.StatusServiceUnavailable, "service_unavailable", "invitation delivery unavailable")
 		return
 	}

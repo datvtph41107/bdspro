@@ -14,8 +14,8 @@ Giữ adapter giao thức trong `modules/phonedelivery`, chuyển chính sách s
 | `routers/init.go:NormalHandler` | Khởi tạo service một lần, gắn vào pipeline HTTP | Thuật toán OTP |
 | `routers/api/v1/auth/phone.go` | Bind input, browser cookie, rate limit dùng chung, ánh xạ HTTP/error | Gọi trực tiếp API nhà cung cấp |
 | `services/auth/phone.go`, `contact_link.go` | Tạo/rotate/verify challenge, TTL, MAC, ràng buộc browser/session và DB transaction | Credentials hay JSON riêng của cổng |
-| `services/phonedelivery/delivery.go` | Interface Sender, kênh được phép/default, factory, concurrency, log an toàn | Query DB, tạo tài khoản, quyết định OTP đúng/sai |
-| `modules/phonedelivery/providers.go`, `http.go` | Mapping request/response Twilio, Zalo, Telegram; giới hạn response | Đọc cấu hình global, nghiệp vụ auth, rate limit theo danh tính |
+| `services/phonedelivery/` | Sender contract, channel.go (policy), service.go (construction), delivery.go (send/capacity/log), mailpit.go (dev-only adapter) | Query DB, tạo tài khoản, quyết định OTP đúng/sai |
+| `modules/phonedelivery/{twilio,zalo,telegram,http}.go` | Mapping request/response Twilio, Zalo, Telegram; giới hạn response | Đọc cấu hình global, nghiệp vụ auth, rate limit theo danh tính |
 | `models/db`, `db/query` | SQLC, persistence, locking và transaction hiện hữu | HTTP bên ngoài |
 
 Luồng phụ thuộc chính:
@@ -26,7 +26,7 @@ flowchart TD
   A --> D[services/phonedelivery: chính sách gửi]
   A --> DB[models/db: SQLC và transaction]
   D --> P[modules/phonedelivery: adapter HTTP]
-  D --> M[modules/mail: inbox dev]
+  D --> M[modules/mail: SMTP transport via mailpit.go]
   I[routers.NormalHandler: khởi tạo] --> D
 ```
 
@@ -62,6 +62,8 @@ Không có dữ liệu khảo sát để khẳng định “đa số dev Việt 
 | `modules/log/manager_test.go`, `routers/request_log_test.go` | File không ANSI, metadata lỗi và request ID | Không lưu toàn bộ response body |
 | `scripts/test-phone-delivery.py` | API thật với DB/Redis/Mailpit: ba kênh, mã sai, replay, cooldown đổi kênh, rotate mã, metadata log | Chỉ tới registration proof; chưa complete account hay link credential |
 | `frontend/test/phone-delivery.test.js` | API helper giữ channel, cookie/header và mã lỗi phẳng | Không phải browser E2E/kiểm tra tương tác React |
+
+REQ-01: mail content now belongs to `services/mailer`; `modules/mail` sends plain SMTP messages. The development-only phone inbox is owned by `services/phonedelivery/mailpit.go`. Existing admission ordering and repeated defensive channel checks remain unchanged. Existing automated checks are opt-in; prefer the runtime probe during development.
 
 Chạy từ root:
 

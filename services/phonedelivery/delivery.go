@@ -1,5 +1,3 @@
-// Package phonedelivery applies channel policy and coordinates OTP delivery.
-// OTP issuance and verification remain in services/auth.
 package phonedelivery
 
 import (
@@ -11,15 +9,6 @@ import (
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
 	transport "github.com/datvtph41107/bdspro/modules/phonedelivery"
-	"github.com/datvtph41107/bdspro/modules/util"
-)
-
-type Channel string
-
-const (
-	SMS      Channel = "sms"
-	Zalo     Channel = "zalo"
-	Telegram Channel = "telegram"
 )
 
 type Message = transport.Message
@@ -33,33 +22,8 @@ type Sender interface {
 }
 
 var ErrUnavailable = transport.ErrUnavailable
-var ErrInvalidChannel = util.WithPublic(util.ErrInvalidArgument,
-	"phone delivery channel not enabled", "delivery_channel_unavailable",
-	"choose an available verification channel")
-
-// Service owns an immutable channel configuration and its own concurrency budget.
-type Service struct {
-	mode           string
-	defaultChannel string
-	channels       []string
-	senders        map[Channel]Sender
-	slots          chan struct{}
-}
 
 var safeMessageID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
-
-func (s *Service) ResolveChannel(raw string) (Channel, error) {
-	if s == nil || s.mode == "" || s.mode == "disabled" {
-		return "", &Failure{Reason: "delivery_not_configured"}
-	}
-	if raw == "" {
-		raw = s.defaultChannel
-	}
-	if s.senders[Channel(raw)] == nil {
-		return "", ErrInvalidChannel
-	}
-	return Channel(raw), nil
-}
 
 func (s *Service) SendCode(ctx context.Context, channel Channel, phone, code string) (Receipt, error) {
 	resolved, err := s.ResolveChannel(string(channel))
@@ -100,18 +64,4 @@ func (s *Service) SendCode(ctx context.Context, channel Channel, phone, code str
 	event.Str("channel", string(resolved)).Str("mode", s.mode).
 		Bool("accepted", err == nil).Dur("duration_ms", time.Since(started)).Msg("phone.delivery")
 	return receipt, err
-}
-
-// Options contains public capabilities from the same service that sends messages.
-type Options struct {
-	Channels       []string `json:"channels"`
-	DefaultChannel string   `json:"default_channel"`
-	Development    bool     `json:"development"`
-}
-
-func (s *Service) Options() Options {
-	if s == nil || s.mode == "" || s.mode == "disabled" {
-		return Options{Channels: []string{}}
-	}
-	return Options{Channels: append([]string{}, s.channels...), DefaultChannel: s.defaultChannel, Development: s.mode == "mailpit"}
 }

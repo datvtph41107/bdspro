@@ -6,11 +6,11 @@ import (
 	"strconv"
 
 	"github.com/datvtph41107/bdspro/modules/ipactive"
-	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
 	authservice "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
+	"github.com/datvtph41107/bdspro/services/mailer"
 )
 
 func credentialReady(ctx *appctx.APIContext, action ipactive.Action) bool {
@@ -40,7 +40,7 @@ func RequestPasswordSetProof(ctx *appctx.APIContext) {
 		return
 	}
 	err := authservice.RequestPasswordSetProof(ctx, *ctx.Doer)
-	if errors.Is(err, delivery.ErrUnavailable) {
+	if errors.Is(err, mailer.ErrUnavailable) {
 		ctx.APIError(http.StatusServiceUnavailable, "service_unavailable", "email delivery unavailable")
 		return
 	}

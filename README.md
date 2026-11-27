@@ -10,10 +10,13 @@ BDSPro contains HTTP/runtime infrastructure, session-based authentication, email
 - `db/migration/`, `db/query/` — canonical fresh-install migrations and SQLC query definitions.
 - `services/context/` — HTTP context, response/error and pagination contracts.
 - `services/auth/` — authentication, challenge/session lifecycle and credential orchestration.
+- `services/mailer/` — application email content; SMTP and plain message encoding stay in `modules/mail/`.
 - `services/phonedelivery/` — enabled-channel policy and OTP delivery orchestration; HTTP provider adapters are in `modules/phonedelivery/`.
 - `services/org/` — Organization membership, owner rules and Team transaction orchestration.
 - `routers/` — HTTP composition, authentication/permission checks and request handlers.
 - `templates/swagger/` — development Swagger UI and OpenAPI contract.
+
+See [Source organization](docs/architecture/source-organization.md) for ownership and the sequential refactor backlog.
 
 The concrete delivery boundaries, evidence and limitations are documented in [Phone delivery architecture](docs/architecture/phone-delivery.md).
 

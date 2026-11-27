@@ -9,9 +9,9 @@ import (
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
 	token "github.com/datvtph41107/bdspro/modules/auth"
-	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/services/mailer"
 	"github.com/datvtph41107/bdspro/services/phonedelivery"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -24,7 +24,7 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 	switch kind {
 	case "email":
 		if !setting.Mailer.Enabled() {
-			return RegistrationChallenge{}, delivery.ErrUnavailable
+			return RegistrationChallenge{}, mailer.ErrUnavailable
 		}
 		destination, err = NormalizeEmail(destination)
 		if err != nil {
@@ -85,7 +85,7 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 	}
 
 	if kind == "email" {
-		err = delivery.SendRegistrationCode(ctx, destination, code)
+		err = mailer.SendRegistrationCode(ctx, destination, code)
 	} else {
 		_, err = phoneDelivery.SendCode(ctx, deliveryChannel, destination, code)
 	}
