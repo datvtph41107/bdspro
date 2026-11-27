@@ -32,7 +32,7 @@ func googleBrowser(ctx *appctx.APIContext) (string, []byte, error) {
 	if err != nil {
 		return "", nil, authservice.ErrRegistrationProof
 	}
-	digest, err := token.RecoveryDigest(cookie.Value)
+	digest, err := token.OpaqueProofDigest(cookie.Value)
 	if err != nil {
 		return "", nil, authservice.ErrRegistrationProof
 	}

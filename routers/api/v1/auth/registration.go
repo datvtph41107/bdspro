@@ -28,7 +28,7 @@ func registrationBrowser(ctx *appctx.APIContext) ([]byte, error) {
 	if err != nil {
 		return nil, authservice.ErrRegistrationProof
 	}
-	digest, err := token.RecoveryDigest(cookie.Value)
+	digest, err := token.OpaqueProofDigest(cookie.Value)
 	if err != nil {
 		return nil, authservice.ErrRegistrationProof
 	}
@@ -160,12 +160,12 @@ func RegisterComplete(ctx *appctx.APIContext) {
 }
 
 func ensureRegistrationBrowser(ctx *appctx.APIContext) ([]byte, error) {
-	raw, digest, err := token.NewRecoveryProof()
+	raw, digest, err := token.NewOpaqueProof()
 	if err != nil {
 		return nil, err
 	}
 	if cookie, err := ctx.CurrentRequest().Cookie(registrationCookieName()); err == nil {
-		if existing, err := token.RecoveryDigest(cookie.Value); err == nil {
+		if existing, err := token.OpaqueProofDigest(cookie.Value); err == nil {
 			raw, digest = cookie.Value, existing
 		}
 	}

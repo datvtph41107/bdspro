@@ -117,7 +117,7 @@ func ResendPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, id u
 }
 
 func VerifyPhone(ctx context.Context, id uuid.UUID, browser []byte, code string, remember bool, ip, agent string) (PhoneVerification, error) {
-	raw, digest, err := token.NewRecoveryProof()
+	raw, digest, err := token.NewOpaqueProof()
 	if err != nil {
 		return PhoneVerification{}, err
 	}
@@ -196,7 +196,7 @@ func CompletePhone(ctx context.Context, raw string, browser []byte, username, te
 	if terms != CurrentTermsVersion {
 		return LoginResult{}, ErrTermsInvalid
 	}
-	digest, err := token.RecoveryDigest(raw)
+	digest, err := token.OpaqueProofDigest(raw)
 	if err != nil {
 		return LoginResult{}, ErrRegistrationProof
 	}

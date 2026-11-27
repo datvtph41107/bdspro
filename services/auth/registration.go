@@ -141,7 +141,7 @@ func ResendRegistration(ctx context.Context, id uuid.UUID, browser []byte) (Regi
 }
 
 func VerifyRegistration(ctx context.Context, id uuid.UUID, browser []byte, code string) (RegistrationVerification, error) {
-	raw, digest, err := token.NewRecoveryProof()
+	raw, digest, err := token.NewOpaqueProof()
 	if err != nil {
 		return RegistrationVerification{}, err
 	}
@@ -201,7 +201,7 @@ func CompleteRegistration(ctx context.Context, raw string, browser []byte, usern
 	if terms != CurrentTermsVersion {
 		return LoginResult{}, ErrTermsInvalid
 	}
-	digest, err := token.RecoveryDigest(raw)
+	digest, err := token.OpaqueProofDigest(raw)
 	if err != nil {
 		return LoginResult{}, ErrRegistrationProof
 	}

@@ -52,7 +52,7 @@ func StartAuthenticatedGoogle(ctx context.Context, actor authmodel.Actor, purpos
 		if err != nil {
 			return GoogleStartResult{}, err
 		}
-		digest, err := token.RecoveryDigest(result.Browser)
+		digest, err := token.OpaqueProofDigest(result.Browser)
 		if err != nil {
 			return GoogleStartResult{}, err
 		}
@@ -134,7 +134,7 @@ func CompleteGoogleLink(ctx context.Context, actor authmodel.Actor, browser []by
 }
 
 func CompleteGoogleReauth(ctx context.Context, actor authmodel.Actor, browser []byte) (RecentAuthResult, error) {
-	raw, digest, err := token.NewRecoveryProof()
+	raw, digest, err := token.NewOpaqueProof()
 	if err != nil {
 		return RecentAuthResult{}, err
 	}

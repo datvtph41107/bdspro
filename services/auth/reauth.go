@@ -55,7 +55,7 @@ func ReauthenticatePassword(ctx context.Context, actor authmodel.Actor, password
 	if _, err := q.DeleteExpiredRecentAuthProofs(ctx, 100); err != nil {
 		return RecentAuthResult{}, err
 	}
-	raw, digest, err := token.NewRecoveryProof()
+	raw, digest, err := token.NewOpaqueProof()
 	if err != nil {
 		return RecentAuthResult{}, err
 	}
@@ -89,7 +89,7 @@ func RequestPasswordSetProof(ctx context.Context, actor authmodel.Actor) error {
 	if !setting.Mailer.Enabled() {
 		return mailer.ErrUnavailable
 	}
-	raw, digest, err := token.NewRecoveryProof()
+	raw, digest, err := token.NewOpaqueProof()
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func ConsumeRecentAuthProof(ctx context.Context, q *db.Queries, actor authmodel.
 	if !db.InTransaction(ctx) {
 		return ErrReauthRequired
 	}
-	digest, err := token.RecoveryDigest(raw)
+	digest, err := token.OpaqueProofDigest(raw)
 	if err != nil {
 		return ErrReauthRequired
 	}

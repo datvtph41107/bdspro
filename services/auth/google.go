@@ -28,19 +28,19 @@ func StartGoogle(ctx context.Context, remember bool) (GoogleStartResult, error) 
 	if !setting.Google.Enabled() {
 		return GoogleStartResult{}, token.ErrGoogleUnavailable
 	}
-	browser, browserDigest, err := token.NewRecoveryProof()
+	browser, browserDigest, err := token.NewOpaqueProof()
 	if err != nil {
 		return GoogleStartResult{}, err
 	}
-	state, stateDigest, err := token.NewRecoveryProof()
+	state, stateDigest, err := token.NewOpaqueProof()
 	if err != nil {
 		return GoogleStartResult{}, err
 	}
-	nonce, _, err := token.NewRecoveryProof()
+	nonce, err := token.NewRandomToken()
 	if err != nil {
 		return GoogleStartResult{}, err
 	}
-	verifier, _, err := token.NewRecoveryProof()
+	verifier, err := token.NewRandomToken()
 	if err != nil {
 		return GoogleStartResult{}, err
 	}
@@ -64,7 +64,7 @@ func GoogleCallback(ctx context.Context, browser []byte, state, code string) err
 	if !setting.Google.Enabled() {
 		return token.ErrGoogleUnavailable
 	}
-	digest, err := token.RecoveryDigest(state)
+	digest, err := token.OpaqueProofDigest(state)
 	if err != nil {
 		return ErrRegistrationProof
 	}
@@ -150,7 +150,7 @@ func googleOwner(ctx context.Context, q *db.Queries, subject string, lock bool) 
 }
 
 func ConsumeGoogleResult(ctx context.Context, browser []byte, ip, agent string) (GoogleResult, error) {
-	raw, digest, err := token.NewRecoveryProof()
+	raw, digest, err := token.NewOpaqueProof()
 	if err != nil {
 		return GoogleResult{}, err
 	}
@@ -230,7 +230,7 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 	if terms != CurrentTermsVersion {
 		return LoginResult{}, ErrTermsInvalid
 	}
-	digest, err := token.RecoveryDigest(raw)
+	digest, err := token.OpaqueProofDigest(raw)
 	if err != nil {
 		return LoginResult{}, ErrRegistrationProof
 	}

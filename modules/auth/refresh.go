@@ -2,7 +2,6 @@ package auth
 
 import (
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
@@ -12,6 +11,8 @@ import (
 
 	"github.com/google/uuid"
 )
+
+const refreshVersion = "r1"
 
 var ErrRefreshInvalid = errors.New("invalid refresh credential")
 
@@ -32,15 +33,15 @@ func NewRefreshCredential(key string, sessionID uuid.UUID, remember bool) (strin
 	if len(key) < 32 || sessionID == uuid.Nil {
 		return "", ErrRefreshInvalid
 	}
-	nonce := make([]byte, 32)
-	if _, err := rand.Read(nonce); err != nil {
+	nonce, err := NewRandomToken()
+	if err != nil {
 		return "", err
 	}
 	flag := "0"
 	if remember {
 		flag = "1"
 	}
-	body := "r1." + sessionID.String() + "." + base64.RawURLEncoding.EncodeToString(nonce) + "." + flag
+	body := refreshVersion + "." + sessionID.String() + "." + nonce + "." + flag
 	return body + "." + base64.RawURLEncoding.EncodeToString(refreshMAC(key, body)), nil
 }
 
@@ -49,19 +50,20 @@ func ReadRefreshCredential(key, raw string) (RefreshProof, error) {
 		return RefreshProof{}, ErrRefreshInvalid
 	}
 	parts := strings.Split(raw, ".")
-	if len(parts) != 5 || parts[0] != "r1" || (parts[3] != "0" && parts[3] != "1") {
+	if len(parts) != 5 || parts[0] != refreshVersion || (parts[3] != "0" && parts[3] != "1") {
 		return RefreshProof{}, ErrRefreshInvalid
 	}
 	id, err := uuid.Parse(parts[1])
 	if err != nil || id == uuid.Nil || id.String() != parts[1] {
 		return RefreshProof{}, ErrRefreshInvalid
 	}
-	nonce, err := base64.RawURLEncoding.Strict().DecodeString(parts[2])
-	if err != nil || len(nonce) != 32 {
+	if !ValidOpaqueProof(parts[2]) {
 		return RefreshProof{}, ErrRefreshInvalid
 	}
-	tag, err := base64.RawURLEncoding.Strict().DecodeString(parts[4])
-	if err != nil || !hmac.Equal(tag, refreshMAC(key, strings.Join(parts[:4], "."))) {
+	// Compare the canonical encoded tag, not decoded bytes. Base64 decoders
+	// ignore CR/LF; aliases must not reach the persisted refresh-digest check.
+	expected := base64.RawURLEncoding.EncodeToString(refreshMAC(key, strings.Join(parts[:4], ".")))
+	if !hmac.Equal([]byte(parts[4]), []byte(expected)) {
 		return RefreshProof{}, ErrRefreshInvalid
 	}
 	return RefreshProof{SessionID: id, Remember: parts[3] == "1"}, nil

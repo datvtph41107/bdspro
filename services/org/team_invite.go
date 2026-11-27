@@ -25,7 +25,7 @@ func CreateTeamInvitation(ctx context.Context, actor authmodel.Actor, orgID, tea
 	if err != nil {
 		return organization.TeamInvitation{}, err
 	}
-	raw, digest, err := token.NewRecoveryProof()
+	raw, digest, err := token.NewOpaqueProof()
 	if err != nil {
 		return organization.TeamInvitation{}, err
 	}
@@ -111,7 +111,7 @@ func RevokeTeamInvitation(ctx context.Context, actor authmodel.Actor, orgID, tea
 }
 
 func AcceptTeamInvitation(ctx context.Context, actor authmodel.Actor, raw string) (organization.TeamMembership, error) {
-	digest, err := token.RecoveryDigest(raw)
+	digest, err := token.OpaqueProofDigest(raw)
 	if err != nil {
 		return organization.TeamMembership{}, organization.ErrTeamInviteInvalid
 	}

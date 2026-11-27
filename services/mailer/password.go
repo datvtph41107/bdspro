@@ -3,13 +3,13 @@ package mailer
 import (
 	"context"
 	"strconv"
-	"strings"
 
+	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/mail"
 )
 
 func SendPasswordReset(ctx context.Context, destination, proof string, ttlMinutes int) error {
-	if ttlMinutes <= 0 || len(proof) != 43 || strings.ContainsAny(proof, "\r\n") {
+	if ttlMinutes <= 0 || !token.ValidOpaqueProof(proof) {
 		return ErrUnavailable
 	}
 	return mail.SendPlain(ctx, destination, "BDSPro password recovery",
@@ -17,7 +17,7 @@ func SendPasswordReset(ctx context.Context, destination, proof string, ttlMinute
 }
 
 func SendPasswordSetProof(ctx context.Context, destination, proof string, ttlMinutes int) error {
-	if ttlMinutes <= 0 || len(proof) != 43 || strings.ContainsAny(proof, "\r\n") {
+	if ttlMinutes <= 0 || !token.ValidOpaqueProof(proof) {
 		return ErrUnavailable
 	}
 	return mail.SendPlain(ctx, destination, "BDSPro password setup",

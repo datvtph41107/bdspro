@@ -75,7 +75,7 @@ func requestPasswordReset(ctx context.Context, email string) error {
 	if err != nil {
 		return err
 	}
-	raw, digest, err := token.NewRecoveryProof()
+	raw, digest, err := token.NewOpaqueProof()
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func requestPasswordReset(ctx context.Context, email string) error {
 }
 
 func ResetPassword(ctx context.Context, raw, password string) error {
-	digest, err := token.RecoveryDigest(raw)
+	digest, err := token.OpaqueProofDigest(raw)
 	if err != nil {
 		return ErrRecoveryInvalid
 	}

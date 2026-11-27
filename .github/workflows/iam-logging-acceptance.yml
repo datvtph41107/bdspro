@@ -100,6 +100,14 @@ jobs:
         run: |
           test -z "$(gofmt -l modules/auth/otp.go modules/auth/phone.go modules/auth/otp_test.go services/mailer/registration.go)" || { gofmt -d modules/auth/otp.go modules/auth/phone.go modules/auth/otp_test.go services/mailer/registration.go; exit 1; }
           go test ./modules/auth -run '^Test(OTPWireCompatibility|OTPDecimalFormat|RegistrationCodeBinding|PhoneNormalizationAndMAC|ContactLinkCodeBinding)$' -count=1 -v
+      - name: Verify opaque proof and refresh wire compatibility
+        run: |
+          test -z "$(gofmt -l modules/auth/proof.go modules/auth/recovery_test.go modules/auth/refresh.go modules/auth/refresh_test.go services/mailer/password.go services/mailer/team_invite.go)" || { gofmt -d modules/auth/proof.go modules/auth/recovery_test.go modules/auth/refresh.go modules/auth/refresh_test.go services/mailer/password.go services/mailer/team_invite.go; exit 1; }
+          go test ./modules/auth -run '^Test(OpaqueProof|OpaqueProofWireCompatibility|RefreshCredential|RefreshWireCompatibility)$' -count=1 -v
+          if git grep -nE '\b(NewRecoveryProof|RecoveryDigest|ErrRecoveryProof)\b' -- '*.go' 'scripts/*.sh' 'scripts/*.py'; then
+            echo "Obsolete proof naming still has a consumer"
+            exit 1
+          fi
       - name: Verify Google freshness contract
         run: go test ./modules/auth -run '^TestGoogleStepUp$' -count=1
       - name: Verify provider lifetime projection
