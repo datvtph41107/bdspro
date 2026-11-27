@@ -77,7 +77,6 @@ jobs:
           test -z "$(gofmt -l services/auth/login.go)" || { gofmt -d services/auth/login.go; exit 1; }
       - name: Verify time policy boundaries
         run: |
-          go test ./modules/auth -run '^TestBrowserTimeBoundaries$' -count=1
           go test ./models/organization -run '^TestTeamInviteDuration$' -count=1
           BDS_TEST_REDIS_ADDR=127.0.0.1:6379 go test ./modules/ipactive -run '^TestRetryAfterCeiling$' -count=1
       - name: Build
@@ -106,6 +105,13 @@ jobs:
           go test ./modules/auth -run '^Test(OpaqueProof|OpaqueProofWireCompatibility|RefreshCredential|RefreshWireCompatibility)$' -count=1 -v
           if git grep -nE '\b(NewRecoveryProof|RecoveryDigest|ErrRecoveryProof)\b' -- '*.go' 'scripts/*.sh' 'scripts/*.py'; then
             echo "Obsolete proof naming still has a consumer"
+            exit 1
+          fi
+      - name: Verify removal of unused browser codec
+        run: |
+          test -z "$(gofmt -l routers/api/v1/auth/browser.go routers/api/v1/auth/session.go)" || { gofmt -d routers/api/v1/auth/browser.go routers/api/v1/auth/session.go; exit 1; }
+          if git grep -nE '\b(BrowserSessionCodec|NewBrowserSessionCodec|BrowserSessionCookie|BrowserCookieName|BrowserSessionTTL|BrowserCSRFTokenTTL|ErrBrowserProofInvalid|BrowserNextPath|VerifyBrowserPostOrigin|IssueCSRF|VerifyCSRF|IssueCookie|ReadCookie|canonicalUUID|deriveBrowserKey|validBrowserMAC|signBrowser|validBrowserPurpose)\b|__Host-bdspro-browser|bdspro_browser_dev|bdspro\.browser\.(session|csrf)\.v1' -- '*.go' 'frontend/src/*' 'frontend/test/*' 'scripts/*.sh' 'scripts/*.py'; then
+            echo "Removed browser codec still has a source consumer"
             exit 1
           fi
       - name: Verify Google freshness contract

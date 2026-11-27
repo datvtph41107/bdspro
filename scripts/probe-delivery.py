@@ -133,6 +133,43 @@ def check_failed_attempts(opener, kind, path, challenge, code):
     return challenge_id
 
 
+def check_browser_origin():
+    # No refresh cookie: accepted browser requests must reach the 401 handler,
+    # while rejected origins must stop at the 403 guard. No real account needed.
+    common = {"Content-Type": "application/json", "Origin": BASE,
+              "X-BDS-Request": "1", "Sec-Fetch-Site": "same-origin"}
+    cases = [
+        ("same origin", {}, 401),
+        ("no fetch metadata", {"Sec-Fetch-Site": None}, 401),
+        ("navigation metadata", {"Sec-Fetch-Site": "none"}, 401),
+        ("missing origin", {"Origin": None}, 403),
+        ("null origin", {"Origin": "null"}, 403),
+        ("foreign origin", {"Origin": "https://foreign.example.invalid"}, 403),
+        ("origin with path", {"Origin": BASE + "/path"}, 403),
+        ("origin with query", {"Origin": BASE + "?x=1"}, 403),
+        ("missing custom header", {"X-BDS-Request": None}, 403),
+        ("incorrect custom header", {"X-BDS-Request": "0"}, 403),
+        ("cross-site metadata", {"Sec-Fetch-Site": "cross-site"}, 403),
+        ("same-site metadata", {"Sec-Fetch-Site": "same-site"}, 403),
+    ]
+    for name, overrides, expected in cases:
+        headers = {**common, **overrides}
+        request = urllib.request.Request(
+            BASE + "/api/v1/auth/refresh", data=b"{}", method="POST",
+            headers={key: value for key, value in headers.items() if value is not None},
+        )
+        try:
+            response = browser().open(request, timeout=5)
+        except urllib.error.HTTPError as error:
+            response = error
+        with response:
+            if response.status != expected:
+                raise RuntimeError(f"Browser guard {name}: HTTP {response.status}, expected {expected}")
+            if response.headers.get("Set-Cookie") is not None:
+                raise RuntimeError(f"Browser guard {name}: unexpectedly wrote a cookie")
+    print("PASS browser Origin, custom header and fetch metadata admission", flush=True)
+
+
 def check_guard_boundaries():
     email = "guard-" + secrets.token_hex(6) + "@example.invalid"
     opener = browser()
@@ -311,6 +348,7 @@ def main():
     if capabilities.get("development") is not True or capabilities.get("channels") != ["sms", "zalo", "telegram"]:
         raise RuntimeError("Refusing delivery probe outside expected Mailpit development mode")
     get(MAILPIT + "/api/v1/info")
+    check_browser_origin()
 
     email = "probe-" + secrets.token_hex(6) + "@example.invalid"
     opener = browser()

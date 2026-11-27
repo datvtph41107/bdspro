@@ -21,14 +21,6 @@ import (
 
 const refreshCookieName = "bdspro_refresh"
 
-func BrowserMutation(ctx *appctx.APIContext) {
-	r := ctx.CurrentRequest()
-	if r.Header.Get("X-BDS-Request") != "1" || token.VerifyBrowserPostOrigin(r, setting.Server.BrowserPublicOrigin) != nil {
-		ctx.Data[appctx.ErrorReasonKey] = "browser_origin"
-		ctx.APIError(http.StatusForbidden, "permission_denied", "browser origin verification failed")
-	}
-}
-
 func Login(ctx *appctx.APIContext) {
 	ctx.Header("Cache-Control", "no-store")
 	form := web.GetForm[*structs.LoginRequest](ctx)
@@ -98,10 +90,6 @@ func Logout(ctx *appctx.APIContext) {
 	}
 	ClearRefreshCookie(ctx)
 	ctx.Status(http.StatusNoContent)
-}
-
-func secureCookie() bool {
-	return setting.Common.RunMode != "development" || strings.HasPrefix(setting.Server.BrowserPublicOrigin, "https://")
 }
 
 func writeAuthenticated(ctx *appctx.APIContext, result authservice.LoginResult) {

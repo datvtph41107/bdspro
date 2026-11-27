@@ -20,6 +20,6 @@ npm test
 npm run dev
 ```
 
-Open http://localhost:5173. Check Go API connected (GET /api/v1/health). Vite proxy target defaults to http://127.0.0.1:8080; set BDS_API_TARGET in shell if necessary. Do not store secrets in frontend env. Commit package-lock.json after actual install; subsequent installs npm ci. Run npm run build and browser acceptance after real backend implementation. The X-BDS-Request header is only the starter's intended CSRF contract; backend origin/CSRF enforcement must be implemented and tested. Do not use this starter in production. Replace dev terms with approved legal documents before production.
+Open http://localhost:5173. Check Go API connected (GET /api/v1/health). Vite proxy target defaults to http://127.0.0.1:8080; set BDS_API_TARGET in shell if necessary. Do not store secrets in frontend env. Commit package-lock.json after actual install; subsequent installs npm ci. Run npm run build and browser acceptance after real backend implementation. The active browser-sensitive mutation routes use the X-BDS-Request: 1 header, configured Origin and Sec-Fetch-Site guard. Session and registration/Google browser bindings remain separate. The backend disposable HTTP probe checks guard admission; full browser/deployment acceptance is still required. Do not use this starter in production. Replace dev terms with approved legal documents before production.
 
 Read ../docs/iam/FRONTEND_OPERATIONS.md and ARCHITECTURE_API.md for full implementation and real E2E requirements.
