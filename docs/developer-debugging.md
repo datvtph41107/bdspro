@@ -93,3 +93,7 @@ Use an optimized build, without breakpoints, to measure performance. No pprof li
 The six logging stages are source changes, not proven production behavior. Run full package tests/race/build and the smoke test on the actual Go version and dependencies. Verify real IAM success/denial, SQL failures, provider failure with a local mock, graceful shutdown and file rotation separately. Record the commit, commands, outputs, failures and tradeoffs; stop expanding logging until these are reviewed.
 
 References: [VS Code Go debugging](https://github.com/golang/vscode-go/blob/master/docs/debugging.md), [Delve getting started](https://github.com/go-delve/delve/blob/master/Documentation/cli/getting_started.md), [Go diagnostics](https://go.dev/doc/diagnostics).
+
+## CI and stabilization
+
+See [Logging stabilization and acceptance](logging-acceptance.md). The IAM branch workflow checks build, vet, tests, focused race tests, disposable local HTTP/JSON correlation and formatter benchmark. A green run is not equivalent to full IAM production acceptance.
