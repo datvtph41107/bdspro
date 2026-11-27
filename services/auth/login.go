@@ -155,11 +155,10 @@ func issueSession(ctx context.Context, q *db.Queries, accountID int64, clientIP,
 }
 
 func sessionResult(ctx context.Context, accountID int64, id uuid.UUID, expiry time.Time, raw string, remember bool) (LoginResult, error) {
-	ttl := min(setting.Security.AccessTokenDuration, time.Until(expiry))
-	if ttl <= 0 {
+	access, payload, err := token.ProcessMaker().CreateSessionAccessToken(accountID, setting.Security.AccessTokenDuration, id, expiry)
+	if errors.Is(err, token.ErrExpiredToken) {
 		return LoginResult{}, util.ErrUnauthenticated
 	}
-	access, _, err := token.ProcessMaker().CreateSessionAccessToken(accountID, ttl, id)
 	if err != nil {
 		return LoginResult{}, err
 	}
@@ -169,6 +168,6 @@ func sessionResult(ctx context.Context, accountID int64, id uuid.UUID, expiry ti
 	}
 	return LoginResult{
 		Status: "authenticated", AccessToken: access, TokenType: "Bearer",
-		ExpiresIn: int64(ttl / time.Second), User: u, Refresh: raw, ExpiresAt: expiry, Remember: remember,
+		ExpiresIn: int64(payload.ExpiredAt.Sub(payload.IssuedAt) / time.Second), User: u, Refresh: raw, ExpiresAt: expiry, Remember: remember,
 	}, nil
 }

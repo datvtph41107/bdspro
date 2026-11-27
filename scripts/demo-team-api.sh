@@ -74,7 +74,7 @@ func main() {
     if err != nil { panic(err) }
     maker, err := auth.NewJWTMaker(os.Getenv("BDS_TEST_TOKEN_KEY"))
     if err != nil { panic(err) }
-    token, _, err := maker.CreateSessionAccessToken(id, 10*time.Minute, session)
+    token, _, err := maker.CreateSessionAccessToken(id, 10*time.Minute, session, time.Now().Add(10*time.Minute))
     if err != nil { panic(err) }
     fmt.Print(token)
 }

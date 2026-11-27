@@ -35,13 +35,21 @@ func (maker *JWTMaker) CreateToken(
 	return maker.sign(payload)
 }
 
-func (maker *JWTMaker) CreateSessionAccessToken(accountID int64, duration time.Duration, sessionID uuid.UUID) (string, *Payload, error) {
+func (maker *JWTMaker) CreateSessionAccessToken(accountID int64, duration time.Duration, sessionID uuid.UUID, sessionExpiry time.Time) (string, *Payload, error) {
 	if sessionID == uuid.Nil {
 		return "", nil, ErrInvalidToken
 	}
 	payload, err := NewPayload(accountID, duration, TokenTypeAccess)
 	if err != nil {
 		return "", nil, err
+	}
+	// Use the issuance timestamp already captured by NewPayload. Never extend
+	// an access token beyond the persisted session's absolute deadline.
+	if !sessionExpiry.After(payload.IssuedAt) {
+		return "", nil, ErrExpiredToken
+	}
+	if sessionExpiry.Before(payload.ExpiredAt) {
+		payload.ExpiredAt = sessionExpiry.UTC()
 	}
 	payload.SessionID = sessionID
 	return maker.sign(payload)

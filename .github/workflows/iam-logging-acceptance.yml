@@ -68,6 +68,8 @@ jobs:
         run: go build ./...
       - name: Verify canonical pagination contract
         run: go test ./services/context -run '^TestLinkHeaderUsesValidatedPage$' -count=1
+      - name: Verify session access deadline contract
+        run: go test ./modules/auth -run '^TestSessionAccessTokenDeadline$' -count=1
       - name: Local HTTP and JSON correlation
         shell: bash
         run: |
