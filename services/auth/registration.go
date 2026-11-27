@@ -19,13 +19,13 @@ import (
 
 // Verification lifetimes are authentication policy, not transport defaults.
 const (
-	verificationCodeTTLMinutes         = 5
+	verificationCodeTTLMinutes        = 5
 	VerificationResendCooldownSeconds = 60
-	registrationProofTTLMinutes        = 15
+	registrationProofTTLMinutes       = 15
 
 	// The current schema independently enforces a storage ceiling of five.
-	verificationMaxFailedAttempts     = 5
-	registrationResendHorizonMinutes  = 30
+	verificationMaxFailedAttempts       = 5
+	registrationResendHorizonMinutes    = 30
 	verificationCleanupRetentionMinutes = 30
 	verificationCleanupBatchSize        = 100
 )

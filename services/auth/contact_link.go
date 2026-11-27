@@ -69,7 +69,7 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 
 		n, err := q.StartCredentialLink(txCtx, db.StartCredentialLinkParams{
 			MaxFailedAttempts: verificationMaxFailedAttempts,
-			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
+			TtlMinutes:        verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 			ID: id, AccountID: actor.AccountID, SessionID: actor.SessionID, Kind: kind,
 			Destination: destination,
 			CodeMac:     token.ContactLinkCodeMAC(setting.Security.TokenSymmetricKey, id, actor.AccountID, actor.SessionID, kind, destination, code),
