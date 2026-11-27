@@ -29,7 +29,7 @@ def browser():
     )
 
 
-def post(opener, path, body, expected, *, access=None, group="auth"):
+def post(opener, path, body, expected, *, access=None, group="auth", response_check=None):
     headers = {"Content-Type": "application/json", "Origin": BASE,
                "X-BDS-Request": "1", "Sec-Fetch-Site": "same-origin"}
     if access:
@@ -46,6 +46,8 @@ def post(opener, path, body, expected, *, access=None, group="auth"):
     with response:
         if response.status != expected:
             raise RuntimeError(f"{path}: HTTP {response.status}, expected {expected}")
+        if response_check is not None:
+            response_check(response)
         data = None if response.status == 204 else json.load(response)
         print(f"PASS POST /api/v1/{group}/{path} {response.status}", flush=True)
         return data
@@ -261,6 +263,17 @@ def check_google_registration_binding():
     print("PASS Google registration cookie renewal, browser binding and result replay denial (fixture)", flush=True)
 
 
+def check_registration_cookie(response):
+    cookies = SimpleCookie()
+    for header in response.headers.get_all("Set-Cookie", []):
+        cookies.load(header)
+    cookie = cookies.get("bdspro_register_dev")
+    if cookie is None or cookie["max-age"] != "3000":
+        raise RuntimeError("Registration browser lifetime does not cover resend/OTP/proof")
+    if not cookie["httponly"] or cookie["samesite"].lower() != "lax" or cookie["path"] != "/":
+        raise RuntimeError("Registration browser cookie attributes changed")
+
+
 def main():
     capabilities = get(BASE + "/api/v1/auth/phone/channels")
     if capabilities.get("development") is not True or capabilities.get("channels") != ["sms", "zalo", "telegram"]:
@@ -269,7 +282,7 @@ def main():
 
     email = "probe-" + secrets.token_hex(6) + "@example.invalid"
     opener = browser()
-    challenge = post(opener, "register/start", {"email": email}, 202)
+    challenge = post(opener, "register/start", {"email": email}, 202, response_check=check_registration_cookie)
     check_challenge(challenge, "email")
     code, message_id = inbox_code(email, r"Enter this verification code in BDSPro: (\d{8})", challenge["expires_in"])
     post(opener, "register/resend", {"challenge_id": challenge["challenge_id"]}, 429)
@@ -292,7 +305,7 @@ def main():
     for channel in capabilities["channels"]:
         phone = "+8490" + "".join(secrets.choice("0123456789") for _ in range(7))
         opener = browser()
-        challenge = post(opener, "phone/start", {"phone": phone, "channel": channel}, 202)
+        challenge = post(opener, "phone/start", {"phone": phone, "channel": channel}, 202, response_check=check_registration_cookie)
         if challenge.get("delivery_channel") != channel:
             raise RuntimeError("Unexpected delivery channel")
         check_challenge(challenge, "phone")

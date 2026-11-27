@@ -171,7 +171,7 @@ func ensureRegistrationBrowser(ctx *appctx.APIContext) ([]byte, error) {
 	}
 
 	ctx.Header("Set-Cookie", (&http.Cookie{
-		Name: registrationCookieName(), Value: raw, Path: "/", MaxAge: 2700,
+		Name: registrationCookieName(), Value: raw, Path: "/", MaxAge: authservice.RegistrationBrowserMaxAgeSeconds,
 		HttpOnly: true, Secure: secureCookie(), SameSite: http.SameSiteLaxMode,
 	}).String())
 	return digest, nil

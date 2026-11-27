@@ -25,7 +25,7 @@ var countScript = redis.NewScript(`
 local n = redis.call('INCR', KEYS[1])
 if n == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
 if n > tonumber(ARGV[2]) then
-    local ttl = redis.call('TTL', KEYS[1])
+    local ttl = math.ceil(redis.call('PTTL', KEYS[1]) / 1000)
     if ttl < 1 then ttl = 1 end
     return {n, ttl}
 end
@@ -36,7 +36,7 @@ var cooldownScript = redis.NewScript(`
 if redis.call('SET', KEYS[1], '1', 'EX', ARGV[1], 'NX') then
     return {1, 0}
 end
-local ttl = redis.call('TTL', KEYS[1])
+local ttl = math.ceil(redis.call('PTTL', KEYS[1]) / 1000)
 if ttl < 1 then ttl = 1 end
 return {0, ttl}
 `)

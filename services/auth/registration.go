@@ -30,6 +30,10 @@ const (
 	verificationCleanupBatchSize        = 100
 )
 
+// RegistrationBrowserMaxAgeSeconds covers the latest allowed resend, its OTP,
+// and the registration proof issued immediately before that OTP expires.
+const RegistrationBrowserMaxAgeSeconds = (registrationResendHorizonMinutes + verificationCodeTTLMinutes + registrationProofTTLMinutes) * 60
+
 var (
 	ErrRegistrationProof = util.WithPublic(util.ErrInvalidArgument, "registration proof invalid", "invalid_proof", "invalid or expired registration proof")
 	ErrRegistrationCode  = util.WithPublic(util.ErrInvalidArgument, "verification code invalid", "invalid_verification_code", "invalid or expired verification code")
