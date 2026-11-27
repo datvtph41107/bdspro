@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -31,7 +32,7 @@ func TestGoogleFlowLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx.Rollback(context.Background())
-	q := New(tx)
+	q := sqlc.New(tx)
 
 	// Random fixture identities avoid touching unrelated rows.
 	id := uuid.New()

@@ -45,56 +45,46 @@ func (s *transactionScope) close() {
 	s.mu.Unlock()
 }
 
+// GetEngine returns the current SQL execution handle for legacy inline SQL.
+// Prefer GetQueries for generated SQLC queries.
 func GetEngine(ctx context.Context) (DBTX, error) {
-	if ctx == nil {
-		return nil, ErrTransactionContext
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	if value := ctx.Value(transactionContextKey{}); value != nil {
-		scope, ok := value.(*transactionScope)
-		if !ok || scope == nil {
-			return nil, ErrTransactionContext
-		}
-		if err := scope.failure(); err != nil {
-			return nil, err
-		}
-		return scope.tx, nil
-	}
-	current, err := getDefaultEngine()
-	if err != nil {
-		return nil, err
-	}
-	return current.pool, nil
+	conn, _, err := resolveQueryContext(ctx)
+	return conn, err
 }
 
 func GetQueries(ctx context.Context) (*Queries, error) {
+	_, queries, err := resolveQueryContext(ctx)
+	return queries, err
+}
+
+// Both handles must refer to the same pool or the same transaction.
+// An invalid transaction context must never fall back to the default pool.
+func resolveQueryContext(ctx context.Context) (DBTX, *Queries, error) {
 	if ctx == nil {
-		return nil, ErrTransactionContext
+		return nil, nil, ErrTransactionContext
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if value := ctx.Value(transactionContextKey{}); value != nil {
 		scope, ok := value.(*transactionScope)
 		if !ok || scope == nil {
-			return nil, ErrTransactionContext
+			return nil, nil, ErrTransactionContext
 		}
 		if err := scope.failure(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		if scope.queries == nil {
+		if scope.tx == nil || scope.queries == nil {
 			scope.fail(ErrTransactionContext)
-			return nil, ErrTransactionContext
+			return nil, nil, ErrTransactionContext
 		}
-		return scope.queries, nil
+		return scope.tx, scope.queries, nil
 	}
 	current, err := getDefaultEngine()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return current.queries, nil
+	return current.pool, current.queries, nil
 }
 
 func InTransaction(ctx context.Context) bool {
@@ -128,7 +118,7 @@ func WithTx(ctx context.Context, fn func(context.Context) error) error {
 		return err
 	}
 	scope := &transactionScope{tx: tx}
-	scope.queries = New(tx)
+	scope.queries = current.queries.WithTx(tx)
 	txCtx := context.WithValue(ctx, transactionContextKey{}, scope)
 
 	defer func() {

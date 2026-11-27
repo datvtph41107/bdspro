@@ -5,9 +5,16 @@ import (
 	"errors"
 	"sync"
 
+	sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/setting"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+type engine struct {
+	pool    *pgxpool.Pool
+	queries *Queries
+}
 
 var defaultEngine struct {
 	mu     sync.RWMutex
@@ -49,7 +56,7 @@ func InitEngine(ctx context.Context) error {
 
 	defaultEngine.value = &engine{
 		pool:    pool,
-		queries: New(pool),
+		queries: sqlc.New(pool),
 	}
 
 	return nil

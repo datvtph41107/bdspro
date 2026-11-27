@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	sqlc "github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -71,7 +72,7 @@ func TestAuthStateMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	q := New(conn)
+	q := sqlc.New(conn)
 	email, err := q.LockEmailRegistrationProof(ctx, LockEmailRegistrationProofParams{ProofDigest: proof, BrowserDigest: browser})
 	if err != nil || email.Email != "test@example.invalid" {
 		t.Fatalf("email proof lost: %v", err)

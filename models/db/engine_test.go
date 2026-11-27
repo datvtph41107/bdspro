@@ -172,6 +172,57 @@ func TestDefaultEngineLifecycle(t *testing.T) {
 	if err != nil || first == nil || second != first {
 		t.Fatal("default SQLC queries not shared")
 	}
+	// A temporary table is visible only on the transaction's actual connection.
+	// Reading it through a generated query proves the SQLC handle uses that tx,
+	// rather than accidentally escaping to the pool.
+	var ended context.Context
+	err = WithTx(ctx, func(txCtx context.Context) error {
+		ended = txCtx
+		conn, err := GetEngine(txCtx)
+		if err != nil {
+			return err
+		}
+		q, err := GetQueries(txCtx)
+		if err != nil {
+			return err
+		}
+		scope := txCtx.Value(transactionContextKey{}).(*transactionScope)
+		if conn != scope.tx || q != scope.queries || q == first || conn == handle {
+			t.Fatal("transaction handles do not share one scope")
+		}
+		child := context.WithValue(txCtx, struct{ fixture bool }{true}, true)
+		childConn, err := GetEngine(child)
+		if err != nil || childConn != conn {
+			t.Fatal("derived context lost transaction handle", err)
+		}
+		childQueries, err := GetQueries(child)
+		if err != nil || childQueries != q {
+			t.Fatal("derived context lost SQLC handle", err)
+		}
+		if _, err := conn.Exec(txCtx, "CREATE TEMP TABLE oauth2_credentials (issuer text, subject text, account_id bigint) ON COMMIT DROP"); err != nil {
+			return err
+		}
+		if _, err := conn.Exec(txCtx, "INSERT INTO pg_temp.oauth2_credentials VALUES ($1, $2, $3)", "fixture-issuer", "fixture-subject", int64(42)); err != nil {
+			return err
+		}
+		account, err := q.GetOAuth2AccountID(txCtx, GetOAuth2AccountIDParams{Issuer: "fixture-issuer", Subject: "fixture-subject"})
+		if err != nil {
+			return err
+		}
+		if account != 42 {
+			t.Fatal("generated query did not read transaction-local data")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal("transaction query acquisition failed", err)
+	}
+	if _, err := GetEngine(ended); !errors.Is(err, ErrTransactionClosed) {
+		t.Fatal("ended scope fell back to pool", err)
+	}
+	if _, err := GetQueries(ended); !errors.Is(err, ErrTransactionClosed) {
+		t.Fatal("ended scope fell back to default queries", err)
+	}
 	g.DoGracefulShutdown()
 	select {
 	case <-g.Done():
