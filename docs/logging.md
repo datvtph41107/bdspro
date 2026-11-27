@@ -74,6 +74,28 @@ go test ./modules/log -run 'TestCompactConsolePreservesOriginalEvent|TestFullTex
 go test ./modules/log ./modules/setting ./routers ./models/db -count=1
 ```
 
+## Caller & source location
+
+Logger manager đăng ký một Zerolog hook chung ở logger khởi tạo sớm và logger sau cấu hình. Hook tìm frame ứng dụng đầu tiên bên ngoài modules/log và Zerolog bằng runtime.CallersFrames, không áp dụng một caller skip cố định cho tất cả wrapper.
+
+JSON có hai field bổ sung: caller (đường dẫn tương đối theo package và số dòng) và caller_func (tên hàm). Ví dụ minh họa:
+
+```text
+10:30:05 [D] sql: CreateSession 1.382ms rows=1 rid=8b6424f1
+10:30:05 models/db/query_log.go:68:(*queryLogger).TraceQueryEnd() [E] sql: CreateSession 2.4ms reason=postgres_error sqlstate=23505 rid=8b6424f1
+```
+
+Console compact chỉ hiện caller cho log nghiệp vụ/startup hoặc warning/error. HTTP/SQL thông thường (trace/debug/info) không lặp lại vị trí instrumentation. File JSON vẫn giữ caller nếu xác định được; không lưu đường dẫn tuyệt đối máy build. File text cũng có metadata mới. Caller là nơi phát event, không phải nguồn gốc lỗi hay tên HTTP handler. Nếu không xác định được frame ứng dụng, không gán một caller giả. Hook không ghi thêm error body, SQL, credential hay stacktrace.
+
+Kiểm tra:
+
+```sh
+go test ./modules/log -run 'TestApplicationSource|TestIsLoggingFrame|TestCallerLoggerPaths|TestCompactCallerVisibility' -v -count=1
+go test ./modules/log -count=1
+```
+
+Tham khảo [Gitea LoggerImpl.Log](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/log/logger_impl.go), [Zerolog event hooks](https://github.com/rs/zerolog/blob/v1.34.0/event.go#L141-L147). Không thay đổi router, error policy, log level, request ID hay cơ chế ghi output.
+
 ## Đọc lỗi theo nguyên nhân
 
 | Event/component | Thông tin dùng để debug | Vị trí sở hữu |

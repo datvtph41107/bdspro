@@ -20,9 +20,17 @@ type LoggerManager struct {
 	closed        bool
 }
 
+type sourceHook struct{}
+
+func (sourceHook) Run(event *zerolog.Event, _ zerolog.Level, _ string) {
+	if file, function := sourceLocation(); file != "" {
+		event.Str("caller", file).Str("caller_func", function)
+	}
+}
+
 func NewManager() *LoggerManager {
 	m := &LoggerManager{writer: os.Stderr}
-	l := zerolog.New(zerolog.SyncWriter(os.Stderr)).With().Timestamp().Logger()
+	l := zerolog.New(zerolog.SyncWriter(os.Stderr)).Hook(sourceHook{}).With().Timestamp().Logger()
 	l = l.Level(zerolog.InfoLevel)
 	m.defaultLogger.Store(&LoggerImpl{inner: l})
 	return m
@@ -61,13 +69,18 @@ func newConsoleWriter(out io.Writer, noColor, compact bool) io.Writer {
 	}
 	if compact {
 		w.TimeFormat = "15:04:05"
+		w.PartsOrder = []string{zerolog.TimestampFieldName, zerolog.CallerFieldName, zerolog.LevelFieldName, zerolog.MessageFieldName}
+		w.FormatCaller = func(value any) string {
+			caller, _ := value.(string)
+			return caller
+		}
 		w.FormatPrepare = prepareConsoleEvent
 		w.FieldsOrder = []string{"code", "error", "reason", "sqlstate", "rows", "action", "scope", "attempts", "limit", "retry_after", "provider", "provider_status", "provider_code", "rid"}
 	}
 	return w
 }
 func (m *LoggerManager) setOutput(out io.Writer, owned io.Closer, level zerolog.Level) error {
-	next := zerolog.New(zerolog.SyncWriter(out)).With().Timestamp().Logger().Level(level)
+	next := zerolog.New(zerolog.SyncWriter(out)).Hook(sourceHook{}).With().Timestamp().Logger().Level(level)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed {

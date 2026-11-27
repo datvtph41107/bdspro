@@ -10,6 +10,7 @@ import (
 // prepareConsoleEvent modifies only the console's decoded event, never the
 // original JSON bytes shared with the file sink.
 func prepareConsoleEvent(event map[string]any) error {
+	prepareConsoleCaller(event)
 	if id, ok := event["request_id"].(string); ok && id != "" {
 		if len(id) > 8 {
 			id = id[:8]
@@ -55,6 +56,25 @@ func prepareConsoleEvent(event map[string]any) error {
 		delete(event, "component")
 	}
 	return nil
+}
+
+// Routine HTTP/SQL results do not need the same instrumentation location
+// repeated on every line. Warnings/errors and other events retain the source.
+func prepareConsoleCaller(event map[string]any) {
+	message, _ := event["message"].(string)
+	level, _ := event["level"].(string)
+	if (message == "http.request" || message == "db.query") &&
+		(level == "trace" || level == "debug" || level == "info") {
+		delete(event, "caller")
+		delete(event, "caller_func")
+		return
+	}
+	if caller, ok := event["caller"].(string); ok && caller != "" {
+		if function, ok := event["caller_func"].(string); ok && function != "" {
+			event["caller"] = caller + ":" + function + "()"
+			delete(event, "caller_func")
+		}
+	}
 }
 
 func consoleHasFields(event map[string]any, fields ...string) bool {
