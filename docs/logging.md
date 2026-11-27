@@ -56,7 +56,7 @@ Ví dụ minh họa (giá trị giả lập):
 
 ```text
 10:30:05 [D] sql: CreateSession 1.382ms rows=1 rid=8b6424f1
-10:30:05 [I] http: POST /api/v1/auth/login 200 8.732ms rid=8b6424f1
+10:30:05 [I] router: completed POST /api/v1/auth/login 200 8.732ms rid=8b6424f1
 10:30:10 [W] security: admission.denied action=login scope=source retry_after=60 rid=8b6424f1
 10:30:15 [E] delivery: sms accepted=false 5000ms reason=timeout provider_status=503 rid=8b6424f1
 ```
@@ -95,6 +95,31 @@ go test ./modules/log -count=1
 ```
 
 Tham khảo [Gitea LoggerImpl.Log](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/log/logger_impl.go), [Zerolog event hooks](https://github.com/rs/zerolog/blob/v1.34.0/event.go#L141-L147). Không thay đổi router, error policy, log level, request ID hay cơ chế ghi output.
+
+## HTTP request lifecycle
+
+- http.started: DEBUG, trước khi gọi router. Ẩn ở INFO.
+- http.slow: WARN, một lần sau 3 giây nếu timer chạy trước khi hoàn tất. Không hủy request, không đọc response hoặc request data từ goroutine timer.
+- http.request: giữ contract hoàn tất (status, bytes, duration_ms, reason, level theo status). Console đổi thành router: completed.
+- http.failed: ERROR nếu panic thoát ra khỏi handler. Không ghi raw panic, không bịa HTTP status; panic được truyền tiếp để recovery hiện hành xử lý. Panic đã bị middleware khác recover không được tự động phát hiện.
+- handler và handler_source: action/provider gần nhất đã vào pipeline, không phải stack trace, không chắc là endpoint cuối. Guard chặn request thì tên guard có giá trị. 404 không match không bịa handler. Metadata lấy khi compile route, request giữ con trỏ atomic.
+- Slow callback kết thúc trước event cuối; không thêm registry hoặc goroutine quét toàn bộ request như Gitea. Chi phí một timer/request chưa benchmark. Long polling chưa có phân loại riêng. Không thêm request query string, body, cookie, token, IP hoặc raw panic.
+
+Ví dụ minh họa:
+
+```text
+10:30:05 [D] router: started GET /api/v1/health rid=8b6424f1
+10:30:08 [W] router: slow GET /api/v1/health 3001ms @ v1.Health rid=8b6424f1
+10:30:09 [I] router: completed GET /api/v1/health 200 4000ms @ v1.Health rid=8b6424f1
+```
+
+```sh
+go test ./routers -run 'TestRequestLifecycle|TestRequestLoggingErrorsAndPrivacy' -v -count=1
+go test ./modules/log -run 'TestRouterLifecycleConsole|TestCompact' -v -count=1
+go test -race ./routers ./modules/web ./modules/log -count=1
+```
+
+Tham khảo [Gitea request record manager](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/web/routing/logger_manager.go) và [Gitea handler metadata](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/web/handler.go#L130-L164).
 
 ## Đọc lỗi theo nguyên nhân
 

@@ -18,7 +18,7 @@ func TestCompactConsolePreservesOriginalEvent(t *testing.T) {
 		{
 			name: "http",
 			raw:  `{"level":"info","message":"http.request","component":"http","method":"POST","path":"/api/v1/auth/login","status":200,"duration_ms":8.732,"bytes":482}`,
-			want: []string{"[I]", "http: POST /api/v1/auth/login 200 8.732ms"},
+			want: []string{"[I]", "router: completed POST /api/v1/auth/login 200 8.732ms"},
 			hide: []string{"bytes=", "component=", "duration_ms="},
 		},
 		{
@@ -61,7 +61,7 @@ func TestCompactConsolePreservesOriginalEvent(t *testing.T) {
 		{
 			name: "control characters in path",
 			raw:  `{"level":"info","message":"http.request","method":"GET","path":"/a\nb","status":200,"duration_ms":1}`,
-			want: []string{`http: GET "/a\nb" 200 1ms`},
+			want: []string{`router: completed GET "/a\nb" 200 1ms`},
 			hide: []string{"/a\nb"},
 		},
 	}

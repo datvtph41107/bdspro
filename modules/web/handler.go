@@ -173,11 +173,12 @@ func toHandlerProvider(handler any) middlewareProvider {
 	if !fn.IsValid() || fn.Kind() != reflect.Func || fn.IsNil() {
 		panic(fmt.Sprintf("web: handler must be a non-nil function, got %T", handler))
 	}
+	info := handlerActivity(fn)
 	if middleware, ok := handler.(middlewareProvider); ok {
-		return middleware
+		return observeProvider(middleware, info)
 	}
 	if middleware, ok := handler.(func(http.Handler) http.HandlerFunc); ok {
-		return func(next http.Handler) http.Handler { return middleware(next) }
+		return observeProvider(func(next http.Handler) http.Handler { return middleware(next) }, info)
 	}
 
 	typ := fn.Type()
@@ -189,6 +190,7 @@ func toHandlerProvider(handler any) middlewareProvider {
 			if _, ok := resp.(web_types.ResponseStatusProvider); !ok {
 				resp = &responseWriter{ResponseWriter: resp}
 			}
+			recordHandler(req.Context(), info)
 			args := prepareHandleArgsIn(resp, req, typ)
 			fn.Call(args)
 			if next != nil && !shouldStopContinuation(args) {
