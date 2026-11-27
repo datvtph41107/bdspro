@@ -17,6 +17,8 @@ type LogGlobalConfig struct {
 	RootPath                          string
 	FileName                          string
 	ConsoleFormat, FileFormat         string
+	ConsoleLevel, FileLevel           string
+	ConsoleComponents                 string
 	MaxSizeMB, MaxBackups, MaxAgeDays int
 }
 
@@ -33,8 +35,12 @@ func loadLogGlobalFrom(rootCfg ConfigProvider, workPath string) (LogGlobalConfig
 		RootPath: stringOrDefault(sec.Key("ROOT_PATH"), "data/log"),
 		FileName: stringOrDefault(fileSec.Key("FILE_NAME"), "bdspro.log"),
 	}
-	cfg.ConsoleFormat = stringOrDefault(rootCfg.Section("log.console").Key("FORMAT"), cfg.Format)
+	consoleSec := rootCfg.Section("log.console")
+	cfg.ConsoleFormat = stringOrDefault(consoleSec.Key("FORMAT"), cfg.Format)
 	cfg.FileFormat = stringOrDefault(fileSec.Key("FORMAT"), cfg.Format)
+	cfg.ConsoleLevel = stringOrDefault(consoleSec.Key("LEVEL"), cfg.Level)
+	cfg.FileLevel = stringOrDefault(fileSec.Key("LEVEL"), cfg.Level)
+	cfg.ConsoleComponents = stringOrDefault(consoleSec.Key("COMPONENTS"), "")
 	for _, option := range []struct {
 		key      string
 		value    *int
@@ -79,6 +85,8 @@ func (cfg LogGlobalConfig) OutputOptions() log.OutputOptions {
 	return log.OutputOptions{
 		Mode: cfg.Mode, ConsoleFormat: cfg.ConsoleFormat, FileFormat: cfg.FileFormat,
 		Level: strings.ToLower(cfg.Level), RootPath: cfg.RootPath, FileName: cfg.FileName,
+		ConsoleLevel: strings.ToLower(cfg.ConsoleLevel), FileLevel: strings.ToLower(cfg.FileLevel),
+		ConsoleComponents: cfg.ConsoleComponents,
 		MaxSizeMB: cfg.MaxSizeMB, MaxBackups: cfg.MaxBackups, MaxAgeDays: cfg.MaxAgeDays,
 	}
 }

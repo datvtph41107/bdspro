@@ -16,7 +16,8 @@ import (
 // OutputOptions describes sinks, not application event policy.
 type OutputOptions struct {
 	Mode, ConsoleFormat, FileFormat, Level, RootPath, FileName string
-	MaxSizeMB, MaxBackups, MaxAgeDays                          int
+	ConsoleLevel, FileLevel, ConsoleComponents                 string
+	MaxSizeMB, MaxBackups, MaxAgeDays                           int
 }
 
 func (o OutputOptions) Validate() error {
@@ -30,9 +31,18 @@ func (o OutputOptions) Validate() error {
 			return errors.New("log format must be console or json")
 		}
 	}
-	level, err := zerolog.ParseLevel(o.Level)
-	if err != nil || level < zerolog.DebugLevel || level > zerolog.ErrorLevel {
-		return errors.New("log level must be debug, info, warn or error")
+	for _, entry := range []struct{ key, value string }{
+		{"log.LEVEL", o.Level},
+		{"log.console.LEVEL", o.levelFor("console")},
+		{"log.file.LEVEL", o.levelFor("file")},
+	} {
+		level, err := zerolog.ParseLevel(entry.value)
+		if err != nil || level < zerolog.DebugLevel || level > zerolog.ErrorLevel {
+			return fmt.Errorf("%s must be debug, info, warn or error", entry.key)
+		}
+	}
+	if _, err := parseComponents(o.ConsoleComponents); err != nil {
+		return err
 	}
 	if o.RootPath == "" || o.FileName == "" || o.FileName == "." || o.FileName == ".." || filepath.Base(o.FileName) != o.FileName {
 		return errors.New("invalid log file destination")
@@ -43,12 +53,40 @@ func (o OutputOptions) Validate() error {
 	return nil
 }
 
+func (o OutputOptions) levelFor(destination string) string {
+	switch destination {
+	case "console":
+		if o.ConsoleLevel != "" {
+			return o.ConsoleLevel
+		}
+	case "file":
+		if o.FileLevel != "" {
+			return o.FileLevel
+		}
+	}
+	return o.Level
+}
+
+// emissionLevel is the lowest enabled destination threshold. An inactive
+// destination must never increase the amount of logging work.
+func (o OutputOptions) emissionLevel() zerolog.Level {
+	level := zerolog.ErrorLevel
+	for _, destination := range strings.Split(o.Mode, ",") {
+		next, _ := zerolog.ParseLevel(o.levelFor(destination))
+		if next < level {
+			level = next
+		}
+	}
+	return level
+}
+
 func (m *LoggerManager) ConfigureOutputs(o OutputOptions) error {
 	if err := o.Validate(); err != nil {
 		return err
 	}
 	var outputs []io.Writer
 	var owned io.Closer
+	consoleComponents, _ := parseComponents(o.ConsoleComponents) // validated above
 	for _, dest := range strings.Split(o.Mode, ",") {
 		var out io.Writer
 		format := o.ConsoleFormat
@@ -76,19 +114,63 @@ func (m *LoggerManager) ConfigureOutputs(o OutputOptions) error {
 		if format == "console" {
 			out = newConsoleWriter(out, noColor, dest == "console")
 		}
-		outputs = append(outputs, out)
+		level, _ := zerolog.ParseLevel(o.levelFor(dest)) // validated above
+		var components map[string]struct{}
+		if dest == "console" {
+			components = consoleComponents
+		}
+		outputs = append(outputs, filteredSink{out: out, level: level, components: components})
 	}
-	level, _ := zerolog.ParseLevel(o.Level) // validated above
-	return m.setOutput(fanoutWriter(outputs), owned, level)
+	return m.setOutput(fanoutWriter(outputs), owned, o.emissionLevel())
 }
+
+// filteredSink evaluates severity using Zerolog's native LevelWriter contract.
+// Only selected low-severity console events require JSON component decoding.
+type filteredSink struct {
+	out        io.Writer
+	level      zerolog.Level
+	components map[string]struct{}
+}
+
+func (s filteredSink) Write(p []byte) (int, error) {
+	return s.out.Write(p)
+}
+
+func (s filteredSink) WriteLevel(level zerolog.Level, p []byte) (int, error) {
+	if level < s.level {
+		return len(p), nil
+	}
+	// Component selection must not hide warnings or errors that meet the sink level.
+	if level < zerolog.WarnLevel && !componentAllowed(s.components, p) {
+		return len(p), nil
+	}
+	return s.out.Write(p)
+}
+
+var _ zerolog.LevelWriter = filteredSink{}
 
 // A failing terminal must not prevent a file write (or vice versa).
 type fanoutWriter []io.Writer
 
 func (writers fanoutWriter) Write(p []byte) (int, error) {
+	return writers.write(p, func(w io.Writer, p []byte) (int, error) { return w.Write(p) })
+}
+
+func (writers fanoutWriter) WriteLevel(level zerolog.Level, p []byte) (int, error) {
+	return writers.write(p, func(w io.Writer, p []byte) (int, error) {
+		if lw, ok := w.(zerolog.LevelWriter); ok {
+			return lw.WriteLevel(level, p)
+		}
+		return w.Write(p)
+	})
+}
+
+var _ zerolog.LevelWriter = fanoutWriter{}
+
+func (writers fanoutWriter) write(p []byte, write func(io.Writer, []byte) (int, error)) (int, error) {
 	var errs []error
 	for _, writer := range writers {
-		n, err := writer.Write(p)
+		n, err := write(writer, p)
 		if err == nil && n != len(p) {
 			err = io.ErrShortWrite
 		}

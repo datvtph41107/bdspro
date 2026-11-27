@@ -143,6 +143,46 @@ go test ./routers ./services/auth ./modules/log -count=1
 
 Reference: [Gitea API internal error helper](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/services/context/api.go) and [stack formatting](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/log/event_format.go#L245-L252). BDSPro deliberately does not adopt raw error message logging.
 
+## Phân luồng level và lọc console
+
+Mỗi đích có LEVEL riêng, kế thừa [log] LEVEL nếu không khai báo. Logger tạo event từ level thấp nhất của các đích đang bật; đích không bật không ảnh hưởng. Do đó stack_frames cho lỗi API được bật khi ít nhất một đích đang bật dùng DEBUG. Không có override runtime; cần restart.
+
+Ví dụ dev: terminal chỉ hiện HTTP thông thường và startup, file giữ debug tất cả component:
+
+```ini
+[log]
+MODE = console,file
+LEVEL = info
+ROOT_PATH = data/log
+[log.console]
+FORMAT = console
+LEVEL = info
+COMPONENTS = default,http
+[log.file]
+FORMAT = json
+LEVEL = debug
+FILE_NAME = bdspro.log
+[database]
+LOG_SQL = all
+```
+
+COMPONENTS là allowlist chính xác, phân biệt hoa thường, tên dạng chữ thường, số (không ở đầu), dấu gạch ngang hoặc gạch dưới. Để trống là tất cả; default khớp event không có component. Bộ lọc chỉ áp dụng dưới WARN; WARN/ERROR vẫn đi qua nếu đạt LEVEL của console. Ví dụ LEVEL=error không hiện WARN dù thuộc allowlist. Cấu hình sai bị từ chối khi startup. File không áp dụng component filter; không thay đổi retention hoặc JSON schema. Với console JSON, quy tắc lọc vẫn áp dụng. Không bật filter khi cần stream JSON đầy đủ cho collector.
+
+Để tập trung SQL, đổi console LEVEL=debug và COMPONENTS=sql; để tập trung IAM, dùng COMPONENTS=security,delivery,http. Đây là các nhãn hiện có, không tự tạo thêm log. LOG_SQL=all vẫn cần để phát query thành công. Muốn xem riêng file theo mục đích, truy vấn luồng JSON chung:
+
+```sh
+tail -F data/log/bdspro.log | jq -Rc --unbuffered 'fromjson? | select(.component == "sql")'
+tail -F data/log/bdspro.log | jq -Rc --unbuffered 'fromjson? | select(.level == "error")'
+tail -F data/log/bdspro.log | jq -Rc --unbuffered 'fromjson? | select(.component == "security")'
+```
+
+Cơ chế: Zerolog LevelWriter cung cấp level cùng payload, SyncWriter giữ đồng bộ, fanoutWriter thử tất cả sink kể cả khi một sink lỗi. filteredSink bỏ event trước formatter, trả len(p),nil cho event bị lọc. Chỉ console có allowlist và event dưới WARN mới cần giải mã component. Không tái serialize JSON, không tạo file riêng, không thêm registry hoặc queue. Chi phí giải mã component chưa benchmark. Tham khảo [Zerolog FilteredLevelWriter](https://github.com/rs/zerolog/blob/v1.34.0/writer.go) và [Gitea logger settings](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/setting/log.go).
+
+```sh
+go test ./modules/log -run 'TestComponentFilter|TestDestination|TestFileLevelOverride|TestLevelFanout' -v -count=1
+go test ./modules/setting -run 'TestLog' -v -count=1
+```
+
 ## Đọc lỗi theo nguyên nhân
 
 | Event/component | Thông tin dùng để debug | Vị trí sở hữu |
@@ -163,7 +203,7 @@ SQL mode:
 
 - off: tắt query tracer.
 - slow: ghi query lỗi và query chậm từ ngưỡng cấu hình.
-- all: thêm query thành công ở DEBUG; phải đặt [log] LEVEL=debug để thấy chúng.
+- all: thêm query thành công ở DEBUG; phải có ít nhất một đích bật LEVEL=debug để sinh event; đích cần xem cũng phải ở DEBUG.
 
 Query log dùng tên SQLC, không chứa SQL thô, bind args hoặc PgError.Detail/Message. Tra query theo tên:
 
@@ -196,7 +236,7 @@ SLOW_QUERY_THRESHOLD = 200ms
 
 Nếu có [log.console] FORMAT=console cũ, phải sửa override đó. Runtime/container driver chịu trách nhiệm retention cho stderr; Compose hiện cấu hình json-file 10m/3 cho service có block logging. Đây không phải giới hạn file của ứng dụng. Trên VM dùng MODE=console,file hoặc file với rotation ở trên, mỗi process một file.
 
-Bản này giữ một luồng JSON có component/request_id để tìm xuyên tầng. Không tạo riêng file sql/security/debug vì nhu cầu hiện tại chưa cần routing/retention riêng. component là nhãn truy vấn, chưa có cấu hình level độc lập từng component. Chưa có benchmark chứng minh thông số rotation hoặc threshold là tối ưu cho tải production.
+Bản này giữ một luồng JSON có component/request_id để tìm xuyên tầng. Không tạo riêng file sql/security/debug vì nhu cầu hiện tại chưa cần routing/retention riêng. component là nhãn truy vấn và dùng cho allowlist console; level độc lập theo đích, không theo từng component. Chưa có benchmark chứng minh thông số rotation hoặc threshold là tối ưu cho tải production.
 
 ## Bài học cụ thể từ Gitea và quyết định trong code
 
