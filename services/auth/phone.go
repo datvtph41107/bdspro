@@ -45,12 +45,13 @@ func StartPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, phone
 		return RegistrationChallenge{}, err
 	}
 	if err := q.CreatePhoneVerification(ctx, db.CreatePhoneVerificationParams{
+		TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: verificationResendCooldownSeconds,
 		ID: id, PhoneE164: phone, BrowserDigest: browser,
 		CodeMac: token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, phone, browser, code),
 	}); err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if err := phoneDelivery.SendCode(ctx, channel, phone, code); err != nil {
+	if err := phoneDelivery.SendCode(ctx, channel, phone, code, verificationCodeTTLMinutes); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	result := challengeResult(id)
@@ -92,6 +93,7 @@ func ResendPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, id u
 			return "", err
 		}
 		n, err := q.RotatePhoneVerification(txCtx, db.RotatePhoneVerificationParams{
+			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: verificationResendCooldownSeconds,
 			ID: id, CodeMac: token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, row.PhoneE164, browser, code),
 		})
 		if err != nil {
@@ -105,7 +107,7 @@ func ResendPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, id u
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if err := phoneDelivery.SendCode(ctx, channel, phone, code); err != nil {
+	if err := phoneDelivery.SendCode(ctx, channel, phone, code, verificationCodeTTLMinutes); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	result := challengeResult(id)
@@ -139,12 +141,12 @@ func VerifyPhone(ctx context.Context, id uuid.UUID, browser []byte, code string,
 		}
 		owner, err := q.GetPhoneAccountIDQuery(txCtx, row.PhoneE164)
 		if errors.Is(err, pgx.ErrNoRows) {
-			n, err := q.VerifyPhoneVerification(txCtx, db.VerifyPhoneVerificationParams{ID: id, ProofDigest: digest})
+			n, err := q.VerifyPhoneVerification(txCtx, db.VerifyPhoneVerificationParams{ID: id, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes})
 			if err != nil || n != 1 {
 				return PhoneVerification{}, err
 			}
 			return PhoneVerification{Proof: RegistrationVerification{
-				Status: "registration_required", RegistrationToken: raw, ExpiresIn: 900,
+				Status: "registration_required", RegistrationToken: raw, ExpiresIn: registrationProofTTLMinutes * 60,
 				RequiredActions: []string{"choose_username", "accept_terms"},
 			}}, nil
 		}

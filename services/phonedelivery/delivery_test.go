@@ -64,7 +64,7 @@ func TestSendValidatesBeforeCallingProviderAndDoesNotFallback(t *testing.T) {
 	failure := &Failure{Reason: "provider_transport_error"}
 	s.senders[SMS] = senderFunc(func(_ context.Context, m message) (receipt, error) {
 		calls++
-		if m.Phone != "+84912345678" || m.Code != "001234" {
+		if m.Phone != "+84912345678" || m.Code != "001234" || m.TTLMinutes != 7 {
 			t.Fatal("OTP or destination changed")
 		}
 		return receipt{}, failure
@@ -76,14 +76,14 @@ func TestSendValidatesBeforeCallingProviderAndDoesNotFallback(t *testing.T) {
 	for _, tc := range []struct{ phone, code string }{
 		{"0912345678", "001234"}, {"+84912345678", "12345"}, {"+84912345678", "abcd12"},
 	} {
-		if err := s.SendCode(context.Background(), SMS, tc.phone, tc.code); !errors.Is(err, ErrUnavailable) {
+		if err := s.SendCode(context.Background(), SMS, tc.phone, tc.code, 7); !errors.Is(err, ErrUnavailable) {
 			t.Fatalf("invalid message: %v", err)
 		}
 	}
 	if calls != 0 {
 		t.Fatal("invalid messages reached provider")
 	}
-	if err := s.SendCode(context.Background(), SMS, "+84912345678", "001234"); !errors.Is(err, failure) {
+	if err := s.SendCode(context.Background(), SMS, "+84912345678", "001234", 7); !errors.Is(err, failure) {
 		t.Fatal(err)
 	}
 	if calls != 1 {
@@ -109,7 +109,7 @@ func TestCapacityIsSharedAcrossChannelsAndReleasedAfterCancellation(t *testing.T
 	defer cancel()
 	done := make(chan error, 4)
 	for _, channel := range []Channel{SMS, Zalo, Telegram, SMS} {
-		go func(ch Channel) { err := s.SendCode(ctx, ch, "+84912345678", "001234"); done <- err }(channel)
+		go func(ch Channel) { err := s.SendCode(ctx, ch, "+84912345678", "001234", 7); done <- err }(channel)
 	}
 	for range 4 {
 		select {
@@ -118,7 +118,7 @@ func TestCapacityIsSharedAcrossChannelsAndReleasedAfterCancellation(t *testing.T
 			t.Fatal("sender did not start")
 		}
 	}
-	err := s.SendCode(context.Background(), Zalo, "+84912345678", "001234")
+	err := s.SendCode(context.Background(), Zalo, "+84912345678", "001234", 7)
 	var failure *Failure
 	if !errors.As(err, &failure) || failure.Reason != "delivery_capacity" {
 		t.Fatalf("capacity bypass: %v", err)

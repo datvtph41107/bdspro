@@ -195,7 +195,7 @@ func (q *Queries) SetVerifiedAccountEmail(ctx context.Context, arg SetVerifiedAc
 const startCredentialLink = `-- name: StartCredentialLink :execrows
 INSERT INTO contact_link_challenges(id,account_id,session_id,kind,destination,code_mac,expires_at,resend_after)
 VALUES ($1::uuid,$2::bigint,$3::uuid,$4::text,
-    $5::text,$6::bytea,clock_timestamp()+interval '5 minutes',clock_timestamp()+interval '60 seconds')
+    $5::text,$6::bytea,clock_timestamp()+($7::integer * interval '1 minute'),clock_timestamp()+($8::integer * interval '1 second'))
 ON CONFLICT (account_id,kind) DO UPDATE SET
     id=EXCLUDED.id,session_id=EXCLUDED.session_id,destination=EXCLUDED.destination,code_mac=EXCLUDED.code_mac,
     expires_at=EXCLUDED.expires_at,resend_after=EXCLUDED.resend_after,
@@ -205,12 +205,14 @@ AND (contact_link_challenges.failed_attempts<5 OR contact_link_challenges.expire
 `
 
 type StartCredentialLinkParams struct {
-	ID          uuid.UUID `json:"id"`
-	AccountID   int64     `json:"account_id"`
-	SessionID   uuid.UUID `json:"session_id"`
-	Kind        string    `json:"kind"`
-	Destination string    `json:"destination"`
-	CodeMac     []byte    `json:"code_mac"`
+	ID              uuid.UUID `json:"id"`
+	AccountID       int64     `json:"account_id"`
+	SessionID       uuid.UUID `json:"session_id"`
+	Kind            string    `json:"kind"`
+	Destination     string    `json:"destination"`
+	CodeMac         []byte    `json:"code_mac"`
+	TtlMinutes      int32     `json:"ttl_minutes"`
+	CooldownSeconds int32     `json:"cooldown_seconds"`
 }
 
 func (q *Queries) StartCredentialLink(ctx context.Context, arg StartCredentialLinkParams) (int64, error) {
@@ -221,6 +223,8 @@ func (q *Queries) StartCredentialLink(ctx context.Context, arg StartCredentialLi
 		arg.Kind,
 		arg.Destination,
 		arg.CodeMac,
+		arg.TtlMinutes,
+		arg.CooldownSeconds,
 	)
 	if err != nil {
 		return 0, err

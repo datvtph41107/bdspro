@@ -3,6 +3,7 @@ package phonedelivery
 import (
 	"context"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/datvtph41107/bdspro/modules/mail"
@@ -25,7 +26,7 @@ func (s mailpitSender) Send(ctx context.Context, m message) (receipt, error) {
 	}
 	destination := channel + "." + strings.TrimPrefix(m.Phone, "+") + "@phone.invalid"
 	err := mail.SendPlain(ctx, destination, "[DEV "+channel+"] BDSPro phone verification",
-		"Development delivery only.\r\nChannel: "+channel+"\r\nPhone: "+m.Phone+"\r\nVerification code: "+m.Code+"\r\nExpires in 5 minutes.\r\n")
+		"Development delivery only.\r\nChannel: "+channel+"\r\nPhone: "+m.Phone+"\r\nVerification code: "+m.Code+"\r\nExpires in "+strconv.Itoa(m.TTLMinutes)+" minutes.\r\n")
 	if err != nil {
 		return receipt{}, &Failure{Reason: "mailpit_unavailable"}
 	}

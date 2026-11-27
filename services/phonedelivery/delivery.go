@@ -12,13 +12,13 @@ import (
 
 var safeMessageID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
-func (s *Service) SendCode(ctx context.Context, channel Channel, phone, code string) error {
+func (s *Service) SendCode(ctx context.Context, channel Channel, phone, code string, ttlMinutes int) error {
 	resolved, err := s.ResolveChannel(string(channel))
 	if err != nil {
 		return err
 	}
 	canonical, err := token.NormalizePhone(phone, "")
-	if err != nil || canonical != phone || !token.ValidPhoneCode(code) {
+	if err != nil || canonical != phone || !token.ValidPhoneCode(code) || ttlMinutes <= 0 {
 		return &Failure{Reason: "invalid_delivery_message"}
 	}
 	select {
@@ -28,7 +28,7 @@ func (s *Service) SendCode(ctx context.Context, channel Channel, phone, code str
 		return &Failure{Reason: "delivery_capacity"}
 	}
 	started := time.Now()
-	result, err := s.senders[resolved].Send(ctx, message{Phone: phone, Code: code})
+	result, err := s.senders[resolved].Send(ctx, message{Phone: phone, Code: code, TTLMinutes: ttlMinutes})
 	logger := log.For(ctx, "delivery")
 	level := log.INFO
 	if err != nil {

@@ -17,7 +17,7 @@ type twilioSender struct {
 
 func (s twilioSender) Send(ctx context.Context, m message) (receipt, error) {
 	form := url.Values{"To": {m.Phone}, "From": {s.senderID},
-		"Body": {"[" + s.senderID + "] Your verification code is " + m.Code + ". It expires in 5 minutes."}}
+		"Body": {"[" + s.senderID + "] Your verification code is " + m.Code + ". It expires in " + strconv.Itoa(m.TTLMinutes) + " minutes."}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		"https://api.twilio.com/2010-04-01/Accounts/"+s.accountSID+"/Messages.json", strings.NewReader(form.Encode()))
 	if err != nil {

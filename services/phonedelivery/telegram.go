@@ -12,7 +12,7 @@ type telegramSender struct {
 
 func (s telegramSender) Send(ctx context.Context, m message) (receipt, error) {
 	req, err := jsonRequest(ctx, "https://gatewayapi.telegram.org/sendVerificationMessage", map[string]any{
-		"phone_number": m.Phone, "code": m.Code, "ttl": 300,
+		"phone_number": m.Phone, "code": m.Code, "ttl": m.TTLMinutes * 60,
 	})
 	if err != nil {
 		return receipt{}, err

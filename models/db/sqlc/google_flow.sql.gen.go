@@ -138,17 +138,18 @@ func (q *Queries) FinishGoogleFlow(ctx context.Context, arg FinishGoogleFlowPara
 }
 
 const issueGoogleRegistrationProof = `-- name: IssueGoogleRegistrationProof :execrows
-UPDATE google_flows SET phase='registration',proof_digest=$1::bytea,expires_at=clock_timestamp()+interval '15 minutes'
-WHERE browser_digest=$2::bytea AND phase='ready' AND expires_at>clock_timestamp()
+UPDATE google_flows SET phase='registration',proof_digest=$1::bytea,expires_at=clock_timestamp()+($2::integer * interval '1 minute')
+WHERE browser_digest=$3::bytea AND phase='ready' AND expires_at>clock_timestamp()
 `
 
 type IssueGoogleRegistrationProofParams struct {
 	ProofDigest   []byte `json:"proof_digest"`
+	TtlMinutes    int32  `json:"ttl_minutes"`
 	BrowserDigest []byte `json:"browser_digest"`
 }
 
 func (q *Queries) IssueGoogleRegistrationProof(ctx context.Context, arg IssueGoogleRegistrationProofParams) (int64, error) {
-	result, err := q.db.Exec(ctx, issueGoogleRegistrationProof, arg.ProofDigest, arg.BrowserDigest)
+	result, err := q.db.Exec(ctx, issueGoogleRegistrationProof, arg.ProofDigest, arg.TtlMinutes, arg.BrowserDigest)
 	if err != nil {
 		return 0, err
 	}

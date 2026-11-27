@@ -68,19 +68,19 @@ func TestRegistrationDeliveryOverDevelopmentSMTP(t *testing.T) {
 	}()
 	setting.Common.RunMode = "development"
 	setting.Mailer = setting.MailerSettings{Protocol: "smtp", Address: listener.Addr().String(), From: "security@bdspro.test"}
-	if err := SendRegistrationCode(context.Background(), "test@example.invalid", "12345678"); err != nil {
+	if err := SendRegistrationCode(context.Background(), "test@example.invalid", "12345678", 7); err != nil {
 		t.Fatal(err)
 	}
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
 	body := <-received
-	if !strings.Contains(body, "To: test@example.invalid") || !strings.Contains(body, "12345678") {
+	if !strings.Contains(body, "To: test@example.invalid") || !strings.Contains(body, "12345678") || !strings.Contains(body, "expires in 7 minutes") {
 		t.Fatalf("unexpected delivered email: %q", body)
 	}
 
 	setting.Common.RunMode = "production"
-	if err := SendRegistrationCode(context.Background(), "test@example.invalid", "12345678"); !errors.Is(err, ErrUnavailable) {
+	if err := SendRegistrationCode(context.Background(), "test@example.invalid", "12345678", 7); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("plain SMTP allowed in production: %v", err)
 	}
 }

@@ -16,7 +16,7 @@ func (f testTransport) RoundTrip(r *http.Request) (*http.Response, error) { retu
 
 func TestProviderContracts(t *testing.T) {
 	const secret = "secret-never-log-this"
-	msg := message{Phone: "+84912345678", Code: "001234"}
+	msg := message{Phone: "+84912345678", Code: "001234", TTLMinutes: 7}
 	cases := []struct {
 		name, host, success string
 		sender              func(*http.Client) sender
@@ -34,7 +34,7 @@ func TestProviderContracts(t *testing.T) {
 				if err := r.ParseForm(); err != nil {
 					t.Fatal(err)
 				}
-				if r.Form.Get("To") != msg.Phone || !strings.Contains(r.Form.Get("Body"), msg.Code) || r.Form.Get("From") != "BDSPro" {
+				if r.Form.Get("To") != msg.Phone || !strings.Contains(r.Form.Get("Body"), msg.Code) || !strings.Contains(r.Form.Get("Body"), "expires in 7 minutes") || r.Form.Get("From") != "BDSPro" {
 					t.Fatal("wrong SMS mapping")
 				}
 			}},
@@ -73,7 +73,7 @@ func TestProviderContracts(t *testing.T) {
 				if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 					t.Fatal(err)
 				}
-				if b["phone_number"] != msg.Phone || b["code"] != msg.Code || b["ttl"] != float64(300) {
+				if b["phone_number"] != msg.Phone || b["code"] != msg.Code || b["ttl"] != float64(420) {
 					t.Fatal("wrong Gateway payload")
 				}
 				if _, ok := b["code_length"]; ok {

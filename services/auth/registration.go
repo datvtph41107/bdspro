@@ -17,6 +17,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// Verification lifetimes are authentication policy, not transport defaults.
+const (
+	verificationCodeTTLMinutes        = 5
+	verificationResendCooldownSeconds = 60
+	registrationProofTTLMinutes        = 15
+)
+
 var (
 	ErrRegistrationProof = util.WithPublic(util.ErrInvalidArgument, "registration proof invalid", "invalid_proof", "invalid or expired registration proof")
 	ErrRegistrationCode  = util.WithPublic(util.ErrInvalidArgument, "verification code invalid", "invalid_verification_code", "invalid or expired verification code")
@@ -39,7 +46,7 @@ type RegistrationVerification struct {
 }
 
 func challengeResult(id uuid.UUID) RegistrationChallenge {
-	return RegistrationChallenge{Status: "verification_required", ChallengeID: id, ExpiresIn: 300, ResendAfter: 60}
+	return RegistrationChallenge{Status: "verification_required", ChallengeID: id, ExpiresIn: verificationCodeTTLMinutes * 60, ResendAfter: verificationResendCooldownSeconds}
 }
 
 func StartRegistration(ctx context.Context, email string, browser []byte) (RegistrationChallenge, error) {
@@ -59,13 +66,14 @@ func StartRegistration(ctx context.Context, email string, browser []byte) (Regis
 		return RegistrationChallenge{}, err
 	}
 	err = q.CreateEmailRegistration(ctx, db.CreateEmailRegistrationParams{
+		TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: verificationResendCooldownSeconds,
 		ID: id, Email: email, BrowserDigest: browser,
 		CodeMac: token.RegistrationCodeMAC(setting.Security.TokenSymmetricKey, id, email, browser, code),
 	})
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if err := mailer.SendRegistrationCode(ctx, email, code); err != nil {
+	if err := mailer.SendRegistrationCode(ctx, email, code, verificationCodeTTLMinutes); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	return challengeResult(id), nil
@@ -101,6 +109,7 @@ func ResendRegistration(ctx context.Context, id uuid.UUID, browser []byte) (Regi
 			return "", err
 		}
 		n, err := q.RotateEmailRegistration(txCtx, db.RotateEmailRegistrationParams{
+			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: verificationResendCooldownSeconds,
 			ID: id, CodeMac: token.RegistrationCodeMAC(setting.Security.TokenSymmetricKey, id, row.Email, browser, code),
 		})
 		if err != nil {
@@ -114,7 +123,7 @@ func ResendRegistration(ctx context.Context, id uuid.UUID, browser []byte) (Regi
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if err := mailer.SendRegistrationCode(ctx, email, code); err != nil {
+	if err := mailer.SendRegistrationCode(ctx, email, code, verificationCodeTTLMinutes); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	return challengeResult(id), nil
@@ -155,7 +164,7 @@ func VerifyRegistration(ctx context.Context, id uuid.UUID, browser []byte, code 
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return RegistrationVerification{}, err
 		}
-		n, err := q.VerifyEmailRegistration(txCtx, db.VerifyEmailRegistrationParams{ID: id, ProofDigest: digest})
+		n, err := q.VerifyEmailRegistration(txCtx, db.VerifyEmailRegistrationParams{ID: id, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes})
 		if err != nil {
 			return RegistrationVerification{}, err
 		}
@@ -163,7 +172,7 @@ func VerifyRegistration(ctx context.Context, id uuid.UUID, browser []byte, code 
 			return RegistrationVerification{}, nil
 		}
 		return RegistrationVerification{
-			Status: "registration_required", RegistrationToken: raw, ExpiresIn: 900,
+			Status: "registration_required", RegistrationToken: raw, ExpiresIn: registrationProofTTLMinutes * 60,
 			RequiredActions: []string{"choose_username", "set_password", "accept_terms"},
 		}, nil
 	})

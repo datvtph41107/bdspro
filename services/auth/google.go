@@ -208,7 +208,7 @@ func ConsumeGoogleResult(ctx context.Context, browser []byte, ip, agent string) 
 				return GoogleResult{}, err
 			}
 		}
-		n, err := q.IssueGoogleRegistrationProof(txCtx, db.IssueGoogleRegistrationProofParams{BrowserDigest: browser, ProofDigest: digest})
+		n, err := q.IssueGoogleRegistrationProof(txCtx, db.IssueGoogleRegistrationProofParams{BrowserDigest: browser, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes})
 		if err != nil {
 			return GoogleResult{}, err
 		}
@@ -216,7 +216,7 @@ func ConsumeGoogleResult(ctx context.Context, browser []byte, ip, agent string) 
 			return GoogleResult{}, ErrRegistrationProof
 		}
 		return GoogleResult{Proof: RegistrationVerification{
-			Status: "registration_required", RegistrationToken: raw, ExpiresIn: 900,
+			Status: "registration_required", RegistrationToken: raw, ExpiresIn: registrationProofTTLMinutes * 60,
 			RequiredActions: []string{"choose_username", "accept_terms"},
 		}}, nil
 	})

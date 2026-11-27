@@ -68,6 +68,7 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 		}
 
 		n, err := q.StartCredentialLink(txCtx, db.StartCredentialLinkParams{
+			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: verificationResendCooldownSeconds,
 			ID: id, AccountID: actor.AccountID, SessionID: actor.SessionID, Kind: kind,
 			Destination: destination,
 			CodeMac:     token.ContactLinkCodeMAC(setting.Security.TokenSymmetricKey, id, actor.AccountID, actor.SessionID, kind, destination, code),
@@ -85,9 +86,9 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 	}
 
 	if kind == "email" {
-		err = mailer.SendRegistrationCode(ctx, destination, code)
+		err = mailer.SendRegistrationCode(ctx, destination, code, verificationCodeTTLMinutes)
 	} else {
-		err = phoneDelivery.SendCode(ctx, deliveryChannel, destination, code)
+		err = phoneDelivery.SendCode(ctx, deliveryChannel, destination, code, verificationCodeTTLMinutes)
 	}
 	if err != nil {
 		return RegistrationChallenge{}, err

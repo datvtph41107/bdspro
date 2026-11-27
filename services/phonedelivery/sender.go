@@ -6,8 +6,9 @@ import (
 )
 
 type message struct {
-	Phone string
-	Code  string
+	Phone      string
+	Code       string
+	TTLMinutes int
 }
 
 // receipt acknowledges provider acceptance, not delivery to the recipient.

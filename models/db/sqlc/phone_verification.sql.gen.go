@@ -14,14 +14,16 @@ import (
 
 const createPhoneVerification = `-- name: CreatePhoneVerification :exec
 INSERT INTO verifications(kind,id,destination,browser_digest,code_mac,expires_at,resend_after)
-VALUES ('phone',$1::uuid,$2::text,$3::bytea,$4::bytea,clock_timestamp()+interval '5 minutes',clock_timestamp()+interval '60 seconds')
+VALUES ('phone',$1::uuid,$2::text,$3::bytea,$4::bytea,clock_timestamp()+($5::integer * interval '1 minute'),clock_timestamp()+($6::integer * interval '1 second'))
 `
 
 type CreatePhoneVerificationParams struct {
-	ID            uuid.UUID `json:"id"`
-	PhoneE164     string    `json:"phone_e164"`
-	BrowserDigest []byte    `json:"browser_digest"`
-	CodeMac       []byte    `json:"code_mac"`
+	ID              uuid.UUID `json:"id"`
+	PhoneE164       string    `json:"phone_e164"`
+	BrowserDigest   []byte    `json:"browser_digest"`
+	CodeMac         []byte    `json:"code_mac"`
+	TtlMinutes      int32     `json:"ttl_minutes"`
+	CooldownSeconds int32     `json:"cooldown_seconds"`
 }
 
 func (q *Queries) CreatePhoneVerification(ctx context.Context, arg CreatePhoneVerificationParams) error {
@@ -30,6 +32,8 @@ func (q *Queries) CreatePhoneVerification(ctx context.Context, arg CreatePhoneVe
 		arg.PhoneE164,
 		arg.BrowserDigest,
 		arg.CodeMac,
+		arg.TtlMinutes,
+		arg.CooldownSeconds,
 	)
 	return err
 }
@@ -144,18 +148,25 @@ func (q *Queries) ReadPhoneVerificationDestination(ctx context.Context, arg Read
 
 const rotatePhoneVerification = `-- name: RotatePhoneVerification :execrows
 UPDATE verifications SET code_mac=$1::bytea,
-    expires_at=clock_timestamp()+interval '5 minutes',resend_after=clock_timestamp()+interval '60 seconds'
-WHERE kind='phone' AND id=$2::uuid AND proof_digest IS NULL AND failed_attempts<5
+    expires_at=clock_timestamp()+($2::integer * interval '1 minute'),resend_after=clock_timestamp()+($3::integer * interval '1 second')
+WHERE kind='phone' AND id=$4::uuid AND proof_digest IS NULL AND failed_attempts<5
     AND resend_after<=clock_timestamp() AND created_at>clock_timestamp()-interval '30 minutes'
 `
 
 type RotatePhoneVerificationParams struct {
-	CodeMac []byte    `json:"code_mac"`
-	ID      uuid.UUID `json:"id"`
+	CodeMac         []byte    `json:"code_mac"`
+	TtlMinutes      int32     `json:"ttl_minutes"`
+	CooldownSeconds int32     `json:"cooldown_seconds"`
+	ID              uuid.UUID `json:"id"`
 }
 
 func (q *Queries) RotatePhoneVerification(ctx context.Context, arg RotatePhoneVerificationParams) (int64, error) {
-	result, err := q.db.Exec(ctx, rotatePhoneVerification, arg.CodeMac, arg.ID)
+	result, err := q.db.Exec(ctx, rotatePhoneVerification,
+		arg.CodeMac,
+		arg.TtlMinutes,
+		arg.CooldownSeconds,
+		arg.ID,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -164,17 +175,18 @@ func (q *Queries) RotatePhoneVerification(ctx context.Context, arg RotatePhoneVe
 
 const verifyPhoneVerification = `-- name: VerifyPhoneVerification :execrows
 UPDATE verifications SET code_mac=NULL,proof_digest=$1::bytea,
-    expires_at=clock_timestamp()+interval '15 minutes'
-WHERE kind='phone' AND id=$2::uuid AND proof_digest IS NULL AND failed_attempts<5 AND expires_at>clock_timestamp()
+    expires_at=clock_timestamp()+($2::integer * interval '1 minute')
+WHERE kind='phone' AND id=$3::uuid AND proof_digest IS NULL AND failed_attempts<5 AND expires_at>clock_timestamp()
 `
 
 type VerifyPhoneVerificationParams struct {
 	ProofDigest []byte    `json:"proof_digest"`
+	TtlMinutes  int32     `json:"ttl_minutes"`
 	ID          uuid.UUID `json:"id"`
 }
 
 func (q *Queries) VerifyPhoneVerification(ctx context.Context, arg VerifyPhoneVerificationParams) (int64, error) {
-	result, err := q.db.Exec(ctx, verifyPhoneVerification, arg.ProofDigest, arg.ID)
+	result, err := q.db.Exec(ctx, verifyPhoneVerification, arg.ProofDigest, arg.TtlMinutes, arg.ID)
 	if err != nil {
 		return 0, err
 	}
