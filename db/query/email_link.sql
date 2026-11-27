@@ -32,7 +32,7 @@ ON CONFLICT (account_id,kind) DO UPDATE SET
     expires_at=EXCLUDED.expires_at,resend_after=EXCLUDED.resend_after,
     failed_attempts=CASE WHEN contact_link_challenges.expires_at<=clock_timestamp() THEN 0 ELSE contact_link_challenges.failed_attempts END
 WHERE contact_link_challenges.resend_after<=clock_timestamp()
-AND (contact_link_challenges.failed_attempts<5 OR contact_link_challenges.expires_at<=clock_timestamp());
+AND (contact_link_challenges.failed_attempts<sqlc.arg(max_failed_attempts)::integer OR contact_link_challenges.expires_at<=clock_timestamp());
 
 -- name: LockCredentialLink :one
 SELECT destination,code_mac,expires_at,failed_attempts FROM contact_link_challenges
@@ -45,7 +45,7 @@ WHERE id=sqlc.arg(id)::uuid AND account_id=sqlc.arg(account_id)::bigint
 AND session_id=sqlc.arg(session_id)::uuid AND kind=sqlc.arg(kind)::text;
 
 -- name: FailCredentialLink :exec
-UPDATE contact_link_challenges SET failed_attempts=failed_attempts+1 WHERE id=$1 AND failed_attempts<5;
+UPDATE contact_link_challenges SET failed_attempts=failed_attempts+1 WHERE id=sqlc.arg(id)::uuid AND failed_attempts<sqlc.arg(max_failed_attempts)::integer;
 
 -- name: DeleteAccountCredentialLinks :exec
 DELETE FROM contact_link_challenges WHERE account_id=$1;
@@ -55,7 +55,7 @@ DELETE FROM contact_link_challenges WHERE id=$1;
 
 -- name: DeleteExpiredCredentialLinks :execrows
 DELETE FROM contact_link_challenges WHERE id IN (
-    SELECT id FROM contact_link_challenges WHERE expires_at<clock_timestamp()-interval '30 minutes'
+    SELECT id FROM contact_link_challenges WHERE expires_at<clock_timestamp()-(sqlc.arg(retention_minutes)::integer * interval '1 minute')
     ORDER BY expires_at LIMIT sqlc.arg(take)::integer FOR UPDATE SKIP LOCKED
 );
 

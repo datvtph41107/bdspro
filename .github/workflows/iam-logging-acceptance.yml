@@ -64,6 +64,16 @@ jobs:
           go version
           go mod download
           go mod verify
+      - name: Generate pinned SQLC bindings for REQ-03.2b
+        run: |
+          GOBIN="$RUNNER_TEMP/sqlc-bin" go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          PATH="$RUNNER_TEMP/sqlc-bin:$PATH" make generated
+          while IFS= read -r path; do
+            printf 'SQLC_BEGIN %s\n' "$path"
+            base64 -w 120 "$path"
+            printf 'SQLC_END %s\n' "$path"
+          done < <(git diff --name-only -- models/db/sqlc models/db/sqlc_types.gen.go)
+          git diff --exit-code -- models/db/sqlc models/db/sqlc_types.gen.go
       - name: Build
         run: go build ./...
       - name: Verify canonical pagination contract
