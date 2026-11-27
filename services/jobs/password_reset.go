@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/hibiken/asynq"
 )
 
@@ -73,6 +74,7 @@ func NewPasswordResetHandler(
 								AccountID:    payload.AccountID,
 								ResetVersion: payload.ResetVersion,
 								TokenHash:    proof.Hash,
+								TtlMinutes:   token.PasswordResetTTLMinutes,
 							},
 						)
 					if err != nil {

@@ -7,6 +7,9 @@ import (
 	"errors"
 )
 
+// PasswordResetTTLMinutes applies to password recovery issuance, including the legacy job.
+const PasswordResetTTLMinutes = 15
+
 var ErrRecoveryProof = errors.New("invalid password recovery proof")
 
 func NewRecoveryProof() (string, []byte, error) {

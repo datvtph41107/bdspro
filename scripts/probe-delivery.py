@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Runtime-only probe against a disposable local BDSPro and Mailpit."""
+import hashlib
 import http.cookiejar
 import json
 import os
@@ -27,22 +28,25 @@ def browser():
     )
 
 
-def post(opener, path, body, expected):
+def post(opener, path, body, expected, *, access=None, group="auth"):
+    headers = {"Content-Type": "application/json", "Origin": BASE,
+               "X-BDS-Request": "1", "Sec-Fetch-Site": "same-origin"}
+    if access:
+        headers["Authorization"] = "Bearer " + access
     request = urllib.request.Request(
-        BASE + "/api/v1/auth/" + path,
+        BASE + "/api/v1/" + group + "/" + path,
         data=json.dumps(body).encode(), method="POST",
-        headers={"Content-Type": "application/json", "Origin": BASE,
-                 "X-BDS-Request": "1", "Sec-Fetch-Site": "same-origin"},
+        headers=headers,
     )
     try:
         response = opener.open(request, timeout=15)
     except urllib.error.HTTPError as error:
         response = error
     with response:
-        data = json.load(response)
         if response.status != expected:
             raise RuntimeError(f"{path}: HTTP {response.status}, expected {expected}")
-        print(f"PASS POST /api/v1/auth/{path} {response.status}", flush=True)
+        data = None if response.status == 204 else json.load(response)
+        print(f"PASS POST /api/v1/{group}/{path} {response.status}", flush=True)
         return data
 
 
@@ -175,6 +179,49 @@ def check_guard_boundaries():
     print("PASS attempt caps, schema ceiling, resend horizon, retention and destination admission", flush=True)
 
 
+def check_recovery_and_reauth(opener, email, registration):
+    password = "disposable-probe-password-123"
+    account = post(opener, "register/complete", {
+        "registration_token": registration["registration_token"],
+        "username": "probe_" + secrets.token_hex(6), "password": password,
+        "terms_version": "v1", "marketing_opt_in": False, "stay_signed_in": False,
+    }, 201)
+    access = account["access_token"]
+    reauth = post(opener, "reauth/password", {"password": password, "action": "sessions.revoke_all"},
+                  200, access=access, group="me")
+    if reauth.get("expires_in") != 600:
+        raise RuntimeError("Unexpected recent authentication lifetime")
+    digest = hashlib.sha256(reauth["reauthentication_proof"].encode()).hexdigest()
+    row = db_query(f"SELECT extract(epoch FROM expires_at-clock_timestamp()) FROM auth_proofs "
+                   f"WHERE digest=decode('{digest}','hex') AND method='password' AND action='sessions.revoke_all'")
+    if not 585 <= float(row) <= 600:
+        raise RuntimeError("Persisted reauthentication deadline disagrees with API")
+    db_query(f"UPDATE auth_proofs SET expires_at=clock_timestamp()-interval '1 second' WHERE digest=decode('{digest}','hex')")
+    post(opener, "sessions/revoke-all", {"reauthentication_proof": reauth["reauthentication_proof"]},
+         403, access=access, group="me")
+
+    # Unknown and known email both retain the accepted response and minimum timing.
+    for destination in (email, "missing-" + secrets.token_hex(6) + "@example.invalid"):
+        started = time.monotonic()
+        result = post(opener, "password/reset/request", {"email": destination}, 202)
+        if result != {"status": "accepted"} or time.monotonic() - started < 3.8:
+            raise RuntimeError("Recovery response or minimum timing changed")
+    proof, _ = inbox_code(email, r"Enter this recovery token in BDSPro: ([A-Za-z0-9_-]{43})", 900)
+    digest = hashlib.sha256(proof.encode()).hexdigest()
+    row = db_query(f"SELECT extract(epoch FROM expires_at-created_at) FROM password_reset_tokens "
+                   f"WHERE token_hash=decode('{digest}','hex')")
+    if float(row) != 900:
+        raise RuntimeError("Password recovery TTL disagrees with delivered proof")
+    body = {"reset_token": proof, "new_password": "disposable-new-password-456"}
+    post(opener, "password/reset/confirm", body, 204)
+    post(opener, "password/reset/confirm", body, 400)
+    if db_query(f"SELECT count(*) FROM password_reset_tokens WHERE token_hash=decode('{digest}','hex')") != "0":
+        raise RuntimeError("Consumed password recovery proof still exists")
+    post(opener, "login", {"identifier": email, "password": password}, 401)
+    post(opener, "login", {"identifier": email, "password": body["new_password"]}, 200)
+    print("PASS recovery and recent-auth TTL, expired proof rejection, reset/replay and new password", flush=True)
+
+
 def main():
     capabilities = get(BASE + "/api/v1/auth/phone/channels")
     if capabilities.get("development") is not True or capabilities.get("channels") != ["sms", "zalo", "telegram"]:
@@ -200,6 +247,8 @@ def main():
     result = post(opener, "register/verify", {"challenge_id": challenge["challenge_id"], "code": code}, 200)
     check_proof(challenge, result, "email")
     print("PASS email registration SMTP delivery and verification", flush=True)
+    if os.environ.get("BDS_PROBE_PG_CONTAINER"):
+        check_recovery_and_reauth(opener, email, result)
 
     for channel in capabilities["channels"]:
         phone = "+8490" + "".join(secrets.choice("0123456789") for _ in range(7))

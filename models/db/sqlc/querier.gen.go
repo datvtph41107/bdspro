@@ -6,6 +6,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -35,7 +36,7 @@ type Querier interface {
 	CreateAccountWithoutEmail(ctx context.Context, personID int64) (CreateAccountWithoutEmailRow, error)
 	CreateEmailRegistration(ctx context.Context, arg CreateEmailRegistrationParams) error
 	CreateGoogleFlow(ctx context.Context, arg CreateGoogleFlowParams) error
-	CreateGoogleRecentAuthProof(ctx context.Context, arg CreateGoogleRecentAuthProofParams) (int64, error)
+	CreateGoogleRecentAuthProof(ctx context.Context, arg CreateGoogleRecentAuthProofParams) (time.Time, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
 	CreateOrganizationMember(ctx context.Context, arg CreateOrganizationMemberParams) (OrganizationMember, error)
 	CreateParty(ctx context.Context) (int64, error)

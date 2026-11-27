@@ -44,42 +44,48 @@ func (q *Queries) ConsumeRecentAuthProof(ctx context.Context, arg ConsumeRecentA
 	return i, err
 }
 
-const createGoogleRecentAuthProof = `-- name: CreateGoogleRecentAuthProof :execrows
+const createGoogleRecentAuthProof = `-- name: CreateGoogleRecentAuthProof :one
 INSERT INTO auth_proofs(digest,account_id,session_id,action,method,google_subject,expires_at)
 SELECT $1::bytea,$2::bigint,$3::uuid,$4::text,
-    'google',$5::text,LEAST(clock_timestamp()+interval '10 minutes',to_timestamp($6::bigint)+interval '10 minutes')
-WHERE to_timestamp($6::bigint)>clock_timestamp()-interval '5 minutes'
-AND to_timestamp($6::bigint)<=clock_timestamp()+interval '30 seconds'
+    'google',$5::text,LEAST(clock_timestamp()+($6::integer * interval '1 minute'),to_timestamp($7::bigint)+($6::integer * interval '1 minute'))
+WHERE to_timestamp($7::bigint)>clock_timestamp()-($8::integer * interval '1 second')
+AND to_timestamp($7::bigint)<=clock_timestamp()+($9::integer * interval '1 second')
+RETURNING expires_at
 `
 
 type CreateGoogleRecentAuthProofParams struct {
-	Digest        []byte    `json:"digest"`
-	AccountID     int64     `json:"account_id"`
-	SessionID     uuid.UUID `json:"session_id"`
-	Action        string    `json:"action"`
-	GoogleSubject string    `json:"google_subject"`
-	AuthTime      int64     `json:"auth_time"`
+	Digest            []byte    `json:"digest"`
+	AccountID         int64     `json:"account_id"`
+	SessionID         uuid.UUID `json:"session_id"`
+	Action            string    `json:"action"`
+	GoogleSubject     string    `json:"google_subject"`
+	TtlMinutes        int32     `json:"ttl_minutes"`
+	AuthTime          int64     `json:"auth_time"`
+	FreshnessSeconds  int32     `json:"freshness_seconds"`
+	FutureSkewSeconds int32     `json:"future_skew_seconds"`
 }
 
-func (q *Queries) CreateGoogleRecentAuthProof(ctx context.Context, arg CreateGoogleRecentAuthProofParams) (int64, error) {
-	result, err := q.db.Exec(ctx, createGoogleRecentAuthProof,
+func (q *Queries) CreateGoogleRecentAuthProof(ctx context.Context, arg CreateGoogleRecentAuthProofParams) (time.Time, error) {
+	row := q.db.QueryRow(ctx, createGoogleRecentAuthProof,
 		arg.Digest,
 		arg.AccountID,
 		arg.SessionID,
 		arg.Action,
 		arg.GoogleSubject,
+		arg.TtlMinutes,
 		arg.AuthTime,
+		arg.FreshnessSeconds,
+		arg.FutureSkewSeconds,
 	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+	var expires_at time.Time
+	err := row.Scan(&expires_at)
+	return expires_at, err
 }
 
 const createRecentAuthProof = `-- name: CreateRecentAuthProof :exec
 INSERT INTO auth_proofs(digest,account_id,session_id,action,method,email_snapshot,expires_at)
 VALUES ($1::bytea,$2::bigint,$3::uuid,
-    $4::text,$5::text,$6::text,clock_timestamp()+interval '10 minutes')
+    $4::text,$5::text,$6::text,clock_timestamp()+($7::integer * interval '1 minute'))
 `
 
 type CreateRecentAuthProofParams struct {
@@ -89,6 +95,7 @@ type CreateRecentAuthProofParams struct {
 	Action        string    `json:"action"`
 	Method        string    `json:"method"`
 	EmailSnapshot string    `json:"email_snapshot"`
+	TtlMinutes    int32     `json:"ttl_minutes"`
 }
 
 func (q *Queries) CreateRecentAuthProof(ctx context.Context, arg CreateRecentAuthProofParams) error {
@@ -99,6 +106,7 @@ func (q *Queries) CreateRecentAuthProof(ctx context.Context, arg CreateRecentAut
 		arg.Action,
 		arg.Method,
 		arg.EmailSnapshot,
+		arg.TtlMinutes,
 	)
 	return err
 }

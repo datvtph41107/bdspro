@@ -18,7 +18,13 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const GoogleIssuer = "https://accounts.google.com"
+const (
+	GoogleIssuer = "https://accounts.google.com"
+
+	// Shared by ID-token freshness validation and database proof issuance.
+	GoogleAuthFreshnessSeconds = 300
+	GoogleAuthFutureSkewSeconds = 30
+)
 const googleTokenURL = "https://oauth2.googleapis.com/token"
 const googleKeysURL = "https://www.googleapis.com/oauth2/v3/certs"
 
@@ -74,7 +80,7 @@ func GoogleAuthTimeRecent(authTime int64, now time.Time) bool {
 		return false
 	}
 	at := time.Unix(authTime, 0)
-	return at.After(now.Add(-5*time.Minute)) && !at.After(now.Add(30*time.Second))
+	return at.After(now.Add(-GoogleAuthFreshnessSeconds*time.Second)) && !at.After(now.Add(GoogleAuthFutureSkewSeconds*time.Second))
 }
 
 var googleClient = &http.Client{

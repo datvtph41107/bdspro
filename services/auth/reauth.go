@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+const recentAuthProofTTLMinutes = 10
+
 var ErrReauthRequired = util.WithPublic(util.ErrPermissionDenied, "recent authentication missing or invalid", "reauthentication_required", "recent authentication required")
 var ErrReauthAction = util.WithPublic(util.ErrInvalidArgument, "invalid reauthentication action", "validation_failed", "invalid reauthentication action")
 
@@ -73,12 +75,13 @@ func ReauthenticatePassword(ctx context.Context, actor authmodel.Actor, password
 			return RecentAuthResult{}, err
 		}
 		if err := q.CreateRecentAuthProof(txCtx, db.CreateRecentAuthProofParams{
+			TtlMinutes: recentAuthProofTTLMinutes,
 			Digest: digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
 			Action: action, Method: "password",
 		}); err != nil {
 			return RecentAuthResult{}, err
 		}
-		return RecentAuthResult{Proof: raw, Action: action, ExpiresIn: 600}, nil
+		return RecentAuthResult{Proof: raw, Action: action, ExpiresIn: recentAuthProofTTLMinutes * 60}, nil
 	})
 }
 
@@ -109,6 +112,7 @@ func RequestPasswordSetProof(ctx context.Context, actor authmodel.Actor) error {
 			return "", err
 		}
 		if err := q.CreateRecentAuthProof(txCtx, db.CreateRecentAuthProofParams{
+			TtlMinutes: recentAuthProofTTLMinutes,
 			Digest: digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
 			Action: "password.set", Method: "verified_email", EmailSnapshot: *u.Email,
 		}); err != nil {
@@ -119,7 +123,7 @@ func RequestPasswordSetProof(ctx context.Context, actor authmodel.Actor) error {
 	if err != nil {
 		return err
 	}
-	return mailer.SendPasswordSetProof(ctx, email, raw)
+	return mailer.SendPasswordSetProof(ctx, email, raw, recentAuthProofTTLMinutes)
 }
 
 func ConsumeRecentAuthProof(ctx context.Context, q *db.Queries, actor authmodel.Actor, raw, action string) error {

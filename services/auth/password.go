@@ -90,7 +90,7 @@ func requestPasswordReset(ctx context.Context, email string) error {
 		} else if err != nil {
 			return false, err
 		}
-		if err := q.CreatePasswordResetToken(txCtx, db.CreatePasswordResetTokenParams{AccountID: account.ID, TokenHash: digest}); err != nil {
+		if err := q.CreatePasswordResetToken(txCtx, db.CreatePasswordResetTokenParams{AccountID: account.ID, TokenHash: digest, TtlMinutes: token.PasswordResetTTLMinutes}); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -98,7 +98,7 @@ func requestPasswordReset(ctx context.Context, email string) error {
 	if err != nil || !issued {
 		return err
 	}
-	return mailer.SendPasswordReset(ctx, email, raw)
+	return mailer.SendPasswordReset(ctx, email, raw, token.PasswordResetTTLMinutes)
 }
 
 func ResetPassword(ctx context.Context, raw, password string) error {

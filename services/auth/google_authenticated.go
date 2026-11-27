@@ -162,20 +162,22 @@ func CompleteGoogleReauth(ctx context.Context, actor authmodel.Actor, browser []
 		if owner != actor.AccountID {
 			return RecentAuthResult{}, ErrReauthRequired
 		}
-		n, err := q.CreateGoogleRecentAuthProof(txCtx, db.CreateGoogleRecentAuthProofParams{
+		deadline, err := q.CreateGoogleRecentAuthProof(txCtx, db.CreateGoogleRecentAuthProofParams{
 			Digest: digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
 			Action: row.Action, GoogleSubject: row.Subject, AuthTime: row.AuthTime,
+			TtlMinutes: recentAuthProofTTLMinutes, FreshnessSeconds: token.GoogleAuthFreshnessSeconds,
+			FutureSkewSeconds: token.GoogleAuthFutureSkewSeconds,
 		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RecentAuthResult{}, ErrReauthRequired
+		}
 		if err != nil {
 			return RecentAuthResult{}, err
-		}
-		if n != 1 {
-			return RecentAuthResult{}, ErrReauthRequired
 		}
 		if err := q.DeleteGoogleFlow(txCtx, browser); err != nil {
 			return RecentAuthResult{}, err
 		}
-		expires := min(600, int(time.Until(time.Unix(row.AuthTime, 0).Add(10*time.Minute)).Seconds()))
+		expires := max(0, min(recentAuthProofTTLMinutes*60, int(time.Until(deadline)/time.Second)))
 		return RecentAuthResult{Proof: raw, Action: row.Action, ExpiresIn: expires}, nil
 	})
 }

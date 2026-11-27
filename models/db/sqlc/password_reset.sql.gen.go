@@ -35,16 +35,17 @@ func (q *Queries) ConsumePasswordResetToken(ctx context.Context, tokenHash []byt
 
 const createPasswordResetToken = `-- name: CreatePasswordResetToken :exec
 INSERT INTO password_reset_tokens (token_hash, account_id, expires_at)
-VALUES ($1, $2, now() + interval '15 minutes')
+VALUES ($1, $2, now() + ($3::integer * interval '1 minute'))
 `
 
 type CreatePasswordResetTokenParams struct {
-	TokenHash []byte `json:"token_hash"`
-	AccountID int64  `json:"account_id"`
+	TokenHash  []byte `json:"token_hash"`
+	AccountID  int64  `json:"account_id"`
+	TtlMinutes int32  `json:"ttl_minutes"`
 }
 
 func (q *Queries) CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) error {
-	_, err := q.db.Exec(ctx, createPasswordResetToken, arg.TokenHash, arg.AccountID)
+	_, err := q.db.Exec(ctx, createPasswordResetToken, arg.TokenHash, arg.AccountID, arg.TtlMinutes)
 	return err
 }
 
@@ -68,22 +69,28 @@ func (q *Queries) DeleteSessionsForAccount(ctx context.Context, accountID int64)
 
 const issuePasswordResetTokenIfCurrentVersion = `-- name: IssuePasswordResetTokenIfCurrentVersion :execrows
 INSERT INTO password_reset_tokens (token_hash, account_id, expires_at)
-SELECT $1::bytea, id, now() + interval '15 minutes'
+SELECT $1::bytea, id, now() + ($2::integer * interval '1 minute')
 FROM accounts
-WHERE id = $2::bigint
-  AND password_reset_version = $3::bigint
+WHERE id = $3::bigint
+  AND password_reset_version = $4::bigint
   AND is_email_verified
 FOR SHARE
 `
 
 type IssuePasswordResetTokenIfCurrentVersionParams struct {
 	TokenHash    []byte `json:"token_hash"`
+	TtlMinutes   int32  `json:"ttl_minutes"`
 	AccountID    int64  `json:"account_id"`
 	ResetVersion int64  `json:"reset_version"`
 }
 
 func (q *Queries) IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, arg IssuePasswordResetTokenIfCurrentVersionParams) (int64, error) {
-	result, err := q.db.Exec(ctx, issuePasswordResetTokenIfCurrentVersion, arg.TokenHash, arg.AccountID, arg.ResetVersion)
+	result, err := q.db.Exec(ctx, issuePasswordResetTokenIfCurrentVersion,
+		arg.TokenHash,
+		arg.TtlMinutes,
+		arg.AccountID,
+		arg.ResetVersion,
+	)
 	if err != nil {
 		return 0, err
 	}
