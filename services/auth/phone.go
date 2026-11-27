@@ -50,7 +50,7 @@ func StartPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, phone
 	}); err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if _, err := phoneDelivery.SendCode(ctx, channel, phone, code); err != nil {
+	if err := phoneDelivery.SendCode(ctx, channel, phone, code); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	result := challengeResult(id)
@@ -105,7 +105,7 @@ func ResendPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, id u
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if _, err := phoneDelivery.SendCode(ctx, channel, phone, code); err != nil {
+	if err := phoneDelivery.SendCode(ctx, channel, phone, code); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	result := challengeResult(id)

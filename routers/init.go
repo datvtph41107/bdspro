@@ -45,14 +45,16 @@ func InitWebInstalled(ctx context.Context) error {
 	)
 }
 
-func NormalRoutes() *web.Router {
-	r := web.NewRouter()
-	r.Mount("/api/v1", apiv1.Routes())
-	return r
-}
-
 func PrepareWebRoutes() (http.Handler, error) {
-	routes := NormalRoutes()
+	// Delivery construction only validates configuration and allocates local state.
+	// Bind the same instance to the relevant handlers before opening resources.
+	delivery, err := phonedelivery.New(setting.PhoneDelivery, setting.SMS, setting.Common.RunMode)
+	if err != nil {
+		return nil, fmt.Errorf("configure phone delivery: %w", err)
+	}
+
+	routes := web.NewRouter()
+	routes.Mount("/api/v1", apiv1.Routes(delivery))
 	if setting.API.EnableSwagger {
 		swagger := api.SwaggerHandler(setting.Common.RunMode)
 		if swagger == nil {
@@ -78,14 +80,9 @@ func NormalHandler(routes http.Handler) (http.Handler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("configure IP admission: %w", err)
 	}
-	phoneDelivery, err := phonedelivery.New(setting.PhoneDelivery, setting.SMS, setting.Common.RunMode)
-	if err != nil {
-		return nil, fmt.Errorf("configure phone delivery: %w", err)
-	}
 	admission := ipactive.NewMiddleware(limiter)
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		req = req.WithContext(ipactive.WithMiddleware(req.Context(), admission))
-		req = req.WithContext(phonedelivery.WithService(req.Context(), phoneDelivery))
 		routes.ServeHTTP(w, req)
 	}), nil
 }

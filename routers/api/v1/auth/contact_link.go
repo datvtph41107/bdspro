@@ -9,11 +9,10 @@ import (
 	"github.com/datvtph41107/bdspro/modules/web"
 	authservice "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
-	"github.com/datvtph41107/bdspro/services/phonedelivery"
 	"github.com/google/uuid"
 )
 
-func StartEmailLink(ctx *appctx.APIContext) {
+func (h *OTPHandler) StartEmailLink(ctx *appctx.APIContext) {
 	if !credentialReady(ctx, ipactive.StartEmailLink) {
 		return
 	}
@@ -27,7 +26,7 @@ func StartEmailLink(ctx *appctx.APIContext) {
 	if !subjectAdmission(ctx, ipactive.Register, email) {
 		return
 	}
-	result, err := authservice.StartContactLink(ctx, phonedelivery.FromContext(ctx), *ctx.Doer, "email", email, form.ReauthenticationProof, "")
+	result, err := authservice.StartContactLink(ctx, h.delivery, *ctx.Doer, "email", email, form.ReauthenticationProof, "")
 	if err != nil {
 		writeRegistrationError(ctx, err)
 		return
@@ -35,7 +34,7 @@ func StartEmailLink(ctx *appctx.APIContext) {
 	ctx.JSON(http.StatusAccepted, result)
 }
 
-func StartPhoneLink(ctx *appctx.APIContext) {
+func (h *OTPHandler) StartPhoneLink(ctx *appctx.APIContext) {
 	if !credentialReady(ctx, ipactive.StartPhoneBind) {
 		return
 	}
@@ -45,14 +44,14 @@ func StartPhoneLink(ctx *appctx.APIContext) {
 		writePhoneError(ctx, authservice.ErrPhoneInvalid)
 		return
 	}
-	if _, err := phonedelivery.FromContext(ctx).ResolveChannel(form.Channel); err != nil {
+	if _, err := h.delivery.ResolveChannel(form.Channel); err != nil {
 		writePhoneError(ctx, err)
 		return
 	}
 	if !smsAdmission(ctx, phone) {
 		return
 	}
-	result, err := authservice.StartContactLink(ctx, phonedelivery.FromContext(ctx), *ctx.Doer, "phone", phone, form.ReauthenticationProof, form.Channel)
+	result, err := authservice.StartContactLink(ctx, h.delivery, *ctx.Doer, "phone", phone, form.ReauthenticationProof, form.Channel)
 	if err != nil {
 		writePhoneError(ctx, err)
 		return

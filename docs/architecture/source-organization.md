@@ -42,8 +42,27 @@ For each bounded scope: inspect callers/callees, compare Gitea and current code,
 ## REQ-01 decisions
 
 - modules/mail owns SMTP and message encoding; services/mailer owns registration, password, credential notice and team invitation text. Existing error identity retained via mailer.ErrUnavailable.
-- modules/phonedelivery owns provider-specific protocols; same package, same constructors, no new adapters/framework.
-- services/phonedelivery owns immutable config snapshot, default/allowed channel selection, concurrency budget, result logging, development Mailpit guard. Mailpit sender uses modules/mail directly.
+- Provider adapters are private implementations in services/phonedelivery. No independent module consumer was found; remove modules/phonedelivery and its three type aliases.
+- services/phonedelivery owns immutable config snapshot, default/allowed channel selection, concurrency budget, result logging, development Mailpit guard. Mailpit sender uses modules/mail directly. Provider receipt is private; SendCode returns only error, because all business callers discarded the receipt.
+- PrepareWebRoutes constructs the single service before static route registration (no network or DB I/O). OTPHandler method values capture it for only five dependent endpoints. Delete services/phonedelivery/context.go; keep context.Context for cancellation, timeout and log correlation. No global service or general DI framework.
 - Retain early router channel checks before admission, auth checks before challenge writes and final sender validation. Removing them requires checking ordering and callers separately.
 - Preserve provider URLs, request/response fields, timeouts, redirect refusal, no retry/fallback, existing OTP wording/TTL, error responses and logging privacy. TTL ownership addressed by REQ-03, not this change. No schema changes.
 - Existing SMTP integration test relocated to mailer; message test remains with module. No additional mandatory Go test gate. The existing CI runtime step starts disposable Mailpit and calls real email/phone start and verify APIs, reads OTP only from its local inbox, and never prints codes or proof tokens. This does not verify live provider delivery or all mailer consumers.
+
+## REQ-01 follow-up: evidence for each surviving production file
+
+Baseline: [f89619c](https://github.com/datvtph41107/bdspro/tree/f89619c1f0cf5f177b30be2558ebc010ce79b2a1). Its build, migration, HTTP/SMTP/phone Mailpit probes and SQLC check passed in [run 45962286517](https://github.com/datvtph41107/bdspro/actions/runs/45962286517). The next revision needs its own runtime result.
+
+| File | Concrete callers / reason to exist |
+| --- | --- |
+| services/phonedelivery/service.go | PrepareWebRoutes -> New; owns shared client, enabled sender map, slots; no external I/O during creation |
+| channel.go | OTPHandler.PhoneChannels/PhoneStart/PhoneResend/StartPhoneLink, auth.StartPhone/ResendPhone/StartContactLink, Service.SendCode; default and enabled-channel policy, copied public options |
+| delivery.go | auth.StartPhone, ResendPhone, StartContactLink -> SendCode; canonical OTP validation, capacity, provider dispatch, safe logs |
+| sender.go | sender map and four implementations share message/receipt/interface; HTTP handlers use Failure/ErrUnavailable; receipts not exported |
+| http.go | Twilio/Zalo/Telegram use exchange; Zalo/Telegram use jsonRequest; response cap, safe errors, no leaked upstream text |
+| twilio.go | New chooses SMS -> twilioSender.Send, form and BasicAuth |
+| zalo.go | New chooses Zalo -> zaloSender.Send, approved template and provider error status |
+| telegram.go | New chooses Telegram -> telegramSender.Send, Gateway verification protocol |
+| mailpit.go | New chooses development -> mailpitSender.Send; local-only guard and OTP inbox via mail.SendPlain |
+
+Deleted: independent modules/phonedelivery package, exported transport constructors and aliases, request dependency context, redundant NormalRoutes forwarding function. Authentication continues to own code generation, MAC, DB and verification; no business flow or API/schema change. Private Mailpit adapter relies on SendCode validation of canonical phone/code and New validation of channel, still checks development/local SMTP at its own I/O boundary. Earlier router checks before admission and auth checks before challenge mutation remain, since removing them changes rejection ordering. No cross-repo full line audit claim: remaining scopes REQ-02–13 require their own consumer map and acceptance.

@@ -14,6 +14,19 @@ import (
 	"github.com/google/uuid"
 )
 
+// OTPHandler binds the startup delivery dependency to OTP-sending routes.
+// Verification and completion routes do not need a delivery service.
+type OTPHandler struct {
+	delivery *phonedelivery.Service
+}
+
+func NewOTPHandler(delivery *phonedelivery.Service) *OTPHandler {
+	if delivery == nil {
+		panic("auth: nil phone delivery service")
+	}
+	return &OTPHandler{delivery: delivery}
+}
+
 func writePhoneError(ctx *appctx.APIContext, err error) {
 	if errors.Is(err, phonedelivery.ErrUnavailable) {
 		var failure *phonedelivery.Failure
@@ -27,9 +40,9 @@ func writePhoneError(ctx *appctx.APIContext, err error) {
 }
 
 // PhoneChannels reports configured options, not membership on a third-party service.
-func PhoneChannels(ctx *appctx.APIContext) {
+func (h *OTPHandler) PhoneChannels(ctx *appctx.APIContext) {
 	ctx.Header("Cache-Control", "no-store")
-	ctx.JSON(http.StatusOK, phonedelivery.FromContext(ctx).Options())
+	ctx.JSON(http.StatusOK, h.delivery.Options())
 }
 
 func smsAdmission(ctx *appctx.APIContext, phone string) bool {
@@ -39,7 +52,7 @@ func smsAdmission(ctx *appctx.APIContext, phone string) bool {
 		subjectAdmission(ctx, ipactive.SMSGlobalDay, "all")
 }
 
-func PhoneStart(ctx *appctx.APIContext) {
+func (h *OTPHandler) PhoneStart(ctx *appctx.APIContext) {
 	ctx.Header("Cache-Control", "no-store")
 	form := web.GetForm[*structs.PhoneStart](ctx)
 	phone, err := token.NormalizePhone(form.Phone, form.CountryCode)
@@ -47,7 +60,7 @@ func PhoneStart(ctx *appctx.APIContext) {
 		writePhoneError(ctx, authservice.ErrPhoneInvalid)
 		return
 	}
-	channel, err := phonedelivery.FromContext(ctx).ResolveChannel(form.Channel)
+	channel, err := h.delivery.ResolveChannel(form.Channel)
 	if err != nil {
 		writePhoneError(ctx, err)
 		return
@@ -60,7 +73,7 @@ func PhoneStart(ctx *appctx.APIContext) {
 		writePhoneError(ctx, err)
 		return
 	}
-	result, err := authservice.StartPhone(ctx, phonedelivery.FromContext(ctx), phone, browser, channel)
+	result, err := authservice.StartPhone(ctx, h.delivery, phone, browser, channel)
 	if err != nil {
 		writePhoneError(ctx, err)
 		return
@@ -87,10 +100,10 @@ func phoneFlow(ctx *appctx.APIContext, rawID string) (uuid.UUID, []byte, string,
 	return id, browser, phone, true
 }
 
-func PhoneResend(ctx *appctx.APIContext) {
+func (h *OTPHandler) PhoneResend(ctx *appctx.APIContext) {
 	ctx.Header("Cache-Control", "no-store")
 	form := web.GetForm[*structs.PhoneResend](ctx)
-	channel, err := phonedelivery.FromContext(ctx).ResolveChannel(form.Channel)
+	channel, err := h.delivery.ResolveChannel(form.Channel)
 	if err != nil {
 		writePhoneError(ctx, err)
 		return
@@ -99,7 +112,7 @@ func PhoneResend(ctx *appctx.APIContext) {
 	if !ok || !smsAdmission(ctx, phone) {
 		return
 	}
-	result, err := authservice.ResendPhone(ctx, phonedelivery.FromContext(ctx), id, browser, channel)
+	result, err := authservice.ResendPhone(ctx, h.delivery, id, browser, channel)
 	if err != nil {
 		writePhoneError(ctx, err)
 		return

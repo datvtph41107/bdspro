@@ -1,16 +1,17 @@
-// Package phonedelivery implements provider HTTP protocols for phone OTP transport.
-// Channel policy and application orchestration belong to services/phonedelivery.
 package phonedelivery
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
-type Message struct {
+type message struct {
 	Phone string
 	Code  string
 }
 
-// Receipt acknowledges provider acceptance, not delivery to the recipient.
-type Receipt struct {
+// receipt acknowledges provider acceptance, not delivery to the recipient.
+type receipt struct {
 	Provider  string
 	MessageID string
 }
@@ -26,3 +27,9 @@ type Failure struct {
 
 func (e *Failure) Error() string { return e.Reason }
 func (e *Failure) Unwrap() error { return ErrUnavailable }
+
+// sender returns when the provider accepts the message, not when it is delivered.
+// Implementations must not log message content or credentials, or retry implicitly.
+type sender interface {
+	Send(context.Context, message) (receipt, error)
+}

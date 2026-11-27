@@ -12,9 +12,11 @@ import (
 	"github.com/datvtph41107/bdspro/routers/api/v1/user"
 	"github.com/datvtph41107/bdspro/routers/common"
 	appctx "github.com/datvtph41107/bdspro/services/context"
+	"github.com/datvtph41107/bdspro/services/phonedelivery"
 )
 
-func Routes() *web.Router {
+func Routes(delivery *phonedelivery.Service) *web.Router {
+	otp := auth.NewOTPHandler(delivery)
 	m := web.NewRouter()
 	m.AfterRouting(appctx.APIContexter())
 	m.Get("/health", Health)
@@ -23,9 +25,9 @@ func Routes() *web.Router {
 		m.Get("/google/callback", reqIPAdmission(ipactive.StartOAuth2Login), auth.GoogleCallback)
 		m.Post("/google/result", auth.BrowserMutation, reqIPAdmission(ipactive.StartOAuth2Login), auth.GoogleResult)
 		m.Post("/google/complete", auth.BrowserMutation, reqIPAdmission(ipactive.StartOAuth2Login), bind(structs.GoogleComplete{}), auth.GoogleComplete)
-		m.Get("/phone/channels", auth.PhoneChannels)
-		m.Post("/phone/start", auth.BrowserMutation, reqIPAdmission(ipactive.StartPhoneRegister), bind(structs.PhoneStart{}), auth.PhoneStart)
-		m.Post("/phone/resend", auth.BrowserMutation, reqIPAdmission(ipactive.StartPhoneRegister), bind(structs.PhoneResend{}), auth.PhoneResend)
+		m.Get("/phone/channels", otp.PhoneChannels)
+		m.Post("/phone/start", auth.BrowserMutation, reqIPAdmission(ipactive.StartPhoneRegister), bind(structs.PhoneStart{}), otp.PhoneStart)
+		m.Post("/phone/resend", auth.BrowserMutation, reqIPAdmission(ipactive.StartPhoneRegister), bind(structs.PhoneResend{}), otp.PhoneResend)
 		m.Post("/phone/verify", auth.BrowserMutation, reqIPAdmission(ipactive.VerifyPhoneRegister), bind(structs.PhoneVerify{}), auth.PhoneVerify)
 		m.Post("/phone/complete", auth.BrowserMutation, reqIPAdmission(ipactive.StartPhoneRegister), bind(structs.PhoneComplete{}), auth.PhoneComplete)
 		m.Post("/register/start", auth.BrowserMutation, reqIPAdmission(ipactive.Register), bind(structs.RegistrationStart{}), auth.RegisterStart)
@@ -43,9 +45,9 @@ func Routes() *web.Router {
 		m.Post("/reauth/password", auth.BrowserMutation, reqIPAdmission(ipactive.Login), bind(structs.PasswordReauthRequest{}), auth.ReauthenticatePassword)
 		m.Post("/reauth/email/start", auth.BrowserMutation, reqIPAdmission(ipactive.StartEmailLink), auth.RequestPasswordSetProof)
 		m.Post("/password/set", auth.BrowserMutation, reqIPAdmission(ipactive.Login), bind(structs.PasswordSetRequest{}), auth.SetPassword)
-		m.Post("/email/start", auth.BrowserMutation, reqIPAdmission(ipactive.StartEmailLink), bind(structs.EmailLinkStart{}), auth.StartEmailLink)
+		m.Post("/email/start", auth.BrowserMutation, reqIPAdmission(ipactive.StartEmailLink), bind(structs.EmailLinkStart{}), otp.StartEmailLink)
 		m.Post("/email/verify", auth.BrowserMutation, reqIPAdmission(ipactive.ConfirmEmailLink), bind(structs.ContactLinkVerify{}), auth.VerifyContactLink("email", ipactive.ConfirmEmailLink))
-		m.Post("/phone/start", auth.BrowserMutation, reqIPAdmission(ipactive.StartPhoneBind), bind(structs.PhoneLinkStart{}), auth.StartPhoneLink)
+		m.Post("/phone/start", auth.BrowserMutation, reqIPAdmission(ipactive.StartPhoneBind), bind(structs.PhoneLinkStart{}), otp.StartPhoneLink)
 		m.Post("/phone/verify", auth.BrowserMutation, reqIPAdmission(ipactive.VerifyPhoneBind), bind(structs.ContactLinkVerify{}), auth.VerifyContactLink("phone", ipactive.VerifyPhoneBind))
 		m.Delete("/email", auth.BrowserMutation, reqIPAdmission(ipactive.Login), bind(structs.RecentAuthRequest{}), auth.RemoveCredential("email"))
 		m.Delete("/phone", auth.BrowserMutation, reqIPAdmission(ipactive.Login), bind(structs.RecentAuthRequest{}), auth.RemoveCredential("phone"))

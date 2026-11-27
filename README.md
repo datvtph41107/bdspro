@@ -11,7 +11,7 @@ BDSPro contains HTTP/runtime infrastructure, session-based authentication, email
 - `services/context/` — HTTP context, response/error and pagination contracts.
 - `services/auth/` — authentication, challenge/session lifecycle and credential orchestration.
 - `services/mailer/` — application email content; SMTP and plain message encoding stay in `modules/mail/`.
-- `services/phonedelivery/` — enabled-channel policy and OTP delivery orchestration; HTTP provider adapters are in `modules/phonedelivery/`.
+- `services/phonedelivery/` — phone OTP channel policy, shared send budget and private provider adapters; bound to HTTP handlers during route registration.
 - `services/org/` — Organization membership, owner rules and Team transaction orchestration.
 - `routers/` — HTTP composition, authentication/permission checks and request handlers.
 - `templates/swagger/` — development Swagger UI and OpenAPI contract.

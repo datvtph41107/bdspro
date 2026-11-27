@@ -9,9 +9,9 @@ import (
 	"github.com/datvtph41107/bdspro/modules/setting"
 )
 
-type senderFunc func(context.Context, Message) (Receipt, error)
+type senderFunc func(context.Context, message) (receipt, error)
 
-func (f senderFunc) Send(ctx context.Context, m Message) (Receipt, error) { return f(ctx, m) }
+func (f senderFunc) Send(ctx context.Context, m message) (receipt, error) { return f(ctx, m) }
 
 func testService(t *testing.T) *Service {
 	t.Helper()
@@ -56,40 +56,34 @@ func TestChannelPolicySnapshotAndProductionGuard(t *testing.T) {
 	if len(disabled.Options().Channels) != 0 {
 		t.Fatal("disabled service advertises channels")
 	}
-	if _, err := FromContext(context.Background()).ResolveChannel(""); !errors.Is(err, ErrUnavailable) {
-		t.Fatalf("missing dependency: %v", err)
-	}
-	if FromContext(WithService(context.Background(), s)) != s {
-		t.Fatal("request lost configured instance")
-	}
 }
 
 func TestSendValidatesBeforeCallingProviderAndDoesNotFallback(t *testing.T) {
 	s := testService(t)
 	calls := 0
 	failure := &Failure{Reason: "provider_transport_error"}
-	s.senders[SMS] = senderFunc(func(_ context.Context, m Message) (Receipt, error) {
+	s.senders[SMS] = senderFunc(func(_ context.Context, m message) (receipt, error) {
 		calls++
 		if m.Phone != "+84912345678" || m.Code != "001234" {
 			t.Fatal("OTP or destination changed")
 		}
-		return Receipt{}, failure
+		return receipt{}, failure
 	})
-	s.senders[Zalo] = senderFunc(func(context.Context, Message) (Receipt, error) {
+	s.senders[Zalo] = senderFunc(func(context.Context, message) (receipt, error) {
 		t.Fatal("ambiguous provider failure must not trigger fallback")
-		return Receipt{}, nil
+		return receipt{}, nil
 	})
 	for _, tc := range []struct{ phone, code string }{
 		{"0912345678", "001234"}, {"+84912345678", "12345"}, {"+84912345678", "abcd12"},
 	} {
-		if _, err := s.SendCode(context.Background(), SMS, tc.phone, tc.code); !errors.Is(err, ErrUnavailable) {
+		if err := s.SendCode(context.Background(), SMS, tc.phone, tc.code); !errors.Is(err, ErrUnavailable) {
 			t.Fatalf("invalid message: %v", err)
 		}
 	}
 	if calls != 0 {
 		t.Fatal("invalid messages reached provider")
 	}
-	if _, err := s.SendCode(context.Background(), SMS, "+84912345678", "001234"); !errors.Is(err, failure) {
+	if err := s.SendCode(context.Background(), SMS, "+84912345678", "001234"); !errors.Is(err, failure) {
 		t.Fatal(err)
 	}
 	if calls != 1 {
@@ -103,10 +97,10 @@ func TestSendValidatesBeforeCallingProviderAndDoesNotFallback(t *testing.T) {
 func TestCapacityIsSharedAcrossChannelsAndReleasedAfterCancellation(t *testing.T) {
 	s := testService(t)
 	entered := make(chan struct{}, 4)
-	fake := senderFunc(func(ctx context.Context, _ Message) (Receipt, error) {
+	fake := senderFunc(func(ctx context.Context, _ message) (receipt, error) {
 		entered <- struct{}{}
 		<-ctx.Done()
-		return Receipt{}, &Failure{Reason: "provider_transport_error"}
+		return receipt{}, &Failure{Reason: "provider_transport_error"}
 	})
 	for channel := range s.senders {
 		s.senders[channel] = fake
@@ -115,7 +109,7 @@ func TestCapacityIsSharedAcrossChannelsAndReleasedAfterCancellation(t *testing.T
 	defer cancel()
 	done := make(chan error, 4)
 	for _, channel := range []Channel{SMS, Zalo, Telegram, SMS} {
-		go func(ch Channel) { _, err := s.SendCode(ctx, ch, "+84912345678", "001234"); done <- err }(channel)
+		go func(ch Channel) { err := s.SendCode(ctx, ch, "+84912345678", "001234"); done <- err }(channel)
 	}
 	for range 4 {
 		select {
@@ -124,7 +118,7 @@ func TestCapacityIsSharedAcrossChannelsAndReleasedAfterCancellation(t *testing.T
 			t.Fatal("sender did not start")
 		}
 	}
-	_, err := s.SendCode(context.Background(), Zalo, "+84912345678", "001234")
+	err := s.SendCode(context.Background(), Zalo, "+84912345678", "001234")
 	var failure *Failure
 	if !errors.As(err, &failure) || failure.Reason != "delivery_capacity" {
 		t.Fatalf("capacity bypass: %v", err)

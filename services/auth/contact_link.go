@@ -87,7 +87,7 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 	if kind == "email" {
 		err = mailer.SendRegistrationCode(ctx, destination, code)
 	} else {
-		_, err = phoneDelivery.SendCode(ctx, deliveryChannel, destination, code)
+		err = phoneDelivery.SendCode(ctx, deliveryChannel, destination, code)
 	}
 	if err != nil {
 		return RegistrationChallenge{}, err

@@ -7,7 +7,6 @@ import (
 	"slices"
 	"time"
 
-	transport "github.com/datvtph41107/bdspro/modules/phonedelivery"
 	"github.com/datvtph41107/bdspro/modules/setting"
 )
 
@@ -21,7 +20,7 @@ type Service struct {
 	mode           string
 	defaultChannel string
 	channels       []string
-	senders        map[Channel]Sender
+	senders        map[Channel]sender
 	slots          chan struct{}
 }
 
@@ -31,7 +30,7 @@ func New(cfg setting.PhoneDeliverySettings, sms setting.SMSSettings, runMode str
 		mode:           cfg.Mode,
 		defaultChannel: cfg.DefaultChannel,
 		channels:       append([]string(nil), cfg.Channels...),
-		senders:        make(map[Channel]Sender),
+		senders:        make(map[Channel]sender),
 		slots:          make(chan struct{}, maxConcurrentSends),
 	}
 	if cfg.Mode == "" || cfg.Mode == "disabled" {
@@ -61,12 +60,21 @@ func New(cfg setting.PhoneDeliverySettings, sms setting.SMSSettings, runMode str
 		}
 		switch channel {
 		case SMS:
-			s.senders[channel] = transport.NewTwilio(client, transport.TwilioConfig{
-				AccountSID: sms.AccountSID, AuthToken: sms.AuthToken, SenderID: sms.SenderID})
+			s.senders[channel] = twilioSender{
+				client:     client,
+				accountSID: sms.AccountSID,
+				authToken:  sms.AuthToken,
+				senderID:   sms.SenderID,
+			}
 		case Zalo:
-			s.senders[channel] = transport.NewZalo(client, cfg.ZaloAccessToken, cfg.ZaloTemplateID, cfg.ZaloOTPParam)
+			s.senders[channel] = zaloSender{
+				client:     client,
+				token:      cfg.ZaloAccessToken,
+				templateID: cfg.ZaloTemplateID,
+				otpParam:   cfg.ZaloOTPParam,
+			}
 		case Telegram:
-			s.senders[channel] = transport.NewTelegramGateway(client, cfg.TelegramAccessToken)
+			s.senders[channel] = telegramSender{client: client, token: cfg.TelegramAccessToken}
 		}
 	}
 	if !slices.Contains(s.channels, s.defaultChannel) {

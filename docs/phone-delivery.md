@@ -7,12 +7,12 @@ Tài liệu áp dụng cho code trong repo này. Đây là đề xuất triển 
 `services/auth` tạo mã ngẫu nhiên, lưu MAC của OTP, kiểm tra hạn dùng, giới hạn thử sai và ràng buộc challenge với browser/tài khoản. `services/phonedelivery` áp dụng chính sách kênh, giới hạn gửi đồng thời và log; package này sở hữu interface tiêu thụ adapter:
 
 ```go
-type Sender interface {
-    Send(context.Context, Message) (Receipt, error)
+type sender interface {
+    Send(context.Context, message) (receipt, error)
 }
 ```
 
-`Message` gồm phone E.164 và OTP. Channel thuộc service. `Receipt` có provider/message ID nếu cổng trả về. `modules/phonedelivery` chứa các adapter HTTP độc lập với setting, auth, DB và router. `routers.NormalHandler` tạo service một lần từ cấu hình đã kiểm tra; router truyền dependency tường minh vào hàm nghiệp vụ auth. Thêm nhà cung cấp SMS Việt Nam bằng adapter mới và nối trong constructor service; giữ nguyên thuật toán OTP và API frontend.
+`message` gồm phone E.164 và OTP. Channel thuộc service. `receipt` có provider/message ID nếu cổng trả về; chỉ phục vụ log nội bộ, SendCode trả error. Các adapter HTTP private cùng nằm trong `services/phonedelivery`. `routers.PrepareWebRoutes` tạo service một lần từ cấu hình đã kiểm tra; `OTPHandler` giữ dependency và truyền tường minh vào hàm nghiệp vụ auth. Thêm nhà cung cấp SMS Việt Nam bằng adapter mới và nối trong constructor service; giữ nguyên thuật toán OTP và API frontend.
 
 Xem [quyết định kiến trúc và bằng chứng kiểm thử](architecture/phone-delivery.md) để đối chiếu từng tầng, nguồn tham khảo và giới hạn.
 
@@ -114,7 +114,7 @@ AUTH_TOKEN = <auth-token>
 SENDER_ID = <approved-brand>
 ```
 
-Adapter dùng endpoint Messages của Twilio và mẫu nội dung hiện có trong `providers.go`. Với Việt Nam, Twilio yêu cầu đăng ký alphanumeric sender và các mẫu nội dung; cần gửi đúng mẫu đã được nhà cung cấp duyệt. [Hướng dẫn đăng ký tại Việt Nam](https://help.twilio.com/articles/360040339113)
+Adapter dùng endpoint Messages của Twilio và mẫu nội dung hiện có trong `services/phonedelivery/twilio.go`. Với Việt Nam, Twilio yêu cầu đăng ký alphanumeric sender và các mẫu nội dung; cần gửi đúng mẫu đã được nhà cung cấp duyệt. [Hướng dẫn đăng ký tại Việt Nam](https://help.twilio.com/articles/360040339113)
 
 Nếu chọn nhà cung cấp SMS trong nước, yêu cầu họ cấp tài liệu API, sandbox, mã lỗi, quy tắc nhận diện request trùng và quy trình đăng ký mẫu. Viết adapter Sender và test HTTP tương ứng; không đưa URL/token tùy ý từ frontend xuống backend.
 
