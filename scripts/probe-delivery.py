@@ -2,6 +2,7 @@
 """Runtime-only probe against a disposable local BDSPro and Mailpit."""
 import hashlib
 import http.cookiejar
+from http.cookies import SimpleCookie
 import json
 import os
 import re
@@ -222,6 +223,44 @@ def check_recovery_and_reauth(opener, email, registration):
     print("PASS recovery and recent-auth TTL, expired proof rejection, reset/replay and new password", flush=True)
 
 
+def check_google_registration_binding():
+    # Disposable fixture represents a verified provider result. No Google request is sent.
+    raw = secrets.token_urlsafe(32)
+    digest = hashlib.sha256(raw.encode()).hexdigest()
+    subject = "fixture-" + secrets.token_hex(16)
+    db_query(f"INSERT INTO google_flows(browser_digest, phase, subject, remember, expires_at) "
+             f"VALUES (decode('{digest}','hex'), 'ready', '{subject}', false, clock_timestamp()+interval '1 minute')")
+    opener = browser()
+    post(opener, "google/result", {}, 400)
+    request = urllib.request.Request(
+        BASE + "/api/v1/auth/google/result", data=b"{}", method="POST",
+        headers={"Content-Type": "application/json", "Origin": BASE,
+                 "X-BDS-Request": "1", "Sec-Fetch-Site": "same-origin",
+                 "Cookie": "bdspro_google_dev=" + raw},
+    )
+    with opener.open(request, timeout=15) as response:
+        result = json.load(response)
+        cookies = SimpleCookie()
+        for header in response.headers.get_all("Set-Cookie", []):
+            cookies.load(header)
+    renewed = cookies.get("bdspro_google_dev")
+    if result.get("status") != "registration_required" or result.get("expires_in") != 900:
+        raise RuntimeError("Google registration proof lifetime changed")
+    if renewed is None or renewed.value != raw or renewed["max-age"] != str(result["expires_in"]):
+        raise RuntimeError("Google browser binding was not renewed for the proof lifetime")
+    if not renewed["httponly"] or renewed["samesite"].lower() != "lax" or renewed["path"] != "/":
+        raise RuntimeError("Google browser cookie attributes changed")
+    row = db_query(f"SELECT phase, extract(epoch FROM expires_at-clock_timestamp()) "
+                   f"FROM google_flows WHERE browser_digest=decode('{digest}','hex')")
+    phase, remaining = row.split("|")
+    if phase != "registration" or not 885 <= float(remaining) <= 900:
+        raise RuntimeError("Google persisted registration deadline disagrees with API")
+    # No second proof can be issued from the same ready result.
+    post(opener, "google/result", {}, 400)
+    db_query(f"DELETE FROM google_flows WHERE browser_digest=decode('{digest}','hex')")
+    print("PASS Google registration cookie renewal, browser binding and result replay denial (fixture)", flush=True)
+
+
 def main():
     capabilities = get(BASE + "/api/v1/auth/phone/channels")
     if capabilities.get("development") is not True or capabilities.get("channels") != ["sms", "zalo", "telegram"]:
@@ -265,6 +304,7 @@ def main():
     if os.environ.get("BDS_PROBE_PG_CONTAINER"):
         print("PASS stored OTP/cooldown/proof deadlines match API; email resend reissued", flush=True)
         check_guard_boundaries()
+        check_google_registration_binding()
     print("PASS delivery runtime: email and three phone channels; no live provider calls", flush=True)
 
 

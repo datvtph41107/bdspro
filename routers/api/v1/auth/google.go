@@ -12,6 +12,9 @@ import (
 	appctx "github.com/datvtph41107/bdspro/services/context"
 )
 
+// The initial browser binding is a transport lifetime, not a Google flow deadline.
+const googleBrowserCookieMaxAge = 30 * 60
+
 func googleCookieName() string {
 	if secureCookie() {
 		return "__Host-bdspro-google"
@@ -24,16 +27,16 @@ func googleHeaders(ctx *appctx.APIContext) {
 	ctx.Header("Referrer-Policy", "no-referrer")
 }
 
-func googleBrowser(ctx *appctx.APIContext) ([]byte, error) {
+func googleBrowser(ctx *appctx.APIContext) (string, []byte, error) {
 	cookie, err := ctx.CurrentRequest().Cookie(googleCookieName())
 	if err != nil {
-		return nil, authservice.ErrRegistrationProof
+		return "", nil, authservice.ErrRegistrationProof
 	}
 	digest, err := token.RecoveryDigest(cookie.Value)
 	if err != nil {
-		return nil, authservice.ErrRegistrationProof
+		return "", nil, authservice.ErrRegistrationProof
 	}
-	return digest, nil
+	return cookie.Value, digest, nil
 }
 
 func writeGoogleError(ctx *appctx.APIContext, err error) {
@@ -59,7 +62,7 @@ func GoogleStart(ctx *appctx.APIContext) {
 		writeGoogleError(ctx, err)
 		return
 	}
-	setGoogleCookie(ctx, result.Browser)
+	setGoogleCookie(ctx, result.Browser, googleBrowserCookieMaxAge)
 	ctx.Header("Location", result.URL)
 	ctx.Status(http.StatusFound)
 }
@@ -72,7 +75,7 @@ func GoogleCallback(ctx *appctx.APIContext) {
 	}
 
 	location := setting.Server.BrowserPublicOrigin + "/auth/google/return"
-	browser, err := googleBrowser(ctx)
+	_, browser, err := googleBrowser(ctx)
 	if err == nil {
 		query := ctx.CurrentRequest().URL.Query()
 		state, code := query.Get("state"), query.Get("code")
@@ -90,7 +93,7 @@ func GoogleCallback(ctx *appctx.APIContext) {
 
 func GoogleResult(ctx *appctx.APIContext) {
 	googleHeaders(ctx)
-	browser, err := googleBrowser(ctx)
+	rawBrowser, browser, err := googleBrowser(ctx)
 	if err != nil {
 		writeGoogleError(ctx, err)
 		return
@@ -108,13 +111,17 @@ func GoogleResult(ctx *appctx.APIContext) {
 		ctx.JSON(http.StatusOK, map[string]string{"status": result.Proof.Status})
 		return
 	}
+	if result.Proof.Status == "registration_required" {
+		// Retain the same browser binding for the newly issued proof's lifetime.
+		setGoogleCookie(ctx, rawBrowser, result.Proof.ExpiresIn)
+	}
 	ctx.JSON(http.StatusOK, result.Proof)
 }
 
 func GoogleComplete(ctx *appctx.APIContext) {
 	googleHeaders(ctx)
 	form := web.GetForm[*structs.GoogleComplete](ctx)
-	browser, err := googleBrowser(ctx)
+	_, browser, err := googleBrowser(ctx)
 	if err != nil {
 		writeGoogleError(ctx, err)
 		return
@@ -128,9 +135,9 @@ func GoogleComplete(ctx *appctx.APIContext) {
 	writeAuthenticatedStatus(ctx, result, http.StatusCreated)
 }
 
-func setGoogleCookie(ctx *appctx.APIContext, browser string) {
+func setGoogleCookie(ctx *appctx.APIContext, browser string, maxAge int) {
 	ctx.Header("Set-Cookie", (&http.Cookie{
-		Name: googleCookieName(), Value: browser, Path: "/", MaxAge: 1800,
+		Name: googleCookieName(), Value: browser, Path: "/", MaxAge: maxAge,
 		HttpOnly: true, Secure: secureCookie(), SameSite: http.SameSiteLaxMode,
 	}).String())
 }

@@ -68,6 +68,10 @@ jobs:
         run: |
           files="$(gofmt -l services/auth/registration.go services/auth/phone.go services/auth/contact_link.go routers/api/v1/auth/registration.go)"
           test -z "$files" || { gofmt -d services/auth/registration.go services/auth/phone.go services/auth/contact_link.go routers/api/v1/auth/registration.go; exit 1; }
+      - name: Check formatting of Google flow source
+        run: |
+          files="$(gofmt -l routers/api/v1/auth/google.go routers/api/v1/auth/google_authenticated.go models/db/google_flow_test.go)"
+          test -z "$files" || { gofmt -d routers/api/v1/auth/google.go routers/api/v1/auth/google_authenticated.go models/db/google_flow_test.go; exit 1; }
       - name: Build
         run: go build ./...
       - name: Verify canonical pagination contract
@@ -98,6 +102,7 @@ jobs:
           make build
           bin/bdspro --config custom/conf/app.ini config check
           bin/bdspro --config custom/conf/app.ini migrate
+          BDSPRO_GOOGLE_FLOW_TEST_DATABASE_URL=postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable go test ./models/db -run '^TestGoogleFlowLifecycle$' -count=1 -v
           bin/bdspro --config custom/conf/app.ini web &
           pid=$!
           trap 'kill -TERM "$pid" 2>/dev/null || true; wait "$pid" || true' EXIT

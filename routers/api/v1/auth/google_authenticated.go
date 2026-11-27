@@ -34,7 +34,7 @@ func startAuthenticatedGoogle(ctx *appctx.APIContext, purpose, action, proof str
 		writeGoogleError(ctx, err)
 		return
 	}
-	setGoogleCookie(ctx, result.Browser)
+	setGoogleCookie(ctx, result.Browser, googleBrowserCookieMaxAge)
 	ctx.JSON(http.StatusOK, map[string]string{"authorization_url": result.URL})
 }
 
@@ -43,7 +43,7 @@ func GoogleLinkResult(ctx *appctx.APIContext) {
 	if !credentialReady(ctx, ipactive.StartOAuth2Link) {
 		return
 	}
-	browser, err := googleBrowser(ctx)
+	_, browser, err := googleBrowser(ctx)
 	if err != nil {
 		writeGoogleError(ctx, err)
 		return
@@ -61,7 +61,7 @@ func GoogleReauthResult(ctx *appctx.APIContext) {
 	if !credentialReady(ctx, ipactive.StartOAuth2Link) {
 		return
 	}
-	browser, err := googleBrowser(ctx)
+	_, browser, err := googleBrowser(ctx)
 	if err != nil {
 		writeGoogleError(ctx, err)
 		return
