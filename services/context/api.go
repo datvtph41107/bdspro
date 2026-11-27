@@ -3,7 +3,6 @@ package context
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
@@ -77,7 +76,8 @@ func (c *APIContext) APIErrorAuto(err error) {
 		c.APIError(status, code, message)
 		return
 	}
-	log.Ctx(c).Error().Str("error_type", fmt.Sprintf("%T", err)).Msg("http.application_error")
+	logger := log.Ctx(c)
+	log.ErrorDetails(logger.Error(), err, logger.GetLevel() <= log.DEBUG).Msg("http.application_error")
 	c.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
 }
 
@@ -98,7 +98,8 @@ func (c *APIContext) APIErrorInternal(err error) {
 	if err == nil {
 		err = errors.New("internal API failure")
 	}
-	log.Ctx(c).Error().Str("error_type", fmt.Sprintf("%T", err)).Msg("http.api_internal_error")
+	logger := log.Ctx(c)
+	log.ErrorDetails(logger.Error(), err, logger.GetLevel() <= log.DEBUG).Msg("http.api_internal_error")
 	c.APIError(http.StatusInternalServerError, "internal_error", "internal server error")
 }
 

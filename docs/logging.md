@@ -121,6 +121,28 @@ go test -race ./routers ./modules/web ./modules/log -count=1
 
 Tham khảo [Gitea request record manager](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/web/routing/logger_manager.go) và [Gitea handler metadata](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/web/handler.go#L130-L164).
 
+## Error diagnostics & stacktrace
+
+APIErrorAuto (unexpected errors only) and APIErrorInternal keep their existing event names, HTTP status and public response. They now attach error_chain (at most 12 nodes, depth for joined errors), error_type, optional SQLSTATE, and error_chain_truncated if the walk exceeds its limit. No raw error text, SQL parameters, PostgreSQL detail, or panic value is added.
+
+WithOperation annotates selected login/session failures without changing Error(), errors.Is or errors.As. Operation IDs must be static developer-owned labels; never pass request data. Other services can still return ordinary errors; the type chain is useful but does not reconstruct the original call path.
+
+At DEBUG level, unexpected API errors include up to 12 application stack_frames from the reporting point. Escaping panics include these frames before rethrow at any enabled error level. These are active application frames, not a captured origin stack for returned errors. Compact console omits the chain and stack array, exposes operation labels and SQLSTATE when available. JSON or full text output retains diagnostic details; use file JSON or JSON console to inspect stack_frames. No new settings or log events for ordinary API errors. Existing database and HTTP result logging remains unchanged.
+
+Example (illustrative):
+```text
+[E] sql: CreateSession 2.4ms reason=postgres_error sqlstate=23505 rid=8b6424f1
+[E] http.application_error operations="auth.login.transaction > auth.session.create" sqlstate=23505 rid=8b6424f1
+[E] router: completed POST /api/v1/auth/login 500 8ms @ auth.Login rid=8b6424f1
+```
+
+```sh
+go test ./modules/log -run 'TestDescribeError|TestErrorDetailsPrivacyAndStack|TestDiagnosticConsole' -v -count=1
+go test ./routers ./services/auth ./modules/log -count=1
+```
+
+Reference: [Gitea API internal error helper](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/services/context/api.go) and [stack formatting](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/log/event_format.go#L245-L252). BDSPro deliberately does not adopt raw error message logging.
+
 ## Đọc lỗi theo nguyên nhân
 
 | Event/component | Thông tin dùng để debug | Vị trí sở hữu |

@@ -66,7 +66,7 @@ func requestLoggingWithThreshold(next http.Handler, threshold time.Duration) htt
 				if status := response.Status(); status != 0 {
 					event.Int("status", status)
 				}
-				event.Msg("http.failed")
+				log.StackDetails(event).Msg("http.failed")
 				panic(recovered)
 			}
 

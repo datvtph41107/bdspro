@@ -33,7 +33,7 @@ type LoginResult struct {
 func LoginPassword(ctx context.Context, identifier, password, clientIP, userAgent string, remember bool) (LoginResult, error) {
 	q, err := db.GetQueries(ctx)
 	if err != nil {
-		return LoginResult{}, err
+		return LoginResult{}, util.WithOperation("auth.login.open_queries", err)
 	}
 	identifier = strings.ToLower(strings.TrimSpace(identifier))
 	var accountID int64
@@ -47,14 +47,14 @@ func LoginPassword(ctx context.Context, identifier, password, clientIP, userAgen
 		return LoginResult{}, rejectMissingPassword(password)
 	}
 	if err != nil {
-		return LoginResult{}, err
+		return LoginResult{}, util.WithOperation("auth.login.lookup_account", err)
 	}
 	hash, err := q.GetPasswordHash(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return LoginResult{}, rejectMissingPassword(password)
 	}
 	if err != nil {
-		return LoginResult{}, err
+		return LoginResult{}, util.WithOperation("auth.login.read_password", err)
 	}
 	if err = token.CheckPassword(password, hash); err != nil {
 		if errors.Is(err, token.ErrPasswordBusy) {
@@ -62,7 +62,7 @@ func LoginPassword(ctx context.Context, identifier, password, clientIP, userAgen
 		}
 		return LoginResult{}, ErrInvalidCredentials
 	}
-	return db.WithTx2(ctx, func(txCtx context.Context) (LoginResult, error) {
+	result, err := db.WithTx2(ctx, func(txCtx context.Context) (LoginResult, error) {
 		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return LoginResult{}, err
@@ -99,6 +99,7 @@ func LoginPassword(ctx context.Context, identifier, password, clientIP, userAgen
 		}
 		return issueSession(txCtx, q, accountID, clientIP, userAgent, remember)
 	})
+	return result, util.WithOperation("auth.login.transaction", err)
 }
 
 func rejectMissingPassword(password string) error {
@@ -137,18 +138,18 @@ func issueSession(ctx context.Context, q *db.Queries, accountID int64, clientIP,
 	}
 	result, err := sessionResult(ctx, accountID, id, expires, raw, remember)
 	if err != nil {
-		return LoginResult{}, err
+		return LoginResult{}, util.WithOperation("auth.session.result", err)
 	}
 	if _, err = q.CreateSession(ctx, db.CreateSessionParams{
 		ID: id, AccountID: accountID, RefreshToken: token.RefreshDigest(raw),
 		UserAgent: userAgent, ClientIp: clientIP, ExpiresAt: expires,
 	}); err != nil {
-		return LoginResult{}, err
+		return LoginResult{}, util.WithOperation("auth.session.create", err)
 	}
 	if err = q.CreateAccountConnectionHistory(ctx, db.CreateAccountConnectionHistoryParams{
 		AccountID: accountID, SessionID: id, IpAddress: clientIP, UserAgent: userAgent,
 	}); err != nil {
-		return LoginResult{}, err
+		return LoginResult{}, util.WithOperation("auth.session.connection_history", err)
 	}
 	return result, nil
 }

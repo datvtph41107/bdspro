@@ -11,6 +11,7 @@ import (
 // original JSON bytes shared with the file sink.
 func prepareConsoleEvent(event map[string]any) error {
 	prepareConsoleCaller(event)
+	prepareConsoleDiagnostic(event)
 	if id, ok := event["request_id"].(string); ok && id != "" {
 		if len(id) > 8 {
 			id = id[:8]
@@ -72,6 +73,32 @@ func prepareConsoleEvent(event map[string]any) error {
 		delete(event, "component")
 	}
 	return nil
+}
+
+// Keep verbose diagnostics in structured output; show only actionable metadata.
+func prepareConsoleDiagnostic(event map[string]any) {
+	delete(event, "stack_frames")
+	if chain, ok := event["error_chain"].([]any); ok {
+		var operations []string
+		for _, item := range chain {
+			node, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if op, ok := node["operation"].(string); ok && op != "" {
+				operations = append(operations, op)
+			}
+			if _, exists := event["sqlstate"]; !exists {
+				if code, ok := node["sqlstate"].(string); ok && validSQLState(code) {
+					event["sqlstate"] = code
+				}
+			}
+		}
+		if len(operations) != 0 {
+			event["operations"] = strings.Join(operations, " > ")
+		}
+		delete(event, "error_chain")
+	}
 }
 
 func appendConsoleHandler(event map[string]any) {
