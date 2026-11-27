@@ -4,8 +4,6 @@ import (
 	"errors"
 	"strings"
 	"time"
-
-	"github.com/datvtph41107/bdspro/modules/timeutil"
 )
 
 type Action string
@@ -56,7 +54,7 @@ type Policy struct {
 }
 
 func (p Policy) Validate() error {
-	if timeutil.SecondsCeil(p.Window) <= 0 {
+	if p.Window <= 0 {
 		return errors.New("IPActive window must be positive")
 	}
 	switch p.Mode {

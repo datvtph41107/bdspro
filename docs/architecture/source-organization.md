@@ -24,7 +24,7 @@ References: [Gitea mailer](https://github.com/go-gitea/gitea/tree/99053ce4fa2b45
 
 - REQ-00 Canonical ownership: documented here.
 - REQ-01 Delivery and mailer: separate provider files, application email composition, dev inbox and channel policy; code implemented; runtime verification tracked separately.
-- REQ-02 Utility inventory: consumer map for util/timeutil/optional/validation/secret; remove dead or misplaced code with evidence.
+- REQ-02 Utility inventory: implementation complete; removed unused helpers and policy, kept proven semantics; runtime verification tracked separately.
 - REQ-03 Time/duration/policy: define TTL/cooldown owner and SQL/response/provider consistency; preserve database clock and guards.
 - REQ-04 Auth technical modules: token/password/OTP/browser/Google/runtime ownership.
 - REQ-05 Models and SQLC: classify models and locate static SQL.
@@ -66,3 +66,26 @@ Baseline: [f89619c](https://github.com/datvtph41107/bdspro/tree/f89619c1f0cf5f17
 | mailpit.go | New chooses development -> mailpitSender.Send; local-only guard and OTP inbox via mail.SendPlain |
 
 Deleted: independent modules/phonedelivery package, exported transport constructors and aliases, request dependency context, redundant NormalRoutes forwarding function. Authentication continues to own code generation, MAC, DB and verification; no business flow or API/schema change. Private Mailpit adapter relies on SendCode validation of canonical phone/code and New validation of channel, still checks development/local SMTP at its own I/O boundary. Earlier router checks before admission and auth checks before challenge mutation remain, since removing them changes rejection ordering. No cross-repo full line audit claim: remaining scopes REQ-02–13 require their own consumer map and acceptance.
+
+## REQ-02: utility ownership audit
+
+Baseline [6b1fbc3](https://github.com/datvtph41107/bdspro/tree/6b1fbc37e1de3c631bd7cc46944568c6fcdccf85). Prior runtime [45963214397](https://github.com/datvtph41107/bdspro/actions/runs/45963214397) passed build, migration, HTTP/OTP Mailpit probes and SQLC check. This revision requires its own build/runtime result.
+
+Method: enumerated all 11 Go files in the five utility packages, then checked imports and named call sites across the other 226 non-generated Go source/test files at the pinned tree. Checked README, architecture/operations docs, workflow and Makefile for references. This is a utility-specific reference audit, not an exhaustive semantic review of every Go function.
+
+| Source at baseline | Actual responsibility / consumer | Decision |
+| --- | --- | --- |
+| modules/util/random.go | RandomInt, RandomString, RandomPersonName, RandomOrganizationName, RandomEmail; no Go consumer outside file | Delete; math/rand/v2 must not become credential randomness |
+| modules/secret/derive.go and random.go | ValidDerivationKey, DeriveToken, RandomHex; no imports of this package in audited Go source | Delete; auth's purpose-bound HMAC, crypto/rand and proof formats remain unchanged |
+| modules/validation/validation.go | PasswordLength (8 runes, 72 bytes), EmailAddress; no imports. Actual modules/auth/password.go validates UTF-8, 15–128 runes and <=512 bytes; services/auth/password.go owns actual email normalization | Delete stale competing policy, not migrate it into live auth |
+| modules/util/optional.go | OptionalArg only used by APIErrorNotFound and Base.FormString | Delete generic variadic fallback; use explicit local defaults, preserve first argument semantics |
+| modules/timeutil/expiry.go | Expired only used by Payload.Valid | Inline !time.Now().Before(payload.ExpiredAt); exact deadline still expired |
+| modules/timeutil/timestamp.go | TimeStamp and TimeStampNow used only by ipactive.Event and redis.checkKey; no evidence of need for conversion/addition methods | Use int64 Unix seconds, preserve field and units |
+| modules/timeutil/duration.go | SecondsCeil used by ipactive Redis expiry conversion and policy validation | Keep rounding for Redis; validate Window > 0 directly. No float conversion or overflow-prone addition |
+| modules/optional/option.go | PATCH profile/settings/org/team; absent vs empty vs explicit null are distinct | Keep JSON contract, Has/Value, Some/None (existing test construction); remove unused FromPtr and ValueOrDefault |
+| modules/util/error.go | Shared domain/public error mapping across services, routers and context | Keep; errors.Is/As and safe error semantics are meaningful |
+| modules/util/operation.go | Auth operation annotation and log diagnostic traversal | Keep; do not replace with raw error text |
+
+Gitea comparison: [TimeStamp implementation](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/timeutil/timestamp.go) and [Follow.CreatedUnix](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/models/user/follow.go#L18) show a persisted timestamp type with real model consumers. BDSPro uses PostgreSQL timestamptz and generated time types; its only TimeStamp consumer is an admission event, so the copied abstraction is not justified. [Gitea optional](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/optional/option.go) is a reference, not an API surface BDSPro must reproduce.
+
+No schema, password policy, OTP/MAC, JSON PATCH null behavior or API status contract changes. No replacement generic secret/random package. REQ-03 will address actual time policy duplication across SQL, response, mail and providers; REQ-04 will review auth-specific crypto and token primitives separately.

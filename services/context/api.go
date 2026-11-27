@@ -91,7 +91,11 @@ func (c *APIContext) APIInvalid(err error) {
 }
 
 func (c *APIContext) APIErrorNotFound(msg ...string) {
-	c.APIError(http.StatusNotFound, "not_found", util.OptionalArg(msg, "not found"))
+	message := "not found"
+	if len(msg) > 0 {
+		message = msg[0]
+	}
+	c.APIError(http.StatusNotFound, "not_found", message)
 }
 
 func (c *APIContext) APIErrorInternal(err error) {

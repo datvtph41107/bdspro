@@ -3,14 +3,12 @@ package context
 import (
 	"strconv"
 	"strings"
-
-	"github.com/datvtph41107/bdspro/modules/util"
 )
 
 func (b *Base) FormString(key string, defaults ...string) string {
 	value := b.CurrentRequest().FormValue(key)
-	if value == "" {
-		return util.OptionalArg(defaults, "")
+	if value == "" && len(defaults) > 0 {
+		return defaults[0]
 	}
 	return value
 }

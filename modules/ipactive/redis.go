@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"time"
 
 	"github.com/datvtph41107/bdspro/modules/timeutil"
 	redis "github.com/go-redis/redis/v8"
@@ -125,6 +126,6 @@ func (l *Limiter) checkKey(ctx context.Context, action Action, policy Policy, so
 	return Event{
 		Action: action, SourceID: sourceID, Mode: policy.Mode,
 		Allowed: allowed, Attempts: attempts, Limit: policy.Limit,
-		RetryAfter: ttl, OccurredAt: timeutil.TimeStampNow(),
+		RetryAfter: ttl, OccurredAt: time.Now().Unix(),
 	}, nil
 }

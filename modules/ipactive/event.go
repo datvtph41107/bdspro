@@ -1,7 +1,5 @@
 package ipactive
 
-import "github.com/datvtph41107/bdspro/modules/timeutil"
-
 type Event struct {
 	Action     Action
 	SourceID   string
@@ -10,5 +8,5 @@ type Event struct {
 	Attempts   int64
 	Limit      int64
 	RetryAfter int64
-	OccurredAt timeutil.TimeStamp
+	OccurredAt int64 // Unix seconds.
 }
