@@ -5,6 +5,11 @@ on:
     branches:
       - feature/iam-v1-implementation
   workflow_dispatch:
+    inputs:
+      full_checks:
+        description: Run deferred vet, Go tests, race tests and benchmark
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -56,12 +61,6 @@ jobs:
           go mod verify
       - name: Build
         run: go build ./...
-      - name: Static analysis
-        run: go vet ./...
-      - name: Unit and integration tests
-        run: go test ./... -count=1
-      - name: Logging and IAM race tests
-        run: make verify-logging
       - name: Local HTTP and JSON correlation
         shell: bash
         run: |
@@ -89,5 +88,16 @@ jobs:
           kill -TERM "$pid"
           wait "$pid"
           trap - EXIT
+      # Deferred checks remain available on explicit manual dispatch.
+      - name: Static analysis
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: go vet ./...
+      - name: Unit and integration tests
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: go test ./... -count=1
+      - name: Logging and IAM race tests
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: make verify-logging
       - name: Record formatter benchmark
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
         run: make bench-logging

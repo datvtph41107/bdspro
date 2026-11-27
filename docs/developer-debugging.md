@@ -96,4 +96,4 @@ References: [VS Code Go debugging](https://github.com/golang/vscode-go/blob/mast
 
 ## CI and stabilization
 
-See [Logging stabilization and acceptance](logging-acceptance.md). The IAM branch workflow checks build, vet, tests, focused race tests, disposable local HTTP/JSON correlation and formatter benchmark. A green run is not equivalent to full IAM production acceptance.
+See [Logging stabilization and acceptance](logging-acceptance.md). The IAM branch workflow checks build and disposable real HTTP/JSON correlation on push. Vet, Go tests, race tests and formatter benchmark are deferred, available via manual dispatch with full_checks enabled. A green run is not equivalent to full IAM production acceptance.

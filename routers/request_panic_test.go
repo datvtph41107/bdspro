@@ -65,8 +65,8 @@ func TestHTTPPanicPrivacy(t *testing.T) {
 						if err == nil {
 							err = readErr
 						}
-						if partial && resp.Code != http.StatusOK {
-							t.Errorf("partial response status changed: %d", resp.Code)
+						if partial && resp.StatusCode != http.StatusOK {
+							t.Errorf("partial response status changed: %d", resp.StatusCode)
 						}
 					}
 					server.Close() // synchronize with recovery and its ErrorLog writes
