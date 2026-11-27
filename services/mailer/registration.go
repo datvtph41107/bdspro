@@ -3,13 +3,13 @@ package mailer
 import (
 	"context"
 	"strconv"
-	"strings"
 
+	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/mail"
 )
 
 func SendRegistrationCode(ctx context.Context, destination, code string, ttlMinutes int) error {
-	if ttlMinutes <= 0 || len(code) != 8 || strings.IndexFunc(code, func(r rune) bool { return r < '0' || r > '9' }) >= 0 {
+	if ttlMinutes <= 0 || !token.ValidRegistrationCode(code) {
 		return ErrUnavailable
 	}
 	return mail.SendPlain(ctx, destination, "BDSPro email verification",
