@@ -23,7 +23,7 @@ const (
 	GoogleLegacyIssuer = "accounts.google.com"
 
 	// Shared by ID-token freshness validation and database proof issuance.
-	GoogleAuthFreshnessSeconds = 300
+	GoogleAuthFreshnessSeconds  = 300
 	GoogleAuthFutureSkewSeconds = 30
 )
 const googleTokenURL = "https://oauth2.googleapis.com/token"
