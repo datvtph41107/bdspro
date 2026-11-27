@@ -1,1 +1,0 @@
-DROP TABLE credential_link_challenges;

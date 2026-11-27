@@ -8,77 +8,62 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const latestSchemaVersion = 42
+// This is a fresh bootstrap, not an upgrade from the retired 42-step ledger.
+const baselineMarker = "BDSPro canonical bootstrap v1: shared party identity."
 
-// tableHistory describes persisted names, not service workflow steps.
-// Versions <= 41 remain accepted so existing databases can be upgraded in place.
-var tableHistory = []struct {
-	name  string
-	since uint
-}{
-	{"parties", 1},
-	{"persons", 2},
-	{"accounts", 3},
-	{"sessions", 4},
-	{"verify_emails", 5},
-	{"organizations", 6},
-	{"organization_members", 7},
-	{"phone_credentials", 8},
-	{"phone_otp_challenges", 9},
-	{"job_outbox", 10},
-	{"password_credentials", 11},
-	{"phone_signup_challenges", 12},
-	{"password_reset_tokens", 13},
-	{"email_link_challenges", 14},
-	{"teams", 15},
-	{"team_members", 16},
-	{"team_invites", 17},
-	{"oauth2_credentials", 18},
-	{"person_profiles", 19},
-	{"account_settings", 20},
-	{"account_connection_histories", 21},
-	{"audit_events", 22},
-	{"oauth_clients", 23},
-	{"oauth_auth_codes", 24},
-	{"oauth_access_tokens", 25},
-	{"oauth_refresh_tokens", 26},
-	{"oauth_grants", 27},
-	{"email_registration_challenges", 33},
-	{"phone_continuation_challenges", 35},
-	{"google_auth_flows", 36},
-	{"recent_auth_proofs", 37},
-	{"credential_link_challenges", 39},
-	{"google_authenticated_intents", 40},
+var canonicalTableOrder = [...]string{
+	"parties",
+	"persons",
+	"organizations",
+	"accounts",
+	"person_profiles",
+	"account_settings",
+	"organization_members",
+	"teams",
+	"team_members",
+	"team_invites",
+	"sessions",
+	"password_credentials",
+	"phone_credentials",
+	"oauth2_credentials",
+	"email_verification_codes",
+	"email_link_challenges",
+	"password_reset_tokens",
+	"verifications",
+	"google_flows",
+	"auth_proofs",
+	"contact_link_challenges",
+	"account_login_events",
+	"audit_events",
+	"oauth_clients",
+	"oauth_auth_codes",
+	"oauth_access_tokens",
+	"oauth_refresh_tokens",
+	"oauth_grants",
+	"job_outbox",
 }
 
+const latestSchemaVersion = uint(len(canonicalTableOrder))
+
 func canonicalTables(version uint) []string {
-	var names []string
-	for _, table := range tableHistory {
-		if table.since > version {
-			continue
-		}
-		name := table.name
-		if version >= 42 {
-			switch name {
-			case "email_registration_challenges", "google_authenticated_intents":
-				continue
-			case "phone_continuation_challenges":
-				name = "verifications"
-			case "google_auth_flows":
-				name = "google_flows"
-			case "recent_auth_proofs":
-				name = "auth_proofs"
-			case "credential_link_challenges":
-				name = "contact_links"
-			}
-		}
-		names = append(names, name)
+	if version > latestSchemaVersion {
+		return nil
 	}
+	names := slices.Clone(canonicalTableOrder[:version])
 	slices.Sort(names)
 	return names
 }
 
 func validateSchema(ctx context.Context, conn *pgx.Conn, version uint) error {
+	// Version numbers were reset deliberately. Never accept an old partial ledger
+	// just because its numeric version and initial table names happen to match.
+	var marker string
+	if err := conn.QueryRow(ctx, "SELECT coalesce(obj_description(to_regclass('public.parties'), 'pg_class'), '')").Scan(&marker); err != nil {
+		return fmt.Errorf("inspect canonical bootstrap marker: %w", err)
+	}
+	if marker != baselineMarker {
+		return fmt.Errorf("database does not belong to the canonical bootstrap; provision a fresh database and migrate data explicitly")
+	}
 	rows, err := conn.Query(ctx, `SELECT table_name FROM information_schema.tables
         WHERE table_schema='public' AND table_type='BASE TABLE' AND table_name<>'schema_migrations'
         ORDER BY table_name`)
@@ -108,9 +93,9 @@ func validateSchema(ctx context.Context, conn *pgx.Conn, version uint) error {
 		table, name string
 		since       uint
 	}{
-		{"accounts", "password_reset_version", 28},
-		{"accounts", "username", 33},
-		{"team_invites", "recipient_membership_id", 41},
+		{"accounts", "password_reset_version", 4},
+		{"accounts", "username", 4},
+		{"team_invites", "recipient_membership_id", 10},
 	} {
 		var exists bool
 		err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns

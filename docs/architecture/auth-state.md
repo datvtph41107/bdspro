@@ -1,4 +1,6 @@
-# Trạng thái xác thực: tên, vòng đời và bằng chứng
+# Trạng thái xác thực: lịch sử quyết định thiết kế
+
+> Historical design record for the retired 42-step schema at commit `2c6f5ba`. For the current fresh bootstrap, use [canonical schema](database-schema.md). Old migration numbers, table names and upgrade/rollback instructions below are historical, not current operating commands.
 
 ## Vấn đề cần giải quyết
 

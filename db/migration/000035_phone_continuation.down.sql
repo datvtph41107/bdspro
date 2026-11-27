@@ -1,1 +1,0 @@
-DROP TABLE phone_continuation_challenges;

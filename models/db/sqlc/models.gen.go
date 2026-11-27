@@ -25,7 +25,7 @@ type Account struct {
 	MarketingOptIn       bool               `json:"marketing_opt_in"`
 }
 
-type AccountConnectionHistory struct {
+type AccountLoginEvent struct {
 	ID        int64     `json:"id"`
 	AccountID int64     `json:"account_id"`
 	SessionID uuid.UUID `json:"session_id"`
@@ -71,7 +71,7 @@ type AuthProof struct {
 	GoogleSubject string    `json:"google_subject"`
 }
 
-type ContactLink struct {
+type ContactLinkChallenge struct {
 	ID             uuid.UUID `json:"id"`
 	AccountID      int64     `json:"account_id"`
 	SessionID      uuid.UUID `json:"session_id"`
@@ -89,6 +89,16 @@ type EmailLinkChallenge struct {
 	TokenHash  []byte    `json:"token_hash"`
 	ExpiresAt  time.Time `json:"expires_at"`
 	NextSendAt time.Time `json:"next_send_at"`
+}
+
+type EmailVerificationCode struct {
+	ID         int64     `json:"id"`
+	AccountID  int64     `json:"account_id"`
+	Email      string    `json:"email"`
+	SecretCode string    `json:"secret_code"`
+	IsUsed     bool      `json:"is_used"`
+	CreatedAt  time.Time `json:"created_at"`
+	ExpiredAt  time.Time `json:"expired_at"`
 }
 
 type GoogleFlow struct {
@@ -201,6 +211,7 @@ type OrganizationMember struct {
 	OwnerPersonID  pgtype.Int8        `json:"owner_person_id"`
 }
 
+// BDSPro canonical bootstrap v1: shared party identity.
 type Party struct {
 	ID int64 `json:"id"`
 }
@@ -236,31 +247,6 @@ type PhoneCredential struct {
 	AccountID  int64     `json:"account_id"`
 	PhoneE164  string    `json:"phone_e164"`
 	VerifiedAt time.Time `json:"verified_at"`
-}
-
-// Legacy storage; no current runtime reader/writer. Retained to preserve historical data.
-type PhoneOtpChallenge struct {
-	PhoneE164              string      `json:"phone_e164"`
-	Purpose                string      `json:"purpose"`
-	AccountID              int64       `json:"account_id"`
-	CodeMac                []byte      `json:"code_mac"`
-	DevCode                pgtype.Text `json:"dev_code"`
-	ExpiresAt              time.Time   `json:"expires_at"`
-	NextSendAt             time.Time   `json:"next_send_at"`
-	FailedAttempts         int32       `json:"failed_attempts"`
-	AttemptWindowStartedAt time.Time   `json:"attempt_window_started_at"`
-	LockedUntil            time.Time   `json:"locked_until"`
-}
-
-// Legacy storage; no current runtime reader/writer. Retained to preserve historical data.
-type PhoneSignupChallenge struct {
-	PhoneE164      string      `json:"phone_e164"`
-	CodeMac        []byte      `json:"code_mac"`
-	DevCode        pgtype.Text `json:"dev_code"`
-	ExpiresAt      time.Time   `json:"expires_at"`
-	NextSendAt     time.Time   `json:"next_send_at"`
-	FailedAttempts int32       `json:"failed_attempts"`
-	LockedUntil    time.Time   `json:"locked_until"`
 }
 
 type Session struct {
@@ -314,14 +300,4 @@ type Verification struct {
 	ResendAfter    time.Time `json:"resend_after"`
 	FailedAttempts int32     `json:"failed_attempts"`
 	CreatedAt      time.Time `json:"created_at"`
-}
-
-type VerifyEmail struct {
-	ID         int64     `json:"id"`
-	AccountID  int64     `json:"account_id"`
-	Email      string    `json:"email"`
-	SecretCode string    `json:"secret_code"`
-	IsUsed     bool      `json:"is_used"`
-	CreatedAt  time.Time `json:"created_at"`
-	ExpiredAt  time.Time `json:"expired_at"`
 }

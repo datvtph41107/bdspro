@@ -11,7 +11,7 @@ import (
 
 const findReusableVerifyEmailQuery = `-- name: FindReusableVerifyEmailQuery :one
 SELECT id, account_id, email, secret_code, is_used, created_at, expired_at
-FROM verify_emails
+FROM email_verification_codes
 WHERE account_id = $1
   AND email = $2
   AND is_used = FALSE
@@ -25,9 +25,9 @@ type FindReusableVerifyEmailQueryParams struct {
 	Email     string `json:"email"`
 }
 
-func (q *Queries) FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error) {
+func (q *Queries) FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (EmailVerificationCode, error) {
 	row := q.db.QueryRow(ctx, findReusableVerifyEmailQuery, arg.AccountID, arg.Email)
-	var i VerifyEmail
+	var i EmailVerificationCode
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,

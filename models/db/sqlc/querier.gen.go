@@ -24,7 +24,7 @@ type Querier interface {
 	ConsumePasswordResetToken(ctx context.Context, tokenHash []byte) (int64, error)
 	ConsumeRecentAuthProof(ctx context.Context, arg ConsumeRecentAuthProofParams) (ConsumeRecentAuthProofRow, error)
 	ConsumeTeamInvite(ctx context.Context, arg ConsumeTeamInviteParams) (int64, error)
-	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error)
+	ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (EmailVerificationCode, error)
 	CountActiveOrganizationOwners(ctx context.Context, organizationID int64) (int64, error)
 	CountEligibleOrganizationOwners(ctx context.Context, organizationID int64) (int64, error)
 	CountTeamUsersForOwner(ctx context.Context, arg CountTeamUsersForOwnerParams) (int64, error)
@@ -48,7 +48,7 @@ type Querier interface {
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTeamForOwner(ctx context.Context, arg CreateTeamForOwnerParams) (Team, error)
 	CreateTeamInviteForOwner(ctx context.Context, arg CreateTeamInviteForOwnerParams) (CreateTeamInviteForOwnerRow, error)
-	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
+	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (EmailVerificationCode, error)
 	DeleteAccountCredentialLinks(ctx context.Context, accountID int64) error
 	DeleteAccountGoogleFlows(ctx context.Context, accountID int64) error
 	DeleteAccountRecentAuthProofs(ctx context.Context, accountID int64) error
@@ -73,7 +73,7 @@ type Querier interface {
 	FailCredentialLink(ctx context.Context, id uuid.UUID) error
 	FailEmailRegistration(ctx context.Context, id uuid.UUID) error
 	FailPhoneVerification(ctx context.Context, id uuid.UUID) error
-	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
+	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (EmailVerificationCode, error)
 	FindTeamInviteOrganization(ctx context.Context, arg FindTeamInviteOrganizationParams) (FindTeamInviteOrganizationRow, error)
 	FinishGoogleFlow(ctx context.Context, arg FinishGoogleFlowParams) (int64, error)
 	GetAccountIdentity(ctx context.Context, id int64) (GetAccountIdentityRow, error)

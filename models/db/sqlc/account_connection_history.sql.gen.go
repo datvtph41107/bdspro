@@ -13,7 +13,7 @@ import (
 )
 
 const createAccountConnectionHistory = `-- name: CreateAccountConnectionHistory :exec
-INSERT INTO account_connection_histories (account_id, session_id, action, ip_address, user_agent)
+INSERT INTO account_login_events (account_id, session_id, action, ip_address, user_agent)
 VALUES ($1, $2, 'login', $3, $4)
 `
 
@@ -36,13 +36,13 @@ func (q *Queries) CreateAccountConnectionHistory(ctx context.Context, arg Create
 
 const deleteExpiredAccountConnectionHistories = `-- name: DeleteExpiredAccountConnectionHistories :execrows
 WITH expired AS (
-    SELECT id FROM account_connection_histories
+    SELECT id FROM account_login_events
     WHERE created_at < $1::timestamptz
     ORDER BY created_at, id
     LIMIT $2::integer
     FOR UPDATE SKIP LOCKED
 )
-DELETE FROM account_connection_histories AS history
+DELETE FROM account_login_events AS history
 USING expired
 WHERE history.id = expired.id
 `
@@ -62,7 +62,7 @@ func (q *Queries) DeleteExpiredAccountConnectionHistories(ctx context.Context, a
 
 const listAccountConnectionHistories = `-- name: ListAccountConnectionHistories :many
 SELECT id, session_id, action, ip_address, user_agent, created_at
-FROM account_connection_histories
+FROM account_login_events
 WHERE account_id = $1
 ORDER BY created_at DESC, id DESC
 LIMIT 50

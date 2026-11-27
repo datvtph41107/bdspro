@@ -71,6 +71,7 @@ jobs:
           sed -i '/^\[log.file\]$/a LEVEL = debug' custom/conf/app.ini
           make build
           bin/bdspro --config custom/conf/app.ini config check
+          bin/bdspro --config custom/conf/app.ini migrate
           bin/bdspro --config custom/conf/app.ini web &
           pid=$!
           trap 'kill -TERM "$pid" 2>/dev/null || true; wait "$pid" || true' EXIT
@@ -88,6 +89,10 @@ jobs:
           kill -TERM "$pid"
           wait "$pid"
           trap - EXIT
+      - name: Verify SQLC generated bindings
+        run: |
+          GOBIN="$RUNNER_TEMP/sqlc-bin" go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          PATH="$RUNNER_TEMP/sqlc-bin:$PATH" make sqlc-check
       # Deferred checks remain available on explicit manual dispatch.
       - name: Static analysis
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}

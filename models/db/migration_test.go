@@ -37,19 +37,15 @@ func TestAuthStateMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	migrations := "file://" + path
-	if _, err := MigrateUp(ctx, migrations, source, 41); err != nil {
+	if _, err := MigrateUp(ctx, migrations, source, 0); err != nil {
 		t.Fatal(err)
 	}
 	id := uuid.New()
 	browser := bytes.Repeat([]byte{1}, 32)
 	proof := bytes.Repeat([]byte{2}, 32)
-	// Coincident IDs/proof digests are legal in the old separate tables.
-	for _, table := range []string{"email_registration_challenges", "phone_continuation_challenges"} {
-		destination, field := "test@example.invalid", "email"
-		if table == "phone_continuation_challenges" {
-			destination, field = "+84912300001", "phone_e164"
-		}
-		_, err := conn.Exec(ctx, "INSERT INTO "+table+"(id,"+field+",browser_digest,proof_digest,expires_at,resend_after,failed_attempts) VALUES ($1,$2,$3,$4,now()+interval '15 minutes',now(),2)", id, destination, browser, proof)
+	// Coincident IDs/proof digests remain legal across verification kinds.
+	for _, item := range []struct{kind, destination string}{{"email", "test@example.invalid"}, {"phone", "+84912300001"}} {
+		_, err := conn.Exec(ctx, "INSERT INTO verifications(kind,id,destination,browser_digest,proof_digest,expires_at,resend_after,failed_attempts) VALUES ($1,$2,$3,$4,$5,now()+interval '15 minutes',now(),2)", item.kind, id, item.destination, browser, proof)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -68,28 +64,13 @@ func TestAuthStateMigration(t *testing.T) {
 	if _, err := conn.Exec(ctx, "INSERT INTO sessions(id,account_id,refresh_token,user_agent,client_ip,expires_at) VALUES ($1,$2,'test-digest','test','127.0.0.1',now()+interval '1 hour')", session, account); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := conn.Exec(ctx, "INSERT INTO google_auth_flows(browser_digest,phase,subject,remember,expires_at) VALUES ($1,'ready','test-subject',false,now()+interval '5 minutes')", browser); err != nil {
+	if _, err := conn.Exec(ctx, "INSERT INTO google_flows(browser_digest,phase,subject,remember,expires_at,account_id,session_id,purpose,action) VALUES ($1,'ready','test-subject',false,now()+interval '5 minutes',$2,$3,'reauth','phone.link')", browser, account, session); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := conn.Exec(ctx, "INSERT INTO google_authenticated_intents(browser_digest,account_id,session_id,purpose,action) VALUES ($1,$2,$3,'reauth','phone.link')", browser, account, session); err != nil {
+	if err := validateSchema(ctx, conn, latestSchemaVersion); err != nil {
 		t.Fatal(err)
 	}
 
-	// Preserve every field across up/down/up, not only row counts.
-	snapshots := make(map[string]string)
-	for _, table := range []string{"email_registration_challenges", "phone_continuation_challenges", "google_auth_flows", "google_authenticated_intents"} {
-		var data string
-		if err := conn.QueryRow(ctx, "SELECT jsonb_agg(to_jsonb(t))::text FROM "+table+" t").Scan(&data); err != nil {
-			t.Fatal(err)
-		}
-		snapshots[table] = data
-	}
-	if _, err := MigrateUp(ctx, migrations, source, 0); err != nil {
-		t.Fatal(err)
-	}
-	if err := validateSchema(ctx, conn, 42); err != nil {
-		t.Fatal(err)
-	}
 	q := New(conn)
 	email, err := q.LockEmailRegistrationProof(ctx, LockEmailRegistrationProofParams{ProofDigest: proof, BrowserDigest: browser})
 	if err != nil || email.Email != "test@example.invalid" {
@@ -113,24 +94,6 @@ func TestAuthStateMigration(t *testing.T) {
 		t.Fatalf("authenticated flow lost: %v", err)
 	}
 
-	if _, err := MigrateDown(migrations, source, 1); err != nil {
-		t.Fatal(err)
-	}
-	if err := validateSchema(ctx, conn, 41); err != nil {
-		t.Fatal(err)
-	}
-	for table, want := range snapshots {
-		var got string
-		if err := conn.QueryRow(ctx, "SELECT jsonb_agg(to_jsonb(t))::text FROM "+table+" t").Scan(&got); err != nil {
-			t.Fatal(err)
-		}
-		if got != want {
-			t.Fatalf("migration changed data in %s", table)
-		}
-	}
-	if _, err := MigrateUp(ctx, migrations, source, 0); err != nil {
-		t.Fatal(err)
-	}
 	if changed, err := MigrateUp(ctx, migrations, source, 0); err != nil || changed {
 		t.Fatalf("repeat startup: changed=%v err=%v", changed, err)
 	}

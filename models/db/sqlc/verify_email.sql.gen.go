@@ -10,7 +10,7 @@ import (
 )
 
 const consumeVerifyEmail = `-- name: ConsumeVerifyEmail :one
-UPDATE verify_emails SET is_used = TRUE
+UPDATE email_verification_codes SET is_used = TRUE
 WHERE id = $1 AND secret_code = $2 AND is_used = FALSE AND expired_at > now()
 RETURNING id, account_id, email, secret_code, is_used, created_at, expired_at
 `
@@ -20,9 +20,9 @@ type ConsumeVerifyEmailParams struct {
 	SecretCode string `json:"secret_code"`
 }
 
-func (q *Queries) ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (VerifyEmail, error) {
+func (q *Queries) ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmailParams) (EmailVerificationCode, error) {
 	row := q.db.QueryRow(ctx, consumeVerifyEmail, arg.ID, arg.SecretCode)
-	var i VerifyEmail
+	var i EmailVerificationCode
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
@@ -36,7 +36,7 @@ func (q *Queries) ConsumeVerifyEmail(ctx context.Context, arg ConsumeVerifyEmail
 }
 
 const createVerifyEmail = `-- name: CreateVerifyEmail :one
-INSERT INTO verify_emails (account_id, email, secret_code)
+INSERT INTO email_verification_codes (account_id, email, secret_code)
 VALUES ($1, $2, $3)
 RETURNING id, account_id, email, secret_code, is_used, created_at, expired_at
 `
@@ -47,9 +47,9 @@ type CreateVerifyEmailParams struct {
 	SecretCode string `json:"secret_code"`
 }
 
-func (q *Queries) CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error) {
+func (q *Queries) CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (EmailVerificationCode, error) {
 	row := q.db.QueryRow(ctx, createVerifyEmail, arg.AccountID, arg.Email, arg.SecretCode)
-	var i VerifyEmail
+	var i EmailVerificationCode
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,

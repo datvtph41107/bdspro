@@ -7,7 +7,7 @@ BDSPro contains HTTP/runtime infrastructure, session-based authentication, email
 - `cmd/` — CLI entry points and configuration preflight.
 - `modules/` — technical subsystems: settings, logging, cryptography, connections, routing and provider transports.
 - `models/db/` — SQLC execution, PostgreSQL engine, transactions and generated bindings; domain model packages expose persistence operations and types.
-- `db/migration/`, `db/query/` — schema history and SQLC query definitions.
+- `db/migration/`, `db/query/` — canonical fresh-install migrations and SQLC query definitions.
 - `services/context/` — HTTP context, response/error and pagination contracts.
 - `services/auth/` — authentication, challenge/session lifecycle and credential orchestration.
 - `services/phonedelivery/` — enabled-channel policy and OTP delivery orchestration; HTTP provider adapters are in `modules/phonedelivery/`.
@@ -28,7 +28,7 @@ make server
 
 The HTTP probe is `GET /api/v1/health`. Team endpoints require a session-bound access JWT and Organization membership; writes require owner membership and recheck authorization in PostgreSQL.
 
-Database migrations and SQLC verification:
+Database migrations and SQLC verification (fresh database only; see [canonical schema](docs/architecture/database-schema.md) before switching from the old migration ledger):
 
 ```sh
 make migrateup
