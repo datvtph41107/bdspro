@@ -37,6 +37,8 @@ make sqlc-check
 
 For local OTP inboxes and SMS/Zalo/Telegram configuration, see [Phone delivery setup](docs/phone-delivery.md).
 
+For local breakpoint debugging, log correlation and profiling, see [Developer debugging](docs/developer-debugging.md) and [Logging](docs/logging.md).
+
 ## Verification
 
 ```sh

@@ -75,3 +75,26 @@ race:
 
 vet:
 	go vet ./...
+
+# Development only: Delve runs in the current terminal, without a remote port.
+.PHONY: debug verify-logging smoke-logging bench-logging profile-logging
+debug: config-local
+	dlv debug . -- --config "$(CONFIG)" web
+
+verify-logging:
+	python3 -m unittest discover -s scripts -p 'test_verify_logging.py' -v
+	go test -race ./modules/log ./modules/setting ./modules/web ./routers ./models/db ./services/auth -count=1
+
+LOG_BASE ?= http://127.0.0.1:8080
+LOG_FILE ?= data/log/bdspro.log
+
+# Requires a separately started local server with JSON file DEBUG enabled.
+smoke-logging:
+	python3 scripts/verify_logging.py --base "$(LOG_BASE)" --log-file "$(LOG_FILE)"
+
+bench-logging:
+	go test ./modules/log -run '^$$' -bench '^BenchmarkDeveloperConsole$$' -benchmem -count=3
+
+profile-logging:
+	@mkdir -p bin
+	go test ./modules/log -run '^$$' -bench '^BenchmarkDeveloperConsole$$' -benchtime=3s -cpuprofile bin/log-cpu.pprof -memprofile bin/log-mem.pprof -o bin/log-profile.test

@@ -258,3 +258,7 @@ Bản này giữ một luồng JSON có component/request_id để tìm xuyên t
 - APIContext.Admit ánh xạ quyết định limiter sang HTTP ở một chỗ; source admission và subject admission dùng chung Retry-After, error contract và event. Nó không chứa thuật toán rate limit.
 
 Bằng chứng: output_test.go kiểm tra rotation, quyền file mới, tên logger và sink hỏng; query_log_test.go kiểm tra mode, correlation và loại dữ liệu được phép ghi; request_log_test.go kiểm tra 403/429/503, reason, Retry-After và dữ liệu không được log. Integration qua Mailpit kiểm tra event HTTP/SQL/delivery/admission thực tế cùng request ID. Xem các test cùng package để đối chiếu từng quyết định, không dựa riêng vào việc terminal “trông đúng”.
+
+## Debugger integration
+
+See [Developer debugging](developer-debugging.md) for Delve / VS Code on WSL, a read-only loopback HTTP/log smoke test, and offline formatter benchmarks/profiles. Do not expose debugger or pprof endpoints in the application. Running with breakpoints can change timing, so do not interpret that session's latency as performance evidence.

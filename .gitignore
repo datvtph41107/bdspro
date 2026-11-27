@@ -8,3 +8,7 @@ coverage.out
 /custom/conf/app.ini
 /bin/
 /.air/
+
+# Local debugger and Python smoke-test artifacts
+__debug_bin*
+__pycache__/
