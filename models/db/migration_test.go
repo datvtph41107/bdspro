@@ -45,7 +45,7 @@ func TestAuthStateMigration(t *testing.T) {
 	browser := bytes.Repeat([]byte{1}, 32)
 	proof := bytes.Repeat([]byte{2}, 32)
 	// Coincident IDs/proof digests remain legal across verification kinds.
-	for _, item := range []struct{kind, destination string}{{"email", "test@example.invalid"}, {"phone", "+84912300001"}} {
+	for _, item := range []struct{ kind, destination string }{{"email", "test@example.invalid"}, {"phone", "+84912300001"}} {
 		_, err := conn.Exec(ctx, "INSERT INTO verifications(kind,id,destination,browser_digest,proof_digest,expires_at,resend_after,failed_attempts) VALUES ($1,$2,$3,$4,$5,now()+interval '15 minutes',now(),2)", item.kind, id, item.destination, browser, proof)
 		if err != nil {
 			t.Fatal(err)
