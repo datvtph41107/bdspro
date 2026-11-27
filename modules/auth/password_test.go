@@ -41,7 +41,7 @@ func TestLegacyPasswordAndPolicy(t *testing.T) {
 		t.Fatal("legacy bcrypt silently truncated password")
 	}
 	for _, password := range []string{"short", strings.Repeat("a", 129), string([]byte{0xff})} {
-		if !errors.Is(ValidateNewPassword(password), ErrPasswordPolicy) {
+		if !errors.Is(validateNewPassword(password), ErrPasswordPolicy) {
 			t.Fatal("invalid password policy")
 		}
 	}
@@ -55,5 +55,61 @@ func BenchmarkPasswordHash(b *testing.B) {
 		if _, err := HashPassword("benchmark only password"); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func TestPasswordCompatibilityAndCapacity(t *testing.T) {
+	// Independent Argon2id v19 fixture, with the previously persisted PHC format.
+	const fixture = "$argon2id$v=19$m=19456,t=2,p=1$MDEyMzQ1Njc4OWFiY2RlZg$cE8/bG8Rg6+LkVzTEsMgLkfdB+qvWau6T9owX+3WGYc"
+	const password = "fixture password 123"
+	if err := CheckPassword(password, fixture); err != nil {
+		t.Fatal("existing Argon2id hash rejected", err)
+	}
+	hash, err := HashPassword(password)
+	if err != nil || !strings.HasPrefix(hash, "$argon2id$v=19$m=19456,t=2,p=1$") {
+		t.Fatal("persisted hash format changed", err)
+	}
+	for _, p := range []string{strings.Repeat("a", 15), strings.Repeat("a", 128), strings.Repeat("😀", 128)} {
+		if err := validateNewPassword(p); err != nil {
+			t.Fatal("valid boundary rejected", err)
+		}
+	}
+	for _, p := range []string{strings.Repeat("a", 14), strings.Repeat("a", 129), strings.Repeat("😀", 129)} {
+		if err := validateNewPassword(p); !errors.Is(err, ErrPasswordPolicy) {
+			t.Fatal("invalid boundary accepted")
+		}
+	}
+	if cap(passwordSlots) != 4 || len(passwordSlots) != 0 {
+		t.Fatal("unexpected password capacity or leaked slot")
+	}
+
+	// Occupy the actual shared semaphore deterministically; no timing assumptions.
+	for i := 0; i < cap(passwordSlots); i++ {
+		passwordSlots <- struct{}{}
+	}
+	defer func() {
+		for len(passwordSlots) > 0 {
+			<-passwordSlots
+		}
+	}()
+	if _, err := HashPassword(password); !errors.Is(err, ErrPasswordBusy) {
+		t.Fatal("hashing bypassed capacity", err)
+	}
+	if err := CheckPassword(password, fixture); !errors.Is(err, ErrPasswordBusy) {
+		t.Fatal("verification bypassed capacity", err)
+	}
+	if err := CheckMissingPassword(password); !errors.Is(err, ErrPasswordBusy) {
+		t.Fatal("dummy verification bypassed capacity", err)
+	}
+	// Input validation still precedes capacity admission.
+	if _, err := HashPassword("short"); !errors.Is(err, ErrPasswordPolicy) {
+		t.Fatal("password policy precedence changed", err)
+	}
+	<-passwordSlots
+	if err := CheckPassword(password, fixture); err != nil {
+		t.Fatal("released capacity could not be reused", err)
+	}
+	if len(passwordSlots) != cap(passwordSlots)-1 {
+		t.Fatal("verification leaked a slot")
 	}
 }

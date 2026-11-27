@@ -49,11 +49,8 @@ func ReauthenticatePassword(ctx context.Context, actor authmodel.Actor, password
 	if err != nil {
 		return RecentAuthResult{}, err
 	}
-	if err := token.CheckPassword(password, old); err != nil {
-		if errors.Is(err, token.ErrPasswordBusy) {
-			return RecentAuthResult{}, err
-		}
-		return RecentAuthResult{}, ErrInvalidCredentials
+	if err := checkPassword(password, old); err != nil {
+		return RecentAuthResult{}, err
 	}
 	if _, err := q.DeleteExpiredRecentAuthProofs(ctx, 100); err != nil {
 		return RecentAuthResult{}, err

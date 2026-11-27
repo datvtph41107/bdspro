@@ -56,11 +56,8 @@ func LoginPassword(ctx context.Context, identifier, password, clientIP, userAgen
 	if err != nil {
 		return LoginResult{}, util.WithOperation("auth.login.read_password", err)
 	}
-	if err = token.CheckPassword(password, hash); err != nil {
-		if errors.Is(err, token.ErrPasswordBusy) {
-			return LoginResult{}, err
-		}
-		return LoginResult{}, ErrInvalidCredentials
+	if err = checkPassword(password, hash); err != nil {
+		return LoginResult{}, err
 	}
 	result, err := db.WithTx2(ctx, func(txCtx context.Context) (LoginResult, error) {
 		q, err := db.GetQueries(txCtx)
@@ -100,13 +97,6 @@ func LoginPassword(ctx context.Context, identifier, password, clientIP, userAgen
 		return issueSession(txCtx, q, accountID, clientIP, userAgent, remember)
 	})
 	return result, util.WithOperation("auth.login.transaction", err)
-}
-
-func rejectMissingPassword(password string) error {
-	if err := token.CheckMissingPassword(password); errors.Is(err, token.ErrPasswordBusy) {
-		return err
-	}
-	return ErrInvalidCredentials
 }
 
 func issueSession(ctx context.Context, q *db.Queries, accountID int64, clientIP, userAgent string, remember bool) (LoginResult, error) {

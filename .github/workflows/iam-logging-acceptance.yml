@@ -92,6 +92,10 @@ jobs:
             echo "Obsolete JWT contract still has a consumer"
             exit 1
           fi
+      - name: Verify password format, policy and shared capacity
+        run: |
+          test -z "$(gofmt -l modules/auth/password.go modules/auth/password_test.go services/auth/password.go services/auth/login.go services/auth/reauth.go)" || { gofmt -d modules/auth/password.go modules/auth/password_test.go services/auth/password.go services/auth/login.go services/auth/reauth.go; exit 1; }
+          go test ./modules/auth -run '^Test(VersionedPasswordHash|LegacyPasswordAndPolicy|PasswordCompatibilityAndCapacity)$' -count=1 -v
       - name: Verify Google freshness contract
         run: go test ./modules/auth -run '^TestGoogleStepUp$' -count=1
       - name: Verify provider lifetime projection

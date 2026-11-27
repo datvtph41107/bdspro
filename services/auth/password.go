@@ -29,6 +29,22 @@ func newPasswordHash(password string) (string, error) {
 	return hash, err
 }
 
+// checkPassword maps the technical verifier result to the shared IAM error contract.
+func checkPassword(password, stored string) error {
+	err := token.CheckPassword(password, stored)
+	if err == nil || errors.Is(err, token.ErrPasswordBusy) {
+		return err
+	}
+	return ErrInvalidCredentials
+}
+
+func rejectMissingPassword(password string) error {
+	if err := token.CheckMissingPassword(password); errors.Is(err, token.ErrPasswordBusy) {
+		return err
+	}
+	return ErrInvalidCredentials
+}
+
 func RequestPasswordReset(ctx context.Context, email string) error {
 	start := time.Now()
 	work, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -182,11 +198,8 @@ func ChangePassword(ctx context.Context, actor authmodel.Actor, current, passwor
 	if err != nil {
 		return LoginResult{}, err
 	}
-	if err := token.CheckPassword(current, old); err != nil {
-		if errors.Is(err, token.ErrPasswordBusy) {
-			return LoginResult{}, err
-		}
-		return LoginResult{}, ErrInvalidCredentials
+	if err := checkPassword(current, old); err != nil {
+		return LoginResult{}, err
 	}
 	hash, err := newPasswordHash(password)
 	if err != nil {
