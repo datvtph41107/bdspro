@@ -48,7 +48,7 @@ func StartAuthenticatedGoogle(ctx context.Context, actor authmodel.Actor, purpos
 		} else if !u.Credentials.GoogleLinked {
 			return GoogleStartResult{}, ErrReauthRequired
 		}
-		result, err := StartGoogle(txCtx, false)
+		result, err := StartGoogle(txCtx, false, purpose == "reauth")
 		if err != nil {
 			return GoogleStartResult{}, err
 		}
@@ -65,12 +65,6 @@ func StartAuthenticatedGoogle(ctx context.Context, actor authmodel.Actor, purpos
 		}
 		if n != 1 {
 			return GoogleStartResult{}, ErrRegistrationProof
-		}
-		if purpose == "reauth" {
-			result.URL, err = token.GoogleStepUpURL(result.URL)
-			if err != nil {
-				return GoogleStartResult{}, err
-			}
 		}
 		return result, nil
 	})

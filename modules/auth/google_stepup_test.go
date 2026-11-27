@@ -9,15 +9,17 @@ import (
 )
 
 func TestGoogleStepUp(t *testing.T) {
-	base := GoogleAuthorizationURL(setting.GoogleSettings{ClientID: "test"}, "state", "nonce", "verifier")
-	raw, err := GoogleStepUpURL(base)
-	if err != nil {
-		t.Fatal(err)
+	cfg := setting.GoogleSettings{ClientID: "test"}
+	base, err := url.Parse(GoogleAuthorizationURL(cfg, "state", "nonce", "verifier", false))
+	if err != nil || base.Query().Has("claims") || base.Query().Has("prompt") {
+		t.Fatal("normal login must not request step-up")
 	}
+	raw := GoogleAuthorizationURL(cfg, "state", "nonce", "verifier", true)
 	u, err := url.Parse(raw)
 	if err != nil || u.Query().Get("claims") != `{"id_token":{"auth_time":{"essential":true}}}` ||
 		u.Query().Get("state") != "state" || u.Query().Get("nonce") != "nonce" ||
-		u.Query().Get("code_challenge_method") != "S256" {
+		u.Query().Get("code_challenge_method") != "S256" || u.Query().Get("prompt") != "select_account" ||
+		u.Query().Get("code_challenge") != base.Query().Get("code_challenge") {
 		t.Fatal("step-up must preserve authorization binding")
 	}
 	now := time.Unix(1800000000, 0)

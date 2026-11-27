@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	GoogleIssuer = "https://accounts.google.com"
+	GoogleIssuer       = "https://accounts.google.com"
+	GoogleLegacyIssuer = "accounts.google.com"
 
 	// Shared by ID-token freshness validation and database proof issuance.
 	GoogleAuthFreshnessSeconds = 300
@@ -48,7 +49,7 @@ type googleClaims struct {
 	AuthTime      int64  `json:"auth_time"`
 }
 
-func GoogleAuthorizationURL(cfg setting.GoogleSettings, state, nonce, verifier string) string {
+func GoogleAuthorizationURL(cfg setting.GoogleSettings, state, nonce, verifier string, stepUp bool) string {
 	challenge := sha256.Sum256([]byte(verifier))
 	q := url.Values{
 		"client_id":             {cfg.ClientID},
@@ -60,19 +61,11 @@ func GoogleAuthorizationURL(cfg setting.GoogleSettings, state, nonce, verifier s
 		"code_challenge":        {base64.RawURLEncoding.EncodeToString(challenge[:])},
 		"code_challenge_method": {"S256"},
 	}
-	return GoogleIssuer + "/o/oauth2/v2/auth?" + q.Encode()
-}
-
-func GoogleStepUpURL(authorizationURL string) (string, error) {
-	u, err := url.Parse(authorizationURL)
-	if err != nil || u.Scheme != "https" || u.Host != "accounts.google.com" || u.Path != "/o/oauth2/v2/auth" {
-		return "", ErrGoogleProof
+	if stepUp {
+		q.Set("claims", `{"id_token":{"auth_time":{"essential":true}}}`)
+		q.Set("prompt", "select_account")
 	}
-	q := u.Query()
-	q.Set("claims", `{"id_token":{"auth_time":{"essential":true}}}`)
-	q.Set("prompt", "select_account")
-	u.RawQuery = q.Encode()
-	return u.String(), nil
+	return GoogleIssuer + "/o/oauth2/v2/auth?" + q.Encode()
 }
 
 func GoogleAuthTimeRecent(authTime int64, now time.Time) bool {
@@ -104,6 +97,12 @@ func ExchangeGoogle(ctx context.Context, cfg setting.GoogleSettings, code, verif
 	}
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
+	return exchangeGoogle(ctx, googleClient, cfg, code, verifier, nonce)
+}
+
+// exchangeGoogle implements the two HTTP requests under the caller's shared
+// deadline. The production client always refuses redirects.
+func exchangeGoogle(ctx context.Context, client *http.Client, cfg setting.GoogleSettings, code, verifier, nonce string) (GoogleIdentity, error) {
 	form := url.Values{
 		"grant_type":    {"authorization_code"},
 		"client_id":     {cfg.ClientID},
@@ -120,7 +119,7 @@ func ExchangeGoogle(ctx context.Context, cfg setting.GoogleSettings, code, verif
 	var response struct {
 		IDToken string `json:"id_token"`
 	}
-	if err := googleJSON(googleClient, req, &response); err != nil {
+	if err := googleJSON(client, req, &response); err != nil {
 		return GoogleIdentity{}, err
 	}
 	if len(response.IDToken) == 0 || len(response.IDToken) > 16384 {
@@ -131,7 +130,7 @@ func ExchangeGoogle(ctx context.Context, cfg setting.GoogleSettings, code, verif
 		return GoogleIdentity{}, ErrGoogleUnavailable
 	}
 	var set googleKeySet
-	if err := googleJSON(googleClient, keyReq, &set); err != nil {
+	if err := googleJSON(client, keyReq, &set); err != nil {
 		return GoogleIdentity{}, err
 	}
 	return verifyGoogleIDToken(response.IDToken, cfg.ClientID, nonce, set.key)
@@ -207,7 +206,7 @@ func verifyGoogleIDToken(raw, clientID, nonce string, key jwt.Keyfunc) (GoogleId
 	t, err := jwt.ParseWithClaims(raw, claims, key,
 		jwt.WithValidMethods([]string{"RS256"}), jwt.WithAudience(clientID),
 		jwt.WithExpirationRequired(), jwt.WithIssuedAt())
-	if err != nil || !t.Valid || (claims.Issuer != GoogleIssuer && claims.Issuer != "accounts.google.com") ||
+	if err != nil || !t.Valid || (claims.Issuer != GoogleIssuer && claims.Issuer != GoogleLegacyIssuer) ||
 		claims.IssuedAt == nil || claims.Subject == "" || len(claims.Subject) > 255 ||
 		nonce == "" || claims.Nonce != nonce || len(claims.Email) > 254 ||
 		(len(claims.Audience) > 1 && claims.Authorized != clientID) ||

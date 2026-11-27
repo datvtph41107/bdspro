@@ -13,9 +13,9 @@ import (
 
 func TestGoogleAuthorizationURL(t *testing.T) {
 	cfg := setting.GoogleSettings{ClientID: "test-client", CallbackURL: "http://localhost:5173/api/v1/auth/google/callback"}
-	u, err := url.Parse(GoogleAuthorizationURL(cfg, "state", "nonce", "verifier"))
+	u, err := url.Parse(GoogleAuthorizationURL(cfg, "state", "nonce", "verifier", false))
 	if err != nil || u.Host != "accounts.google.com" || u.Query().Get("code_challenge_method") != "S256" ||
-		u.Query().Get("code_challenge") == "verifier" || u.Query().Get("redirect_uri") != cfg.CallbackURL ||
+		u.Query().Get("code_challenge") != "iMnq5o6zALKXGivsnlom_0F5_WYda32GHkxlV7mq7hQ" || u.Query().Get("redirect_uri") != cfg.CallbackURL ||
 		u.Query().Get("state") != "state" || u.Query().Get("nonce") != "nonce" {
 		t.Fatal("invalid authorization request")
 	}

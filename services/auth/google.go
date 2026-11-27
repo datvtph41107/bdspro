@@ -24,7 +24,7 @@ type GoogleResult struct {
 	Proof RegistrationVerification
 }
 
-func StartGoogle(ctx context.Context, remember bool) (GoogleStartResult, error) {
+func StartGoogle(ctx context.Context, remember, stepUp bool) (GoogleStartResult, error) {
 	if !setting.Google.Enabled() {
 		return GoogleStartResult{}, token.ErrGoogleUnavailable
 	}
@@ -57,7 +57,7 @@ func StartGoogle(ctx context.Context, remember bool) (GoogleStartResult, error) 
 	}); err != nil {
 		return GoogleStartResult{}, err
 	}
-	return GoogleStartResult{URL: token.GoogleAuthorizationURL(setting.Google, state, nonce, verifier), Browser: browser}, nil
+	return GoogleStartResult{URL: token.GoogleAuthorizationURL(setting.Google, state, nonce, verifier, stepUp), Browser: browser}, nil
 }
 
 func GoogleCallback(ctx context.Context, browser []byte, state, code string) error {
@@ -127,7 +127,7 @@ func GoogleCallback(ctx context.Context, browser []byte, state, code string) err
 
 func googleOwner(ctx context.Context, q *db.Queries, subject string, lock bool) (int64, error) {
 	var owner int64
-	for _, issuer := range []string{token.GoogleIssuer, "accounts.google.com"} {
+	for _, issuer := range []string{token.GoogleIssuer, token.GoogleLegacyIssuer} {
 		var id int64
 		var err error
 		if lock {

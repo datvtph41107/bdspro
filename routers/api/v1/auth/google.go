@@ -57,7 +57,7 @@ func GoogleStart(ctx *appctx.APIContext) {
 		ctx.APIError(http.StatusBadRequest, "invalid_request", "invalid stay_signed_in value")
 		return
 	}
-	result, err := authservice.StartGoogle(ctx, remember == "true")
+	result, err := authservice.StartGoogle(ctx, remember == "true", false)
 	if err != nil {
 		writeGoogleError(ctx, err)
 		return
