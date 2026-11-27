@@ -73,7 +73,7 @@ func ReauthenticatePassword(ctx context.Context, actor authmodel.Actor, password
 		}
 		if err := q.CreateRecentAuthProof(txCtx, db.CreateRecentAuthProofParams{
 			TtlMinutes: recentAuthProofTTLMinutes,
-			Digest: digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
+			Digest:     digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
 			Action: action, Method: "password",
 		}); err != nil {
 			return RecentAuthResult{}, err
@@ -110,7 +110,7 @@ func RequestPasswordSetProof(ctx context.Context, actor authmodel.Actor) error {
 		}
 		if err := q.CreateRecentAuthProof(txCtx, db.CreateRecentAuthProofParams{
 			TtlMinutes: recentAuthProofTTLMinutes,
-			Digest: digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
+			Digest:     digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
 			Action: "password.set", Method: "verified_email", EmailSnapshot: *u.Email,
 		}); err != nil {
 			return "", err
