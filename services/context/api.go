@@ -8,7 +8,6 @@ import (
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/datvtph41107/bdspro/modules/web"
 	web_types "github.com/datvtph41107/bdspro/modules/web/types"
 )
