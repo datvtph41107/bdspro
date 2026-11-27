@@ -118,6 +118,14 @@ jobs:
         run: |
           test -z "$(gofmt -l modules/auth/google.go modules/auth/google_test.go modules/auth/google_stepup_test.go modules/auth/google_exchange_test.go services/auth/google.go services/auth/google_authenticated.go routers/api/v1/auth/google.go)" || { gofmt -d modules/auth/google.go modules/auth/google_test.go modules/auth/google_stepup_test.go modules/auth/google_exchange_test.go services/auth/google.go services/auth/google_authenticated.go routers/api/v1/auth/google.go; exit 1; }
           go test ./modules/auth -run '^TestGoogle(AuthorizationURL|Claims|StepUp|ExchangeContract|ExchangeCapacity)$' -count=1 -v
+      - name: Verify canonical IAM key policy and full auth module
+        run: |
+          test -z "$(gofmt -l modules/setting/security.go modules/setting/security_test.go modules/auth/jwt.go modules/auth/refresh.go modules/auth/key_policy_test.go)" || { gofmt -d modules/setting/security.go modules/setting/security_test.go modules/auth/jwt.go modules/auth/refresh.go modules/auth/key_policy_test.go; exit 1; }
+          go test ./modules/setting -run '^TestTokenSigningKeyPolicy$' -count=1 -v
+          go test ./modules/auth -count=1 -v
+          go test -race ./modules/auth -count=1
+          echo "IAM key consumers (source inventory):"
+          git grep -n 'TokenSymmetricKey' -- '*.go' ':!*_test.go'
       - name: Verify provider lifetime projection
         run: go test ./services/phonedelivery -run '^TestProviderContracts$' -count=1
       - name: Local HTTP and JSON correlation

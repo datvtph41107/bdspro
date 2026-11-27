@@ -9,6 +9,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/google/uuid"
 )
 
@@ -30,7 +31,7 @@ func refreshMAC(key, body string) []byte {
 }
 
 func NewRefreshCredential(key string, sessionID uuid.UUID, remember bool) (string, error) {
-	if len(key) < 32 || sessionID == uuid.Nil {
+	if len(key) < setting.MinTokenSymmetricKeyBytes || sessionID == uuid.Nil {
 		return "", ErrRefreshInvalid
 	}
 	nonce, err := NewRandomToken()
@@ -46,7 +47,7 @@ func NewRefreshCredential(key string, sessionID uuid.UUID, remember bool) (strin
 }
 
 func ReadRefreshCredential(key, raw string) (RefreshProof, error) {
-	if len(key) < 32 || len(raw) > 256 {
+	if len(key) < setting.MinTokenSymmetricKeyBytes || len(raw) > 256 {
 		return RefreshProof{}, ErrRefreshInvalid
 	}
 	parts := strings.Split(raw, ".")

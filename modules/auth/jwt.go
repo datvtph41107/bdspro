@@ -5,22 +5,20 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-const (
-	minSecretKeySize = 32
-	accessTokenType  = "access"
-)
+const accessTokenType = "access"
 
 type JWTMaker struct {
 	secretKey string
 }
 
 func NewJWTMaker(secretKey string) (*JWTMaker, error) {
-	if len(secretKey) < minSecretKeySize {
-		return nil, fmt.Errorf("invalid key size: must be at least %d bytes", minSecretKeySize)
+	if len(secretKey) < setting.MinTokenSymmetricKeyBytes {
+		return nil, fmt.Errorf("invalid key size: must be at least %d bytes", setting.MinTokenSymmetricKeyBytes)
 	}
 	return &JWTMaker{secretKey: secretKey}, nil
 }
