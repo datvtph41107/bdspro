@@ -133,7 +133,7 @@ func writeAuthError(ctx *appctx.APIContext, err error) {
 	switch {
 	case errors.Is(err, authservice.ErrInvalidCredentials):
 		ctx.Header("WWW-Authenticate", "Bearer")
-		ctx.APIError(http.StatusUnauthorized, "invalid_credentials", "invalid email, username or password")
+		ctx.APIErrorAuto(authservice.ErrInvalidCredentials)
 	case errors.Is(err, util.ErrUnauthenticated):
 		ctx.AuthenticationRequired()
 	case errors.Is(err, token.ErrPasswordBusy):

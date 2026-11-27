@@ -11,53 +11,24 @@ var (
 	ErrRateLimited      = errors.New("rate limit exceeded")
 )
 
-type kindError struct {
-	kind    error
-	message string
-}
-
-func (e kindError) Error() string { return e.message }
-func (e kindError) Unwrap() error { return e.kind }
-
-func WithKind(kind error, message string) error {
-	return kindError{kind: kind, message: message}
-}
-
-func WithCause(safe, cause error) error {
-	if safe == nil {
-		return cause
-	}
-	if cause == nil {
-		return safe
-	}
-	return safeCause{safe: safe, cause: cause}
-}
-
-type safeCause struct {
-	safe  error
-	cause error
-}
-
-func (e safeCause) Error() string {
-	return e.safe.Error()
-}
-
-func (e safeCause) Unwrap() []error {
-	return []error{e.safe, e.cause}
-}
-
 type publicError struct {
-	kindError
+	kind          error
+	message       string
 	code          string
 	publicMessage string
 }
 
+func (e publicError) Error() string { return e.message }
+func (e publicError) Unwrap() error { return e.kind }
+
+// WithPublic declares a domain error with an explicit client-safe contract.
 func WithPublic(kind error, modelMessage, code, publicMessage string) error {
 	if kind == nil || code == "" || publicMessage == "" {
 		panic("util.WithPublic: missing error category or public contract")
 	}
 	return publicError{
-		kindError:     kindError{kind: kind, message: modelMessage},
+		kind:          kind,
+		message:       modelMessage,
 		code:          code,
 		publicMessage: publicMessage,
 	}
