@@ -66,6 +66,63 @@ jobs:
           go mod verify
       - name: Build
         run: go build ./...
+      - name: Verify canonical pagination contract
+        run: go test ./services/context -run '^TestLinkHeaderUsesValidatedPage
+        shell: bash
+        run: |
+          set -euo pipefail
+          # All state is disposable; never use repository or deployment secrets.
+          make config-local
+          sed -i 's/^MODE = console$/MODE = console,file/' custom/conf/app.ini
+          sed -i '/^\[log.file\]$/a LEVEL = debug' custom/conf/app.ini
+          # Development inbox only: never send real SMS/email.
+          export BDS__PHONE_DELIVERY__MODE=mailpit
+          export BDS__PHONE_DELIVERY__DEFAULT_CHANNEL=sms
+          export BDS__PHONE_DELIVERY__CHANNELS=sms,zalo,telegram
+          export BDS__MAILER__SMTP_PROTOCOL=smtp
+          export BDS__MAILER__SMTP_ADDRESS=127.0.0.1:1025
+          export BDS__MAILER__FROM=security@bdspro.test
+          export BDS__MAILER__USERNAME=
+          export BDS__MAILER__PASSWORD=
+          make build
+          bin/bdspro --config custom/conf/app.ini config check
+          bin/bdspro --config custom/conf/app.ini migrate
+          bin/bdspro --config custom/conf/app.ini web &
+          pid=$!
+          trap 'kill -TERM "$pid" 2>/dev/null || true; wait "$pid" || true' EXIT
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail --max-time 2 http://127.0.0.1:8080/api/v1/health >/dev/null; then
+              ready=1
+              break
+            fi
+            kill -0 "$pid"
+            sleep 1
+          done
+          test "$ready" = 1
+          make smoke-logging
+          python3 scripts/probe-delivery.py
+          kill -TERM "$pid"
+          wait "$pid"
+          trap - EXIT
+      - name: Verify SQLC generated bindings
+        run: |
+          GOBIN="$RUNNER_TEMP/sqlc-bin" go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          PATH="$RUNNER_TEMP/sqlc-bin:$PATH" make sqlc-check
+      # Deferred checks remain available on explicit manual dispatch.
+      - name: Static analysis
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: go vet ./...
+      - name: Unit and integration tests
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: go test ./... -count=1
+      - name: Logging and IAM race tests
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: make verify-logging
+      - name: Record formatter benchmark
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: make bench-logging
+ -count=1
       - name: Local HTTP and JSON correlation
         shell: bash
         run: |

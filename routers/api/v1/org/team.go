@@ -28,7 +28,7 @@ func ListTeams(ctx *appctx.APIContext) {
 		ctx.APIErrorAuto(err)
 		return
 	}
-	ctx.SetLinkHeader(result.Total, opts.PageSize)
+	ctx.SetLinkHeader(result.Total, opts.Page, opts.PageSize)
 	ctx.SetTotalCountHeader(result.Total)
 	ctx.JSON(http.StatusOK, map[string]any{
 		"items": result.Items, "page": opts.Page,

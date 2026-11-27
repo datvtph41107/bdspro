@@ -42,7 +42,7 @@ func ListTeamMembers(ctx *appctx.APIContext) {
 		writeOrganizationResult(ctx, http.StatusOK, nil, err)
 		return
 	}
-	ctx.SetLinkHeader(r.Total, opts.PageSize)
+	ctx.SetLinkHeader(r.Total, opts.Page, opts.PageSize)
 	ctx.SetTotalCountHeader(r.Total)
 	ctx.JSON(http.StatusOK, map[string]any{"items": r.Items, "page": opts.Page, "limit": opts.PageSize, "total": r.Total})
 }
@@ -104,7 +104,7 @@ func RevokeTeamInvitation(ctx *appctx.APIContext) {
 	if !ok {
 		return
 	}
-	raw := ctx.PathParam("invite")
+	raw := ctx.CurrentRequest().PathValue("invite")
 	invite, err := uuid.Parse(raw)
 	if err != nil || invite == uuid.Nil || invite.String() != raw {
 		ctx.FieldError("invite", "invalid_id", "invite must be a UUID")

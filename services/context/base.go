@@ -15,9 +15,7 @@ import (
 
 type RequestSource interface {
 	CurrentRequest() *http.Request
-	PathParam(name string) string
 	BindJSON(value any) error
-	QueryDefault(name, fallback string) string
 
 	WriteJSON(status int, encoded []byte)
 	WriteStatus(status int)
@@ -99,9 +97,6 @@ func (b *Base) Status(status int) {
 	b.source.WriteStatus(status)
 }
 func (b *Base) BindJSON(value any) error { return b.source.BindJSON(value) }
-func (b *Base) DefaultQuery(name, fallback string) string {
-	return b.source.QueryDefault(name, fallback)
-}
 func (b *Base) Header(name, value string) { b.source.SetHeader(name, value) }
 func (b *Base) IsAborted() bool           { return b.source.IsAborted() }
 

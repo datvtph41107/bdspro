@@ -35,8 +35,9 @@ func RevokeSession(ctx *appctx.APIContext) {
 		ctx.AuthenticationRequired()
 		return
 	}
-	id, err := uuid.Parse(ctx.PathParam("session"))
-	if err != nil || id == uuid.Nil || id.String() != ctx.PathParam("session") {
+	raw := ctx.CurrentRequest().PathValue("session")
+	id, err := uuid.Parse(raw)
+	if err != nil || id == uuid.Nil || id.String() != raw {
 		ctx.APIError(http.StatusBadRequest, "invalid_request", "invalid session identifier")
 		return
 	}

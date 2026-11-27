@@ -20,24 +20,59 @@ File names describe one cohesive responsibility or reason to change. Split provi
 
 References: [Gitea mailer](https://github.com/go-gitea/gitea/tree/99053ce4fa2b45f1bca5837418c0c57f793ca824/services/mailer), [Gitea team model](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/models/organization/team_user.go), [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments).
 
-## Sequential backlog
+## Canonical engineering backlog (authoritative)
 
-- REQ-00 Canonical ownership: documented here.
-- REQ-01 Delivery and mailer: separate provider files, application email composition, dev inbox and channel policy; code implemented; runtime verification tracked separately.
-- REQ-02 Utility inventory: implementation complete; removed unused helpers and policy, kept proven semantics; runtime verification tracked separately.
-- REQ-03 Time/duration/policy: define TTL/cooldown owner and SQL/response/provider consistency; preserve database clock and guards.
-- REQ-04 Auth technical modules: token/password/OTP/browser/Google/runtime ownership.
-- REQ-05 Models and SQLC: classify models and locate static SQL.
-- REQ-06 Account initialization: compare email/phone/Google flows; share only invariant operations.
-- REQ-07 Session and credential lifecycle.
-- REQ-08 Organization and Team.
-- REQ-09 API DTO and response mapping.
-- REQ-10 Router and request context.
-- REQ-11 Startup and configuration composition.
-- REQ-12 Background/legacy consumer audit.
-- REQ-13 Final source consistency review.
+This section is the single status ledger for the branch. Historical decisions below are evidence, not a second checklist. Update this section in the same commit as each scope; link exact CI evidence when available. A passed smoke run is not full product/security acceptance.
 
-For each bounded scope: inspect callers/callees, compare Gitea and current code, document ownership and alternatives, implement, build, start server and exercise relevant real APIs, report limits and commit. No mandatory new automated tests at this development stage; existing tests retained as opt-in. Do not claim full IAM/production acceptance from a health probe.
+### Definition of done (every scope)
+
+- [ ] Pin branch HEAD and prior CI result; inventory file paths, public and private symbols, imports, callers/callees, configuration, SQL/migrations, generated bindings, docs and runtime consumers as applicable.
+- [ ] Record current behavior, required business/security invariants, unit/format and canonical owner; distinguish authoritative policy from projections, caches and independent checks at trust boundaries.
+- [ ] Decide KEEP / INLINE / DELETE / MOVE / MERGE / REWRITE / DEFER per candidate with concrete evidence and alternatives. Use standard Go operations directly; do not create speculative wrappers, interfaces, packages, or duplicate policies. Preserve useful security/transaction boundaries even if code looks similar.
+- [ ] Implement one cohesive scope, remove obsolete consumers and imports, update generated artifacts only from source, update docs and record explicit contract changes (none by default). Do not merge unrelated scopes.
+- [ ] Check gofmt, diff and build; run real local/disposable runtime probes for relevant success, invalid input and failure paths. Use focused automated tests when timing, concurrency, redaction, boundary semantics or a difficult-to-reach invariant cannot be demonstrated reliably by an ordinary API call. Keep existing opt-in suites; distinguish actual tests from skipped tests.
+- [ ] Review error propagation, data privacy, auth guards, SQL lock/transaction ordering and compatibility where applicable. Record commit, exact CI URL, checked cases, skipped cases and rollback via revert. Do not call a scope verified until the relevant evidence exists.
+
+### Sequential work
+
+| ID | Scope / concrete work | Acceptance evidence | State |
+| --- | --- | --- | --- |
+| REQ-00 | Canonical ownership: define layer, package, file and policy owners; maintain this ledger; audit exceptions | Ownership register + per-scope decisions; final cross-check REQ-13 | In progress (rules recorded) |
+| REQ-01 | Delivery/mail: provider contracts, channel selection, transport and templates; delete redundant adapters; verify provider timeout/error/privacy | Disposable Mailpit email/phone probes; real provider acceptance separately | Implemented; scoped smoke passed |
+| REQ-02 | Utility: inventory util/timeutil/optional/validation/secret; delete dead helpers, competing validation, unused generics | Build and scoped smoke after fix 221b6c1; retained semantic contracts | Scoped verified |
+| REQ-02.1 | Function design: direct stdlib, cohesive files, identity and actor guard ownership, remove forwarding | CI [45965376546](https://github.com/datvtph41107/bdspro/actions/runs/45965376546); broader function audit REQ-13 | Scoped verified |
+| REQ-02.2 | Errors: error category, safe client code/message, diagnostic operation, transport mapping; remove redundant types and helpers | CI [45966107081](https://github.com/datvtph41107/bdspro/actions/runs/45966107081); expanded privacy tests opt-in | Scoped verified |
+| REQ-02.3 | HTTP input: remove unused Form/Query wrappers; canonical query/path handling; one validated page for SQL and Link/JSON | Build, focused pagination contract and smoke; full org workflow separately | Implemented; new CI pending |
+| REQ-03 | Time and policy: inventory JWT/session/OTP/recovery/invite TTL, cooldown, Redis window, SQL interval, mail/provider/API values; assign owner and units; remove independently maintained duplicates | Compare configured and persisted expiry, response, resend boundaries; preserve DB-clock guards and in-flight records | Todo |
+| REQ-04 | Auth primitives: password hashing, JWT, OTP/MAC, proofs, browser, refresh, Google, randomness, initialization; eliminate wrapper/format duplication, document key/algorithm ownership | Wrong/expired/replayed proof, password policy/capacity, origin, token type and signature; no live credentials | Todo |
+| REQ-05 | Persistence: migrations -> SQLC queries -> generated Go; inventory inline SQL, query aliases, transaction and DB error contracts, pagination model | Fresh migration, SQLC generation/diff, transaction rollback, constraints; no manual generated edits | Todo |
+| REQ-06 | Account creation: compare email/phone/Google registration, identity normalization, verified contact, person/account initialization, uniqueness and terms | Real local creation paths, duplicate identities, rollback and verified-contact invariants | Todo |
+| REQ-07 | Session/credential lifecycle: issue/refresh/revoke, reauth, unlink, password change, contact mutation; one guard and authority per invariant | Revocation, refresh replay, credential removal, concurrent mutation/lock order; session authority preserved | Todo |
+| REQ-08 | Org/team: membership/ownership, permissions, invitations, naming/validation, audit and transactional boundaries | Owner/member/nonmember matrix, last-owner guard, invitation replay and membership concurrency | Todo |
+| REQ-09 | API DTO/response: request binding, PATCH absent/empty/null, public errors, pagination, JSON shape, Swagger contract | Real API status/body/header compatibility and invalid fields, no internal data leak | Todo |
+| REQ-10 | Router/context: routes, middleware order, adapters, request data, binding and response status, client IP; remove unjustified abstractions after consumer inventory | Route inventory, request order, cancellation, one response, trusted proxy and body limits | Todo |
+| REQ-11 | Startup/settings/logging: config defaults/env/INI, resource composition, log sinks, startup failures, shutdown, CLI | Local config check, invalid config, port conflict, SIGINT/SIGTERM, Docker/binary, redacted logs | Todo |
+| REQ-12 | Legacy/background: job/outbox/cron/worker and dependencies, commands, docs, feature flags; delete only after verifying operational consumers and migration compatibility | No stale routes/config/deps, build, startup, migrations; explicitly account for existing persisted jobs | Todo |
+| REQ-13 | Final sweep: every production Go package/file/exported and private function, tests, config keys, migrations, queries, workflows, docs and deps; reconcile canonical register, ownership exceptions and stale references | Complete inventory with disposition, no unexplained duplicates, build/runtime acceptance, documented residual risks | Todo |
+
+### Canonical ownership register (current / target to verify)
+
+| Concern | Authority / boundary | Consumers or projections | Status |
+| --- | --- | --- | --- |
+| Basic string/number/time/error operations | Go standard library | All layers | Rule; final sweep pending |
+| Email/username identity validation | services/auth/identity.go | Registration, contact, Google, login (lookup normalization is distinct from validation) | Partial; REQ-06 |
+| Password hash/policy and credential proof formats | modules/auth | Auth workflows, persistence of hashes/proofs | REQ-04 |
+| Actor mutation guard | services/auth/access.go, DB locks executed within transaction | Credential/profile/session/org mutations | Partial; REQ-07/08 |
+| Public error category/code/safe message | Domain declarations + modules/util/error.go | services/context/error.go HTTP mapping, frontend | REQ-02.2 scoped |
+| HTTP pagination | routers/api/v1/utils.GetListOptions; models/db.ListOptions represents validated page/size and computes offset | SQL, Link, JSON; pass same values | REQ-02.3 |
+| Path positive ID / UUID semantics | net/http PathValue; positive ID contract in services/context; UUID parse at endpoint | Route handlers | REQ-02.3 |
+| Runtime durations / defaults | Owner to determine per policy, not a universal time package | DB deadlines, response, mail, providers, Redis | REQ-03 |
+| Stored data and constraints | DB migrations, SQLC source queries; generated output is a projection | Models/services | REQ-05 |
+| Authorization and lifecycle | Domain owner + database constraints/locks; HTTP early guards are independent boundary checks | Routers/services/models | REQ-07/08 |
+| Configuration | modules/setting load/validate; runtime composition in cmd | Technical modules and services | REQ-11 |
+| Logging | modules/log, static operation metadata | Runtime sinks, HTTP error correlation | REQ-11 |
+
+No global policy manager or generic canonicalization package is prescribed. One authority per semantic rule does not mean one function for all operations. Duplicate expressions are acceptable when semantics differ; duplicate independently editable business policy is not.
 
 ## REQ-01 decisions
 
@@ -107,3 +142,7 @@ Baseline [b303081](https://github.com/datvtph41107/bdspro/tree/b3030813d7f65ab74
 - Grouped API error declarations, classification and response methods in existing services/context/error.go; API context construction stays in api.go. Inlined PublicError classification in its only observed caller APIErrorAuto. Shared redacted 500 writer between automatic and forced internal paths; retain both public entry points and their existing distinct event names. No arbitrary err.Error() in HTTP response/log. The explicit nil fallback remains only on the forced internal path.
 - In writeAuthError, invalid credentials reuse the existing canonical sentinel response instead of duplicating the code/message; Bearer header, generic unauthenticated and password capacity priority unchanged. Do not generalize this auth-specific switch to all domains.
 - Keep WithOperation: structured static operation metadata is consumed by log diagnostics, not equivalent to fmt.Errorf text. Keep WithPublic/ErrorForClient: stable safe error metadata and errors.Is/As. Existing diagnostic/privacy tests must continue passing. No schema, security policy or API contract change intended; fresh CI required.
+
+## REQ-02.3: request input and pagination
+
+At baseline cc0b946, GetListOptions already validates page/limit and SQL offset, but SetLinkHeader rereads the raw page through FormInt and silently defaults. Pass the validated page and size from both list handlers instead. Remove base_form.go (five helpers, only observed surviving caller FormInt), DefaultQuery/QueryDefault and PathParam forwarding; positive path ID validation remains a real contract. UUID consumers use net/http PathValue and preserve canonical non-nil UUID checks. No changes to database pagination, HTTP response shape, URL generation or validation precedence intended. Targeted regression check deliberately supplies a raw page distinct from validated page, because ordinary valid list requests cannot distinguish the two data paths. Scoped audit of API handlers/context and default-branch code search, not exhaustive; new CI must verify build and focused test. Full authenticated org list runtime remains pending REQ-08/09.

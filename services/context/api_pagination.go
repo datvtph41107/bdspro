@@ -34,13 +34,9 @@ func (b *Base) SetTotalCountHeader(total int64) {
 	b.AppendAccessControlExposeHeaders("X-Total-Count")
 }
 
-func (ctx *APIContext) SetLinkHeader(total int64, pageSize int) {
-	if total <= 0 || pageSize < 1 {
+func (ctx *APIContext) SetLinkHeader(total int64, page, pageSize int) {
+	if total <= 0 || page < 1 || pageSize < 1 {
 		return
-	}
-	currentPage := ctx.FormInt("page")
-	if currentPage < 1 {
-		currentPage = 1
 	}
 	totalPages := 1 + (total-1)/int64(pageSize)
 	links := make([]string, 0, 4)
@@ -58,13 +54,13 @@ func (ctx *APIContext) SetLinkHeader(total int64, pageSize int) {
 		}
 		links = append(links, fmt.Sprintf("<%s>; rel=%q", uri, relation))
 	}
-	if int64(currentPage) < totalPages {
-		add(int64(currentPage)+1, "next")
+	if int64(page) < totalPages {
+		add(int64(page)+1, "next")
 		add(totalPages, "last")
 	}
-	if currentPage > 1 {
+	if page > 1 {
 		add(1, "first")
-		add(int64(currentPage)-1, "prev")
+		add(int64(page)-1, "prev")
 	}
 	if len(links) != 0 {
 		ctx.Header("Link", strings.Join(links, ", "))

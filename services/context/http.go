@@ -53,17 +53,6 @@ var _ RequestSource = (*httpRequestSource)(nil)
 
 func (s *httpRequestSource) CurrentRequest() *http.Request { return s.request }
 
-func (s *httpRequestSource) PathParam(name string) string {
-	return s.request.PathValue(name)
-}
-
-func (s *httpRequestSource) QueryDefault(name, fallback string) string {
-	if values, ok := s.request.URL.Query()[name]; ok && len(values) > 0 {
-		return values[0]
-	}
-	return fallback
-}
-
 func (s *httpRequestSource) BindJSON(value any) error {
 	decoder := json.NewDecoder(s.request.Body)
 	if err := decoder.Decode(value); err != nil {
