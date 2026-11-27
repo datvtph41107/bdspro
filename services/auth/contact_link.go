@@ -59,7 +59,7 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 		return RegistrationChallenge{}, err
 	}
 	err = db.WithTx(ctx, func(txCtx context.Context) error {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return err
 		}
@@ -118,7 +118,7 @@ func VerifyContactLink(ctx context.Context, actor authmodel.Actor, kind string, 
 	var changed bool
 	var oldEmail string
 	result, err := db.WithTx2(ctx, func(txCtx context.Context) (LoginResult, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return LoginResult{}, err
 		}

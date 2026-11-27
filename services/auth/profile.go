@@ -120,7 +120,7 @@ func UpdateProfile(ctx context.Context, actor authmodel.Actor, display, first, l
 		return authmodel.Profile{}, ErrProfileInvalid
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (authmodel.Profile, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return authmodel.Profile{}, err
 		}
@@ -157,7 +157,7 @@ func UpdateSettings(ctx context.Context, actor authmodel.Actor, locale, timezone
 		return authmodel.AccountSettings{}, ErrProfileInvalid
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (authmodel.AccountSettings, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return authmodel.AccountSettings{}, err
 		}

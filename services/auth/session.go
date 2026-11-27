@@ -2,14 +2,12 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"strconv"
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 func ListSessions(ctx context.Context, actor authmodel.Actor) ([]authmodel.SessionInfo, error) {
@@ -43,23 +41,8 @@ func RevokeSession(ctx context.Context, actor authmodel.Actor, target uuid.UUID)
 		return authmodel.ErrSessionNotFound
 	}
 	return db.WithTx(ctx, func(txCtx context.Context) error {
-		q, err := db.GetQueries(txCtx)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
-			return err
-		}
-		if _, err = q.LockSessionRevocationAccount(txCtx, actor.AccountID); errors.Is(err, pgx.ErrNoRows) {
-			return util.ErrUnauthenticated
-		} else if err != nil {
-			return err
-		}
-		if err := requireActiveAccount(txCtx, q, actor.AccountID); err != nil {
-			return err
-		}
-		if _, err = q.LockActingSession(txCtx, db.LockActingSessionParams{
-			AccountID: actor.AccountID, SessionID: actor.SessionID,
-		}); errors.Is(err, pgx.ErrNoRows) {
-			return util.ErrUnauthenticated
-		} else if err != nil {
 			return err
 		}
 		n, err := q.RevokeOwnedSession(txCtx, db.RevokeOwnedSessionParams{

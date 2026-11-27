@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"net/mail"
 	"strconv"
 	"strings"
 	"time"
@@ -14,27 +13,13 @@ import (
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/datvtph41107/bdspro/services/mailer"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 var (
 	ErrRecoveryInvalid = util.WithPublic(util.ErrInvalidArgument, "recovery proof invalid", "invalid_proof", "invalid or expired recovery proof")
 	ErrPasswordInvalid = util.WithPublic(util.ErrInvalidArgument, "invalid password policy", "validation_failed", "password does not meet policy")
-	ErrEmailInvalid    = util.WithPublic(util.ErrInvalidArgument, "invalid email", "validation_failed", "invalid email address")
 )
-
-func NormalizeEmail(raw string) (string, error) {
-	email := strings.ToLower(strings.TrimSpace(raw))
-	if len(email) > 254 || strings.ContainsAny(email, "\r\n\t") {
-		return "", ErrEmailInvalid
-	}
-	parsed, err := mail.ParseAddress(email)
-	if err != nil || parsed.Address != email {
-		return "", ErrEmailInvalid
-	}
-	return email, nil
-}
 
 func newPasswordHash(password string) (string, error) {
 	hash, err := token.HashPassword(password)
@@ -208,7 +193,7 @@ func ChangePassword(ctx context.Context, actor authmodel.Actor, current, passwor
 		return LoginResult{}, err
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (LoginResult, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -225,34 +210,6 @@ func ChangePassword(ctx context.Context, actor authmodel.Actor, current, passwor
 
 		return issueSession(txCtx, q, actor.AccountID, clientIP, agent, false)
 	})
-}
-
-func LockActorForMutation(ctx context.Context, actor authmodel.Actor) (*db.Queries, error) {
-	return lockActor(ctx, actor)
-}
-
-func lockActor(ctx context.Context, actor authmodel.Actor) (*db.Queries, error) {
-	if actor.AccountID <= 0 || actor.SessionID == uuid.Nil || !db.InTransaction(ctx) {
-		return nil, util.ErrUnauthenticated
-	}
-	q, err := db.GetQueries(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = q.LockSessionRevocationAccount(ctx, actor.AccountID); errors.Is(err, pgx.ErrNoRows) {
-		return nil, util.ErrUnauthenticated
-	} else if err != nil {
-		return nil, err
-	}
-	if err := requireActiveAccount(ctx, q, actor.AccountID); err != nil {
-		return nil, err
-	}
-	if _, err = q.LockActingSession(ctx, db.LockActingSessionParams{AccountID: actor.AccountID, SessionID: actor.SessionID}); errors.Is(err, pgx.ErrNoRows) {
-		return nil, util.ErrUnauthenticated
-	} else if err != nil {
-		return nil, err
-	}
-	return q, nil
 }
 
 func replacePassword(ctx context.Context, q *db.Queries, accountID int64, hash, action string) error {

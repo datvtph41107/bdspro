@@ -30,7 +30,7 @@ func StartAuthenticatedGoogle(ctx context.Context, actor authmodel.Actor, purpos
 		return GoogleStartResult{}, ErrReauthAction
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (GoogleStartResult, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return GoogleStartResult{}, err
 		}
@@ -79,7 +79,7 @@ func StartAuthenticatedGoogle(ctx context.Context, actor authmodel.Actor, purpos
 func CompleteGoogleLink(ctx context.Context, actor authmodel.Actor, browser []byte, ip, agent string) (LoginResult, error) {
 	var oldEmail string
 	result, err := db.WithTx2(ctx, func(txCtx context.Context) (LoginResult, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -139,7 +139,7 @@ func CompleteGoogleReauth(ctx context.Context, actor authmodel.Actor, browser []
 		return RecentAuthResult{}, err
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (RecentAuthResult, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return RecentAuthResult{}, err
 		}

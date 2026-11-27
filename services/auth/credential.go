@@ -55,7 +55,7 @@ func SetPassword(ctx context.Context, actor authmodel.Actor, proof, password, ip
 	}
 	var oldEmail string
 	result, err := db.WithTx2(ctx, func(txCtx context.Context) (LoginResult, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -93,7 +93,7 @@ func SetPassword(ctx context.Context, actor authmodel.Actor, proof, password, ip
 func RemoveCredential(ctx context.Context, actor authmodel.Actor, kind, proof, ip, agent string) (LoginResult, error) {
 	var oldEmail string
 	result, err := db.WithTx2(ctx, func(txCtx context.Context) (LoginResult, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -174,7 +174,7 @@ func credentialAudit(ctx context.Context, q *db.Queries, accountID int64, action
 
 func RevokeAllSessions(ctx context.Context, actor authmodel.Actor, proof string) error {
 	return db.WithTx(ctx, func(txCtx context.Context) error {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return err
 		}

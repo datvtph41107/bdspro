@@ -61,7 +61,7 @@ func ReauthenticatePassword(ctx context.Context, actor authmodel.Actor, password
 		return RecentAuthResult{}, err
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (RecentAuthResult, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return RecentAuthResult{}, err
 		}
@@ -94,7 +94,7 @@ func RequestPasswordSetProof(ctx context.Context, actor authmodel.Actor) error {
 		return err
 	}
 	email, err := db.WithTx2(ctx, func(txCtx context.Context) (string, error) {
-		q, err := lockActor(txCtx, actor)
+		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return "", err
 		}
