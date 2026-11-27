@@ -50,13 +50,18 @@ func (q *Queries) DeleteEmailRegistration(ctx context.Context, id uuid.UUID) err
 const deleteExpiredEmailRegistrations = `-- name: DeleteExpiredEmailRegistrations :execrows
 DELETE FROM verifications WHERE kind='email' AND id IN (
     SELECT id FROM verifications
-    WHERE kind='email' AND expires_at<clock_timestamp()-interval '30 minutes'
-    ORDER BY expires_at LIMIT $1::integer FOR UPDATE SKIP LOCKED
+    WHERE kind='email' AND expires_at<clock_timestamp()-($1::integer * interval '1 minute')
+    ORDER BY expires_at LIMIT $2::integer FOR UPDATE SKIP LOCKED
 )
 `
 
-func (q *Queries) DeleteExpiredEmailRegistrations(ctx context.Context, take int32) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteExpiredEmailRegistrations, take)
+type DeleteExpiredEmailRegistrationsParams struct {
+	RetentionMinutes int32 `json:"retention_minutes"`
+	Take             int32 `json:"take"`
+}
+
+func (q *Queries) DeleteExpiredEmailRegistrations(ctx context.Context, arg DeleteExpiredEmailRegistrationsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredEmailRegistrations, arg.RetentionMinutes, arg.Take)
 	if err != nil {
 		return 0, err
 	}
@@ -65,11 +70,16 @@ func (q *Queries) DeleteExpiredEmailRegistrations(ctx context.Context, take int3
 
 const failEmailRegistration = `-- name: FailEmailRegistration :exec
 UPDATE verifications SET failed_attempts=failed_attempts+1
-WHERE kind='email' AND id=$1 AND failed_attempts<5 AND proof_digest IS NULL
+WHERE kind='email' AND id=$1::uuid AND failed_attempts<$2::integer AND proof_digest IS NULL
 `
 
-func (q *Queries) FailEmailRegistration(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, failEmailRegistration, id)
+type FailEmailRegistrationParams struct {
+	ID                uuid.UUID `json:"id"`
+	MaxFailedAttempts int32     `json:"max_failed_attempts"`
+}
+
+func (q *Queries) FailEmailRegistration(ctx context.Context, arg FailEmailRegistrationParams) error {
+	_, err := q.db.Exec(ctx, failEmailRegistration, arg.ID, arg.MaxFailedAttempts)
 	return err
 }
 
@@ -152,15 +162,17 @@ func (q *Queries) ReadEmailRegistrationDestination(ctx context.Context, arg Read
 const rotateEmailRegistration = `-- name: RotateEmailRegistration :execrows
 UPDATE verifications SET code_mac=$1::bytea,
     expires_at=clock_timestamp()+($2::integer * interval '1 minute'),resend_after=clock_timestamp()+($3::integer * interval '1 second')
-WHERE kind='email' AND id=$4::uuid AND proof_digest IS NULL AND failed_attempts<5
-    AND resend_after<=clock_timestamp() AND created_at>clock_timestamp()-interval '30 minutes'
+WHERE kind='email' AND id=$4::uuid AND proof_digest IS NULL AND failed_attempts<$5::integer
+    AND resend_after<=clock_timestamp() AND created_at>clock_timestamp()-($6::integer * interval '1 minute')
 `
 
 type RotateEmailRegistrationParams struct {
-	CodeMac         []byte    `json:"code_mac"`
-	TtlMinutes      int32     `json:"ttl_minutes"`
-	CooldownSeconds int32     `json:"cooldown_seconds"`
-	ID              uuid.UUID `json:"id"`
+	CodeMac              []byte    `json:"code_mac"`
+	TtlMinutes           int32     `json:"ttl_minutes"`
+	CooldownSeconds      int32     `json:"cooldown_seconds"`
+	ID                   uuid.UUID `json:"id"`
+	MaxFailedAttempts    int32     `json:"max_failed_attempts"`
+	ResendHorizonMinutes int32     `json:"resend_horizon_minutes"`
 }
 
 func (q *Queries) RotateEmailRegistration(ctx context.Context, arg RotateEmailRegistrationParams) (int64, error) {
@@ -169,6 +181,8 @@ func (q *Queries) RotateEmailRegistration(ctx context.Context, arg RotateEmailRe
 		arg.TtlMinutes,
 		arg.CooldownSeconds,
 		arg.ID,
+		arg.MaxFailedAttempts,
+		arg.ResendHorizonMinutes,
 	)
 	if err != nil {
 		return 0, err
@@ -179,17 +193,23 @@ func (q *Queries) RotateEmailRegistration(ctx context.Context, arg RotateEmailRe
 const verifyEmailRegistration = `-- name: VerifyEmailRegistration :execrows
 UPDATE verifications SET code_mac=NULL,proof_digest=$1::bytea,
     expires_at=clock_timestamp()+($2::integer * interval '1 minute')
-WHERE kind='email' AND id=$3::uuid AND proof_digest IS NULL AND failed_attempts<5 AND expires_at>clock_timestamp()
+WHERE kind='email' AND id=$3::uuid AND proof_digest IS NULL AND failed_attempts<$4::integer AND expires_at>clock_timestamp()
 `
 
 type VerifyEmailRegistrationParams struct {
-	ProofDigest []byte    `json:"proof_digest"`
-	TtlMinutes  int32     `json:"ttl_minutes"`
-	ID          uuid.UUID `json:"id"`
+	ProofDigest       []byte    `json:"proof_digest"`
+	TtlMinutes        int32     `json:"ttl_minutes"`
+	ID                uuid.UUID `json:"id"`
+	MaxFailedAttempts int32     `json:"max_failed_attempts"`
 }
 
 func (q *Queries) VerifyEmailRegistration(ctx context.Context, arg VerifyEmailRegistrationParams) (int64, error) {
-	result, err := q.db.Exec(ctx, verifyEmailRegistration, arg.ProofDigest, arg.TtlMinutes, arg.ID)
+	result, err := q.db.Exec(ctx, verifyEmailRegistration,
+		arg.ProofDigest,
+		arg.TtlMinutes,
+		arg.ID,
+		arg.MaxFailedAttempts,
+	)
 	if err != nil {
 		return 0, err
 	}

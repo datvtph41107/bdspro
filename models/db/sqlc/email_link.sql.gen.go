@@ -69,13 +69,18 @@ func (q *Queries) DeleteCredentialLink(ctx context.Context, id uuid.UUID) error 
 
 const deleteExpiredCredentialLinks = `-- name: DeleteExpiredCredentialLinks :execrows
 DELETE FROM contact_link_challenges WHERE id IN (
-    SELECT id FROM contact_link_challenges WHERE expires_at<clock_timestamp()-interval '30 minutes'
-    ORDER BY expires_at LIMIT $1::integer FOR UPDATE SKIP LOCKED
+    SELECT id FROM contact_link_challenges WHERE expires_at<clock_timestamp()-($1::integer * interval '1 minute')
+    ORDER BY expires_at LIMIT $2::integer FOR UPDATE SKIP LOCKED
 )
 `
 
-func (q *Queries) DeleteExpiredCredentialLinks(ctx context.Context, take int32) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteExpiredCredentialLinks, take)
+type DeleteExpiredCredentialLinksParams struct {
+	RetentionMinutes int32 `json:"retention_minutes"`
+	Take             int32 `json:"take"`
+}
+
+func (q *Queries) DeleteExpiredCredentialLinks(ctx context.Context, arg DeleteExpiredCredentialLinksParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredCredentialLinks, arg.RetentionMinutes, arg.Take)
 	if err != nil {
 		return 0, err
 	}
@@ -94,11 +99,16 @@ func (q *Queries) EmailLinkAddressTaken(ctx context.Context, btrim string) (bool
 }
 
 const failCredentialLink = `-- name: FailCredentialLink :exec
-UPDATE contact_link_challenges SET failed_attempts=failed_attempts+1 WHERE id=$1 AND failed_attempts<5
+UPDATE contact_link_challenges SET failed_attempts=failed_attempts+1 WHERE id=$1::uuid AND failed_attempts<$2::integer
 `
 
-func (q *Queries) FailCredentialLink(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, failCredentialLink, id)
+type FailCredentialLinkParams struct {
+	ID                uuid.UUID `json:"id"`
+	MaxFailedAttempts int32     `json:"max_failed_attempts"`
+}
+
+func (q *Queries) FailCredentialLink(ctx context.Context, arg FailCredentialLinkParams) error {
+	_, err := q.db.Exec(ctx, failCredentialLink, arg.ID, arg.MaxFailedAttempts)
 	return err
 }
 
@@ -201,18 +211,19 @@ ON CONFLICT (account_id,kind) DO UPDATE SET
     expires_at=EXCLUDED.expires_at,resend_after=EXCLUDED.resend_after,
     failed_attempts=CASE WHEN contact_link_challenges.expires_at<=clock_timestamp() THEN 0 ELSE contact_link_challenges.failed_attempts END
 WHERE contact_link_challenges.resend_after<=clock_timestamp()
-AND (contact_link_challenges.failed_attempts<5 OR contact_link_challenges.expires_at<=clock_timestamp())
+AND (contact_link_challenges.failed_attempts<$9::integer OR contact_link_challenges.expires_at<=clock_timestamp())
 `
 
 type StartCredentialLinkParams struct {
-	ID              uuid.UUID `json:"id"`
-	AccountID       int64     `json:"account_id"`
-	SessionID       uuid.UUID `json:"session_id"`
-	Kind            string    `json:"kind"`
-	Destination     string    `json:"destination"`
-	CodeMac         []byte    `json:"code_mac"`
-	TtlMinutes      int32     `json:"ttl_minutes"`
-	CooldownSeconds int32     `json:"cooldown_seconds"`
+	ID                uuid.UUID `json:"id"`
+	AccountID         int64     `json:"account_id"`
+	SessionID         uuid.UUID `json:"session_id"`
+	Kind              string    `json:"kind"`
+	Destination       string    `json:"destination"`
+	CodeMac           []byte    `json:"code_mac"`
+	TtlMinutes        int32     `json:"ttl_minutes"`
+	CooldownSeconds   int32     `json:"cooldown_seconds"`
+	MaxFailedAttempts int32     `json:"max_failed_attempts"`
 }
 
 func (q *Queries) StartCredentialLink(ctx context.Context, arg StartCredentialLinkParams) (int64, error) {
@@ -225,6 +236,7 @@ func (q *Queries) StartCredentialLink(ctx context.Context, arg StartCredentialLi
 		arg.CodeMac,
 		arg.TtlMinutes,
 		arg.CooldownSeconds,
+		arg.MaxFailedAttempts,
 	)
 	if err != nil {
 		return 0, err

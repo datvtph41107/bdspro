@@ -104,6 +104,77 @@ def check_proof(challenge, result, kind):
         raise RuntimeError("Stored registration proof deadline disagrees with API policy")
 
 
+def check_failed_attempts(opener, kind, path, challenge, code):
+    challenge_id = str(uuid.UUID(challenge["challenge_id"]))
+    # Always distinct from the real code, including when the code begins with zero.
+    wrong = ("1" if code[0] == "0" else "0") + code[1:]
+    for expected in range(1, 6):
+        result = post(opener, path, {"challenge_id": challenge_id, "code": wrong}, 400)
+        if result.get("code") != "invalid_verification_code":
+            raise RuntimeError("Unexpected failed verification error")
+        row = db_query(f"SELECT failed_attempts FROM verifications WHERE kind='{kind}' AND id='{challenge_id}'::uuid")
+        if row != str(expected):
+            raise RuntimeError("Incorrect persisted attempt count")
+    result = post(opener, path, {"challenge_id": challenge_id, "code": code}, 400)
+    if result.get("code") != "invalid_verification_code":
+        raise RuntimeError("Attempt cap did not reject correct code")
+    row = db_query(f"SELECT failed_attempts, proof_digest IS NULL FROM verifications WHERE kind='{kind}' AND id='{challenge_id}'::uuid")
+    if row != "5|t":
+        raise RuntimeError("Exhausted challenge changed state")
+    return challenge_id
+
+
+def check_guard_boundaries():
+    email = "guard-" + secrets.token_hex(6) + "@example.invalid"
+    opener = browser()
+    challenge = post(opener, "register/start", {"email": email}, 202)
+    code, _ = inbox_code(email, r"Enter this verification code in BDSPro: (\d{8})", challenge["expires_in"])
+    locked_id = check_failed_attempts(opener, "email", "register/verify", challenge, code)
+    db_query(f"UPDATE verifications SET resend_after=clock_timestamp()-interval '1 second' WHERE kind='email' AND id='{locked_id}'::uuid")
+    post(opener, "register/resend", {"challenge_id": locked_id}, 429)
+    if db_query(f"SELECT failed_attempts FROM verifications WHERE kind='email' AND id='{locked_id}'::uuid") != "5":
+        raise RuntimeError("Resend reset exhausted challenge")
+
+    # The schema is a hard safety ceiling, not an independently adjustable runtime policy.
+    try:
+        db_query(f"UPDATE verifications SET failed_attempts=6 WHERE kind='email' AND id='{locked_id}'::uuid")
+    except subprocess.CalledProcessError as error:
+        if "check constraint" not in error.stderr:
+            raise RuntimeError("Unexpected database rejection") from None
+    else:
+        raise RuntimeError("Database allowed an attempt count above its ceiling")
+
+    email = "horizon-" + secrets.token_hex(6) + "@example.invalid"
+    opener = browser()
+    challenge = post(opener, "register/start", {"email": email}, 202)
+    horizon_id = str(uuid.UUID(challenge["challenge_id"]))
+    db_query(f"UPDATE verifications SET created_at=clock_timestamp()-interval '31 minutes', "
+             f"resend_after=clock_timestamp()-interval '1 second' WHERE kind='email' AND id='{horizon_id}'::uuid")
+    post(opener, "register/resend", {"challenge_id": horizon_id}, 429)
+    code, _ = inbox_code(email, r"Enter this verification code in BDSPro: (\d{8})", challenge["expires_in"])
+    # Resend horizon is distinct from validity: verify after aging only the creation time.
+    result = post(opener, "register/verify", {"challenge_id": horizon_id, "code": code}, 200)
+    check_proof(challenge, result, "email")
+
+    db_query(f"UPDATE verifications SET expires_at=clock_timestamp()-interval '31 minutes' WHERE kind='email' AND id='{locked_id}'::uuid")
+    db_query(f"UPDATE verifications SET expires_at=clock_timestamp()-interval '29 minutes' WHERE kind='email' AND id='{horizon_id}'::uuid")
+    post(browser(), "register/start", {"email": "cleanup-" + secrets.token_hex(6) + "@example.invalid"}, 202)
+    row = db_query(f"SELECT count(*) FILTER (WHERE id='{locked_id}'::uuid), count(*) FILTER (WHERE id='{horizon_id}'::uuid) "
+                   f"FROM verifications WHERE kind='email' AND id IN ('{locked_id}'::uuid,'{horizon_id}'::uuid)")
+    if row != "0|1":
+        raise RuntimeError("Retention cleanup boundary changed")
+
+    phone = "+8490" + "".join(secrets.choice("0123456789") for _ in range(7))
+    opener = browser()
+    challenge = post(opener, "phone/start", {"phone": phone, "channel": "sms"}, 202)
+    # A new challenge for the same destination must still pass Redis admission.
+    post(browser(), "phone/start", {"phone": phone, "channel": "sms"}, 429)
+    post(opener, "phone/resend", {"challenge_id": challenge["challenge_id"], "channel": "sms"}, 429)
+    code, _ = inbox_code("sms." + phone[1:] + "@phone.invalid", r"Verification code: (\d{6})", challenge["expires_in"])
+    check_failed_attempts(opener, "phone", "phone/verify", challenge, code)
+    print("PASS attempt caps, schema ceiling, resend horizon, retention and destination admission", flush=True)
+
+
 def main():
     capabilities = get(BASE + "/api/v1/auth/phone/channels")
     if capabilities.get("development") is not True or capabilities.get("channels") != ["sms", "zalo", "telegram"]:
@@ -144,6 +215,7 @@ def main():
 
     if os.environ.get("BDS_PROBE_PG_CONTAINER"):
         print("PASS stored OTP/cooldown/proof deadlines match API; email resend reissued", flush=True)
+        check_guard_boundaries()
     print("PASS delivery runtime: email and three phone channels; no live provider calls", flush=True)
 
 

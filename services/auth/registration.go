@@ -19,9 +19,15 @@ import (
 
 // Verification lifetimes are authentication policy, not transport defaults.
 const (
-	verificationCodeTTLMinutes        = 5
-	verificationResendCooldownSeconds = 60
+	verificationCodeTTLMinutes         = 5
+	VerificationResendCooldownSeconds = 60
 	registrationProofTTLMinutes        = 15
+
+	// The current schema independently enforces a storage ceiling of five.
+	verificationMaxFailedAttempts     = 5
+	registrationResendHorizonMinutes  = 30
+	verificationCleanupRetentionMinutes = 30
+	verificationCleanupBatchSize        = 100
 )
 
 var (
@@ -46,7 +52,7 @@ type RegistrationVerification struct {
 }
 
 func challengeResult(id uuid.UUID) RegistrationChallenge {
-	return RegistrationChallenge{Status: "verification_required", ChallengeID: id, ExpiresIn: verificationCodeTTLMinutes * 60, ResendAfter: verificationResendCooldownSeconds}
+	return RegistrationChallenge{Status: "verification_required", ChallengeID: id, ExpiresIn: verificationCodeTTLMinutes * 60, ResendAfter: VerificationResendCooldownSeconds}
 }
 
 func StartRegistration(ctx context.Context, email string, browser []byte) (RegistrationChallenge, error) {
@@ -62,11 +68,11 @@ func StartRegistration(ctx context.Context, email string, browser []byte) (Regis
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if _, err := q.DeleteExpiredEmailRegistrations(ctx, 100); err != nil {
+	if _, err := q.DeleteExpiredEmailRegistrations(ctx, db.DeleteExpiredEmailRegistrationsParams{RetentionMinutes: verificationCleanupRetentionMinutes, Take: verificationCleanupBatchSize}); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	err = q.CreateEmailRegistration(ctx, db.CreateEmailRegistrationParams{
-		TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: verificationResendCooldownSeconds,
+		TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 		ID: id, Email: email, BrowserDigest: browser,
 		CodeMac: token.RegistrationCodeMAC(setting.Security.TokenSymmetricKey, id, email, browser, code),
 	})
@@ -109,7 +115,8 @@ func ResendRegistration(ctx context.Context, id uuid.UUID, browser []byte) (Regi
 			return "", err
 		}
 		n, err := q.RotateEmailRegistration(txCtx, db.RotateEmailRegistrationParams{
-			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: verificationResendCooldownSeconds,
+			MaxFailedAttempts: verificationMaxFailedAttempts, ResendHorizonMinutes: registrationResendHorizonMinutes,
+			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 			ID: id, CodeMac: token.RegistrationCodeMAC(setting.Security.TokenSymmetricKey, id, row.Email, browser, code),
 		})
 		if err != nil {
@@ -146,13 +153,13 @@ func VerifyRegistration(ctx context.Context, id uuid.UUID, browser []byte, code 
 		if err != nil {
 			return RegistrationVerification{}, err
 		}
-		if row.FailedAttempts >= 5 || !row.ExpiresAt.After(time.Now()) {
+		if row.FailedAttempts >= verificationMaxFailedAttempts || !row.ExpiresAt.After(time.Now()) {
 			return RegistrationVerification{}, nil
 		}
 		expected := token.RegistrationCodeMAC(setting.Security.TokenSymmetricKey, id, row.Email, browser, code)
 		if !token.ValidRegistrationCode(code) || !hmac.Equal(expected, row.CodeMac) {
 
-			return RegistrationVerification{}, q.FailEmailRegistration(txCtx, id)
+			return RegistrationVerification{}, q.FailEmailRegistration(txCtx, db.FailEmailRegistrationParams{ID: id, MaxFailedAttempts: verificationMaxFailedAttempts})
 		}
 		_, err = q.ReadAccountByEmail(txCtx, row.Email)
 		if err == nil {
@@ -164,7 +171,7 @@ func VerifyRegistration(ctx context.Context, id uuid.UUID, browser []byte, code 
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return RegistrationVerification{}, err
 		}
-		n, err := q.VerifyEmailRegistration(txCtx, db.VerifyEmailRegistrationParams{ID: id, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes})
+		n, err := q.VerifyEmailRegistration(txCtx, db.VerifyEmailRegistrationParams{ID: id, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes, MaxFailedAttempts: verificationMaxFailedAttempts})
 		if err != nil {
 			return RegistrationVerification{}, err
 		}

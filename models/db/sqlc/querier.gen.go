@@ -55,10 +55,10 @@ type Querier interface {
 	DeleteCredentialLink(ctx context.Context, id uuid.UUID) error
 	DeleteEmailRegistration(ctx context.Context, id uuid.UUID) error
 	DeleteExpiredAccountConnectionHistories(ctx context.Context, arg DeleteExpiredAccountConnectionHistoriesParams) (int64, error)
-	DeleteExpiredCredentialLinks(ctx context.Context, take int32) (int64, error)
-	DeleteExpiredEmailRegistrations(ctx context.Context, take int32) (int64, error)
+	DeleteExpiredCredentialLinks(ctx context.Context, arg DeleteExpiredCredentialLinksParams) (int64, error)
+	DeleteExpiredEmailRegistrations(ctx context.Context, arg DeleteExpiredEmailRegistrationsParams) (int64, error)
 	DeleteExpiredGoogleFlows(ctx context.Context, take int32) (int64, error)
-	DeleteExpiredPhoneVerifications(ctx context.Context, take int32) (int64, error)
+	DeleteExpiredPhoneVerifications(ctx context.Context, arg DeleteExpiredPhoneVerificationsParams) (int64, error)
 	DeleteExpiredRecentAuthProofs(ctx context.Context, take int32) (int64, error)
 	DeleteGoogleFlow(ctx context.Context, browserDigest []byte) error
 	DeleteOldAuditEvents(ctx context.Context, arg DeleteOldAuditEventsParams) (int64, error)
@@ -70,9 +70,9 @@ type Querier interface {
 	EmailLinkAddressTaken(ctx context.Context, btrim string) (bool, error)
 	EndOrdinaryOrganizationMemberForOwner(ctx context.Context, arg EndOrdinaryOrganizationMemberForOwnerParams) (OrganizationMember, error)
 	EndOwnOrganizationMembership(ctx context.Context, arg EndOwnOrganizationMembershipParams) (int64, error)
-	FailCredentialLink(ctx context.Context, id uuid.UUID) error
-	FailEmailRegistration(ctx context.Context, id uuid.UUID) error
-	FailPhoneVerification(ctx context.Context, id uuid.UUID) error
+	FailCredentialLink(ctx context.Context, arg FailCredentialLinkParams) error
+	FailEmailRegistration(ctx context.Context, arg FailEmailRegistrationParams) error
+	FailPhoneVerification(ctx context.Context, arg FailPhoneVerificationParams) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (EmailVerificationCode, error)
 	FindTeamInviteOrganization(ctx context.Context, arg FindTeamInviteOrganizationParams) (FindTeamInviteOrganizationRow, error)
 	FinishGoogleFlow(ctx context.Context, arg FinishGoogleFlowParams) (int64, error)

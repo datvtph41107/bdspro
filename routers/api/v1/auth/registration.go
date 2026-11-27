@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
@@ -44,7 +45,8 @@ func writeRegistrationError(ctx *appctx.APIContext, err error) {
 		}
 		ctx.APIError(http.StatusServiceUnavailable, "service_unavailable", "email delivery unavailable")
 	case errors.Is(err, authservice.ErrRegistrationWait):
-		ctx.Header("Retry-After", "60")
+		// Nominal retry hint, not a guarantee of eligibility after this delay.
+		ctx.Header("Retry-After", strconv.Itoa(authservice.VerificationResendCooldownSeconds))
 		ctx.APIErrorAuto(err)
 	default:
 		writeAuthError(ctx, err)

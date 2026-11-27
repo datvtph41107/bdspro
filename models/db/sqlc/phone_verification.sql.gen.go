@@ -41,13 +41,18 @@ func (q *Queries) CreatePhoneVerification(ctx context.Context, arg CreatePhoneVe
 const deleteExpiredPhoneVerifications = `-- name: DeleteExpiredPhoneVerifications :execrows
 DELETE FROM verifications WHERE kind='phone' AND id IN (
     SELECT id FROM verifications
-    WHERE kind='phone' AND expires_at<clock_timestamp()-interval '30 minutes'
-    ORDER BY expires_at LIMIT $1::integer FOR UPDATE SKIP LOCKED
+    WHERE kind='phone' AND expires_at<clock_timestamp()-($1::integer * interval '1 minute')
+    ORDER BY expires_at LIMIT $2::integer FOR UPDATE SKIP LOCKED
 )
 `
 
-func (q *Queries) DeleteExpiredPhoneVerifications(ctx context.Context, take int32) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteExpiredPhoneVerifications, take)
+type DeleteExpiredPhoneVerificationsParams struct {
+	RetentionMinutes int32 `json:"retention_minutes"`
+	Take             int32 `json:"take"`
+}
+
+func (q *Queries) DeleteExpiredPhoneVerifications(ctx context.Context, arg DeleteExpiredPhoneVerificationsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredPhoneVerifications, arg.RetentionMinutes, arg.Take)
 	if err != nil {
 		return 0, err
 	}
@@ -65,11 +70,16 @@ func (q *Queries) DeletePhoneVerification(ctx context.Context, id uuid.UUID) err
 
 const failPhoneVerification = `-- name: FailPhoneVerification :exec
 UPDATE verifications SET failed_attempts=failed_attempts+1
-WHERE kind='phone' AND id=$1 AND failed_attempts<5 AND proof_digest IS NULL
+WHERE kind='phone' AND id=$1::uuid AND failed_attempts<$2::integer AND proof_digest IS NULL
 `
 
-func (q *Queries) FailPhoneVerification(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, failPhoneVerification, id)
+type FailPhoneVerificationParams struct {
+	ID                uuid.UUID `json:"id"`
+	MaxFailedAttempts int32     `json:"max_failed_attempts"`
+}
+
+func (q *Queries) FailPhoneVerification(ctx context.Context, arg FailPhoneVerificationParams) error {
+	_, err := q.db.Exec(ctx, failPhoneVerification, arg.ID, arg.MaxFailedAttempts)
 	return err
 }
 
@@ -149,15 +159,17 @@ func (q *Queries) ReadPhoneVerificationDestination(ctx context.Context, arg Read
 const rotatePhoneVerification = `-- name: RotatePhoneVerification :execrows
 UPDATE verifications SET code_mac=$1::bytea,
     expires_at=clock_timestamp()+($2::integer * interval '1 minute'),resend_after=clock_timestamp()+($3::integer * interval '1 second')
-WHERE kind='phone' AND id=$4::uuid AND proof_digest IS NULL AND failed_attempts<5
-    AND resend_after<=clock_timestamp() AND created_at>clock_timestamp()-interval '30 minutes'
+WHERE kind='phone' AND id=$4::uuid AND proof_digest IS NULL AND failed_attempts<$5::integer
+    AND resend_after<=clock_timestamp() AND created_at>clock_timestamp()-($6::integer * interval '1 minute')
 `
 
 type RotatePhoneVerificationParams struct {
-	CodeMac         []byte    `json:"code_mac"`
-	TtlMinutes      int32     `json:"ttl_minutes"`
-	CooldownSeconds int32     `json:"cooldown_seconds"`
-	ID              uuid.UUID `json:"id"`
+	CodeMac              []byte    `json:"code_mac"`
+	TtlMinutes           int32     `json:"ttl_minutes"`
+	CooldownSeconds      int32     `json:"cooldown_seconds"`
+	ID                   uuid.UUID `json:"id"`
+	MaxFailedAttempts    int32     `json:"max_failed_attempts"`
+	ResendHorizonMinutes int32     `json:"resend_horizon_minutes"`
 }
 
 func (q *Queries) RotatePhoneVerification(ctx context.Context, arg RotatePhoneVerificationParams) (int64, error) {
@@ -166,6 +178,8 @@ func (q *Queries) RotatePhoneVerification(ctx context.Context, arg RotatePhoneVe
 		arg.TtlMinutes,
 		arg.CooldownSeconds,
 		arg.ID,
+		arg.MaxFailedAttempts,
+		arg.ResendHorizonMinutes,
 	)
 	if err != nil {
 		return 0, err
@@ -176,17 +190,23 @@ func (q *Queries) RotatePhoneVerification(ctx context.Context, arg RotatePhoneVe
 const verifyPhoneVerification = `-- name: VerifyPhoneVerification :execrows
 UPDATE verifications SET code_mac=NULL,proof_digest=$1::bytea,
     expires_at=clock_timestamp()+($2::integer * interval '1 minute')
-WHERE kind='phone' AND id=$3::uuid AND proof_digest IS NULL AND failed_attempts<5 AND expires_at>clock_timestamp()
+WHERE kind='phone' AND id=$3::uuid AND proof_digest IS NULL AND failed_attempts<$4::integer AND expires_at>clock_timestamp()
 `
 
 type VerifyPhoneVerificationParams struct {
-	ProofDigest []byte    `json:"proof_digest"`
-	TtlMinutes  int32     `json:"ttl_minutes"`
-	ID          uuid.UUID `json:"id"`
+	ProofDigest       []byte    `json:"proof_digest"`
+	TtlMinutes        int32     `json:"ttl_minutes"`
+	ID                uuid.UUID `json:"id"`
+	MaxFailedAttempts int32     `json:"max_failed_attempts"`
 }
 
 func (q *Queries) VerifyPhoneVerification(ctx context.Context, arg VerifyPhoneVerificationParams) (int64, error) {
-	result, err := q.db.Exec(ctx, verifyPhoneVerification, arg.ProofDigest, arg.TtlMinutes, arg.ID)
+	result, err := q.db.Exec(ctx, verifyPhoneVerification,
+		arg.ProofDigest,
+		arg.TtlMinutes,
+		arg.ID,
+		arg.MaxFailedAttempts,
+	)
 	if err != nil {
 		return 0, err
 	}

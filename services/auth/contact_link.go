@@ -55,7 +55,7 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if _, err := q.DeleteExpiredCredentialLinks(ctx, 100); err != nil {
+	if _, err := q.DeleteExpiredCredentialLinks(ctx, db.DeleteExpiredCredentialLinksParams{RetentionMinutes: verificationCleanupRetentionMinutes, Take: verificationCleanupBatchSize}); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	err = db.WithTx(ctx, func(txCtx context.Context) error {
@@ -68,7 +68,8 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 		}
 
 		n, err := q.StartCredentialLink(txCtx, db.StartCredentialLinkParams{
-			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: verificationResendCooldownSeconds,
+			MaxFailedAttempts: verificationMaxFailedAttempts,
+			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 			ID: id, AccountID: actor.AccountID, SessionID: actor.SessionID, Kind: kind,
 			Destination: destination,
 			CodeMac:     token.ContactLinkCodeMAC(setting.Security.TokenSymmetricKey, id, actor.AccountID, actor.SessionID, kind, destination, code),
@@ -132,13 +133,13 @@ func VerifyContactLink(ctx context.Context, actor authmodel.Actor, kind string, 
 		if err != nil {
 			return LoginResult{}, err
 		}
-		if row.FailedAttempts >= 5 || !row.ExpiresAt.After(time.Now()) {
+		if row.FailedAttempts >= verificationMaxFailedAttempts || !row.ExpiresAt.After(time.Now()) {
 			return LoginResult{}, nil
 		}
 		expected := token.ContactLinkCodeMAC(setting.Security.TokenSymmetricKey, id, actor.AccountID, actor.SessionID, kind, row.Destination, code)
 		validCode := kind == "email" && token.ValidRegistrationCode(code) || kind == "phone" && token.ValidPhoneCode(code)
 		if !validCode || !hmac.Equal(expected, row.CodeMac) {
-			return LoginResult{}, q.FailCredentialLink(txCtx, id)
+			return LoginResult{}, q.FailCredentialLink(txCtx, db.FailCredentialLinkParams{ID: id, MaxFailedAttempts: verificationMaxFailedAttempts})
 		}
 		u, err := GetCurrentUser(txCtx, actor.AccountID)
 		if err != nil {

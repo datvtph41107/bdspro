@@ -41,11 +41,11 @@ func StartPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, phone
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if _, err := q.DeleteExpiredPhoneVerifications(ctx, 100); err != nil {
+	if _, err := q.DeleteExpiredPhoneVerifications(ctx, db.DeleteExpiredPhoneVerificationsParams{RetentionMinutes: verificationCleanupRetentionMinutes, Take: verificationCleanupBatchSize}); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	if err := q.CreatePhoneVerification(ctx, db.CreatePhoneVerificationParams{
-		TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: verificationResendCooldownSeconds,
+		TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 		ID: id, PhoneE164: phone, BrowserDigest: browser,
 		CodeMac: token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, phone, browser, code),
 	}); err != nil {
@@ -93,7 +93,8 @@ func ResendPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, id u
 			return "", err
 		}
 		n, err := q.RotatePhoneVerification(txCtx, db.RotatePhoneVerificationParams{
-			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: verificationResendCooldownSeconds,
+			MaxFailedAttempts: verificationMaxFailedAttempts, ResendHorizonMinutes: registrationResendHorizonMinutes,
+			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 			ID: id, CodeMac: token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, row.PhoneE164, browser, code),
 		})
 		if err != nil {
@@ -132,16 +133,16 @@ func VerifyPhone(ctx context.Context, id uuid.UUID, browser []byte, code string,
 		if err != nil {
 			return PhoneVerification{}, err
 		}
-		if row.FailedAttempts >= 5 || !row.ExpiresAt.After(time.Now()) {
+		if row.FailedAttempts >= verificationMaxFailedAttempts || !row.ExpiresAt.After(time.Now()) {
 			return PhoneVerification{}, nil
 		}
 		expected := token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, row.PhoneE164, browser, code)
 		if !token.ValidPhoneCode(code) || !hmac.Equal(expected, row.CodeMac) {
-			return PhoneVerification{}, q.FailPhoneVerification(txCtx, id)
+			return PhoneVerification{}, q.FailPhoneVerification(txCtx, db.FailPhoneVerificationParams{ID: id, MaxFailedAttempts: verificationMaxFailedAttempts})
 		}
 		owner, err := q.GetPhoneAccountIDQuery(txCtx, row.PhoneE164)
 		if errors.Is(err, pgx.ErrNoRows) {
-			n, err := q.VerifyPhoneVerification(txCtx, db.VerifyPhoneVerificationParams{ID: id, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes})
+			n, err := q.VerifyPhoneVerification(txCtx, db.VerifyPhoneVerificationParams{ID: id, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes, MaxFailedAttempts: verificationMaxFailedAttempts})
 			if err != nil || n != 1 {
 				return PhoneVerification{}, err
 			}
