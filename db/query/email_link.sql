@@ -26,7 +26,7 @@ WHERE id = sqlc.arg(id) AND email IS NULL;
 -- name: StartCredentialLink :execrows
 INSERT INTO contact_link_challenges(id,account_id,session_id,kind,destination,code_mac,expires_at,resend_after)
 VALUES (sqlc.arg(id)::uuid,sqlc.arg(account_id)::bigint,sqlc.arg(session_id)::uuid,sqlc.arg(kind)::text,
-    sqlc.arg(destination)::text,sqlc.arg(code_mac)::bytea,clock_timestamp()+interval '5 minutes',clock_timestamp()+interval '60 seconds')
+    sqlc.arg(destination)::text,sqlc.arg(code_mac)::bytea,clock_timestamp()+(sqlc.arg(ttl_minutes)::integer * interval '1 minute'),clock_timestamp()+(sqlc.arg(cooldown_seconds)::integer * interval '1 second'))
 ON CONFLICT (account_id,kind) DO UPDATE SET
     id=EXCLUDED.id,session_id=EXCLUDED.session_id,destination=EXCLUDED.destination,code_mac=EXCLUDED.code_mac,
     expires_at=EXCLUDED.expires_at,resend_after=EXCLUDED.resend_after,

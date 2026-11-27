@@ -1,6 +1,6 @@
 -- name: CreatePhoneVerification :exec
 INSERT INTO verifications(kind,id,destination,browser_digest,code_mac,expires_at,resend_after)
-VALUES ('phone',sqlc.arg(id)::uuid,sqlc.arg(phone_e164)::text,sqlc.arg(browser_digest)::bytea,sqlc.arg(code_mac)::bytea,clock_timestamp()+interval '5 minutes',clock_timestamp()+interval '60 seconds');
+VALUES ('phone',sqlc.arg(id)::uuid,sqlc.arg(phone_e164)::text,sqlc.arg(browser_digest)::bytea,sqlc.arg(code_mac)::bytea,clock_timestamp()+(sqlc.arg(ttl_minutes)::integer * interval '1 minute'),clock_timestamp()+(sqlc.arg(cooldown_seconds)::integer * interval '1 second'));
 
 -- name: ReadPhoneVerificationDestination :one
 SELECT destination AS phone_e164 FROM verifications
@@ -14,7 +14,7 @@ FOR UPDATE;
 
 -- name: RotatePhoneVerification :execrows
 UPDATE verifications SET code_mac=sqlc.arg(code_mac)::bytea,
-    expires_at=clock_timestamp()+interval '5 minutes',resend_after=clock_timestamp()+interval '60 seconds'
+    expires_at=clock_timestamp()+(sqlc.arg(ttl_minutes)::integer * interval '1 minute'),resend_after=clock_timestamp()+(sqlc.arg(cooldown_seconds)::integer * interval '1 second')
 WHERE kind='phone' AND id=sqlc.arg(id)::uuid AND proof_digest IS NULL AND failed_attempts<5
     AND resend_after<=clock_timestamp() AND created_at>clock_timestamp()-interval '30 minutes';
 
@@ -24,7 +24,7 @@ WHERE kind='phone' AND id=$1 AND failed_attempts<5 AND proof_digest IS NULL;
 
 -- name: VerifyPhoneVerification :execrows
 UPDATE verifications SET code_mac=NULL,proof_digest=sqlc.arg(proof_digest)::bytea,
-    expires_at=clock_timestamp()+interval '15 minutes'
+    expires_at=clock_timestamp()+(sqlc.arg(ttl_minutes)::integer * interval '1 minute')
 WHERE kind='phone' AND id=sqlc.arg(id)::uuid AND proof_digest IS NULL AND failed_attempts<5 AND expires_at>clock_timestamp();
 
 -- name: LockPhoneVerificationProof :one

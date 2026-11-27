@@ -22,7 +22,7 @@ WHERE google_flows.browser_digest=$1 AND phase='ready' AND expires_at>clock_time
 AND purpose='login' FOR UPDATE;
 
 -- name: IssueGoogleRegistrationProof :execrows
-UPDATE google_flows SET phase='registration',proof_digest=sqlc.arg(proof_digest)::bytea,expires_at=clock_timestamp()+interval '15 minutes'
+UPDATE google_flows SET phase='registration',proof_digest=sqlc.arg(proof_digest)::bytea,expires_at=clock_timestamp()+(sqlc.arg(ttl_minutes)::integer * interval '1 minute')
 WHERE browser_digest=sqlc.arg(browser_digest)::bytea AND phase='ready' AND expires_at>clock_timestamp();
 
 -- name: LockGoogleRegistration :one
