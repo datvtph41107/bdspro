@@ -4,17 +4,20 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/datvtph41107/bdspro/modules/log"
 )
 
 type LogGlobalConfig struct {
-	Mode     string
-	Format   string
-	Level    string
-	RootPath string
-	FileName string
+	Mode                              string
+	Format                            string
+	Level                             string
+	RootPath                          string
+	FileName                          string
+	ConsoleFormat, FileFormat         string
+	MaxSizeMB, MaxBackups, MaxAgeDays int
 }
 
 func loadLogGlobalFrom(rootCfg ConfigProvider, workPath string) (LogGlobalConfig, error) {
@@ -29,6 +32,21 @@ func loadLogGlobalFrom(rootCfg ConfigProvider, workPath string) (LogGlobalConfig
 		Level:    stringOrDefault(sec.Key("LEVEL"), "info"),
 		RootPath: stringOrDefault(sec.Key("ROOT_PATH"), "data/log"),
 		FileName: stringOrDefault(fileSec.Key("FILE_NAME"), "bdspro.log"),
+	}
+	cfg.ConsoleFormat = stringOrDefault(rootCfg.Section("log.console").Key("FORMAT"), cfg.Format)
+	cfg.FileFormat = stringOrDefault(fileSec.Key("FORMAT"), cfg.Format)
+	for _, option := range []struct {
+		key      string
+		value    *int
+		fallback int
+	}{
+		{"MAX_SIZE_MB", &cfg.MaxSizeMB, 20}, {"MAX_BACKUPS", &cfg.MaxBackups, 5}, {"MAX_AGE_DAYS", &cfg.MaxAgeDays, 7},
+	} {
+		value, err := strconv.Atoi(stringOrDefault(fileSec.Key(option.key), strconv.Itoa(option.fallback)))
+		if err != nil {
+			return LogGlobalConfig{}, fmt.Errorf("log.file.%s must be an integer", option.key)
+		}
+		*option.value = value
 	}
 	if workPath == "" || !filepath.IsAbs(workPath) {
 		return LogGlobalConfig{}, errors.New("application work path must be absolute")
@@ -47,35 +65,26 @@ func loadLogGlobalFrom(rootCfg ConfigProvider, workPath string) (LogGlobalConfig
 }
 
 func (cfg LogGlobalConfig) Validate() error {
-	switch cfg.Mode {
-	case "console", "file", "console,file", "file,console":
-	default:
-		return errors.New("log.MODE must be console, file or console,file")
-	}
-	switch cfg.Format {
-	case "console", "json":
-	default:
+	if cfg.Format != "json" && cfg.Format != "console" {
 		return errors.New("log.FORMAT must be console or json")
 	}
-	switch strings.ToLower(cfg.Level) {
-	case "debug", "info", "warn", "error":
-	default:
-		return errors.New("log.LEVEL must be debug, info, warn or error")
+	if !filepath.IsAbs(cfg.RootPath) {
+		return errors.New("log.ROOT_PATH must be absolute")
 	}
-	if cfg.RootPath == "" || !filepath.IsAbs(cfg.RootPath) {
-		return errors.New("log.ROOT_PATH must be an absolute path")
+	return cfg.OutputOptions().Validate()
+}
+
+// OutputOptions maps validated application settings to the writer package.
+func (cfg LogGlobalConfig) OutputOptions() log.OutputOptions {
+	return log.OutputOptions{
+		Mode: cfg.Mode, ConsoleFormat: cfg.ConsoleFormat, FileFormat: cfg.FileFormat,
+		Level: strings.ToLower(cfg.Level), RootPath: cfg.RootPath, FileName: cfg.FileName,
+		MaxSizeMB: cfg.MaxSizeMB, MaxBackups: cfg.MaxBackups, MaxAgeDays: cfg.MaxAgeDays,
 	}
-	if cfg.FileName == "" || cfg.FileName == "." || cfg.FileName == ".." || filepath.Base(cfg.FileName) != cfg.FileName {
-		return errors.New("log.file.FILE_NAME must be a filename")
-	}
-	return nil
 }
 
 func InitLoggers() error {
-	cfg := Common.Log
-	if err := log.GetManager().ConfigureOutputs(
-		cfg.Mode, cfg.Format, strings.ToLower(cfg.Level), cfg.RootPath, cfg.FileName,
-	); err != nil {
+	if err := log.GetManager().ConfigureOutputs(Common.Log.OutputOptions()); err != nil {
 		return fmt.Errorf("configure logging outputs: %w", err)
 	}
 	return nil

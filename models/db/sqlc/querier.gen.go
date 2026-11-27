@@ -14,6 +14,7 @@ type Querier interface {
 	AddOrganizationMember(ctx context.Context, arg AddOrganizationMemberParams) (OrganizationMember, error)
 	AddTeamUserForOwner(ctx context.Context, arg AddTeamUserForOwnerParams) (TeamMember, error)
 	AttachVerifiedEmail(ctx context.Context, arg AttachVerifiedEmailParams) (int64, error)
+	BindGoogleFlow(ctx context.Context, arg BindGoogleFlowParams) (int64, error)
 	BindPhoneCredentialQuery(ctx context.Context, arg BindPhoneCredentialQueryParams) error
 	BlockSession(ctx context.Context, arg BlockSessionParams) (Session, error)
 	BumpPasswordResetVersion(ctx context.Context, id int64) error
@@ -31,8 +32,8 @@ type Querier interface {
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (CreateAccountRow, error)
 	CreateAccountConnectionHistory(ctx context.Context, arg CreateAccountConnectionHistoryParams) error
 	CreateAccountSettings(ctx context.Context, accountID int64) error
+	CreateAccountWithoutEmail(ctx context.Context, personID int64) (CreateAccountWithoutEmailRow, error)
 	CreateEmailRegistration(ctx context.Context, arg CreateEmailRegistrationParams) error
-	CreateGoogleAuthenticatedIntent(ctx context.Context, arg CreateGoogleAuthenticatedIntentParams) error
 	CreateGoogleFlow(ctx context.Context, arg CreateGoogleFlowParams) error
 	CreateGoogleRecentAuthProof(ctx context.Context, arg CreateGoogleRecentAuthProofParams) (int64, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
@@ -42,15 +43,14 @@ type Querier interface {
 	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) error
 	CreatePerson(ctx context.Context, partyID int64) error
 	CreatePersonProfile(ctx context.Context, personID int64) error
-	CreatePhoneContinuation(ctx context.Context, arg CreatePhoneContinuationParams) error
-	CreatePhoneOnlyAccount(ctx context.Context, personID int64) (CreatePhoneOnlyAccountRow, error)
+	CreatePhoneVerification(ctx context.Context, arg CreatePhoneVerificationParams) error
 	CreateRecentAuthProof(ctx context.Context, arg CreateRecentAuthProofParams) error
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTeamForOwner(ctx context.Context, arg CreateTeamForOwnerParams) (Team, error)
 	CreateTeamInviteForOwner(ctx context.Context, arg CreateTeamInviteForOwnerParams) (CreateTeamInviteForOwnerRow, error)
 	CreateVerifyEmail(ctx context.Context, arg CreateVerifyEmailParams) (VerifyEmail, error)
 	DeleteAccountCredentialLinks(ctx context.Context, accountID int64) error
-	DeleteAccountGoogleIntents(ctx context.Context, accountID int64) error
+	DeleteAccountGoogleFlows(ctx context.Context, accountID int64) error
 	DeleteAccountRecentAuthProofs(ctx context.Context, accountID int64) error
 	DeleteCredentialLink(ctx context.Context, id uuid.UUID) error
 	DeleteEmailRegistration(ctx context.Context, id uuid.UUID) error
@@ -58,15 +58,13 @@ type Querier interface {
 	DeleteExpiredCredentialLinks(ctx context.Context, take int32) (int64, error)
 	DeleteExpiredEmailRegistrations(ctx context.Context, take int32) (int64, error)
 	DeleteExpiredGoogleFlows(ctx context.Context, take int32) (int64, error)
-	DeleteExpiredPhoneContinuations(ctx context.Context, take int32) (int64, error)
+	DeleteExpiredPhoneVerifications(ctx context.Context, take int32) (int64, error)
 	DeleteExpiredRecentAuthProofs(ctx context.Context, take int32) (int64, error)
 	DeleteGoogleFlow(ctx context.Context, browserDigest []byte) error
 	DeleteOldAuditEvents(ctx context.Context, arg DeleteOldAuditEventsParams) (int64, error)
 	DeleteOrgMemberTeamLinks(ctx context.Context, arg DeleteOrgMemberTeamLinksParams) (int64, error)
 	DeletePasswordResetTokensForAccount(ctx context.Context, accountID int64) error
-	DeletePhoneChallengeQuery(ctx context.Context, arg DeletePhoneChallengeQueryParams) error
-	DeletePhoneContinuation(ctx context.Context, id uuid.UUID) error
-	DeletePhoneSignup(ctx context.Context, phoneE164 string) error
+	DeletePhoneVerification(ctx context.Context, id uuid.UUID) error
 	DeleteSessionsForAccount(ctx context.Context, accountID int64) error
 	DemoteOrganizationOwner(ctx context.Context, arg DemoteOrganizationOwnerParams) (OrganizationMember, error)
 	EmailLinkAddressTaken(ctx context.Context, btrim string) (bool, error)
@@ -74,8 +72,7 @@ type Querier interface {
 	EndOwnOrganizationMembership(ctx context.Context, arg EndOwnOrganizationMembershipParams) (int64, error)
 	FailCredentialLink(ctx context.Context, id uuid.UUID) error
 	FailEmailRegistration(ctx context.Context, id uuid.UUID) error
-	FailPhoneContinuation(ctx context.Context, id uuid.UUID) error
-	FailPhoneSignup(ctx context.Context, phoneE164 string) error
+	FailPhoneVerification(ctx context.Context, id uuid.UUID) error
 	FindReusableVerifyEmailQuery(ctx context.Context, arg FindReusableVerifyEmailQueryParams) (VerifyEmail, error)
 	FindTeamInviteOrganization(ctx context.Context, arg FindTeamInviteOrganizationParams) (FindTeamInviteOrganizationRow, error)
 	FinishGoogleFlow(ctx context.Context, arg FinishGoogleFlowParams) (int64, error)
@@ -119,12 +116,10 @@ type Querier interface {
 	LockOrganizationRoleChanges(ctx context.Context, organizationID int64) (int64, error)
 	LockOwnOrganizationMembership(ctx context.Context, arg LockOwnOrganizationMembershipParams) (LockOwnOrganizationMembershipRow, error)
 	LockPendingGoogleFlow(ctx context.Context, arg LockPendingGoogleFlowParams) (LockPendingGoogleFlowRow, error)
-	LockPhoneChallengeQuery(ctx context.Context, arg LockPhoneChallengeQueryParams) (LockPhoneChallengeQueryRow, error)
-	LockPhoneContinuation(ctx context.Context, arg LockPhoneContinuationParams) (LockPhoneContinuationRow, error)
-	LockPhoneContinuationProof(ctx context.Context, arg LockPhoneContinuationProofParams) (LockPhoneContinuationProofRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
 	LockPhoneOnlyEmailAccount(ctx context.Context, id int64) (int64, error)
-	LockPhoneSignup(ctx context.Context, phoneE164 string) (LockPhoneSignupRow, error)
+	LockPhoneVerification(ctx context.Context, arg LockPhoneVerificationParams) (LockPhoneVerificationRow, error)
+	LockPhoneVerificationProof(ctx context.Context, arg LockPhoneVerificationProofParams) (LockPhoneVerificationProofRow, error)
 	LockSessionRevocationAccount(ctx context.Context, accountID int64) (int64, error)
 	LockVerifyEmailAccountQuery(ctx context.Context, id int64) (bool, error)
 	MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) (MarkEmailVerifiedRow, error)
@@ -135,10 +130,9 @@ type Querier interface {
 	ReadAccountIDByUsername(ctx context.Context, username string) (int64, error)
 	ReadCredentialLinkDestination(ctx context.Context, arg ReadCredentialLinkDestinationParams) (string, error)
 	ReadEmailRegistrationDestination(ctx context.Context, arg ReadEmailRegistrationDestinationParams) (string, error)
-	ReadPhoneContinuationDestination(ctx context.Context, arg ReadPhoneContinuationDestinationParams) (string, error)
+	ReadPhoneVerificationDestination(ctx context.Context, arg ReadPhoneVerificationDestinationParams) (string, error)
 	RecordEmailVerificationJob(ctx context.Context, accountID int64) error
 	RecordPasswordResetJob(ctx context.Context, accountID int64) error
-	RecordPhoneChallengeFailureQuery(ctx context.Context, arg RecordPhoneChallengeFailureQueryParams) error
 	RecordTeamInviteJob(ctx context.Context, inviteID uuid.UUID) error
 	RemoveAccountEmail(ctx context.Context, id int64) (int64, error)
 	RemoveAccountGoogle(ctx context.Context, accountID int64) (int64, error)
@@ -151,7 +145,7 @@ type Querier interface {
 	RevokeOwnedSession(ctx context.Context, arg RevokeOwnedSessionParams) (int64, error)
 	RevokeTeamInviteForOwner(ctx context.Context, arg RevokeTeamInviteForOwnerParams) (int64, error)
 	RotateEmailRegistration(ctx context.Context, arg RotateEmailRegistrationParams) (int64, error)
-	RotatePhoneContinuation(ctx context.Context, arg RotatePhoneContinuationParams) (int64, error)
+	RotatePhoneVerification(ctx context.Context, arg RotatePhoneVerificationParams) (int64, error)
 	RotateSessionRefreshDigest(ctx context.Context, arg RotateSessionRefreshDigestParams) (int64, error)
 	SetAccountMarketing(ctx context.Context, arg SetAccountMarketingParams) (int64, error)
 	SetAccountUsername(ctx context.Context, arg SetAccountUsernameParams) (int64, error)
@@ -164,10 +158,8 @@ type Querier interface {
 	UpdatePersonProfile(ctx context.Context, arg UpdatePersonProfileParams) (int64, error)
 	UpsertEmailLinkChallenge(ctx context.Context, arg UpsertEmailLinkChallengeParams) (int64, error)
 	UpsertPasswordCredential(ctx context.Context, arg UpsertPasswordCredentialParams) error
-	UpsertPhoneChallengeQuery(ctx context.Context, arg UpsertPhoneChallengeQueryParams) (int64, error)
-	UpsertPhoneSignup(ctx context.Context, arg UpsertPhoneSignupParams) (int64, error)
 	VerifyEmailRegistration(ctx context.Context, arg VerifyEmailRegistrationParams) (int64, error)
-	VerifyPhoneContinuation(ctx context.Context, arg VerifyPhoneContinuationParams) (int64, error)
+	VerifyPhoneVerification(ctx context.Context, arg VerifyPhoneVerificationParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

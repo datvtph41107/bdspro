@@ -39,3 +39,7 @@ WHERE id=sqlc.arg(account_id)::bigint AND status='active';
 
 -- name: RemoveAccountEmail :execrows
 UPDATE accounts SET email=NULL,is_email_verified=false WHERE id=$1 AND email IS NOT NULL;
+
+-- name: CreateAccountWithoutEmail :one
+INSERT INTO accounts (person_id, email) VALUES (sqlc.arg(person_id), NULL)
+RETURNING id, person_id, COALESCE(email, '')::text AS email, created_at, is_email_verified;

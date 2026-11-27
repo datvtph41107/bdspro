@@ -85,15 +85,16 @@ func loadCommonSettingsFrom(cfg ConfigProvider, workPath string) (CommonSettings
 }
 
 type loadedWebSettings struct {
-	server   ServerSettings
-	api      APISettings
-	security SecuritySettings
-	ip       IPActiveSettings
-	database DatabaseSettings
-	redis    RedisSettings
-	mailer   MailerSettings
-	sms      SMSSettings
-	google   GoogleSettings
+	server        ServerSettings
+	api           APISettings
+	security      SecuritySettings
+	ip            IPActiveSettings
+	database      DatabaseSettings
+	redis         RedisSettings
+	mailer        MailerSettings
+	sms           SMSSettings
+	phoneDelivery PhoneDeliverySettings
+	google        GoogleSettings
 }
 
 func loadWebSettingsFrom(cfg ConfigProvider, common CommonSettings, workPath string) (loadedWebSettings, error) {
@@ -117,7 +118,7 @@ func loadWebSettingsFrom(cfg ConfigProvider, common CommonSettings, workPath str
 	if err != nil {
 		return loadedWebSettings{}, fmt.Errorf("load database settings: %w", err)
 	}
-	mailer, err := loadMailerFrom(cfg)
+	mailer, err := loadMailerFrom(cfg, common.RunMode)
 	if err != nil {
 		return loadedWebSettings{}, fmt.Errorf("load mailer settings: %w", err)
 	}
@@ -125,28 +126,33 @@ func loadWebSettingsFrom(cfg ConfigProvider, common CommonSettings, workPath str
 	if err != nil {
 		return loadedWebSettings{}, fmt.Errorf("load SMS settings: %w", err)
 	}
+	phoneDelivery, err := loadPhoneDeliveryFrom(cfg, common.RunMode, mailer, sms)
+	if err != nil {
+		return loadedWebSettings{}, fmt.Errorf("load phone delivery settings: %w", err)
+	}
 	google, err := loadGoogleFrom(cfg, server)
 	if err != nil {
 		return loadedWebSettings{}, fmt.Errorf("load Google settings: %w", err)
 	}
 	return loadedWebSettings{
 		server: server, api: api, security: security, ip: ipPolicies,
-		database: database, redis: loadRedisFrom(cfg), mailer: mailer, sms: sms, google: google,
+		database: database, redis: loadRedisFrom(cfg), mailer: mailer, sms: sms, phoneDelivery: phoneDelivery, google: google,
 	}, nil
 }
 
 type WebConfig struct {
-	Paths    Paths
-	Common   CommonSettings
-	Server   ServerSettings
-	API      APISettings
-	Security SecuritySettings
-	IPActive IPActiveSettings
-	Database DatabaseSettings
-	Redis    RedisSettings
-	Mailer   MailerSettings
-	SMS      SMSSettings
-	Google   GoogleSettings
+	Paths         Paths
+	Common        CommonSettings
+	Server        ServerSettings
+	API           APISettings
+	Security      SecuritySettings
+	IPActive      IPActiveSettings
+	Database      DatabaseSettings
+	Redis         RedisSettings
+	Mailer        MailerSettings
+	SMS           SMSSettings
+	PhoneDelivery PhoneDeliverySettings
+	Google        GoogleSettings
 }
 
 func LoadWebConfig(args PathOptions, envs []string) (WebConfig, error) {
@@ -161,7 +167,7 @@ func LoadWebConfig(args PathOptions, envs []string) (WebConfig, error) {
 	return WebConfig{
 		Paths: prepared.paths, Common: prepared.common,
 		Server: loaded.server, API: loaded.api, Security: loaded.security,
-		IPActive: loaded.ip, Database: loaded.database, Redis: loaded.redis, Mailer: loaded.mailer, SMS: loaded.sms, Google: loaded.google,
+		IPActive: loaded.ip, Database: loaded.database, Redis: loaded.redis, Mailer: loaded.mailer, SMS: loaded.sms, PhoneDelivery: loaded.phoneDelivery, Google: loaded.google,
 	}, nil
 }
 
@@ -186,6 +192,7 @@ func publishWebConfig(cfg WebConfig) error {
 		Redis = cfg.Redis
 		Mailer = cfg.Mailer
 		SMS = cfg.SMS
+		PhoneDelivery = cfg.PhoneDelivery.clone()
 		Google = cfg.Google
 	})
 }

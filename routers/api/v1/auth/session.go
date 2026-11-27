@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +24,7 @@ const refreshCookieName = "bdspro_refresh"
 func BrowserMutation(ctx *appctx.APIContext) {
 	r := ctx.CurrentRequest()
 	if r.Header.Get("X-BDS-Request") != "1" || token.VerifyBrowserPostOrigin(r, setting.Server.BrowserPublicOrigin) != nil {
+		ctx.Data[appctx.ErrorReasonKey] = "browser_origin"
 		ctx.APIError(http.StatusForbidden, "permission_denied", "browser origin verification failed")
 	}
 }
@@ -46,24 +46,12 @@ func Login(ctx *appctx.APIContext) {
 func subjectAdmission(ctx *appctx.APIContext, action ipactive.Action, subject string) bool {
 	limiter, ok := ipactive.LookupMiddleware(ctx)
 	if !ok {
-		ctx.APIError(http.StatusServiceUnavailable, "rate_limit_unavailable", "request admission unavailable")
-		return false
+		return ctx.Admit(action, "subject", ipactive.Event{}, ipactive.ErrUnavailable)
 	}
 	mac := hmac.New(sha256.New, []byte(setting.Security.TokenSymmetricKey))
 	_, _ = mac.Write([]byte("bdspro.auth.subject.v1\x00" + string(action) + "\x00" + subject))
 	event, err := limiter.CheckSubject(ctx, action, hex.EncodeToString(mac.Sum(nil)))
-	if err != nil {
-		ctx.APIError(http.StatusServiceUnavailable, "rate_limit_unavailable", "request admission unavailable")
-		return false
-	}
-	if !event.Allowed {
-		if event.RetryAfter > 0 {
-			ctx.Header("Retry-After", strconv.FormatInt(event.RetryAfter, 10))
-		}
-		ctx.APIError(http.StatusTooManyRequests, "rate_limited", "too many requests")
-		return false
-	}
-	return true
+	return ctx.Admit(action, "subject", event, err)
 }
 
 func Refresh(ctx *appctx.APIContext) {

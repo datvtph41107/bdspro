@@ -14,6 +14,7 @@ func saveGlobals(t *testing.T) {
 	wasPublished := publication.done
 	publication.Unlock()
 	oldServer, oldAPI, oldSecurity, oldIP := Server, API, Security, IPActive
+	oldPhoneDelivery := PhoneDelivery
 	oldDB, oldRedis, oldMailer, oldSMS, oldGoogle := Database, Redis, Mailer, SMS, Google
 	t.Cleanup(func() {
 		publication.Lock()
@@ -21,6 +22,7 @@ func saveGlobals(t *testing.T) {
 		AppWorkPath, CustomPath, CustomConf, Common = oldWork, oldCustom, oldConf, oldCommon
 		publication.done = wasPublished
 		Server, API, Security, IPActive = oldServer, oldAPI, oldSecurity, oldIP
+		PhoneDelivery = oldPhoneDelivery
 		Database, Redis, Mailer, SMS, Google = oldDB, oldRedis, oldMailer, oldSMS, oldGoogle
 	})
 }

@@ -279,7 +279,7 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 			}
 		} else {
 
-			a, err := q.CreatePhoneOnlyAccount(txCtx, person)
+			a, err := q.CreateAccountWithoutEmail(txCtx, person)
 			if err != nil {
 				return LoginResult{}, err
 			}

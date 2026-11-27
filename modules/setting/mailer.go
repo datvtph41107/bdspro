@@ -9,6 +9,7 @@ import (
 )
 
 type MailerSettings struct {
+	Protocol string
 	Address  string
 	From     string
 	Username string
@@ -19,13 +20,20 @@ var Mailer MailerSettings
 
 func (m MailerSettings) Enabled() bool { return m.Address != "" }
 
-func loadMailerFrom(cfg ConfigProvider) (MailerSettings, error) {
+func loadMailerFrom(cfg ConfigProvider, runMode string) (MailerSettings, error) {
 	sec := cfg.Section("mailer")
 	m := MailerSettings{
+		Protocol: stringOrDefault(sec.Key("SMTP_PROTOCOL"), "smtps"),
 		Address:  sec.Key("SMTP_ADDRESS").String(),
 		From:     sec.Key("FROM").String(),
 		Username: sec.Key("USERNAME").String(),
 		Password: sec.Key("PASSWORD").String(),
+	}
+	if m.Protocol != "smtp" && m.Protocol != "smtps" {
+		return MailerSettings{}, errors.New("mailer SMTP_PROTOCOL must be smtp or smtps")
+	}
+	if m.Protocol == "smtp" && (runMode != "development" || m.Username != "" || m.Password != "") {
+		return MailerSettings{}, errors.New("plain SMTP is only supported in development without credentials")
 	}
 	if !m.Enabled() {
 		if m.From != "" || m.Username != "" || m.Password != "" {

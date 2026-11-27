@@ -26,7 +26,7 @@ func InitEngine(ctx context.Context) error {
 		return ErrEngineAlreadyInitialized
 	}
 
-	pool, err := Connect(ctx, setting.Database.DBSource)
+	pool, err := connect(ctx, setting.Database.DBSource, &queryLogger{mode: setting.Database.LogSQL, slow: setting.Database.SlowQueryThreshold})
 	if err != nil {
 		return err
 	}

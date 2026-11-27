@@ -11,10 +11,31 @@ import (
 	"strings"
 	"time"
 
+	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 )
 
 var ErrUnavailable = errors.New("mail delivery unavailable")
+
+// SendDevelopmentPhoneCode captures an OTP in the local Mailpit inbox only.
+func SendDevelopmentPhoneCode(ctx context.Context, phone, code, channel string) error {
+	canonical, err := token.NormalizePhone(phone, "")
+	host, _, addressErr := net.SplitHostPort(setting.Mailer.Address)
+	ip := net.ParseIP(host)
+	local := host == "localhost" || host == "mailpit" || ip != nil && ip.IsLoopback()
+	if setting.Common.RunMode != "development" || setting.Mailer.Protocol != "smtp" ||
+		addressErr != nil || !local || err != nil || canonical != phone || !token.ValidPhoneCode(code) ||
+		channel != "sms" && channel != "zalo" && channel != "telegram" {
+		return ErrUnavailable
+	}
+	destination := channel + "." + strings.TrimPrefix(phone, "+") + "@phone.invalid"
+	message, err := plainMessage(setting.Mailer.From, destination, "[DEV "+channel+"] BDSPro phone verification",
+		"Development delivery only.\r\nChannel: "+channel+"\r\nPhone: "+phone+"\r\nVerification code: "+code+"\r\nExpires in 5 minutes.\r\n")
+	if err != nil {
+		return err
+	}
+	return sendMessage(ctx, destination, message)
+}
 
 func SendPasswordReset(ctx context.Context, destination, proof string) error {
 	message, err := resetMessage(setting.Mailer.From, destination, proof)
@@ -47,9 +68,20 @@ func sendMessage(ctx context.Context, destination, message string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	conn, err := (&tls.Dialer{Config: &tls.Config{
-		ServerName: host, MinVersion: tls.VersionTLS12,
-	}}).DialContext(ctx, "tcp", m.Address)
+	var conn net.Conn
+	switch m.Protocol {
+	case "smtp":
+		if setting.Common.RunMode != "development" || m.Username != "" || m.Password != "" {
+			return ErrUnavailable
+		}
+		conn, err = (&net.Dialer{}).DialContext(ctx, "tcp", m.Address)
+	case "", "smtps":
+		conn, err = (&tls.Dialer{Config: &tls.Config{
+			ServerName: host, MinVersion: tls.VersionTLS12,
+		}}).DialContext(ctx, "tcp", m.Address)
+	default:
+		return ErrUnavailable
+	}
 	if err != nil {
 		return ErrUnavailable
 	}

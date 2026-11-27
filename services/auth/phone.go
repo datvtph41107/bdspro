@@ -10,8 +10,8 @@ import (
 	"github.com/datvtph41107/bdspro/models/db"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/sms"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/services/phonedelivery"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -24,7 +24,11 @@ type PhoneVerification struct {
 	Proof RegistrationVerification
 }
 
-func StartPhone(ctx context.Context, phone string, browser []byte) (RegistrationChallenge, error) {
+func StartPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, phone string, browser []byte, channel phonedelivery.Channel) (RegistrationChallenge, error) {
+	channel, err := phoneDelivery.ResolveChannel(string(channel))
+	if err != nil {
+		return RegistrationChallenge{}, err
+	}
 	id, err := uuid.NewRandom()
 	if err != nil {
 		return RegistrationChallenge{}, err
@@ -37,19 +41,21 @@ func StartPhone(ctx context.Context, phone string, browser []byte) (Registration
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if _, err := q.DeleteExpiredPhoneContinuations(ctx, 100); err != nil {
+	if _, err := q.DeleteExpiredPhoneVerifications(ctx, 100); err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if err := q.CreatePhoneContinuation(ctx, db.CreatePhoneContinuationParams{
+	if err := q.CreatePhoneVerification(ctx, db.CreatePhoneVerificationParams{
 		ID: id, PhoneE164: phone, BrowserDigest: browser,
 		CodeMac: token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, phone, browser, code),
 	}); err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if err := sms.SendCode(ctx, phone, code); err != nil {
+	if _, err := phoneDelivery.SendCode(ctx, channel, phone, code); err != nil {
 		return RegistrationChallenge{}, err
 	}
-	return challengeResult(id), nil
+	result := challengeResult(id)
+	result.DeliveryChannel = string(channel)
+	return result, nil
 }
 
 func PhoneDestination(ctx context.Context, id uuid.UUID, browser []byte) (string, error) {
@@ -57,14 +63,18 @@ func PhoneDestination(ctx context.Context, id uuid.UUID, browser []byte) (string
 	if err != nil {
 		return "", err
 	}
-	phone, err := q.ReadPhoneContinuationDestination(ctx, db.ReadPhoneContinuationDestinationParams{ID: id, BrowserDigest: browser})
+	phone, err := q.ReadPhoneVerificationDestination(ctx, db.ReadPhoneVerificationDestinationParams{ID: id, BrowserDigest: browser})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrRegistrationProof
 	}
 	return phone, err
 }
 
-func ResendPhone(ctx context.Context, id uuid.UUID, browser []byte) (RegistrationChallenge, error) {
+func ResendPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, id uuid.UUID, browser []byte, channel phonedelivery.Channel) (RegistrationChallenge, error) {
+	channel, err := phoneDelivery.ResolveChannel(string(channel))
+	if err != nil {
+		return RegistrationChallenge{}, err
+	}
 	code, err := token.NewPhoneCode()
 	if err != nil {
 		return RegistrationChallenge{}, err
@@ -74,14 +84,14 @@ func ResendPhone(ctx context.Context, id uuid.UUID, browser []byte) (Registratio
 		if err != nil {
 			return "", err
 		}
-		row, err := q.LockPhoneContinuation(txCtx, db.LockPhoneContinuationParams{ID: id, BrowserDigest: browser})
+		row, err := q.LockPhoneVerification(txCtx, db.LockPhoneVerificationParams{ID: id, BrowserDigest: browser})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", ErrRegistrationProof
 		}
 		if err != nil {
 			return "", err
 		}
-		n, err := q.RotatePhoneContinuation(txCtx, db.RotatePhoneContinuationParams{
+		n, err := q.RotatePhoneVerification(txCtx, db.RotatePhoneVerificationParams{
 			ID: id, CodeMac: token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, row.PhoneE164, browser, code),
 		})
 		if err != nil {
@@ -95,10 +105,12 @@ func ResendPhone(ctx context.Context, id uuid.UUID, browser []byte) (Registratio
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if err := sms.SendCode(ctx, phone, code); err != nil {
+	if _, err := phoneDelivery.SendCode(ctx, channel, phone, code); err != nil {
 		return RegistrationChallenge{}, err
 	}
-	return challengeResult(id), nil
+	result := challengeResult(id)
+	result.DeliveryChannel = string(channel)
+	return result, nil
 }
 
 func VerifyPhone(ctx context.Context, id uuid.UUID, browser []byte, code string, remember bool, ip, agent string) (PhoneVerification, error) {
@@ -111,7 +123,7 @@ func VerifyPhone(ctx context.Context, id uuid.UUID, browser []byte, code string,
 		if err != nil {
 			return PhoneVerification{}, err
 		}
-		row, err := q.LockPhoneContinuation(txCtx, db.LockPhoneContinuationParams{ID: id, BrowserDigest: browser})
+		row, err := q.LockPhoneVerification(txCtx, db.LockPhoneVerificationParams{ID: id, BrowserDigest: browser})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PhoneVerification{}, nil
 		}
@@ -123,11 +135,11 @@ func VerifyPhone(ctx context.Context, id uuid.UUID, browser []byte, code string,
 		}
 		expected := token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, row.PhoneE164, browser, code)
 		if !token.ValidPhoneCode(code) || !hmac.Equal(expected, row.CodeMac) {
-			return PhoneVerification{}, q.FailPhoneContinuation(txCtx, id)
+			return PhoneVerification{}, q.FailPhoneVerification(txCtx, id)
 		}
 		owner, err := q.GetPhoneAccountIDQuery(txCtx, row.PhoneE164)
 		if errors.Is(err, pgx.ErrNoRows) {
-			n, err := q.VerifyPhoneContinuation(txCtx, db.VerifyPhoneContinuationParams{ID: id, ProofDigest: digest})
+			n, err := q.VerifyPhoneVerification(txCtx, db.VerifyPhoneVerificationParams{ID: id, ProofDigest: digest})
 			if err != nil || n != 1 {
 				return PhoneVerification{}, err
 			}
@@ -158,7 +170,7 @@ func VerifyPhone(ctx context.Context, id uuid.UUID, browser []byte, code string,
 		if !row.ExpiresAt.After(time.Now()) {
 			return PhoneVerification{}, ErrRegistrationCode
 		}
-		if err := q.DeletePhoneContinuation(txCtx, id); err != nil {
+		if err := q.DeletePhoneVerification(txCtx, id); err != nil {
 			return PhoneVerification{}, err
 		}
 		login, err := issueSession(txCtx, q, owner, ip, agent, remember)
@@ -190,7 +202,7 @@ func CompletePhone(ctx context.Context, raw string, browser []byte, username, te
 		if err != nil {
 			return LoginResult{}, err
 		}
-		proof, err := q.LockPhoneContinuationProof(txCtx, db.LockPhoneContinuationProofParams{ProofDigest: digest, BrowserDigest: browser})
+		proof, err := q.LockPhoneVerificationProof(txCtx, db.LockPhoneVerificationProofParams{ProofDigest: digest, BrowserDigest: browser})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return LoginResult{}, ErrRegistrationProof
 		}
@@ -209,7 +221,7 @@ func CompletePhone(ctx context.Context, raw string, browser []byte, username, te
 		if err := q.CreatePerson(txCtx, person); err != nil {
 			return LoginResult{}, err
 		}
-		account, err := q.CreatePhoneOnlyAccount(txCtx, person)
+		account, err := q.CreateAccountWithoutEmail(txCtx, person)
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -245,7 +257,7 @@ func CompletePhone(ctx context.Context, raw string, browser []byte, username, te
 		}); err != nil {
 			return LoginResult{}, err
 		}
-		if err := q.DeletePhoneContinuation(txCtx, proof.ID); err != nil {
+		if err := q.DeletePhoneVerification(txCtx, proof.ID); err != nil {
 			return LoginResult{}, err
 		}
 		return issueSession(txCtx, q, account.ID, ip, agent, remember)

@@ -17,6 +17,7 @@ import (
 	api "github.com/datvtph41107/bdspro/routers/api"
 	apiv1 "github.com/datvtph41107/bdspro/routers/api/v1"
 	"github.com/datvtph41107/bdspro/routers/common"
+	"github.com/datvtph41107/bdspro/services/phonedelivery"
 )
 
 func InitWebInstalled(ctx context.Context) error {
@@ -62,7 +63,7 @@ func PrepareWebRoutes() (http.Handler, error) {
 	if err := routes.SetTrustedProxies(setting.Server.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("configure HTTP trusted proxies: %w", err)
 	}
-	return routes.WrapIngress(), nil
+	return requestLogging(routes.WrapIngress()), nil
 }
 
 func NormalHandler(routes http.Handler) (http.Handler, error) {
@@ -77,9 +78,14 @@ func NormalHandler(routes http.Handler) (http.Handler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("configure IP admission: %w", err)
 	}
+	phoneDelivery, err := phonedelivery.New(setting.PhoneDelivery, setting.SMS, setting.Common.RunMode)
+	if err != nil {
+		return nil, fmt.Errorf("configure phone delivery: %w", err)
+	}
 	admission := ipactive.NewMiddleware(limiter)
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		req = req.WithContext(ipactive.WithMiddleware(req.Context(), admission))
+		req = req.WithContext(phonedelivery.WithService(req.Context(), phoneDelivery))
 		routes.ServeHTTP(w, req)
 	}), nil
 }

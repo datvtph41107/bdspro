@@ -37,6 +37,11 @@ func registrationBrowser(ctx *appctx.APIContext) ([]byte, error) {
 func writeRegistrationError(ctx *appctx.APIContext, err error) {
 	switch {
 	case errors.Is(err, delivery.ErrUnavailable):
+		if !setting.Mailer.Enabled() {
+			ctx.Data[appctx.ErrorReasonKey] = "mailer_not_configured"
+		} else {
+			ctx.Data[appctx.ErrorReasonKey] = "email_delivery_failed"
+		}
 		ctx.APIError(http.StatusServiceUnavailable, "service_unavailable", "email delivery unavailable")
 	case errors.Is(err, authservice.ErrRegistrationWait):
 		ctx.Header("Retry-After", "60")

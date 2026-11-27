@@ -13,7 +13,7 @@ import (
 )
 
 const consumeRecentAuthProof = `-- name: ConsumeRecentAuthProof :one
-DELETE FROM recent_auth_proofs
+DELETE FROM auth_proofs
 WHERE digest=$1::bytea AND account_id=$2::bigint
 AND session_id=$3::uuid AND action=$4::text AND expires_at>clock_timestamp()
 RETURNING method,email_snapshot,google_subject
@@ -45,7 +45,7 @@ func (q *Queries) ConsumeRecentAuthProof(ctx context.Context, arg ConsumeRecentA
 }
 
 const createGoogleRecentAuthProof = `-- name: CreateGoogleRecentAuthProof :execrows
-INSERT INTO recent_auth_proofs(digest,account_id,session_id,action,method,google_subject,expires_at)
+INSERT INTO auth_proofs(digest,account_id,session_id,action,method,google_subject,expires_at)
 SELECT $1::bytea,$2::bigint,$3::uuid,$4::text,
     'google',$5::text,LEAST(clock_timestamp()+interval '10 minutes',to_timestamp($6::bigint)+interval '10 minutes')
 WHERE to_timestamp($6::bigint)>clock_timestamp()-interval '5 minutes'
@@ -77,7 +77,7 @@ func (q *Queries) CreateGoogleRecentAuthProof(ctx context.Context, arg CreateGoo
 }
 
 const createRecentAuthProof = `-- name: CreateRecentAuthProof :exec
-INSERT INTO recent_auth_proofs(digest,account_id,session_id,action,method,email_snapshot,expires_at)
+INSERT INTO auth_proofs(digest,account_id,session_id,action,method,email_snapshot,expires_at)
 VALUES ($1::bytea,$2::bigint,$3::uuid,
     $4::text,$5::text,$6::text,clock_timestamp()+interval '10 minutes')
 `
@@ -104,7 +104,7 @@ func (q *Queries) CreateRecentAuthProof(ctx context.Context, arg CreateRecentAut
 }
 
 const deleteAccountRecentAuthProofs = `-- name: DeleteAccountRecentAuthProofs :exec
-DELETE FROM recent_auth_proofs WHERE account_id=$1
+DELETE FROM auth_proofs WHERE account_id=$1
 `
 
 func (q *Queries) DeleteAccountRecentAuthProofs(ctx context.Context, accountID int64) error {
@@ -113,8 +113,8 @@ func (q *Queries) DeleteAccountRecentAuthProofs(ctx context.Context, accountID i
 }
 
 const deleteExpiredRecentAuthProofs = `-- name: DeleteExpiredRecentAuthProofs :execrows
-DELETE FROM recent_auth_proofs WHERE digest IN (
-    SELECT digest FROM recent_auth_proofs WHERE expires_at<clock_timestamp()
+DELETE FROM auth_proofs WHERE digest IN (
+    SELECT digest FROM auth_proofs WHERE expires_at<clock_timestamp()
     ORDER BY expires_at LIMIT $1::integer FOR UPDATE SKIP LOCKED
 )
 `

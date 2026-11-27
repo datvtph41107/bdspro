@@ -11,8 +11,8 @@ h1{font-size:24px;line-height:1.3;margin:15px 0 25px;text-align:center;color:#10
 form,.account{display:grid;gap:17px;margin-top:20px}
 .field{display:grid;gap:5px;font-size:14px;font-weight:600;color:#686868}
 .label-row{display:flex;justify-content:space-between;align-items:center}
-.field input{font:inherit;font-weight:400;border:1px solid #aaa;border-radius:4px;min-height:42px;padding:10px 13px;background:#fff;color:#171717;width:100%}
-.field input:focus{outline:2px solid #b9cde8;outline-offset:1px}
+.field input,.field select{font:inherit;font-weight:400;border:1px solid #aaa;border-radius:4px;min-height:42px;padding:10px 13px;background:#fff;color:#171717;width:100%}
+.field input:focus,.field select:focus{outline:2px solid #b9cde8;outline-offset:1px}
 .check{display:flex;gap:9px;align-items:flex-start;font-size:14px;color:#333}
 .check input{width:17px;height:17px;margin:3px 0 0;accent-color:#1269c7;flex:none}
 button{font:inherit;cursor:pointer}

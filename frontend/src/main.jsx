@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { api, assertAuthenticated, messages } from './api.js';
 import './styles.css';
 
+const channelLabels = {sms: 'SMS', zalo: 'Zalo', telegram: 'Telegram'};
 const initialScreen = location.pathname === '/auth/google/return' ? 'googleReturn' : 'register';
 const titles = {
   register: 'Create BDSPro account', login: 'Sign in to BDSPro',
@@ -27,6 +28,10 @@ function App() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneChannel, setPhoneChannel] = useState('sms');
+  const [phoneChannels, setPhoneChannels] = useState([]);
+  const [phoneDevelopment, setPhoneDevelopment] = useState(false);
+  const [phoneChannelsLoaded, setPhoneChannelsLoaded] = useState(false);
   const [country, setCountry] = useState('VN');
   const [code, setCode] = useState('');
   const [remember, setRemember] = useState(true);
@@ -48,6 +53,19 @@ function App() {
     return () => clearInterval(timer);
   }, []);
   useEffect(() => { checkHealth(); }, []);
+  useEffect(() => {
+    let active = true;
+    api('/auth/phone/channels').then(data => {
+      if (!active) return;
+      const channels = Array.isArray(data.channels) ? data.channels.filter(c => Object.hasOwn(channelLabels, c)) : [];
+      setPhoneChannels(channels);
+      setPhoneChannel(channels.includes(data.default_channel) ? data.default_channel : channels[0] || '');
+      setPhoneDevelopment(data.development === true);
+    }).catch(() => {
+      if (active) setPhoneChannels([]);
+    }).finally(() => { if (active) setPhoneChannelsLoaded(true); });
+    return () => { active = false; };
+  }, []);
 
   async function checkHealth() {
     setHealth('Checking API…');
@@ -91,6 +109,7 @@ function App() {
   function acceptChallenge(data, next) {
     if (data?.status !== 'verification_required' || typeof data.challenge_id !== 'string') throw new Error('Unexpected challenge response');
     setChallenge({ id: data.challenge_id, resendAt: Date.now() + (Number(data.resend_after) || 0) * 1000 });
+    if (next === 'verifyPhone' && Object.hasOwn(channelLabels, data.delivery_channel)) setPhoneChannel(data.delivery_channel);
     setScreen(next); setPassword(''); setCode('');
   }
 
@@ -103,7 +122,7 @@ function App() {
       } else if (screen === 'login') {
         accept(await post('/auth/login', {identifier,password,stay_signed_in:remember}), 'email');
       } else if (screen === 'phone') {
-        acceptChallenge(await post('/auth/phone/start', {phone,country_code:country}), 'verifyPhone');
+        acceptChallenge(await post('/auth/phone/start', {phone,country_code:country,channel:phoneChannel}), 'verifyPhone');
       } else if (screen === 'verifyEmail' || screen === 'verifyPhone') {
         const kind = screen === 'verifyEmail' ? 'email' : 'phone';
         accept(await post(kind === 'email' ? '/auth/register/verify' : '/auth/phone/verify', {challenge_id:challenge.id,code,...(kind === 'phone' ? {stay_signed_in:remember} : {})}), kind);
@@ -122,7 +141,7 @@ function App() {
     });
   };
   const resendSeconds = challenge ? Math.max(0, Math.ceil((challenge.resendAt - now)/1000)) : 0;
-  const resend = () => run(async () => acceptChallenge(await post(screen === 'verifyEmail' ? '/auth/register/resend' : '/auth/phone/resend',{challenge_id:challenge.id}),screen));
+  const resend = () => run(async () => acceptChallenge(await post(screen === 'verifyEmail' ? '/auth/register/resend' : '/auth/phone/resend',{challenge_id:challenge.id,...(screen === 'verifyPhone' ? {channel:phoneChannel} : {})}),screen));
   const google = () => { location.assign('/api/v1/auth/google/start?stay_signed_in=' + remember); };
   const refresh = () => run(async () => accept(await post('/auth/refresh',{}),'email'));
   const logout = () => run(async () => { await post('/auth/logout',{}); setSession(null); go('login'); });
@@ -168,6 +187,17 @@ function App() {
           <label className="field">Country code<input required maxLength={2} value={country} onChange={e=>setCountry(e.target.value.toUpperCase())} /></label>
           <label className="field">Phone number<input required type="tel" autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)} /></label>
         </>}
+        {(screen === 'phone' || screen === 'verifyPhone') && <>
+          <label className="field">Receive code via
+            <select required value={phoneChannel} disabled={busy || !phoneChannels.length} onChange={e=>setPhoneChannel(e.target.value)}>
+              {phoneChannels.map(channel=><option key={channel} value={channel}>{channelLabels[channel]}</option>)}
+            </select>
+          </label>
+          {!phoneChannelsLoaded ? <p className="hint">Loading delivery options…</p> :
+            !phoneChannels.length ? <p className="hint">Phone verification is currently unavailable.</p> :
+            phoneDevelopment ? <p className="hint">Development mode: find the code in your local test inbox.</p> :
+            phoneChannel !== 'sms' && <p className="hint">Use the same phone number registered with {channelLabels[phoneChannel]}. If you cannot receive a code, choose another available channel and resend when the timer allows.</p>}
+        </>}
         {(screen === 'verifyEmail' || screen === 'verifyPhone') && <>
           <label className="field">Verification code<input required inputMode="numeric" autoComplete="one-time-code" value={code} onChange={e=>setCode(e.target.value)} /></label>
           <button type="button" className="text-button" disabled={busy || resendSeconds > 0} onClick={resend}>{resendSeconds ? 'Resend in ' + resendSeconds + 's' : 'Resend code'}</button>
@@ -179,7 +209,7 @@ function App() {
           <label className="check"><input required type="checkbox" checked={terms} onChange={e=>setTerms(e.target.checked)} />I accept the development-only terms and privacy notice (v1).</label>
           <p className="hint">Test consent only. Approved legal terms and privacy URLs are a production gate.</p>
         </>}
-        <button type="submit" className="primary" disabled={busy}>{busy ? 'Please wait…' : submitLabel}</button>
+        <button type="submit" className="primary" disabled={busy || (screen === 'phone' && !phoneChannels.length)}>{busy ? 'Please wait…' : submitLabel}</button>
         {screen === 'login' && <button type="button" className="text-button" onClick={()=>go('forgot')}>Forgot password?</button>}
       </form>}
       {showAlternatives && <>

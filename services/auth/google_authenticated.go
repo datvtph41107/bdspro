@@ -56,11 +56,15 @@ func StartAuthenticatedGoogle(ctx context.Context, actor authmodel.Actor, purpos
 		if err != nil {
 			return GoogleStartResult{}, err
 		}
-		if err := q.CreateGoogleAuthenticatedIntent(txCtx, db.CreateGoogleAuthenticatedIntentParams{
+		n, err := q.BindGoogleFlow(txCtx, db.BindGoogleFlowParams{
 			BrowserDigest: digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
 			Purpose: purpose, Action: action,
-		}); err != nil {
+		})
+		if err != nil {
 			return GoogleStartResult{}, err
+		}
+		if n != 1 {
+			return GoogleStartResult{}, ErrRegistrationProof
 		}
 		if purpose == "reauth" {
 			result.URL, err = token.GoogleStepUpURL(result.URL)

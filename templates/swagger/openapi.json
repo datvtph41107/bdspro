@@ -2550,6 +2550,15 @@
                   "country_code": {
                     "type": "string",
                     "maxLength": 2
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "sms",
+                      "zalo",
+                      "telegram"
+                    ],
+                    "description": "Explicit delivery channel; omitted uses the server default. Resend can switch channels for the same bound phone."
                   }
                 }
               }
@@ -2646,7 +2655,7 @@
           "Authentication"
         ],
         "operationId": "resendPhoneContinuation",
-        "summary": "Rotate phone verification code subject to shared SMS budget",
+        "summary": "Rotate phone verification code subject to a shared budget across all channels",
         "parameters": [
           {
             "name": "Origin",
@@ -2678,6 +2687,15 @@
                   "challenge_id": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "sms",
+                      "zalo",
+                      "telegram"
+                    ],
+                    "description": "Explicit delivery channel; omitted uses the server default. Resend can switch channels for the same bound phone."
                   }
                 },
                 "required": [
@@ -5022,6 +5040,15 @@
                   "reauthentication_proof": {
                     "type": "string",
                     "maxLength": 128
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "sms",
+                      "zalo",
+                      "telegram"
+                    ],
+                    "description": "Explicit delivery channel; omitted uses the server default. Resend can switch channels for the same bound phone."
                   }
                 },
                 "required": [
@@ -8578,6 +8605,51 @@
           }
         }
       }
+    },
+    "/api/v1/auth/phone/channels": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "getPhoneDeliveryChannels",
+        "summary": "Configured delivery channels; does not check third-party account membership",
+        "responses": {
+          "200": {
+            "description": "Available channels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "channels",
+                    "default_channel",
+                    "development"
+                  ],
+                  "properties": {
+                    "channels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "sms",
+                          "zalo",
+                          "telegram"
+                        ]
+                      }
+                    },
+                    "default_channel": {
+                      "type": "string"
+                    },
+                    "development": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8979,6 +9051,15 @@
           },
           "resend_after": {
             "type": "integer"
+          },
+          "delivery_channel": {
+            "type": "string",
+            "enum": [
+              "sms",
+              "zalo",
+              "telegram"
+            ],
+            "description": "Present for phone challenges only."
           }
         },
         "required": [

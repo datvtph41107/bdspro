@@ -50,7 +50,7 @@ func (q *Queries) ConsumeEmailLinkChallenge(ctx context.Context, arg ConsumeEmai
 }
 
 const deleteAccountCredentialLinks = `-- name: DeleteAccountCredentialLinks :exec
-DELETE FROM credential_link_challenges WHERE account_id=$1
+DELETE FROM contact_links WHERE account_id=$1
 `
 
 func (q *Queries) DeleteAccountCredentialLinks(ctx context.Context, accountID int64) error {
@@ -59,7 +59,7 @@ func (q *Queries) DeleteAccountCredentialLinks(ctx context.Context, accountID in
 }
 
 const deleteCredentialLink = `-- name: DeleteCredentialLink :exec
-DELETE FROM credential_link_challenges WHERE id=$1
+DELETE FROM contact_links WHERE id=$1
 `
 
 func (q *Queries) DeleteCredentialLink(ctx context.Context, id uuid.UUID) error {
@@ -68,8 +68,8 @@ func (q *Queries) DeleteCredentialLink(ctx context.Context, id uuid.UUID) error 
 }
 
 const deleteExpiredCredentialLinks = `-- name: DeleteExpiredCredentialLinks :execrows
-DELETE FROM credential_link_challenges WHERE id IN (
-    SELECT id FROM credential_link_challenges WHERE expires_at<clock_timestamp()-interval '30 minutes'
+DELETE FROM contact_links WHERE id IN (
+    SELECT id FROM contact_links WHERE expires_at<clock_timestamp()-interval '30 minutes'
     ORDER BY expires_at LIMIT $1::integer FOR UPDATE SKIP LOCKED
 )
 `
@@ -94,7 +94,7 @@ func (q *Queries) EmailLinkAddressTaken(ctx context.Context, btrim string) (bool
 }
 
 const failCredentialLink = `-- name: FailCredentialLink :exec
-UPDATE credential_link_challenges SET failed_attempts=failed_attempts+1 WHERE id=$1 AND failed_attempts<5
+UPDATE contact_links SET failed_attempts=failed_attempts+1 WHERE id=$1 AND failed_attempts<5
 `
 
 func (q *Queries) FailCredentialLink(ctx context.Context, id uuid.UUID) error {
@@ -103,7 +103,7 @@ func (q *Queries) FailCredentialLink(ctx context.Context, id uuid.UUID) error {
 }
 
 const lockCredentialLink = `-- name: LockCredentialLink :one
-SELECT destination,code_mac,expires_at,failed_attempts FROM credential_link_challenges
+SELECT destination,code_mac,expires_at,failed_attempts FROM contact_links
 WHERE id=$1::uuid AND account_id=$2::bigint
 AND session_id=$3::uuid AND kind=$4::text FOR UPDATE
 `
@@ -150,7 +150,7 @@ func (q *Queries) LockPhoneOnlyEmailAccount(ctx context.Context, id int64) (int6
 }
 
 const readCredentialLinkDestination = `-- name: ReadCredentialLinkDestination :one
-SELECT destination FROM credential_link_challenges
+SELECT destination FROM contact_links
 WHERE id=$1::uuid AND account_id=$2::bigint
 AND session_id=$3::uuid AND kind=$4::text
 `
@@ -193,15 +193,15 @@ func (q *Queries) SetVerifiedAccountEmail(ctx context.Context, arg SetVerifiedAc
 }
 
 const startCredentialLink = `-- name: StartCredentialLink :execrows
-INSERT INTO credential_link_challenges(id,account_id,session_id,kind,destination,code_mac,expires_at,resend_after)
+INSERT INTO contact_links(id,account_id,session_id,kind,destination,code_mac,expires_at,resend_after)
 VALUES ($1::uuid,$2::bigint,$3::uuid,$4::text,
     $5::text,$6::bytea,clock_timestamp()+interval '5 minutes',clock_timestamp()+interval '60 seconds')
 ON CONFLICT (account_id,kind) DO UPDATE SET
     id=EXCLUDED.id,session_id=EXCLUDED.session_id,destination=EXCLUDED.destination,code_mac=EXCLUDED.code_mac,
     expires_at=EXCLUDED.expires_at,resend_after=EXCLUDED.resend_after,
-    failed_attempts=CASE WHEN credential_link_challenges.expires_at<=clock_timestamp() THEN 0 ELSE credential_link_challenges.failed_attempts END
-WHERE credential_link_challenges.resend_after<=clock_timestamp()
-AND (credential_link_challenges.failed_attempts<5 OR credential_link_challenges.expires_at<=clock_timestamp())
+    failed_attempts=CASE WHEN contact_links.expires_at<=clock_timestamp() THEN 0 ELSE contact_links.failed_attempts END
+WHERE contact_links.resend_after<=clock_timestamp()
+AND (contact_links.failed_attempts<5 OR contact_links.expires_at<=clock_timestamp())
 `
 
 type StartCredentialLinkParams struct {

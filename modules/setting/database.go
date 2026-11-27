@@ -2,14 +2,18 @@ package setting
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type DatabaseSettings struct {
-	DBSource     string
-	MigrationURL string
+	DBSource           string
+	MigrationURL       string
+	LogSQL             string
+	SlowQueryThreshold time.Duration
 }
 
 var Database DatabaseSettings
@@ -20,7 +24,16 @@ func loadDBSetting(cfg ConfigProvider, workPath string) (DatabaseSettings, error
 	if err != nil {
 		return DatabaseSettings{}, err
 	}
+	mode := stringOrDefault(sec.Key("LOG_SQL"), "slow")
+	if mode != "off" && mode != "slow" && mode != "all" {
+		return DatabaseSettings{}, errors.New("database.LOG_SQL must be off, slow or all")
+	}
+	threshold, err := time.ParseDuration(stringOrDefault(sec.Key("SLOW_QUERY_THRESHOLD"), "200ms"))
+	if err != nil || threshold <= 0 {
+		return DatabaseSettings{}, fmt.Errorf("database.SLOW_QUERY_THRESHOLD must be a positive duration")
+	}
 	return DatabaseSettings{
+		LogSQL: mode, SlowQueryThreshold: threshold,
 		DBSource:     sec.Key("DB_SOURCE").String(),
 		MigrationURL: migrationURL,
 	}, nil

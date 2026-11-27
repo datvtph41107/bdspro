@@ -145,7 +145,7 @@ func RemoveCredential(ctx context.Context, actor authmodel.Actor, kind, proof, i
 }
 
 func invalidateCredentialAuthority(ctx context.Context, q *db.Queries, accountID int64) error {
-	if err := q.DeleteAccountGoogleIntents(ctx, accountID); err != nil {
+	if err := q.DeleteAccountGoogleFlows(ctx, accountID); err != nil {
 		return err
 	}
 	if err := q.DeleteAccountCredentialLinks(ctx, accountID); err != nil {
@@ -181,7 +181,7 @@ func RevokeAllSessions(ctx context.Context, actor authmodel.Actor, proof string)
 		if err := ConsumeRecentAuthProof(txCtx, q, actor, proof, "sessions.revoke_all"); err != nil {
 			return err
 		}
-		if err := q.DeleteAccountGoogleIntents(txCtx, actor.AccountID); err != nil {
+		if err := q.DeleteAccountGoogleFlows(txCtx, actor.AccountID); err != nil {
 			return err
 		}
 		if err := q.DeleteAccountRecentAuthProofs(txCtx, actor.AccountID); err != nil {

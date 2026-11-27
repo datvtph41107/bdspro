@@ -11,14 +11,15 @@ import (
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	delivery "github.com/datvtph41107/bdspro/modules/mail"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/sms"
 	"github.com/datvtph41107/bdspro/modules/util"
+	"github.com/datvtph41107/bdspro/services/phonedelivery"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
-func StartContactLink(ctx context.Context, actor authmodel.Actor, kind, destination, proof string) (RegistrationChallenge, error) {
+func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service, actor authmodel.Actor, kind, destination, proof, channel string) (RegistrationChallenge, error) {
 	var code string
+	var deliveryChannel phonedelivery.Channel
 	var err error
 	switch kind {
 	case "email":
@@ -31,8 +32,9 @@ func StartContactLink(ctx context.Context, actor authmodel.Actor, kind, destinat
 		}
 		code, err = token.NewRegistrationCode()
 	case "phone":
-		if !setting.SMS.Enabled() {
-			return RegistrationChallenge{}, sms.ErrUnavailable
+		deliveryChannel, err = phoneDelivery.ResolveChannel(channel)
+		if err != nil {
+			return RegistrationChallenge{}, err
 		}
 		destination, err = token.NormalizePhone(destination, "")
 		if err != nil {
@@ -85,12 +87,14 @@ func StartContactLink(ctx context.Context, actor authmodel.Actor, kind, destinat
 	if kind == "email" {
 		err = delivery.SendRegistrationCode(ctx, destination, code)
 	} else {
-		err = sms.SendCode(ctx, destination, code)
+		_, err = phoneDelivery.SendCode(ctx, deliveryChannel, destination, code)
 	}
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	return challengeResult(id), nil
+	result := challengeResult(id)
+	result.DeliveryChannel = string(deliveryChannel)
+	return result, nil
 }
 
 func ContactLinkDestination(ctx context.Context, actor authmodel.Actor, kind string, id uuid.UUID) (string, error) {

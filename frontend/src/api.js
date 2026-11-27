@@ -12,7 +12,7 @@ const knownCodes = new Set([
   'validation_failed', 'invalid_verification_code', 'invalid_proof',
   'permission_denied', 'reauthentication_required', 'credential_conflict',
   'username_unavailable', 'rate_limited', 'service_unavailable',
-  'resource_not_found', 'internal_error',
+  'resource_not_found', 'internal_error', 'delivery_channel_unavailable',
 ]);
 
 export async function api(path, { method = 'GET', body, token, signal } = {}) {
@@ -29,10 +29,10 @@ export async function api(path, { method = 'GET', body, token, signal } = {}) {
   if (response.status === 204) return null;
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    const raw = data?.error?.code;
+    const raw = data?.code ?? data?.error?.code;
     const code = knownCodes.has(raw) ? raw :
       ({401:'authentication_required',403:'permission_denied',404:'endpoint_not_found',409:'credential_conflict',429:'rate_limited',503:'service_unavailable'}[response.status] || 'request_failed');
-    const id = data?.error?.request_id;
+    const id = response.headers.get('X-Request-ID') ?? data?.request_id ?? data?.error?.request_id;
     throw new ApiError(response.status, code, typeof id === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(id) ? id : undefined);
   }
   if (data === null) throw new ApiError(response.status, 'invalid_response');
@@ -48,6 +48,7 @@ export function assertAuthenticated(data) {
 }
 
 export const messages = {
+  delivery_channel_unavailable: 'This delivery channel is unavailable. Choose another channel.',
   endpoint_not_found: 'This endpoint is not available in the current backend. Check the IAM milestone.',
   invalid_credentials: 'Invalid email, username or password.',
   authentication_required: 'Please sign in again.',

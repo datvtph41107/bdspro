@@ -44,6 +44,32 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (C
 	return i, err
 }
 
+const createAccountWithoutEmail = `-- name: CreateAccountWithoutEmail :one
+INSERT INTO accounts (person_id, email) VALUES ($1, NULL)
+RETURNING id, person_id, COALESCE(email, '')::text AS email, created_at, is_email_verified
+`
+
+type CreateAccountWithoutEmailRow struct {
+	ID              int64     `json:"id"`
+	PersonID        int64     `json:"person_id"`
+	Email           string    `json:"email"`
+	CreatedAt       time.Time `json:"created_at"`
+	IsEmailVerified bool      `json:"is_email_verified"`
+}
+
+func (q *Queries) CreateAccountWithoutEmail(ctx context.Context, personID int64) (CreateAccountWithoutEmailRow, error) {
+	row := q.db.QueryRow(ctx, createAccountWithoutEmail, personID)
+	var i CreateAccountWithoutEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.PersonID,
+		&i.Email,
+		&i.CreatedAt,
+		&i.IsEmailVerified,
+	)
+	return i, err
+}
+
 const getAccountIdentity = `-- name: GetAccountIdentity :one
 SELECT COALESCE(username,'')::text AS username, status, COALESCE(terms_version,'')::text AS terms_version, marketing_opt_in
 FROM accounts WHERE id=$1

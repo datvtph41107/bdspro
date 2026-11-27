@@ -47,8 +47,14 @@ type UpdateUsernameRequest struct {
 }
 
 type PhoneStart struct {
+	Channel     string `json:"channel" binding:"omitempty,oneof=sms zalo telegram"`
 	Phone       string `json:"phone" binding:"required,max=32"`
 	CountryCode string `json:"country_code" binding:"max=2"`
+}
+
+type PhoneResend struct {
+	ChallengeID string `json:"challenge_id" binding:"required,max=36"`
+	Channel     string `json:"channel" binding:"omitempty,oneof=sms zalo telegram"`
 }
 
 type PhoneVerify struct {
@@ -92,6 +98,7 @@ type EmailLinkStart struct {
 }
 
 type PhoneLinkStart struct {
+	Channel               string `json:"channel" binding:"omitempty,oneof=sms zalo telegram"`
 	Phone                 string `json:"phone" binding:"required,max=32"`
 	CountryCode           string `json:"country_code" binding:"max=2"`
 	ReauthenticationProof string `json:"reauthentication_proof" binding:"required,max=128"`

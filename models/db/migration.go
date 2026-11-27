@@ -27,7 +27,7 @@ func validateCanonicalVersion(
 	if dirty {
 		return fmt.Errorf("database migration version %d is dirty", version)
 	}
-	if version == 0 || version > 41 {
+	if version == 0 || version > latestSchemaVersion {
 		return fmt.Errorf("unknown migration ledger version %d; provision a fresh canonical database and migrate data explicitly", version)
 	}
 
@@ -43,64 +43,7 @@ func validateCanonicalVersion(
 	}
 	defer conn.Close(context.Background())
 
-	var tables int
-	var parties, credentials, clients, deprecated, resetGeneration, accountIdentity, registrationChallenges, phoneChallenges, googleFlows, recentAuth, credentialLinks, googleIntents, inviteBinding bool
-	err = conn.QueryRow(queryCtx, `SELECT
-		(SELECT count(*)::integer FROM information_schema.tables
-		 WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-		   AND table_name <> 'schema_migrations'),
-		to_regclass('public.parties') IS NOT NULL,
-		to_regclass('public.oauth2_credentials') IS NOT NULL,
-		to_regclass('public.oauth_clients') IS NOT NULL,
-		(to_regclass('public.google_identities') IS NOT NULL
-		 OR to_regclass('public.organization_memberships') IS NOT NULL
-		 OR to_regclass('public.oauth2_credentials_archive') IS NOT NULL
-		 OR to_regclass('public.oauth2_identities') IS NOT NULL),
-		EXISTS (
-			SELECT 1 FROM information_schema.columns
-			WHERE table_schema='public' AND table_name='accounts'
-			  AND column_name='password_reset_version'
-		),
-		EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='accounts' AND column_name='username'),
-		to_regclass('public.email_registration_challenges') IS NOT NULL,
-		to_regclass('public.phone_continuation_challenges') IS NOT NULL,
-		to_regclass('public.google_auth_flows') IS NOT NULL,
-		to_regclass('public.recent_auth_proofs') IS NOT NULL,
-		to_regclass('public.credential_link_challenges') IS NOT NULL,
-		to_regclass('public.google_authenticated_intents') IS NOT NULL,
-		EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='team_invites' AND column_name='recipient_membership_id')`).Scan(
-		&tables, &parties, &credentials, &clients, &deprecated, &resetGeneration, &accountIdentity, &registrationChallenges, &phoneChallenges, &googleFlows, &recentAuth, &credentialLinks, &googleIntents, &inviteBinding,
-	)
-	if err != nil {
-		return fmt.Errorf("inspect canonical schema: %w", err)
-	}
-	expectedTables := int(version)
-	if version >= 28 {
-		expectedTables = 27
-	}
-	if version >= 33 {
-		expectedTables = 28
-	}
-	if version >= 35 {
-		expectedTables = 29
-	}
-	if version >= 36 {
-		expectedTables = 30
-	}
-	if version >= 37 {
-		expectedTables = 31
-	}
-	if version >= 39 {
-		expectedTables = 32
-	}
-	if version >= 40 {
-		expectedTables = 33
-	}
-	if !parties || tables != expectedTables || credentials != (version >= 18) ||
-		clients != (version >= 23) || resetGeneration != (version >= 28) || accountIdentity != (version >= 33) || registrationChallenges != (version >= 33) || phoneChallenges != (version >= 35) || googleFlows != (version >= 36) || recentAuth != (version >= 37) || credentialLinks != (version >= 39) || googleIntents != (version >= 40) || inviteBinding != (version >= 41) || deprecated {
-		return fmt.Errorf("database at migration version %d does not match the canonical schema (tables=%d); use an explicit data migration; refusing reinterpretation", version, tables)
-	}
-	return nil
+	return validateSchema(queryCtx, conn, version)
 }
 
 func validateUnversionedDatabase(

@@ -24,10 +24,11 @@ var (
 )
 
 type RegistrationChallenge struct {
-	Status      string    `json:"status"`
-	ChallengeID uuid.UUID `json:"challenge_id"`
-	ExpiresIn   int       `json:"expires_in"`
-	ResendAfter int       `json:"resend_after"`
+	DeliveryChannel string    `json:"delivery_channel,omitempty"`
+	Status          string    `json:"status"`
+	ChallengeID     uuid.UUID `json:"challenge_id"`
+	ExpiresIn       int       `json:"expires_in"`
+	ResendAfter     int       `json:"resend_after"`
 }
 
 type RegistrationVerification struct {

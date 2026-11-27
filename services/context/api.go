@@ -45,7 +45,11 @@ type APIContext struct {
 var _ context.Context = (*APIContext)(nil)
 var _ web_types.ResponseStatusProvider = (*APIContext)(nil)
 
-const ErrorCodeKey = "public_error_code"
+const (
+	ErrorCodeKey    = "public_error_code"
+	ErrorMessageKey = "public_error_message"
+	ErrorReasonKey  = "error_reason"
+)
 
 type APIErrorResponse struct {
 	Error string `json:"error"`
@@ -54,6 +58,17 @@ type APIErrorResponse struct {
 }
 
 func (c *APIContext) APIError(status int, code, message string) {
+	if !c.Written() {
+		c.Data[ErrorMessageKey] = message
+		if status == http.StatusUnauthorized || status == http.StatusForbidden {
+			logger := log.For(c, "security")
+			event := logger.Warn().Str("code", code).Int("status", status)
+			if reason, ok := c.Data[ErrorReasonKey].(string); ok {
+				event.Str("reason", reason)
+			}
+			event.Msg("auth.denied")
+		}
+	}
 	c.writeError(status, code, APIErrorResponse{Error: message, Code: code, URL: setting.API.SwaggerURL})
 }
 

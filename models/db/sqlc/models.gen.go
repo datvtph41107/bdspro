@@ -60,7 +60,18 @@ type AuditEvent struct {
 	TargetRef      pgtype.Text `json:"target_ref"`
 }
 
-type CredentialLinkChallenge struct {
+type AuthProof struct {
+	Digest        []byte    `json:"digest"`
+	AccountID     int64     `json:"account_id"`
+	SessionID     uuid.UUID `json:"session_id"`
+	Action        string    `json:"action"`
+	Method        string    `json:"method"`
+	EmailSnapshot string    `json:"email_snapshot"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	GoogleSubject string    `json:"google_subject"`
+}
+
+type ContactLink struct {
 	ID             uuid.UUID `json:"id"`
 	AccountID      int64     `json:"account_id"`
 	SessionID      uuid.UUID `json:"session_id"`
@@ -80,39 +91,23 @@ type EmailLinkChallenge struct {
 	NextSendAt time.Time `json:"next_send_at"`
 }
 
-type EmailRegistrationChallenge struct {
-	ID             uuid.UUID `json:"id"`
-	Email          string    `json:"email"`
-	BrowserDigest  []byte    `json:"browser_digest"`
-	CodeMac        []byte    `json:"code_mac"`
-	ProofDigest    []byte    `json:"proof_digest"`
-	ExpiresAt      time.Time `json:"expires_at"`
-	ResendAfter    time.Time `json:"resend_after"`
-	FailedAttempts int32     `json:"failed_attempts"`
-	CreatedAt      time.Time `json:"created_at"`
-}
-
-type GoogleAuthFlow struct {
-	BrowserDigest      []byte    `json:"browser_digest"`
-	StateDigest        []byte    `json:"state_digest"`
-	Nonce              string    `json:"nonce"`
-	Verifier           string    `json:"verifier"`
-	Phase              string    `json:"phase"`
-	Subject            string    `json:"subject"`
-	Email              string    `json:"email"`
-	AuthoritativeEmail bool      `json:"authoritative_email"`
-	ProofDigest        []byte    `json:"proof_digest"`
-	Remember           bool      `json:"remember"`
-	ExpiresAt          time.Time `json:"expires_at"`
-	AuthTime           int64     `json:"auth_time"`
-}
-
-type GoogleAuthenticatedIntent struct {
-	BrowserDigest []byte    `json:"browser_digest"`
-	AccountID     int64     `json:"account_id"`
-	SessionID     uuid.UUID `json:"session_id"`
-	Purpose       string    `json:"purpose"`
-	Action        string    `json:"action"`
+type GoogleFlow struct {
+	BrowserDigest      []byte      `json:"browser_digest"`
+	StateDigest        []byte      `json:"state_digest"`
+	Nonce              string      `json:"nonce"`
+	Verifier           string      `json:"verifier"`
+	Phase              string      `json:"phase"`
+	Subject            string      `json:"subject"`
+	Email              string      `json:"email"`
+	AuthoritativeEmail bool        `json:"authoritative_email"`
+	ProofDigest        []byte      `json:"proof_digest"`
+	Remember           bool        `json:"remember"`
+	ExpiresAt          time.Time   `json:"expires_at"`
+	AuthTime           int64       `json:"auth_time"`
+	AccountID          pgtype.Int8 `json:"account_id"`
+	SessionID          pgtype.UUID `json:"session_id"`
+	Purpose            string      `json:"purpose"`
+	Action             string      `json:"action"`
 }
 
 type JobOutbox struct {
@@ -237,24 +232,13 @@ type PersonProfile struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-type PhoneContinuationChallenge struct {
-	ID             uuid.UUID `json:"id"`
-	PhoneE164      string    `json:"phone_e164"`
-	BrowserDigest  []byte    `json:"browser_digest"`
-	CodeMac        []byte    `json:"code_mac"`
-	ProofDigest    []byte    `json:"proof_digest"`
-	ExpiresAt      time.Time `json:"expires_at"`
-	ResendAfter    time.Time `json:"resend_after"`
-	FailedAttempts int32     `json:"failed_attempts"`
-	CreatedAt      time.Time `json:"created_at"`
-}
-
 type PhoneCredential struct {
 	AccountID  int64     `json:"account_id"`
 	PhoneE164  string    `json:"phone_e164"`
 	VerifiedAt time.Time `json:"verified_at"`
 }
 
+// Legacy storage; no current runtime reader/writer. Retained to preserve historical data.
 type PhoneOtpChallenge struct {
 	PhoneE164              string      `json:"phone_e164"`
 	Purpose                string      `json:"purpose"`
@@ -268,6 +252,7 @@ type PhoneOtpChallenge struct {
 	LockedUntil            time.Time   `json:"locked_until"`
 }
 
+// Legacy storage; no current runtime reader/writer. Retained to preserve historical data.
 type PhoneSignupChallenge struct {
 	PhoneE164      string      `json:"phone_e164"`
 	CodeMac        []byte      `json:"code_mac"`
@@ -276,17 +261,6 @@ type PhoneSignupChallenge struct {
 	NextSendAt     time.Time   `json:"next_send_at"`
 	FailedAttempts int32       `json:"failed_attempts"`
 	LockedUntil    time.Time   `json:"locked_until"`
-}
-
-type RecentAuthProof struct {
-	Digest        []byte    `json:"digest"`
-	AccountID     int64     `json:"account_id"`
-	SessionID     uuid.UUID `json:"session_id"`
-	Action        string    `json:"action"`
-	Method        string    `json:"method"`
-	EmailSnapshot string    `json:"email_snapshot"`
-	ExpiresAt     time.Time `json:"expires_at"`
-	GoogleSubject string    `json:"google_subject"`
 }
 
 type Session struct {
@@ -327,6 +301,19 @@ type TeamMember struct {
 	TeamID   int64     `json:"team_id"`
 	PersonID int64     `json:"person_id"`
 	JoinedAt time.Time `json:"joined_at"`
+}
+
+type Verification struct {
+	Kind           string    `json:"kind"`
+	ID             uuid.UUID `json:"id"`
+	Destination    string    `json:"destination"`
+	BrowserDigest  []byte    `json:"browser_digest"`
+	CodeMac        []byte    `json:"code_mac"`
+	ProofDigest    []byte    `json:"proof_digest"`
+	ExpiresAt      time.Time `json:"expires_at"`
+	ResendAfter    time.Time `json:"resend_after"`
+	FailedAttempts int32     `json:"failed_attempts"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type VerifyEmail struct {

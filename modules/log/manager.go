@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -35,30 +33,30 @@ var manager = NewManager()
 func GetManager() *LoggerManager { return manager }
 
 func (m *LoggerManager) GetLogger(name string) *LoggerImpl {
-
-	return m.defaultLogger.Load()
+	current := m.defaultLogger.Load()
+	if name == "" || name == DEFAULT {
+		return current
+	}
+	return &LoggerImpl{inner: current.inner.With().Str("component", name).Logger()}
 }
 
-func newConsoleWriter(out io.Writer) io.Writer {
+func newConsoleWriter(out io.Writer, noColor bool) io.Writer {
 	return zerolog.ConsoleWriter{
-		Out: out, TimeFormat: "15:04:05",
+		Out: out, TimeFormat: "2006-01-02 15:04:05Z07:00", NoColor: noColor,
 		FormatLevel: func(value any) string {
 			level, err := zerolog.ParseLevel(fmt.Sprint(value))
 			if err != nil {
 				return "[???]"
 			}
 			tag := "[" + zerolog.FormattedLevels[level] + "]"
-			if c := zerolog.LevelColors[level]; c != 0 {
+			if c := zerolog.LevelColors[level]; !noColor && c != 0 {
 				return fmt.Sprintf("\x1b[%dm%s\x1b[0m", c, tag)
 			}
 			return tag
 		},
 	}
 }
-func (m *LoggerManager) setOutput(out io.Writer, owned io.Closer, format string, level zerolog.Level) error {
-	if format == "console" {
-		out = newConsoleWriter(out)
-	}
+func (m *LoggerManager) setOutput(out io.Writer, owned io.Closer, level zerolog.Level) error {
 	next := zerolog.New(zerolog.SyncWriter(out)).With().Timestamp().Logger().Level(level)
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -90,60 +88,10 @@ func (m *LoggerManager) Configure(out io.Writer, format string, level Level) err
 	if format != "json" && format != "console" {
 		return fmt.Errorf("invalid log format %q", format)
 	}
-	return m.setOutput(out, nil, format, level)
-}
-func (m *LoggerManager) ConfigureOutputs(mode, format, level, rootPath, fileName string) error {
-	if format != "json" && format != "console" {
-		return fmt.Errorf("invalid log format %q", format)
+	if format == "console" {
+		out = newConsoleWriter(out, false)
 	}
-	parsed, err := zerolog.ParseLevel(level)
-	if err != nil {
-		return fmt.Errorf("invalid log level: %w", err)
-	}
-	var outputs []io.Writer
-	var owned io.Closer
-	seen := map[string]bool{}
-	for _, raw := range strings.Split(mode, ",") {
-		dest := strings.TrimSpace(raw)
-		if seen[dest] {
-			if owned != nil {
-				_ = owned.Close()
-			}
-			return fmt.Errorf("duplicate log output %q", dest)
-		}
-		seen[dest] = true
-		switch dest {
-		case "console":
-			outputs = append(outputs, os.Stderr)
-		case "file":
-			if fileName == "" || filepath.Base(fileName) != fileName || rootPath == "" {
-				return errors.New("invalid log file destination")
-			}
-
-			if err := os.MkdirAll(rootPath, 0700); err != nil {
-				return fmt.Errorf("prepare log directory %q: %w", rootPath, err)
-			}
-			f, openErr := os.OpenFile(filepath.Join(rootPath, fileName), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-			if openErr != nil {
-				return openErr
-			}
-			owned = f
-			outputs = append(outputs, f)
-		default:
-			if owned != nil {
-				_ = owned.Close()
-			}
-			return fmt.Errorf("unsupported log output %q", dest)
-		}
-	}
-	if len(outputs) == 0 {
-		return errors.New("no log outputs configured")
-	}
-	var out io.Writer = outputs[0]
-	if len(outputs) > 1 {
-		out = io.MultiWriter(outputs...)
-	}
-	return m.setOutput(out, owned, format, parsed)
+	return m.setOutput(out, nil, level)
 }
 func (m *LoggerManager) Close() {
 	m.mu.Lock()

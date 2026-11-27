@@ -24,38 +24,38 @@ UPDATE accounts SET email = sqlc.arg(email), is_email_verified = TRUE
 WHERE id = sqlc.arg(id) AND email IS NULL;
 
 -- name: StartCredentialLink :execrows
-INSERT INTO credential_link_challenges(id,account_id,session_id,kind,destination,code_mac,expires_at,resend_after)
+INSERT INTO contact_links(id,account_id,session_id,kind,destination,code_mac,expires_at,resend_after)
 VALUES (sqlc.arg(id)::uuid,sqlc.arg(account_id)::bigint,sqlc.arg(session_id)::uuid,sqlc.arg(kind)::text,
     sqlc.arg(destination)::text,sqlc.arg(code_mac)::bytea,clock_timestamp()+interval '5 minutes',clock_timestamp()+interval '60 seconds')
 ON CONFLICT (account_id,kind) DO UPDATE SET
     id=EXCLUDED.id,session_id=EXCLUDED.session_id,destination=EXCLUDED.destination,code_mac=EXCLUDED.code_mac,
     expires_at=EXCLUDED.expires_at,resend_after=EXCLUDED.resend_after,
-    failed_attempts=CASE WHEN credential_link_challenges.expires_at<=clock_timestamp() THEN 0 ELSE credential_link_challenges.failed_attempts END
-WHERE credential_link_challenges.resend_after<=clock_timestamp()
-AND (credential_link_challenges.failed_attempts<5 OR credential_link_challenges.expires_at<=clock_timestamp());
+    failed_attempts=CASE WHEN contact_links.expires_at<=clock_timestamp() THEN 0 ELSE contact_links.failed_attempts END
+WHERE contact_links.resend_after<=clock_timestamp()
+AND (contact_links.failed_attempts<5 OR contact_links.expires_at<=clock_timestamp());
 
 -- name: LockCredentialLink :one
-SELECT destination,code_mac,expires_at,failed_attempts FROM credential_link_challenges
+SELECT destination,code_mac,expires_at,failed_attempts FROM contact_links
 WHERE id=sqlc.arg(id)::uuid AND account_id=sqlc.arg(account_id)::bigint
 AND session_id=sqlc.arg(session_id)::uuid AND kind=sqlc.arg(kind)::text FOR UPDATE;
 
 -- name: ReadCredentialLinkDestination :one
-SELECT destination FROM credential_link_challenges
+SELECT destination FROM contact_links
 WHERE id=sqlc.arg(id)::uuid AND account_id=sqlc.arg(account_id)::bigint
 AND session_id=sqlc.arg(session_id)::uuid AND kind=sqlc.arg(kind)::text;
 
 -- name: FailCredentialLink :exec
-UPDATE credential_link_challenges SET failed_attempts=failed_attempts+1 WHERE id=$1 AND failed_attempts<5;
+UPDATE contact_links SET failed_attempts=failed_attempts+1 WHERE id=$1 AND failed_attempts<5;
 
 -- name: DeleteAccountCredentialLinks :exec
-DELETE FROM credential_link_challenges WHERE account_id=$1;
+DELETE FROM contact_links WHERE account_id=$1;
 
 -- name: DeleteCredentialLink :exec
-DELETE FROM credential_link_challenges WHERE id=$1;
+DELETE FROM contact_links WHERE id=$1;
 
 -- name: DeleteExpiredCredentialLinks :execrows
-DELETE FROM credential_link_challenges WHERE id IN (
-    SELECT id FROM credential_link_challenges WHERE expires_at<clock_timestamp()-interval '30 minutes'
+DELETE FROM contact_links WHERE id IN (
+    SELECT id FROM contact_links WHERE expires_at<clock_timestamp()-interval '30 minutes'
     ORDER BY expires_at LIMIT sqlc.arg(take)::integer FOR UPDATE SKIP LOCKED
 );
 

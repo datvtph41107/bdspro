@@ -6,21 +6,30 @@ import (
 
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/ipactive"
-	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/datvtph41107/bdspro/modules/sms"
 	"github.com/datvtph41107/bdspro/modules/structs"
 	"github.com/datvtph41107/bdspro/modules/web"
 	authservice "github.com/datvtph41107/bdspro/services/auth"
 	appctx "github.com/datvtph41107/bdspro/services/context"
+	"github.com/datvtph41107/bdspro/services/phonedelivery"
 	"github.com/google/uuid"
 )
 
 func writePhoneError(ctx *appctx.APIContext, err error) {
-	if errors.Is(err, sms.ErrUnavailable) {
-		ctx.APIError(http.StatusServiceUnavailable, "service_unavailable", "SMS delivery unavailable")
+	if errors.Is(err, phonedelivery.ErrUnavailable) {
+		var failure *phonedelivery.Failure
+		if errors.As(err, &failure) {
+			ctx.Data[appctx.ErrorReasonKey] = failure.Reason
+		}
+		ctx.APIError(http.StatusServiceUnavailable, "service_unavailable", "phone code delivery unavailable")
 		return
 	}
 	writeRegistrationError(ctx, err)
+}
+
+// PhoneChannels reports configured options, not membership on a third-party service.
+func PhoneChannels(ctx *appctx.APIContext) {
+	ctx.Header("Cache-Control", "no-store")
+	ctx.JSON(http.StatusOK, phonedelivery.FromContext(ctx).Options())
 }
 
 func smsAdmission(ctx *appctx.APIContext, phone string) bool {
@@ -38,8 +47,9 @@ func PhoneStart(ctx *appctx.APIContext) {
 		writePhoneError(ctx, authservice.ErrPhoneInvalid)
 		return
 	}
-	if !setting.SMS.Enabled() {
-		writePhoneError(ctx, sms.ErrUnavailable)
+	channel, err := phonedelivery.FromContext(ctx).ResolveChannel(form.Channel)
+	if err != nil {
+		writePhoneError(ctx, err)
 		return
 	}
 	if !smsAdmission(ctx, phone) {
@@ -50,7 +60,7 @@ func PhoneStart(ctx *appctx.APIContext) {
 		writePhoneError(ctx, err)
 		return
 	}
-	result, err := authservice.StartPhone(ctx, phone, browser)
+	result, err := authservice.StartPhone(ctx, phonedelivery.FromContext(ctx), phone, browser, channel)
 	if err != nil {
 		writePhoneError(ctx, err)
 		return
@@ -79,16 +89,17 @@ func phoneFlow(ctx *appctx.APIContext, rawID string) (uuid.UUID, []byte, string,
 
 func PhoneResend(ctx *appctx.APIContext) {
 	ctx.Header("Cache-Control", "no-store")
-	if !setting.SMS.Enabled() {
-		writePhoneError(ctx, sms.ErrUnavailable)
+	form := web.GetForm[*structs.PhoneResend](ctx)
+	channel, err := phonedelivery.FromContext(ctx).ResolveChannel(form.Channel)
+	if err != nil {
+		writePhoneError(ctx, err)
 		return
 	}
-	form := web.GetForm[*structs.RegistrationResend](ctx)
 	id, browser, phone, ok := phoneFlow(ctx, form.ChallengeID)
 	if !ok || !smsAdmission(ctx, phone) {
 		return
 	}
-	result, err := authservice.ResendPhone(ctx, id, browser)
+	result, err := authservice.ResendPhone(ctx, phonedelivery.FromContext(ctx), id, browser, channel)
 	if err != nil {
 		writePhoneError(ctx, err)
 		return
