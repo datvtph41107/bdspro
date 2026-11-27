@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/datvtph41107/bdspro/modules/graceful"
@@ -15,6 +16,9 @@ var defaultEngine struct {
 }
 
 func InitEngine(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("db: nil initialization context")
+	}
 	defaultEngine.mu.Lock()
 	defer defaultEngine.mu.Unlock()
 
@@ -26,7 +30,12 @@ func InitEngine(ctx context.Context) error {
 		return ErrEngineAlreadyInitialized
 	}
 
-	pool, err := connect(ctx, setting.Database.DBSource, &queryLogger{mode: setting.Database.LogSQL, slow: setting.Database.SlowQueryThreshold})
+	manager := graceful.GetManager()
+	if manager == nil {
+		return errors.New("db: graceful manager not initialized")
+	}
+
+	pool, err := openPool(ctx, setting.Database.DBSource, &queryLogger{mode: setting.Database.LogSQL, slow: setting.Database.SlowQueryThreshold})
 	if err != nil {
 		return err
 	}
@@ -36,7 +45,7 @@ func InitEngine(ctx context.Context) error {
 		return err
 	}
 
-	graceful.GetManager().RunAtTerminate(CloseEngine)
+	manager.RunAtTerminate(CloseEngine)
 
 	defaultEngine.value = &engine{
 		pool:    pool,

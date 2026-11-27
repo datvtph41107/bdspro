@@ -126,6 +126,14 @@ jobs:
           go test -race ./modules/auth -count=1
           echo "IAM key consumers (source inventory):"
           git grep -n 'TokenSymmetricKey' -- '*.go' ':!*_test.go'
+      - name: Verify PostgreSQL pool and engine lifecycle
+        run: |
+          test -z "$(gofmt -l models/db/conn.go models/db/engine_init.go models/db/engine_test.go)" || { gofmt -d models/db/conn.go models/db/engine_init.go models/db/engine_test.go; exit 1; }
+          if git grep -nE '\bdb\.Connect\(' -- '*.go' 'scripts/*.sh' 'scripts/*.py'; then
+            echo "Removed pool forwarding API still has a consumer"
+            exit 1
+          fi
+          BDSPRO_ENGINE_TEST_DATABASE_URL=postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable go test -race ./models/db -run '^Test(PostgresPoolReadiness|DefaultEngineLifecycle)$' -count=1 -v
       - name: Verify provider lifetime projection
         run: go test ./services/phonedelivery -run '^TestProviderContracts$' -count=1
       - name: Local HTTP and JSON correlation
