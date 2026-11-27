@@ -32,7 +32,7 @@ LOG_SQL = slow
 SLOW_QUERY_THRESHOLD = 200ms
 ```
 
-Console ghi stderr, có thời gian đầy đủ và chỉ bật màu khi stderr là terminal, NO_COLOR không được đặt. File JSON không có ANSI. Nếu không đặt FORMAT riêng từng đích, format kế thừa [log] FORMAT để giữ tương thích. ROOT_PATH tương đối được tính từ application work path. Cần restart để đọc cấu hình mới.
+Console ghi stderr, hiển thị giờ/phút/giây ở format console và chỉ bật màu khi stderr là terminal, NO_COLOR không được đặt. File JSON không có ANSI. Nếu không đặt FORMAT riêng từng đích, format kế thừa [log] FORMAT để giữ tương thích. ROOT_PATH tương đối được tính từ application work path. Cần restart để đọc cấu hình mới.
 
 Writer mở thử file khi startup: đường dẫn không ghi được làm startup báo lỗi. File mới tạo với quyền 0600, thư mục mới 0700; không tự thay quyền file/thư mục cũ. Khi file đạt ngưỡng, lumberjack xoay file, giữ backup theo giới hạn số lượng/tuổi; dọn backup có thể diễn ra bất đồng bộ. Không để nhiều process cùng ghi/rotate một file.
 
@@ -46,6 +46,32 @@ Tìm toàn bộ sự kiện của một request bằng X-Request-ID nhận trong
 
 ```sh
 jq -R --arg rid 'REQUEST_ID_FROM_RESPONSE' 'fromjson? | select(.request_id == $rid)' data/log/bdspro.log
+```
+
+## Console compact (developer)
+
+Khi `[log.console] FORMAT = console`, terminal ưu tiên thông tin theo loại event, không in toàn bộ JSON dưới dạng key=value. Thời gian chỉ hiển thị giờ/phút/giây (không thêm độ chính xác giả); file JSON vẫn giữ timestamp gốc.
+
+Ví dụ minh họa (giá trị giả lập):
+
+```text
+10:30:05 [D] sql: CreateSession 1.382ms rows=1 rid=8b6424f1
+10:30:05 [I] http: POST /api/v1/auth/login 200 8.732ms rid=8b6424f1
+10:30:10 [W] security: admission.denied action=login scope=source retry_after=60 rid=8b6424f1
+10:30:15 [E] delivery: sms accepted=false 5000ms reason=timeout provider_status=503 rid=8b6424f1
+```
+
+- UUID trong response X-Request-ID và JSON giữ nguyên. rid là 8 ký tự đầu để đọc nhanh; có thể trùng. Luôn dùng UUID đầy đủ để truy vấn chính xác.
+- HTTP chỉ ẩn bytes ở console; SQL có tên chỉ ẩn query_id. Query unnamed giữ fingerprint. Các trường lỗi, reason, SQLSTATE, provider metadata vẫn hiện.
+- Event không nhận diện được giữ định dạng key=value. Không thêm logging dữ liệu nhạy cảm.
+- File JSON và file text giữ nguyên dữ liệu/format trước đây; không áp dụng compact cho file. Production JSON không đổi. Không có thay đổi về level, router, request context, database tracer hoặc writer lifecycle.
+- Tham khảo [Gitea router logger](https://github.com/go-gitea/gitea/blob/99053ce4fa2b45f1bca5837418c0c57f793ca824/modules/web/routing/logger.go#L118-L123) và [Zerolog FormatPrepare](https://github.com/rs/zerolog/blob/v1.34.0/console.go#L138-L158). Chỉ học cách trình bày; không sao chép logging engine.
+
+Kiểm tra format và bảo toàn JSON bằng:
+
+```sh
+go test ./modules/log -run 'TestCompactConsolePreservesOriginalEvent|TestFullTextFileKeepsMetadata' -v -count=1
+go test ./modules/log ./modules/setting ./routers ./models/db -count=1
 ```
 
 ## Đọc lỗi theo nguyên nhân

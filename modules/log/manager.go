@@ -40,21 +40,31 @@ func (m *LoggerManager) GetLogger(name string) *LoggerImpl {
 	return &LoggerImpl{inner: current.inner.With().Str("component", name).Logger()}
 }
 
-func newConsoleWriter(out io.Writer, noColor bool) io.Writer {
-	return zerolog.ConsoleWriter{
+func newConsoleWriter(out io.Writer, noColor, compact bool) io.Writer {
+	w := zerolog.ConsoleWriter{
 		Out: out, TimeFormat: "2006-01-02 15:04:05Z07:00", NoColor: noColor,
 		FormatLevel: func(value any) string {
 			level, err := zerolog.ParseLevel(fmt.Sprint(value))
 			if err != nil {
 				return "[???]"
 			}
-			tag := "[" + zerolog.FormattedLevels[level] + "]"
+			name := zerolog.FormattedLevels[level]
+			if compact && len(name) > 0 {
+				name = name[:1]
+			}
+			tag := "[" + name + "]"
 			if c := zerolog.LevelColors[level]; !noColor && c != 0 {
 				return fmt.Sprintf("\x1b[%dm%s\x1b[0m", c, tag)
 			}
 			return tag
 		},
 	}
+	if compact {
+		w.TimeFormat = "15:04:05"
+		w.FormatPrepare = prepareConsoleEvent
+		w.FieldsOrder = []string{"code", "error", "reason", "sqlstate", "rows", "action", "scope", "attempts", "limit", "retry_after", "provider", "provider_status", "provider_code", "rid"}
+	}
+	return w
 }
 func (m *LoggerManager) setOutput(out io.Writer, owned io.Closer, level zerolog.Level) error {
 	next := zerolog.New(zerolog.SyncWriter(out)).With().Timestamp().Logger().Level(level)
@@ -89,7 +99,7 @@ func (m *LoggerManager) Configure(out io.Writer, format string, level Level) err
 		return fmt.Errorf("invalid log format %q", format)
 	}
 	if format == "console" {
-		out = newConsoleWriter(out, false)
+		out = newConsoleWriter(out, false, true)
 	}
 	return m.setOutput(out, nil, level)
 }

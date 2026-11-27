@@ -74,7 +74,7 @@ func (m *LoggerManager) ConfigureOutputs(o OutputOptions) error {
 			format, noColor = o.FileFormat, true
 		}
 		if format == "console" {
-			out = newConsoleWriter(out, noColor)
+			out = newConsoleWriter(out, noColor, dest == "console")
 		}
 		outputs = append(outputs, out)
 	}
