@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -72,10 +73,10 @@ func StartRegistration(ctx context.Context, email string, browser []byte) (Regis
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if _, err := q.DeleteExpiredEmailRegistrations(ctx, db.DeleteExpiredEmailRegistrationsParams{RetentionMinutes: verificationCleanupRetentionMinutes, Take: verificationCleanupBatchSize}); err != nil {
+	if _, err := q.DeleteExpiredEmailRegistrations(ctx, sqlc.DeleteExpiredEmailRegistrationsParams{RetentionMinutes: verificationCleanupRetentionMinutes, Take: verificationCleanupBatchSize}); err != nil {
 		return RegistrationChallenge{}, err
 	}
-	err = q.CreateEmailRegistration(ctx, db.CreateEmailRegistrationParams{
+	err = q.CreateEmailRegistration(ctx, sqlc.CreateEmailRegistrationParams{
 		TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 		ID: id, Email: email, BrowserDigest: browser,
 		CodeMac: token.RegistrationCodeMAC(setting.Security.TokenSymmetricKey, id, email, browser, code),
@@ -94,7 +95,7 @@ func RegistrationDestination(ctx context.Context, id uuid.UUID, browser []byte) 
 	if err != nil {
 		return "", err
 	}
-	email, err := q.ReadEmailRegistrationDestination(ctx, db.ReadEmailRegistrationDestinationParams{ID: id, BrowserDigest: browser})
+	email, err := q.ReadEmailRegistrationDestination(ctx, sqlc.ReadEmailRegistrationDestinationParams{ID: id, BrowserDigest: browser})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrRegistrationProof
 	}
@@ -111,14 +112,14 @@ func ResendRegistration(ctx context.Context, id uuid.UUID, browser []byte) (Regi
 		if err != nil {
 			return "", err
 		}
-		row, err := q.LockEmailRegistration(txCtx, db.LockEmailRegistrationParams{ID: id, BrowserDigest: browser})
+		row, err := q.LockEmailRegistration(txCtx, sqlc.LockEmailRegistrationParams{ID: id, BrowserDigest: browser})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", ErrRegistrationProof
 		}
 		if err != nil {
 			return "", err
 		}
-		n, err := q.RotateEmailRegistration(txCtx, db.RotateEmailRegistrationParams{
+		n, err := q.RotateEmailRegistration(txCtx, sqlc.RotateEmailRegistrationParams{
 			MaxFailedAttempts: verificationMaxFailedAttempts, ResendHorizonMinutes: registrationResendHorizonMinutes,
 			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 			ID: id, CodeMac: token.RegistrationCodeMAC(setting.Security.TokenSymmetricKey, id, row.Email, browser, code),
@@ -150,7 +151,7 @@ func VerifyRegistration(ctx context.Context, id uuid.UUID, browser []byte, code 
 		if err != nil {
 			return RegistrationVerification{}, err
 		}
-		row, err := q.LockEmailRegistration(txCtx, db.LockEmailRegistrationParams{ID: id, BrowserDigest: browser})
+		row, err := q.LockEmailRegistration(txCtx, sqlc.LockEmailRegistrationParams{ID: id, BrowserDigest: browser})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return RegistrationVerification{}, nil
 		}
@@ -163,7 +164,7 @@ func VerifyRegistration(ctx context.Context, id uuid.UUID, browser []byte, code 
 		expected := token.RegistrationCodeMAC(setting.Security.TokenSymmetricKey, id, row.Email, browser, code)
 		if !token.ValidRegistrationCode(code) || !hmac.Equal(expected, row.CodeMac) {
 
-			return RegistrationVerification{}, q.FailEmailRegistration(txCtx, db.FailEmailRegistrationParams{ID: id, MaxFailedAttempts: verificationMaxFailedAttempts})
+			return RegistrationVerification{}, q.FailEmailRegistration(txCtx, sqlc.FailEmailRegistrationParams{ID: id, MaxFailedAttempts: verificationMaxFailedAttempts})
 		}
 		_, err = q.ReadAccountByEmail(txCtx, row.Email)
 		if err == nil {
@@ -175,7 +176,7 @@ func VerifyRegistration(ctx context.Context, id uuid.UUID, browser []byte, code 
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return RegistrationVerification{}, err
 		}
-		n, err := q.VerifyEmailRegistration(txCtx, db.VerifyEmailRegistrationParams{ID: id, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes, MaxFailedAttempts: verificationMaxFailedAttempts})
+		n, err := q.VerifyEmailRegistration(txCtx, sqlc.VerifyEmailRegistrationParams{ID: id, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes, MaxFailedAttempts: verificationMaxFailedAttempts})
 		if err != nil {
 			return RegistrationVerification{}, err
 		}
@@ -214,7 +215,7 @@ func CompleteRegistration(ctx context.Context, raw string, browser []byte, usern
 		if err != nil {
 			return LoginResult{}, err
 		}
-		proof, err := q.LockEmailRegistrationProof(txCtx, db.LockEmailRegistrationProofParams{ProofDigest: digest, BrowserDigest: browser})
+		proof, err := q.LockEmailRegistrationProof(txCtx, sqlc.LockEmailRegistrationProofParams{ProofDigest: digest, BrowserDigest: browser})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return LoginResult{}, ErrRegistrationProof
 		}
@@ -236,14 +237,14 @@ func CompleteRegistration(ctx context.Context, raw string, browser []byte, usern
 		if err := q.CreatePerson(txCtx, person); err != nil {
 			return LoginResult{}, err
 		}
-		account, err := q.CreateAccount(txCtx, db.CreateAccountParams{PersonID: person, Email: proof.Email})
+		account, err := q.CreateAccount(txCtx, sqlc.CreateAccountParams{PersonID: person, Email: proof.Email})
 		if err != nil {
 			return LoginResult{}, err
 		}
-		if _, err := q.MarkEmailVerified(txCtx, db.MarkEmailVerifiedParams{ID: account.ID, Email: proof.Email}); err != nil {
+		if _, err := q.MarkEmailVerified(txCtx, sqlc.MarkEmailVerifiedParams{ID: account.ID, Email: proof.Email}); err != nil {
 			return LoginResult{}, err
 		}
-		n, err := q.SetRegistrationIdentity(txCtx, db.SetRegistrationIdentityParams{
+		n, err := q.SetRegistrationIdentity(txCtx, sqlc.SetRegistrationIdentityParams{
 			AccountID: account.ID, Username: name, TermsVersion: terms, MarketingOptIn: marketing,
 		})
 		if err != nil {
@@ -252,7 +253,7 @@ func CompleteRegistration(ctx context.Context, raw string, browser []byte, usern
 		if n != 1 {
 			return LoginResult{}, ErrRegistrationProof
 		}
-		if err := q.CreatePasswordCredential(txCtx, db.CreatePasswordCredentialParams{AccountID: account.ID, PasswordHash: hash}); err != nil {
+		if err := q.CreatePasswordCredential(txCtx, sqlc.CreatePasswordCredentialParams{AccountID: account.ID, PasswordHash: hash}); err != nil {
 			return LoginResult{}, err
 		}
 		if err := q.CreatePersonProfile(txCtx, person); err != nil {
@@ -261,7 +262,7 @@ func CompleteRegistration(ctx context.Context, raw string, browser []byte, usern
 		if err := q.CreateAccountSettings(txCtx, account.ID); err != nil {
 			return LoginResult{}, err
 		}
-		n, err = q.UpdatePersonProfile(txCtx, db.UpdatePersonProfileParams{AccountID: account.ID, DisplayName: pgtype.Text{String: name, Valid: true}})
+		n, err = q.UpdatePersonProfile(txCtx, sqlc.UpdatePersonProfileParams{AccountID: account.ID, DisplayName: pgtype.Text{String: name, Valid: true}})
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -269,7 +270,7 @@ func CompleteRegistration(ctx context.Context, raw string, browser []byte, usern
 			return LoginResult{}, ErrRegistrationProof
 		}
 		id := strconv.FormatInt(account.ID, 10)
-		if err := q.InsertAuditAction(txCtx, db.InsertAuditActionParams{
+		if err := q.InsertAuditAction(txCtx, sqlc.InsertAuditActionParams{
 			Action: "auth.account.registered", ActorAccountID: account.ID,
 			ScopeType: "account", ScopeRef: id, TargetType: "account", TargetRef: id,
 		}); err != nil {

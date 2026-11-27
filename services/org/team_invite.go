@@ -7,6 +7,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/models/organization"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
@@ -41,10 +42,10 @@ func CreateTeamInvitation(ctx context.Context, actor authmodel.Actor, orgID, tea
 		if !setting.Mailer.Enabled() {
 			return organization.TeamInvitation{}, mailer.ErrUnavailable
 		}
-		if err := q.RevokeExpiredTeamInvites(txCtx, db.RevokeExpiredTeamInvitesParams{TeamID: teamID, InvitedEmail: email}); err != nil {
+		if err := q.RevokeExpiredTeamInvites(txCtx, sqlc.RevokeExpiredTeamInvitesParams{TeamID: teamID, InvitedEmail: email}); err != nil {
 			return organization.TeamInvitation{}, err
 		}
-		row, err := q.CreateTeamInviteForOwner(txCtx, db.CreateTeamInviteForOwnerParams{
+		row, err := q.CreateTeamInviteForOwner(txCtx, sqlc.CreateTeamInviteForOwnerParams{
 			ID: id, TeamID: teamID, ActorAccountID: actor.AccountID, InvitedEmail: email,
 			TokenHash: digest, ExpiresAt: time.Now().UTC().Add(lifetime),
 		})
@@ -99,7 +100,7 @@ func RevokeTeamInvitation(ctx context.Context, actor authmodel.Actor, orgID, tea
 		if err != nil {
 			return err
 		}
-		n, err := q.RevokeTeamInviteForOwner(txCtx, db.RevokeTeamInviteForOwnerParams{TeamID: teamID, ActorAccountID: actor.AccountID, InviteID: id})
+		n, err := q.RevokeTeamInviteForOwner(txCtx, sqlc.RevokeTeamInviteForOwnerParams{TeamID: teamID, ActorAccountID: actor.AccountID, InviteID: id})
 		if err != nil {
 			return err
 		}
@@ -120,7 +121,7 @@ func AcceptTeamInvitation(ctx context.Context, actor authmodel.Actor, raw string
 		if err != nil {
 			return organization.TeamMembership{}, err
 		}
-		target, err := q.FindTeamInviteOrganization(txCtx, db.FindTeamInviteOrganizationParams{TokenHash: digest, AccountID: actor.AccountID})
+		target, err := q.FindTeamInviteOrganization(txCtx, sqlc.FindTeamInviteOrganizationParams{TokenHash: digest, AccountID: actor.AccountID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.TeamMembership{}, organization.ErrTeamInviteInvalid
 		}
@@ -133,14 +134,14 @@ func AcceptTeamInvitation(ctx context.Context, actor authmodel.Actor, raw string
 			return organization.TeamMembership{}, err
 		}
 
-		teamID, err := q.ConsumeTeamInvite(txCtx, db.ConsumeTeamInviteParams{TokenHash: digest, AccountID: actor.AccountID})
+		teamID, err := q.ConsumeTeamInvite(txCtx, sqlc.ConsumeTeamInviteParams{TokenHash: digest, AccountID: actor.AccountID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.TeamMembership{}, organization.ErrTeamInviteInvalid
 		}
 		if err != nil {
 			return organization.TeamMembership{}, err
 		}
-		row, err := q.InsertInvitedTeamUser(txCtx, db.InsertInvitedTeamUserParams{TeamID: teamID, AccountID: actor.AccountID})
+		row, err := q.InsertInvitedTeamUser(txCtx, sqlc.InsertInvitedTeamUserParams{TeamID: teamID, AccountID: actor.AccountID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.TeamMembership{}, organization.ErrTeamInviteInvalid
 		}

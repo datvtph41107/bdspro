@@ -10,6 +10,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -99,7 +100,7 @@ func LoginPassword(ctx context.Context, identifier, password, clientIP, userAgen
 	return result, util.WithOperation("auth.login.transaction", err)
 }
 
-func issueSession(ctx context.Context, q *db.Queries, accountID int64, clientIP, userAgent string, remember bool) (LoginResult, error) {
+func issueSession(ctx context.Context, q *sqlc.Queries, accountID int64, clientIP, userAgent string, remember bool) (LoginResult, error) {
 	if !db.InTransaction(ctx) {
 		return LoginResult{}, errors.New("session issuance requires transaction")
 	}
@@ -126,7 +127,7 @@ func issueSession(ctx context.Context, q *db.Queries, accountID int64, clientIP,
 	if err != nil {
 		return LoginResult{}, err
 	}
-	row, err := q.CreateSession(ctx, db.CreateSessionParams{
+	row, err := q.CreateSession(ctx, sqlc.CreateSessionParams{
 		ID: id, AccountID: accountID, RefreshToken: token.RefreshDigest(raw),
 		UserAgent: userAgent, ClientIp: clientIP, ExpiresAt: expires,
 	})
@@ -137,7 +138,7 @@ func issueSession(ctx context.Context, q *db.Queries, accountID int64, clientIP,
 	if err != nil {
 		return LoginResult{}, util.WithOperation("auth.session.result", err)
 	}
-	if err = q.CreateAccountConnectionHistory(ctx, db.CreateAccountConnectionHistoryParams{
+	if err = q.CreateAccountConnectionHistory(ctx, sqlc.CreateAccountConnectionHistoryParams{
 		AccountID: accountID, SessionID: id, IpAddress: clientIP, UserAgent: userAgent,
 	}); err != nil {
 		return LoginResult{}, util.WithOperation("auth.session.connection_history", err)

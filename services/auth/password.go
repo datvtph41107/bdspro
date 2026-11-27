@@ -9,6 +9,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -106,7 +107,7 @@ func requestPasswordReset(ctx context.Context, email string) error {
 		} else if err != nil {
 			return false, err
 		}
-		if err := q.CreatePasswordResetToken(txCtx, db.CreatePasswordResetTokenParams{AccountID: account.ID, TokenHash: digest, TtlMinutes: token.PasswordResetTTLMinutes}); err != nil {
+		if err := q.CreatePasswordResetToken(txCtx, sqlc.CreatePasswordResetTokenParams{AccountID: account.ID, TokenHash: digest, TtlMinutes: token.PasswordResetTTLMinutes}); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -225,15 +226,15 @@ func ChangePassword(ctx context.Context, actor authmodel.Actor, current, passwor
 	})
 }
 
-func replacePassword(ctx context.Context, q *db.Queries, accountID int64, hash, action string) error {
-	if err := q.UpsertPasswordCredential(ctx, db.UpsertPasswordCredentialParams{AccountID: accountID, PasswordHash: hash}); err != nil {
+func replacePassword(ctx context.Context, q *sqlc.Queries, accountID int64, hash, action string) error {
+	if err := q.UpsertPasswordCredential(ctx, sqlc.UpsertPasswordCredentialParams{AccountID: accountID, PasswordHash: hash}); err != nil {
 		return err
 	}
 	if err := invalidateCredentialAuthority(ctx, q, accountID); err != nil {
 		return err
 	}
 	id := strconv.FormatInt(accountID, 10)
-	return q.InsertAuditAction(ctx, db.InsertAuditActionParams{
+	return q.InsertAuditAction(ctx, sqlc.InsertAuditActionParams{
 		Action: action, ActorAccountID: accountID,
 		ScopeType: "account", ScopeRef: id, TargetType: "password", TargetRef: id,
 	})

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/models/organization"
 	"github.com/jackc/pgx/v5"
 )
@@ -14,7 +15,7 @@ func GetOrganizationForAccount(ctx context.Context, accountID, orgID int64) (*or
 	if err != nil {
 		return nil, err
 	}
-	org, err := q.GetOrganizationForAccount(ctx, db.GetOrganizationForAccountParams{
+	org, err := q.GetOrganizationForAccount(ctx, sqlc.GetOrganizationForAccountParams{
 		AccountID: accountID, OrganizationID: orgID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {

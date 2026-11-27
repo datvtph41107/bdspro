@@ -8,6 +8,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -62,7 +63,7 @@ func identityConflict(err error) error {
 	return err
 }
 
-func requireActiveAccount(ctx context.Context, q *db.Queries, accountID int64) error {
+func requireActiveAccount(ctx context.Context, q *sqlc.Queries, accountID int64) error {
 	identity, err := q.GetAccountIdentity(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return util.ErrUnauthenticated
@@ -86,7 +87,7 @@ func UpdateUsername(ctx context.Context, actor authmodel.Actor, raw string) (aut
 		if err != nil {
 			return authmodel.CurrentUser{}, err
 		}
-		n, err := q.SetAccountUsername(txCtx, db.SetAccountUsernameParams{AccountID: actor.AccountID, Username: name})
+		n, err := q.SetAccountUsername(txCtx, sqlc.SetAccountUsernameParams{AccountID: actor.AccountID, Username: name})
 		if err != nil {
 			return authmodel.CurrentUser{}, err
 		}

@@ -7,6 +7,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/jackc/pgx/v5"
@@ -56,7 +57,7 @@ func StartAuthenticatedGoogle(ctx context.Context, actor authmodel.Actor, purpos
 		if err != nil {
 			return GoogleStartResult{}, err
 		}
-		n, err := q.BindGoogleFlow(txCtx, db.BindGoogleFlowParams{
+		n, err := q.BindGoogleFlow(txCtx, sqlc.BindGoogleFlowParams{
 			BrowserDigest: digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
 			Purpose: purpose, Action: action,
 		})
@@ -77,7 +78,7 @@ func CompleteGoogleLink(ctx context.Context, actor authmodel.Actor, browser []by
 		if err != nil {
 			return LoginResult{}, err
 		}
-		row, err := q.LockGoogleAuthenticatedResult(txCtx, db.LockGoogleAuthenticatedResultParams{
+		row, err := q.LockGoogleAuthenticatedResult(txCtx, sqlc.LockGoogleAuthenticatedResultParams{
 			BrowserDigest: browser, AccountID: actor.AccountID, SessionID: actor.SessionID, Purpose: "link",
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -101,7 +102,7 @@ func CompleteGoogleLink(ctx context.Context, actor authmodel.Actor, browser []by
 		if owner != 0 {
 			return LoginResult{}, ErrCredentialTaken
 		}
-		linked, err := q.LinkOAuth2Credential(txCtx, db.LinkOAuth2CredentialParams{
+		linked, err := q.LinkOAuth2Credential(txCtx, sqlc.LinkOAuth2CredentialParams{
 			Issuer: token.GoogleIssuer, Subject: row.Subject, AccountID: actor.AccountID,
 		})
 		if errors.Is(err, pgx.ErrNoRows) || err == nil && linked != actor.AccountID {
@@ -137,7 +138,7 @@ func CompleteGoogleReauth(ctx context.Context, actor authmodel.Actor, browser []
 		if err != nil {
 			return RecentAuthResult{}, err
 		}
-		row, err := q.LockGoogleAuthenticatedResult(txCtx, db.LockGoogleAuthenticatedResultParams{
+		row, err := q.LockGoogleAuthenticatedResult(txCtx, sqlc.LockGoogleAuthenticatedResultParams{
 			BrowserDigest: browser, AccountID: actor.AccountID, SessionID: actor.SessionID, Purpose: "reauth",
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -156,7 +157,7 @@ func CompleteGoogleReauth(ctx context.Context, actor authmodel.Actor, browser []
 		if owner != actor.AccountID {
 			return RecentAuthResult{}, ErrReauthRequired
 		}
-		deadline, err := q.CreateGoogleRecentAuthProof(txCtx, db.CreateGoogleRecentAuthProofParams{
+		deadline, err := q.CreateGoogleRecentAuthProof(txCtx, sqlc.CreateGoogleRecentAuthProofParams{
 			Digest: digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
 			Action: row.Action, GoogleSubject: row.Subject, AuthTime: row.AuthTime,
 			TtlMinutes: recentAuthProofTTLMinutes, FreshnessSeconds: token.GoogleAuthFreshnessSeconds,

@@ -1,22 +1,26 @@
 package db
 
-import "context"
+import (
+	"context"
+
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
+)
 
 // GetEngine returns the current SQL execution handle for legacy inline SQL.
 // Prefer GetQueries for generated SQLC queries.
-func GetEngine(ctx context.Context) (DBTX, error) {
+func GetEngine(ctx context.Context) (sqlc.DBTX, error) {
 	conn, _, err := resolveQueryContext(ctx)
 	return conn, err
 }
 
-func GetQueries(ctx context.Context) (*Queries, error) {
+func GetQueries(ctx context.Context) (*sqlc.Queries, error) {
 	_, queries, err := resolveQueryContext(ctx)
 	return queries, err
 }
 
 // Both handles must refer to the same pool or the same transaction.
 // An invalid transaction context must never fall back to the default pool.
-func resolveQueryContext(ctx context.Context) (DBTX, *Queries, error) {
+func resolveQueryContext(ctx context.Context) (sqlc.DBTX, *sqlc.Queries, error) {
 	if ctx == nil {
 		return nil, nil, ErrTransactionContext
 	}

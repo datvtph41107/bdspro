@@ -43,7 +43,7 @@ func TestGoogleFlowLifecycle(t *testing.T) {
 	proof := append(append([]byte(nil), id[:]...), id[:]...)
 	nonce := "0123456789012345678901234567890123456789012"
 	verifier := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
-	if err := q.CreateGoogleFlow(ctx, CreateGoogleFlowParams{
+	if err := q.CreateGoogleFlow(ctx, sqlc.CreateGoogleFlowParams{
 		BrowserDigest: browser, StateDigest: state, Nonce: nonce, Verifier: verifier,
 	}); err != nil {
 		t.Fatal(err)
@@ -62,10 +62,10 @@ func TestGoogleFlowLifecycle(t *testing.T) {
 		}
 	}
 	checkPhase("pending", 600, false)
-	if _, err := q.LockPendingGoogleFlow(ctx, LockPendingGoogleFlowParams{BrowserDigest: browser, StateDigest: bytes.Repeat([]byte{0}, 32)}); !errors.Is(err, pgx.ErrNoRows) {
+	if _, err := q.LockPendingGoogleFlow(ctx, sqlc.LockPendingGoogleFlowParams{BrowserDigest: browser, StateDigest: bytes.Repeat([]byte{0}, 32)}); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal("wrong state accepted")
 	}
-	pending, err := q.LockPendingGoogleFlow(ctx, LockPendingGoogleFlowParams{BrowserDigest: browser, StateDigest: state})
+	pending, err := q.LockPendingGoogleFlow(ctx, sqlc.LockPendingGoogleFlowParams{BrowserDigest: browser, StateDigest: state})
 	if err != nil || pending.Nonce != nonce || pending.Verifier != verifier {
 		t.Fatal("pending binding lost", err)
 	}
@@ -76,10 +76,10 @@ func TestGoogleFlowLifecycle(t *testing.T) {
 	if n, err := q.ClaimGoogleFlow(ctx, browser); err != nil || n != 0 {
 		t.Fatal("claim replay accepted", n, err)
 	}
-	if _, err := q.LockPendingGoogleFlow(ctx, LockPendingGoogleFlowParams{BrowserDigest: browser, StateDigest: state}); !errors.Is(err, pgx.ErrNoRows) {
+	if _, err := q.LockPendingGoogleFlow(ctx, sqlc.LockPendingGoogleFlowParams{BrowserDigest: browser, StateDigest: state}); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal("consumed state accepted")
 	}
-	finish := FinishGoogleFlowParams{BrowserDigest: browser, Subject: "fixture-subject"}
+	finish := sqlc.FinishGoogleFlowParams{BrowserDigest: browser, Subject: "fixture-subject"}
 	if n, err := q.FinishGoogleFlow(ctx, finish); err != nil || n != 1 {
 		t.Fatal("finish failed", n, err)
 	}
@@ -91,7 +91,7 @@ func TestGoogleFlowLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Use a non-default TTL to prove registration uses the input policy.
-	issue := IssueGoogleRegistrationProofParams{BrowserDigest: browser, ProofDigest: proof, TtlMinutes: 7}
+	issue := sqlc.IssueGoogleRegistrationProofParams{BrowserDigest: browser, ProofDigest: proof, TtlMinutes: 7}
 	if n, err := q.IssueGoogleRegistrationProof(ctx, issue); err != nil || n != 1 {
 		t.Fatal("registration issue failed", n, err)
 	}
@@ -99,13 +99,13 @@ func TestGoogleFlowLifecycle(t *testing.T) {
 	if n, err := q.IssueGoogleRegistrationProof(ctx, issue); err != nil || n != 0 {
 		t.Fatal("registration replay accepted", n, err)
 	}
-	if _, err := q.LockGoogleRegistration(ctx, LockGoogleRegistrationParams{BrowserDigest: browser, ProofDigest: state}); !errors.Is(err, pgx.ErrNoRows) {
+	if _, err := q.LockGoogleRegistration(ctx, sqlc.LockGoogleRegistrationParams{BrowserDigest: browser, ProofDigest: state}); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal("wrong proof accepted")
 	}
-	if _, err := q.LockGoogleRegistration(ctx, LockGoogleRegistrationParams{BrowserDigest: state, ProofDigest: proof}); !errors.Is(err, pgx.ErrNoRows) {
+	if _, err := q.LockGoogleRegistration(ctx, sqlc.LockGoogleRegistrationParams{BrowserDigest: state, ProofDigest: proof}); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal("wrong browser accepted")
 	}
-	binding := LockGoogleRegistrationParams{BrowserDigest: browser, ProofDigest: proof}
+	binding := sqlc.LockGoogleRegistrationParams{BrowserDigest: browser, ProofDigest: proof}
 	if _, err := q.LockGoogleRegistration(ctx, binding); err != nil {
 		t.Fatal(err)
 	}

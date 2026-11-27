@@ -7,6 +7,7 @@ import (
 
 	auth_model "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/google/uuid"
@@ -40,7 +41,7 @@ func ResolveAccessToken(ctx context.Context, encoded string) (*auth_model.Actor,
 
 // LockActorForMutation requires an active transaction and locks the account
 // before validating its active session. Keep this order for credential mutations.
-func LockActorForMutation(ctx context.Context, actor auth_model.Actor) (*db.Queries, error) {
+func LockActorForMutation(ctx context.Context, actor auth_model.Actor) (*sqlc.Queries, error) {
 	if actor.AccountID <= 0 || actor.SessionID == uuid.Nil || !db.InTransaction(ctx) {
 		return nil, util.ErrUnauthenticated
 	}
@@ -58,7 +59,7 @@ func LockActorForMutation(ctx context.Context, actor auth_model.Actor) (*db.Quer
 	if err := requireActiveAccount(ctx, q, actor.AccountID); err != nil {
 		return nil, err
 	}
-	_, err = q.LockActingSession(ctx, db.LockActingSessionParams{AccountID: actor.AccountID, SessionID: actor.SessionID})
+	_, err = q.LockActingSession(ctx, sqlc.LockActingSessionParams{AccountID: actor.AccountID, SessionID: actor.SessionID})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return nil, util.ErrUnauthenticated

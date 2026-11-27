@@ -8,6 +8,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -55,7 +56,7 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if _, err := q.DeleteExpiredCredentialLinks(ctx, db.DeleteExpiredCredentialLinksParams{RetentionMinutes: verificationCleanupRetentionMinutes, Take: verificationCleanupBatchSize}); err != nil {
+	if _, err := q.DeleteExpiredCredentialLinks(ctx, sqlc.DeleteExpiredCredentialLinksParams{RetentionMinutes: verificationCleanupRetentionMinutes, Take: verificationCleanupBatchSize}); err != nil {
 		return RegistrationChallenge{}, err
 	}
 	err = db.WithTx(ctx, func(txCtx context.Context) error {
@@ -67,7 +68,7 @@ func StartContactLink(ctx context.Context, phoneDelivery *phonedelivery.Service,
 			return err
 		}
 
-		n, err := q.StartCredentialLink(txCtx, db.StartCredentialLinkParams{
+		n, err := q.StartCredentialLink(txCtx, sqlc.StartCredentialLinkParams{
 			MaxFailedAttempts: verificationMaxFailedAttempts,
 			TtlMinutes:        verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 			ID: id, AccountID: actor.AccountID, SessionID: actor.SessionID, Kind: kind,
@@ -104,7 +105,7 @@ func ContactLinkDestination(ctx context.Context, actor authmodel.Actor, kind str
 	if err != nil {
 		return "", err
 	}
-	destination, err := q.ReadCredentialLinkDestination(ctx, db.ReadCredentialLinkDestinationParams{
+	destination, err := q.ReadCredentialLinkDestination(ctx, sqlc.ReadCredentialLinkDestinationParams{
 		ID: id, AccountID: actor.AccountID, SessionID: actor.SessionID, Kind: kind,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -124,7 +125,7 @@ func VerifyContactLink(ctx context.Context, actor authmodel.Actor, kind string, 
 		if err != nil {
 			return LoginResult{}, err
 		}
-		row, err := q.LockCredentialLink(txCtx, db.LockCredentialLinkParams{
+		row, err := q.LockCredentialLink(txCtx, sqlc.LockCredentialLinkParams{
 			ID: id, AccountID: actor.AccountID, SessionID: actor.SessionID, Kind: kind,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -139,7 +140,7 @@ func VerifyContactLink(ctx context.Context, actor authmodel.Actor, kind string, 
 		expected := token.ContactLinkCodeMAC(setting.Security.TokenSymmetricKey, id, actor.AccountID, actor.SessionID, kind, row.Destination, code)
 		validCode := kind == "email" && token.ValidRegistrationCode(code) || kind == "phone" && token.ValidPhoneCode(code)
 		if !validCode || !hmac.Equal(expected, row.CodeMac) {
-			return LoginResult{}, q.FailCredentialLink(txCtx, db.FailCredentialLinkParams{ID: id, MaxFailedAttempts: verificationMaxFailedAttempts})
+			return LoginResult{}, q.FailCredentialLink(txCtx, sqlc.FailCredentialLinkParams{ID: id, MaxFailedAttempts: verificationMaxFailedAttempts})
 		}
 		u, err := GetCurrentUser(txCtx, actor.AccountID)
 		if err != nil {
@@ -157,7 +158,7 @@ func VerifyContactLink(ctx context.Context, actor authmodel.Actor, kind string, 
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				return LoginResult{}, err
 			}
-			n, err := q.SetVerifiedAccountEmail(txCtx, db.SetVerifiedAccountEmailParams{AccountID: actor.AccountID, Email: row.Destination})
+			n, err := q.SetVerifiedAccountEmail(txCtx, sqlc.SetVerifiedAccountEmailParams{AccountID: actor.AccountID, Email: row.Destination})
 			if err != nil {
 				return LoginResult{}, err
 			}
@@ -172,7 +173,7 @@ func VerifyContactLink(ctx context.Context, actor authmodel.Actor, kind string, 
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				return LoginResult{}, err
 			}
-			if err := q.SetVerifiedAccountPhone(txCtx, db.SetVerifiedAccountPhoneParams{AccountID: actor.AccountID, PhoneE164: row.Destination}); err != nil {
+			if err := q.SetVerifiedAccountPhone(txCtx, sqlc.SetVerifiedAccountPhoneParams{AccountID: actor.AccountID, PhoneE164: row.Destination}); err != nil {
 				return LoginResult{}, err
 			}
 		}

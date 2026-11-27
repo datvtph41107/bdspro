@@ -6,6 +6,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/google/uuid"
 )
@@ -45,7 +46,7 @@ func RevokeSession(ctx context.Context, actor authmodel.Actor, target uuid.UUID)
 		if err != nil {
 			return err
 		}
-		n, err := q.RevokeOwnedSession(txCtx, db.RevokeOwnedSessionParams{
+		n, err := q.RevokeOwnedSession(txCtx, sqlc.RevokeOwnedSessionParams{
 			ID: target, AccountID: actor.AccountID,
 		})
 		if err != nil {
@@ -54,7 +55,7 @@ func RevokeSession(ctx context.Context, actor authmodel.Actor, target uuid.UUID)
 		if n != 1 {
 			return authmodel.ErrSessionNotFound
 		}
-		return q.InsertAuditAction(txCtx, db.InsertAuditActionParams{
+		return q.InsertAuditAction(txCtx, sqlc.InsertAuditActionParams{
 			Action: "auth.session.revoked", ActorAccountID: actor.AccountID,
 			ScopeType: "account", ScopeRef: strconv.FormatInt(actor.AccountID, 10),
 			TargetType: "session", TargetRef: target.String(),

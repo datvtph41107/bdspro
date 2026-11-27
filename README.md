@@ -38,6 +38,8 @@ make migrateup
 make sqlc-check
 ```
 
+SQLC generates persistence types and query methods in `models/db/sqlc`. Import that package for generated types and use `models/db` for query acquisition, transaction ownership and database lifecycle. Domain/API projections remain in their own models. Do not add re-exported generated aliases.
+
 For local OTP inboxes and SMS/Zalo/Telegram configuration, see [Phone delivery setup](docs/phone-delivery.md).
 
 For local breakpoint debugging, log correlation and profiling, see [Developer debugging](docs/developer-debugging.md) and [Logging](docs/logging.md).

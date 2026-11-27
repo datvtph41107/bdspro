@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -205,7 +206,7 @@ func TestDefaultEngineLifecycle(t *testing.T) {
 		if _, err := conn.Exec(txCtx, "INSERT INTO pg_temp.oauth2_credentials VALUES ($1, $2, $3)", "fixture-issuer", "fixture-subject", int64(42)); err != nil {
 			return err
 		}
-		account, err := q.GetOAuth2AccountID(txCtx, GetOAuth2AccountIDParams{Issuer: "fixture-issuer", Subject: "fixture-subject"})
+		account, err := q.GetOAuth2AccountID(txCtx, sqlc.GetOAuth2AccountIDParams{Issuer: "fixture-issuer", Subject: "fixture-subject"})
 		if err != nil {
 			return err
 		}

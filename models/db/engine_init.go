@@ -13,7 +13,7 @@ import (
 
 type engine struct {
 	pool    *pgxpool.Pool
-	queries *Queries
+	queries *sqlc.Queries
 }
 
 var defaultEngine struct {

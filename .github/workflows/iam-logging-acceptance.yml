@@ -141,6 +141,15 @@ jobs:
             exit 1
           fi
           git grep -n 'db.GetEngine(' -- '*.go'
+      - name: Verify direct SQLC ownership
+        run: |
+          test ! -e models/db/sqlc_types.gen.go
+          test ! -d tools/dbalias
+          if git grep -nE 'type [[:alnum:]_]+ = sqlc\.' -- '*.go' ':!models/db/sqlc/*'; then
+            echo "Do not re-export generated SQLC types"
+            exit 1
+          fi
+          go test ./services/auth ./services/org ./services/jobs ./models/party -count=1
       - name: Verify provider lifetime projection
         run: go test ./services/phonedelivery -run '^TestProviderContracts$' -count=1
       - name: Local HTTP and JSON correlation

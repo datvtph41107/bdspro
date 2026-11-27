@@ -6,6 +6,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/modules/log"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -72,7 +73,7 @@ func SetPassword(ctx context.Context, actor authmodel.Actor, proof, password, ip
 		if err := ConsumeRecentAuthProof(txCtx, q, actor, proof, "password.set"); err != nil {
 			return LoginResult{}, err
 		}
-		if err := q.CreatePasswordCredential(txCtx, db.CreatePasswordCredentialParams{AccountID: actor.AccountID, PasswordHash: hash}); err != nil {
+		if err := q.CreatePasswordCredential(txCtx, sqlc.CreatePasswordCredentialParams{AccountID: actor.AccountID, PasswordHash: hash}); err != nil {
 			return LoginResult{}, err
 		}
 		oldEmail = *u.Email
@@ -144,7 +145,7 @@ func RemoveCredential(ctx context.Context, actor authmodel.Actor, kind, proof, i
 	return result, err
 }
 
-func invalidateCredentialAuthority(ctx context.Context, q *db.Queries, accountID int64) error {
+func invalidateCredentialAuthority(ctx context.Context, q *sqlc.Queries, accountID int64) error {
 	if err := q.DeleteAccountGoogleFlows(ctx, accountID); err != nil {
 		return err
 	}
@@ -164,9 +165,9 @@ func invalidateCredentialAuthority(ctx context.Context, q *db.Queries, accountID
 	return err
 }
 
-func credentialAudit(ctx context.Context, q *db.Queries, accountID int64, action, target string) error {
+func credentialAudit(ctx context.Context, q *sqlc.Queries, accountID int64, action, target string) error {
 	id := strconv.FormatInt(accountID, 10)
-	return q.InsertAuditAction(ctx, db.InsertAuditActionParams{
+	return q.InsertAuditAction(ctx, sqlc.InsertAuditActionParams{
 		Action: action, ActorAccountID: accountID,
 		ScopeType: "account", ScopeRef: id, TargetType: target, TargetRef: id,
 	})

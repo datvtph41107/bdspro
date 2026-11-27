@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 )
@@ -56,7 +57,7 @@ func NewVerifyEmailHandler(
 			challenge, err :=
 				queries.FindReusableVerifyEmailQuery(
 					ctx,
-					db.FindReusableVerifyEmailQueryParams{
+					sqlc.FindReusableVerifyEmailQueryParams{
 						AccountID: payload.AccountID,
 						Email:     account.Email,
 					},

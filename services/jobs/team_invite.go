@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
@@ -14,7 +15,7 @@ import (
 type TeamInviteDelivery func(
 	ctx context.Context,
 	inviteID uuid.UUID,
-	invite db.GetTeamInviteForDeliveryRow,
+	invite sqlc.GetTeamInviteForDeliveryRow,
 ) error
 
 func NewTeamInviteHandler(

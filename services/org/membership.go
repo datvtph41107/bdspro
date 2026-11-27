@@ -8,6 +8,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/models/organization"
 	authservice "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/jackc/pgx/v5"
@@ -46,7 +47,7 @@ func GetOrganizationDetail(ctx context.Context, accountID, orgID int64) (organiz
 	if err != nil {
 		return organization.Detail{}, err
 	}
-	r, err := q.GetOrganizationForAccount(ctx, db.GetOrganizationForAccountParams{AccountID: accountID, OrganizationID: orgID})
+	r, err := q.GetOrganizationForAccount(ctx, sqlc.GetOrganizationForAccountParams{AccountID: accountID, OrganizationID: orgID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return organization.Detail{}, organization.ErrOrganizationNotFound
 	}
@@ -81,11 +82,11 @@ func CreateOrganization(ctx context.Context, actor authmodel.Actor, raw string) 
 		if err != nil {
 			return organization.Detail{}, err
 		}
-		r, err := q.CreateOrganization(txCtx, db.CreateOrganizationParams{PartyID: id, Name: name})
+		r, err := q.CreateOrganization(txCtx, sqlc.CreateOrganizationParams{PartyID: id, Name: name})
 		if err != nil {
 			return organization.Detail{}, err
 		}
-		m, err := q.CreateOrganizationMember(txCtx, db.CreateOrganizationMemberParams{OrganizationID: id, PersonID: personID, Role: "owner"})
+		m, err := q.CreateOrganizationMember(txCtx, sqlc.CreateOrganizationMemberParams{OrganizationID: id, PersonID: personID, Role: "owner"})
 		if err != nil {
 			return organization.Detail{}, err
 		}
@@ -93,7 +94,7 @@ func CreateOrganization(ctx context.Context, actor authmodel.Actor, raw string) 
 	})
 }
 
-func lockOrganization(ctx context.Context, actor authmodel.Actor, orgID int64, owner bool) (*db.Queries, int64, error) {
+func lockOrganization(ctx context.Context, actor authmodel.Actor, orgID int64, owner bool) (*sqlc.Queries, int64, error) {
 	q, err := authservice.LockActorForMutation(ctx, actor)
 	if err != nil {
 		return nil, 0, err
@@ -106,7 +107,7 @@ func lockOrganization(ctx context.Context, actor authmodel.Actor, orgID int64, o
 	if !owner {
 		return q, 0, nil
 	}
-	person, err := q.LockActingOrganizationOwner(ctx, db.LockActingOrganizationOwnerParams{OrganizationID: orgID, ActorAccountID: actor.AccountID})
+	person, err := q.LockActingOrganizationOwner(ctx, sqlc.LockActingOrganizationOwnerParams{OrganizationID: orgID, ActorAccountID: actor.AccountID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, 0, organization.ErrOrganizationForbidden
 	}
@@ -123,7 +124,7 @@ func UpdateOrganization(ctx context.Context, actor authmodel.Actor, orgID int64,
 		if err != nil {
 			return organization.Detail{}, err
 		}
-		_, err = q.UpdateOrganization(txCtx, db.UpdateOrganizationParams{OrganizationID: orgID, ActorAccountID: actor.AccountID, Name: pgtype.Text{String: name, Valid: true}})
+		_, err = q.UpdateOrganization(txCtx, sqlc.UpdateOrganizationParams{OrganizationID: orgID, ActorAccountID: actor.AccountID, Name: pgtype.Text{String: name, Valid: true}})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.Detail{}, organization.ErrOrganizationForbidden
 		}
@@ -140,7 +141,7 @@ func ListOrganizationMembers(ctx context.Context, actor authmodel.Actor, orgID i
 		if err != nil {
 			return nil, err
 		}
-		rows, err := q.ListOrganizationMembersForOwner(txCtx, db.ListOrganizationMembersForOwnerParams{OrganizationID: orgID, ActorAccountID: actor.AccountID})
+		rows, err := q.ListOrganizationMembersForOwner(txCtx, sqlc.ListOrganizationMembersForOwnerParams{OrganizationID: orgID, ActorAccountID: actor.AccountID})
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +164,7 @@ func AddOrganizationMember(ctx context.Context, actor authmodel.Actor, orgID, pe
 		} else if err != nil {
 			return organization.Membership{}, err
 		}
-		r, err := q.AddOrganizationMember(txCtx, db.AddOrganizationMemberParams{OrganizationID: orgID, ActorAccountID: actor.AccountID, PersonID: personID})
+		r, err := q.AddOrganizationMember(txCtx, sqlc.AddOrganizationMemberParams{OrganizationID: orgID, ActorAccountID: actor.AccountID, PersonID: personID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.Membership{}, organization.ErrMemberNotFound
 		}
@@ -179,15 +180,15 @@ func AddOrganizationMember(ctx context.Context, actor authmodel.Actor, orgID, pe
 	return result, err
 }
 
-func organizationAudit(ctx context.Context, q *db.Queries, actorID, orgID, personID int64, action string) error {
-	return q.InsertAuditAction(ctx, db.InsertAuditActionParams{
+func organizationAudit(ctx context.Context, q *sqlc.Queries, actorID, orgID, personID int64, action string) error {
+	return q.InsertAuditAction(ctx, sqlc.InsertAuditActionParams{
 		Action: action, ActorAccountID: actorID, ScopeType: "organization", ScopeRef: decimal(orgID),
 		TargetType: "person", TargetRef: decimal(personID),
 	})
 }
 
-func endTeamAuthority(ctx context.Context, q *db.Queries, orgID, personID int64) error {
-	_, err := q.DeleteOrgMemberTeamLinks(ctx, db.DeleteOrgMemberTeamLinksParams{OrganizationID: orgID, PersonID: personID})
+func endTeamAuthority(ctx context.Context, q *sqlc.Queries, orgID, personID int64) error {
+	_, err := q.DeleteOrgMemberTeamLinks(ctx, sqlc.DeleteOrgMemberTeamLinksParams{OrganizationID: orgID, PersonID: personID})
 	return err
 }
 
@@ -197,7 +198,7 @@ func RemoveOrganizationMember(ctx context.Context, actor authmodel.Actor, orgID,
 		if err != nil {
 			return err
 		}
-		_, err = q.EndOrdinaryOrganizationMemberForOwner(txCtx, db.EndOrdinaryOrganizationMemberForOwnerParams{OrganizationID: orgID, ActorAccountID: actor.AccountID, PersonID: personID})
+		_, err = q.EndOrdinaryOrganizationMemberForOwner(txCtx, sqlc.EndOrdinaryOrganizationMemberForOwnerParams{OrganizationID: orgID, ActorAccountID: actor.AccountID, PersonID: personID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.ErrMemberNotFound
 		}
@@ -211,7 +212,7 @@ func RemoveOrganizationMember(ctx context.Context, actor authmodel.Actor, orgID,
 	})
 }
 
-func ensureEligibleOwner(ctx context.Context, q *db.Queries, orgID int64) error {
+func ensureEligibleOwner(ctx context.Context, q *sqlc.Queries, orgID int64) error {
 	n, err := q.CountEligibleOrganizationOwners(ctx, orgID)
 	if err != nil {
 		return err
@@ -228,14 +229,14 @@ func LeaveOrganization(ctx context.Context, actor authmodel.Actor, orgID int64) 
 		if err != nil {
 			return err
 		}
-		r, err := q.LockOwnOrganizationMembership(txCtx, db.LockOwnOrganizationMembershipParams{OrganizationID: orgID, AccountID: actor.AccountID})
+		r, err := q.LockOwnOrganizationMembership(txCtx, sqlc.LockOwnOrganizationMembershipParams{OrganizationID: orgID, AccountID: actor.AccountID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.ErrOrganizationNotFound
 		}
 		if err != nil {
 			return err
 		}
-		n, err := q.EndOwnOrganizationMembership(txCtx, db.EndOwnOrganizationMembershipParams{OrganizationID: orgID, PersonID: r.PersonID})
+		n, err := q.EndOwnOrganizationMembership(txCtx, sqlc.EndOwnOrganizationMembershipParams{OrganizationID: orgID, PersonID: r.PersonID})
 		if err != nil {
 			return err
 		}
@@ -260,7 +261,7 @@ func PromoteOrganizationMember(ctx context.Context, actor authmodel.Actor, orgID
 		if err != nil {
 			return organization.Membership{}, err
 		}
-		r, err := q.PromoteOrganizationMember(txCtx, db.PromoteOrganizationMemberParams{OrganizationID: orgID, PersonID: personID})
+		r, err := q.PromoteOrganizationMember(txCtx, sqlc.PromoteOrganizationMemberParams{OrganizationID: orgID, PersonID: personID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.Membership{}, organization.ErrMemberNotFound
 		}
@@ -280,7 +281,7 @@ func DemoteOrganizationOwner(ctx context.Context, actor authmodel.Actor, orgID, 
 		if err != nil {
 			return err
 		}
-		_, err = q.DemoteOrganizationOwner(txCtx, db.DemoteOrganizationOwnerParams{OrganizationID: orgID, PersonID: personID})
+		_, err = q.DemoteOrganizationOwner(txCtx, sqlc.DemoteOrganizationOwnerParams{OrganizationID: orgID, PersonID: personID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.ErrMemberNotFound
 		}
@@ -306,14 +307,14 @@ func TransferOrganizationOwner(ctx context.Context, actor authmodel.Actor, orgID
 		if err := authservice.ConsumeRecentAuthProof(txCtx, q, actor, proof, "organization.owner.transfer"); err != nil {
 			return err
 		}
-		_, err = q.PromoteOrganizationMember(txCtx, db.PromoteOrganizationMemberParams{OrganizationID: orgID, PersonID: personID})
+		_, err = q.PromoteOrganizationMember(txCtx, sqlc.PromoteOrganizationMemberParams{OrganizationID: orgID, PersonID: personID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.ErrInvalidOwnerTarget
 		}
 		if err != nil {
 			return err
 		}
-		if _, err := q.DemoteOrganizationOwner(txCtx, db.DemoteOrganizationOwnerParams{OrganizationID: orgID, PersonID: donor}); err != nil {
+		if _, err := q.DemoteOrganizationOwner(txCtx, sqlc.DemoteOrganizationOwnerParams{OrganizationID: orgID, PersonID: donor}); err != nil {
 			return err
 		}
 		if err := ensureEligibleOwner(txCtx, q, orgID); err != nil {

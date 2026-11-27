@@ -6,6 +6,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/models/organization"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -16,11 +17,11 @@ type TeamMemberPage struct {
 	Total int64
 }
 
-func toTeamMembership(r db.TeamMember) organization.TeamMembership {
+func toTeamMembership(r sqlc.TeamMember) organization.TeamMembership {
 	return organization.TeamMembership{TeamID: decimal(r.TeamID), PersonID: decimal(r.PersonID), JoinedAt: r.JoinedAt}
 }
 
-func lockTeamOwner(ctx context.Context, actor authmodel.Actor, orgID, teamID int64) (*db.Queries, error) {
+func lockTeamOwner(ctx context.Context, actor authmodel.Actor, orgID, teamID int64) (*sqlc.Queries, error) {
 	q, _, err := lockOrganization(ctx, actor, orgID, true)
 	if err != nil {
 		return nil, err
@@ -41,11 +42,11 @@ func ListTeamMembers(ctx context.Context, actor authmodel.Actor, orgID, teamID i
 		if err != nil {
 			return TeamMemberPage{}, err
 		}
-		total, err := q.CountTeamUsersForOwner(txCtx, db.CountTeamUsersForOwnerParams{TeamID: teamID, ActorAccountID: actor.AccountID})
+		total, err := q.CountTeamUsersForOwner(txCtx, sqlc.CountTeamUsersForOwnerParams{TeamID: teamID, ActorAccountID: actor.AccountID})
 		if err != nil {
 			return TeamMemberPage{}, err
 		}
-		rows, err := q.ListTeamUsersForAccount(txCtx, db.ListTeamUsersForAccountParams{TeamID: teamID, ActorAccountID: actor.AccountID, Skip: skip, Take: take})
+		rows, err := q.ListTeamUsersForAccount(txCtx, sqlc.ListTeamUsersForAccountParams{TeamID: teamID, ActorAccountID: actor.AccountID, Skip: skip, Take: take})
 		if err != nil {
 			return TeamMemberPage{}, err
 		}
@@ -65,7 +66,7 @@ func GetOwnTeamMembership(ctx context.Context, actorID, orgID, teamID int64) (or
 	if err != nil {
 		return organization.TeamMembership{}, err
 	}
-	row, err := q.GetOwnTeamMembership(ctx, db.GetOwnTeamMembershipParams{TeamID: teamID, AccountID: actorID})
+	row, err := q.GetOwnTeamMembership(ctx, sqlc.GetOwnTeamMembershipParams{TeamID: teamID, AccountID: actorID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return organization.TeamMembership{}, organization.ErrTeamMemberNotFound
 	}
@@ -75,8 +76,8 @@ func GetOwnTeamMembership(ctx context.Context, actorID, orgID, teamID int64) (or
 	return toTeamMembership(row), nil
 }
 
-func teamAudit(ctx context.Context, q *db.Queries, actorID, teamID int64, action, targetType, targetRef string) error {
-	return q.InsertAuditAction(ctx, db.InsertAuditActionParams{
+func teamAudit(ctx context.Context, q *sqlc.Queries, actorID, teamID int64, action, targetType, targetRef string) error {
+	return q.InsertAuditAction(ctx, sqlc.InsertAuditActionParams{
 		Action: action, ActorAccountID: actorID, ScopeType: "team", ScopeRef: decimal(teamID),
 		TargetType: targetType, TargetRef: targetRef,
 	})
@@ -101,7 +102,7 @@ func AddTeamMember(ctx context.Context, actor authmodel.Actor, orgID, teamID, pe
 		if err != nil {
 			return organization.TeamMembership{}, err
 		}
-		row, err := q.AddTeamUserForOwner(txCtx, db.AddTeamUserForOwnerParams{TeamID: teamID, ActorAccountID: actor.AccountID, PersonID: personID})
+		row, err := q.AddTeamUserForOwner(txCtx, sqlc.AddTeamUserForOwnerParams{TeamID: teamID, ActorAccountID: actor.AccountID, PersonID: personID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.TeamMembership{}, organization.ErrTeamMemberNotFound
 		}
@@ -122,7 +123,7 @@ func RemoveTeamMember(ctx context.Context, actor authmodel.Actor, orgID, teamID,
 		if err != nil {
 			return err
 		}
-		n, err := q.RemoveTeamUserForOwner(txCtx, db.RemoveTeamUserForOwnerParams{TeamID: teamID, ActorAccountID: actor.AccountID, PersonID: personID})
+		n, err := q.RemoveTeamUserForOwner(txCtx, sqlc.RemoveTeamUserForOwnerParams{TeamID: teamID, ActorAccountID: actor.AccountID, PersonID: personID})
 		if err != nil {
 			return err
 		}

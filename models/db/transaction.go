@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -14,7 +15,7 @@ type transactionContextKey struct{}
 // state transitions, not concurrent use of pgx.Tx or SQLC queries.
 type transactionScope struct {
 	tx      pgx.Tx
-	queries *Queries
+	queries *sqlc.Queries
 
 	mu     sync.Mutex
 	err    error

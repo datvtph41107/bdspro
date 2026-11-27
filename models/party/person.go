@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 )
 
-func CreatePersonWithParty(ctx context.Context, q *db.Queries) (int64, error) {
+func CreatePersonWithParty(ctx context.Context, q *sqlc.Queries) (int64, error) {
 	partyID, err := q.CreateParty(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("create person party: %w", err)

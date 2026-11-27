@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/hibiken/asynq"
 )
@@ -70,7 +71,7 @@ func NewPasswordResetHandler(
 					count, err :=
 						queries.IssuePasswordResetTokenIfCurrentVersion(
 							txCtx,
-							db.IssuePasswordResetTokenIfCurrentVersionParams{
+							sqlc.IssuePasswordResetTokenIfCurrentVersionParams{
 								AccountID:    payload.AccountID,
 								ResetVersion: payload.ResetVersion,
 								TokenHash:    proof.Hash,

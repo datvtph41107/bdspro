@@ -73,24 +73,24 @@ func TestAuthStateMigration(t *testing.T) {
 	}
 
 	q := sqlc.New(conn)
-	email, err := q.LockEmailRegistrationProof(ctx, LockEmailRegistrationProofParams{ProofDigest: proof, BrowserDigest: browser})
+	email, err := q.LockEmailRegistrationProof(ctx, sqlc.LockEmailRegistrationProofParams{ProofDigest: proof, BrowserDigest: browser})
 	if err != nil || email.Email != "test@example.invalid" {
 		t.Fatalf("email proof lost: %v", err)
 	}
-	phone, err := q.LockPhoneVerificationProof(ctx, LockPhoneVerificationProofParams{ProofDigest: proof, BrowserDigest: browser})
+	phone, err := q.LockPhoneVerificationProof(ctx, sqlc.LockPhoneVerificationProofParams{ProofDigest: proof, BrowserDigest: browser})
 	if err != nil || phone.PhoneE164 != "+84912300001" {
 		t.Fatalf("phone proof lost: %v", err)
 	}
-	if _, err := q.LockPhoneVerificationProof(ctx, LockPhoneVerificationProofParams{ProofDigest: proof, BrowserDigest: bytes.Repeat([]byte{9}, 32)}); !errors.Is(err, pgx.ErrNoRows) {
+	if _, err := q.LockPhoneVerificationProof(ctx, sqlc.LockPhoneVerificationProofParams{ProofDigest: proof, BrowserDigest: bytes.Repeat([]byte{9}, 32)}); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal("browser binding lost")
 	}
 	if _, err := q.LockGoogleResult(ctx, browser); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal("authenticated flow became anonymous login")
 	}
-	if _, err := q.LockGoogleAuthenticatedResult(ctx, LockGoogleAuthenticatedResultParams{BrowserDigest: browser, AccountID: account, SessionID: uuid.New(), Purpose: "reauth"}); !errors.Is(err, pgx.ErrNoRows) {
+	if _, err := q.LockGoogleAuthenticatedResult(ctx, sqlc.LockGoogleAuthenticatedResultParams{BrowserDigest: browser, AccountID: account, SessionID: uuid.New(), Purpose: "reauth"}); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal("session binding lost")
 	}
-	result, err := q.LockGoogleAuthenticatedResult(ctx, LockGoogleAuthenticatedResultParams{BrowserDigest: browser, AccountID: account, SessionID: session, Purpose: "reauth"})
+	result, err := q.LockGoogleAuthenticatedResult(ctx, sqlc.LockGoogleAuthenticatedResultParams{BrowserDigest: browser, AccountID: account, SessionID: session, Purpose: "reauth"})
 	if err != nil || result.Action != "phone.link" {
 		t.Fatalf("authenticated flow lost: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestAuthStateMigration(t *testing.T) {
 	if err := q.DeletePhoneVerification(ctx, id); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := q.LockEmailRegistrationProof(ctx, LockEmailRegistrationProofParams{ProofDigest: proof, BrowserDigest: browser}); err != nil {
+	if _, err := q.LockEmailRegistrationProof(ctx, sqlc.LockEmailRegistrationProofParams{ProofDigest: proof, BrowserDigest: browser}); err != nil {
 		t.Fatal("phone deletion crossed verification kind")
 	}
 }

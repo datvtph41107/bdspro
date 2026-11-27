@@ -10,6 +10,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/modules/optional"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
@@ -127,7 +128,7 @@ func UpdateProfile(ctx context.Context, actor authmodel.Actor, display, first, l
 		if err := ensureProfileSettings(txCtx, actor.AccountID); err != nil {
 			return authmodel.Profile{}, err
 		}
-		n, err := q.UpdatePersonProfile(txCtx, db.UpdatePersonProfileParams{
+		n, err := q.UpdatePersonProfile(txCtx, sqlc.UpdatePersonProfileParams{
 			AccountID: actor.AccountID, DisplayName: d, FirstName: f, LastName: l,
 		})
 		if err != nil {
@@ -164,7 +165,7 @@ func UpdateSettings(ctx context.Context, actor authmodel.Actor, locale, timezone
 		if err := ensureProfileSettings(txCtx, actor.AccountID); err != nil {
 			return authmodel.AccountSettings{}, err
 		}
-		n, err := q.UpdateAccountSettings(txCtx, db.UpdateAccountSettingsParams{
+		n, err := q.UpdateAccountSettings(txCtx, sqlc.UpdateAccountSettingsParams{
 			AccountID: actor.AccountID, Locale: l, Timezone: z, Currency: c,
 		})
 		if err != nil {

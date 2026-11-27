@@ -5,12 +5,13 @@ import (
 	"errors"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/models/organization"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-func toTeam(row db.Team) organization.Team {
+func toTeam(row sqlc.Team) organization.Team {
 	return organization.Team{
 		ID: row.ID, OrganizationID: row.OrganizationID,
 		Name: row.Name, Description: row.Description,
@@ -32,13 +33,13 @@ func ListTeams(ctx context.Context, actorID, orgID int64, opts db.ListOptions) (
 	if err != nil {
 		return TeamPage{}, err
 	}
-	count, err := q.CountTeamsForAccount(ctx, db.CountTeamsForAccountParams{
+	count, err := q.CountTeamsForAccount(ctx, sqlc.CountTeamsForAccountParams{
 		OrganizationID: orgID, ActorAccountID: actorID,
 	})
 	if err != nil {
 		return TeamPage{}, err
 	}
-	items, err := q.ListTeamsForAccount(ctx, db.ListTeamsForAccountParams{
+	items, err := q.ListTeamsForAccount(ctx, sqlc.ListTeamsForAccountParams{
 		ActorAccountID: actorID, OrganizationID: orgID,
 		Skip: offset, Take: limit,
 	})
@@ -57,7 +58,7 @@ func GetTeam(ctx context.Context, actorID, orgID, teamID int64) (organization.Te
 	if err != nil {
 		return organization.Team{}, err
 	}
-	row, err := q.GetTeamForAccount(ctx, db.GetTeamForAccountParams{
+	row, err := q.GetTeamForAccount(ctx, sqlc.GetTeamForAccountParams{
 		ActorAccountID: actorID, TeamID: teamID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -85,7 +86,7 @@ func CreateTeam(ctx context.Context, actorID, orgID int64, name, description str
 		if err != nil {
 			return organization.Team{}, err
 		}
-		row, err := q.CreateTeamForOwner(txCtx, db.CreateTeamForOwnerParams{
+		row, err := q.CreateTeamForOwner(txCtx, sqlc.CreateTeamForOwnerParams{
 			ActorAccountID: actorID, OrganizationID: orgID,
 			Name: name, Description: description,
 		})
@@ -109,7 +110,7 @@ func RenameTeam(ctx context.Context, actorID, orgID, teamID int64, name string) 
 		if err != nil {
 			return organization.Team{}, err
 		}
-		current, err := q.GetTeamForAccount(txCtx, db.GetTeamForAccountParams{
+		current, err := q.GetTeamForAccount(txCtx, sqlc.GetTeamForAccountParams{
 			ActorAccountID: actorID, TeamID: teamID,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -121,7 +122,7 @@ func RenameTeam(ctx context.Context, actorID, orgID, teamID int64, name string) 
 		if current.OrganizationID != orgID {
 			return organization.Team{}, organization.ErrTeamNotFound
 		}
-		row, err := q.RenameTeamForOwner(txCtx, db.RenameTeamForOwnerParams{
+		row, err := q.RenameTeamForOwner(txCtx, sqlc.RenameTeamForOwnerParams{
 			ActorAccountID: actorID, TeamID: teamID, Name: name,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {

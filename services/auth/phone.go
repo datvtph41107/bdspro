@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -41,10 +42,10 @@ func StartPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, phone
 	if err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if _, err := q.DeleteExpiredPhoneVerifications(ctx, db.DeleteExpiredPhoneVerificationsParams{RetentionMinutes: verificationCleanupRetentionMinutes, Take: verificationCleanupBatchSize}); err != nil {
+	if _, err := q.DeleteExpiredPhoneVerifications(ctx, sqlc.DeleteExpiredPhoneVerificationsParams{RetentionMinutes: verificationCleanupRetentionMinutes, Take: verificationCleanupBatchSize}); err != nil {
 		return RegistrationChallenge{}, err
 	}
-	if err := q.CreatePhoneVerification(ctx, db.CreatePhoneVerificationParams{
+	if err := q.CreatePhoneVerification(ctx, sqlc.CreatePhoneVerificationParams{
 		TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 		ID: id, PhoneE164: phone, BrowserDigest: browser,
 		CodeMac: token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, phone, browser, code),
@@ -64,7 +65,7 @@ func PhoneDestination(ctx context.Context, id uuid.UUID, browser []byte) (string
 	if err != nil {
 		return "", err
 	}
-	phone, err := q.ReadPhoneVerificationDestination(ctx, db.ReadPhoneVerificationDestinationParams{ID: id, BrowserDigest: browser})
+	phone, err := q.ReadPhoneVerificationDestination(ctx, sqlc.ReadPhoneVerificationDestinationParams{ID: id, BrowserDigest: browser})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrRegistrationProof
 	}
@@ -85,14 +86,14 @@ func ResendPhone(ctx context.Context, phoneDelivery *phonedelivery.Service, id u
 		if err != nil {
 			return "", err
 		}
-		row, err := q.LockPhoneVerification(txCtx, db.LockPhoneVerificationParams{ID: id, BrowserDigest: browser})
+		row, err := q.LockPhoneVerification(txCtx, sqlc.LockPhoneVerificationParams{ID: id, BrowserDigest: browser})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", ErrRegistrationProof
 		}
 		if err != nil {
 			return "", err
 		}
-		n, err := q.RotatePhoneVerification(txCtx, db.RotatePhoneVerificationParams{
+		n, err := q.RotatePhoneVerification(txCtx, sqlc.RotatePhoneVerificationParams{
 			MaxFailedAttempts: verificationMaxFailedAttempts, ResendHorizonMinutes: registrationResendHorizonMinutes,
 			TtlMinutes: verificationCodeTTLMinutes, CooldownSeconds: VerificationResendCooldownSeconds,
 			ID: id, CodeMac: token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, row.PhoneE164, browser, code),
@@ -126,7 +127,7 @@ func VerifyPhone(ctx context.Context, id uuid.UUID, browser []byte, code string,
 		if err != nil {
 			return PhoneVerification{}, err
 		}
-		row, err := q.LockPhoneVerification(txCtx, db.LockPhoneVerificationParams{ID: id, BrowserDigest: browser})
+		row, err := q.LockPhoneVerification(txCtx, sqlc.LockPhoneVerificationParams{ID: id, BrowserDigest: browser})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PhoneVerification{}, nil
 		}
@@ -138,11 +139,11 @@ func VerifyPhone(ctx context.Context, id uuid.UUID, browser []byte, code string,
 		}
 		expected := token.PhoneCodeMAC(setting.Security.TokenSymmetricKey, id, row.PhoneE164, browser, code)
 		if !token.ValidPhoneCode(code) || !hmac.Equal(expected, row.CodeMac) {
-			return PhoneVerification{}, q.FailPhoneVerification(txCtx, db.FailPhoneVerificationParams{ID: id, MaxFailedAttempts: verificationMaxFailedAttempts})
+			return PhoneVerification{}, q.FailPhoneVerification(txCtx, sqlc.FailPhoneVerificationParams{ID: id, MaxFailedAttempts: verificationMaxFailedAttempts})
 		}
 		owner, err := q.GetPhoneAccountIDQuery(txCtx, row.PhoneE164)
 		if errors.Is(err, pgx.ErrNoRows) {
-			n, err := q.VerifyPhoneVerification(txCtx, db.VerifyPhoneVerificationParams{ID: id, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes, MaxFailedAttempts: verificationMaxFailedAttempts})
+			n, err := q.VerifyPhoneVerification(txCtx, sqlc.VerifyPhoneVerificationParams{ID: id, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes, MaxFailedAttempts: verificationMaxFailedAttempts})
 			if err != nil || n != 1 {
 				return PhoneVerification{}, err
 			}
@@ -205,7 +206,7 @@ func CompletePhone(ctx context.Context, raw string, browser []byte, username, te
 		if err != nil {
 			return LoginResult{}, err
 		}
-		proof, err := q.LockPhoneVerificationProof(txCtx, db.LockPhoneVerificationProofParams{ProofDigest: digest, BrowserDigest: browser})
+		proof, err := q.LockPhoneVerificationProof(txCtx, sqlc.LockPhoneVerificationProofParams{ProofDigest: digest, BrowserDigest: browser})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return LoginResult{}, ErrRegistrationProof
 		}
@@ -228,10 +229,10 @@ func CompletePhone(ctx context.Context, raw string, browser []byte, username, te
 		if err != nil {
 			return LoginResult{}, err
 		}
-		if err := q.BindPhoneCredentialQuery(txCtx, db.BindPhoneCredentialQueryParams{AccountID: account.ID, PhoneE164: proof.PhoneE164}); err != nil {
+		if err := q.BindPhoneCredentialQuery(txCtx, sqlc.BindPhoneCredentialQueryParams{AccountID: account.ID, PhoneE164: proof.PhoneE164}); err != nil {
 			return LoginResult{}, err
 		}
-		n, err := q.SetRegistrationIdentity(txCtx, db.SetRegistrationIdentityParams{
+		n, err := q.SetRegistrationIdentity(txCtx, sqlc.SetRegistrationIdentityParams{
 			AccountID: account.ID, Username: name, TermsVersion: terms, MarketingOptIn: marketing,
 		})
 		if err != nil {
@@ -246,7 +247,7 @@ func CompletePhone(ctx context.Context, raw string, browser []byte, username, te
 		if err := q.CreateAccountSettings(txCtx, account.ID); err != nil {
 			return LoginResult{}, err
 		}
-		n, err = q.UpdatePersonProfile(txCtx, db.UpdatePersonProfileParams{AccountID: account.ID, DisplayName: pgtype.Text{String: name, Valid: true}})
+		n, err = q.UpdatePersonProfile(txCtx, sqlc.UpdatePersonProfileParams{AccountID: account.ID, DisplayName: pgtype.Text{String: name, Valid: true}})
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -254,7 +255,7 @@ func CompletePhone(ctx context.Context, raw string, browser []byte, username, te
 			return LoginResult{}, ErrRegistrationProof
 		}
 		id := strconv.FormatInt(account.ID, 10)
-		if err := q.InsertAuditAction(txCtx, db.InsertAuditActionParams{
+		if err := q.InsertAuditAction(txCtx, sqlc.InsertAuditActionParams{
 			Action: "auth.account.registered", ActorAccountID: account.ID,
 			ScopeType: "account", ScopeRef: id, TargetType: "account", TargetRef: id,
 		}); err != nil {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -51,7 +52,7 @@ func StartGoogle(ctx context.Context, remember, stepUp bool) (GoogleStartResult,
 	if _, err := q.DeleteExpiredGoogleFlows(ctx, 100); err != nil {
 		return GoogleStartResult{}, err
 	}
-	if err := q.CreateGoogleFlow(ctx, db.CreateGoogleFlowParams{
+	if err := q.CreateGoogleFlow(ctx, sqlc.CreateGoogleFlowParams{
 		BrowserDigest: browserDigest, StateDigest: stateDigest,
 		Nonce: nonce, Verifier: verifier, Remember: remember,
 	}); err != nil {
@@ -68,24 +69,24 @@ func GoogleCallback(ctx context.Context, browser []byte, state, code string) err
 	if err != nil {
 		return ErrRegistrationProof
 	}
-	pending, err := db.WithTx2(ctx, func(txCtx context.Context) (db.LockPendingGoogleFlowRow, error) {
+	pending, err := db.WithTx2(ctx, func(txCtx context.Context) (sqlc.LockPendingGoogleFlowRow, error) {
 		q, err := db.GetQueries(txCtx)
 		if err != nil {
-			return db.LockPendingGoogleFlowRow{}, err
+			return sqlc.LockPendingGoogleFlowRow{}, err
 		}
-		row, err := q.LockPendingGoogleFlow(txCtx, db.LockPendingGoogleFlowParams{BrowserDigest: browser, StateDigest: digest})
+		row, err := q.LockPendingGoogleFlow(txCtx, sqlc.LockPendingGoogleFlowParams{BrowserDigest: browser, StateDigest: digest})
 		if errors.Is(err, pgx.ErrNoRows) {
-			return db.LockPendingGoogleFlowRow{}, ErrRegistrationProof
+			return sqlc.LockPendingGoogleFlowRow{}, ErrRegistrationProof
 		}
 		if err != nil {
-			return db.LockPendingGoogleFlowRow{}, err
+			return sqlc.LockPendingGoogleFlowRow{}, err
 		}
 		n, err := q.ClaimGoogleFlow(txCtx, browser)
 		if err != nil {
-			return db.LockPendingGoogleFlowRow{}, err
+			return sqlc.LockPendingGoogleFlowRow{}, err
 		}
 		if n != 1 {
-			return db.LockPendingGoogleFlowRow{}, ErrRegistrationProof
+			return sqlc.LockPendingGoogleFlowRow{}, ErrRegistrationProof
 		}
 		return row, nil
 	})
@@ -112,7 +113,7 @@ func GoogleCallback(ctx context.Context, browser []byte, state, code string) err
 	if err != nil {
 		return err
 	}
-	n, err := q.FinishGoogleFlow(ctx, db.FinishGoogleFlowParams{
+	n, err := q.FinishGoogleFlow(ctx, sqlc.FinishGoogleFlowParams{
 		BrowserDigest: browser, Subject: identity.Subject, Email: identity.Email,
 		AuthoritativeEmail: identity.AuthoritativeEmail, AuthTime: max(0, identity.AuthTime),
 	})
@@ -125,15 +126,15 @@ func GoogleCallback(ctx context.Context, browser []byte, state, code string) err
 	return nil
 }
 
-func googleOwner(ctx context.Context, q *db.Queries, subject string, lock bool) (int64, error) {
+func googleOwner(ctx context.Context, q *sqlc.Queries, subject string, lock bool) (int64, error) {
 	var owner int64
 	for _, issuer := range []string{token.GoogleIssuer, token.GoogleLegacyIssuer} {
 		var id int64
 		var err error
 		if lock {
-			id, err = q.LockGoogleIdentityOwner(ctx, db.LockGoogleIdentityOwnerParams{Issuer: issuer, Subject: subject})
+			id, err = q.LockGoogleIdentityOwner(ctx, sqlc.LockGoogleIdentityOwnerParams{Issuer: issuer, Subject: subject})
 		} else {
-			id, err = q.GetOAuth2AccountID(ctx, db.GetOAuth2AccountIDParams{Issuer: issuer, Subject: subject})
+			id, err = q.GetOAuth2AccountID(ctx, sqlc.GetOAuth2AccountIDParams{Issuer: issuer, Subject: subject})
 		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			continue
@@ -208,7 +209,7 @@ func ConsumeGoogleResult(ctx context.Context, browser []byte, ip, agent string) 
 				return GoogleResult{}, err
 			}
 		}
-		n, err := q.IssueGoogleRegistrationProof(txCtx, db.IssueGoogleRegistrationProofParams{BrowserDigest: browser, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes})
+		n, err := q.IssueGoogleRegistrationProof(txCtx, sqlc.IssueGoogleRegistrationProofParams{BrowserDigest: browser, ProofDigest: digest, TtlMinutes: registrationProofTTLMinutes})
 		if err != nil {
 			return GoogleResult{}, err
 		}
@@ -239,7 +240,7 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 		if err != nil {
 			return LoginResult{}, err
 		}
-		row, err := q.LockGoogleRegistration(txCtx, db.LockGoogleRegistrationParams{BrowserDigest: browser, ProofDigest: digest})
+		row, err := q.LockGoogleRegistration(txCtx, sqlc.LockGoogleRegistrationParams{BrowserDigest: browser, ProofDigest: digest})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return LoginResult{}, ErrRegistrationProof
 		}
@@ -269,12 +270,12 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 		}
 		var accountID int64
 		if row.AuthoritativeEmail && row.Email != "" {
-			a, err := q.CreateAccount(txCtx, db.CreateAccountParams{PersonID: person, Email: row.Email})
+			a, err := q.CreateAccount(txCtx, sqlc.CreateAccountParams{PersonID: person, Email: row.Email})
 			if err != nil {
 				return LoginResult{}, err
 			}
 			accountID = a.ID
-			if _, err := q.MarkEmailVerified(txCtx, db.MarkEmailVerifiedParams{ID: accountID, Email: row.Email}); err != nil {
+			if _, err := q.MarkEmailVerified(txCtx, sqlc.MarkEmailVerifiedParams{ID: accountID, Email: row.Email}); err != nil {
 				return LoginResult{}, err
 			}
 		} else {
@@ -285,7 +286,7 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 			}
 			accountID = a.ID
 		}
-		linked, err := q.LinkOAuth2Credential(txCtx, db.LinkOAuth2CredentialParams{
+		linked, err := q.LinkOAuth2Credential(txCtx, sqlc.LinkOAuth2CredentialParams{
 			Issuer: token.GoogleIssuer, Subject: row.Subject, AccountID: accountID,
 		})
 		if errors.Is(err, pgx.ErrNoRows) || err == nil && linked != accountID {
@@ -294,7 +295,7 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 		if err != nil {
 			return LoginResult{}, err
 		}
-		n, err := q.SetRegistrationIdentity(txCtx, db.SetRegistrationIdentityParams{
+		n, err := q.SetRegistrationIdentity(txCtx, sqlc.SetRegistrationIdentityParams{
 			AccountID: accountID, Username: name, TermsVersion: terms, MarketingOptIn: marketing,
 		})
 		if err != nil {
@@ -309,7 +310,7 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 		if err := q.CreateAccountSettings(txCtx, accountID); err != nil {
 			return LoginResult{}, err
 		}
-		n, err = q.UpdatePersonProfile(txCtx, db.UpdatePersonProfileParams{AccountID: accountID, DisplayName: pgtype.Text{String: name, Valid: true}})
+		n, err = q.UpdatePersonProfile(txCtx, sqlc.UpdatePersonProfileParams{AccountID: accountID, DisplayName: pgtype.Text{String: name, Valid: true}})
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -317,7 +318,7 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 			return LoginResult{}, ErrRegistrationProof
 		}
 		id := strconv.FormatInt(accountID, 10)
-		if err := q.InsertAuditAction(txCtx, db.InsertAuditActionParams{
+		if err := q.InsertAuditAction(txCtx, sqlc.InsertAuditActionParams{
 			Action: "auth.account.registered", ActorAccountID: accountID,
 			ScopeType: "account", ScopeRef: id, TargetType: "account", TargetRef: id,
 		}); err != nil {

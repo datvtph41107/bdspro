@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -40,7 +41,7 @@ func RefreshSession(ctx context.Context, raw string) (LoginResult, error) {
 		if err != nil {
 			return LoginResult{}, err
 		}
-		n, err := q.RotateSessionRefreshDigest(txCtx, db.RotateSessionRefreshDigestParams{
+		n, err := q.RotateSessionRefreshDigest(txCtx, sqlc.RotateSessionRefreshDigestParams{
 			NextDigest: token.RefreshDigest(next), SessionID: row.ID,
 			AccountID: row.AccountID, PreviousDigest: row.RefreshToken,
 		})
@@ -58,53 +59,53 @@ func RefreshSession(ctx context.Context, raw string) (LoginResult, error) {
 	return result, err
 }
 
-func lockRefreshSession(ctx context.Context, sessionID uuid.UUID) (*db.Queries, db.Session, error) {
+func lockRefreshSession(ctx context.Context, sessionID uuid.UUID) (*sqlc.Queries, sqlc.Session, error) {
 	q, err := db.GetQueries(ctx)
 	if err != nil {
-		return nil, db.Session{}, err
+		return nil, sqlc.Session{}, err
 	}
 	row, err := q.GetSession(ctx, sessionID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, db.Session{}, util.ErrUnauthenticated
+		return nil, sqlc.Session{}, util.ErrUnauthenticated
 	}
 	if err != nil {
-		return nil, db.Session{}, err
+		return nil, sqlc.Session{}, err
 	}
 	if _, err = q.LockSessionRevocationAccount(ctx, row.AccountID); errors.Is(err, pgx.ErrNoRows) {
-		return nil, db.Session{}, util.ErrUnauthenticated
+		return nil, sqlc.Session{}, util.ErrUnauthenticated
 	} else if err != nil {
-		return nil, db.Session{}, err
+		return nil, sqlc.Session{}, err
 	}
 	if err := requireActiveAccount(ctx, q, row.AccountID); err != nil {
-		return nil, db.Session{}, err
+		return nil, sqlc.Session{}, err
 	}
-	if _, err = q.LockActingSession(ctx, db.LockActingSessionParams{AccountID: row.AccountID, SessionID: row.ID}); errors.Is(err, pgx.ErrNoRows) {
-		return nil, db.Session{}, util.ErrUnauthenticated
+	if _, err = q.LockActingSession(ctx, sqlc.LockActingSessionParams{AccountID: row.AccountID, SessionID: row.ID}); errors.Is(err, pgx.ErrNoRows) {
+		return nil, sqlc.Session{}, util.ErrUnauthenticated
 	} else if err != nil {
-		return nil, db.Session{}, err
+		return nil, sqlc.Session{}, err
 	}
 	row, err = q.GetSession(ctx, sessionID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, db.Session{}, util.ErrUnauthenticated
+		return nil, sqlc.Session{}, util.ErrUnauthenticated
 	}
 	if err != nil {
-		return nil, db.Session{}, err
+		return nil, sqlc.Session{}, err
 	}
 	if row.IsBlocked || !row.ExpiresAt.After(time.Now()) {
-		return nil, db.Session{}, util.ErrUnauthenticated
+		return nil, sqlc.Session{}, util.ErrUnauthenticated
 	}
 	return q, row, nil
 }
 
-func revokeRefreshRow(ctx context.Context, q *db.Queries, row db.Session) error {
-	n, err := q.RevokeOwnedSession(ctx, db.RevokeOwnedSessionParams{ID: row.ID, AccountID: row.AccountID})
+func revokeRefreshRow(ctx context.Context, q *sqlc.Queries, row sqlc.Session) error {
+	n, err := q.RevokeOwnedSession(ctx, sqlc.RevokeOwnedSessionParams{ID: row.ID, AccountID: row.AccountID})
 	if err != nil {
 		return err
 	}
 	if n != 1 {
 		return util.ErrUnauthenticated
 	}
-	return q.InsertAuditAction(ctx, db.InsertAuditActionParams{
+	return q.InsertAuditAction(ctx, sqlc.InsertAuditActionParams{
 		Action: "auth.session.revoked", ActorAccountID: row.AccountID,
 		ScopeType: "account", ScopeRef: strconv.FormatInt(row.AccountID, 10),
 		TargetType: "session", TargetRef: row.ID.String(),

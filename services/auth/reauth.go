@@ -7,6 +7,7 @@ import (
 
 	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
+	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	token "github.com/datvtph41107/bdspro/modules/auth"
 	"github.com/datvtph41107/bdspro/modules/setting"
 	"github.com/datvtph41107/bdspro/modules/util"
@@ -71,7 +72,7 @@ func ReauthenticatePassword(ctx context.Context, actor authmodel.Actor, password
 		if err != nil {
 			return RecentAuthResult{}, err
 		}
-		if err := q.CreateRecentAuthProof(txCtx, db.CreateRecentAuthProofParams{
+		if err := q.CreateRecentAuthProof(txCtx, sqlc.CreateRecentAuthProofParams{
 			TtlMinutes: recentAuthProofTTLMinutes,
 			Digest:     digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
 			Action: action, Method: "password",
@@ -108,7 +109,7 @@ func RequestPasswordSetProof(ctx context.Context, actor authmodel.Actor) error {
 		if err := q.DeleteAccountRecentAuthProofs(txCtx, actor.AccountID); err != nil {
 			return "", err
 		}
-		if err := q.CreateRecentAuthProof(txCtx, db.CreateRecentAuthProofParams{
+		if err := q.CreateRecentAuthProof(txCtx, sqlc.CreateRecentAuthProofParams{
 			TtlMinutes: recentAuthProofTTLMinutes,
 			Digest:     digest, AccountID: actor.AccountID, SessionID: actor.SessionID,
 			Action: "password.set", Method: "verified_email", EmailSnapshot: *u.Email,
@@ -123,7 +124,7 @@ func RequestPasswordSetProof(ctx context.Context, actor authmodel.Actor) error {
 	return mailer.SendPasswordSetProof(ctx, email, raw, recentAuthProofTTLMinutes)
 }
 
-func ConsumeRecentAuthProof(ctx context.Context, q *db.Queries, actor authmodel.Actor, raw, action string) error {
+func ConsumeRecentAuthProof(ctx context.Context, q *sqlc.Queries, actor authmodel.Actor, raw, action string) error {
 	if !db.InTransaction(ctx) {
 		return ErrReauthRequired
 	}
@@ -131,7 +132,7 @@ func ConsumeRecentAuthProof(ctx context.Context, q *db.Queries, actor authmodel.
 	if err != nil {
 		return ErrReauthRequired
 	}
-	row, err := q.ConsumeRecentAuthProof(ctx, db.ConsumeRecentAuthProofParams{
+	row, err := q.ConsumeRecentAuthProof(ctx, sqlc.ConsumeRecentAuthProofParams{
 		Digest: digest, AccountID: actor.AccountID, SessionID: actor.SessionID, Action: action,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
