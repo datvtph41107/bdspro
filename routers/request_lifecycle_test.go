@@ -116,7 +116,7 @@ func TestRequestLifecycleGuardAndMissingRoute(t *testing.T) {
 	})
 	h := requestLoggingWithThreshold(router.WrapIngress(), time.Hour)
 	for _, tc := range []struct {
-		path string
+		path   string
 		status int
 	}{{"/guard", 403}, {"/missing", 404}} {
 		resp := httptest.NewRecorder()
@@ -149,8 +149,8 @@ func TestRequestLifecyclePanicPropagates(t *testing.T) {
 	}), time.Hour)
 	func() {
 		defer func() {
-			if recover() != "secret-panic-value" {
-				t.Error("panic was not propagated")
+			if recover() != http.ErrAbortHandler {
+				t.Error("panic was not converted to the HTTP abort sentinel")
 			}
 		}()
 		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))

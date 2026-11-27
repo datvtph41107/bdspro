@@ -60,14 +60,23 @@ func requestLoggingWithThreshold(next http.Handler, threshold time.Duration) htt
 				<-slowDone
 			}
 			if recovered := recover(); recovered != nil {
-				// Do not log arbitrary panic values (they may contain credentials).
-				event := entry(logger.Error()).Dur("duration_ms", elapsed).
-					Str("reason", "panic")
+				// Only the HTTP boundary translates a panic. net/http logs arbitrary
+				// panic values unless the exact ErrAbortHandler sentinel is used.
+				// Preserve abort semantics without reporting a false HTTP status.
+				level, reason := log.ERROR, "panic"
+				if recovered == http.ErrAbortHandler {
+					level, reason = log.WARN, "handler_abort"
+				}
+				event := entry(logger.WithLevel(level)).Dur("duration_ms", elapsed).
+					Str("reason", reason)
 				if status := response.Status(); status != 0 {
 					event.Int("status", status)
 				}
-				log.StackDetails(event).Msg("http.failed")
-				panic(recovered)
+				if reason == "panic" {
+					log.StackDetails(event)
+				}
+				event.Msg("http.failed")
+				panic(http.ErrAbortHandler)
 			}
 
 			status := response.Status()

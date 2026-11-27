@@ -101,7 +101,7 @@ Tham khảo [Gitea LoggerImpl.Log](https://github.com/go-gitea/gitea/blob/99053c
 - http.started: DEBUG, trước khi gọi router. Ẩn ở INFO.
 - http.slow: WARN, một lần sau 3 giây nếu timer chạy trước khi hoàn tất. Không hủy request, không đọc response hoặc request data từ goroutine timer.
 - http.request: giữ contract hoàn tất (status, bytes, duration_ms, reason, level theo status). Console đổi thành router: completed.
-- http.failed: ERROR nếu panic thoát ra khỏi handler. Không ghi raw panic, không bịa HTTP status; panic được truyền tiếp để recovery hiện hành xử lý. Panic đã bị middleware khác recover không được tự động phát hiện.
+- http.failed: ERROR với reason=panic nếu panic thoát ra khỏi handler; ghi stack ứng dụng, sau đó panic(http.ErrAbortHandler) để net/http ngắt connection/stream mà không ghi raw panic vào standard ErrorLog. Nếu handler chủ động panic(http.ErrAbortHandler), ghi WARN reason=handler_abort, không thêm stack. Không bịa HTTP status, không viết thêm response 500 khi đã gửi response. Panic đã bị middleware khác recover hoặc panic ngoài request boundary không thuộc bảo đảm này.
 - handler và handler_source: action/provider gần nhất đã vào pipeline, không phải stack trace, không chắc là endpoint cuối. Guard chặn request thì tên guard có giá trị. 404 không match không bịa handler. Metadata lấy khi compile route, request giữ con trỏ atomic.
 - Slow callback kết thúc trước event cuối; không thêm registry hoặc goroutine quét toàn bộ request như Gitea. Chi phí một timer/request chưa benchmark. Long polling chưa có phân loại riêng. Không thêm request query string, body, cookie, token, IP hoặc raw panic.
 
@@ -114,7 +114,7 @@ Ví dụ minh họa:
 ```
 
 ```sh
-go test ./routers -run 'TestRequestLifecycle|TestRequestLoggingErrorsAndPrivacy' -v -count=1
+go test ./routers -run 'TestRequestLifecycle|TestRequestLoggingErrorsAndPrivacy|TestHTTPPanicPrivacy' -v -count=1
 go test ./modules/log -run 'TestRouterLifecycleConsole|TestCompact' -v -count=1
 go test -race ./routers ./modules/web ./modules/log -count=1
 ```
@@ -127,7 +127,7 @@ APIErrorAuto (unexpected errors only) and APIErrorInternal keep their existing e
 
 WithOperation annotates selected login/session failures without changing Error(), errors.Is or errors.As. Operation IDs must be static developer-owned labels; never pass request data. Other services can still return ordinary errors; the type chain is useful but does not reconstruct the original call path.
 
-At DEBUG level, unexpected API errors include up to 12 application stack_frames from the reporting point. Escaping panics include these frames before rethrow at any enabled error level. These are active application frames, not a captured origin stack for returned errors. Compact console omits the chain and stack array, exposes operation labels and SQLSTATE when available. JSON or full text output retains diagnostic details; use file JSON or JSON console to inspect stack_frames. No new settings or log events for ordinary API errors. Existing database and HTTP result logging remains unchanged.
+At DEBUG level, unexpected API errors include up to 12 application stack_frames from the reporting point. Unexpected escaping panics include these frames before the HTTP abort sentinel at any enabled error level. These are active application frames, not a captured origin stack for returned errors. Compact console omits the chain and stack array, exposes operation labels and SQLSTATE when available. JSON or full text output retains diagnostic details; use file JSON or JSON console to inspect stack_frames. No new settings or log events for ordinary API errors. Existing database and HTTP result logging remains unchanged.
 
 Example (illustrative):
 ```text
