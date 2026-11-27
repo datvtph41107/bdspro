@@ -223,6 +223,7 @@ func TestDefaultEngineLifecycle(t *testing.T) {
 	if _, err := GetQueries(ended); !errors.Is(err, ErrTransactionClosed) {
 		t.Fatal("ended scope fell back to default queries", err)
 	}
+	t.Run("transaction contract", func(t *testing.T) { verifyTransactionContract(t, pool) })
 	g.DoGracefulShutdown()
 	select {
 	case <-g.Done():

@@ -25,6 +25,9 @@ func TestQueryContextRejection(t *testing.T) {
 		{"incomplete scope", context.WithValue(ctx, transactionContextKey{}, &transactionScope{}), ErrTransactionContext},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			if InTransaction(tc.ctx) {
+				t.Fatal("invalid scope reported usable")
+			}
 			if conn, err := GetEngine(tc.ctx); conn != nil || !errors.Is(err, tc.want) {
 				t.Fatal("unexpected raw execution handle", err)
 			}

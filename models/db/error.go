@@ -8,5 +8,6 @@ var (
 	ErrEngineClosed             = errors.New("db: engine closed")
 	ErrTransactionContext       = errors.New("db: invalid transaction context")
 	ErrTransactionClosed        = errors.New("db: transaction closed")
+	ErrTransactionCallback      = errors.New("db: nil transaction callback")
 	errTransactionPanicked      = errors.New("db: nested transaction callback panicked")
 )

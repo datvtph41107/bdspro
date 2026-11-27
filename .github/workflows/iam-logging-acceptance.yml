@@ -128,7 +128,7 @@ jobs:
           git grep -n 'TokenSymmetricKey' -- '*.go' ':!*_test.go'
       - name: Verify PostgreSQL pool and engine lifecycle
         run: |
-          test -z "$(gofmt -l models/db/conn.go models/db/engine_init.go models/db/engine_test.go models/db/context.go models/db/context_test.go models/db/google_flow_test.go models/db/migration_test.go)" || { gofmt -d models/db/conn.go models/db/engine_init.go models/db/engine_test.go models/db/context.go models/db/context_test.go models/db/google_flow_test.go models/db/migration_test.go; exit 1; }
+          test -z "$(gofmt -l models/db/conn.go models/db/engine_init.go models/db/engine_test.go models/db/context.go models/db/context_test.go models/db/transaction.go models/db/transaction_test.go models/db/error.go models/db/google_flow_test.go models/db/migration_test.go)" || { gofmt -d models/db/conn.go models/db/engine_init.go models/db/engine_test.go models/db/context.go models/db/context_test.go models/db/transaction.go models/db/transaction_test.go models/db/error.go models/db/google_flow_test.go models/db/migration_test.go; exit 1; }
           if git grep -nE '\bdb\.Connect\(' -- '*.go' 'scripts/*.sh' 'scripts/*.py'; then
             echo "Removed pool forwarding API still has a consumer"
             exit 1
