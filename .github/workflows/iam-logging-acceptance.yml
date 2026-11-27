@@ -84,8 +84,14 @@ jobs:
         run: go build ./...
       - name: Verify canonical pagination contract
         run: go test ./services/context -run '^TestLinkHeaderUsesValidatedPage$' -count=1
-      - name: Verify session access deadline contract
-        run: go test ./modules/auth -run '^TestSessionAccessTokenDeadline$' -count=1
+      - name: Verify access token contracts
+        run: |
+          test -z "$(gofmt -l modules/auth/jwt.go modules/auth/jwt_payload.go modules/auth/runtime.go modules/auth/jwt_deadline_test.go modules/auth/jwt_test.go services/auth/access.go)" || { gofmt -d modules/auth/jwt.go modules/auth/jwt_payload.go modules/auth/runtime.go modules/auth/jwt_deadline_test.go modules/auth/jwt_test.go services/auth/access.go; exit 1; }
+          go test ./modules/auth -run '^Test(SessionAccessTokenDeadline|AccessTokenContract)$' -count=1
+          if git grep -nE '\b(WithMaker|MakerFromContext|CreateToken|NewPayload|VerifyToken|TokenTypeRefresh|TokenTypeAccess)\b' -- '*.go' 'scripts/*.sh' 'scripts/*.py'; then
+            echo "Obsolete JWT contract still has a consumer"
+            exit 1
+          fi
       - name: Verify Google freshness contract
         run: go test ./modules/auth -run '^TestGoogleStepUp$' -count=1
       - name: Verify provider lifetime projection

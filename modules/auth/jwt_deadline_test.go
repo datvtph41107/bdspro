@@ -42,7 +42,7 @@ func TestSessionAccessTokenDeadline(t *testing.T) {
 			if !payload.ExpiredAt.Equal(want) {
 				t.Fatalf("deadline = %v, want %v", payload.ExpiredAt, want)
 			}
-			decoded, err := maker.VerifyToken(raw, TokenTypeAccess)
+			decoded, err := maker.VerifyAccessToken(raw)
 			if err != nil {
 				t.Fatal(err)
 			}

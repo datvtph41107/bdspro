@@ -17,39 +17,9 @@ type Payload struct {
 	ID        uuid.UUID `json:"id"`
 	SessionID uuid.UUID `json:"session_id,omitzero"`
 	AccountID int64     `json:"account_id"`
-	TokenType TokenType `json:"token_type"`
+	TokenType string    `json:"token_type"`
 	IssuedAt  time.Time `json:"issued_at"`
 	ExpiredAt time.Time `json:"expired_at"`
-}
-
-func NewPayload(accountID int64, duration time.Duration, kind TokenType) (*Payload, error) {
-	if accountID <= 0 || duration <= 0 || (kind != TokenTypeAccess && kind != TokenTypeRefresh) {
-		return nil, ErrInvalidToken
-	}
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
-
-	now := time.Now().UTC()
-	return &Payload{
-		ID:        id,
-		AccountID: accountID,
-		TokenType: kind,
-		IssuedAt:  now,
-		ExpiredAt: now.Add(duration),
-	}, nil
-}
-
-func (payload *Payload) Valid(kind TokenType) error {
-	if payload == nil || payload.ID == uuid.Nil || payload.AccountID <= 0 ||
-		(kind != TokenTypeAccess && kind != TokenTypeRefresh) || payload.TokenType != kind {
-		return ErrInvalidToken
-	}
-	if !time.Now().Before(payload.ExpiredAt) {
-		return ErrExpiredToken
-	}
-	return nil
 }
 
 func (payload *Payload) GetExpirationTime() (*jwt.NumericDate, error) {

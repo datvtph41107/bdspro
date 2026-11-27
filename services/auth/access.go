@@ -14,8 +14,8 @@ import (
 )
 
 func ResolveAccessToken(ctx context.Context, encoded string) (*auth_model.Actor, error) {
-	payload, err := token.ProcessMaker().VerifyToken(encoded, token.TokenTypeAccess)
-	if err != nil || payload.SessionID == uuid.Nil {
+	payload, err := token.ProcessMaker().VerifyAccessToken(encoded)
+	if err != nil {
 		return nil, util.ErrUnauthenticated
 	}
 	q, err := db.GetQueries(ctx)

@@ -9,7 +9,7 @@ import (
 
 var processMaker struct {
 	mu    sync.RWMutex
-	maker Maker
+	maker *JWTMaker
 }
 
 func Init() error {
@@ -26,7 +26,7 @@ func Init() error {
 	return nil
 }
 
-func ProcessMaker() Maker {
+func ProcessMaker() *JWTMaker {
 	processMaker.mu.RLock()
 	defer processMaker.mu.RUnlock()
 	if processMaker.maker == nil {

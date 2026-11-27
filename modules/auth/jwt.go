@@ -9,77 +9,61 @@ import (
 	"github.com/google/uuid"
 )
 
-const minSecretKeySize = 32
+const (
+	minSecretKeySize = 32
+	accessTokenType  = "access"
+)
 
 type JWTMaker struct {
 	secretKey string
 }
 
-func NewJWTMaker(secretKey string) (Maker, error) {
+func NewJWTMaker(secretKey string) (*JWTMaker, error) {
 	if len(secretKey) < minSecretKeySize {
 		return nil, fmt.Errorf("invalid key size: must be at least %d bytes", minSecretKeySize)
 	}
 	return &JWTMaker{secretKey: secretKey}, nil
 }
 
-func (maker *JWTMaker) CreateToken(
-	accountID int64,
-	duration time.Duration,
-	kind TokenType,
-) (string, *Payload, error) {
-	payload, err := NewPayload(accountID, duration, kind)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return maker.sign(payload)
-}
-
 func (maker *JWTMaker) CreateSessionAccessToken(accountID int64, duration time.Duration, sessionID uuid.UUID, sessionExpiry time.Time) (string, *Payload, error) {
-	if sessionID == uuid.Nil {
+	if accountID <= 0 || duration <= 0 || sessionID == uuid.Nil {
 		return "", nil, ErrInvalidToken
 	}
-	payload, err := NewPayload(accountID, duration, TokenTypeAccess)
+	id, err := uuid.NewRandom()
 	if err != nil {
 		return "", nil, err
 	}
-	// Use the issuance timestamp already captured by NewPayload. Never extend
-	// an access token beyond the persisted session's absolute deadline.
-	if !sessionExpiry.After(payload.IssuedAt) {
+	now := time.Now().UTC()
+	if !sessionExpiry.After(now) {
 		return "", nil, ErrExpiredToken
 	}
-	if sessionExpiry.Before(payload.ExpiredAt) {
-		payload.ExpiredAt = sessionExpiry.UTC()
+	expiry := now.Add(duration)
+	if sessionExpiry.Before(expiry) {
+		expiry = sessionExpiry.UTC()
 	}
-	payload.SessionID = sessionID
-	return maker.sign(payload)
-}
-
-func (maker *JWTMaker) sign(payload *Payload) (string, *Payload, error) {
-	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, payload)
-	token, err := jwtToken.SignedString([]byte(maker.secretKey))
+	payload := &Payload{
+		ID:        id,
+		SessionID: sessionID,
+		AccountID: accountID,
+		TokenType: accessTokenType,
+		IssuedAt:  now,
+		ExpiredAt: expiry,
+	}
+	raw, err := jwt.NewWithClaims(jwt.SigningMethodHS256, payload).SignedString([]byte(maker.secretKey))
 	if err != nil {
 		return "", nil, err
 	}
-	return token, payload, nil
+	return raw, payload, nil
 }
 
-func (maker *JWTMaker) VerifyToken(raw string, kind TokenType) (*Payload, error) {
+func (maker *JWTMaker) VerifyAccessToken(raw string) (*Payload, error) {
 	if raw == "" || len(raw) > 4096 {
 		return nil, ErrInvalidToken
 	}
-
-	keyFunc := func(token *jwt.Token) (any, error) {
-		if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
-			return nil, ErrInvalidToken
-		}
-		return []byte(maker.secretKey), nil
-	}
-
-	jwtToken, err := jwt.ParseWithClaims(
+	parsed, err := jwt.ParseWithClaims(
 		raw,
 		&Payload{},
-		keyFunc,
+		func(*jwt.Token) (any, error) { return []byte(maker.secretKey), nil },
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
@@ -91,12 +75,14 @@ func (maker *JWTMaker) VerifyToken(raw string, kind TokenType) (*Payload, error)
 		return nil, ErrInvalidToken
 	}
 
-	payload, ok := jwtToken.Claims.(*Payload)
-	if !ok || !jwtToken.Valid {
+	payload, ok := parsed.Claims.(*Payload)
+	if !ok || !parsed.Valid || payload == nil || payload.ID == uuid.Nil ||
+		payload.AccountID <= 0 || payload.SessionID == uuid.Nil || payload.TokenType != accessTokenType {
 		return nil, ErrInvalidToken
 	}
-	if err := payload.Valid(kind); err != nil {
-		return nil, err
+	// Keep the full timestamp check in addition to the JWT library's NumericDate validation.
+	if !time.Now().Before(payload.ExpiredAt) {
+		return nil, ErrExpiredToken
 	}
 	return payload, nil
 }
