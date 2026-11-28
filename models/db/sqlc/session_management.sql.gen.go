@@ -13,10 +13,16 @@ import (
 )
 
 const consumeRecentAuthProof = `-- name: ConsumeRecentAuthProof :one
-DELETE FROM auth_proofs
-WHERE digest=$1::bytea AND account_id=$2::bigint
-AND session_id=$3::uuid AND action=$4::text AND expires_at>clock_timestamp()
-RETURNING method,email_snapshot,google_subject
+WITH locked_proof AS MATERIALIZED (
+    SELECT digest, expires_at FROM auth_proofs
+    WHERE digest=$1::bytea AND account_id=$2::bigint
+      AND session_id=$3::uuid AND action=$4::text
+    FOR UPDATE
+)
+DELETE FROM auth_proofs AS p
+USING locked_proof AS locked
+WHERE p.digest=locked.digest AND locked.expires_at>clock_timestamp()
+RETURNING p.method,p.email_snapshot,p.google_subject
 `
 
 type ConsumeRecentAuthProofParams struct {
@@ -177,11 +183,14 @@ func (q *Queries) ListActiveSessions(ctx context.Context, accountID int64) ([]Li
 }
 
 const lockActingSession = `-- name: LockActingSession :one
-SELECT id FROM sessions
-WHERE id = $1::uuid
-  AND account_id = $2::bigint
-  AND is_blocked = FALSE AND expires_at > clock_timestamp()
-FOR UPDATE
+WITH locked_session AS MATERIALIZED (
+    SELECT id, is_blocked, expires_at FROM sessions
+    WHERE id = $1::uuid
+      AND account_id = $2::bigint
+    FOR UPDATE
+)
+SELECT id FROM locked_session
+WHERE is_blocked = FALSE AND expires_at > clock_timestamp()
 `
 
 type LockActingSessionParams struct {

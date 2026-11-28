@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Runtime-only probe against a disposable local BDSPro and Mailpit."""
 import base64
+from concurrent.futures import ThreadPoolExecutor
 import datetime
 import hashlib
 import http.cookiejar
@@ -10,6 +11,7 @@ import os
 import re
 import secrets
 import subprocess
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -250,6 +252,54 @@ def check_session_deadline(opener, account):
     print("PASS persisted session deadline, non-sliding refresh and expired session denial", flush=True)
 
 
+def check_concurrent_refresh(email, password):
+    opener = browser()
+    account = post(opener, "login", {"identifier": email, "password": password}, 200)
+    jar = next(handler.cookiejar for handler in opener.handlers
+               if isinstance(handler, urllib.request.HTTPCookieProcessor))
+    raw = next(cookie.value for cookie in jar if cookie.name == "bdspro_refresh")
+    payload = account["access_token"].split(".")[1]
+    claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    session_id = str(uuid.UUID(claims["session_id"]))
+    initial = db_query(f"SELECT refresh_token FROM sessions WHERE id='{session_id}'::uuid")
+    barrier = threading.Barrier(2, timeout=5)
+
+    def refresh():
+        request = urllib.request.Request(
+            BASE + "/api/v1/auth/refresh", data=b"{}", method="POST",
+            headers={"Content-Type": "application/json", "Origin": BASE,
+                     "X-BDS-Request": "1", "Sec-Fetch-Site": "same-origin",
+                     "Cookie": "bdspro_refresh=" + raw},
+        )
+        barrier.wait()
+        try:
+            response = browser().open(request, timeout=15)
+        except urllib.error.HTTPError as error:
+            response = error
+        with response:
+            return response.status, json.load(response) if response.status == 200 else None
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(refresh) for _ in range(2)]
+        results = [future.result() for future in futures]
+    if sorted(status for status, _ in results) != [200, 401]:
+        raise RuntimeError("Concurrent refresh did not preserve single rotation and replay denial")
+    rotated, blocked = db_query(f"SELECT refresh_token,is_blocked FROM sessions WHERE id='{session_id}'::uuid").split("|")
+    if rotated == initial or blocked != "t":
+        raise RuntimeError("Refresh replay did not revoke the rotated session")
+    winner = next(body for status, body in results if status == 200)
+    request = urllib.request.Request(BASE + "/api/v1/me/profile",
+                                     headers={"Authorization": "Bearer " + winner["access_token"]})
+    try:
+        response = browser().open(request, timeout=5)
+    except urllib.error.HTTPError as error:
+        response = error
+    with response:
+        if response.status != 401:
+            raise RuntimeError("Replay-revoked session still grants access")
+    print("PASS concurrent refresh: one rotation, replay revocation and winner access denied", flush=True)
+
+
 def check_profile_queries(opener, access):
     # Only mutate the account created by this disposable registration probe.
     payload = access.split(".")[1]
@@ -328,6 +378,7 @@ def check_recovery_and_reauth(opener, email, registration):
     post(opener, "login", {"identifier": email, "password": password}, 401)
     account = post(opener, "login", {"identifier": email, "password": body["new_password"]}, 200)
     check_session_deadline(opener, account)
+    check_concurrent_refresh(email, body["new_password"])
     print("PASS recovery and recent-auth TTL, expired proof rejection, reset/replay and new password", flush=True)
 
 

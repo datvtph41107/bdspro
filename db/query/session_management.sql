@@ -4,11 +4,14 @@ WHERE id = sqlc.arg(account_id)::bigint
 FOR NO KEY UPDATE;
 
 -- name: LockActingSession :one
-SELECT id FROM sessions
-WHERE id = sqlc.arg(session_id)::uuid
-  AND account_id = sqlc.arg(account_id)::bigint
-  AND is_blocked = FALSE AND expires_at > clock_timestamp()
-FOR UPDATE;
+WITH locked_session AS MATERIALIZED (
+    SELECT id, is_blocked, expires_at FROM sessions
+    WHERE id = sqlc.arg(session_id)::uuid
+      AND account_id = sqlc.arg(account_id)::bigint
+    FOR UPDATE
+)
+SELECT id FROM locked_session
+WHERE is_blocked = FALSE AND expires_at > clock_timestamp();
 
 -- name: ListActiveSessions :many
 SELECT id, user_agent, client_ip, created_at, expires_at
@@ -31,10 +34,16 @@ VALUES (sqlc.arg(digest)::bytea,sqlc.arg(account_id)::bigint,sqlc.arg(session_id
     sqlc.arg(action)::text,sqlc.arg(method)::text,sqlc.arg(email_snapshot)::text,clock_timestamp()+(sqlc.arg(ttl_minutes)::integer * interval '1 minute'));
 
 -- name: ConsumeRecentAuthProof :one
-DELETE FROM auth_proofs
-WHERE digest=sqlc.arg(digest)::bytea AND account_id=sqlc.arg(account_id)::bigint
-AND session_id=sqlc.arg(session_id)::uuid AND action=sqlc.arg(action)::text AND expires_at>clock_timestamp()
-RETURNING method,email_snapshot,google_subject;
+WITH locked_proof AS MATERIALIZED (
+    SELECT digest, expires_at FROM auth_proofs
+    WHERE digest=sqlc.arg(digest)::bytea AND account_id=sqlc.arg(account_id)::bigint
+      AND session_id=sqlc.arg(session_id)::uuid AND action=sqlc.arg(action)::text
+    FOR UPDATE
+)
+DELETE FROM auth_proofs AS p
+USING locked_proof AS locked
+WHERE p.digest=locked.digest AND locked.expires_at>clock_timestamp()
+RETURNING p.method,p.email_snapshot,p.google_subject;
 
 -- name: DeleteAccountRecentAuthProofs :exec
 DELETE FROM auth_proofs WHERE account_id=$1;
