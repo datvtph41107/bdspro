@@ -52,6 +52,9 @@ func CreateTeamInvitation(ctx context.Context, actor authmodel.Actor, orgID, tea
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.TeamInvitation{}, organization.ErrTeamMemberNotFound
 		}
+		if db.IsUniqueViolation(err, "team_invites_open_uq") {
+			return organization.TeamInvitation{}, organization.ErrTeamInviteExists
+		}
 		if err != nil {
 			return organization.TeamInvitation{}, err
 		}
@@ -61,7 +64,7 @@ func CreateTeamInvitation(ctx context.Context, actor authmodel.Actor, orgID, tea
 		return organization.TeamInvitation{ID: id.String(), TeamID: decimal(teamID), ExpiresAt: row.ExpiresAt}, nil
 	})
 	if err != nil {
-		return organization.TeamInvitation{}, mapMembershipError(err)
+		return organization.TeamInvitation{}, err
 	}
 
 	q, err := db.GetQueries(ctx)
@@ -145,6 +148,9 @@ func AcceptTeamInvitation(ctx context.Context, actor authmodel.Actor, raw string
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.TeamMembership{}, organization.ErrTeamInviteInvalid
 		}
+		if db.IsUniqueViolation(err, "team_members_pkey") {
+			return organization.TeamMembership{}, organization.ErrTeamMemberExists
+		}
 		if err != nil {
 			return organization.TeamMembership{}, err
 		}
@@ -153,5 +159,5 @@ func AcceptTeamInvitation(ctx context.Context, actor authmodel.Actor, raw string
 		}
 		return toTeamMembership(row), nil
 	})
-	return result, mapMembershipError(err)
+	return result, err
 }
