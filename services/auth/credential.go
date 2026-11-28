@@ -88,7 +88,7 @@ func SetPassword(ctx context.Context, actor authmodel.Actor, proof, password, ip
 	if err == nil {
 		notifyCredentialChange(ctx, oldEmail)
 	}
-	return result, identityConflict(err)
+	return result, err
 }
 
 func RemoveCredential(ctx context.Context, actor authmodel.Actor, kind, proof, ip, agent string) (LoginResult, error) {
