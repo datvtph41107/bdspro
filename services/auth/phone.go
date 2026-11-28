@@ -230,11 +230,17 @@ func CompletePhone(ctx context.Context, raw string, browser []byte, username, te
 			return LoginResult{}, err
 		}
 		if err := q.BindPhoneCredentialQuery(txCtx, sqlc.BindPhoneCredentialQueryParams{AccountID: account.ID, PhoneE164: proof.PhoneE164}); err != nil {
+			if db.IsUniqueViolation(err, "phone_credentials_phone_e164_key") {
+				return LoginResult{}, ErrCredentialTaken
+			}
 			return LoginResult{}, err
 		}
 		n, err := q.SetRegistrationIdentity(txCtx, sqlc.SetRegistrationIdentityParams{
 			AccountID: account.ID, Username: name, TermsVersion: terms, MarketingOptIn: marketing,
 		})
+		if db.IsUniqueViolation(err, "accounts_username_uq") {
+			return LoginResult{}, ErrUsernameTaken
+		}
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -266,5 +272,5 @@ func CompletePhone(ctx context.Context, raw string, browser []byte, username, te
 		}
 		return issueSession(txCtx, q, account.ID, ip, agent, remember)
 	})
-	return result, identityConflict(err)
+	return result, err
 }
