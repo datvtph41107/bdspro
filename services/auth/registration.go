@@ -238,15 +238,24 @@ func CompleteRegistration(ctx context.Context, raw string, browser []byte, usern
 			return LoginResult{}, err
 		}
 		account, err := q.CreateAccount(txCtx, sqlc.CreateAccountParams{PersonID: person, Email: proof.Email})
+		if db.IsUniqueViolation(err, "accounts_email_login_uq") {
+			return LoginResult{}, ErrCredentialTaken
+		}
 		if err != nil {
 			return LoginResult{}, err
 		}
 		if _, err := q.MarkEmailVerified(txCtx, sqlc.MarkEmailVerifiedParams{ID: account.ID, Email: proof.Email}); err != nil {
+			if db.IsUniqueViolation(err, "accounts_email_login_uq") {
+				return LoginResult{}, ErrCredentialTaken
+			}
 			return LoginResult{}, err
 		}
 		n, err := q.SetRegistrationIdentity(txCtx, sqlc.SetRegistrationIdentityParams{
 			AccountID: account.ID, Username: name, TermsVersion: terms, MarketingOptIn: marketing,
 		})
+		if db.IsUniqueViolation(err, "accounts_username_uq") {
+			return LoginResult{}, ErrUsernameTaken
+		}
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -281,5 +290,5 @@ func CompleteRegistration(ctx context.Context, raw string, browser []byte, usern
 		}
 		return issueSession(txCtx, q, account.ID, ip, agent, remember)
 	})
-	return result, identityConflict(err)
+	return result, err
 }
