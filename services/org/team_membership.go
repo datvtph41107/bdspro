@@ -9,7 +9,6 @@ import (
 	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/models/organization"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type TeamMemberPage struct {
@@ -83,21 +82,8 @@ func teamAudit(ctx context.Context, q *sqlc.Queries, actorID, teamID int64, acti
 	})
 }
 
-func mapMembershipError(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		switch pgErr.ConstraintName {
-		case "team_members_pkey":
-			return organization.ErrTeamMemberExists
-		case "team_invites_open_uq":
-			return organization.ErrTeamInviteExists
-		}
-	}
-	return err
-}
-
 func AddTeamMember(ctx context.Context, actor authmodel.Actor, orgID, teamID, personID int64) (organization.TeamMembership, error) {
-	result, err := db.WithTx2(ctx, func(txCtx context.Context) (organization.TeamMembership, error) {
+	return db.WithTx2(ctx, func(txCtx context.Context) (organization.TeamMembership, error) {
 		q, err := lockTeamOwner(txCtx, actor, orgID, teamID)
 		if err != nil {
 			return organization.TeamMembership{}, err
@@ -105,6 +91,9 @@ func AddTeamMember(ctx context.Context, actor authmodel.Actor, orgID, teamID, pe
 		row, err := q.AddTeamUserForOwner(txCtx, sqlc.AddTeamUserForOwnerParams{TeamID: teamID, ActorAccountID: actor.AccountID, PersonID: personID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.TeamMembership{}, organization.ErrTeamMemberNotFound
+		}
+		if db.IsUniqueViolation(err, "team_members_pkey") {
+			return organization.TeamMembership{}, organization.ErrTeamMemberExists
 		}
 		if err != nil {
 			return organization.TeamMembership{}, err
@@ -114,7 +103,6 @@ func AddTeamMember(ctx context.Context, actor authmodel.Actor, orgID, teamID, pe
 		}
 		return toTeamMembership(row), nil
 	})
-	return result, mapMembershipError(err)
 }
 
 func RemoveTeamMember(ctx context.Context, actor authmodel.Actor, orgID, teamID, personID int64) error {
