@@ -12,7 +12,6 @@ import (
 	"github.com/datvtph41107/bdspro/models/organization"
 	authservice "github.com/datvtph41107/bdspro/services/auth"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -154,7 +153,7 @@ func ListOrganizationMembers(ctx context.Context, actor authmodel.Actor, orgID i
 }
 
 func AddOrganizationMember(ctx context.Context, actor authmodel.Actor, orgID, personID int64) (organization.Membership, error) {
-	result, err := db.WithTx2(ctx, func(txCtx context.Context) (organization.Membership, error) {
+	return db.WithTx2(ctx, func(txCtx context.Context) (organization.Membership, error) {
 		q, _, err := lockOrganization(txCtx, actor, orgID, true)
 		if err != nil {
 			return organization.Membership{}, err
@@ -168,16 +167,14 @@ func AddOrganizationMember(ctx context.Context, actor authmodel.Actor, orgID, pe
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.Membership{}, organization.ErrMemberNotFound
 		}
+		if db.IsUniqueViolation(err, "organization_members_one_open_uq") {
+			return organization.Membership{}, organization.ErrMemberExists
+		}
 		if err != nil {
 			return organization.Membership{}, err
 		}
 		return member(r.ID, r.OrganizationID, r.PersonID, r.Role, r.JoinedAt), nil
 	})
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "organization_members_one_open_uq" {
-		err = organization.ErrMemberExists
-	}
-	return result, err
 }
 
 func organizationAudit(ctx context.Context, q *sqlc.Queries, actorID, orgID, personID int64, action string) error {
