@@ -138,7 +138,7 @@ func RenameTeam(ctx context.Context, actor authmodel.Actor, orgID, teamID int64,
 
 func mapTeamWriteError(err error) error {
 	var pgerr *pgconn.PgError
-	if errors.As(err, &pgerr) && pgerr.Code == "23505" {
+	if errors.As(err, &pgerr) && pgerr.Code == "23505" && pgerr.ConstraintName == "teams_org_name_uq" {
 		return organization.ErrTeamExists
 	}
 	return err
