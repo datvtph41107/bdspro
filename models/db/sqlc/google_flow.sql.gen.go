@@ -157,10 +157,15 @@ func (q *Queries) IssueGoogleRegistrationProof(ctx context.Context, arg IssueGoo
 }
 
 const lockGoogleAuthenticatedResult = `-- name: LockGoogleAuthenticatedResult :one
-SELECT subject,auth_time,action FROM google_flows
-WHERE browser_digest=$1::bytea AND account_id=$2::bigint
-AND session_id=$3::uuid AND purpose=$4::text
-AND phase='ready' AND expires_at>clock_timestamp() FOR UPDATE
+WITH locked_flow AS MATERIALIZED (
+    SELECT subject,auth_time,action,expires_at FROM google_flows
+    WHERE browser_digest=$1::bytea AND account_id=$2::bigint
+    AND session_id=$3::uuid AND purpose=$4::text
+    AND phase='ready'
+    FOR UPDATE
+)
+SELECT subject,auth_time,action FROM locked_flow
+WHERE expires_at>clock_timestamp()
 `
 
 type LockGoogleAuthenticatedResultParams struct {
@@ -189,10 +194,14 @@ func (q *Queries) LockGoogleAuthenticatedResult(ctx context.Context, arg LockGoo
 }
 
 const lockGoogleRegistration = `-- name: LockGoogleRegistration :one
-SELECT subject,email,authoritative_email,remember FROM google_flows
-WHERE google_flows.browser_digest=$1::bytea AND proof_digest=$2::bytea
-AND phase='registration' AND expires_at>clock_timestamp()
-AND purpose='login' FOR UPDATE
+WITH locked_flow AS MATERIALIZED (
+    SELECT subject,email,authoritative_email,remember,expires_at FROM google_flows
+    WHERE google_flows.browser_digest=$1::bytea AND proof_digest=$2::bytea
+    AND phase='registration' AND purpose='login'
+    FOR UPDATE
+)
+SELECT subject,email,authoritative_email,remember FROM locked_flow
+WHERE expires_at>clock_timestamp()
 `
 
 type LockGoogleRegistrationParams struct {
@@ -220,9 +229,13 @@ func (q *Queries) LockGoogleRegistration(ctx context.Context, arg LockGoogleRegi
 }
 
 const lockGoogleResult = `-- name: LockGoogleResult :one
-SELECT subject,email,authoritative_email,remember FROM google_flows
-WHERE google_flows.browser_digest=$1 AND phase='ready' AND expires_at>clock_timestamp()
-AND purpose='login' FOR UPDATE
+WITH locked_flow AS MATERIALIZED (
+    SELECT subject,email,authoritative_email,remember,expires_at FROM google_flows
+    WHERE google_flows.browser_digest=$1 AND phase='ready' AND purpose='login'
+    FOR UPDATE
+)
+SELECT subject,email,authoritative_email,remember FROM locked_flow
+WHERE expires_at>clock_timestamp()
 `
 
 type LockGoogleResultRow struct {

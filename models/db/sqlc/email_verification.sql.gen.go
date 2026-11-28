@@ -121,9 +121,13 @@ func (q *Queries) LockEmailRegistration(ctx context.Context, arg LockEmailRegist
 }
 
 const lockEmailRegistrationProof = `-- name: LockEmailRegistrationProof :one
-SELECT id,destination AS email FROM verifications
-WHERE kind='email' AND proof_digest=$1::bytea AND browser_digest=$2::bytea
-AND expires_at>clock_timestamp() FOR UPDATE
+WITH locked_proof AS MATERIALIZED (
+    SELECT id,destination,expires_at FROM verifications
+    WHERE kind='email' AND proof_digest=$1::bytea AND browser_digest=$2::bytea
+    FOR UPDATE
+)
+SELECT id,destination AS email FROM locked_proof
+WHERE expires_at>clock_timestamp()
 `
 
 type LockEmailRegistrationProofParams struct {

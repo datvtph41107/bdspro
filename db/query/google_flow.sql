@@ -17,19 +17,27 @@ UPDATE google_flows SET phase='ready',subject=sqlc.arg(subject)::text,email=sqlc
 WHERE browser_digest=sqlc.arg(browser_digest)::bytea AND phase='exchanging' AND expires_at>clock_timestamp();
 
 -- name: LockGoogleResult :one
-SELECT subject,email,authoritative_email,remember FROM google_flows
-WHERE google_flows.browser_digest=$1 AND phase='ready' AND expires_at>clock_timestamp()
-AND purpose='login' FOR UPDATE;
+WITH locked_flow AS MATERIALIZED (
+    SELECT subject,email,authoritative_email,remember,expires_at FROM google_flows
+    WHERE google_flows.browser_digest=$1 AND phase='ready' AND purpose='login'
+    FOR UPDATE
+)
+SELECT subject,email,authoritative_email,remember FROM locked_flow
+WHERE expires_at>clock_timestamp();
 
 -- name: IssueGoogleRegistrationProof :execrows
 UPDATE google_flows SET phase='registration',proof_digest=sqlc.arg(proof_digest)::bytea,expires_at=clock_timestamp()+(sqlc.arg(ttl_minutes)::integer * interval '1 minute')
 WHERE browser_digest=sqlc.arg(browser_digest)::bytea AND phase='ready' AND expires_at>clock_timestamp();
 
 -- name: LockGoogleRegistration :one
-SELECT subject,email,authoritative_email,remember FROM google_flows
-WHERE google_flows.browser_digest=sqlc.arg(browser_digest)::bytea AND proof_digest=sqlc.arg(proof_digest)::bytea
-AND phase='registration' AND expires_at>clock_timestamp()
-AND purpose='login' FOR UPDATE;
+WITH locked_flow AS MATERIALIZED (
+    SELECT subject,email,authoritative_email,remember,expires_at FROM google_flows
+    WHERE google_flows.browser_digest=sqlc.arg(browser_digest)::bytea AND proof_digest=sqlc.arg(proof_digest)::bytea
+    AND phase='registration' AND purpose='login'
+    FOR UPDATE
+)
+SELECT subject,email,authoritative_email,remember FROM locked_flow
+WHERE expires_at>clock_timestamp();
 
 -- name: DeleteGoogleFlow :exec
 DELETE FROM google_flows WHERE browser_digest=$1;
@@ -46,10 +54,15 @@ UPDATE google_flows SET account_id=sqlc.arg(account_id)::bigint,
 WHERE browser_digest=sqlc.arg(browser_digest)::bytea AND purpose='login' AND phase='pending';
 
 -- name: LockGoogleAuthenticatedResult :one
-SELECT subject,auth_time,action FROM google_flows
-WHERE browser_digest=sqlc.arg(browser_digest)::bytea AND account_id=sqlc.arg(account_id)::bigint
-AND session_id=sqlc.arg(session_id)::uuid AND purpose=sqlc.arg(purpose)::text
-AND phase='ready' AND expires_at>clock_timestamp() FOR UPDATE;
+WITH locked_flow AS MATERIALIZED (
+    SELECT subject,auth_time,action,expires_at FROM google_flows
+    WHERE browser_digest=sqlc.arg(browser_digest)::bytea AND account_id=sqlc.arg(account_id)::bigint
+    AND session_id=sqlc.arg(session_id)::uuid AND purpose=sqlc.arg(purpose)::text
+    AND phase='ready'
+    FOR UPDATE
+)
+SELECT subject,auth_time,action FROM locked_flow
+WHERE expires_at>clock_timestamp();
 
 -- name: DeleteAccountGoogleFlows :exec
 DELETE FROM google_flows WHERE account_id=sqlc.arg(account_id)::bigint;

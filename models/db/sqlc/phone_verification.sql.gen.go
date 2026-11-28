@@ -117,9 +117,13 @@ func (q *Queries) LockPhoneVerification(ctx context.Context, arg LockPhoneVerifi
 }
 
 const lockPhoneVerificationProof = `-- name: LockPhoneVerificationProof :one
-SELECT id,destination AS phone_e164 FROM verifications
-WHERE kind='phone' AND proof_digest=$1::bytea AND browser_digest=$2::bytea
-AND expires_at>clock_timestamp() FOR UPDATE
+WITH locked_proof AS MATERIALIZED (
+    SELECT id,destination,expires_at FROM verifications
+    WHERE kind='phone' AND proof_digest=$1::bytea AND browser_digest=$2::bytea
+    FOR UPDATE
+)
+SELECT id,destination AS phone_e164 FROM locked_proof
+WHERE expires_at>clock_timestamp()
 `
 
 type LockPhoneVerificationProofParams struct {

@@ -27,9 +27,13 @@ UPDATE verifications SET code_mac=NULL,proof_digest=sqlc.arg(proof_digest)::byte
 WHERE kind='email' AND id=sqlc.arg(id)::uuid AND proof_digest IS NULL AND failed_attempts<sqlc.arg(max_failed_attempts)::integer AND expires_at>clock_timestamp();
 
 -- name: LockEmailRegistrationProof :one
-SELECT id,destination AS email FROM verifications
-WHERE kind='email' AND proof_digest=sqlc.arg(proof_digest)::bytea AND browser_digest=sqlc.arg(browser_digest)::bytea
-AND expires_at>clock_timestamp() FOR UPDATE;
+WITH locked_proof AS MATERIALIZED (
+    SELECT id,destination,expires_at FROM verifications
+    WHERE kind='email' AND proof_digest=sqlc.arg(proof_digest)::bytea AND browser_digest=sqlc.arg(browser_digest)::bytea
+    FOR UPDATE
+)
+SELECT id,destination AS email FROM locked_proof
+WHERE expires_at>clock_timestamp();
 
 -- name: DeleteEmailRegistration :exec
 DELETE FROM verifications WHERE kind='email' AND id=$1;
