@@ -271,11 +271,17 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 		var accountID int64
 		if row.AuthoritativeEmail && row.Email != "" {
 			a, err := q.CreateAccount(txCtx, sqlc.CreateAccountParams{PersonID: person, Email: row.Email})
+			if db.IsUniqueViolation(err, "accounts_email_login_uq") {
+				return LoginResult{}, ErrCredentialTaken
+			}
 			if err != nil {
 				return LoginResult{}, err
 			}
 			accountID = a.ID
 			if _, err := q.MarkEmailVerified(txCtx, sqlc.MarkEmailVerifiedParams{ID: accountID, Email: row.Email}); err != nil {
+				if db.IsUniqueViolation(err, "accounts_email_login_uq") {
+					return LoginResult{}, ErrCredentialTaken
+				}
 				return LoginResult{}, err
 			}
 		} else {
@@ -292,12 +298,18 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 		if errors.Is(err, pgx.ErrNoRows) || err == nil && linked != accountID {
 			return LoginResult{}, ErrCredentialTaken
 		}
+		if db.IsUniqueViolation(err, "oauth2_credentials_pkey") || db.IsUniqueViolation(err, "oauth2_credentials_account_issuer_uq") {
+			return LoginResult{}, ErrCredentialTaken
+		}
 		if err != nil {
 			return LoginResult{}, err
 		}
 		n, err := q.SetRegistrationIdentity(txCtx, sqlc.SetRegistrationIdentityParams{
 			AccountID: accountID, Username: name, TermsVersion: terms, MarketingOptIn: marketing,
 		})
+		if db.IsUniqueViolation(err, "accounts_username_uq") {
+			return LoginResult{}, ErrUsernameTaken
+		}
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -329,5 +341,5 @@ func CompleteGoogle(ctx context.Context, raw string, browser []byte, username, t
 		}
 		return issueSession(txCtx, q, accountID, ip, agent, row.Remember)
 	})
-	return result, identityConflict(err)
+	return result, err
 }
