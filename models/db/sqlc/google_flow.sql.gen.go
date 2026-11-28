@@ -110,9 +110,16 @@ func (q *Queries) DeleteGoogleFlow(ctx context.Context, browserDigest []byte) er
 }
 
 const finishGoogleFlow = `-- name: FinishGoogleFlow :execrows
-UPDATE google_flows SET phase='ready',subject=$1::text,email=$2::text,
+WITH locked_flow AS MATERIALIZED (
+    SELECT browser_digest,expires_at FROM google_flows
+    WHERE google_flows.browser_digest=$5::bytea AND phase='exchanging'
+    FOR UPDATE
+)
+UPDATE google_flows AS g
+SET phase='ready',subject=$1::text,email=$2::text,
     authoritative_email=$3::boolean,auth_time=$4::bigint,expires_at=clock_timestamp()+interval '5 minutes'
-WHERE browser_digest=$5::bytea AND phase='exchanging' AND expires_at>clock_timestamp()
+FROM locked_flow
+WHERE g.browser_digest=locked_flow.browser_digest AND locked_flow.expires_at>clock_timestamp()
 `
 
 type FinishGoogleFlowParams struct {

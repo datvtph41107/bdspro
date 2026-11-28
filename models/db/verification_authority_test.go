@@ -1,6 +1,7 @@
 package db
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -18,7 +19,7 @@ func TestVerificationAuthorityAfterLock(t *testing.T) {
 	if source == "" {
 		t.Skip("requires disposable migrated BDSPRO_VERIFICATION_AUTHORITY_TEST_DATABASE_URL")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	locker, err := pgx.Connect(ctx, source)
 	if err != nil {
@@ -272,5 +273,240 @@ func TestVerificationAuthorityAfterLock(t *testing.T) {
 			return err
 		})
 		t.Log("PASS: concurrent pending callback cannot claim twice")
+	})
+
+	t.Run("google finish", func(t *testing.T) {
+		browser := digest()
+		var deadline time.Time
+		if err := locker.QueryRow(ctx, "INSERT INTO google_flows(browser_digest,phase,remember,expires_at) VALUES ($1,'exchanging',false,clock_timestamp()+interval '3 seconds') RETURNING expires_at", browser).Scan(&deadline); err != nil {
+			t.Fatal(err)
+		}
+		defer sqlc.New(locker).DeleteGoogleFlow(ctx, browser)
+		block, err := locker.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer block.Rollback(context.Background())
+		if _, err := block.Exec(ctx, "SELECT browser_digest FROM google_flows WHERE browser_digest=$1 FOR UPDATE", browser); err != nil {
+			t.Fatal(err)
+		}
+		params := sqlc.FinishGoogleFlowParams{BrowserDigest: browser, Subject: "fixture-subject"}
+		released := releaseAfterWait(block, deadline)
+		n, err := sqlc.New(waiter).FinishGoogleFlow(ctx, params)
+		if releaseErr := <-released; releaseErr != nil {
+			t.Fatal("exchange lock wait not verified", releaseErr)
+		}
+		if err != nil || n != 0 {
+			t.Fatal("expired exchange finished", n, err)
+		}
+		var phase, subject string
+		if err := locker.QueryRow(ctx, "SELECT phase,subject FROM google_flows WHERE browser_digest=$1", browser).Scan(&phase, &subject); err != nil || phase != "exchanging" || subject != "" {
+			t.Fatal("expired exchange mutated", err)
+		}
+		if _, err := locker.Exec(ctx, "UPDATE google_flows SET expires_at=clock_timestamp()+interval '2 minutes' WHERE browser_digest=$1", browser); err != nil {
+			t.Fatal(err)
+		}
+		if n, err := sqlc.New(waiter).FinishGoogleFlow(ctx, params); err != nil || n != 1 {
+			t.Fatal("valid exchange denied", n, err)
+		}
+		if n, err := sqlc.New(waiter).FinishGoogleFlow(ctx, params); err != nil || n != 0 {
+			t.Fatal("exchange finished twice", n, err)
+		}
+		t.Log("PASS: exchange completion rejects post-lock expiry and duplicate finish")
+	})
+
+	for _, kind := range []string{"email", "phone"} {
+		t.Run(kind+" OTP concurrency", func(t *testing.T) {
+			id, browser, originalMAC := uuid.New(), digest(), digest()
+			destination := "fixture@example.invalid"
+			if kind == "phone" {
+				destination = "+84912345678"
+			}
+			if _, err := locker.Exec(ctx, "INSERT INTO verifications(kind,id,destination,browser_digest,code_mac,expires_at,resend_after,failed_attempts) VALUES ($1,$2,$3,$4,$5,clock_timestamp()+interval '5 minutes',clock_timestamp(),3)", kind, id, destination, browser, originalMAC); err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if _, err := locker.Exec(ctx, "DELETE FROM verifications WHERE kind=$1 AND id=$2", kind, id); err != nil {
+					t.Error(err)
+				}
+			}()
+			rotate := func(q *sqlc.Queries, mac []byte) (int64, error) {
+				if kind == "email" {
+					return q.RotateEmailRegistration(ctx, sqlc.RotateEmailRegistrationParams{ID: id, CodeMac: mac, TtlMinutes: 5, CooldownSeconds: 60, MaxFailedAttempts: 5, ResendHorizonMinutes: 30})
+				}
+				return q.RotatePhoneVerification(ctx, sqlc.RotatePhoneVerificationParams{ID: id, CodeMac: mac, TtlMinutes: 5, CooldownSeconds: 60, MaxFailedAttempts: 5, ResendHorizonMinutes: 30})
+			}
+			fail := func(q *sqlc.Queries) error {
+				if kind == "email" {
+					return q.FailEmailRegistration(ctx, sqlc.FailEmailRegistrationParams{ID: id, MaxFailedAttempts: 5})
+				}
+				return q.FailPhoneVerification(ctx, sqlc.FailPhoneVerificationParams{ID: id, MaxFailedAttempts: 5})
+			}
+			firstMAC := digest()
+			block, err := locker.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer block.Rollback(context.Background())
+			if n, err := rotate(sqlc.New(block), firstMAC); err != nil || n != 1 {
+				t.Fatal("first resend failed", n, err)
+			}
+			released := releaseAfterWait(block, time.Time{})
+			n, err := rotate(sqlc.New(waiter), digest())
+			if releaseErr := <-released; releaseErr != nil {
+				t.Fatal("resend contention not verified", releaseErr)
+			}
+			if err != nil || n != 0 {
+				t.Fatal("concurrent resend bypassed cooldown", n, err)
+			}
+			var attempts int
+			var mac []byte
+			if err := locker.QueryRow(ctx, "SELECT failed_attempts,code_mac FROM verifications WHERE kind=$1 AND id=$2", kind, id).Scan(&attempts, &mac); err != nil || attempts != 3 || !bytes.Equal(mac, firstMAC) {
+				t.Fatal("resend overwrote winning MAC or failed attempts", err)
+			}
+			if _, err := locker.Exec(ctx, "UPDATE verifications SET failed_attempts=4,resend_after=clock_timestamp()-interval '1 second' WHERE kind=$1 AND id=$2", kind, id); err != nil {
+				t.Fatal(err)
+			}
+			block, err = locker.Begin(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer block.Rollback(context.Background())
+			if err := fail(sqlc.New(block)); err != nil {
+				t.Fatal(err)
+			}
+			released = releaseAfterWait(block, time.Time{})
+			err = fail(sqlc.New(waiter))
+			if releaseErr := <-released; releaseErr != nil {
+				t.Fatal("attempt contention not verified", releaseErr)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := locker.QueryRow(ctx, "SELECT failed_attempts FROM verifications WHERE kind=$1 AND id=$2", kind, id).Scan(&attempts); err != nil || attempts != 5 {
+				t.Fatal("failed attempt cap violated", attempts, err)
+			}
+			if n, err := rotate(sqlc.New(waiter), digest()); err != nil || n != 0 {
+				t.Fatal("resend bypassed attempt cap", n, err)
+			}
+			t.Log("PASS: one resend, failed-attempt state preserved, concurrent cap enforced")
+		})
+	}
+
+	t.Run("contact link binding and contention", func(t *testing.T) {
+		params := sqlc.StartCredentialLinkParams{
+			ID: uuid.New(), AccountID: account.ID, SessionID: sessionID, Kind: "email",
+			Destination: "fixture@example.invalid", CodeMac: digest(),
+			TtlMinutes: 5, CooldownSeconds: 60, MaxFailedAttempts: 5,
+		}
+		if n, err := sqlc.New(locker).StartCredentialLink(ctx, params); err != nil || n != 1 {
+			t.Fatal("challenge setup failed", n, err)
+		}
+		defer sqlc.New(locker).DeleteAccountCredentialLinks(ctx, account.ID)
+		binding := sqlc.LockCredentialLinkParams{ID: params.ID, AccountID: account.ID, SessionID: sessionID, Kind: "email"}
+		for _, wrong := range []sqlc.LockCredentialLinkParams{
+			{ID: binding.ID, AccountID: account.ID + 1, SessionID: sessionID, Kind: "email"},
+			{ID: binding.ID, AccountID: account.ID, SessionID: uuid.New(), Kind: "email"},
+			{ID: binding.ID, AccountID: account.ID, SessionID: sessionID, Kind: "phone"},
+		} {
+			if _, err := sqlc.New(waiter).LockCredentialLink(ctx, wrong); !errors.Is(err, pgx.ErrNoRows) {
+				t.Fatal("wrong challenge binding accepted", err)
+			}
+		}
+		if _, err := locker.Exec(ctx, "UPDATE contact_link_challenges SET failed_attempts=3,resend_after=clock_timestamp()-interval '1 second' WHERE id=$1", params.ID); err != nil {
+			t.Fatal(err)
+		}
+		block, err := locker.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer block.Rollback(context.Background())
+		first := params
+		first.ID, first.CodeMac = uuid.New(), digest()
+		first.Destination = "changed@example.invalid"
+		if n, err := sqlc.New(block).StartCredentialLink(ctx, first); err != nil || n != 1 {
+			t.Fatal("first replacement failed", n, err)
+		}
+		second := params
+		second.ID, second.CodeMac = uuid.New(), digest()
+		released := releaseAfterWait(block, time.Time{})
+		n, err := sqlc.New(waiter).StartCredentialLink(ctx, second)
+		if releaseErr := <-released; releaseErr != nil {
+			t.Fatal("contact contention not verified", releaseErr)
+		}
+		if err != nil || n != 0 {
+			t.Fatal("concurrent contact replacement bypassed cooldown", n, err)
+		}
+		if _, err := sqlc.New(waiter).LockCredentialLink(ctx, binding); !errors.Is(err, pgx.ErrNoRows) {
+			t.Fatal("old challenge id still usable", err)
+		}
+		binding.ID = first.ID
+		row, err := sqlc.New(waiter).LockCredentialLink(ctx, binding)
+		if err != nil || row.FailedAttempts != 3 || row.Destination != first.Destination || !bytes.Equal(row.CodeMac, first.CodeMac) {
+			t.Fatal("replacement lost attempt or destination binding", err)
+		}
+		if _, err := locker.Exec(ctx, "UPDATE contact_link_challenges SET failed_attempts=5,expires_at=clock_timestamp()-interval '1 second',resend_after=clock_timestamp()-interval '1 second' WHERE id=$1", first.ID); err != nil {
+			t.Fatal(err)
+		}
+		if n, err := sqlc.New(waiter).StartCredentialLink(ctx, second); err != nil || n != 1 {
+			t.Fatal("expired challenge could not reset", n, err)
+		}
+		binding.ID = second.ID
+		row, err = sqlc.New(waiter).LockCredentialLink(ctx, binding)
+		if err != nil || row.FailedAttempts != 0 || row.Destination != second.Destination || !bytes.Equal(row.CodeMac, second.CodeMac) {
+			t.Fatal("expired challenge reset incorrect", err)
+		}
+		t.Log("PASS: contact binding, concurrent replacement, preserved attempts and expired reset")
+	})
+
+	t.Run("canonical Google identity contention", func(t *testing.T) {
+		issuer, subject := "https://accounts.google.com", uuid.NewString()
+		block, err := locker.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer block.Rollback(context.Background())
+		params := sqlc.LinkOAuth2CredentialParams{Issuer: issuer, Subject: subject, AccountID: account.ID}
+		if owner, err := sqlc.New(block).LinkOAuth2Credential(ctx, params); err != nil || owner != account.ID {
+			t.Fatal("first identity claim failed", err)
+		}
+		tx, err := waiter.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(context.Background())
+		q := sqlc.New(tx)
+		losingPerson, err := q.CreateParty(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := q.CreatePerson(ctx, losingPerson); err != nil {
+			t.Fatal(err)
+		}
+		loser, err := q.CreateAccountWithoutEmail(ctx, losingPerson)
+		if err != nil {
+			t.Fatal(err)
+		}
+		params.AccountID = loser.ID
+		released := releaseAfterWait(block, time.Time{})
+		_, err = q.LinkOAuth2Credential(ctx, params)
+		if releaseErr := <-released; releaseErr != nil {
+			t.Fatal("identity contention not verified", releaseErr)
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			t.Fatal("second account claimed canonical subject", err)
+		}
+		if err := tx.Rollback(ctx); err != nil {
+			t.Fatal(err)
+		}
+		owner, err := sqlc.New(locker).GetOAuth2AccountID(ctx, sqlc.GetOAuth2AccountIDParams{Issuer: issuer, Subject: subject})
+		if err != nil || owner != account.ID {
+			t.Fatal("canonical identity owner changed", err)
+		}
+		var exists bool
+		if err := locker.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM parties WHERE id=$1) OR EXISTS(SELECT 1 FROM persons WHERE party_id=$1) OR EXISTS(SELECT 1 FROM accounts WHERE id=$2)", losingPerson, loser.ID).Scan(&exists); err != nil || exists {
+			t.Fatal("losing registration fixture survived rollback", err)
+		}
+		t.Log("PASS: one canonical identity owner, losing account creation rolled back")
 	})
 }
