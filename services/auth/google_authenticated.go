@@ -108,6 +108,9 @@ func CompleteGoogleLink(ctx context.Context, actor authmodel.Actor, browser []by
 		if errors.Is(err, pgx.ErrNoRows) || err == nil && linked != actor.AccountID {
 			return LoginResult{}, ErrCredentialTaken
 		}
+		if db.IsUniqueViolation(err, "oauth2_credentials_pkey") || db.IsUniqueViolation(err, "oauth2_credentials_account_issuer_uq") {
+			return LoginResult{}, ErrCredentialTaken
+		}
 		if err != nil {
 			return LoginResult{}, err
 		}
@@ -125,7 +128,7 @@ func CompleteGoogleLink(ctx context.Context, actor authmodel.Actor, browser []by
 	if err == nil {
 		notifyCredentialChange(ctx, oldEmail)
 	}
-	return result, identityConflict(err)
+	return result, err
 }
 
 func CompleteGoogleReauth(ctx context.Context, actor authmodel.Actor, browser []byte) (RecentAuthResult, error) {
