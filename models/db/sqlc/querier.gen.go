@@ -118,6 +118,7 @@ type Querier interface {
 	LockOrganizationMemberAccount(ctx context.Context, personID int64) (int64, error)
 	LockOrganizationRoleChanges(ctx context.Context, organizationID int64) (int64, error)
 	LockOwnOrganizationMembership(ctx context.Context, arg LockOwnOrganizationMembershipParams) (LockOwnOrganizationMembershipRow, error)
+	LockPasswordResetOwner(ctx context.Context, tokenHash []byte) (int64, error)
 	LockPendingGoogleFlow(ctx context.Context, arg LockPendingGoogleFlowParams) (LockPendingGoogleFlowRow, error)
 	LockPhoneCredentialQuery(ctx context.Context, phoneE164 string) (int64, error)
 	LockPhoneOnlyEmailAccount(ctx context.Context, id int64) (int64, error)

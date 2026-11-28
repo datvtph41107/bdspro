@@ -20,9 +20,14 @@ WHERE id = $1;
 SELECT account_id FROM password_reset_tokens
 WHERE token_hash = $1 AND expires_at > clock_timestamp();
 
+-- name: LockPasswordResetOwner :one
+SELECT account_id FROM password_reset_tokens
+WHERE token_hash = $1
+FOR UPDATE;
+
 -- name: ConsumePasswordResetToken :one
 DELETE FROM password_reset_tokens
-WHERE token_hash = sqlc.arg(token_hash) AND expires_at > now()
+WHERE token_hash = sqlc.arg(token_hash) AND expires_at > clock_timestamp()
 RETURNING account_id;
 
 -- name: DeletePasswordResetTokensForAccount :exec

@@ -162,7 +162,9 @@ func ResetPassword(ctx context.Context, raw, password string) error {
 			return err
 		}
 
-		owner, err := q.ReadActivePasswordResetOwner(txCtx, digest)
+		// Account authority is locked first. Lock the proof before evaluating
+		// its final expiry, so a wait on the proof row cannot admit a stale token.
+		owner, err := q.LockPasswordResetOwner(txCtx, digest)
 		if errors.Is(err, pgx.ErrNoRows) || err == nil && owner != accountID {
 			return ErrRecoveryInvalid
 		}

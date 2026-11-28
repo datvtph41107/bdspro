@@ -22,7 +22,7 @@ func (q *Queries) BumpPasswordResetVersion(ctx context.Context, id int64) error 
 
 const consumePasswordResetToken = `-- name: ConsumePasswordResetToken :one
 DELETE FROM password_reset_tokens
-WHERE token_hash = $1 AND expires_at > now()
+WHERE token_hash = $1 AND expires_at > clock_timestamp()
 RETURNING account_id
 `
 
@@ -95,6 +95,19 @@ func (q *Queries) IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, a
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const lockPasswordResetOwner = `-- name: LockPasswordResetOwner :one
+SELECT account_id FROM password_reset_tokens
+WHERE token_hash = $1
+FOR UPDATE
+`
+
+func (q *Queries) LockPasswordResetOwner(ctx context.Context, tokenHash []byte) (int64, error) {
+	row := q.db.QueryRow(ctx, lockPasswordResetOwner, tokenHash)
+	var account_id int64
+	err := row.Scan(&account_id)
+	return account_id, err
 }
 
 const readActivePasswordResetOwner = `-- name: ReadActivePasswordResetOwner :one
