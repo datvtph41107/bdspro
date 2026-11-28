@@ -9,7 +9,6 @@ import (
 	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/models/organization"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func toTeam(row sqlc.Team) organization.Team {
@@ -137,8 +136,7 @@ func RenameTeam(ctx context.Context, actor authmodel.Actor, orgID, teamID int64,
 }
 
 func mapTeamWriteError(err error) error {
-	var pgerr *pgconn.PgError
-	if errors.As(err, &pgerr) && pgerr.Code == "23505" && pgerr.ConstraintName == "teams_org_name_uq" {
+	if db.IsUniqueViolation(err, "teams_org_name_uq") {
 		return organization.ErrTeamExists
 	}
 	return err
