@@ -79,6 +79,101 @@ jobs:
         run: |
           go test ./models/organization -run '^TestTeamInviteDuration$' -count=1
           BDS_TEST_REDIS_ADDR=127.0.0.1:6379 go test ./modules/ipactive -run '^TestRetryAfterCeiling$' -count=1
+      - name: Generate REQ-05.5 SQLC bindings for review
+        run: |
+          GOBIN="$RUNNER_TEMP/sqlc-bin" go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          cat > db/query/profile.sql <<'REQ055_PROFILE'
+          -- name: CreatePersonProfile :exec
+          INSERT INTO person_profiles (person_id) VALUES ($1);
+          
+          -- name: CreateAccountSettings :exec
+          INSERT INTO account_settings (account_id) VALUES ($1);
+          
+          -- name: GetAccountProfile :one
+          SELECT COALESCE(p.display_name, '')::text AS display_name,
+                 COALESCE(p.first_name, '')::text AS first_name,
+                 COALESCE(p.last_name, '')::text AS last_name,
+                 COALESCE(s.locale, 'vi')::text AS locale,
+                 COALESCE(s.timezone, 'Asia/Ho_Chi_Minh')::text AS timezone,
+                 COALESCE(s.currency, 'VND')::text AS currency
+          FROM accounts a
+          LEFT JOIN person_profiles p ON p.person_id = a.person_id
+          LEFT JOIN account_settings s ON s.account_id = a.id
+          WHERE a.id = $1;
+          
+          -- name: EnsurePersonProfileForAccount :exec
+          INSERT INTO person_profiles (person_id)
+          SELECT person_id FROM accounts WHERE id = $1
+          ON CONFLICT (person_id) DO NOTHING;
+          
+          -- name: EnsureAccountSettings :exec
+          INSERT INTO account_settings (account_id) VALUES ($1)
+          ON CONFLICT (account_id) DO NOTHING;
+          
+          -- name: UpdatePersonProfile :execrows
+          UPDATE person_profiles
+          SET display_name = COALESCE(sqlc.narg(display_name)::text, display_name),
+              first_name = COALESCE(sqlc.narg(first_name)::text, first_name),
+              last_name = COALESCE(sqlc.narg(last_name)::text, last_name),
+              updated_at = now()
+          WHERE person_id = (SELECT person_id FROM accounts WHERE id = sqlc.arg(account_id));
+          
+          -- name: UpdateAccountSettings :execrows
+          UPDATE account_settings
+          SET locale = COALESCE(sqlc.narg(locale)::text, locale),
+              timezone = COALESCE(sqlc.narg(timezone)::text, timezone),
+              currency = COALESCE(sqlc.narg(currency)::text, currency),
+              updated_at = now()
+          WHERE account_id = sqlc.arg(account_id);
+          REQ055_PROFILE
+          cat > db/query/password_reset.sql <<'REQ055_RESET'
+          -- name: CreatePasswordResetToken :exec
+          INSERT INTO password_reset_tokens (token_hash, account_id, expires_at)
+          VALUES (sqlc.arg(token_hash), sqlc.arg(account_id), now() + (sqlc.arg(ttl_minutes)::integer * interval '1 minute'));
+          
+          -- name: IssuePasswordResetTokenIfCurrentVersion :execrows
+          INSERT INTO password_reset_tokens (token_hash, account_id, expires_at)
+          SELECT sqlc.arg(token_hash)::bytea, id, now() + (sqlc.arg(ttl_minutes)::integer * interval '1 minute')
+          FROM accounts
+          WHERE id = sqlc.arg(account_id)::bigint
+            AND password_reset_version = sqlc.arg(reset_version)::bigint
+            AND is_email_verified
+          FOR SHARE;
+          
+          -- name: BumpPasswordResetVersion :exec
+          UPDATE accounts
+          SET password_reset_version = password_reset_version + 1
+          WHERE id = $1;
+          
+          -- name: ReadActivePasswordResetOwner :one
+          SELECT account_id FROM password_reset_tokens
+          WHERE token_hash = $1 AND expires_at > clock_timestamp();
+          
+          -- name: ConsumePasswordResetToken :one
+          DELETE FROM password_reset_tokens
+          WHERE token_hash = sqlc.arg(token_hash) AND expires_at > now()
+          RETURNING account_id;
+          
+          -- name: DeletePasswordResetTokensForAccount :exec
+          DELETE FROM password_reset_tokens WHERE account_id = $1;
+          
+          -- name: UpsertPasswordCredential :exec
+          INSERT INTO password_credentials (account_id, password_hash)
+          VALUES (sqlc.arg(account_id), sqlc.arg(password_hash))
+          ON CONFLICT (account_id) DO UPDATE
+          SET password_hash = EXCLUDED.password_hash, updated_at = now();
+          
+          -- name: DeleteSessionsForAccount :exec
+          DELETE FROM sessions WHERE account_id = $1;
+          REQ055_RESET
+          PATH="$RUNNER_TEMP/sqlc-bin:$PATH" make generated
+          while IFS= read -r path; do
+            printf 'SQLC_BEGIN %s\n' "$path"
+            base64 -w 120 "$path"
+            printf 'SQLC_END %s\n' "$path"
+          done < <(git diff --name-only -- models/db/sqlc)
+          git restore -- db/query/profile.sql db/query/password_reset.sql models/db/sqlc
+          git diff --exit-code
       - name: Build
         run: go build ./...
       - name: Verify canonical pagination contract
