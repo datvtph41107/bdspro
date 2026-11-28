@@ -158,6 +158,83 @@ jobs:
             exit 1
           fi
           go test ./services/auth ./services/org ./services/jobs ./models/party -count=1
+      - name: Verify exact database constraint mapping
+        run: |
+          files="models/db/error.go models/db/error_test.go models/db/constraint_test.go services/org/team.go services/org/team_error_test.go services/org/membership.go services/org/team_membership.go services/org/team_invite.go services/auth/identity.go services/auth/registration.go services/auth/phone.go services/auth/google.go services/auth/google_authenticated.go services/auth/contact_link.go services/auth/credential.go"
+          test -z "$(gofmt -l $files)" || { gofmt -d $files; exit 1; }
+          go test -race ./models/db ./services/org -run '^Test(IsUniqueViolation|MapTeamWriteError)        run: go test ./services/phonedelivery -run '^TestProviderContracts$' -count=1
+      - name: Local HTTP and JSON correlation
+        shell: bash
+        run: |
+          set -euo pipefail
+          # All state is disposable; never use repository or deployment secrets.
+          make config-local
+          sed -i 's/^MODE = console$/MODE = console,file/' custom/conf/app.ini
+          sed -i '/^\[log.file\]$/a LEVEL = debug' custom/conf/app.ini
+          # Development inbox only: never send real SMS/email.
+          export BDS__PHONE_DELIVERY__MODE=mailpit
+          export BDS__PHONE_DELIVERY__DEFAULT_CHANNEL=sms
+          export BDS__PHONE_DELIVERY__CHANNELS=sms,zalo,telegram
+          export BDS__MAILER__SMTP_PROTOCOL=smtp
+          export BDS__MAILER__SMTP_ADDRESS=127.0.0.1:1025
+          export BDS__MAILER__FROM=security@bdspro.test
+          export BDS__MAILER__USERNAME=
+          export BDS__MAILER__PASSWORD=
+          make build
+          bin/bdspro --config custom/conf/app.ini config check
+          bin/bdspro --config custom/conf/app.ini migrate
+          BDSPRO_GOOGLE_FLOW_TEST_DATABASE_URL=postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable go test ./models/db -run '^TestGoogleFlowLifecycle$' -count=1 -v
+          test -z "$(gofmt -l models/db/password_reset_test.go)" || { gofmt -d models/db/password_reset_test.go; exit 1; }
+          BDSPRO_PASSWORD_RESET_TEST_DATABASE_URL=postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable go test -race ./models/db -run '^TestPasswordResetLockExpiry$' -count=1 -v
+          test -z "$(gofmt -l models/db/session_authority_test.go)" || { gofmt -d models/db/session_authority_test.go; exit 1; }
+          BDSPRO_SESSION_AUTHORITY_TEST_DATABASE_URL=postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable go test -race ./models/db -run '^TestSessionAuthorityAfterLock$' -count=1 -v
+          test -z "$(gofmt -l models/db/verification_authority_test.go)" || { gofmt -d models/db/verification_authority_test.go; exit 1; }
+          BDSPRO_VERIFICATION_AUTHORITY_TEST_DATABASE_URL=postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable go test -race ./models/db -run '^TestVerificationAuthorityAfterLock$' -count=1 -v
+          test -z "$(gofmt -l models/db/organization_authority_test.go services/org/team.go routers/api/v1/org/team.go)" || { gofmt -d models/db/organization_authority_test.go services/org/team.go routers/api/v1/org/team.go; exit 1; }
+          BDSPRO_ORGANIZATION_AUTHORITY_TEST_DATABASE_URL=postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable go test -race ./models/db -run '^TestOrganizationAuthority$' -count=1 -v
+          BDSPRO_CONSTRAINT_TEST_DATABASE_URL=postgresql://root:secret@127.0.0.1:5432/bdspro?sslmode=disable go test -race ./models/db -run '^TestUniqueConstraintContract$' -count=1 -v
+          bin/bdspro --config custom/conf/app.ini web &
+          pid=$!
+          trap 'kill -TERM "$pid" 2>/dev/null || true; wait "$pid" || true' EXIT
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail --max-time 2 http://127.0.0.1:8080/api/v1/health >/dev/null; then
+              ready=1
+              break
+            fi
+            kill -0 "$pid"
+            sleep 1
+          done
+          test "$ready" = 1
+          make smoke-logging
+          BDS_PROBE_PG_CONTAINER="${{ job.services.postgres.id }}" python3 scripts/probe-delivery.py
+          kill -TERM "$pid"
+          wait "$pid"
+          trap - EXIT
+      - name: Verify SQLC generated bindings
+        run: |
+          GOBIN="$RUNNER_TEMP/sqlc-bin" go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          PATH="$RUNNER_TEMP/sqlc-bin:$PATH" make sqlc-check
+      # Deferred checks remain available on explicit manual dispatch.
+      - name: Static analysis
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: go vet ./...
+      - name: Unit and integration tests
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: go test ./... -count=1
+      - name: Logging and IAM race tests
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: make verify-logging
+      - name: Record formatter benchmark
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_checks }}
+        run: make bench-logging
+ -count=1 -v
+          if git grep -nE '\b(identityConflict|mapMembershipError)\b' -- '*.go'; then
+            echo "Retired broad constraint mapper still has a consumer"
+            exit 1
+          fi
+          echo "SQLSTATE and constraint inventory:"
+          git grep -nE 'pgconn\.PgError|SQLState\(|ConstraintName|23505|23503|23514|IsUniqueViolation' -- '*.go' ':!*_test.go' || test "$?" -eq 1
       - name: Verify provider lifetime projection
         run: go test ./services/phonedelivery -run '^TestProviderContracts$' -count=1
       - name: Local HTTP and JSON correlation
