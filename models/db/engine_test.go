@@ -12,7 +12,6 @@ import (
 	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/modules/graceful"
 	"github.com/datvtph41107/bdspro/modules/setting"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestPostgresPoolReadiness(t *testing.T) {
