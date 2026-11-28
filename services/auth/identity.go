@@ -11,7 +11,6 @@ import (
 	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/modules/util"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const CurrentTermsVersion = "v1"
@@ -50,19 +49,6 @@ func NormalizeUsername(raw string) (string, error) {
 	return name, nil
 }
 
-func identityConflict(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		switch pgErr.ConstraintName {
-		case "accounts_username_uq":
-			return ErrUsernameTaken
-		case "accounts_email_login_uq", "phone_credentials_phone_e164_key", "oauth2_credentials_pkey", "oauth2_credentials_account_issuer_uq":
-			return ErrCredentialTaken
-		}
-	}
-	return err
-}
-
 func requireActiveAccount(ctx context.Context, q *sqlc.Queries, accountID int64) error {
 	identity, err := q.GetAccountIdentity(ctx, accountID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -82,12 +68,15 @@ func UpdateUsername(ctx context.Context, actor authmodel.Actor, raw string) (aut
 	if err != nil {
 		return authmodel.CurrentUser{}, err
 	}
-	result, err := db.WithTx2(ctx, func(txCtx context.Context) (authmodel.CurrentUser, error) {
+	return db.WithTx2(ctx, func(txCtx context.Context) (authmodel.CurrentUser, error) {
 		q, err := LockActorForMutation(txCtx, actor)
 		if err != nil {
 			return authmodel.CurrentUser{}, err
 		}
 		n, err := q.SetAccountUsername(txCtx, sqlc.SetAccountUsernameParams{AccountID: actor.AccountID, Username: name})
+		if db.IsUniqueViolation(err, "accounts_username_uq") {
+			return authmodel.CurrentUser{}, ErrUsernameTaken
+		}
 		if err != nil {
 			return authmodel.CurrentUser{}, err
 		}
@@ -96,5 +85,4 @@ func UpdateUsername(ctx context.Context, actor authmodel.Actor, raw string) (aut
 		}
 		return GetCurrentUser(txCtx, actor.AccountID)
 	})
-	return result, identityConflict(err)
 }
