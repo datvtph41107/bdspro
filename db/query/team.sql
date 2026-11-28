@@ -111,12 +111,12 @@ LIMIT sqlc.arg(take)::integer OFFSET sqlc.arg(skip)::integer;
 
 -- name: RevokeExpiredTeamInvites :exec
 UPDATE team_invites
-SET revoked_at = now()
+SET revoked_at = clock_timestamp()
 WHERE team_id = sqlc.arg(team_id)
   AND invited_email = sqlc.arg(invited_email)
   AND accepted_at IS NULL AND revoked_at IS NULL
   AND (
-    expires_at <= now() OR team_invites.recipient_membership_id IS NULL
+    expires_at <= clock_timestamp() OR team_invites.recipient_membership_id IS NULL
     OR NOT EXISTS (SELECT 1 FROM organization_members original WHERE original.id=team_invites.recipient_membership_id AND original.ended_at IS NULL)
     OR EXISTS (
       SELECT 1 FROM teams t
@@ -163,13 +163,19 @@ RETURNING id, team_id, invited_email, invited_by_account_id, token_hash,
           expires_at, accepted_at, revoked_at, created_at;
 
 -- name: ConsumeTeamInvite :one
+WITH locked_invite AS MATERIALIZED (
+    SELECT id, expires_at FROM team_invites
+    WHERE token_hash=sqlc.arg(token_hash)::bytea
+      AND recipient_account_id=sqlc.arg(account_id)::bigint
+      AND accepted_at IS NULL AND revoked_at IS NULL
+    FOR UPDATE
+)
 UPDATE team_invites AS ti
-SET accepted_at = now()
-FROM teams AS t, accounts AS a, organization_members AS m
-WHERE ti.token_hash = sqlc.arg(token_hash)
-  AND ti.accepted_at IS NULL AND ti.revoked_at IS NULL AND ti.expires_at > now()
+SET accepted_at = clock_timestamp()
+FROM locked_invite AS locked, teams AS t, accounts AS a, organization_members AS m
+WHERE ti.id = locked.id AND locked.expires_at > clock_timestamp()
   AND t.id = ti.team_id
-  AND a.id = sqlc.arg(account_id) AND a.is_email_verified = TRUE AND a.status='active'
+  AND a.id = sqlc.arg(account_id)::bigint AND a.is_email_verified = TRUE AND a.status='active'
   AND ti.recipient_account_id=a.id AND ti.recipient_membership_id=m.id
   AND lower(btrim(a.email)) = lower(btrim(ti.invited_email))
   AND m.organization_id = t.organization_id

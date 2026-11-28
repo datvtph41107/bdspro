@@ -52,7 +52,7 @@ func GetTeam(ctx *appctx.APIContext) {
 
 func CreateTeam(ctx *appctx.APIContext) {
 	form := web.GetForm[*structs.CreateTeamOption](ctx)
-	team, err := orgservice.CreateTeam(ctx, ctx.Doer.AccountID, ctx.Org.Organization.ID, form.Name, form.Description)
+	team, err := orgservice.CreateTeam(ctx, *ctx.Doer, ctx.Org.Organization.ID, form.Name, form.Description)
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return
@@ -71,7 +71,7 @@ func RenameTeam(ctx *appctx.APIContext) {
 		ctx.APIInvalid(err)
 		return
 	}
-	team, err := orgservice.RenameTeam(ctx, ctx.Doer.AccountID, ctx.Org.Organization.ID, teamID, form.Name.Value())
+	team, err := orgservice.RenameTeam(ctx, *ctx.Doer, ctx.Org.Organization.ID, teamID, form.Name.Value())
 	if err != nil {
 		ctx.APIErrorAuto(err)
 		return

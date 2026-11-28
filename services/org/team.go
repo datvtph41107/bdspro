@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	authmodel "github.com/datvtph41107/bdspro/models/auth"
 	"github.com/datvtph41107/bdspro/models/db"
 	"github.com/datvtph41107/bdspro/models/db/sqlc"
 	"github.com/datvtph41107/bdspro/models/organization"
@@ -73,7 +74,7 @@ func GetTeam(ctx context.Context, actorID, orgID, teamID int64) (organization.Te
 	return toTeam(row), nil
 }
 
-func CreateTeam(ctx context.Context, actorID, orgID int64, name, description string) (organization.Team, error) {
+func CreateTeam(ctx context.Context, actor authmodel.Actor, orgID int64, name, description string) (organization.Team, error) {
 	name, err := organization.NormalizeTeamName(name)
 	if err != nil {
 		return organization.Team{}, err
@@ -82,12 +83,12 @@ func CreateTeam(ctx context.Context, actorID, orgID int64, name, description str
 		return organization.Team{}, organization.ErrTeamDescription
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (organization.Team, error) {
-		q, err := db.GetQueries(txCtx)
+		q, _, err := lockOrganization(txCtx, actor, orgID, false)
 		if err != nil {
 			return organization.Team{}, err
 		}
 		row, err := q.CreateTeamForOwner(txCtx, sqlc.CreateTeamForOwnerParams{
-			ActorAccountID: actorID, OrganizationID: orgID,
+			ActorAccountID: actor.AccountID, OrganizationID: orgID,
 			Name: name, Description: description,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -100,18 +101,18 @@ func CreateTeam(ctx context.Context, actorID, orgID int64, name, description str
 	})
 }
 
-func RenameTeam(ctx context.Context, actorID, orgID, teamID int64, name string) (organization.Team, error) {
+func RenameTeam(ctx context.Context, actor authmodel.Actor, orgID, teamID int64, name string) (organization.Team, error) {
 	name, err := organization.NormalizeTeamName(name)
 	if err != nil {
 		return organization.Team{}, err
 	}
 	return db.WithTx2(ctx, func(txCtx context.Context) (organization.Team, error) {
-		q, err := db.GetQueries(txCtx)
+		q, _, err := lockOrganization(txCtx, actor, orgID, false)
 		if err != nil {
 			return organization.Team{}, err
 		}
 		current, err := q.GetTeamForAccount(txCtx, sqlc.GetTeamForAccountParams{
-			ActorAccountID: actorID, TeamID: teamID,
+			ActorAccountID: actor.AccountID, TeamID: teamID,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.Team{}, organization.ErrTeamNotFound
@@ -123,7 +124,7 @@ func RenameTeam(ctx context.Context, actorID, orgID, teamID int64, name string) 
 			return organization.Team{}, organization.ErrTeamNotFound
 		}
 		row, err := q.RenameTeamForOwner(txCtx, sqlc.RenameTeamForOwnerParams{
-			ActorAccountID: actorID, TeamID: teamID, Name: name,
+			ActorAccountID: actor.AccountID, TeamID: teamID, Name: name,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return organization.Team{}, organization.ErrTeamForbidden

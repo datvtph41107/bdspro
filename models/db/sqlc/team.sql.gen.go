@@ -67,13 +67,19 @@ func (q *Queries) CancelUndeliveredTeamInvite(ctx context.Context, id uuid.UUID)
 }
 
 const consumeTeamInvite = `-- name: ConsumeTeamInvite :one
+WITH locked_invite AS MATERIALIZED (
+    SELECT id, expires_at FROM team_invites
+    WHERE token_hash=$2::bytea
+      AND recipient_account_id=$1::bigint
+      AND accepted_at IS NULL AND revoked_at IS NULL
+    FOR UPDATE
+)
 UPDATE team_invites AS ti
-SET accepted_at = now()
-FROM teams AS t, accounts AS a, organization_members AS m
-WHERE ti.token_hash = $1
-  AND ti.accepted_at IS NULL AND ti.revoked_at IS NULL AND ti.expires_at > now()
+SET accepted_at = clock_timestamp()
+FROM locked_invite AS locked, teams AS t, accounts AS a, organization_members AS m
+WHERE ti.id = locked.id AND locked.expires_at > clock_timestamp()
   AND t.id = ti.team_id
-  AND a.id = $2 AND a.is_email_verified = TRUE AND a.status='active'
+  AND a.id = $1::bigint AND a.is_email_verified = TRUE AND a.status='active'
   AND ti.recipient_account_id=a.id AND ti.recipient_membership_id=m.id
   AND lower(btrim(a.email)) = lower(btrim(ti.invited_email))
   AND m.organization_id = t.organization_id
@@ -83,12 +89,12 @@ RETURNING ti.team_id
 `
 
 type ConsumeTeamInviteParams struct {
-	TokenHash []byte `json:"token_hash"`
 	AccountID int64  `json:"account_id"`
+	TokenHash []byte `json:"token_hash"`
 }
 
 func (q *Queries) ConsumeTeamInvite(ctx context.Context, arg ConsumeTeamInviteParams) (int64, error) {
-	row := q.db.QueryRow(ctx, consumeTeamInvite, arg.TokenHash, arg.AccountID)
+	row := q.db.QueryRow(ctx, consumeTeamInvite, arg.AccountID, arg.TokenHash)
 	var team_id int64
 	err := row.Scan(&team_id)
 	return team_id, err
@@ -570,12 +576,12 @@ func (q *Queries) RenameTeamForOwner(ctx context.Context, arg RenameTeamForOwner
 
 const revokeExpiredTeamInvites = `-- name: RevokeExpiredTeamInvites :exec
 UPDATE team_invites
-SET revoked_at = now()
+SET revoked_at = clock_timestamp()
 WHERE team_id = $1
   AND invited_email = $2
   AND accepted_at IS NULL AND revoked_at IS NULL
   AND (
-    expires_at <= now() OR team_invites.recipient_membership_id IS NULL
+    expires_at <= clock_timestamp() OR team_invites.recipient_membership_id IS NULL
     OR NOT EXISTS (SELECT 1 FROM organization_members original WHERE original.id=team_invites.recipient_membership_id AND original.ended_at IS NULL)
     OR EXISTS (
       SELECT 1 FROM teams t
