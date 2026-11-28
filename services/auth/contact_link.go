@@ -159,6 +159,9 @@ func VerifyContactLink(ctx context.Context, actor authmodel.Actor, kind string, 
 				return LoginResult{}, err
 			}
 			n, err := q.SetVerifiedAccountEmail(txCtx, sqlc.SetVerifiedAccountEmailParams{AccountID: actor.AccountID, Email: row.Destination})
+			if db.IsUniqueViolation(err, "accounts_email_login_uq") {
+				return LoginResult{}, ErrCredentialTaken
+			}
 			if err != nil {
 				return LoginResult{}, err
 			}
@@ -174,6 +177,9 @@ func VerifyContactLink(ctx context.Context, actor authmodel.Actor, kind string, 
 				return LoginResult{}, err
 			}
 			if err := q.SetVerifiedAccountPhone(txCtx, sqlc.SetVerifiedAccountPhoneParams{AccountID: actor.AccountID, PhoneE164: row.Destination}); err != nil {
+				if db.IsUniqueViolation(err, "phone_credentials_phone_e164_key") {
+					return LoginResult{}, ErrCredentialTaken
+				}
 				return LoginResult{}, err
 			}
 		}
@@ -187,7 +193,7 @@ func VerifyContactLink(ctx context.Context, actor authmodel.Actor, kind string, 
 		return issueSession(txCtx, q, actor.AccountID, ip, agent, false)
 	})
 	if err != nil {
-		return LoginResult{}, identityConflict(err)
+		return LoginResult{}, err
 	}
 	if !changed {
 		return LoginResult{}, ErrRegistrationCode
