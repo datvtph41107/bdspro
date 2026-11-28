@@ -6,40 +6,28 @@ import (
 	"github.com/datvtph41107/bdspro/models/db/sqlc"
 )
 
-// GetEngine returns the current SQL execution handle for legacy inline SQL.
-// Prefer GetQueries for generated SQLC queries.
-func GetEngine(ctx context.Context) (sqlc.DBTX, error) {
-	conn, _, err := resolveQueryContext(ctx)
-	return conn, err
-}
-
-func GetQueries(ctx context.Context) (*sqlc.Queries, error) {
-	_, queries, err := resolveQueryContext(ctx)
-	return queries, err
-}
-
-// Both handles must refer to the same pool or the same transaction.
+// GetQueries returns the generated query object bound to the current scope.
 // An invalid transaction context must never fall back to the default pool.
-func resolveQueryContext(ctx context.Context) (sqlc.DBTX, *sqlc.Queries, error) {
+func GetQueries(ctx context.Context) (*sqlc.Queries, error) {
 	if ctx == nil {
-		return nil, nil, ErrTransactionContext
+		return nil, ErrTransactionContext
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if value := ctx.Value(transactionContextKey{}); value != nil {
 		scope, ok := value.(*transactionScope)
 		if !ok || scope == nil {
-			return nil, nil, ErrTransactionContext
+			return nil, ErrTransactionContext
 		}
 		if err := scope.failure(); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		return scope.tx, scope.queries, nil
+		return scope.queries, nil
 	}
 	current, err := getDefaultEngine()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return current.pool, current.queries, nil
+	return current.queries, nil
 }

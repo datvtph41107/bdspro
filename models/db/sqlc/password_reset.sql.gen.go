@@ -97,6 +97,18 @@ func (q *Queries) IssuePasswordResetTokenIfCurrentVersion(ctx context.Context, a
 	return result.RowsAffected(), nil
 }
 
+const readActivePasswordResetOwner = `-- name: ReadActivePasswordResetOwner :one
+SELECT account_id FROM password_reset_tokens
+WHERE token_hash = $1 AND expires_at > clock_timestamp()
+`
+
+func (q *Queries) ReadActivePasswordResetOwner(ctx context.Context, tokenHash []byte) (int64, error) {
+	row := q.db.QueryRow(ctx, readActivePasswordResetOwner, tokenHash)
+	var account_id int64
+	err := row.Scan(&account_id)
+	return account_id, err
+}
+
 const upsertPasswordCredential = `-- name: UpsertPasswordCredential :exec
 INSERT INTO password_credentials (account_id, password_hash)
 VALUES ($1, $2)

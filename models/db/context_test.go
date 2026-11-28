@@ -28,9 +28,6 @@ func TestQueryContextRejection(t *testing.T) {
 			if InTransaction(tc.ctx) {
 				t.Fatal("invalid scope reported usable")
 			}
-			if conn, err := GetEngine(tc.ctx); conn != nil || !errors.Is(err, tc.want) {
-				t.Fatal("unexpected raw execution handle", err)
-			}
 			if q, err := GetQueries(tc.ctx); q != nil || !errors.Is(err, tc.want) {
 				t.Fatal("unexpected SQLC query handle", err)
 			}

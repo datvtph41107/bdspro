@@ -71,6 +71,8 @@ type Querier interface {
 	EmailLinkAddressTaken(ctx context.Context, btrim string) (bool, error)
 	EndOrdinaryOrganizationMemberForOwner(ctx context.Context, arg EndOrdinaryOrganizationMemberForOwnerParams) (OrganizationMember, error)
 	EndOwnOrganizationMembership(ctx context.Context, arg EndOwnOrganizationMembershipParams) (int64, error)
+	EnsureAccountSettings(ctx context.Context, accountID int64) error
+	EnsurePersonProfileForAccount(ctx context.Context, id int64) error
 	FailCredentialLink(ctx context.Context, arg FailCredentialLinkParams) error
 	FailEmailRegistration(ctx context.Context, arg FailEmailRegistrationParams) error
 	FailPhoneVerification(ctx context.Context, arg FailPhoneVerificationParams) error
@@ -129,6 +131,7 @@ type Querier interface {
 	ReadAccountByEmail(ctx context.Context, btrim string) (ReadAccountByEmailRow, error)
 	ReadAccountByID(ctx context.Context, id int64) (ReadAccountByIDRow, error)
 	ReadAccountIDByUsername(ctx context.Context, username string) (int64, error)
+	ReadActivePasswordResetOwner(ctx context.Context, tokenHash []byte) (int64, error)
 	ReadCredentialLinkDestination(ctx context.Context, arg ReadCredentialLinkDestinationParams) (string, error)
 	ReadEmailRegistrationDestination(ctx context.Context, arg ReadEmailRegistrationDestinationParams) (string, error)
 	ReadPhoneVerificationDestination(ctx context.Context, arg ReadPhoneVerificationDestinationParams) (string, error)

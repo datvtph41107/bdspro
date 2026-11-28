@@ -16,6 +16,10 @@ UPDATE accounts
 SET password_reset_version = password_reset_version + 1
 WHERE id = $1;
 
+-- name: ReadActivePasswordResetOwner :one
+SELECT account_id FROM password_reset_tokens
+WHERE token_hash = $1 AND expires_at > clock_timestamp();
+
 -- name: ConsumePasswordResetToken :one
 DELETE FROM password_reset_tokens
 WHERE token_hash = sqlc.arg(token_hash) AND expires_at > now()

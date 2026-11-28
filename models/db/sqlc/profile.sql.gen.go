@@ -7,7 +7,6 @@ package sqlc
 
 import (
 	"context"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -30,56 +29,59 @@ func (q *Queries) CreatePersonProfile(ctx context.Context, personID int64) error
 	return err
 }
 
+const ensureAccountSettings = `-- name: EnsureAccountSettings :exec
+INSERT INTO account_settings (account_id) VALUES ($1)
+ON CONFLICT (account_id) DO NOTHING
+`
+
+func (q *Queries) EnsureAccountSettings(ctx context.Context, accountID int64) error {
+	_, err := q.db.Exec(ctx, ensureAccountSettings, accountID)
+	return err
+}
+
+const ensurePersonProfileForAccount = `-- name: EnsurePersonProfileForAccount :exec
+INSERT INTO person_profiles (person_id)
+SELECT person_id FROM accounts WHERE id = $1
+ON CONFLICT (person_id) DO NOTHING
+`
+
+func (q *Queries) EnsurePersonProfileForAccount(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, ensurePersonProfileForAccount, id)
+	return err
+}
+
 const getAccountProfile = `-- name: GetAccountProfile :one
-SELECT a.id AS account_id, a.person_id, COALESCE(a.email, '')::text AS email,
-       a.is_email_verified, a.created_at,
-       p.display_name, p.first_name, p.last_name,
-       s.locale, s.timezone, s.currency,
-       EXISTS (SELECT 1 FROM password_credentials pw WHERE pw.account_id = a.id)::boolean AS has_password,
-       EXISTS (SELECT 1 FROM phone_credentials ph WHERE ph.account_id = a.id)::boolean AS has_phone,
-       EXISTS (SELECT 1 FROM oauth2_credentials oo WHERE oo.account_id = a.id)::boolean AS has_oauth2
+SELECT COALESCE(p.display_name, '')::text AS display_name,
+       COALESCE(p.first_name, '')::text AS first_name,
+       COALESCE(p.last_name, '')::text AS last_name,
+       COALESCE(s.locale, 'vi')::text AS locale,
+       COALESCE(s.timezone, 'Asia/Ho_Chi_Minh')::text AS timezone,
+       COALESCE(s.currency, 'VND')::text AS currency
 FROM accounts a
-JOIN person_profiles p ON p.person_id = a.person_id
-JOIN account_settings s ON s.account_id = a.id
+LEFT JOIN person_profiles p ON p.person_id = a.person_id
+LEFT JOIN account_settings s ON s.account_id = a.id
 WHERE a.id = $1
-LIMIT 1
 `
 
 type GetAccountProfileRow struct {
-	AccountID       int64     `json:"account_id"`
-	PersonID        int64     `json:"person_id"`
-	Email           string    `json:"email"`
-	IsEmailVerified bool      `json:"is_email_verified"`
-	CreatedAt       time.Time `json:"created_at"`
-	DisplayName     string    `json:"display_name"`
-	FirstName       string    `json:"first_name"`
-	LastName        string    `json:"last_name"`
-	Locale          string    `json:"locale"`
-	Timezone        string    `json:"timezone"`
-	Currency        string    `json:"currency"`
-	HasPassword     bool      `json:"has_password"`
-	HasPhone        bool      `json:"has_phone"`
-	HasOauth2       bool      `json:"has_oauth2"`
+	DisplayName string `json:"display_name"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	Locale      string `json:"locale"`
+	Timezone    string `json:"timezone"`
+	Currency    string `json:"currency"`
 }
 
 func (q *Queries) GetAccountProfile(ctx context.Context, id int64) (GetAccountProfileRow, error) {
 	row := q.db.QueryRow(ctx, getAccountProfile, id)
 	var i GetAccountProfileRow
 	err := row.Scan(
-		&i.AccountID,
-		&i.PersonID,
-		&i.Email,
-		&i.IsEmailVerified,
-		&i.CreatedAt,
 		&i.DisplayName,
 		&i.FirstName,
 		&i.LastName,
 		&i.Locale,
 		&i.Timezone,
 		&i.Currency,
-		&i.HasPassword,
-		&i.HasPhone,
-		&i.HasOauth2,
 	)
 	return i, err
 }

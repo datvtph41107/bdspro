@@ -28,11 +28,11 @@ func verifyTransactionContract(t *testing.T, pool *pgxpool.Pool) {
 		}
 	}()
 	insert := func(txCtx context.Context, id int) error {
-		conn, err := GetEngine(txCtx)
-		if err != nil {
+		if _, err := GetQueries(txCtx); err != nil {
 			return err
 		}
-		_, err = conn.Exec(txCtx, "INSERT INTO "+table+" VALUES ($1)", id)
+		scope := txCtx.Value(transactionContextKey{}).(*transactionScope)
+		_, err := scope.tx.Exec(txCtx, "INSERT INTO "+table+" VALUES ($1)", id)
 		return err
 	}
 	assertRows := func(want int) {

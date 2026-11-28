@@ -128,20 +128,14 @@ func ResetPassword(ctx context.Context, raw, password string) error {
 		return err
 	}
 	return db.WithTx(ctx, func(txCtx context.Context) error {
-		engine, err := db.GetEngine(txCtx)
+		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return err
 		}
-		var accountID int64
-
-		err = engine.QueryRow(txCtx, "SELECT account_id FROM password_reset_tokens WHERE token_hash=$1 AND expires_at>clock_timestamp()", digest).Scan(&accountID)
+		accountID, err := q.ReadActivePasswordResetOwner(txCtx, digest)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrRecoveryInvalid
 		}
-		if err != nil {
-			return err
-		}
-		q, err := db.GetQueries(txCtx)
 		if err != nil {
 			return err
 		}
@@ -168,8 +162,7 @@ func ResetPassword(ctx context.Context, raw, password string) error {
 			return err
 		}
 
-		var owner int64
-		err = engine.QueryRow(txCtx, "SELECT account_id FROM password_reset_tokens WHERE token_hash=$1 AND expires_at>clock_timestamp()", digest).Scan(&owner)
+		owner, err := q.ReadActivePasswordResetOwner(txCtx, digest)
 		if errors.Is(err, pgx.ErrNoRows) || err == nil && owner != accountID {
 			return ErrRecoveryInvalid
 		}

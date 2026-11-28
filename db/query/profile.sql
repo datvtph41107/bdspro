@@ -5,18 +5,25 @@ INSERT INTO person_profiles (person_id) VALUES ($1);
 INSERT INTO account_settings (account_id) VALUES ($1);
 
 -- name: GetAccountProfile :one
-SELECT a.id AS account_id, a.person_id, COALESCE(a.email, '')::text AS email,
-       a.is_email_verified, a.created_at,
-       p.display_name, p.first_name, p.last_name,
-       s.locale, s.timezone, s.currency,
-       EXISTS (SELECT 1 FROM password_credentials pw WHERE pw.account_id = a.id)::boolean AS has_password,
-       EXISTS (SELECT 1 FROM phone_credentials ph WHERE ph.account_id = a.id)::boolean AS has_phone,
-       EXISTS (SELECT 1 FROM oauth2_credentials oo WHERE oo.account_id = a.id)::boolean AS has_oauth2
+SELECT COALESCE(p.display_name, '')::text AS display_name,
+       COALESCE(p.first_name, '')::text AS first_name,
+       COALESCE(p.last_name, '')::text AS last_name,
+       COALESCE(s.locale, 'vi')::text AS locale,
+       COALESCE(s.timezone, 'Asia/Ho_Chi_Minh')::text AS timezone,
+       COALESCE(s.currency, 'VND')::text AS currency
 FROM accounts a
-JOIN person_profiles p ON p.person_id = a.person_id
-JOIN account_settings s ON s.account_id = a.id
-WHERE a.id = $1
-LIMIT 1;
+LEFT JOIN person_profiles p ON p.person_id = a.person_id
+LEFT JOIN account_settings s ON s.account_id = a.id
+WHERE a.id = $1;
+
+-- name: EnsurePersonProfileForAccount :exec
+INSERT INTO person_profiles (person_id)
+SELECT person_id FROM accounts WHERE id = $1
+ON CONFLICT (person_id) DO NOTHING;
+
+-- name: EnsureAccountSettings :exec
+INSERT INTO account_settings (account_id) VALUES ($1)
+ON CONFLICT (account_id) DO NOTHING;
 
 -- name: UpdatePersonProfile :execrows
 UPDATE person_profiles

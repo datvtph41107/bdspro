@@ -102,7 +102,7 @@ func TestDefaultEngineLifecycle(t *testing.T) {
 		t.Skip("disposable PostgreSQL not configured")
 	}
 	ctx := context.Background()
-	if _, err := GetEngine(ctx); !errors.Is(err, ErrEngineNotInitialized) {
+	if _, err := GetQueries(ctx); !errors.Is(err, ErrEngineNotInitialized) {
 		t.Fatal("uninitialized engine did not fail closed", err)
 	}
 	if err := InitEngine(nil); err == nil {
@@ -147,7 +147,7 @@ func TestDefaultEngineLifecycle(t *testing.T) {
 	if err := InitEngine(canceled); !errors.Is(err, context.Canceled) {
 		t.Fatal("canceled initialization did not fail", err)
 	}
-	if _, err := GetEngine(ctx); !errors.Is(err, ErrEngineNotInitialized) {
+	if _, err := GetQueries(ctx); !errors.Is(err, ErrEngineNotInitialized) {
 		t.Fatal("canceled initialization published a pool", err)
 	}
 	if err := InitEngine(g.ShutdownContext()); err != nil {
@@ -157,14 +157,11 @@ func TestDefaultEngineLifecycle(t *testing.T) {
 		t.Fatal("duplicate initialization accepted", err)
 	}
 
-	handle, err := GetEngine(ctx)
+	current, err := getDefaultEngine()
 	if err != nil {
 		t.Fatal(err)
 	}
-	pool, ok := handle.(*pgxpool.Pool)
-	if !ok {
-		t.Fatal("default engine is not a PostgreSQL pool")
-	}
+	pool := current.pool
 	first, err := GetQueries(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -179,23 +176,16 @@ func TestDefaultEngineLifecycle(t *testing.T) {
 	var ended context.Context
 	err = WithTx(ctx, func(txCtx context.Context) error {
 		ended = txCtx
-		conn, err := GetEngine(txCtx)
-		if err != nil {
-			return err
-		}
 		q, err := GetQueries(txCtx)
 		if err != nil {
 			return err
 		}
 		scope := txCtx.Value(transactionContextKey{}).(*transactionScope)
-		if conn != scope.tx || q != scope.queries || q == first || conn == handle {
-			t.Fatal("transaction handles do not share one scope")
+		conn := scope.tx
+		if q != scope.queries || q == first {
+			t.Fatal("transaction queries do not share one scope")
 		}
 		child := context.WithValue(txCtx, struct{ fixture bool }{true}, true)
-		childConn, err := GetEngine(child)
-		if err != nil || childConn != conn {
-			t.Fatal("derived context lost transaction handle", err)
-		}
 		childQueries, err := GetQueries(child)
 		if err != nil || childQueries != q {
 			t.Fatal("derived context lost SQLC handle", err)
@@ -218,9 +208,6 @@ func TestDefaultEngineLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal("transaction query acquisition failed", err)
 	}
-	if _, err := GetEngine(ended); !errors.Is(err, ErrTransactionClosed) {
-		t.Fatal("ended scope fell back to pool", err)
-	}
 	if _, err := GetQueries(ended); !errors.Is(err, ErrTransactionClosed) {
 		t.Fatal("ended scope fell back to default queries", err)
 	}
@@ -241,9 +228,6 @@ func TestDefaultEngineLifecycle(t *testing.T) {
 	case <-g.Done():
 	case <-time.After(10 * time.Second):
 		t.Fatal("engine termination did not complete")
-	}
-	if _, err := GetEngine(ctx); !errors.Is(err, ErrEngineClosed) {
-		t.Fatal("closed engine still accessible", err)
 	}
 	if _, err := GetQueries(ctx); !errors.Is(err, ErrEngineClosed) {
 		t.Fatal("closed engine still returns queries", err)

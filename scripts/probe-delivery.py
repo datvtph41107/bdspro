@@ -250,6 +250,42 @@ def check_session_deadline(opener, account):
     print("PASS persisted session deadline, non-sliding refresh and expired session denial", flush=True)
 
 
+def check_profile_queries(opener, access):
+    # Only mutate the account created by this disposable registration probe.
+    payload = access.split(".")[1]
+    claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    account_id = int(claims["account_id"])
+    db_query(f"DELETE FROM person_profiles WHERE person_id=(SELECT person_id FROM accounts WHERE id={account_id}); "
+             f"DELETE FROM account_settings WHERE account_id={account_id}")
+
+    def request(path, method="GET", body=None):
+        headers = {"Authorization": "Bearer " + access, "Origin": BASE,
+                   "X-BDS-Request": "1", "Sec-Fetch-Site": "same-origin",
+                   "Content-Type": "application/json"}
+        req = urllib.request.Request(BASE + "/api/v1/me/" + path,
+                                     data=None if body is None else json.dumps(body).encode(),
+                                     method=method, headers=headers)
+        with opener.open(req, timeout=10) as response:
+            if response.status != 200:
+                raise RuntimeError("Profile/settings request failed")
+            return json.load(response)
+
+    if request("profile") != {"display_name": "", "first_name": "", "last_name": ""}:
+        raise RuntimeError("Missing profile defaults changed")
+    if request("settings") != {"locale": "vi", "timezone": "Asia/Ho_Chi_Minh", "currency": "VND"}:
+        raise RuntimeError("Missing settings defaults changed")
+    if db_query(f"SELECT count(*) FROM account_settings WHERE account_id={account_id}") != "0":
+        raise RuntimeError("Profile read created settings")
+    request("profile", "PATCH", {"display_name": "Probe profile"})
+    request("settings", "PATCH", {"locale": "en"})
+    request("profile", "PATCH", {"first_name": "Probe"})
+    if request("profile") != {"display_name": "Probe profile", "first_name": "Probe", "last_name": ""}:
+        raise RuntimeError("Profile ensure overwrote existing fields")
+    if request("settings") != {"locale": "en", "timezone": "Asia/Ho_Chi_Minh", "currency": "VND"}:
+        raise RuntimeError("Settings ensure overwrote existing fields")
+    print("PASS canonical profile/settings defaults, read-only missing rows and idempotent updates", flush=True)
+
+
 def check_recovery_and_reauth(opener, email, registration):
     password = "disposable-probe-password-123"
     account = post(opener, "register/complete", {
@@ -258,6 +294,7 @@ def check_recovery_and_reauth(opener, email, registration):
         "terms_version": "v1", "marketing_opt_in": False, "stay_signed_in": False,
     }, 201)
     access = account["access_token"]
+    check_profile_queries(opener, access)
     reauth = post(opener, "reauth/password", {"password": password, "action": "sessions.revoke_all"},
                   200, access=access, group="me")
     if reauth.get("expires_in") != 600:

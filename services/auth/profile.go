@@ -30,32 +30,16 @@ func readProfileSettings(ctx context.Context, accountID int64) (profileSettings,
 		return profileSettings{}, err
 	}
 	row, err := q.GetAccountProfile(ctx, accountID)
-	if err == nil {
-		return profileSettings{
-			Profile:  authmodel.Profile{DisplayName: row.DisplayName, FirstName: row.FirstName, LastName: row.LastName},
-			Settings: authmodel.AccountSettings{Locale: row.Locale, Timezone: row.Timezone, Currency: row.Currency},
-		}, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return profileSettings{}, err
-	}
-
-	engine, err := db.GetEngine(ctx)
-	if err != nil {
-		return profileSettings{}, err
-	}
-	var result profileSettings
-	err = engine.QueryRow(ctx, `SELECT COALESCE(p.display_name,''), COALESCE(p.first_name,''), COALESCE(p.last_name,''),
-COALESCE(s.locale,'vi'), COALESCE(s.timezone,'Asia/Ho_Chi_Minh'), COALESCE(s.currency,'VND')
-FROM accounts a LEFT JOIN person_profiles p ON p.person_id=a.person_id
-LEFT JOIN account_settings s ON s.account_id=a.id WHERE a.id=$1`, accountID).Scan(
-		&result.Profile.DisplayName, &result.Profile.FirstName, &result.Profile.LastName,
-		&result.Settings.Locale, &result.Settings.Timezone, &result.Settings.Currency,
-	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return profileSettings{}, util.ErrUnauthenticated
 	}
-	return result, err
+	if err != nil {
+		return profileSettings{}, err
+	}
+	return profileSettings{
+		Profile:  authmodel.Profile{DisplayName: row.DisplayName, FirstName: row.FirstName, LastName: row.LastName},
+		Settings: authmodel.AccountSettings{Locale: row.Locale, Timezone: row.Timezone, Currency: row.Currency},
+	}, nil
 }
 
 func GetProfile(ctx context.Context, accountID int64) (authmodel.Profile, error) {
@@ -92,16 +76,11 @@ func settingsField(value optional.Option[string], allowed ...string) (pgtype.Tex
 	return pgtype.Text{}, ErrProfileInvalid
 }
 
-func ensureProfileSettings(ctx context.Context, accountID int64) error {
-	engine, err := db.GetEngine(ctx)
-	if err != nil {
+func ensureProfileSettings(ctx context.Context, q *sqlc.Queries, accountID int64) error {
+	if err := q.EnsurePersonProfileForAccount(ctx, accountID); err != nil {
 		return err
 	}
-	if _, err := engine.Exec(ctx, "INSERT INTO person_profiles(person_id) SELECT person_id FROM accounts WHERE id=$1 ON CONFLICT (person_id) DO NOTHING", accountID); err != nil {
-		return err
-	}
-	_, err = engine.Exec(ctx, "INSERT INTO account_settings(account_id) VALUES ($1) ON CONFLICT (account_id) DO NOTHING", accountID)
-	return err
+	return q.EnsureAccountSettings(ctx, accountID)
 }
 
 func UpdateProfile(ctx context.Context, actor authmodel.Actor, display, first, last optional.Option[string]) (authmodel.Profile, error) {
@@ -125,7 +104,7 @@ func UpdateProfile(ctx context.Context, actor authmodel.Actor, display, first, l
 		if err != nil {
 			return authmodel.Profile{}, err
 		}
-		if err := ensureProfileSettings(txCtx, actor.AccountID); err != nil {
+		if err := ensureProfileSettings(txCtx, q, actor.AccountID); err != nil {
 			return authmodel.Profile{}, err
 		}
 		n, err := q.UpdatePersonProfile(txCtx, sqlc.UpdatePersonProfileParams{
@@ -162,7 +141,7 @@ func UpdateSettings(ctx context.Context, actor authmodel.Actor, locale, timezone
 		if err != nil {
 			return authmodel.AccountSettings{}, err
 		}
-		if err := ensureProfileSettings(txCtx, actor.AccountID); err != nil {
+		if err := ensureProfileSettings(txCtx, q, actor.AccountID); err != nil {
 			return authmodel.AccountSettings{}, err
 		}
 		n, err := q.UpdateAccountSettings(txCtx, sqlc.UpdateAccountSettingsParams{
